@@ -123,6 +123,7 @@ export default function Campaigns() {
             )}>
                 <SearchTable
                     {...state}
+                    emptyMessage={t('no_campaigns_found')}
                     columns={[
                         {
                             key: 'name',
