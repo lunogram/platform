@@ -28,8 +28,8 @@ export function JourneyStepUsers({ open, onClose, stepType, stepId }: StepUsersP
         ? [{
             key: 'options',
             title: t('options'),
-            cell: ({ item: { id, user } }) => {
-                if (user) {
+            cell: ({ item: { id, user, type } }) => {
+                if (user && type !== 'completed') {
                     return (
                         <Menu size="small">
                             <MenuItem onClick={async () => await handleSkipDelay(id, user)}>
@@ -68,7 +68,7 @@ export function JourneyStepUsers({ open, onClose, stepType, stepId }: StepUsersP
     }
 
     const handleRemoveFromJourney = async (stepId: number, user: User) => {
-        await api.journeys.users.removeFromJourney(projectId, journeyId, stepId, user.id)
+        await api.journeys.users.removeFromJourney(projectId, journeyId, user.id, stepId)
         await state.reload()
     }
 

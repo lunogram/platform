@@ -219,7 +219,7 @@ router.delete('/:journeyId/users/:userId/step/:stepId', async ctx => {
             .where('user_id', user.id)
             .whereNull('ended_at')
             .where('journey_id', ctx.state.journey!.id),
-        { ended_at: new Date(), delay_until: undefined, type: 'completed' },
+        { ended_at: new Date(), delay_until: null, type: 'completed' },
     )
     ctx.body = { exits: results }
 })
