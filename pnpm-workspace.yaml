@@ -1,0 +1,20 @@
+packages:
+  - 'apps/*'
+
+syncInjectedDepsAfterScripts:
+  - docker:build
+  - docker:build-beta
+  - docker:build:push
+  - docker:build-beta:push
+
+injectWorkspacePackages: true
+
+loglevel: debug
+
+onlyBuiltDependencies:
+  - '@firebase/util'
+  - core-js
+  - core-js-pure
+  - farmhash
+  - msgpackr-extract
+  - protobufjs

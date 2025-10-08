@@ -1,5 +1,5 @@
-import App from '../app'
 import { Job } from '../queue'
+import { deleteUser } from './UserRepository'
 
 interface UserDeleteTrigger {
     project_id: number
@@ -14,11 +14,6 @@ export default class UserDeleteJob extends Job {
     }
 
     static async handler({ project_id, external_id }: UserDeleteTrigger) {
-
-        await App.main.db.transaction(async trx =>
-            trx('users')
-                .where({ project_id, external_id })
-                .delete(),
-        )
+        await deleteUser(project_id, external_id)
     }
 }

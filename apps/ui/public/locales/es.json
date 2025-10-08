@@ -238,6 +238,8 @@
     "publish": "Publicar",
     "published": "Publicado",
     "push": "Notificación",
+    "queue_start": "Iniciar Procesamiento",
+    "queue_pause": "Pausa Procesamiento",
     "rate_interval": "Intervalo de Velocidad",
     "rate_limit": "Límite de Velocidad",
     "raw_json": "JSON Sin Procesar",

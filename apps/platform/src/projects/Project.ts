@@ -18,6 +18,7 @@ export type ProjectParams = Omit<Project, ModelParams | 'deleted_at' | 'organiza
 export const projectRoles = [
     'support',
     'editor',
+    'publisher',
     'admin',
 ] as const
 

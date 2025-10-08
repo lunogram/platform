@@ -1,10 +1,5 @@
+import { RequireAtLeastOne } from '../core/Types'
 import type { User } from '../users/User'
-
-type RequireAtLeastOne<T, Keys extends keyof T = keyof T> =
-    Pick<T, Exclude<keyof T, Keys>>
-    & {
-        [K in Keys]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<Keys, K>>>
-    }[Keys]
 
 export type ClientIdentityKeys = {
     anonymous_id: string
@@ -59,7 +54,7 @@ export type SegmentPostEvent = {
     context: Record<string, any> & SegmentContext
     properties: Record<string, any>
     traits?: Record<string, any>
-    type: 'track' | 'alias' | 'identify'
+    type: 'track' | 'alias' | 'identify' | 'device' | 'unsubscribe'
     timestamp: string
 } & (
     {
@@ -69,6 +64,14 @@ export type SegmentPostEvent = {
     | {
         type: 'identify' | 'alias'
         traits: Record<string, any>
+    }
+    | {
+        type: 'device'
+        properties: Record<string, any>
+    }
+    | {
+        type: 'unsubscribe',
+        properties: Record<string, any>
     }
 )
 

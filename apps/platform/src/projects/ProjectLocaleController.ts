@@ -13,7 +13,7 @@ const router = new Router<
     prefix: '/locales',
 })
 
-router.use(projectRoleMiddleware('admin'))
+router.use(projectRoleMiddleware('editor'))
 
 router.get('/', async ctx => {
     const params = extractQueryParams(ctx.query, searchParamsSchema)

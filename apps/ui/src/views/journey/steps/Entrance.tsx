@@ -2,11 +2,10 @@ import { JourneyStepType, Rule } from '../../../types'
 import { EntranceStepIcon } from '../../../ui/icons'
 import RadioInput from '../../../ui/form/RadioInput'
 import TextInput from '../../../ui/form/TextInput'
-import RuleBuilder, { ruleDescription } from '../../users/RuleBuilder'
+import RuleBuilder from '../../users/rules/RuleBuilder'
 import { useCallback, useContext } from 'react'
 import { PreferencesContext } from '../../../ui/PreferencesContext'
 import SwitchField from '../../../ui/form/SwitchField'
-import { createUuid } from '../../../utils'
 import { EntityIdPicker } from '../../../ui/form/EntityIdPicker'
 import api from '../../../api'
 import { RRule } from 'rrule'
@@ -15,6 +14,10 @@ import RRuleEditor from '../../../ui/RRuleEditor'
 import CodeExample from '../../../ui/CodeExample'
 import { env } from '../../../config/env'
 import { useTranslation, Trans } from 'react-i18next'
+import { createEventRule, isEventWrapper } from '../../users/rules/RuleHelpers'
+import { ruleDescription } from '../../users/rules/RuleDescriptions'
+import { Tag } from '../../../ui'
+import { Link } from 'react-router'
 
 interface EntranceConfig {
     trigger: 'none' | 'event' | 'schedule'
@@ -28,6 +31,8 @@ interface EntranceConfig {
     // schedule based
     list_id?: number
     schedule?: string
+
+    references?: Array<{ id: number, name: string }>
 }
 
 const triggerOptions = [
@@ -44,15 +49,6 @@ const triggerOptions = [
         label: 'Schedule',
     },
 ]
-
-const wrapper: Rule = {
-    uuid: createUuid(),
-    type: 'wrapper',
-    group: 'event',
-    path: '$.name',
-    operator: 'and',
-    children: [],
-}
 
 const codeExample = (journeyId: number, entranceId: number) => `curl --request POST \\
 --url '${env.api.baseURL}/client/journeys/${journeyId}/trigger' \\
@@ -87,6 +83,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
             rule,
             list_id,
             schedule,
+            references = [],
         },
     }) {
         const { t } = useTranslation()
@@ -114,7 +111,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                     } else {
                         s = 'once'
                     }
-                } catch {}
+                } catch { }
             }
             return (
                 <div style={{ maxWidth: 300 }}>
@@ -135,7 +132,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                     <strong>{event_name ?? ''}</strong>
                     {t('entrance_occurs')}
                     {
-                        !!rule?.children?.length && (
+                        rule && isEventWrapper(rule) && !!rule?.children?.length && (
                             <>
                                 {' '}
                                 {ruleDescription(preferences, rule)}
@@ -144,6 +141,19 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                     }
                 </div>
             )
+        }
+
+        if (references.length) {
+            return <div className="references">
+                <span>{t('entrance_links')}</span>
+                <div className="ui-tag-list">
+                    {references.map(journey =>
+                        <Tag variant="plain" key={journey.id}>
+                            <Link to={`../journeys/${journey.id}`}>{journey.name}</Link>
+                        </Tag>,
+                    )}
+                </div>
+            </div>
         }
 
         return <>{t('entrance_empty')}</>
@@ -171,13 +181,26 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                                 label={t('event_name')}
                                 required
                                 value={value.event_name ?? ''}
-                                onChange={event_name => onChange({ ...value, event_name })}
+                                onChange={event_name => onChange({
+                                    ...value,
+                                    event_name,
+                                    rule: {
+                                        ...value.rule ?? createEventRule(),
+                                        value: event_name,
+                                    },
+                                })}
                             />
                             {
                                 value.event_name && (
                                     <RuleBuilder
-                                        rule={value.rule ?? wrapper}
-                                        setRule={rule => onChange({ ...value, rule })}
+                                        rule={value.rule ?? createEventRule()}
+                                        setRule={rule => onChange({
+                                            ...value,
+                                            rule: {
+                                                ...rule,
+                                                value: value.event_name,
+                                            },
+                                        })}
                                         eventName={value.event_name}
                                         headerPrefix={t('entrance_matching')}
                                     />
@@ -242,5 +265,15 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
             </>
         )
     },
+    validate: ({ trigger, event_name, list_id, schedule }) => {
+        if (trigger === 'event') {
+            return !!event_name
+        }
+        if (trigger === 'schedule') {
+            return !!list_id && !!schedule
+        }
+        return true
+    },
     hasDataKey: true,
+    hideTopHandle: true,
 }

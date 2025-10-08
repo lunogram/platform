@@ -1,6 +1,6 @@
 import Axios from 'axios'
 import { env } from './config/env'
-import { Admin, AuthMethod, Campaign, CampaignCreateParams, CampaignLaunchParams, CampaignUpdateParams, CampaignUser, Image, Journey, JourneyEntranceDetail, JourneyStepMap, JourneyUserStep, List, ListCreateParams, ListUpdateParams, Locale, Organization, OrganizationUpdateParams, Project, ProjectAdmin, ProjectAdminInviteParams, ProjectAdminParams, ProjectApiKey, ProjectApiKeyParams, Provider, ProviderCreateParams, ProviderMeta, ProviderUpdateParams, QueueMetric, Resource, RuleSuggestions, SearchParams, SearchResult, Series, Subscription, SubscriptionCreateParams, SubscriptionParams, SubscriptionUpdateParams, Tag, Template, TemplateCreateParams, TemplatePreviewParams, TemplateProofParams, TemplateUpdateParams, User, UserEvent, UserSubscription } from './types'
+import { Admin, AuthMethod, Campaign, CampaignCreateParams, CampaignLaunchParams, CampaignUpdateParams, CampaignUser, Image, Journey, JourneyEntranceDetail, JourneyStepMap, JourneyUserStep, List, ListCreateParams, ListUpdateParams, Locale, Organization, OrganizationUpdateParams, Project, ProjectAdmin, ProjectAdminInviteParams, ProjectAdminParams, ProjectApiKey, ProjectApiKeyParams, Provider, ProviderCreateParams, ProviderMeta, ProviderUpdateParams, QueueMetric, Resource, RulePath, SearchParams, SearchResult, Series, Subscription, SubscriptionCreateParams, SubscriptionParams, SubscriptionUpdateParams, Tag, Template, TemplateCreateParams, TemplatePreviewParams, TemplateProofParams, TemplateUpdateParams, User, UserEvent, UserSubscription, VariableSuggestions } from './types'
 
 function appendValue(params: URLSearchParams, name: string, value: unknown) {
     if (typeof value === 'undefined' || value === null || typeof value === 'function') return
@@ -154,9 +154,20 @@ const api = {
             .get<Project[]>('/admin/projects/all')
             .then(r => r.data),
         pathSuggestions: async (projectId: number | string) => await client
-            .get<RuleSuggestions>(`${projectUrl(projectId)}/data/paths`)
+            .get<VariableSuggestions>(`${projectUrl(projectId)}/data/paths`)
             .then(r => r.data),
-        rebuildPathSuggestions: async (projectId: number | string) => await client
+    },
+
+    data: {
+        userPaths: {
+            search: async (projectId: number | string, params: SearchParams) => await client
+                .get<SearchResult<RulePath>>(`${projectUrl(projectId)}/data/paths/users`, { params })
+                .then(r => r.data),
+            update: async (projectId: number | string, entityId: number | string, params: Partial<RulePath>) => await client
+                .put<RulePath>(`${projectUrl(projectId)}/data/paths/users/${entityId}`, params)
+                .then(r => r.data),
+        },
+        rebuild: async (projectId: number | string) => await client
             .post(`${projectUrl(projectId)}/data/paths/sync`)
             .then(r => r.data),
     },
@@ -178,6 +189,12 @@ const api = {
         duplicate: async (projectId: number | string, journeyId: number | string) => await client
             .post<Campaign>(`${projectUrl(projectId)}/journeys/${journeyId}/duplicate`)
             .then(r => r.data),
+        version: async (projectId: number | string, journeyId: number | string) => await client
+            .post<Journey>(`${projectUrl(projectId)}/journeys/${journeyId}/version`)
+            .then(r => r.data),
+        publish: async (projectId: number | string, journeyId: number | string) => await client
+            .post<Journey>(`${projectUrl(projectId)}/journeys/${journeyId}/publish`)
+            .then(r => r.data),
         steps: {
             get: async (projectId: number | string, journeyId: number | string) => await client
                 .get<JourneyStepMap>(`/admin/projects/${projectId}/journeys/${journeyId}/steps`)
@@ -195,6 +212,17 @@ const api = {
                 .then(r => r.data),
             log: async (projectId: number | string, entranceId: number | string) => await client
                 .get<JourneyEntranceDetail>(`${projectUrl(projectId)}/journeys/entrances/${entranceId}`)
+                .then(r => r.data),
+        },
+        users: {
+            trigger: async (projectId: number | string, journeyId: number | string, entranceId: number | string, user: User) => await client
+                .post<JourneyEntranceDetail>(`${projectUrl(projectId)}/journeys/${journeyId}/trigger`, { entrance_id: entranceId, user: { external_id: user.external_id } })
+                .then(r => r.data),
+            skipDelay: async (projectId: number | string, journeyId: number | string, userId: number | string, stepId: number | string) => await client
+                .post<JourneyEntranceDetail>(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/steps/${stepId}/resume`)
+                .then(r => r.data),
+            removeFromJourney: async (projectId: number | string, journeyId: number | string, userId: number | string, stepId: number | string) => await client
+                .delete<number>(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/step/${stepId}`)
                 .then(r => r.data),
         },
     },
@@ -219,6 +247,11 @@ const api = {
         updateSubscriptions: async (projectId: number | string, userId: number | string, subscriptions: SubscriptionParams[]) => await client
             .patch(`${projectUrl(projectId)}/users/${userId}/subscriptions`, subscriptions)
             .then(r => r.data),
+        deleteImport: async (projectId: number | string, file: File) => {
+            const formData = new FormData()
+            formData.append('file', file)
+            await client.post(`${projectUrl(projectId)}/users/delete`, formData)
+        },
 
         journeys: {
             search: async (projectId: number | string, userId: number | string, params: SearchParams) => await client
@@ -242,6 +275,9 @@ const api = {
             .then(r => r.data),
         recount: async (projectId: number | string, listId: number | string) => await client
             .post<List>(`${projectUrl(projectId)}/lists/${listId}/recount`)
+            .then(r => r.data),
+        migrate: async (projectId: number | string, listId: number | string) => await client
+            .post<List>(`${projectUrl(projectId)}/lists/${listId}/migrate`)
             .then(r => r.data),
     },
 
@@ -335,6 +371,12 @@ const api = {
             .then(r => r.data),
         metrics: async () => await client
             .get<QueueMetric>('/admin/organizations/performance/queue')
+            .then(r => r.data),
+        getQueueState: async () => await client
+            .get<boolean>('/admin/organizations/performance/queue/state')
+            .then(r => r.data),
+        setQueueState: async () => await client
+            .put<boolean>('/admin/organizations/performance/queue/state')
             .then(r => r.data),
         jobs: async () => await client
             .get<string[]>('/admin/organizations/performance/jobs')

@@ -8,6 +8,7 @@ import { ProjectState } from '../auth/AuthMiddleware'
 import parse from '../storage/FileStream'
 import { projectRoleMiddleware } from '../projects/ProjectService'
 import ListStatsJob from './ListStatsJob'
+import { migrateStaticList } from '../utilities/migrate'
 
 const router = new Router<
     ProjectState & { list?: List }
@@ -50,6 +51,15 @@ const ruleDefinition = (nullable = false) => ({
         value: {
             type: ['string', 'number', 'boolean'],
             nullable: true,
+        },
+        frequency: {
+            type: 'object',
+            required: ['period', 'operator', 'count'],
+            properties: {
+                period: { type: 'object' },
+                operator: { type: 'string', enum: ['=', '<', '<=', '>', '>='] },
+                count: { type: 'number' },
+            },
         },
         children: {
             type: 'array',
@@ -191,7 +201,7 @@ router.get('/:listId/users', async ctx => {
         direction: 'desc',
     })
     const params = extractQueryParams(ctx.query, searchSchema)
-    ctx.body = await getListUsers(ctx.state.list!.id, params, ctx.state.project.id)
+    ctx.body = await getListUsers(ctx.state.list!, params, ctx.state.project.id)
 })
 
 router.post('/:listId/users', async ctx => {
@@ -206,8 +216,12 @@ router.post('/:listId/recount', async ctx => {
     await ListStatsJob.from(
         ctx.state.list!.id,
         ctx.state.project.id,
-        true,
     ).queue()
+    ctx.status = 204
+})
+
+router.post('/:listId/migrate', async ctx => {
+    await migrateStaticList(ctx.state.list!)
     ctx.status = 204
 })
 

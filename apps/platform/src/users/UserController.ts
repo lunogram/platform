@@ -3,17 +3,20 @@ import App from '../app'
 import { ProjectState } from '../auth/AuthMiddleware'
 import UserDeleteJob from './UserDeleteJob'
 import UserPatchJob from './UserPatchJob'
+import parse from '../storage/FileStream'
 import { JSONSchemaType, validate } from '../core/validate'
 import { User, UserParams } from './User'
 import { extractQueryParams } from '../utilities'
 import { searchParamsSchema, SearchSchema } from '../core/searchParams'
 import { getUser, getUserFromContext, pagedUsers } from './UserRepository'
-import { getUserLists } from '../lists/ListService'
 import { getUserSubscriptions, toggleSubscription } from '../subscriptions/SubscriptionService'
 import { SubscriptionState } from '../subscriptions/Subscription'
 import { getUserEvents } from './UserEventRepository'
 import { projectRoleMiddleware } from '../projects/ProjectService'
 import { pagedEntrancesByUser } from '../journey/JourneyRepository'
+import { removeUsers } from './UserImport'
+import { filterObjectForRulePaths } from '../projects/ProjectRulePathRepository'
+import { RulePathVisibility } from '../rules/ProjectRulePath'
 
 const router = new Router<
     ProjectState & { user?: User }
@@ -108,15 +111,25 @@ const patchUsersRequest: JSONSchemaType<UserParams[]> = {
 router.patch('/', projectRoleMiddleware('editor'), async ctx => {
     const users = validate(patchUsersRequest, ctx.request.body)
 
-    for (const user of users) {
-        await App.main.queue.enqueue(UserPatchJob.from({
-            project_id: ctx.state.project.id,
-            user,
-        }))
-    }
+    const jobs = users.map(user => UserPatchJob.from({
+        project_id: ctx.state.project.id,
+        user,
+    }))
+    await App.main.queue.enqueueBatch(jobs)
 
     ctx.status = 204
     ctx.body = ''
+})
+
+router.post('/delete', async ctx => {
+    const stream = await parse(ctx)
+
+    await removeUsers({
+        project_id: ctx.state.project.id,
+        stream,
+    })
+
+    ctx.status = 204
 })
 
 const deleteUsersRequest: JSONSchemaType<string[]> = {
@@ -135,10 +148,10 @@ router.delete('/', projectRoleMiddleware('editor'), async ctx => {
     userIds = validate(deleteUsersRequest, userIds)
 
     for (const externalId of userIds) {
-        await App.main.queue.enqueue(UserDeleteJob.from({
+        await UserDeleteJob.from({
             project_id: ctx.state.project.id,
             external_id: externalId,
-        }))
+        }).queue()
     }
 
     ctx.status = 204
@@ -155,22 +168,21 @@ router.param('userId', async (value, ctx, next) => {
 })
 
 router.get('/:userId', async ctx => {
-    ctx.body = ctx.state.user
+    const visibilities: RulePathVisibility[] = ctx.state.projectRole === 'admin'
+        ? ['public', 'classified']
+        : ['public']
+
+    ctx.body = await filterObjectForRulePaths(ctx.state.user!, ctx.state.project.id, visibilities)
 })
 
 router.delete('/:userId', projectRoleMiddleware('editor'), async ctx => {
-    await App.main.queue.enqueue(UserDeleteJob.from({
+    await UserDeleteJob.from({
         project_id: ctx.state.project.id,
         external_id: ctx.state.user!.external_id,
-    }))
+    }).queue()
 
     ctx.status = 204
     ctx.body = ''
-})
-
-router.get('/:userId/lists', async ctx => {
-    const params = extractQueryParams(ctx.query, searchParamsSchema)
-    ctx.body = await getUserLists(ctx.state.user!.id, params, ctx.state.project.id)
 })
 
 router.get('/:userId/events', async ctx => {
@@ -184,7 +196,7 @@ router.get('/:userId/events', async ctx => {
 
 router.get('/:userId/subscriptions', async ctx => {
     const params = extractQueryParams(ctx.query, searchParamsSchema)
-    ctx.body = await getUserSubscriptions(ctx.state.user!.id, params, ctx.state.project.id)
+    ctx.body = await getUserSubscriptions(ctx.state.user!, params, false)
 })
 
 router.patch('/:userId/subscriptions', async ctx => {

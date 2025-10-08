@@ -5,7 +5,8 @@ import { UserEvent } from '../../users/UserEvent'
 import Journey from '../Journey'
 import { setupProject, setupTestJourney } from './helpers'
 import { enterJourneysFromEvent } from '../JourneyService'
-import { JourneyStep, JourneyStepMapParams, JourneyUserStep } from '../JourneyStep'
+import { JourneyStep, JourneyStepMapParams } from '../JourneyStep'
+import JourneyUserStep from '../JourneyUserStep'
 import { make } from '../../rules/RuleEngine'
 import { uuid } from '../../utilities'
 import { JourneyState } from '../JourneyState'
@@ -127,7 +128,7 @@ describe('JourneyService', () => {
             },
         })
 
-        const event = await UserEvent.insertAndFetch({
+        const event = await UserEvent.fromJson({
             project_id: user.project_id,
             user_id: user.id,
             name: 'purchased gourd',

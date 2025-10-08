@@ -37,9 +37,9 @@ export default function Lists() {
                 onClose={() => setIsModalOpen(false)}
             >
                 <ListCreateForm
-                    onCreated={list => {
+                    onCreated={async list => {
                         setIsModalOpen(false)
-                        navigate(list.id.toString())
+                        await navigate(list.id.toString())
                     }}
                 />
             </Modal>

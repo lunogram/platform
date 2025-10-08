@@ -5,14 +5,15 @@ import { Series } from '../../types'
 import Tile, { TileGrid } from '../../ui/Tile'
 import PageContent from '../../ui/PageContent'
 import { SingleSelect } from '../../ui/form/SingleSelect'
-import { DataTable, JsonPreview, Modal } from '../../ui'
-import { useSearchParams } from 'react-router-dom'
+import { Alert, Button, DataTable, JsonPreview, Modal } from '../../ui'
+import { useSearchParams } from 'react-router'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { format } from 'date-fns'
 import './Performance.css'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import { formatDate } from '../../utils'
 import { useTranslation } from 'react-i18next'
+import { ErrorBoundary } from 'react-error-boundary'
 
 interface ChartProps {
     series: Series[]
@@ -86,6 +87,8 @@ export default function Performance() {
     const [failed, setFailed] = useState<Array<Record<string, any>>>([])
     const [selectedFailed, setSelectedFailed] = useState<Record<string, any> | undefined>()
 
+    const [isQueueRunning, setIsQueueRunning] = useState<boolean>(false)
+
     useEffect(() => {
         api.organizations.metrics()
             .then(({ waiting, data }) => {
@@ -113,6 +116,12 @@ export default function Performance() {
                 setFailed(failed)
             })
             .catch(() => {})
+
+        api.organizations.getQueueState()
+            .then((state) => {
+                setIsQueueRunning(state)
+            })
+            .catch(() => {})
     }, [])
 
     useEffect(() => {
@@ -134,10 +143,20 @@ export default function Performance() {
         }
     }
 
+    const handleToggleQueueState = async () => {
+        const isRunning = await api.organizations.setQueueState()
+        setIsQueueRunning(isRunning)
+    }
+
     return (
         <PageContent
             title={t('performance')}
             desc="View queue throughput for your project."
+            actions={
+                <Button
+                    onClick={async () => await handleToggleQueueState()}
+                >{t(isQueueRunning ? 'queue_pause' : 'queue_start')}</Button>
+            }
         >
             <Heading size="h3" title="Queue" />
             <Heading size="h4" title="Throughput" />
@@ -170,22 +189,24 @@ export default function Performance() {
 
             {failed.length && <>
                 <Heading size="h4" title="Failed Jobs" />
-                <div className="failed">
-                    <DataTable items={failed} columns={[
-                        { key: 'id', title: 'ID' },
-                        { key: 'name', title: 'Name' },
-                        { key: 'attemptsMade', title: 'Attempts Made' },
-                        { key: 'failedReason', title: 'Reason' },
-                        {
-                            key: 'timestamp',
-                            title: 'Timestamp',
-                            cell: ({ item: { timestamp } }) => {
-                                const date = new Date(timestamp)
-                                return date.toLocaleString()
+                <ErrorBoundary fallback={<Alert variant="error" title="error">Failed to load failed jobs.</Alert>}>
+                    <div className="failed">
+                        <DataTable items={failed} columns={[
+                            { key: 'id', title: 'ID' },
+                            { key: 'name', title: 'Name' },
+                            { key: 'attemptsMade', title: 'Attempts Made' },
+                            { key: 'failedReason', title: 'Reason' },
+                            {
+                                key: 'timestamp',
+                                title: 'Timestamp',
+                                cell: ({ item: { timestamp } }) => {
+                                    const date = new Date(timestamp)
+                                    return date.toLocaleString()
+                                },
                             },
-                        },
-                    ]} onSelectRow={row => setSelectedFailed(row) }/>
-                </div>
+                        ]} onSelectRow={row => setSelectedFailed(row) }/>
+                    </div>
+                </ErrorBoundary>
             </>}
 
             <Modal

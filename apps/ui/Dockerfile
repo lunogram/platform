@@ -1,10 +1,12 @@
 # --------------> The compiler image
-FROM node:18 AS compile
+FROM node:22 AS compile
+WORKDIR /usr/src/app
+RUN corepack enable
+COPY . .
+RUN corepack enable
 WORKDIR /usr/src/app/apps/ui
-COPY ./tsconfig.base.json /usr/src/app
-COPY ./apps/ui ./
-RUN npm ci
-RUN npm run build
+RUN pnpm install --frozen-lockfile
+RUN pnpm build
 
 # --------------> The production image
 FROM nginx:1.23.4-alpine

@@ -1,47 +1,20 @@
-import { add, addDays, addHours, addMinutes, isEqual, isFuture, isPast, parse } from 'date-fns'
+import { add, addDays, addHours, addMinutes, getDay, isEqual, isFuture, isPast, parse } from 'date-fns'
 import Model from '../core/Model'
 import { getCampaign, getCampaignSend, triggerCampaignSend } from '../campaigns/CampaignService'
-import { crossTimezoneCopy, random, snakeCase, uuid } from '../utilities'
+import { crossTimezoneCopy, pick, random, snakeCase, uuid } from '../utilities'
 import { Database } from '../config/database'
 import { compileTemplate } from '../render'
 import { logger } from '../config/logger'
 import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz'
-import Rule from '../rules/Rule'
+import { Rule } from '../rules/Rule'
 import { check } from '../rules/RuleEngine'
 import App from '../app'
 import { rrulestr } from 'rrule'
 import { JourneyState } from './JourneyState'
 import { EventPostJob, UserPatchJob } from '../jobs'
 import { exitUserFromJourney, getJourneyUserStepByExternalId } from './JourneyRepository'
-
-export class JourneyUserStep extends Model {
-    user_id!: number
-    type!: string
-    journey_id!: number
-    step_id!: number
-    delay_until?: Date
-    entrance_id?: number
-    ended_at?: Date
-    data?: Record<string, unknown>
-    ref?: string
-
-    step?: JourneyStep
-
-    static tableName = 'journey_user_step'
-
-    static jsonAttributes = ['data']
-    static virtualAttributes = ['step']
-
-    static getDataMap(steps: JourneyStep[], userSteps: JourneyUserStep[]) {
-        return userSteps.reduceRight<Record<string, unknown>>((a, { data, step_id }) => {
-            const step = steps.find(s => s.id === step_id)
-            if (data && step && !a[step.dataKey]) {
-                a[step.dataKey] = data
-            }
-            return a
-        }, {})
-    }
-}
+import JourneyUserStep from './JourneyUserStep'
+import Journey from './Journey'
 
 export class JourneyStepChild extends Model {
 
@@ -91,6 +64,11 @@ export class JourneyStep extends Model {
 
     async next(state: JourneyState): Promise<undefined | number> {
         return state.childrenOf(this.id)[0]?.child_id
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    static async hydrate(step: JourneyStepMapItem, journey: Journey): Promise<JourneyStepMapItem> {
+        return Promise.resolve(step)
     }
 }
 
@@ -160,6 +138,24 @@ export class JourneyEntrance extends JourneyStep {
             y: 0,
         }, db)
     }
+
+    static async hydrate(step: JourneyStep, journey: Journey) {
+        if (!step.data) return step
+        if (step.data.trigger !== 'none') return step
+
+        const references = await Journey.all(
+            qb => qb
+                .where('journey_steps.type', 'link')
+                .whereJsonPath('journey_steps.data', '$.target_id', '=', journey.id)
+                .where('journeys.status', 'live')
+                .whereNull('journeys.deleted_at')
+                .whereNull('journeys.parent_id')
+                .leftJoin('journey_steps', 'journey_steps.journey_id', '=', 'journeys.id')
+                .select('journeys.name', 'journeys.id'),
+        )
+        step.data.references = references.map(item => pick(item, ['id', 'name']))
+        return step
+    }
 }
 
 export class JourneyExit extends JourneyStep {
@@ -204,6 +200,7 @@ export class JourneyDelay extends JourneyStep {
     days = 0
     time?: string
     date?: string
+    exclusion_days?: number[] // 0 = Sunday, 6 = Saturday
 
     parseJson(json: any) {
         super.parseJson(json)
@@ -213,18 +210,20 @@ export class JourneyDelay extends JourneyStep {
         this.hours = json?.data?.hours
         this.days = json?.data?.days
         this.time = json?.data?.time
+        this.date = json?.data?.date
+        this.exclusion_days = json?.data?.exclusion_days
     }
 
     async process(state: JourneyState, userStep: JourneyUserStep) {
 
-        // if no delay has been set yet, calculate one
+        // If no delay has been set yet, calculate one
         if (!userStep.delay_until) {
             userStep.delay_until = await this.offset(state)
             userStep.type = 'delay'
             return
         }
 
-        // if delay has passed, change to completed
+        // If delay has passed, change to completed
         if (!isFuture(userStep.delay_until)) {
             userStep.type = 'completed'
         }
@@ -244,11 +243,15 @@ export class JourneyDelay extends JourneyStep {
                 minutes: this.minutes,
             })
         } else if (this.format === 'time' && time) {
-            const localDate = utcToZonedTime(baseDate, timezone)
+            let localDate = utcToZonedTime(baseDate, timezone)
             const parsedDate = parse(time, 'HH:mm', baseDate)
             localDate.setMinutes(parsedDate.getMinutes())
             localDate.setHours(parsedDate.getHours())
             localDate.setSeconds(0)
+
+            if (this.exclusion_days?.length) {
+                localDate = this.nextNotExcludedDay(localDate)
+            }
 
             const nextDate = zonedTimeToUtc(localDate, timezone)
 
@@ -260,16 +263,32 @@ export class JourneyDelay extends JourneyStep {
             }
             return nextDate
         } else if (this.format === 'date' && date) {
-            const compiledDate = compileTemplate(date)({
-                user: state.user.flatten(),
-                journey: state.stepData(),
-            })
-            const localDate = crossTimezoneCopy(new Date(compiledDate), 'UTC', timezone)
-            if (localDate < baseDate) return baseDate
-            return localDate
+            try {
+                const compiledDate = compileTemplate(date)({
+                    user: state.user.flatten(),
+                    journey: state.stepData(),
+                })
+                const localDate = crossTimezoneCopy(new Date(compiledDate), 'UTC', timezone)
+                if (localDate < baseDate) return baseDate
+                return localDate
+            } catch (error) {
+                logger.error({ error, date, timezone }, 'journey:delay:parse:error')
+                throw error
+            }
         }
 
         return baseDate
+    }
+
+    private nextNotExcludedDay(date: Date): Date {
+        for (let i = 0; i < 7; i++) {
+            if (this.exclusion_days?.includes(getDay(date))) {
+                date = addDays(date, 1)
+            } else {
+                return date
+            }
+        }
+        return date
     }
 }
 
@@ -346,7 +365,7 @@ export class JourneyGate extends JourneyStep {
 
         if (!passed && !failed) return
 
-        const events = await state.events()
+        const events = await state.events(this.rule)
 
         const params = {
             user: state.user.flatten(),
@@ -361,7 +380,7 @@ export class JourneyGate extends JourneyStep {
 }
 
 /**
- * randomly distribute users to different branches
+ * Randomly distribute users to different branches
  */
 export class JourneyExperiment extends JourneyStep {
     static type = 'experiment'
@@ -389,7 +408,7 @@ export class JourneyExperiment extends JourneyStep {
 }
 
 /**
- * add user to another journey
+ * Add user to another journey
  */
 export class JourneyLink extends JourneyStep {
     static type = 'link'
@@ -423,7 +442,7 @@ export class JourneyLink extends JourneyStep {
                 .join('journeys', 'journey_id', '=', 'journeys.id')
                 .where('journeys.id', this.target_id)
                 .where('journeys.project_id', state.user.project_id)
-                .where('journeys.published', true)
+                .where('journeys.status', 'live')
                 .whereNull('journeys.deleted_at')
                 .where('type', 'entrance'),
             )
@@ -447,6 +466,10 @@ export class JourneyLink extends JourneyStep {
         // mark this step as completed
         userStep.type = 'completed'
     }
+}
+
+export class JourneySticky extends JourneyStep {
+    static type = 'sticky'
 }
 
 export class JourneyBalancer extends JourneyStep {
@@ -599,12 +622,13 @@ export const journeyStepTypes = [
     JourneyUpdate,
     JourneyBalancer,
     JourneyEvent,
+    JourneySticky,
 ].reduce<Record<string, typeof JourneyStep>>((a, c) => {
     a[c.type] = c
     return a
 }, {})
 
-interface JourneyStepMapItem {
+export interface JourneyStepMapItem {
     type: string
     name?: string
     data?: Record<string, unknown>

@@ -1,9 +1,7 @@
 import { getUser, getUserFromClientId } from '../users/UserRepository'
-import { updateUsersLists } from '../lists/ListService'
 import { ClientIdentity, ClientPostEvent } from './Client'
 import { Job } from '../queue'
-import { createAndFetchEvent } from '../users/UserEventRepository'
-import { matchingRulesForEvent } from '../rules/RuleService'
+import { createEvent } from '../users/UserEventRepository'
 import { enterJourneysFromEvent } from '../journey/JourneyService'
 import { UserPatchJob } from '../jobs'
 import { User } from '../users/User'
@@ -27,35 +25,30 @@ export default class EventPostJob extends Job {
         return new this(data)
     }
 
-    static async handler({ project_id, user_id, event, forward = false }: EventPostTrigger) {
-        const { anonymous_id, external_id } = event
+    static async handler({ project_id, user_id, event: clientEvent, forward = false }: EventPostTrigger) {
+        const { anonymous_id, external_id } = clientEvent
         const identity = { external_id, anonymous_id } as ClientIdentity
         let user = user_id
             ? await getUser(user_id, project_id)
             : await getUserFromClientId(project_id, identity)
 
         // If no user exists, create one if we have enough information
-        if (!user || event.user) {
+        if (!user || clientEvent.user) {
             user = await UserPatchJob.from({
                 project_id,
-                user: { ...(event.user ?? {}), ...identity },
+                user: { ...(clientEvent.user ?? {}), ...identity },
             }).handle<User>()
         }
 
         // Create event for given user
-        const dbEvent = await createAndFetchEvent(user, {
-            name: event.name,
-            data: event.data || {},
+        const event = await createEvent(user, {
+            name: clientEvent.name,
+            data: clientEvent.data || {},
         }, forward)
 
-        const results = await matchingRulesForEvent(user, dbEvent)
-
-        // Check to see if a user has any lists
-        await updateUsersLists(user, results, dbEvent)
-
         // Enter any journey entrances associated with this event
-        await enterJourneysFromEvent(dbEvent, user)
+        await enterJourneysFromEvent(event, user)
 
-        return { user, event: dbEvent }
+        return { user, event }
     }
 }

@@ -37,11 +37,23 @@ export const isValid = (schema: any, data: any): IsValidSchema => {
 }
 
 export const parseError = (errors: ErrorObject[] | null | undefined = []) => {
+
+    const readablePath = (path: string) => {
+        const parts = path.split('/')
+        if (parts[0] === '') parts.shift()
+        if (parts[0] === 'data') parts.shift()
+        return parts.join(' ').trim()
+    }
+
     if (errors === null || errors.length <= 0) return 'There was an unknown error validating your request.'
     const error = errors[0]
     if (error.keyword === 'type') {
-        const path = error.instancePath.replace('/', ' ').trim()
+        const path = readablePath(error.instancePath)
         return `The value of \`${path}\` must be a ${error.params.type}.`
+    }
+    if (error.keyword === 'format') {
+        const path = readablePath(error.instancePath)
+        return `The value of \`${path}\` ${error.message}.`
     }
     return capitalizeFirstLetter(error.message ?? '')
 }

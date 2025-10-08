@@ -1,4 +1,4 @@
-import { NavLinkProps, useNavigate } from 'react-router-dom'
+import { NavLinkProps, useNavigate } from 'react-router'
 import { PropsWithChildren, ReactNode, useCallback, useContext } from 'react'
 import { ProjectContext } from '../../contexts'
 import api from '../../api'
@@ -59,11 +59,11 @@ export default function ProjectSidebar({ children, links }: PropsWithChildren<Si
             prepend={
                 <SingleSelect
                     value={project}
-                    onChange={project => {
+                    onChange={async project => {
                         if (project.id === 0) {
-                            navigate('/organization/projects')
+                            await navigate('/organization/projects')
                         } else {
-                            navigate(`/projects/${project.id}`)
+                            await navigate(`/projects/${project.id}`)
                         }
                     }}
                     options={recents ?? []}

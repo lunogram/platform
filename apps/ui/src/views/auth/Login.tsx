@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router'
 import { ReactComponent as Logo } from '../../assets/logo.svg'
 import { env } from '../../config/env'
 import Button from '../../ui/Button'

@@ -7,6 +7,7 @@ import type { AuthConfig, AuthProviderName } from '../auth/Auth'
 import type { ErrorConfig } from '../error/ErrorHandler'
 import { RedisConfig } from './redis'
 import { isValidUrl } from '../utilities'
+import { ClickhouseConfig } from './clickhouse'
 
 export type Runner = 'api' | 'worker'
 export interface Env {
@@ -17,6 +18,7 @@ export interface Env {
         logCompiledMessage: boolean
     }
     db: DatabaseConfig
+    clickhouse: ClickhouseConfig
     queue: QueueConfig
     storage: StorageConfig
     baseUrl: string
@@ -24,7 +26,11 @@ export interface Env {
     port: number
     secret: string
     auth: AuthConfig
-    error: ErrorConfig
+    logger: {
+        level: string
+        prettyPrint: boolean
+        error: ErrorConfig
+    }
     redis: RedisConfig
 }
 
@@ -76,6 +82,12 @@ export default (type?: EnvType): Env => {
             database: process.env.DB_DATABASE!,
             migrationPaths: process.env.DB_MIGRATION_PATHS?.split(',') ?? [],
         },
+        clickhouse: {
+            url: process.env.CLICKHOUSE_URL ?? 'http://clickhouse:8123',
+            username: process.env.CLICKHOUSE_USERNAME ?? 'default',
+            password: process.env.CLICKHOUSE_PASSWORD,
+            database: process.env.CLICKHOUSE_DATABASE || 'default',
+        },
         redis: {
             host: process.env.REDIS_HOST!,
             port: envInt(process.env.REDIS_PORT, 6379),
@@ -84,14 +96,6 @@ export default (type?: EnvType): Env => {
             tls: process.env.REDIS_TLS === 'true',
         },
         queue: driver<QueueConfig>(process.env.QUEUE_DRIVER, {
-            sqs: () => ({
-                queueUrl: process.env.AWS_SQS_QUEUE_URL!,
-                region: process.env.AWS_REGION!,
-                credentials: {
-                    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-                    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-                },
-            }),
             redis: () => ({
                 host: process.env.REDIS_HOST!,
                 port: envInt(process.env.REDIS_PORT, 6379),
@@ -170,13 +174,17 @@ export default (type?: EnvType): Env => {
                 name: process.env.AUTH_MULTI_NAME!,
             },
         },
-        error: driver<ErrorConfig>(process.env.ERROR_DRIVER, {
-            bugsnag: () => ({
-                apiKey: process.env.ERROR_BUGSNAG_API_KEY,
+        logger: {
+            level: process.env.LOG_LEVEL || 'warn',
+            prettyPrint: process.env.LOG_PRETTY_PRINT === 'true',
+            error: driver<ErrorConfig>(process.env.ERROR_DRIVER, {
+                bugsnag: () => ({
+                    apiKey: process.env.ERROR_BUGSNAG_API_KEY,
+                }),
+                sentry: () => ({
+                    dsn: process.env.ERROR_SENTRY_DSN,
+                }),
             }),
-            sentry: () => ({
-                dsn: process.env.ERROR_SENTRY_DSN,
-            }),
-        }),
+        },
     }
 }

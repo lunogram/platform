@@ -1,14 +1,14 @@
-import { EncodedJob, Job } from '../../queue'
-import { PushTemplate } from '../../render/Template'
-import { MessageTrigger } from '../MessageTrigger'
-import PushError from './PushError'
-import { disableNotifications } from '../../users/UserRepository'
-import { updateSendState } from '../../campaigns/CampaignService'
-import { finalizeSend, loadSendJob, messageLock, prepareSend } from '../MessageTriggerService'
 import { loadPushChannel } from '.'
-import App from '../../app'
+import { updateSendState } from '../../campaigns/CampaignService'
 import { releaseLock } from '../../core/Lock'
 import { EventPostJob } from '../../jobs'
+import { EncodedJob, Job } from '../../queue'
+import { PushTemplate } from '../../render/Template'
+import { getPushDevicesForUser } from '../../users/DeviceRepository'
+import { disableNotifications } from '../../users/UserRepository'
+import { MessageTrigger } from '../MessageTrigger'
+import { failSend, finalizeSend, loadSendJob, messageLock, prepareSend } from '../MessageTriggerService'
+import PushError from './PushError'
 
 export default class PushJob extends Job {
     static $name = 'push'
@@ -22,50 +22,42 @@ export default class PushJob extends Job {
         if (!data) return
 
         const { campaign, template, user, project, context } = data
+        const devices = await getPushDevicesForUser(project.id, user.id)
+
+        // Load email channel so its ready to send
+        const channel = await loadPushChannel(campaign.provider_id, project.id)
+        if (!channel) {
+            await updateSendState({
+                campaign,
+                user,
+                reference_id: trigger.reference_id,
+                state: 'aborted',
+            })
+            return
+        }
+
+        // Check current send rate and if the send is locked
+        const isReady = await prepareSend(channel, data, raw)
+        if (!isReady) return
 
         try {
-            // Load email channel so its ready to send
-            const channel = await loadPushChannel(campaign.provider_id, project.id)
-            if (!channel) {
-                await updateSendState({
-                    campaign,
-                    user,
-                    reference_id: trigger.reference_id,
-                    state: 'aborted',
-                })
-                return
-            }
-
-            // Check current send rate and if the send is locked
-            const isReady = await prepareSend(channel, data, raw)
-            if (!isReady) return
-
             // Send the push and update the send record
-            const result = await channel.send(template, data)
-            if (result) {
-                await finalizeSend(data, result)
+            const result = await channel.send(template, devices, data)
+            await finalizeSend(data, result)
 
-                // A user may have multiple devices some of which
-                // may have failed even though the push was
-                // successful. We need to check for those and
-                // disable them
-                if (result.invalidTokens.length) await disableNotifications(user.id, result.invalidTokens)
-            }
-
+            // A user may have multiple devices some of which
+            // may have failed even though the push was
+            // successful. We need to check for those and
+            // disable them
+            if (result.invalidTokens.length) await disableNotifications(user, result.invalidTokens)
         } catch (error: any) {
+            await failSend(data, error, (error: any) => !(error instanceof PushError))
+
             if (error instanceof PushError) {
 
                 // If the push is unable to send, find invalidated tokens
                 // and disable those devices
-                await disableNotifications(user.id, error.invalidTokens)
-
-                // Update send record
-                await updateSendState({
-                    campaign,
-                    user,
-                    reference_id: trigger.reference_id,
-                    state: 'failed',
-                })
+                await disableNotifications(user, error.invalidTokens)
 
                 // Create an event about the disabling
                 await EventPostJob.from({
@@ -80,8 +72,6 @@ export default class PushJob extends Job {
                         },
                     },
                 }).queue()
-            } else {
-                App.main.error.notify(error)
             }
         } finally {
             await releaseLock(messageLock(campaign, user))

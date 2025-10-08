@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet } from 'react-router'
 import PageContent from '../../ui/PageContent'
 import { NavigationTabs } from '../../ui/Tabs'
 import { ProjectRoleRequired } from '../project/ProjectRoleRequired'
@@ -22,6 +22,11 @@ export default function Settings() {
             key: 'locales',
             to: 'locales',
             children: t('locales'),
+        },
+        {
+            key: 'data',
+            to: 'data',
+            children: t('data_schema'),
         },
         {
             key: 'api-keys',

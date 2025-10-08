@@ -93,7 +93,7 @@ export default class TwilioTextProvider extends TextProvider {
     }
 
     // https://www.twilio.com/docs/messaging/guides/webhook-request
-    parseInbound(inbound: any): InboundTextMessage {
+    parseInbound(inbound: any): InboundTextMessage | undefined {
         return {
             to: inbound.To,
             from: inbound.From,

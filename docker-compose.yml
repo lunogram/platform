@@ -18,7 +18,7 @@ services:
   redis:
     image: redis
     expose:
-      - "6379"
+      - 6379
     restart: always
     volumes:
       - redis_data:/data
@@ -40,6 +40,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      clickhouse:
+        condition: service_healthy
       redis:
         condition: service_started
     environment:
@@ -56,6 +58,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_PORT: ${DB_PORT}
       DB_DATABASE: ${DB_DATABASE}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL}
+      CLICKHOUSE_USERNAME: ${CLICKHOUSE_USERNAME}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE}
       STORAGE_DRIVER: ${STORAGE_DRIVER}
       STORAGE_BASE_URL: ${STORAGE_BASE_URL}
       STORAGE_S3_BUCKET: ${STORAGE_S3_BUCKET}
@@ -128,6 +134,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_PORT: ${DB_PORT}
       DB_DATABASE: ${DB_DATABASE}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL}
+      CLICKHOUSE_USERNAME: ${CLICKHOUSE_USERNAME}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE}
       STORAGE_DRIVER: ${STORAGE_DRIVER}
       STORAGE_BASE_URL: ${STORAGE_BASE_URL}
       STORAGE_S3_BUCKET: ${STORAGE_S3_BUCKET}
@@ -180,10 +190,28 @@ services:
       API_BASE_URL: ${API_BASE_URL}
     ports:
       - ${UI_PORT}:3000
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.5
+    restart: on-failure
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 2s
+      retries: 20
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USERNAME}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    expose:
+      - 8123
+      - 9000
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
 volumes:
   mysql_data:
     driver: local
   redis_data:
     driver: local
   uploads:
+    driver: local
+  clickhouse_data:
     driver: local

@@ -29,6 +29,20 @@ router.get('/performance/queue', async ctx => {
     ctx.body = await App.main.queue.metrics()
 })
 
+router.get('/performance/queue/state', async ctx => {
+    ctx.body = await App.main.queue.isRunning()
+})
+
+router.put('/performance/queue/state', async ctx => {
+    const queue = App.main.queue
+    if (await queue.isRunning()) {
+        await queue.pause()
+    } else {
+        await queue.resume()
+    }
+    ctx.body = await queue.isRunning()
+})
+
 router.get('/performance/jobs', async ctx => {
     ctx.body = jobs.map(job => job.$name)
 })

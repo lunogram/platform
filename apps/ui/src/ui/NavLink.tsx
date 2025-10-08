@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { NavLink as BaseNavLink, NavLinkProps as BaseNavLinkProps } from 'react-router-dom'
+import { NavLink as BaseNavLink, NavLinkProps as BaseNavLinkProps } from 'react-router'
 
 export type NavLinkProps = BaseNavLinkProps & { key: string, icon?: React.ReactNode }
 

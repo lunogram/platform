@@ -43,7 +43,7 @@ export interface OAuthResponse {
     refresh_expires_at: Date
 }
 
-export type Operator = '=' | '!=' | '<' | '<=' | '>' | '>=' | '=' | 'is set' | 'is not set' | 'or' | 'and' | 'xor' | 'empty' | 'contains' | 'not contain' | 'starts with' | 'not start with' | 'any' | 'none'
+export type Operator = '=' | '!=' | '<' | '<=' | '>' | '>=' | '=' | 'is set' | 'is not set' | 'or' | 'and' | 'xor' | 'empty' | 'contains' | 'not contain' | 'starts with' | 'not start with' | 'any' | 'none' | 'is same day'
 export type RuleType = 'wrapper' | 'string' | 'number' | 'boolean' | 'date' | 'array'
 export type RuleGroup = 'user' | 'event' | 'parent'
 
@@ -60,12 +60,8 @@ export type Rule = {
     path: string
     operator: Operator
     value?: string
-    children?: Rule[]
 } & (
-    | {
-        type: 'wrapper'
-        children: Rule[]
-    }
+    | { type: 'wrapper' }
     | { type: 'string' }
     | { type: 'number' }
     | { type: 'boolean' }
@@ -73,12 +69,42 @@ export type Rule = {
     | { type: 'array' }
 )
 
-export type WrapperRule = Rule & { type: 'wrapper' }
+export type WrapperRule = Rule & { type: 'wrapper', children: Rule[] }
 
-export interface RuleSuggestions {
-    userPaths: string[]
+export type EventRulePeriod = {
+    type: 'rolling'
+    unit: 'minute' | 'hour' | 'day' | 'week' | 'month'
+    value: number
+} | {
+    type: 'fixed'
+    start_date: string
+    end_date?: string
+}
+
+export interface EventRuleFrequency {
+    period: EventRulePeriod
+    operator: Operator
+    count: number | undefined
+}
+
+export type EventRule = {
+    group: 'event'
+    frequency?: EventRuleFrequency
+} & WrapperRule
+
+export interface RulePath {
+    id: number
+    path: string
+    type: 'user' | 'event'
+    name: string
+    data_type: 'string' | 'number' | 'boolean' | 'date' | 'array'
+    visibility: 'public' | 'hidden' | 'classified'
+}
+
+export interface VariableSuggestions {
+    userPaths: RulePath[]
     eventPaths: {
-        [name: string]: string[]
+        [name: string]: RulePath[]
     }
 }
 
@@ -145,6 +171,7 @@ export type OrganizationUpdateParams = Omit<Organization, 'id' | 'auth' | AuditF
 export const projectRoles = [
     'support',
     'editor',
+    'publisher',
     'admin',
 ] as const
 
@@ -181,7 +208,7 @@ export interface Project {
     has_provider?: boolean
 }
 
-export type ChannelType = 'email' | 'push' | 'text' | 'webhook'
+export type ChannelType = 'email' | 'push' | 'text' | 'webhook' | 'in_app'
 
 export type ProjectCreate = Omit<Project, 'id' | AuditFields>
 
@@ -257,14 +284,19 @@ export type DynamicList = List & { type: 'dynamic' }
 export type ListCreateParams = Pick<List, 'name' | 'rule' | 'type' | 'tags' | 'is_visible'>
 export type ListUpdateParams = Pick<List, 'name' | 'rule' | 'tags'> & { published?: boolean }
 
+type JourneyStatus = 'draft' | 'live' | 'off'
+
 export interface Journey {
     id: number
+    parent_id?: number
+    draft_id?: number
     name: string
     description?: string
-    published: boolean
+    status: JourneyStatus
     tags?: string[]
     created_at: string
     updated_at: string
+    deleted_at?: string
     stats_at?: string
     stats: Record<string, number>
 }
@@ -317,7 +349,7 @@ export interface JourneyStepTypeEdgeProps<T, E> extends ControlledProps<E> {
 export interface JourneyStepType<T = any, E = any> {
     name: string
     icon: ReactNode
-    category: 'entrance' | 'delay' | 'flow' | 'action' | 'exit'
+    category: 'entrance' | 'delay' | 'flow' | 'action' | 'exit' | 'info'
     description: string
     Describe?: ComponentType<JourneyStepTypeEditProps<T>>
     newData?: () => Promise<T>
@@ -327,6 +359,9 @@ export interface JourneyStepType<T = any, E = any> {
     sources?: string[]
     multiChildSources?: boolean
     hasDataKey?: boolean
+    hideTopHandle?: boolean
+    hideBottomHandle?: boolean
+    validate?: (data: T) => boolean
 }
 
 export interface JourneyUserStep {
@@ -368,16 +403,17 @@ export interface Campaign {
     channel: ChannelType
     state: CampaignState
     delivery: CampaignDelivery
-    provider_id: number
-    provider: Provider
+    provider_id?: number
+    provider?: Provider
     subscription_id?: number
-    subscription: Subscription
+    subscription?: Subscription
     templates: Template[]
     list_ids?: number[]
     lists?: List[]
     exclusion_list_ids?: number[]
     exclusion_lists?: List[]
     tags?: string[]
+    journeys?: Journey[]
     send_in_user_timezone: boolean
     send_at: string
     screenshot_url: string
@@ -393,7 +429,8 @@ export type CampaignSendState = 'pending' | 'sent' | 'throttled' | 'failed' | 'b
 
 export type CampaignUpdateParams = Partial<Pick<Campaign, 'name' | 'state' | 'list_ids' | 'exclusion_list_ids' | 'subscription_id' | 'tags'>>
 export type CampaignCreateParams = Pick<Campaign, 'name' | 'type' | 'list_ids' | 'exclusion_list_ids' | 'channel' | 'subscription_id' | 'provider_id' | 'tags'>
-export type CampaignLaunchParams = Pick<Campaign, 'send_at' | 'send_in_user_timezone' | 'state'>
+export type CampaignLaunchType = 'now' | 'later'
+export type CampaignLaunchParams = Pick<Campaign, 'send_at' | 'send_in_user_timezone' | 'state'> & { launch_type?: CampaignLaunchType }
 // export type ListUpdateParams = Pick<List, 'name' | 'rule'>
 export type CampaignUser = User & { state: CampaignSendState, send_at: string }
 
@@ -418,7 +455,6 @@ export interface TextTemplateData {
 
 export interface PushTemplateData {
     title: string
-    topic: string
     body: string
     url: string
     custom: Record<string, unknown>
@@ -429,11 +465,31 @@ export interface WebhookTemplateData {
     endpoint: string
     body: Record<string, any>
     headers: Record<string, string>
+    cache_key?: string
 }
+
+type NotificationType = 'banner' | 'alert' | 'html'
+export type InAppTemplateData = {
+    title: string
+    body: string
+    custom: Record<string, string | number>
+    type: NotificationType
+    read_on_view?: boolean
+} & (
+    | {
+        type: 'alert'
+        image?: string
+    }
+    | {
+        type: 'html'
+        html: string
+    }
+)
 
 export type Template = {
     id: number
     campaign_id: number
+    name?: string
     type: ChannelType
     locale: string
     data: any
@@ -457,10 +513,15 @@ export type Template = {
         type: 'webhook'
         data: WebhookTemplateData
     }
+    | {
+        type: 'in_app'
+        data: InAppTemplateData
+    }
 )
 
-export type TemplateCreateParams = Pick<Template, 'type' | 'data' | 'campaign_id' | 'locale'>
-export type TemplateUpdateParams = Pick<Template, 'type' | 'data'>
+export type TemplateCreateParams = Pick<Template, 'name' | 'type' | 'data' | 'campaign_id' | 'locale'>
+export type TemplateUpdateParams = Pick<Template, 'name' | 'data'>
+export type VariantUpdateParams = Pick<Template, 'name'> & { id?: number }
 
 export interface TemplatePreviewParams {
     user: Record<string, any>
@@ -498,11 +559,12 @@ export interface Subscription {
     id: number
     name: string
     channel: ChannelType
+    is_public: boolean
     created_at: string
     updated_at: string
 }
-export type SubscriptionCreateParams = Pick<Subscription, 'name' | 'channel'>
-export type SubscriptionUpdateParams = Pick<SubscriptionCreateParams, 'name'>
+export type SubscriptionCreateParams = Pick<Subscription, 'name' | 'channel' | 'is_public'>
+export type SubscriptionUpdateParams = Pick<SubscriptionCreateParams, 'name' | 'is_public'>
 
 export type ProviderGroup = 'email' | 'text' | 'push' | 'webhook'
 export interface Provider {
@@ -577,6 +639,7 @@ export interface Metric {
 export interface LocaleOption {
     key: string
     label: string
+    shortLabel?: string
 }
 
 export interface Locale extends LocaleOption {

@@ -1,20 +1,21 @@
 import Router from '@koa/router'
-import { ProjectParams } from './Project'
-import { JSONSchemaType, validate } from '../core/validate'
-import { extractQueryParams } from '../utilities'
-import { searchParamsSchema } from '../core/searchParams'
 import { ParameterizedContext } from 'koa'
-import { allProjects, createProject, getProject, pagedProjects, requireProjectRole, updateProject } from './ProjectService'
-import { AuthState, ProjectState } from '../auth/AuthMiddleware'
-import { getProjectAdmin } from './ProjectAdminRepository'
-import { RequestError } from '../core/errors'
-import { ProjectError } from './ProjectError'
-import { ProjectRulePath } from '../rules/ProjectRulePath'
-import { getAdmin } from '../auth/AdminRepository'
-import UserSchemaSyncJob from '../schema/UserSchemaSyncJob'
 import App from '../app'
-import { hasProvider } from '../providers/ProviderService'
+import { getAdmin } from '../auth/AdminRepository'
+import { AuthState, ProjectState } from '../auth/AuthMiddleware'
+import { RequestError } from '../core/errors'
+import { searchParamsSchema } from '../core/searchParams'
+import { JSONSchemaType, validate } from '../core/validate'
 import { requireOrganizationRole } from '../organizations/OrganizationService'
+import { hasProvider } from '../providers/ProviderService'
+import { RulePathVisibility } from '../rules/ProjectRulePath'
+import UserSchemaSyncJob from '../schema/UserSchemaSyncJob'
+import { extractQueryParams } from '../utilities'
+import { ProjectParams } from './Project'
+import { getProjectAdmin } from './ProjectAdminRepository'
+import { ProjectError } from './ProjectError'
+import { getRulePaths, pagedUserRulePaths, updateRulePath } from './ProjectRulePathRepository'
+import { allProjects, createProject, getProject, pagedProjects, requireProjectRole, updateProject } from './ProjectService'
 
 export async function projectMiddleware(ctx: ParameterizedContext<ProjectState>, next: () => void) {
 
@@ -106,7 +107,11 @@ router.post('/', async ctx => {
     const payload = validate(projectCreateParams, ctx.request.body)
     const { id, organization_id } = ctx.state.admin!
     const admin = await getAdmin(id, organization_id)
-    ctx.body = await createProject(admin!, payload)
+    const project = await createProject(admin!, payload)
+    ctx.body = {
+        ...project,
+        has_provider: await hasProvider(project.id),
+    }
 })
 
 export default router
@@ -165,26 +170,37 @@ subrouter.patch('/', async ctx => {
     requireProjectRole(ctx, 'admin')
     const { admin, project } = ctx.state
     const payload = validate(projectUpdateParams, ctx.request.body)
-    ctx.body = await updateProject(project.id, admin!.id, payload)
+    ctx.body = {
+        ...await updateProject(project.id, admin!.id, payload),
+        role: ctx.state.projectRole,
+        has_provider: await hasProvider(ctx.state.project.id),
+    }
 })
 
 subrouter.get('/data/paths', async ctx => {
-    ctx.body = await ProjectRulePath
-        .all(q => q.where('project_id', ctx.state.project.id))
-        .then(list => list.reduce((a, { type, name, path }) => {
-            if (type === 'event') {
-                (a.eventPaths[name!] ?? (a.eventPaths[name!] = [])).push(path)
-            } else {
-                a.userPaths.push(path)
-            }
-            return a
-        }, {
-            userPaths: [],
-            eventPaths: {},
-        } as {
-            userPaths: string[]
-            eventPaths: { [name: string]: string[] }
-        }))
+    const visibilities: RulePathVisibility[] = ctx.state.projectRole === 'admin'
+        ? ['public', 'classified']
+        : ['public']
+    ctx.body = await getRulePaths(ctx.state.project.id, visibilities)
+})
+
+subrouter.get('/data/paths/users', async ctx => {
+    requireProjectRole(ctx, 'admin')
+    const search = extractQueryParams(ctx.query, searchParamsSchema)
+    const visibilities: RulePathVisibility[] = ctx.state.projectRole === 'admin'
+        ? ['public', 'classified', 'hidden']
+        : ['public']
+    ctx.body = await pagedUserRulePaths({
+        search,
+        projectId: ctx.state.project.id,
+        visibilities,
+    })
+})
+
+subrouter.put('/data/paths/users/:pathId', async ctx => {
+    requireProjectRole(ctx, 'admin')
+
+    ctx.body = await updateRulePath(parseInt(ctx.params.pathId), ctx.request.body.visibility)
 })
 
 subrouter.post('/data/paths/sync', async ctx => {

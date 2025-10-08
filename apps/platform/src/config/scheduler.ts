@@ -19,15 +19,9 @@ export default (app: App) => {
             JourneyDelayJob.enqueueActive(app)
             app.queue.enqueue(ProcessCampaignsJob.from())
             app.queue.enqueue(CampaignStateJob.from())
+            app.queue.enqueue(ScheduledEntranceOrchestratorJob.from())
         },
         lockLength: 120,
-    })
-    scheduler.schedule({
-        rule: '*/5 * * * *',
-        callback: () => {
-            app.queue.enqueue(ProcessListsJob.from())
-        },
-        lockLength: 360,
     })
     scheduler.schedule({
         rule: '0 * * * *',
@@ -37,7 +31,12 @@ export default (app: App) => {
                 delta: subHours(new Date(), 1),
             }))
             app.queue.enqueue(UpdateJourneysJob.from())
-            app.queue.enqueue(ScheduledEntranceOrchestratorJob.from())
+        },
+    })
+    scheduler.schedule({
+        rule: '0 0,12 * * *',
+        callback: () => {
+            app.queue.enqueue(ProcessListsJob.from())
         },
     })
     return scheduler

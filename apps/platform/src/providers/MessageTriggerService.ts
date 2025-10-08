@@ -1,28 +1,26 @@
-import { JourneyUserStep } from '../journey/JourneyStep'
 import App from '../app'
 import Campaign from '../campaigns/Campaign'
 import { getCampaignSend, updateSendState } from '../campaigns/CampaignService'
 import { Channel } from '../config/channels'
 import { RateLimitResponse } from '../config/rateLimit'
 import { acquireLock } from '../core/Lock'
+import JourneyProcessJob from '../journey/JourneyProcessJob'
+import { loadUserStepDataMap } from '../journey/JourneyService'
+import JourneyUserStep from '../journey/JourneyUserStep'
 import Project from '../projects/Project'
 import { EncodedJob } from '../queue'
 import { RenderContext } from '../render'
 import Template, { TemplateType } from '../render/Template'
-import { templateInUserLocale } from '../render/TemplateService'
-import { User } from '../users/User'
-import { UserEvent } from '../users/UserEvent'
-import { randomInt } from '../utilities'
-import { MessageTrigger } from './MessageTrigger'
-import JourneyProcessJob from '../journey/JourneyProcessJob'
-import { createEvent } from '../users/UserEventRepository'
-import { loadUserStepDataMap } from '../journey/JourneyService'
-import { getUserSubscriptionState } from '../subscriptions/SubscriptionService'
+import { templatesInUserLocale } from '../render/TemplateService'
 import { SubscriptionState } from '../subscriptions/Subscription'
+import { getUserSubscriptionState } from '../subscriptions/SubscriptionService'
+import { User } from '../users/User'
+import { createEvent } from '../users/UserEventRepository'
+import { random, randomInt } from '../utilities'
+import { MessageTrigger } from './MessageTrigger'
 
 interface MessageTriggerHydrated<T> {
     user: User
-    event?: UserEvent
     journey: Record<string, unknown> // step.data_key -> user step data
     campaign: Campaign
     template: T
@@ -30,10 +28,9 @@ interface MessageTriggerHydrated<T> {
     context: RenderContext
 }
 
-export async function loadSendJob<T extends TemplateType>({ campaign_id, user_id, event_id, reference_type, reference_id }: MessageTrigger): Promise<MessageTriggerHydrated<T> | undefined> {
+export async function loadSendJob<T extends TemplateType>({ campaign_id, user_id, reference_type, reference_id }: MessageTrigger): Promise<MessageTriggerHydrated<T> | undefined> {
 
     const user = await User.find(user_id)
-    const event = await UserEvent.find(event_id)
     const project = await Project.find(user?.project_id)
     const send = await getCampaignSend(campaign_id, user_id, reference_id)
 
@@ -66,7 +63,9 @@ export async function loadSendJob<T extends TemplateType>({ campaign_id, user_id
     )
 
     // Determine what template to send to the user based on the following
-    const template = templateInUserLocale(templates, project, user)
+    const template = random(
+        templatesInUserLocale(templates, project, user),
+    )
 
     // If campaign or template dont exist, log and abort
     if (!template || !campaign) {
@@ -85,6 +84,8 @@ export async function loadSendJob<T extends TemplateType>({ campaign_id, user_id
         campaign_name: campaign.name,
         campaign_type: campaign.type,
         template_id: template.id,
+        template_name: template.name,
+        template_locale: template.locale,
         channel: campaign.channel,
         subscription_id: campaign.subscription_id,
         reference_type,
@@ -100,7 +101,6 @@ export async function loadSendJob<T extends TemplateType>({ campaign_id, user_id
     const response = {
         campaign,
         context,
-        event,
         journey,
         template: template.map() as T,
         project,
@@ -193,7 +193,12 @@ export const failSend = async ({ campaign, user, context }: MessageTriggerHydrat
     }
 
     // Notify of the error if it's a critical one
-    if (error && shouldNotify(error)) App.main.error.notify(error, context)
+    if (error && shouldNotify(error)) {
+        App.main.error.notify(error, {
+            ...context,
+            user_id: user.id,
+        })
+    }
 }
 
 export const finalizeSend = async (data: MessageTriggerHydrated<TemplateType>, result: any) => {
@@ -225,9 +230,7 @@ export const notifyJourney = async (reference_id: string, response?: any) => {
     // Save response into user step
     if (response) {
         await JourneyUserStep.update(q => q.where('id', referenceId), {
-            data: {
-                response,
-            },
+            data: response,
         })
     }
 

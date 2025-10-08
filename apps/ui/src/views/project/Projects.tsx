@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import api from '../../api'
 import { useResolver } from '../../hooks'
 import { Project } from '../../types'
@@ -40,7 +40,9 @@ export function Projects() {
 
     useEffect(() => {
         if (projects && !projects.length) {
-            navigate('/onboarding')
+            navigate('/onboarding')?.catch(e => {
+                console.error('Failed to navigate to onboarding:', e)
+            })
         }
     }, [projects, navigate])
 
@@ -67,7 +69,7 @@ export function Projects() {
                                 recents.map(({ project, when }) => (
                                     <Tile
                                         key={project.id}
-                                        onClick={() => navigate('/projects/' + project.id)}
+                                        onClick={async () => { await navigate('/projects/' + project.id) }}
                                         title={project.name || 'Untitled Project'}
                                         iconUrl={logoUrl}
                                     >
@@ -85,7 +87,7 @@ export function Projects() {
                     projects?.map(project => (
                         <Tile
                             key={project.id}
-                            onClick={() => navigate('/projects/' + project.id)}
+                            onClick={async () => { await navigate('/projects/' + project.id) }}
                             title={project.name}
                             iconUrl={logoUrl}
                         >
@@ -101,9 +103,9 @@ export function Projects() {
                 size="regular"
             >
                 <ProjectForm
-                    onSave={project => {
+                    onSave={async project => {
                         setOpen(false)
-                        navigate('/projects/' + project.id)
+                        await navigate('/projects/' + project.id)
                     }}
                 />
             </Modal>

@@ -1,5 +1,5 @@
 import { Context } from 'react'
-import { RouteObject } from 'react-router-dom'
+import { RouteObject } from 'react-router'
 import { ProjectEntityPath } from '../api'
 import { UseStateContext } from '../types'
 import ErrorPage from './ErrorPage'
@@ -19,7 +19,7 @@ export function createStatefulRoute<T extends { id: number }>({ context, path, a
         loader: async ({ params: { projectId = '', entityId = '' } }) => await apiPath.get(projectId, entityId),
         element: context
             ? (
-                <StatefulLoaderContextProvider context={context}>
+                <StatefulLoaderContextProvider key={path} context={context}>
                     {element}
                 </StatefulLoaderContextProvider>
             )

@@ -10,7 +10,8 @@
     display: flex;
     justify-content: space-between;
     border-bottom: 1px solid var(--color-grey);
-    gap: 20px;
+    gap: 5px 20px;
+    flex-wrap: wrap;
 }
 
 .ui-info-table .info-label {
@@ -18,13 +19,22 @@
 }
 
 .ui-info-table .info-value {
-    text-align: right;
     position: relative;
+    word-break: break-word;
 }
 
 .ui-info-table .info-value .ui-tag {
     margin-top: -5px;
     margin-bottom: -5px;
+}
+
+.ui-info-table .info-value .tag-list {
+    margin-bottom: -15px;
+}
+
+.ui-info-table .info-value .tag-list .ui-tag {
+    margin-top: -5px;
+    margin-bottom: 10px;
 }
 
 .ui-info-table .info-row:last-child {

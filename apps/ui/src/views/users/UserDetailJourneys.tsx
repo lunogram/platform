@@ -3,7 +3,7 @@ import { ProjectContext, UserContext } from '../../contexts'
 import { SearchTable, useSearchTableQueryState } from '../../ui/SearchTable'
 import api from '../../api'
 import { Tag } from '../../ui'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import { formatDate } from '../../utils'
@@ -44,7 +44,7 @@ export default function UserDetailJourneys() {
                         : <Tag variant="info">{t('running')}</Tag>,
                 },
             ]}
-            onSelectRow={e => navigate(`../../entrances/${e.entrance_id}`)}
+            onSelectRow={async e => { await navigate(`../../entrances/${e.entrance_id}`) }}
         />
     )
 }

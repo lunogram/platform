@@ -16,6 +16,7 @@ export interface DataTableCol<T> {
     cell?: DataTableResolver<T, ReactNode>
     sortable?: boolean
     sortKey?: string
+    minWidth?: number | string
 }
 
 export interface ColSort {
@@ -131,7 +132,7 @@ export function DataTable<T>({
                                             }
                                         }
                                         return (
-                                            <div className="table-cell" key={col.key}>
+                                            <div className="table-cell" key={col.key} style={col.minWidth ? { minWidth: col.minWidth } : {}}>
                                                 {value ?? <>&#8211;</>}
                                             </div>
                                         )

@@ -1,6 +1,8 @@
-import { Job } from '../queue'
+import { EncodedJob, Job } from '../queue'
 import { saveDevice } from './UserRepository'
-import { DeviceParams } from './User'
+import { DeviceParams } from './Device'
+import { LockError } from '../core/Lock'
+import App from '../app'
 
 type UserDeviceTrigger = DeviceParams & {
     project_id: number
@@ -13,13 +15,20 @@ export default class UserDeviceJob extends Job {
         return new this(data)
     }
 
-    static async handler({ project_id, ...device }: UserDeviceTrigger, job: UserDeviceJob) {
-        const attempts = job.options.attempts ?? 1
-        const attemptsMade = job.state.attemptsMade ?? 0
+    static async handler({ project_id, ...device }: UserDeviceTrigger, raw: EncodedJob) {
+        const attempts = raw.options.attempts ?? 1
+        const attemptsMade = raw.state.attemptsMade ?? 0
 
         try {
             await saveDevice(project_id, device)
         } catch (error) {
+
+            // If record is locked, re-queue the job
+            if (error instanceof LockError) {
+                await App.main.queue.retry(raw)
+                throw error
+            }
+
             if (attemptsMade < (attempts - 1)) throw error
         }
     }

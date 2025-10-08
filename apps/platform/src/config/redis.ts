@@ -54,4 +54,71 @@ export const cacheDecr = async (redis: Redis, key: string, ttl?: number) => {
     return val
 }
 
+export type DataPair = {
+  key: string
+  value: string
+}
+export const cacheBatchHash = async (
+    redis: Redis,
+    hashKey: string,
+    pairs: DataPair[],
+): Promise<void> => {
+    const pipeline = redis.pipeline()
+
+    const fieldsAndValues: string[] = []
+    for (const { key, value } of pairs) {
+        fieldsAndValues.push(key, value)
+    }
+
+    pipeline.hset(hashKey, ...fieldsAndValues)
+    pipeline.expire(hashKey, 60 * 60 * 24) // Set TTL to 24 hours
+
+    await pipeline.exec()
+}
+
+export type HashScanCallback = (pairs: DataPair[]) => Promise<void> | void
+export const cacheBatchReadHashAndDelete = async (
+    redis: Redis,
+    hashKey: string,
+    callback: HashScanCallback,
+    scanCount = 2500,
+): Promise<void> => {
+    let cursor = '0'
+
+    do {
+        const [nextCursor, result] = await redis.hscan(hashKey, cursor, 'COUNT', scanCount)
+        cursor = nextCursor
+
+        const pairs: DataPair[] = []
+        for (let i = 0; i < result.length; i += 2) {
+            pairs.push({
+                key: result[i],
+                value: result[i + 1],
+            })
+        }
+
+        if (pairs.length > 0) {
+            const pipeline = redis.pipeline()
+
+            await callback(pairs)
+            for (const pair of pairs) {
+                pipeline.hdel(hashKey, pair.key)
+            }
+
+            await pipeline.exec()
+        }
+    } while (cursor !== '0')
+
+    await redis.del(hashKey)
+}
+
+export const cacheBatchLength = async (redis: Redis, hashKey: string): Promise<number> => {
+    return await redis.hlen(hashKey)
+}
+
+export const cacheHashExists = async (redis: Redis, hashKey: string): Promise<boolean> => {
+    const exists = await redis.exists(hashKey)
+    return exists !== 0
+}
+
 export { Redis }

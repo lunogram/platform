@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { PageParams } from '../core/searchParams'
 import { loadAnalytics } from '../providers/analytics'
 import { User } from '../users/User'
@@ -8,12 +9,25 @@ export const createEvent = async (
     { name, data }: UserEventParams,
     forward = true,
     filter = (data: Record<string, unknown>) => data,
-): Promise<number> => {
-    const id = await UserEvent.insert({
+): Promise<UserEvent> => {
+    const eventData = {
         name,
         data,
         project_id: user.project_id,
         user_id: user.id,
+        uuid: randomUUID(),
+        created_at: new Date(),
+    }
+    await UserEvent.clickhouse().insert(eventData)
+
+    // TODO: Remove, temporary during transition to new event system
+    await UserEvent.insert({
+        name,
+        data,
+        project_id: user.project_id,
+        user_id: user.id,
+        created_at: new Date(),
+        updated_at: new Date(),
     })
 
     if (forward) {
@@ -25,13 +39,8 @@ export const createEvent = async (
             data: filter(data),
         })
     }
-    return id
-}
 
-export const createAndFetchEvent = async (user: User, event: UserEventParams, forward = false): Promise<UserEvent> => {
-    const id = await createEvent(user, event, forward)
-    const userEvent = await UserEvent.find(id)
-    return userEvent!
+    return UserEvent.fromJson(eventData)
 }
 
 export const getUserEvents = async (id: number, params: PageParams, projectId: number) => {

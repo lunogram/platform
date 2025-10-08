@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect } from 'react'
 import api from '../../api'
 import { CampaignContext, ProjectContext } from '../../contexts'
-import { CampaignDelivery as Delivery, CampaignSendState, CampaignState } from '../../types'
+import { CampaignSendState, Campaign } from '../../types'
 import Alert from '../../ui/Alert'
 import Heading from '../../ui/Heading'
 import { PreferencesContext } from '../../ui/PreferencesContext'
@@ -12,7 +12,7 @@ import { formatDate } from '../../utils'
 import { useRoute } from '../router'
 import { Translation, useTranslation } from 'react-i18next'
 
-export const CampaignSendTag = ({ state }: { state: CampaignSendState }) => {
+const CampaignSendTag = ({ state }: { state: CampaignSendState }) => {
     const variant: Record<CampaignSendState, TagVariant | undefined> = {
         pending: 'info',
         throttled: 'warn',
@@ -26,12 +26,14 @@ export const CampaignSendTag = ({ state }: { state: CampaignSendState }) => {
     </Tag>
 }
 
-export const CampaignStats = ({ state, delivery }: { state: CampaignState, delivery: Delivery }) => {
+export const CampaignStats = ({ state, delivery, progress }: Pick<Campaign, 'state' | 'delivery' | 'progress'>) => {
     const { t } = useTranslation()
     const percent = new Intl.NumberFormat(undefined, { style: 'percent', minimumFractionDigits: 2 })
 
     const sent = delivery.sent.toLocaleString()
-    const total = delivery.total.toLocaleString()
+    const total = progress
+        ? progress.total.toLocaleString()
+        : delivery.total.toLocaleString()
     const deliveryRate = percent.format(delivery.total ? delivery.sent / delivery.total : 0)
     const openRate = percent.format(delivery.total ? delivery.opens / delivery.total : 0)
     const clickRate = percent.format(delivery.total ? delivery.clicks / delivery.total : 0)
@@ -84,7 +86,7 @@ export default function CampaignDelivery() {
                     {state === 'scheduled'
                         && <Alert title={t('scheduled')}>{t('campaign_alert_scheduled')} <strong>{formatDate(preferences, send_at)}</strong></Alert>
                     }
-                    {delivery && <CampaignStats delivery={delivery} state={state} />}
+                    {delivery && <CampaignStats delivery={delivery} state={state} progress={progress} />}
                     <Heading title={t('users')} size="h4" />
                     <SearchTable
                         {...searchState}

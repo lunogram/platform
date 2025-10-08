@@ -1,5 +1,5 @@
 import { createElement, DragEventHandler, Fragment, memo, ReactNode, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { useBlocker, useNavigate } from 'react-router-dom'
+import { useBlocker, useNavigate } from 'react-router'
 import ReactFlow, {
     addEdge,
     Background,
@@ -30,7 +30,7 @@ import ReactFlow, {
     useReactFlow,
 } from 'reactflow'
 import { JourneyContext, ProjectContext } from '../../contexts'
-import { camelToTitle, createComparator, createUuid } from '../../utils'
+import { checkProjectRole, createComparator, createUuid } from '../../utils'
 import * as journeySteps from './steps/index'
 import clsx from 'clsx'
 import api from '../../api'
@@ -46,10 +46,9 @@ import { JourneyForm } from './JourneyForm'
 import { ActionStepIcon, CheckCircleIcon, CloseIcon, CopyIcon, DelayStepIcon, EntranceStepIcon, ForbiddenIcon, KeyIcon } from '../../ui/icons'
 import Tag from '../../ui/Tag'
 import TextInput from '../../ui/form/TextInput'
-import { SearchTable } from '../../ui'
-import { useSearchTableState } from '../../ui/SearchTable'
-import { typeVariants } from './EntranceDetails'
 import { useTranslation } from 'react-i18next'
+import { JourneyStepUsers } from './JourneyStepUsers'
+import { Menu, MenuItem } from '../../ui'
 
 const getStepType = (type: string) => (type ? journeySteps[type as keyof typeof journeySteps] as JourneyStepType : null) ?? null
 
@@ -68,83 +67,20 @@ export const stepCategoryColors = {
     flow: 'green',
     delay: 'yellow',
     exit: 'red',
-}
-
-interface StepUsersProps {
-    stepId: number
-    entrance?: boolean
-}
-
-function StepUsers({ entrance, stepId }: StepUsersProps) {
-
-    const { t } = useTranslation()
-    const [{ id: projectId }] = useContext(ProjectContext)
-    const [{ id: journeyId }] = useContext(JourneyContext)
-
-    const state = useSearchTableState(useCallback(async params => await api.journeys.steps.searchUsers(projectId, journeyId, stepId, params), [projectId, journeyId, stepId]), {
-        limit: 10,
-    })
-
-    return (
-        <>
-            <SearchTable
-                {...state}
-                columns={[
-                    {
-                        key: 'name',
-                        title: t('name'),
-                        cell: ({ item }) => item.user!.full_name ?? '-',
-                    },
-                    {
-                        key: 'external_id',
-                        title: t('external_id'),
-                        cell: ({ item }) => item.user?.external_id ?? '-',
-                    },
-                    {
-                        key: 'email',
-                        title: t('email'),
-                        cell: ({ item }) => item.user?.email ?? '-',
-                    },
-                    {
-                        key: 'phone',
-                        title: t('phone'),
-                        cell: ({ item }) => item.user?.phone ?? '-',
-                    },
-                    {
-                        key: 'type',
-                        title: t('type'),
-                        cell: ({ item }) => (
-                            <Tag variant={typeVariants[item.type]}>
-                                {camelToTitle(item.type)}
-                            </Tag>
-                        ),
-                    },
-                    {
-                        key: 'created_at',
-                        title: t('step_date'),
-                        cell: ({ item }) => item.created_at,
-                    },
-                    {
-                        key: 'delay_until',
-                        title: t('delay_until'),
-                        cell: ({ item }) => item.delay_until,
-                    },
-                ]}
-                onSelectRow={entrance ? ({ id }) => window.open(`/projects/${projectId}/entrances/${id}`, '_blank') : undefined}
-            />
-        </>
-    )
+    info: 'purple',
 }
 
 function JourneyStepNode({
     id,
     data: {
+        stepId,
         type: typeName,
         name,
         data,
         data_key,
         stats,
         editing,
+        setViewUsersStep,
     } = {},
     selected,
 }: NodeProps) {
@@ -173,10 +109,12 @@ function JourneyStepNode({
         )
     }
 
+    const isValid = type.validate ? type.validate(data) : true
+
     return (
         <>
             {
-                type.category !== 'entrance' && (
+                !type.hideTopHandle && (
                     <Handle type="target" position={Position.Top} id={'t-' + id} />
                 )
             }
@@ -186,6 +124,7 @@ function JourneyStepNode({
                     type.category,
                     selected && 'selected',
                     Array.isArray(type.sources) && 'journey-step-labelled-sources',
+                    isValid ? '' : 'error',
                     editing && 'editing',
                 )}
             >
@@ -194,7 +133,11 @@ function JourneyStepNode({
                         {type.icon}
                     </span>
                     <h4 className="step-header-title">{name || t(type.name)}</h4>
-                    <div className="step-header-stats">
+                    {type.category !== 'info' && <div className="step-header-stats"
+                        onClickCapture={stepId
+                            ? () => setViewUsersStep({ stepId, stepType: typeName })
+                            : undefined
+                        }>
                         <span className="stat">
                             {(stats.completed ?? 0).toLocaleString()}
                             {statIcons.completed}
@@ -215,7 +158,7 @@ function JourneyStepNode({
                                 </span>
                             )
                         }
-                    </div>
+                    </div>}
                 </div>
                 <div className="journey-step-body">
                     {
@@ -223,7 +166,7 @@ function JourneyStepNode({
                             project,
                             journey,
                             value: data,
-                            onChange: () => {},
+                            onChange: () => { },
                         })
                     }
                     {
@@ -237,7 +180,7 @@ function JourneyStepNode({
                 </div>
             </div>
             {
-                (
+                !type.hideBottomHandle && (
                     Array.isArray(type.sources)
                         ? type.sources
                         : ['']
@@ -349,7 +292,6 @@ const edgeTypes: EdgeTypes = {
 }
 
 const DATA_FORMAT = 'application/parcelvoy-journey-step'
-
 const STEP_STYLE = 'smoothstep'
 
 interface CreateEdgeParams {
@@ -379,7 +321,7 @@ function createEdge({
     }
 }
 
-function stepsToNodes(stepMap: JourneyStepMap) {
+function stepsToNodes(stepMap: JourneyStepMap, actions: any) {
 
     const nodes: Node[] = []
     const edges: Edge[] = []
@@ -400,6 +342,7 @@ function stepsToNodes(stepMap: JourneyStepMap) {
                 stats,
                 stats_at,
                 stepId,
+                ...actions,
             },
         })
         children?.forEach(({ external_id, path, data }) => edges.push(createEdge({
@@ -491,11 +434,17 @@ export default function JourneyEditor() {
     const [edges, setEdges, onEdgesChange] = useEdgesState([])
 
     const journeyId = journey.id
+    const isDeleted = !!journey.deleted_at
+    const isDraft = journey.status === 'draft' && !isDeleted
+    const draftId = journey.draft_id
+    const parentId = journey.parent_id
 
     const loadSteps = useCallback(async () => {
         const steps = await api.journeys.steps.get(project.id, journeyId)
 
-        const { edges, nodes } = stepsToNodes(steps)
+        const { edges, nodes } = stepsToNodes(steps, {
+            setViewUsersStep,
+        })
 
         setNodes(nodes)
         setEdges(edges)
@@ -505,8 +454,10 @@ export default function JourneyEditor() {
         void loadSteps()
     }, [loadSteps])
 
+    const [publishing, setPublishing] = useState(false)
     const [saving, setSaving] = useState(false)
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+    const [viewUsersStep, setViewUsersStep] = useState<null | { stepId: number, stepType: string }>(null)
 
     const blocker = useBlocker(
         ({ currentLocation, nextLocation }) => hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname,
@@ -526,17 +477,21 @@ export default function JourneyEditor() {
         setNodes(nodes)
     }
 
-    const saveSteps = useCallback(async () => {
+    async function saveDraft() {
+        const stepMap = await api.journeys.steps.set(project.id, journey.id, nodesToSteps(nodes, edges))
 
+        const refreshed = stepsToNodes(stepMap, {
+            setViewUsersStep,
+        })
+
+        setNodes(refreshed.nodes)
+        setEdges(refreshed.edges)
+    }
+
+    const saveSteps = useCallback(async () => {
         setSaving(true)
         try {
-            const stepMap = await api.journeys.steps.set(project.id, journey.id, nodesToSteps(nodes, edges))
-
-            const refreshed = stepsToNodes(stepMap)
-
-            setNodes(refreshed.nodes)
-            setEdges(refreshed.edges)
-
+            await saveDraft()
             toast.success(t('journey_saved'))
         } catch (error: any) {
             toast.error(`Unable to save: ${error}`)
@@ -545,6 +500,39 @@ export default function JourneyEditor() {
             setSaving(false)
         }
     }, [project, journey, nodes, edges])
+
+    const createDraft = async () => {
+        setSaving(true)
+        try {
+            const newDraft = await api.journeys.version(project.id, journey.id)
+            setJourney(newDraft)
+            editDraft(newDraft.id)
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const editDraft = (id: number) => {
+        window.location.href = `/projects/${project.id}/journeys/${id}`
+    }
+
+    const publishJourney = async () => {
+        if (!confirm(t('journey_publish_confirmation'))) return
+
+        // NOTE: we have to save the draft before publishing
+        if (hasUnsavedChanges) {
+            await saveDraft()
+        }
+
+        setPublishing(true)
+        try {
+            await api.journeys.publish(project.id, journey.id)
+            window.location.href = `/projects/${project.id}/journeys/${journey.parent_id ?? journey.id}`
+            toast.success(t('journey_published'))
+        } finally {
+            setPublishing(false)
+        }
+    }
 
     const onConnect = useCallback(async (connection: Connection) => {
         const sourceNode = nodes.find(n => n.id === connection.source)
@@ -603,12 +591,8 @@ export default function JourneyEditor() {
     }, [setNodes, flowInstance, project, journey])
 
     const [editOpen, setEditOpen] = useState(false)
-
     const selected = nodes.filter(n => n.selected)
-
     const editNode = nodes.find(n => n.data.editing)
-
-    const [viewUsersStep, setViewUsersStep] = useState<null | { stepId: number, entrance?: boolean }>(null)
 
     const onNodeDoubleClick = useCallback<NodeMouseHandler>((_, n) => {
         setNodes(nds => nds.map(x => x.id === n.id
@@ -642,7 +626,7 @@ export default function JourneyEditor() {
                             className="step-header-stats"
                             role={editNode.data.stepId ? 'button' : undefined}
                             onClick={editNode.data.stepId
-                                ? () => setViewUsersStep({ stepId: editNode.data.stepId, entrance: editNode.data.type === 'entrance' })
+                                ? () => setViewUsersStep({ stepId: editNode.data.stepId, stepType: editNode.data.type })
                                 : undefined
                             }
                             style={{
@@ -670,6 +654,10 @@ export default function JourneyEditor() {
                                 )
                             }
                         </div>
+                        <Menu size="small">
+                            <MenuItem onClick={() => handleSetNodes(nds => nds.filter(item => item.id !== editNode.id))
+                            }>{t('delete_step')}</MenuItem>
+                        </Menu>
                     </div>
                     <div className="journey-options-edit">
                         <TextInput
@@ -719,28 +707,66 @@ export default function JourneyEditor() {
             size="fullscreen"
             title={journey.name}
             open={true}
-            onClose={() => navigate('../journeys')}
+            onClose={async () => { await navigate('../journeys') }}
             actions={
-                <>
-                    <Tag
-                        variant={journey.published ? 'success' : 'plain'}
-                        size="large">
-                        {journey.published ? t('published') : t('draft')}
+                isDeleted
+                    ? <Tag variant="error" size="large">
+                        {t('journey_archived')}
                     </Tag>
-                    <Button
-                        variant="secondary"
-                        onClick={() => setEditOpen(true)}
-                    >
-                        {t('edit_details')}
-                    </Button>
-                    <Button
-                        onClick={saveSteps}
-                        isLoading={saving}
-                        variant="primary"
-                    >
-                        {t('save')}
-                    </Button>
-                </>
+                    : isDraft
+                        ? <>
+                            {!parentId && <Button
+                                variant="secondary"
+                                onClick={() => setEditOpen(true)}
+                            >
+                                {t('edit_details')}
+                            </Button>}
+                            {checkProjectRole('publisher', project.role) && (
+                                <Button
+                                    onClick={publishJourney}
+                                    isLoading={publishing}
+                                    variant="secondary"
+                                >
+                                    {t('publish')}
+                                </Button>
+                            )}
+                            <Button
+                                onClick={saveSteps}
+                                isLoading={saving}
+                                variant="primary"
+                            >
+                                {t('journey_draft_save')}
+                            </Button>
+                        </>
+                        : <>
+                            <Tag
+                                variant={journey.status === 'live' ? 'success' : 'plain'}
+                                size="large">
+                                {t(journey.status)}
+                            </Tag>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setEditOpen(true)}
+                            >
+                                {t('edit_details')}
+                            </Button>
+                            {draftId
+                                ? <Button
+                                    onClick={() => editDraft(draftId)}
+                                    isLoading={publishing}
+                                    variant="primary"
+                                >
+                                    {t('journey_draft_edit')}
+                                </Button>
+                                : <Button
+                                    onClick={createDraft}
+                                    isLoading={saving}
+                                    variant="primary"
+                                >
+                                    {t('journey_draft_create')}
+                                </Button>
+                            }
+                        </>
             }
         >
             <div className={clsx('journey', editNode && 'editing')}>
@@ -761,25 +787,26 @@ export default function JourneyEditor() {
                                 setNodes(nds => nds.map(n => n.data.editing ? { ...n, data: { ...n.data, editing: false } } : n))
                             }
                         }}
-                        elementsSelectable
+                        nodesDraggable={isDraft}
+                        nodesConnectable={isDraft}
                         onDragOver={onDragOver}
                         onDrop={onDrop}
                         panOnScroll
                         selectNodesOnDrag
                         fitView
                         maxZoom={1}
-                        minZoom={0.2}
+                        minZoom={0.1}
                         zoomOnDoubleClick={false}
                     >
                         <Background className="internal-canvas" />
                         {
                             !editNode && (
                                 <>
-                                    <Controls />
+                                    <Controls showInteractive={isDraft} />
                                     <MiniMap
                                         nodeClassName={({ data }: Node<JourneyStep>) => `journey-minimap ${getStepType(data.type)?.category ?? 'unknown'}`}
                                     />
-                                    <Panel position="top-left">
+                                    {isDraft && <Panel position="top-left">
                                         {
                                             selected.length
                                                 ? (
@@ -799,17 +826,17 @@ export default function JourneyEditor() {
                                                     'Shift+Drag to Multi Select'
                                                 )
                                         }
-                                    </Panel>
+                                    </Panel>}
                                 </>
                             )
                         }
                     </ReactFlow>
                 </div>
-                <div className="journey-options">
+                {isDraft && <div className="journey-options">
                     {
                         stepEdit ?? (
                             <>
-                                <h4>Components</h4>
+                                <h4>{t('components')}</h4>
                                 {
                                     Object.entries(journeySteps).sort(createComparator(x => x[1].category)).map(([key, type]) => (
                                         <div
@@ -837,7 +864,7 @@ export default function JourneyEditor() {
                             </>
                         )
                     }
-                </div>
+                </div>}
             </div>
             <Modal
                 open={editOpen}
@@ -852,18 +879,12 @@ export default function JourneyEditor() {
                     }}
                 />
             </Modal>
-            <Modal
+            {!!viewUsersStep && <JourneyStepUsers
                 open={!!viewUsersStep}
                 onClose={() => setViewUsersStep(null)}
-                title={t('users')}
-                size="large"
-            >
-                {
-                    viewUsersStep && (
-                        <StepUsers {...viewUsersStep} />
-                    )
-                }
-            </Modal>
+                stepType={viewUsersStep.stepType}
+                stepId={viewUsersStep.stepId}
+            />}
         </Modal>
     )
 }

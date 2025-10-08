@@ -179,7 +179,7 @@ const ProviderSelection = ({ providers, form }: { providers: Provider[], form: U
         control: form.control,
         name: 'channel',
     })
-    providers = useMemo(() => channel ? providers.filter(p => p.group === channel) : [], [channel, providers])
+    providers = useMemo(() => channel ? providers.filter(p => p.group === channel || (channel === 'in_app' && p.group === 'push')) : [], [channel, providers])
     useEffect(() => {
         if (channel && providers.length) {
             const { provider_id } = form.getValues()
@@ -278,10 +278,10 @@ export function CampaignForm({ campaign, onSave, type }: CampaignEditParams) {
         subscription_id,
         tags,
     }: CampaignCreateParams) {
-        const params = { name, list_ids, exclusion_list_ids, subscription_id, tags }
+        const params = { name, list_ids, exclusion_list_ids, subscription_id, provider_id, tags }
         const value = campaign
             ? await api.campaigns.update(project.id, campaign.id, params)
-            : await api.campaigns.create(project.id, { channel, provider_id, type, ...params })
+            : await api.campaigns.create(project.id, { channel, type, ...params })
         onSave(value)
     }
 
@@ -310,13 +310,7 @@ export function CampaignForm({ campaign, onSave, type }: CampaignEditParams) {
                     {
                         campaign
                             ? (
-                                <>
-                                    <Heading size="h3" title={t('channel')}>{t('campaign_form_channel_description', { channel: campaign.channel })}</Heading>
-                                    <SubscriptionSelection
-                                        subscriptions={subscriptions}
-                                        form={form}
-                                    />
-                                </>
+                                <Heading size="h3" title={t('channel')}>{t('campaign_form_channel_description', { channel: campaign.channel })}</Heading>
                             )
                             : (
                                 <>
@@ -325,30 +319,30 @@ export function CampaignForm({ campaign, onSave, type }: CampaignEditParams) {
                                         subscriptions={subscriptions}
                                         form={form}
                                     />
-                                    {providers.length
-                                        ? <Columns>
-                                            <Column>
-                                                <ProviderSelection
-                                                    providers={providers}
-                                                    form={form}
-                                                />
-                                            </Column>
-                                            <Column>
-                                                <SubscriptionSelection
-                                                    subscriptions={subscriptions}
-                                                    form={form}
-                                                />
-                                            </Column>
-                                        </Columns>
-                                        : <Alert
-                                            variant="plain"
-                                            title={t('no_providers')}
-                                            actions={
-                                                <LinkButton to={`/projects/${project.id}/settings/integrations`}>{t('setup_integration')}</LinkButton>
-                                            }>{t('setup_integration_no_providers')}</Alert>
-                                    }
                                 </>
                             )
+                    }
+                    {providers.length
+                        ? <Columns>
+                            <Column>
+                                <ProviderSelection
+                                    providers={providers}
+                                    form={form}
+                                />
+                            </Column>
+                            <Column>
+                                <SubscriptionSelection
+                                    subscriptions={subscriptions}
+                                    form={form}
+                                />
+                            </Column>
+                        </Columns>
+                        : <Alert
+                            variant="plain"
+                            title={t('no_providers')}
+                            actions={
+                                <LinkButton to={`/projects/${project.id}/settings/integrations`}>{t('setup_integration')}</LinkButton>
+                            }>{t('setup_integration_no_providers')}</Alert>
                     }
                 </>
             )}

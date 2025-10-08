@@ -8,26 +8,32 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [22.x]
         
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
+      name: Install pnpm
+      with:
+        run_install: false
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v1
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
+        registry-url: 'https://registry.npmjs.org'
+        cache: 'pnpm'
     - name: Node Install
       run: |
-        npm install
+        pnpm install
     - name: Lint
       run: |
-        npm run lint
+        pnpm lint
 
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [22.x]
 
     services:
       mysql:
@@ -45,26 +51,27 @@ jobs:
           --health-retries=3
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
+      name: Install pnpm
+      with:
+        run_install: false
 
-    - name: Node 20.x
+    - name: "Setup ClickHouse Server"
+      uses: getsentry/action-clickhouse-in-ci@v1.6
+
+    - name: Node 22.x
       uses: actions/setup-node@v4
       with:
-        node-version: 20.x
-
-    - name: Cache NPM
-      uses: actions/cache@v4
-      with:
-        path: ~/.npm
-        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-node-
+        node-version: ${{ matrix.node-version }}
+        registry-url: 'https://registry.npmjs.org'
+        cache: 'pnpm'
 
     - name: Install Dependencies
-      run: npm install && npm install --save-dev
+      run: pnpm install
 
     - name: 'Run Jest Tests'
-      run: npm run test -- --scope=@parcelvoy/platform
+      run: pnpm test
       env:
         NODE_ENV: test
         APP_SECRET: testing
@@ -72,6 +79,7 @@ jobs:
         DB_DATABASE: parcelvoy
         DB_USERNAME: root
         DB_PORT: 3306
+        CLICKHOUSE_URL: http://localhost:8123
         BASE_URL: https://parcelvoy.com
         AUTH_DRIVER: basic
         QUEUE_DRIVER: memory
@@ -82,17 +90,23 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [22.x]
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
+      name: Install pnpm
+      with:
+        run_install: false
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
+        registry-url: 'https://registry.npmjs.org'
+        cache: 'pnpm'
     - name: Node Install
       run: |
-        npm install
+        pnpm install
     - name: Build
       run: |
-        npm run build
+        pnpm build

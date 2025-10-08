@@ -92,23 +92,37 @@
     color: var(--color-red-hard);
 }
 
-.component.entrance .component-handle svg, .journey-step.entrance .step-header-icon svg {
+.component.entrance .component-handle svg,
+.journey-step.entrance .step-header-icon svg {
     margin-left: -4px;
 }
 
-.component.delay .component-handle, .journey-step.delay .step-header-icon {
+.component.delay .component-handle,
+.journey-step.delay .step-header-icon {
     background-color: var(--color-yellow-soft);
     color: var(--color-yellow-hard);
 }
 
-.component.action .component-handle, .journey-step.action .step-header-icon {
+.component.action .component-handle,
+.journey-step.action .step-header-icon {
     background-color: var(--color-blue-soft);
     color: var(--color-blue-hard);
 }
 
-.component.flow .component-handle, .journey-step.flow .step-header-icon {
+.component.flow .component-handle,
+.journey-step.flow .step-header-icon {
     background-color: var(--color-green-soft);
     color: var(--color-green-hard);
+}
+
+.component.info .component-handle {
+    background-color: var(--color-purple-soft);
+    color: var(--color-purple-hard);
+}
+
+.journey-step.info .step-header-icon {
+    background-color: var(--color-purple-hard);
+    color: var(--color-purple-soft);
 }
 
 .journey-minimap.entrance,
@@ -145,6 +159,14 @@
     fill: var(--color-green);
 }
 
+.journey-minimap.info {
+    fill: var(--color-purple-soft);
+}
+
+.journey-minimap.info.selected {
+    fill: var(--color-purple);
+}
+
 .journey .react-flow__minimap {
     background-color: var(--color-background-soft);
 }
@@ -179,6 +201,10 @@
     min-width: 200px;
 }
 
+.journey-step.error {
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5);
+}
+
 .editing .journey-step {
     opacity: 0.5;
 }
@@ -202,6 +228,23 @@
 
 .journey-step.delay.selected {
     border-color: var(--color-yellow-hard);
+}
+
+.journey-step.info {
+    background: var(--color-purple-soft);
+    border-color: var(--color-purple-soft);
+}
+
+.journey-step.info.selected {
+    border-color: var(--color-purple-hard);
+}
+
+.journey-step.info .journey-step-header {
+    border-bottom: none;
+}
+
+.journey-step.info .journey-step-body {
+    padding-top: 0;
 }
 
 .journey-step .data-key {
@@ -285,11 +328,18 @@
     gap: 10px;
     background: var(--color-background-soft);
     border-radius: var(--border-radius-inner);
-    padding: 5px 10px;
+    padding: 6px 10px;
+    cursor: pointer;
+    border: 1px solid var(--color-background-soft);
+}
+
+.journey-step-header .step-header-stats:hover {
+    border-color: var(--color-grey-hard);
 }
 
 .journey-step-header .step-header-stats:hover .stat {
-    color: var(--color-primary);
+    color: var(--color-grey-hard);
+
 }
 
 .journey-step-header .step-header-stats .stat {
@@ -301,12 +351,15 @@
 }
 
 .journey-step-body {
-    padding: 20px;
+    padding: 15px;
 }
 
 .journey-step-body-name {
     margin-bottom: 10px;
     font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .journey-step-edge {
@@ -347,4 +400,40 @@
 
 .react-flow__attribution {
     display: none;
+}
+
+.journey-step-action-preview {
+    background: var(--color-background-soft);
+    height: 200px;
+    width: 250px;
+    border-radius: var(--border-radius-inner);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.journey-step-action-preview-placeholder {
+    color: var(--color-grey);
+    font-weight: 500;
+}
+
+.journey-step-action-type {
+    background: var(--color-background-soft);
+    border-radius: var(--border-radius-inner);
+    padding: 5px;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.journey-step.entrance {
+    max-width: 325px;
+}
+
+.journey-step.entrance .references {
+    display: flex;
+    gap: 10px;
+    flex-direction: column;
 }

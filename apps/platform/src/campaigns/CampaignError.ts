@@ -1,4 +1,4 @@
-import { ErrorType } from '../core/errors'
+import { ErrorSet, ErrorType } from '../core/errors'
 
 export default {
     CampaignDoesNotExist: {
@@ -11,4 +11,9 @@ export default {
         code: 2001,
         statusCode: 400,
     },
-} as Record<string, ErrorType>
+    CampaignInvalidProvider: {
+        message: 'The provider for this campaign has been archived and can no longer be used.',
+        code: 2002,
+        statusCode: 400,
+    },
+} satisfies ErrorSet<ErrorType>

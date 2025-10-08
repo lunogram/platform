@@ -1,5 +1,6 @@
 import { add, differenceInMonths, differenceInYears, differenceInDays, differenceInHours, differenceInMinutes, sub, nextDay, Day, differenceInSeconds, set, formatISO } from 'date-fns'
 import { formatInTimeZone } from 'date-fns-tz'
+import { isOptions } from 'handlebars-utils'
 
 const baseDate = (date: Date | string): Date => {
     if (date === 'now') { return new Date() }
@@ -17,6 +18,7 @@ export const now = function(format = 'yyyy-MM-dd HH:mm:ss', timezone = 'UTC'): s
  * Format a date instance into the provided format.
  */
 export const dateFormat = function(date: Date | string, format: string, timezone = 'UTC'): string {
+    if (isOptions(timezone)) timezone = 'UTC'
     return formatInTimeZone(baseDate(date), timezone, format)
 }
 

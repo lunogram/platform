@@ -11,6 +11,7 @@ import Button from '../../ui/Button'
 import { PlusIcon } from '../../ui/icons'
 import { snakeToTitle } from '../../utils'
 import { useTranslation } from 'react-i18next'
+import SwitchField from '../../ui/form/SwitchField'
 
 export default function Subscriptions() {
     const { t } = useTranslation()
@@ -28,6 +29,11 @@ export default function Subscriptions() {
                         key: 'channel',
                         title: t('channel'),
                         cell: ({ item }) => snakeToTitle(item.channel),
+                    },
+                    {
+                        key: 'is_public',
+                        title: t('public'),
+                        cell: ({ item }) => item.is_public ? t('yes') : t('no'),
                     },
                 ]}
                 itemKey={({ item }) => item.id}
@@ -49,12 +55,12 @@ export default function Subscriptions() {
                 open={Boolean(editing)}
                 onClose={() => setEditing(null)}
             >
-                {editing && <FormWrapper<Pick<Subscription, 'id' | 'name' | 'channel'>>
-                    onSubmit={async ({ id, name, channel }) => {
+                {editing && <FormWrapper<Pick<Subscription, 'id' | 'name' | 'channel' | 'is_public'>>
+                    onSubmit={async ({ id, name, channel, is_public }) => {
                         if (id) {
-                            await api.subscriptions.update(project.id, id, { name })
+                            await api.subscriptions.update(project.id, id, { name, is_public })
                         } else {
-                            await api.subscriptions.create(project.id, { name, channel })
+                            await api.subscriptions.create(project.id, { name, channel, is_public })
                         }
                         await state.reload()
                         setEditing(null)
@@ -70,11 +76,17 @@ export default function Subscriptions() {
                                     required
                                     label={t('name')}
                                 />
+                                <SwitchField
+                                    form={form}
+                                    name="is_public"
+                                    subtitle={t('public_desc')}
+                                    label={t('public')}
+                                />
                                 {!editing.id && <SingleSelect.Field
                                     form={form}
                                     name="channel"
                                     label={t('channel')}
-                                    options={['email', 'push', 'text', 'webhook'].map((channel) => ({ key: channel, label: snakeToTitle(channel) }))}
+                                    options={['email', 'push', 'text', 'webhook', 'in_app'].map((channel) => ({ key: channel, label: snakeToTitle(channel) }))}
                                     toValue={x => x.key}
                                 />}
                             </>

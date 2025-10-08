@@ -7,7 +7,6 @@ import { extractQueryParams } from '../utilities'
 import { ProjectState } from '../auth/AuthMiddleware'
 import { projectRoleMiddleware } from '../projects/ProjectService'
 import { Context, Next } from 'koa'
-import CampaignTriggerSendJob, { CampaignTriggerSendParams } from './CampaignTriggerSendJob'
 
 const router = new Router<ProjectState & { campaign?: Campaign }>({
     prefix: '/campaigns',
@@ -33,7 +32,7 @@ router.get('/', async ctx => {
     ctx.body = await pagedCampaigns(params, ctx.state.project.id)
 })
 
-export const campaignCreateParams: JSONSchemaType<CampaignCreateParams> = {
+const campaignCreateParams: JSONSchemaType<CampaignCreateParams> = {
     $id: 'campaignCreate',
     type: 'object',
     required: ['type', 'subscription_id', 'provider_id'],
@@ -47,7 +46,7 @@ export const campaignCreateParams: JSONSchemaType<CampaignCreateParams> = {
         },
         channel: {
             type: 'string',
-            enum: ['email', 'text', 'push', 'webhook'],
+            enum: ['email', 'text', 'push', 'webhook', 'in_app'],
         },
         subscription_id: {
             type: 'integer',
@@ -87,7 +86,10 @@ export const campaignCreateParams: JSONSchemaType<CampaignCreateParams> = {
 
 router.post('/', async ctx => {
     const payload = validate(campaignCreateParams, ctx.request.body)
-    ctx.body = await createCampaign(ctx.state.project.id, payload)
+    ctx.body = await createCampaign(ctx.state.project.id, {
+        ...payload,
+        admin_id: ctx.state.admin?.id,
+    })
 })
 
 router.param('campaignId', checkCampaignId)
@@ -149,7 +151,10 @@ const campaignUpdateParams: JSONSchemaType<Partial<CampaignUpdateParams>> = {
 
 router.patch('/:campaignId', async ctx => {
     const payload = validate(campaignUpdateParams, ctx.request.body)
-    ctx.body = await updateCampaign(ctx.state.campaign!.id, ctx.state.project.id, payload)
+    ctx.body = await updateCampaign(ctx.state.campaign!.id, ctx.state.project.id, {
+        ...payload,
+        admin_id: ctx.state.admin?.id,
+    })
 })
 
 router.get('/:campaignId/users', async ctx => {
@@ -158,62 +163,21 @@ router.get('/:campaignId/users', async ctx => {
 })
 
 router.delete('/:campaignId', async ctx => {
-    const { id, project_id, deleted_at } = ctx.state.campaign!
-    if (deleted_at) {
-        await deleteCampaign(id, project_id)
+    const campaign = ctx.state.campaign!
+    if (campaign.deleted_at) {
+        await deleteCampaign(campaign, ctx.state.admin?.id)
     } else {
-        await archiveCampaign(id, project_id)
+        await archiveCampaign(campaign, ctx.state.admin?.id)
     }
     ctx.body = true
 })
 
 router.post('/:campaignId/duplicate', async ctx => {
-    ctx.body = await duplicateCampaign(ctx.state.campaign!)
+    ctx.body = await duplicateCampaign(ctx.state.campaign!, ctx.state.admin?.id)
 })
 
 router.get('/:campaignId/preview', async ctx => {
     ctx.body = await campaignPreview(ctx.state.project, ctx.state.campaign!)
-})
-
-type CampaignTriggerSchema = Omit<CampaignTriggerSendParams, 'project_id' | 'campaign_id'>
-
-const campaignTriggerParams: JSONSchemaType<CampaignTriggerSchema> = {
-    $id: 'campaignTrigger',
-    type: 'object',
-    required: ['user', 'event'],
-    properties: {
-        user: {
-            type: 'object',
-            required: ['external_id'],
-            properties: {
-                external_id: { type: 'string' },
-                email: { type: 'string', nullable: true },
-                phone: { type: 'string', nullable: true },
-                device_token: { type: 'string', nullable: true },
-                timezone: { type: 'string', nullable: true },
-                locale: { type: 'string', nullable: true },
-            },
-            additionalProperties: true,
-        },
-        event: {
-            type: 'object',
-            additionalProperties: true,
-        },
-    },
-    additionalProperties: false,
-}
-
-router.post('/:campaignId/trigger', async ctx => {
-    const project = ctx.state.project
-    const payload = validate(campaignTriggerParams, ctx.request.body)
-
-    await CampaignTriggerSendJob.from({
-        ...payload,
-        project_id: project.id,
-        campaign_id: ctx.state.campaign!.id,
-    }).queue()
-
-    ctx.body = { success: true }
 })
 
 export default router

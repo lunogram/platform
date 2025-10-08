@@ -4,6 +4,7 @@ interface JobOptions {
     delay?: number // Milliseconds
     attempts?: number
     jobId?: string
+    deduplication?: { id: string }
 }
 
 interface JobState {
@@ -19,7 +20,11 @@ export interface EncodedJob {
 }
 
 export class JobError extends Error {}
-export class RetryError extends JobError {}
+export class RetryError extends JobError {
+    constructor() {
+        super('RetryError')
+    }
+}
 
 export const JobPriority = {
     none: 0,
@@ -65,7 +70,7 @@ export default class Job implements EncodedJob {
         return this.$static.handler(this.data, this)
     }
 
-    constructor(data: any) {
+    constructor(data: any = {}) {
         this.data = data
     }
 
@@ -76,6 +81,11 @@ export default class Job implements EncodedJob {
 
     jobId(id: string) {
         this.options.jobId = id
+        return this
+    }
+
+    deduplicationKey(key: string) {
+        this.options.deduplication = { id: key }
         return this
     }
 

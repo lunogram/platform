@@ -143,16 +143,25 @@ export default class LocalPushProvider extends PushProvider {
         })
 
         const invalidTokens = []
+        let firstError: { error: Error, message: string | undefined } | undefined
+        let successCount = 0
         for (const method of response) {
+            successCount += method.success
             if (method.failure <= 0) continue
             for (const push of method.message) {
                 if (push.error) {
                     invalidTokens.push(push.regId)
+                    if (!firstError && push.error) {
+                        firstError = {
+                            error: push.error,
+                            message: push.errorMsg,
+                        }
+                    }
                 }
             }
         }
 
-        if (response[0].failure > 0 && response[0].success <= 0) {
+        if (firstError && successCount <= 0) {
             throw new PushError('local', response[0].message[0].errorMsg, invalidTokens)
         } else {
             return {
@@ -160,6 +169,7 @@ export default class LocalPushProvider extends PushProvider {
                 success: true,
                 response: response[0].message[0].messageId,
                 invalidTokens,
+                count: tokens.length - invalidTokens.length,
             }
         }
     }

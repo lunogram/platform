@@ -1,4 +1,4 @@
-import { isRouteErrorResponse, Navigate, useNavigate, useRouteError } from 'react-router-dom'
+import { isRouteErrorResponse, Navigate, useNavigate, useRouteError } from 'react-router'
 import Alert, { AlertProps } from '../ui/Alert'
 import Button from '../ui/Button'
 import './ErrorPage.css'
@@ -45,7 +45,7 @@ export default function ErrorPage({ status = 500 }: { status?: number }) {
                 variant="plain"
                 title="Looks Like You're Lost!"
                 actions={
-                    <Button onClick={() => navigate('/')}>
+                    <Button onClick={async () => { await navigate('/') }}>
                         Go Back
                     </Button>
                 }

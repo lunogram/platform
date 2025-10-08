@@ -58,3 +58,9 @@
     width: 12px;
     height: 12px;
 }
+
+.ui-tag-list {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}

@@ -1,4 +1,4 @@
-import Job from '../../queue/Job'
+import Job, { RetryError } from '../../queue/Job'
 import { MessageTrigger } from '../MessageTrigger'
 import { updateSendState } from '../../campaigns/CampaignService'
 import { loadEmailChannel } from './index'
@@ -7,6 +7,7 @@ import { EmailTemplate } from '../../render/Template'
 import { EncodedJob } from '../../queue'
 import App from '../../app'
 import { releaseLock } from '../../core/Lock'
+import { RateLimitEmailError } from './EmailError'
 
 export default class EmailJob extends Job {
     static $name = 'email'
@@ -42,6 +43,11 @@ export default class EmailJob extends Job {
             const result = await channel.send(template, data)
             await finalizeSend(data, result)
         } catch (error: any) {
+
+            // If its a rate limit error, lets re-add to the queue to retry later
+            if (error instanceof RateLimitEmailError) {
+                throw new RetryError()
+            }
             await failSend(data, error)
         } finally {
             await releaseLock(messageLock(campaign, user))

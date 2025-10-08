@@ -1,5 +1,5 @@
 import { JSONSchemaType } from 'ajv'
-import { BaseModel } from './Model'
+import { RawModel } from './Model'
 
 export interface PageParams {
     limit: number
@@ -13,7 +13,7 @@ export interface PageParams {
     id?: number[]
 }
 
-export interface PageQueryParams<T extends typeof BaseModel> extends PageParams {
+export interface PageQueryParams<T extends typeof RawModel> extends PageParams {
     fields?: Array<keyof InstanceType<T> | string>
     mode?: 'exact' | 'partial'
 }

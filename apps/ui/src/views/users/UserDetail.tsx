@@ -2,12 +2,11 @@ import { useContext } from 'react'
 import { ProjectContext, UserContext } from '../../contexts'
 import PageContent from '../../ui/PageContent'
 import { NavigationTabs } from '../../ui/Tabs'
-import { Outlet } from 'react-router'
+import { Outlet, useNavigate } from 'react-router'
 import { InfoTable } from '../../ui/InfoTable'
 import { Button } from '../../ui'
 import { TrashIcon } from '../../ui/icons'
 import api from '../../api'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 export default function UserDetail() {
@@ -20,7 +19,7 @@ export default function UserDetail() {
     const deleteUser = async () => {
         if (confirm(t('delete_user_confirmation'))) {
             await api.users.delete(project.id, id)
-            navigate(`/projects/${project.id}/users`)
+            await navigate(`/projects/${project.id}/users`)
         }
     }
 
@@ -52,11 +51,6 @@ export default function UserDetail() {
                     key: 'events',
                     to: 'events',
                     children: t('events'),
-                },
-                {
-                    key: 'lists',
-                    to: 'lists',
-                    children: t('lists'),
                 },
                 {
                     key: 'subscriptions',

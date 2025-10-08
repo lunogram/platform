@@ -5,7 +5,8 @@ import ListStatsJob from '../lists/ListStatsJob'
 import { RequestError } from '../core/errors'
 import App from '../app'
 import { Chunker } from '../utilities'
-import { getList } from '../lists/ListService'
+import { getList, updateListState } from '../lists/ListService'
+import UserDeleteJob from './UserDeleteJob'
 
 export interface UserImport {
     project_id: number
@@ -17,6 +18,8 @@ export const importUsers = async ({ project_id, stream, list_id }: UserImport) =
 
     const list = await getList(list_id, project_id)
     if (!list) return
+
+    await updateListState(list_id, { state: 'loading' })
 
     const options: Options = {
         columns: true,
@@ -55,9 +58,38 @@ export const importUsers = async ({ project_id, stream, list_id }: UserImport) =
     await chunker.flush()
 
     // Generate preliminary list count
-    if (list_id) {
-        await ListStatsJob.from(list_id, project_id, true).delay(2000).queue()
+    await ListStatsJob.from(list_id, project_id).delay(2000).queue()
+
+    await updateListState(list_id, { state: 'ready' })
+}
+
+export interface UserRemoval {
+    project_id: number
+    stream: FileStream
+}
+
+export const removeUsers = async ({ project_id, stream }: UserRemoval) => {
+    const options: Options = {
+        columns: true,
+        cast: true,
+        skip_empty_lines: true,
+        bom: true,
     }
+
+    const chunker = new Chunker<UserDeleteJob>(
+        items => App.main.queue.enqueueBatch(items),
+        App.main.queue.batchSize,
+    )
+    const parser = stream.file.pipe(parse(options))
+    for await (const row of parser) {
+        const { external_id } = cleanRow(row)
+        if (!external_id) throw new RequestError('Every upload must only contain a column `external_id` which contains the identifier for that user.')
+        await chunker.add(UserDeleteJob.from({
+            project_id,
+            external_id: `${external_id}`,
+        }))
+    }
+    await chunker.flush()
 }
 
 const cleanRow = (row: Record<string, any>): Record<string, any> => {

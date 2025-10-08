@@ -3,16 +3,22 @@ import { Database } from '../config/database'
 import { RequestError } from '../core/errors'
 import { PageParams } from '../core/searchParams'
 import Journey, { JourneyParams, UpdateJourneyParams } from './Journey'
-import { JourneyStep, JourneyEntrance, JourneyUserStep, JourneyStepMap, toJourneyStepMap, JourneyStepChild } from './JourneyStep'
+import { JourneyStep, JourneyEntrance, JourneyStepMap, toJourneyStepMap, JourneyStepChild, journeyStepTypes } from './JourneyStep'
+import JourneyUserStep from './JourneyUserStep'
 import { createTagSubquery, getTags, setTags } from '../tags/TagService'
 import { User } from '../users/User'
 import { getProject } from '../projects/ProjectService'
+import { duplicateJourney } from './JourneyService'
+import { subSeconds } from 'date-fns'
+import { JourneyState } from './JourneyState'
 
 export const pagedJourneys = async (params: PageParams, projectId: number) => {
     const result = await Journey.search(
         { ...params, fields: ['name'] },
         qb => {
-            qb.where({ project_id: projectId }).whereNull('deleted_at')
+            qb.where({ project_id: projectId })
+                .whereNull('deleted_at')
+                .whereNull('parent_id')
             if (params.tag?.length) qb.whereIn('id', createTagSubquery(Journey, projectId, params.tag))
             return qb
         },
@@ -27,7 +33,11 @@ export const pagedJourneys = async (params: PageParams, projectId: number) => {
 }
 
 export const allJourneys = async (projectId: number): Promise<Journey[]> => {
-    return await Journey.all(qb => qb.where('project_id', projectId))
+    return await Journey.all(qb => qb
+        .where('project_id', projectId)
+        .whereNull('parent_id')
+        .whereNull('deleted_at'),
+    )
 }
 
 export const createJourney = async (projectId: number, { tags, ...params }: JourneyParams): Promise<Journey> => {
@@ -35,10 +45,11 @@ export const createJourney = async (projectId: number, { tags, ...params }: Jour
 
         const journey = await Journey.insertAndFetch({
             ...params,
+            status: 'draft',
             project_id: projectId,
         }, trx)
 
-        // auto-create entrance step
+        // Auto-create entrance step
         await JourneyEntrance.create(journey.id, undefined, trx)
 
         if (tags?.length) {
@@ -58,6 +69,7 @@ export const getJourney = async (id: number, projectId: number): Promise<Journey
     const journey = await Journey.find(id, qb => qb.where('project_id', projectId))
     if (!journey) throw new RequestError('Journey not found', 404)
     journey.tags = await getTags(Journey.tableName, [journey.id]).then(m => m.get(journey.id)) ?? []
+    journey.draft_id = await getDraftJourneyId(journey.id, projectId)
     return journey
 }
 
@@ -83,7 +95,33 @@ export const deleteJourney = async (id: number, projectId: number): Promise<void
 }
 
 export const archiveJourney = async (id: number, projectId: number): Promise<void> => {
-    await Journey.archive(id, qb => qb.where('project_id', projectId), { published: false })
+    await Journey.archive(id, qb => qb.where('project_id', projectId), { status: 'off', deleted_at: new Date() })
+    await Journey.update(qb => qb.where('parent_id', id).where('project_id', projectId), { deleted_at: new Date() })
+}
+
+export const publishJourney = async (journey: Journey): Promise<void> => {
+    // If we are dealing with a draft, utilize it otherwise create
+    // a new draft for state management
+    const parent = journey.parent_id
+        ? await getJourney(journey.parent_id, journey.project_id)
+        : await duplicateJourney(journey, true)
+
+    // Set the parent step map to match the draft journey
+    const steps = await getJourneyStepMap(journey.id)
+    await setJourneyStepMap(parent, steps)
+
+    await Journey.update(qb => qb.whereIn('id', [journey.id, parent.id]), {
+        status: 'live',
+    })
+}
+
+export const getDraftJourneyId = async (journeyId: number, projectId: number): Promise<number | undefined> => {
+    const journey = await Journey.first(qb => qb.where('parent_id', journeyId)
+        .where('project_id', projectId)
+        .where('status', 'draft')
+        .orderBy('id', 'desc'),
+    )
+    return journey?.id
 }
 
 export const getJourneySteps = async (journeyId: number, db?: Database): Promise<JourneyStep[]> => {
@@ -98,6 +136,16 @@ export const getJourneyStepChildren = async (journeyId: number, db?: Database): 
             .orderBy('id', 'asc'),
         db,
     )
+}
+
+export const getJourneyStepMapForUI = async (journey: Journey) => {
+    const map = await getJourneyStepMap(journey.id)
+    for (const key of Object.keys(map)) {
+        const step = map[key]
+        const type = journeyStepTypes[step.type]
+        map[key] = await type.hydrate(step, journey)
+    }
+    return map
 }
 
 export const getJourneyStepMap = async (journeyId: number) => {
@@ -286,7 +334,7 @@ export const pagedUsersByStep = async (stepId: number, params: PageParams) => {
 
 export const getEntranceLog = async (entranceId: number) => {
     const userSteps = await JourneyUserStep.all(q => q
-        .where(function() {
+        .where(function () {
             return this.where('id', entranceId).orWhere('entrance_id', entranceId)
         })
         .orderBy('id', 'asc'),
@@ -316,6 +364,16 @@ export const exitUserFromJourney = async (userId: number, entranceId: number, jo
             .where('id', entranceId)
             .whereNull('ended_at')
             .where('journey_id', journeyId),
-        { ended_at: new Date() },
+        { ended_at: new Date(), delay_until: null, type: 'completed' },
     )
+}
+
+export const skipDelayStep = async (userStepId: number) => {
+    const step = await JourneyUserStep.find(userStepId)
+    if (!step || !step.entrance_id) return
+    await JourneyUserStep.update(
+        q => q.where('id', step.id),
+        { delay_until: subSeconds(Date.now(), 1) },
+    )
+    await JourneyState.resume(step.entrance_id)
 }

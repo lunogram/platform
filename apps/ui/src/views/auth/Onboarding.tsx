@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet } from 'react-router'
 import './Auth.css'
 import { ReactComponent as Logo } from '../../assets/logo.svg'
 

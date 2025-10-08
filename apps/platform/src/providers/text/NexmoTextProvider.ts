@@ -80,7 +80,7 @@ export default class NexmoTextProvider extends TextProvider {
     }
 
     // https://developer.vonage.com/messaging/sms/guides/inbound-sms
-    parseInbound(inbound: any): InboundTextMessage {
+    parseInbound(inbound: any): InboundTextMessage | undefined {
         return {
             to: inbound.to,
             from: inbound.msisdn,

@@ -45,10 +45,14 @@ export default class TextChannel {
         // Check to see if its the first users message, if so include
         // the opt out message
         if (!variables.user.id) return compiled
+
+        // TODO: See if we can move this to ClickHouse
         const hasReceivedOptOut = await UserEvent.exists(qb => qb.where({
+            project_id: variables.project.id,
             user_id: variables.user.id,
             name: 'text_sent',
         }))
+
         if (!hasReceivedOptOut && variables.project.text_opt_out_message) {
             compiled.text += `\n${variables.project.text_opt_out_message}`
         }
@@ -61,7 +65,7 @@ export default class TextChannel {
         return Math.ceil(text.length / TEXT_SEGMENT_LENGTH)
     }
 
-    parseInbound(body: any): InboundTextMessage {
+    parseInbound(body: any): InboundTextMessage | undefined {
         return this.provider.parseInbound(body)
     }
 }

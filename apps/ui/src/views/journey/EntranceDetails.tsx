@@ -1,7 +1,7 @@
 import { DataTable, PageContent, Tag } from '../../ui'
 import { TagProps } from '../../ui/Tag'
 import { camelToTitle, formatDate } from '../../utils'
-import { useLoaderData } from 'react-router-dom'
+import { useLoaderData } from 'react-router'
 import { JourneyEntranceDetail } from '../../types'
 import { useContext } from 'react'
 import { PreferencesContext } from '../../ui/PreferencesContext'
@@ -23,14 +23,15 @@ export default function EntranceDetails() {
     const { t } = useTranslation()
     const [preferences] = useContext(PreferencesContext)
 
-    const { journey, user, userSteps } = useLoaderData() as JourneyEntranceDetail
+    const { journey, user, userSteps } = useLoaderData<JourneyEntranceDetail>()
 
     const entrance = userSteps[0]
     const error = userSteps.find(s => s.type === 'error')
+    const displayName = user.full_name ?? user.email ?? user.phone ?? user.id
 
     return (
         <PageContent
-            title={`${user.full_name} - ${journey.name}`}
+            title={`${displayName} - ${journey.name}`}
             desc={
                 <>
                     <Tag variant={error ? 'error' : entrance.ended_at ? 'success' : 'info'}>

@@ -1,65 +1,96 @@
 import { subDays } from 'date-fns'
-import { check, make } from '../RuleEngine'
+import { check, make, getRuleQuery } from '../RuleEngine'
 
 describe('RuleEngine', () => {
     describe('wrapper', () => {
-        test('event name match', () => {
-            const id = 'abcd'
-            const name = 'Account Created'
-            const input = {
-                user: {
-                    id,
-                },
-                events: [
-                    {
-                        name,
-                    },
-                ],
+        describe('event name match', () => {
+            const setup = () => {
+                const id = 'abcd'
+                const name = 'Account Created'
+                const rule = make({
+                    type: 'wrapper',
+                    operator: 'and',
+                    children: [
+                        // match user id
+                        make({
+                            type: 'string',
+                            operator: '=',
+                            path: 'id',
+                            value: id,
+                        }),
+                        // this should make if the user has done this event ever
+                        make({
+                            type: 'wrapper',
+                            group: 'event',
+                            path: 'name',
+                            value: name,
+                            operator: 'and',
+                        }),
+                    ],
+                })
+                return { id, name, rule }
             }
-            const shouldPass = check(input, make({
-                type: 'wrapper',
-                operator: 'and',
-                children: [
-                    // match user id
-                    make({
-                        type: 'string',
-                        operator: '=',
-                        path: 'id',
-                        value: id,
-                    }),
-                    // this should make if the user has done this event ever
-                    make({
-                        type: 'wrapper',
-                        group: 'event',
-                        path: 'name',
-                        value: name,
-                    }),
-                ],
-            }))
-            expect(shouldPass).toBeTruthy()
+
+            test('check', () => {
+                const { id, name, rule } = setup()
+                const input = {
+                    user: {
+                        id,
+                    },
+                    events: [
+                        {
+                            name,
+                        },
+                    ],
+                }
+                const shouldPass = check(input, rule)
+                expect(shouldPass).toBeTruthy()
+            })
+
+            test('query', () => {
+                const { rule } = setup()
+                const result = getRuleQuery(1, rule)
+                expect(result).toMatchSnapshot()
+            })
         })
     })
 
     describe('string', () => {
-        test('equals', () => {
-            const email = 'test@test.com'
-            const shouldPass = check(
-                {
-                    user: {
-                        id: 'abcd',
-                        email,
-                        name: 'Name',
+        describe('equals', () => {
+            test('check', () => {
+                const email = 'test@test.com'
+                const shouldPass = check(
+                    {
+                        user: {
+                            id: 'abcd',
+                            email,
+                            name: 'Name',
+                        },
+                        events: [],
                     },
-                    events: [],
-                },
-                make({
-                    type: 'string',
-                    operator: '=',
-                    path: 'email',
-                    value: email,
-                }),
-            )
-            expect(shouldPass).toBeTruthy()
+                    make({
+                        type: 'string',
+                        operator: '=',
+                        path: 'email',
+                        value: email,
+                    }),
+                )
+                expect(shouldPass).toBeTruthy()
+            })
+
+            test('query', () => {
+                const email = 'test@test.com'
+                const query = getRuleQuery(
+                    1,
+                    make({
+                        type: 'string',
+                        operator: '=',
+                        path: 'email',
+                        value: email,
+                    }),
+                )
+                expect(query).toMatchSnapshot()
+            })
         })
 
         test('does not equals', () => {
@@ -78,19 +109,29 @@ describe('RuleEngine', () => {
             expect(shouldPass).toBeFalsy()
         })
 
-        test('is set', () => {
-            const shouldPass = check(
-                {
-                    user: {
-                        id: 'abcd',
-                        email: 'test@test.com',
-                        name: 'Name',
+        describe('is set', () => {
+            test('check', () => {
+                const shouldPass = check(
+                    {
+                        user: {
+                            id: 'abcd',
+                            email: 'test@test.com',
+                            name: 'Name',
+                        },
+                        events: [],
                     },
-                    events: [],
-                },
-                make({ type: 'string', path: '$.project', operator: 'is set' }),
-            )
-            expect(shouldPass).toBeFalsy()
+                    make({ type: 'string', path: '$.project', operator: 'is set' }),
+                )
+                expect(shouldPass).toBeFalsy()
+            })
+
+            test('query', () => {
+                const query = getRuleQuery(
+                    1,
+                    make({ type: 'string', path: '$.project', operator: 'is set' }),
+                )
+                expect(query).toMatchSnapshot()
+            })
         })
     })
 
@@ -143,72 +184,189 @@ describe('RuleEngine', () => {
     })
 
     describe('multiple', () => {
-        test('combination event and user and types', () => {
-            const shouldPass = check(
-                {
-                    user: {
-                        id: 'abcd',
-                        email: 'test@test.com',
-                        name: 'Name',
-                        project: 'Parcelvoy',
-                    },
-                    events: [
-                        {
-                            name: 'beat-game',
-                            score: {
-                                total: 5,
-                                isRecord: true,
-                            },
-                        },
+        describe('combination event and user and types', () => {
+            const rules = [
+                make({ type: 'string', path: '$.project', operator: 'is set' }),
+                make({
+                    type: 'wrapper',
+                    group: 'event',
+                    path: 'name',
+                    value: 'beat-game',
+                    operator: 'and',
+                    children: [
+                        make({
+                            type: 'number',
+                            path: 'score.total',
+                            operator: '<=',
+                            value: '5',
+                        }),
+                        make({
+                            type: 'boolean',
+                            path: 'score.isRecord',
+                        }),
                     ],
-                },
-                [
-                    make({ type: 'string', path: '$.project', operator: 'is set' }),
-                    make({
-                        type: 'wrapper',
-                        group: 'event',
-                        path: 'name',
-                        value: 'beat-game',
-                        operator: 'and',
-                        children: [
-                            make({
-                                type: 'number',
-                                path: 'score.total',
-                                operator: '<=',
-                                value: '5',
-                            }),
-                            make({
-                                type: 'boolean',
-                                path: 'score.isRecord',
-                            }),
+                }),
+            ]
+
+            test('check', () => {
+                const shouldPass = check(
+                    {
+                        user: {
+                            id: 'abcd',
+                            email: 'test@test.com',
+                            name: 'Name',
+                            project: 'Parcelvoy',
+                        },
+                        events: [
+                            {
+                                name: 'beat-game',
+                                score: {
+                                    total: 5,
+                                    isRecord: true,
+                                },
+                            },
                         ],
-                    }),
-                ],
-            )
-            expect(shouldPass).toBeTruthy()
+                    },
+                    rules,
+                )
+                expect(shouldPass).toBeTruthy()
+            })
+
+            test('query', () => {
+                const result = getRuleQuery(1, rules)
+                expect(result).toMatchSnapshot()
+            })
         })
 
-        test('combination of conditional clauses on rules', () => {
-            const shouldPass = check(
-                {
-                    user: {
-                        id: 'abcd',
-                        email: 'test@test.com',
-                        name: 'Name',
-                        project: 'Parcelvoy',
-                    },
-                    events: [
-                        {
-                            name: 'beat-game',
-                            score: {
-                                total: 5,
-                                isRecord: true,
-                            },
-                        },
+        describe('combination of conditional clauses on rules', () => {
+            const rules = [
+                make({ type: 'string', path: '$.project', operator: 'is set' }),
+                make({
+                    group: 'event',
+                    path: 'name',
+                    value: 'beat-game',
+                    type: 'wrapper',
+                    operator: 'or',
+                    children: [
+                        make({ type: 'number', path: 'score.total', operator: '<', value: 5 }),
+                        make({ type: 'boolean', path: 'score.isRecord', value: true }),
                     ],
-                },
-                [
-                    make({ type: 'string', path: '$.project', operator: 'is set' }),
+                }),
+            ]
+
+            test('check', () => {
+                const shouldPass = check(
+                    {
+                        user: {
+                            id: 'abcd',
+                            email: 'test@test.com',
+                            name: 'Name',
+                            project: 'Parcelvoy',
+                        },
+                        events: [
+                            {
+                                name: 'beat-game',
+                                score: {
+                                    total: 5,
+                                    isRecord: true,
+                                },
+                            },
+                        ],
+                    },
+                    rules,
+                )
+                expect(shouldPass).toBeTruthy()
+            })
+
+            test('query', () => {
+                const result = getRuleQuery(1, rules)
+                expect(result).toMatchSnapshot()
+            })
+        })
+    })
+
+    describe('time bound event rules', () => {
+        describe('check', () => {
+            const rules = [
+                make({
+                    group: 'event',
+                    path: 'name',
+                    value: 'beat-game',
+                    type: 'wrapper',
+                    operator: 'or',
+                    children: [
+                        make({ type: 'number', path: 'score.total', operator: '<', value: 5 }),
+                        make({ type: 'boolean', path: 'score.isRecord', value: true }),
+                    ],
+                    frequency: {
+                        period: {
+                            unit: 'day',
+                            value: 7,
+                            type: 'rolling',
+                        },
+                        count: 2,
+                        operator: '>=',
+                    },
+                }),
+            ]
+
+            test('if occured more than number of times in period true', () => {
+                const shouldPass = check(
+                    {
+                        user: {
+                            id: 'abcd',
+                            email: 'test@test.com',
+                            name: 'Name',
+                            project: 'Parcelvoy',
+                        },
+                        events: [
+                            {
+                                name: 'beat-game',
+                                score: {
+                                    total: 5,
+                                    isRecord: true,
+                                },
+                            },
+                            {
+                                name: 'beat-game',
+                                score: {
+                                    total: 5,
+                                    isRecord: true,
+                                },
+                            },
+                        ],
+                    },
+                    rules,
+                )
+                expect(shouldPass).toBeTruthy()
+            })
+
+            test('if occured less than number of times in period false', () => {
+                const shouldPass = check(
+                    {
+                        user: {
+                            id: 'abcd',
+                            email: 'test@test.com',
+                            name: 'Name',
+                            project: 'Parcelvoy',
+                        },
+                        events: [
+                            {
+                                name: 'beat-game',
+                                score: {
+                                    total: 5,
+                                    isRecord: true,
+                                },
+                            },
+                        ],
+                    },
+                    rules,
+                )
+                expect(shouldPass).toBeFalsy()
+            })
+
+            test('if operator is less than ensure we dont break early', () => {
+                const rules = [
                     make({
                         group: 'event',
                         path: 'name',
@@ -219,10 +377,46 @@ describe('RuleEngine', () => {
                             make({ type: 'number', path: 'score.total', operator: '<', value: 5 }),
                             make({ type: 'boolean', path: 'score.isRecord', value: true }),
                         ],
+                        frequency: {
+                            period: {
+                                unit: 'day',
+                                value: 7,
+                                type: 'rolling',
+                            },
+                            count: 1,
+                            operator: '<=',
+                        },
                     }),
-                ],
-            )
-            expect(shouldPass).toBeTruthy()
+                ]
+                const shouldPass = check(
+                    {
+                        user: {
+                            id: 'abcd',
+                            email: 'test@test.com',
+                            name: 'Name',
+                            project: 'Parcelvoy',
+                        },
+                        events: [
+                            {
+                                name: 'beat-game',
+                                score: {
+                                    total: 5,
+                                    isRecord: true,
+                                },
+                            },
+                            {
+                                name: 'beat-game',
+                                score: {
+                                    total: 5,
+                                    isRecord: true,
+                                },
+                            },
+                        ],
+                    },
+                    rules,
+                )
+                expect(shouldPass).toBeFalsy()
+            })
         })
     })
 })

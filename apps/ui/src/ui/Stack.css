@@ -4,8 +4,10 @@
     flex-direction: row;
     gap: var(--spacing);
     margin-bottom: var(--spacing);
+    flex-wrap: wrap;
 }
 
 .ui-stack.ui-stack-vertical {
     flex-direction: column;
+    flex-wrap: nowrap;
 }

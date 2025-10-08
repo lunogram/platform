@@ -13,7 +13,7 @@ export type TextProviderName = 'nexmo' | 'plivo' | 'twilio' | 'logger'
 
 export abstract class TextProvider extends Provider {
     abstract send(message: TextMessage): Promise<TextResponse>
-    abstract parseInbound(inbound: any): InboundTextMessage
+    abstract parseInbound(inbound: any): InboundTextMessage | undefined
 
     static get group() { return 'text' as ProviderGroup }
 
@@ -27,7 +27,14 @@ export abstract class TextProvider extends Provider {
             const channel = await loadTextChannel(provider.id)
             const project = await getProject(provider.project_id)
             const message = channel?.provider.parseInbound(ctx.request.body)
-            if (!channel || !project || !message) ctx.throw(404)
+            if (!channel || !project) ctx.throw(404)
+
+            // If undefined message, we can't parse the body but don't want to
+            // keep getting the request
+            if (!message) {
+                ctx.status = 204
+                return
+            }
 
             // Find the user from the inbound text message
             const user = await getUserFromPhone(provider.project_id, message.from)

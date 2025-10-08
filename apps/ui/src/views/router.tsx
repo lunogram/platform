@@ -1,4 +1,4 @@
-import { createBrowserRouter, Outlet, redirect, RouteObject, useNavigate, useParams } from 'react-router-dom'
+import { createBrowserRouter, Outlet, redirect, RouteObject, useNavigate, useParams } from 'react-router'
 import api from '../api'
 
 import ErrorPage from './ErrorPage'
@@ -16,7 +16,6 @@ import UserDetail from './users/UserDetail'
 import { createStatefulRoute } from './createStatefulRoute'
 import UserDetailAttrs from './users/UserDetailAttrs'
 import UserDetailEvents from './users/UserDetailEvents'
-import UserDetailLists from './users/UserDetailLists'
 import UserDetailSubscriptions from './users/UserDetailSubscriptions'
 import CampaignDetail from './campaign/CampaignDetail'
 import Campaigns from './campaign/Campaigns'
@@ -47,6 +46,7 @@ import UserDetailJourneys from './users/UserDetailJourneys'
 import EntranceDetails from './journey/EntranceDetails'
 import { Translation } from 'react-i18next'
 import Organization from './organization/Organization'
+import DataSchema from './settings/DataSchema'
 
 export const useRoute = (includeProject = true) => {
     const { projectId = '' } = useParams()
@@ -57,7 +57,9 @@ export const useRoute = (includeProject = true) => {
     }
     return (path: string) => {
         parts.push(path)
-        navigate('/' + parts.join('/'))
+        navigate('/' + parts.join('/'))?.catch(e => {
+            console.error('Failed to navigate to:', e)
+        })
     }
 }
 
@@ -194,7 +196,11 @@ export const createRouter = ({
                 children: [
                     {
                         index: true,
-                        loader: async () => {
+                        loader: async ({ params: { projectId = '' } }) => {
+                            const project = await api.projects.get(projectId)
+                            if (project.role === 'support') {
+                                return redirect(`/projects/${project.id}/users`)
+                            }
                             return redirect('campaigns')
                         },
                     },
@@ -231,7 +237,7 @@ export const createRouter = ({
                         path: 'campaigns/:entityId/editor',
                         apiPath: api.campaigns,
                         context: CampaignContext,
-                        element: (<EmailEditor />),
+                        element: <EmailEditor />,
                     }),
                     createStatefulRoute({
                         path: 'journeys',
@@ -274,10 +280,6 @@ export const createRouter = ({
                                 element: <UserDetailEvents />,
                             },
                             {
-                                path: 'lists',
-                                element: <UserDetailLists />,
-                            },
-                            {
                                 path: 'subscriptions',
                                 element: <UserDetailSubscriptions />,
                             },
@@ -318,6 +320,10 @@ export const createRouter = ({
                             {
                                 path: 'locales',
                                 element: <Locales />,
+                            },
+                            {
+                                path: 'data',
+                                element: <DataSchema />,
                             },
                             {
                                 path: 'api-keys',

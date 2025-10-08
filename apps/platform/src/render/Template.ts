@@ -1,15 +1,18 @@
-import Render, { Variables, Wrap } from '.'
-import { Webhook } from '../providers/webhook/Webhook'
+import { htmlToText } from 'html-to-text'
+import Render, { RenderObject, Variables, Wrap } from '.'
 import { ChannelType } from '../config/channels'
 import Model, { ModelParams } from '../core/Model'
 import { isValid, IsValidSchema } from '../core/validate'
+import { NotificationContent } from '../notifications/Notification'
 import { Email, NamedEmail } from '../providers/email/Email'
-import { htmlToText } from 'html-to-text'
+import { BasePush } from '../providers/push/Push'
+import { Webhook } from '../providers/webhook/Webhook'
 import { paramsToEncodedLink } from './LinkService'
 
 export default class Template extends Model {
     project_id!: number
     campaign_id!: number
+    name?: string
     type!: ChannelType
     data!: Record<string, any>
     locale!: string
@@ -26,6 +29,8 @@ export default class Template extends Model {
             return TextTemplate.fromJson(json)
         } else if (this.type === 'push') {
             return PushTemplate.fromJson(json)
+        } else if (this.type === 'in_app') {
+            return InAppTemplate.fromJson(json)
         }
         return WebhookTemplate.fromJson(json)
     }
@@ -44,8 +49,8 @@ export default class Template extends Model {
 }
 
 export type TemplateParams = Omit<Template, ModelParams | 'map' | 'screenshotUrl' | 'validate' | 'requiredErrors'>
-export type TemplateUpdateParams = Pick<Template, 'type' | 'data'>
-export type TemplateType = EmailTemplate | TextTemplate | PushTemplate | WebhookTemplate
+export type TemplateUpdateParams = Pick<Template, 'type' | 'name' | 'data'>
+export type TemplateType = EmailTemplate | TextTemplate | PushTemplate | WebhookTemplate | InAppTemplate
 
 type CompiledEmail = Omit<Email, 'to' | 'headers'> & { preheader?: string }
 
@@ -113,7 +118,7 @@ export class EmailTemplate extends Template {
                     required: ['address'],
                     properties: {
                         name: { type: 'string', nullable: true },
-                        address: { type: 'string' },
+                        address: { type: 'string', format: 'email' },
                     },
                 },
                 subject: { type: 'string' },
@@ -160,44 +165,36 @@ export class TextTemplate extends Template {
     }
 }
 
-export interface CompiledPush {
-    title: string
-    topic: string
-    body: string
-    custom: Record<string, any>
-}
-
 export class PushTemplate extends Template {
     declare type: 'push'
     title!: string
-    topic!: string
     body!: string
-    url!: string
+    url?: string
+    silent!: boolean
     custom!: Record<string, any>
 
     parseJson(json: any) {
         super.parseJson(json)
 
         this.title = json?.data.title
-        this.topic = json?.data.topic
         this.body = json?.data.body
         this.url = json?.data.url
+        this.silent = json?.data.silent ?? false
         this.custom = json?.data.custom ?? {}
     }
 
-    compile(variables: Variables): CompiledPush {
-        const custom = Object.keys(this.custom).reduce((body, key) => {
-            body[key] = Render(this.custom[key], variables)
-            return body
-        }, {} as Record<string, any>)
-
+    compile(variables: Variables): BasePush {
+        const custom = RenderObject(this.custom, variables)
         const url = this.compileUrl(variables)
 
         return {
-            topic: this.topic,
             title: Render(this.title, variables),
             body: Render(this.body, variables),
-            custom: { ...custom, url },
+            silent: this.silent,
+            custom: {
+                ...custom,
+                ...url ? { url } : {},
+            },
         }
     }
 
@@ -223,16 +220,15 @@ export class PushTemplate extends Template {
     validate() {
         return isValid({
             type: 'object',
-            required: ['title', 'topic', 'body'],
+            required: ['title', 'body'],
             properties: {
                 title: { type: 'string' },
-                topic: { type: 'string' },
                 body: { type: 'string' },
                 url: { type: 'string', nullable: true },
             },
             additionalProperties: true,
             errorMessage: {
-                required: this.requiredErrors('title', 'topic', 'body'),
+                required: this.requiredErrors('title', 'body'),
             },
         }, this.data)
     }
@@ -244,6 +240,7 @@ export class WebhookTemplate extends Template {
     endpoint!: string
     body!: Record<string, any>
     headers: Record<string, string> = {}
+    cacheKey?: string
 
     parseJson(json: any) {
         super.parseJson(json)
@@ -252,26 +249,26 @@ export class WebhookTemplate extends Template {
         this.endpoint = json?.data.endpoint
         this.body = json?.data.body
         this.headers = json?.data.headers || {}
+        this.cacheKey = json?.data.cache_key
     }
 
     compile(variables: Variables): Webhook {
-        const headers = Object.keys(this.headers ?? {}).reduce((headers, key) => {
-            headers[key] = Render(this.headers[key], variables)
-            return headers
-        }, {} as Record<string, string>)
-
-        const body = Object.keys(this.body ?? {}).reduce((body, key) => {
-            body[key] = Render(this.body[key], variables)
-            return body
-        }, {} as Record<string, any>)
+        const headers = RenderObject(this.headers, variables)
+        const body = ['POST', 'PATCH', 'PUT'].includes(this.method)
+            ? RenderObject(this.body, variables)
+            : undefined
 
         const endpoint = Render(this.endpoint, variables)
+        const cacheKey = this.cacheKey
+            ? Render(this.cacheKey, variables)
+            : undefined
         const method = this.method
         return {
             endpoint,
             method,
             headers,
             body,
+            cacheKey,
         }
     }
 
@@ -287,6 +284,47 @@ export class WebhookTemplate extends Template {
             errorMessage: {
                 required: this.requiredErrors('method', 'endpoint'),
             },
+        }, this.data)
+    }
+}
+
+export class InAppTemplate extends Template {
+    declare type: 'in_app'
+    content!: NotificationContent
+
+    parseJson(json: any) {
+        super.parseJson(json)
+        this.content = json?.data
+    }
+
+    compile(variables: Variables): NotificationContent {
+        const base = {
+            title: Render(this.content.title, variables),
+            body: Render(this.content.body, variables),
+            custom: RenderObject(this.content.custom, variables),
+        }
+
+        if (this.content.type === 'banner') {
+            return { ...base, type: 'banner' }
+        }
+
+        return {
+            ...base,
+            html: Render(this.content.html, variables),
+            type: this.content.type,
+        }
+    }
+
+    validate() {
+        return isValid({
+            type: 'object',
+            required: ['type', 'title', 'body'],
+            properties: {
+                read_on_show: { type: 'boolean' },
+                title: { type: 'string' },
+                body: { type: 'string' },
+            },
+            additionalProperties: true,
         }, this.data)
     }
 }

@@ -91,7 +91,8 @@ export default class TelnyxTextProvider extends TextProvider {
     }
 
     // https://www.twilio.com/docs/messaging/guides/webhook-request
-    parseInbound(inbound: any): InboundTextMessage {
+    parseInbound(inbound: any): InboundTextMessage | undefined {
+        if (inbound.data.event_type !== 'message.received') return
         const payload = inbound.data.payload
         return {
             to: payload.to,

@@ -1,5 +1,5 @@
 import { RuleCheck } from './RuleEngine'
-import { queryValue } from './RuleHelpers'
+import { queryPath, queryValue, whereQuery } from './RuleHelpers'
 
 export default {
     check({ rule, value }) {
@@ -11,5 +11,16 @@ export default {
         })
         const match = values.some(Boolean)
         return rule.operator === '!=' ? !match : match
+    },
+    query({ rule }) {
+        const castValue = (value: any) => {
+            if (typeof value === 'boolean') return value
+            if (typeof value === 'string') return value === 'true'
+            if (typeof value === 'number') return value === 1
+            return false
+        }
+        const path = queryPath(rule)
+        const value = castValue(rule.value)
+        return whereQuery(path, '=', value)
     },
 } satisfies RuleCheck

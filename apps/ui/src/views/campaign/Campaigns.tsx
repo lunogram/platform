@@ -17,6 +17,7 @@ import { Alert } from '../../ui'
 import { ProjectContext } from '../../contexts'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import { Translation, useTranslation } from 'react-i18next'
+import { SingleSelect } from '../../ui/form/SingleSelect'
 
 export const CampaignTag = ({ state, progress, send_at }: Pick<Campaign, 'state' | 'progress' | 'send_at'>) => {
     const variant: Record<CampaignState, TagVariant> = {
@@ -37,7 +38,7 @@ export const CampaignTag = ({ state, progress, send_at }: Pick<Campaign, 'state'
     const label = state === 'aborting' && send_at ? 'rescheduling' : state
 
     return <Tag variant={variant[state]}>
-        <Translation>{ (t) => t(label) }</Translation>
+        <Translation>{(t) => t(label)}</Translation>
         {progress && ` (${percentStr})`}
     </Tag>
 }
@@ -69,26 +70,37 @@ export const ClickRate = ({ delivery }: { delivery: CampaignDelivery }) => {
     return `${clicksStr} (${ratioStr})`
 }
 
+const campaignTypes = [
+    { key: 'blast', label: 'Blast' },
+    { key: 'trigger', label: 'Journey' },
+]
+
 export default function Campaigns() {
     const [project] = useContext(ProjectContext)
     const { t } = useTranslation()
     const navigate = useNavigate()
     const [preferences] = useContext(PreferencesContext)
-    const state = useSearchTableQueryState(useCallback(async params => await api.campaigns.search(project.id, params), [project.id]))
+    const state = useSearchTableQueryState(
+        useCallback(async params => await api.campaigns.search(project.id, params), [project.id]),
+        {
+            filter: {
+                type: 'trigger',
+            },
+        })
     const [isCreateOpen, setIsCreateOpen] = useState(false)
 
-    const handleCreateCampaign = (campaign: Campaign) => {
+    const handleCreateCampaign = async (campaign: Campaign) => {
         setIsCreateOpen(false)
-        navigate(`${campaign.id}/design`)
+        await navigate(`${campaign.id}/design`)
     }
 
-    const handleEditCampaign = (id: number) => {
-        navigate(id.toString())
+    const handleEditCampaign = async (id: number) => {
+        await navigate(id.toString())
     }
 
     const handleDuplicateCampaign = async (id: number) => {
         const campaign = await api.campaigns.duplicate(project.id, id)
-        navigate(campaign.id.toString())
+        await navigate(campaign.id.toString())
     }
 
     const handleArchiveCampaign = async (id: number) => {
@@ -111,14 +123,16 @@ export default function Campaigns() {
             )}>
                 <SearchTable
                     {...state}
+                    emptyMessage={t('no_campaigns_found')}
                     columns={[
                         {
                             key: 'name',
                             title: t('name'),
                             sortable: true,
+                            minWidth: '225px',
                             cell: ({ item: { id, name, channel } }) => (
                                 <div className="multi-cell">
-                                    { channel === 'email'
+                                    {channel === 'email'
                                         ? <PreviewImage url={apiUrl(project.id, `campaigns/${id}/preview`)} width={50} height={40}>
                                             <div className="placeholder">
                                                 <ChannelIcon channel={channel} />
@@ -187,7 +201,7 @@ export default function Campaigns() {
                             title: t('options'),
                             cell: ({ item: { id } }) => (
                                 <Menu size="small">
-                                    <MenuItem onClick={() => handleEditCampaign(id)}>
+                                    <MenuItem onClick={async () => await handleEditCampaign(id)}>
                                         <EditIcon />{t('edit')}
                                     </MenuItem>
                                     <MenuItem onClick={async () => await handleDuplicateCampaign(id)}>
@@ -200,9 +214,25 @@ export default function Campaigns() {
                             ),
                         },
                     ]}
-                    onSelectRow={({ id }) => navigate(id.toString())}
+                    onSelectRow={async ({ id }) => { await navigate(id.toString()) }}
                     enableSearch
                     tagEntity="campaigns"
+                    filters={[
+                        <SingleSelect
+                            key="type"
+                            options={campaignTypes}
+                            prefix={t('type')}
+                            value={state.params.filter?.type}
+                            onChange={value => state.setParams({
+                                ...state.params,
+                                filter: {
+                                    ...state.params.filter,
+                                    type: value,
+                                },
+                            })}
+                            toValue={(value) => value.key}
+                        />,
+                    ]}
                 />
             </PageContent>
             <Modal

@@ -1,4 +1,4 @@
-import Handlebars from 'handlebars'
+import Handlebars, { Exception as HandlebarsException } from 'handlebars'
 import * as CommonHelpers from './Helpers/Common'
 import * as StrHelpers from './Helpers/String'
 import * as NumHelpers from './Helpers/Number'
@@ -50,11 +50,16 @@ export const compileTemplate = <T = any>(template: string) => {
     return Handlebars.compile<T>(template)
 }
 
+export const isHandlerbarsError = (error: any): error is HandlebarsException => {
+    return error instanceof HandlebarsException || (error && error.name === 'HandlebarsException')
+}
+
 interface WrapParams {
     html: string
     preheader?: string
     variables: Variables
 }
+
 export const Wrap = ({ html, preheader, variables: { user, context, project } }: WrapParams) => {
     const trackingParams = {
         userId: user.id,
@@ -86,6 +91,16 @@ export const Render = (template: string, { user, event, journey, context }: Vari
         })),
         preferencesUrl: new Handlebars.SafeString(preferencesLink(user.id)),
     })
+}
+
+export const RenderObject = (object: Record<string, any> | undefined, variables: Variables) => {
+    if (!object) return {}
+    return Object.keys(object).reduce((body, key) => {
+        body[key] = typeof object[key] === 'object'
+            ? RenderObject(object[key], variables)
+            : Render(object[key], variables)
+        return body
+    }, {} as Record<string, any>)
 }
 
 export default Render

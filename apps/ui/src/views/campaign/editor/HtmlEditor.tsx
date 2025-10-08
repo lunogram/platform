@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Image, Template } from '../../../types'
+import { Template } from '../../../types'
 import { editor as Editor } from 'monaco-editor'
 import Button from '../../../ui/Button'
-import ImageGalleryModal from '../ImageGalleryModal'
+import ImageGalleryModal, { ImageUpload } from './ImageGalleryModal'
 import Preview from '../../../ui/Preview'
 import Tabs from '../../../ui/Tabs'
 import { ImageIcon } from '../../../ui/icons'
@@ -33,7 +33,7 @@ export default function HtmlEditor({ template, setTemplate }: { template: Templa
         setTemplate(template)
     }
 
-    function handleImageInsert(image: Image) {
+    function handleImageInsert(image: ImageUpload) {
         setShowImages(false)
         handleEditorInsert(`<img src="${image.url}" alt="${image.alt || image.name}" />`)
     }

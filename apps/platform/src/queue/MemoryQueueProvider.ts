@@ -13,6 +13,7 @@ export default class MemoryQueueProvider implements QueueProvider {
     backlog: string[] = []
     loop: NodeJS.Timeout | undefined
     batchSize = 1000 as const
+    #isRunning = false
 
     constructor(queue: Queue) {
         this.queue = queue
@@ -35,10 +36,30 @@ export default class MemoryQueueProvider implements QueueProvider {
         await this.enqueue(job)
     }
 
+    async retry(job: Job): Promise<void> {
+        await this.enqueue(job)
+    }
+
     start(): void {
         if (process.env.NODE_ENV === 'test') return
         if (this.loop) return
         this.process()
+    }
+
+    isRunning(): Promise<boolean> {
+        return Promise.resolve(this.#isRunning)
+    }
+
+    pause(): Promise<void> {
+        this.#isRunning = false
+        this.close()
+        return Promise.resolve()
+    }
+
+    resume(): Promise<void> {
+        this.#isRunning = true
+        this.start()
+        return Promise.resolve()
     }
 
     close(): void {

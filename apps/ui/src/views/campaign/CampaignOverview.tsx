@@ -1,7 +1,5 @@
-import { ReactNode, useContext, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useContext, useState } from 'react'
 import { CampaignContext, ProjectContext } from '../../contexts'
-import { List } from '../../types'
 import Button from '../../ui/Button'
 import Heading from '../../ui/Heading'
 import { InfoTable } from '../../ui/InfoTable'
@@ -14,6 +12,7 @@ import ChannelTag from './ChannelTag'
 import CodeExample from '../../ui/CodeExample'
 import { env } from '../../config/env'
 import { useTranslation } from 'react-i18next'
+import { DelimitedJourneys, DelimitedLists } from './ui/DelimitedItems'
 
 export default function CampaignOverview() {
     const [project] = useContext(ProjectContext)
@@ -21,14 +20,6 @@ export default function CampaignOverview() {
     const [preferences] = useContext(PreferencesContext)
     const [campaign, setCampaign] = useContext(CampaignContext)
     const [isEditOpen, setIsEditOpen] = useState(false)
-
-    const DelimitedLists = ({ lists }: { lists?: List[] }) => {
-        return lists?.map<ReactNode>(
-            list => (
-                <Link to={`/projects/${campaign.project_id}/lists/${list.id}`} key={list.id}>{list.name}</Link>
-            ),
-        )?.reduce((prev, curr) => prev ? [prev, ', ', curr] : curr, '') ?? '&#8211;'
-    }
 
     const canEdit = campaign.type === 'trigger' || campaign.state === 'draft' || campaign.state === 'aborted'
 
@@ -71,8 +62,8 @@ export default function CampaignOverview() {
             <InfoTable rows={{
                 [t('id')]: campaign.id,
                 [t('channel')]: ChannelTag({ channel: campaign.channel }),
-                [t('provider')]: campaign.provider.name,
-                [t('subscription_group')]: campaign.subscription.name,
+                [t('provider')]: campaign.provider?.name,
+                [t('subscription_group')]: campaign.subscription?.name,
             }} />
 
             {campaign.type === 'blast' && <>
@@ -87,13 +78,21 @@ export default function CampaignOverview() {
                 }} />
             </>}
             {
-                campaign.type === 'trigger' && (
-                    <CodeExample
-                        code={code}
-                        title={t('delivery')}
-                        description={t('campaign_delivery_trigger_description')}
-                    />
-                )
+                campaign.type === 'trigger' && <>
+                    {campaign.journeys?.length
+                        ? <>
+                            <Heading title={t('associations')} size="h4" />
+                            <InfoTable rows={{
+                                [t('journeys')]: DelimitedJourneys({ journeys: campaign.journeys }),
+                            }} />
+                        </>
+                        : <CodeExample
+                            code={code}
+                            title={t('delivery')}
+                            description={t('campaign_delivery_trigger_description')}
+                        />
+                    }
+                </>
             }
             <Modal
                 open={isEditOpen}

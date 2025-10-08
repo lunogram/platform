@@ -25,8 +25,8 @@ Object {
     "key": "value",
     "url": "https://google.com",
   },
+  "silent": false,
   "title": "title",
-  "topic": "topic",
 }
 `;
 
@@ -37,7 +37,7 @@ Object {
     "key": "value",
     "url": "https://parcelvoy.com/c?u=M8LRMWZ645&c=M8LRMWZ645&s=1&r=https%253A%252F%252Fgoogle.com",
   },
+  "silent": false,
   "title": "title",
-  "topic": "topic",
 }
 `;

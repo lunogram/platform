@@ -1,8 +1,10 @@
-export interface ErrorType {
+export type ErrorType = {
     message: string
     code: number
     statusCode?: number
 }
+
+export type ErrorSet<T = ErrorType> = Record<string, T>
 
 export class InternalError extends Error {
 

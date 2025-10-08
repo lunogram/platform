@@ -2,6 +2,7 @@ import { PushTemplate } from '../../render/Template'
 import { Variables } from '../../render'
 import { PushProvider } from './PushProvider'
 import { PushResponse } from './Push'
+import { PushDevice } from '../../users/Device'
 
 export default class PushChannel {
     readonly provider: PushProvider
@@ -14,17 +15,25 @@ export default class PushChannel {
         }
     }
 
-    async send(template: PushTemplate, variables: Variables): Promise<PushResponse | undefined> {
+    async send(template: PushTemplate, devices: PushDevice[], variables: Variables): Promise<PushResponse> {
 
         // Find tokens from active devices with push enabled
-        const tokens = variables.user.pushEnabledDevices.map(device => device.token)
-
-        // If no tokens, don't send
-        if (tokens?.length <= 0) return
+        const tokens = devices.map(device => device.token)
 
         const push = {
             tokens,
             ...template.compile(variables),
+        }
+
+        // If no tokens, don't send
+        if (tokens?.length <= 0) {
+            return {
+                push,
+                success: false,
+                response: 'No active devices with push enabled found.',
+                invalidTokens: [],
+                count: 0,
+            }
         }
 
         return await this.provider.send(push)

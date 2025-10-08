@@ -5,7 +5,7 @@ import { PerformanceIcon, ProjectIcon, SettingsIcon, UsersIcon } from '../../ui/
 import { checkOrganizationRole } from '../../utils'
 import { StatefulLoaderContextProvider } from '../LoaderContextProvider'
 import { OrganizationRole } from '../../types'
-import { Outlet } from 'react-router-dom'
+import { Outlet } from 'react-router'
 import { Translation } from 'react-i18next'
 
 type OrganizationLink = SidebarLink & { minRole?: OrganizationRole }

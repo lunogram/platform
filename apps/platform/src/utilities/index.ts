@@ -8,7 +8,15 @@ import { Database } from '../config/database'
 
 export const pluralize = (noun: string, count = 2, suffix = 's') => `${noun}${count !== 1 ? suffix : ''}`
 
-export const random = <T>(array: T[]): T => array[Math.floor(Math.random() * array.length)]
+export const random = <T>(array: T[]): T => {
+    if (array.length === 1) return array[0]
+    return array[Math.floor(Math.random() * array.length)]
+}
+
+export const cleanString = (value: string | undefined): string | undefined => {
+    if (value === 'NULL' || value == null || value === 'undefined' || value === '') return undefined
+    return value
+}
 
 export const shuffle = <T>(array: T[]): T[] => {
     let currentIndex = array.length
@@ -156,6 +164,10 @@ export const crossTimezoneCopy = (
     fromTimezone: string,
     toTimezone: string,
 ) => {
+    if (!isValidIANATimezone(toTimezone)) {
+        toTimezone = fromTimezone
+    }
+
     const baseDate = utcToZonedTime(date, fromTimezone)
 
     const utcDate = new Date(baseDate.toLocaleString('en-US', { timeZone: 'UTC' }))
@@ -228,6 +240,50 @@ export function shallowEqual(object1: any, object2: any) {
     return keys1.every(key => object1[key] === object2[key])
 }
 
+export function deepEqual<T>(a: T, b: T): boolean {
+    if (a === b) return true
+
+    const bothAreObjects = a && b && typeof a === 'object' && typeof b === 'object'
+
+    return Boolean(
+        bothAreObjects
+          && Object.keys(a).length === Object.keys(b).length
+          && Object.entries(a).every(([k, v]) => deepEqual(v, b[k as keyof T])),
+    )
+}
+
+const isObject = (value: any): boolean => {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+type Obj = Record<string, any>
+
+export const deepDiff = (newObj: Obj, oldObj: Obj): Obj => {
+    const diff: Obj = {}
+
+    const keys = new Set([...Object.keys(newObj || {}), ...Object.keys(oldObj || {})])
+
+    for (const key of keys) {
+        const newVal = newObj ? newObj[key] : undefined
+        const oldVal = oldObj ? oldObj[key] : undefined
+
+        if (newVal === oldVal) {
+            continue
+        }
+
+        if (isObject(newVal) && isObject(oldVal)) {
+            const nestedDiff = deepDiff(newVal, oldVal)
+            if (Object.keys(nestedDiff).length > 0) {
+                diff[key] = nestedDiff
+            }
+        } else {
+            diff[key] = { old: oldVal, new: newVal }
+        }
+    }
+
+    return diff
+}
+
 type ChunkCallback<T> = (chunk: T[]) => Promise<void>
 
 export const chunk = async <T>(
@@ -263,7 +319,7 @@ export class Chunker<T> {
     #items: T[] = []
 
     constructor(
-        private callback: (batch: T[]) => Promise<void>,
+        private callback: ChunkCallback<T>,
         private size: number,
     ) {}
 
@@ -284,6 +340,53 @@ export class Chunker<T> {
     }
 }
 
+export class AsyncChunker<T> {
+
+    private buffer: T[] = []
+    private isProcessing = false
+
+    constructor(
+        private readonly callback: ChunkCallback<T>,
+        private readonly batchSize: number,
+    ) {}
+
+    add(item: T): void {
+        this.buffer.push(item)
+
+        if (this.buffer.length >= this.batchSize) {
+            this.triggerProcessing()
+        }
+    }
+
+    private triggerProcessing(): void {
+        if (this.isProcessing) return
+
+        this.isProcessing = true
+
+        setTimeout(async () => {
+            const batch = this.buffer.splice(0, this.batchSize)
+
+            try {
+                await this.callback(batch)
+            } finally {
+                this.isProcessing = false
+
+                if (this.buffer.length >= this.batchSize) {
+                    this.triggerProcessing()
+                }
+            }
+        }, 0)
+    }
+
+    async flush(): Promise<void> {
+        this.isProcessing = true
+        while (this.buffer.length > 0) {
+            const batch = this.buffer.splice(0, this.batchSize)
+            await this.callback(batch)
+        }
+    }
+}
+
 export function visit<T>(item: T, children: (item: T) => undefined | T[], callback: (item: T) => void) {
     callback(item)
     const items = children(item)
@@ -291,5 +394,43 @@ export function visit<T>(item: T, children: (item: T) => undefined | T[], callba
         for (const item of items) {
             visit(item, children, callback)
         }
+    }
+}
+
+export class KeyedSet<T> implements Iterable<T> {
+    #keys = new Set<string>()
+    #items: T[] = []
+    #lookup: (item: T) => string
+
+    constructor(lookup: (item: T) => string) {
+        this.#lookup = lookup
+    }
+
+    add(item: T) {
+        const key = this.#lookup(item)
+        if (!this.#keys.has(key)) {
+            this.#keys.add(key)
+            this.#items.push(item)
+        }
+    }
+
+    getAll(): T[] {
+        return this.#items
+    }
+
+    keys(): string[] {
+        return [...this.#keys]
+    }
+
+    has(id: string): boolean {
+        return this.#keys.has(id)
+    }
+
+    [Symbol.iterator](): Iterator<T> {
+        return this.#items[Symbol.iterator]()
+    }
+
+    toJSON() {
+        return this.#items
     }
 }

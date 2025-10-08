@@ -52,7 +52,7 @@ export default function UserDetailSubscriptions() {
             results={search}
             params={params}
             setParams={setParams}
-            itemKey={({ item }) => item.id}
+            itemKey={({ item }) => item.subscription_id}
             columns={[
                 {
                     key: 'channel',
@@ -60,7 +60,6 @@ export default function UserDetailSubscriptions() {
                     cell: ({ item: { channel } }) => snakeToTitle(channel),
                 },
                 { key: 'name', title: t('name') },
-                { key: 'updated_at', title: t('updated_at') },
                 {
                     key: 'state',
                     title: t('subscribed'),

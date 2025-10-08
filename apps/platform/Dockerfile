@@ -1,26 +1,22 @@
 # --------------> The compiler image
-FROM node:18 AS compile
-WORKDIR /usr/src/app/apps/platform
-COPY ./tsconfig.base.json /usr/src/app
-COPY ./apps/platform ./
-RUN npm ci
-RUN npm run build
-
-# --------------> The build image
-FROM node:18 AS build
+FROM node:22 AS compile
 WORKDIR /usr/src/app
-COPY --from=compile /usr/src/app/apps/platform/package*.json ./
-COPY --from=compile /usr/src/app/apps/platform/build ./build
-COPY --from=compile /usr/src/app/apps/platform/db ./db
-COPY --from=compile /usr/src/app/apps/platform/public ./public 
-RUN npm ci --only=production
+RUN corepack enable
+COPY . .
+RUN pnpm install --filter "@parcelvoy/platform" --frozen-lockfile --config.platform=linux --config.architecture=x64
+RUN pnpm --filter "@parcelvoy/platform" build
+RUN pnpm --filter "@parcelvoy/platform" --prod deploy packages
 
 # --------------> The production image
-FROM node:18-alpine
+FROM node:22-alpine
 RUN apk add dumb-init
 ENV NODE_ENV="production"
 USER node
 WORKDIR /usr/src/app
-COPY --chown=node:node --from=build /usr/src/app ./
+COPY --chown=node:node --from=compile /usr/src/app/packages/node_modules ./node_modules
+COPY --chown=node:node --from=compile /usr/src/app/apps/platform/package*.json ./
+COPY --chown=node:node --from=compile /usr/src/app/apps/platform/build ./build
+COPY --chown=node:node --from=compile /usr/src/app/apps/platform/db ./db
+COPY --chown=node:node --from=compile /usr/src/app/apps/platform/public ./public
 EXPOSE 3001
 CMD ["dumb-init", "node", "build/boot.js"]

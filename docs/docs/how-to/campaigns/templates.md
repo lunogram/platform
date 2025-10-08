@@ -214,6 +214,12 @@ Truncate a string to have the specified number of words.
 {{ trucateWords "This is a long piece of text" 3 }} // = `This is a`
 ```
 
+#### Get Base Locale
+Find the base locale from a combination locale string
+```handlebars
+{{ baseLocale "en-US" }} // = `en`
+```
+
 ### Numbers
 #### Absolute Value
 Return the magnitude of `a`.

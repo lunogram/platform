@@ -1,12 +1,13 @@
 import Provider from '../providers/Provider'
 import { ChannelType } from '../config/channels'
-import Model, { BaseModel, ModelParams } from '../core/Model'
+import Model, { ModelParams, SQLModel } from '../core/Model'
 import List from '../lists/List'
 import Template from '../render/Template'
 import Subscription from '../subscriptions/Subscription'
 import { crossTimezoneCopy } from '../utilities'
 import Project from '../projects/Project'
 import { User } from '../users/User'
+import type Journey from '../journey/Journey'
 
 export type CampaignState = 'draft' | 'scheduled' | 'loading' | 'running' | 'finished' | 'aborting' | 'aborted'
 export interface CampaignDelivery {
@@ -37,6 +38,7 @@ export default class Campaign extends Model {
     state!: CampaignState
     delivery!: CampaignDelivery
     tags?: string[]
+    journeys?: Journey[]
     progress?: CampaignPopulationProgress
 
     send_in_user_timezone?: boolean
@@ -49,6 +51,11 @@ export default class Campaign extends Model {
     eventName(action: string) {
         return `${this.channel}_${action}`
     }
+
+    get isAborted() { return this.state === 'aborted' || this.state === 'aborting' }
+    get isAbortedOrDraft() {
+        return this.isAborted || this.state === 'draft'
+    }
 }
 
 export type CampaignPopulationProgress = {
@@ -58,13 +65,14 @@ export type CampaignPopulationProgress = {
 
 export type SentCampaign = Campaign & { send_at: Date }
 
-export type CampaignParams = Omit<Campaign, ModelParams | 'delivery' | 'eventName' | 'templates' | 'lists' | 'exclusion_lists' | 'subscription' | 'provider' | 'deleted_at' | 'progress'>
+export type CampaignParams = Omit<Campaign, ModelParams | 'delivery' | 'eventName' | 'templates' | 'lists' | 'exclusion_lists' | 'subscription' | 'provider' | 'journeys' | 'deleted_at' | 'progress' | 'isAborted' | 'isAbortedOrDraft'>
 export type CampaignCreateParams = Omit<CampaignParams, 'state'>
 export type CampaignUpdateParams = Omit<CampaignParams, 'channel' | 'type'>
+export type CampaignCreateWithAdminParams = CampaignCreateParams & { admin_id?: number }
 
 export type CampaignSendState = 'pending' | 'sent' | 'throttled' | 'failed' | 'bounced' | 'aborted'
 export type CampaignSendReferenceType = 'journey' | 'trigger'
-export class CampaignSend extends BaseModel {
+export class CampaignSend extends SQLModel {
     campaign_id!: number
     user_id!: number
     state!: CampaignSendState

@@ -75,7 +75,7 @@ export default class PlivoTextProvider extends TextProvider {
     }
 
     // https://www.plivo.com/docs/sms/use-cases/receive-sms/node
-    parseInbound(inbound: any): InboundTextMessage {
+    parseInbound(inbound: any): InboundTextMessage | undefined {
         return {
             to: inbound.To,
             from: inbound.From,

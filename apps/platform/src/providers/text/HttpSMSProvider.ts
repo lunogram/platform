@@ -67,7 +67,7 @@ export default class HttpSMSTextProvider extends TextProvider {
     }
 
     // https://docs.httpsms.com/webhooks/events
-    parseInbound(inbound: any): InboundTextMessage {
+    parseInbound(inbound: any): InboundTextMessage | undefined {
         return {
             to: inbound.data.owner,
             from: inbound.data.contact,

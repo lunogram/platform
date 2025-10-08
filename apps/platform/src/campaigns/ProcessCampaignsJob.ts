@@ -6,6 +6,10 @@ import CampaignEnqueueSendsJob from './CampaignEnqueueSendsJob'
 export default class ProcessCampaignsJob extends Job {
     static $name = 'process_campaigns_job'
 
+    static from(): ProcessCampaignsJob {
+        return new this().deduplicationKey(this.$name)
+    }
+
     static async handler() {
 
         const campaigns = await Campaign.query()

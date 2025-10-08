@@ -2,13 +2,14 @@ import App from '../app'
 import { acquireLock, releaseLock } from '../core/Lock'
 import { getProject } from '../projects/ProjectService'
 import Job from '../queue/Job'
-import Rule from '../rules/Rule'
+import { Rule } from '../rules/Rule'
 import { User } from '../users/User'
 import { UserEvent } from '../users/UserEvent'
 import { getUserEventsForRules } from '../users/UserRepository'
 import { shallowEqual } from '../utilities'
 import { getEntranceSubsequentSteps, getJourneyStepChildren, getJourneySteps } from './JourneyRepository'
-import { JourneyGate, JourneyStep, JourneyStepChild, JourneyUserStep, journeyStepTypes } from './JourneyStep'
+import { JourneyStep, JourneyStepChild, journeyStepTypes } from './JourneyStep'
+import JourneyUserStep from './JourneyUserStep'
 
 type JobOrJobFunc = Job | ((state: JourneyState) => Promise<Job | undefined>)
 
@@ -194,20 +195,9 @@ export class JourneyState {
         this._jobs.push(job)
     }
 
-    public async events() {
-        // lazy load, only grab the specific event types that we need for gates in this journey.
-        if (!this._events) {
-            this._events = await getUserEventsForRules(
-                [this.user.id],
-                this.steps.reduce<Rule[]>((a, c) => {
-                    if (c instanceof JourneyGate) {
-                        a.push(c.rule)
-                    }
-                    return a
-                }, []),
-            )
-        }
-        return this._events
+    public async events(rule: Rule) {
+        // TODO: Find a way to not have to pull in all events, better discern
+        return await getUserEventsForRules(this.user.id, rule)
     }
 
     public async timezone() {

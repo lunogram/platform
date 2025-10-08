@@ -6,9 +6,8 @@ import Job, { EncodedJob, JobError } from './Job'
 import MemoryQueueProvider, { MemoryConfig } from './MemoryQueueProvider'
 import QueueProvider, { MetricPeriod, QueueMetric, QueueProviderName } from './QueueProvider'
 import RedisQueueProvider, { RedisQueueConfig } from './RedisQueueProvider'
-import SQSQueueProvider, { SQSConfig } from './SQSQueueProvider'
 
-export type QueueConfig = SQSConfig | RedisQueueConfig | MemoryConfig | LoggerConfig
+export type QueueConfig = RedisQueueConfig | MemoryConfig | LoggerConfig
 
 export interface QueueTypeConfig extends DriverConfig {
     driver: QueueProviderName
@@ -19,9 +18,7 @@ export default class Queue {
     jobs: Record<string, (data: any, raw?: EncodedJob) => Promise<any>> = {}
 
     constructor(config?: QueueConfig) {
-        if (config?.driver === 'sqs') {
-            this.provider = new SQSQueueProvider(config, this)
-        } else if (config?.driver === 'redis') {
+        if (config?.driver === 'redis') {
             this.provider = new RedisQueueProvider(config, this)
         } else if (config?.driver === 'memory') {
             this.provider = new MemoryQueueProvider(this)
@@ -31,6 +28,7 @@ export default class Queue {
     }
 
     async dequeue(job: EncodedJob): Promise<boolean> {
+        if (!job || !job.name) return false
         const handler = this.jobs[job.name]
         if (!handler) {
             App.main.error.notify(new Error(`No handler found for job: ${job.name}`))
@@ -63,6 +61,10 @@ export default class Queue {
         await this.provider.delay(job, milliseconds)
     }
 
+    async retry(job: EncodedJob) {
+        await this.provider.retry(job)
+    }
+
     get batchSize() {
         return this.provider.batchSize
     }
@@ -90,6 +92,20 @@ export default class Queue {
 
     async start() {
         this.provider.start()
+    }
+
+    async pause() {
+        logger.info('queue:paused')
+        await this.provider.pause()
+    }
+
+    async resume() {
+        logger.info('queue:resumed')
+        await this.provider.resume()
+    }
+
+    async isRunning(): Promise<boolean> {
+        return await this.provider.isRunning()
     }
 
     async close() {

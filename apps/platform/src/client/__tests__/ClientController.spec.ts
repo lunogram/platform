@@ -88,7 +88,7 @@ describe('POST /events', () => {
     test('queues up events', async () => {
 
         const request = await setup()
-        const spy = jest.spyOn(App.main.queue, 'enqueue')
+        const spy = jest.spyOn(App.main.queue, 'enqueueBatch')
         const response = await request('post', '/api/client/events')
             .send([{
                 name: 'Entered',
@@ -105,8 +105,10 @@ describe('POST /events', () => {
                     value: 1,
                 },
             }])
+        const jobs = spy.mock.calls[0][0]
         expect(response.status).toBe(204)
-        expect(spy).toHaveBeenCalledTimes(2)
-        expect(spy.mock.calls[0][0]).toBeInstanceOf(EventPostJob)
+        expect(spy).toHaveBeenCalledTimes(1)
+        expect(jobs[0]).toBeInstanceOf(EventPostJob)
+        expect(jobs[0].data.event.name).toBe('Entered')
     })
 })

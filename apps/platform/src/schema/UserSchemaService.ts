@@ -1,8 +1,9 @@
 import { User } from '../users/User'
 import App from '../app'
-import { ProjectRulePath } from '../rules/ProjectRulePath'
+import { ProjectRulePath, RulePathDataType } from '../rules/ProjectRulePath'
 import { UserEvent } from '../users/UserEvent'
-import { reservedPaths } from '../rules/RuleHelpers'
+import { reservedPathDataType, reservedPaths } from '../rules/RuleHelpers'
+import { KeyedSet } from '../utilities'
 
 export async function listUserPaths(project_id: number) {
     const paths: Array<{ path: string }> = await ProjectRulePath.query()
@@ -31,7 +32,7 @@ export async function listEventPaths(project_id: number, name: string) {
     return paths.map(p => p.path)
 }
 
-export function addLeafPaths(set: Set<string>, value: any, path = '$') {
+export function addLeafPaths(set: KeyedSet<[string, RulePathDataType]>, value: any, path = '$') {
     if (typeof value === 'undefined') return
     if (Array.isArray(value)) {
         for (const item of value) {
@@ -43,7 +44,8 @@ export function addLeafPaths(set: Set<string>, value: any, path = '$') {
         }
     } else {
         if (path !== '$') {
-            set.add(path)
+            const type = inferDataType(value)
+            set.add([path, type])
         }
     }
 }
@@ -52,6 +54,25 @@ const joinPath = (path: string, key: string) => {
     const isValid = key.match(/^[\p{L}][\p{L}\p{N}_]*$/u)
     if (isValid) return `${path}.${key}`
     return `${path}['${key}']`
+}
+
+const inferDataType = (value: any): RulePathDataType => {
+    if (Array.isArray(value)) {
+        return 'array'
+    }
+    if (typeof value === 'string') {
+        return 'string'
+    }
+    if (value instanceof Date) {
+        return 'date'
+    }
+    if (typeof value === 'number') {
+        return 'number'
+    }
+    if (typeof value === 'boolean') {
+        return 'boolean'
+    }
+    return 'string'
 }
 
 interface SyncProjectRulePathsParams {
@@ -65,8 +86,8 @@ export async function syncUserDataPaths({
 }: SyncProjectRulePathsParams) {
     await App.main.db.transaction(async trx => {
 
-        const userPaths = new Set<string>()
-        const eventPaths = new Map<string, Set<string>>()
+        const userPaths = new KeyedSet<[string, RulePathDataType]>(item => item[0])
+        const eventPaths = new Map<string, KeyedSet<[string, RulePathDataType]>>()
 
         const userQuery = User.query(trx)
             .where('project_id', project_id)
@@ -80,79 +101,76 @@ export async function syncUserDataPaths({
             }
         })
         for (const path of reservedPaths.user) {
-            userPaths.add(joinPath('$', path))
+            userPaths.add([joinPath('$', path), reservedPathDataType(path)])
         }
 
-        const eventQuery = UserEvent.query(trx)
-            .where('project_id', project_id)
-            .select('name', 'data')
-        if (updatedAfter) {
-            eventQuery.where('created_at', '>=', updatedAfter)
-        }
+        const eventQuery = await UserEvent.clickhouse().query(`SELECT name, data FROM user_events WHERE project_id = {projectId: UInt32} ${updatedAfter ? 'AND created_at >= {updatedAfter: DateTime64(3, \'UTC\')}' : ''}`, {
+            projectId: project_id,
+            updatedAfter,
+        })
 
-        await eventQuery.stream(async function(stream) {
-            for await (const { name, data } of stream) {
+        for await (const chunk of eventQuery.stream() as any) {
+            for (const result of chunk) {
+                const { name, data } = result.json()
                 let set = eventPaths.get(name)
                 if (!set) {
-                    eventPaths.set(name, set = new Set())
+                    set = new KeyedSet<[string, RulePathDataType]>(item => item[0])
+                    eventPaths.set(name, set)
                 }
                 addLeafPaths(set, data)
                 for (const path of reservedPaths.event) {
-                    set.add(joinPath('$', path))
+                    set.add([joinPath('$', path), reservedPathDataType(path)])
                 }
             }
-        })
+        }
 
         const existing = await ProjectRulePath.all(q => q.where('project_id', project_id), trx)
 
         if (!updatedAfter && existing.length) {
             const removeIds: number[] = []
-            let i = 0
-            let remove = false
-            while (i < existing.length) {
-                const e = existing[i]
-                if (e.type === 'user') {
-                    remove = !userPaths.has(e.path)
-                } else if (e.type === 'event') {
-                    remove = !eventPaths.get(e.name ?? '')?.has(e.path)
+            for (const { id, name, type, path } of existing) {
+                let remove = false
+                if (type === 'user') {
+                    remove = !userPaths.has(path)
+                } else if (type === 'event') {
+                    remove = !eventPaths.get(name ?? '')?.has(path)
                 } else {
                     remove = true
                 }
                 if (remove) {
-                    removeIds.push(e.id)
-                    existing.splice(i, 1)
-                } else {
-                    i++
+                    removeIds.push(id)
                 }
             }
+
             if (removeIds.length) {
                 await ProjectRulePath.delete(q => q.whereIn('id', removeIds), trx)
             }
         }
 
         // add all new paths
-        for (const path of userPaths) {
+        for (const [path, data_type] of userPaths) {
             if (!existing.find(e => e.type === 'user' && e.path === path)) {
                 await ProjectRulePath.insert({
                     project_id,
                     path,
+                    data_type,
                     type: 'user',
                 }, trx)
             }
         }
 
         for (const [name, paths] of eventPaths.entries()) {
-            for (const path of paths) {
+            for (const [path, data_type] of paths) {
                 if (!existing.find(e => e.type === 'event' && e.path === path && e.name === name)) {
                     await ProjectRulePath.insert({
                         project_id,
                         path,
+                        data_type,
                         name,
                         type: 'event',
                     }, trx)
                 }
             }
         }
-
     })
 }

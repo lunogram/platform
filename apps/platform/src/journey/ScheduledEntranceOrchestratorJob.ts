@@ -1,7 +1,6 @@
 import App from '../app'
-import { getProject } from '../projects/ProjectService'
 import { Job } from '../queue'
-import { JourneyEntrance, JourneyStep } from './JourneyStep'
+import { JourneyEntrance } from './JourneyStep'
 import ScheduledEntranceJob from './ScheduledEntranceJob'
 
 export default class ScheduledEntranceOrchestratorJob extends Job {
@@ -10,11 +9,16 @@ export default class ScheduledEntranceOrchestratorJob extends Job {
 
     static async handler() {
 
-        // look up all scheduler entrances
+        // Look up all scheduler entrances
         const entrances = await JourneyEntrance.all(q => q
             .join('journeys', 'journey_steps.journey_id', '=', 'journeys.id')
-            .where('journeys.published', true)
+
+            // Exclude journeys that are not live or the root journey
+            .where('journeys.status', 'live')
+            .whereNull('journeys.parent_id')
             .whereNull('journeys.deleted_at')
+
+            // Filter down the step type to be an entrance
             .where('journey_steps.type', JourneyEntrance.type)
             .whereJsonPath('journey_steps.data', '$.trigger', '=', 'schedule')
             .whereJsonPath('journey_steps.data', '$.multiple', '=', true)
@@ -27,12 +31,6 @@ export default class ScheduledEntranceOrchestratorJob extends Job {
 
         const jobs: Job[] = []
         for (const entrance of entrances) {
-
-            const project = await getProject(entrance.project_id)
-            await JourneyStep.update(q => q.where('id', entrance.id), {
-                next_scheduled_at: entrance.nextDate(project?.timezone ?? 'UTC'),
-            })
-
             if (entrance.list_id) {
                 jobs.push(ScheduledEntranceJob.from({
                     entranceId: entrance.id,
@@ -44,5 +42,4 @@ export default class ScheduledEntranceOrchestratorJob extends Job {
             await App.main.queue.enqueueBatch(jobs)
         }
     }
-
 }

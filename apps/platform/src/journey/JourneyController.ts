@@ -5,8 +5,9 @@ import { searchParamsSchema } from '../core/searchParams'
 import { JSONSchemaType, validate } from '../core/validate'
 import { extractQueryParams } from '../utilities'
 import Journey, { JourneyEntranceTriggerParams, JourneyParams } from './Journey'
-import { createJourney, getJourneyStepMap, getJourney, pagedJourneys, setJourneyStepMap, updateJourney, pagedEntrancesByJourney, getEntranceLog, pagedUsersByStep, archiveJourney, deleteJourney, exitUserFromJourney } from './JourneyRepository'
-import { JourneyStep, JourneyStepMapParams, JourneyUserStep, journeyStepTypes, toJourneyStepMap } from './JourneyStep'
+import { createJourney, getJourney, pagedJourneys, setJourneyStepMap, updateJourney, pagedEntrancesByJourney, getEntranceLog, pagedUsersByStep, archiveJourney, deleteJourney, exitUserFromJourney, publishJourney, skipDelayStep, getJourneyStepMapForUI } from './JourneyRepository'
+import { JourneyStep, JourneyStepMapParams, journeyStepTypes } from './JourneyStep'
+import JourneyUserStep from './JourneyUserStep'
 import { User } from '../users/User'
 import { RequestError } from '../core/errors'
 import JourneyError from './JourneyError'
@@ -45,8 +46,9 @@ const journeyParams: JSONSchemaType<JourneyParams> = {
             },
             nullable: true,
         },
-        published: {
-            type: 'boolean',
+        status: {
+            type: 'string',
+            enum: ['off', 'draft', 'live'],
         },
     },
     additionalProperties: false,
@@ -163,17 +165,29 @@ const journeyStepsParamsSchema: JSONSchemaType<JourneyStepMapParams> = {
 }
 
 router.get('/:journeyId/steps', async ctx => {
-    ctx.body = await getJourneyStepMap(ctx.state.journey!.id)
+    ctx.body = await getJourneyStepMapForUI(ctx.state.journey!)
 })
 
 router.put('/:journeyId/steps', async ctx => {
-    const { steps, children } = await setJourneyStepMap(ctx.state.journey!, validate(journeyStepsParamsSchema, ctx.request.body))
-    ctx.body = await toJourneyStepMap(steps, children)
+    await setJourneyStepMap(ctx.state.journey!, validate(journeyStepsParamsSchema, ctx.request.body))
+    ctx.body = await getJourneyStepMapForUI(ctx.state.journey!)
 })
 
 router.post('/:journeyId/duplicate', async ctx => {
     ctx.body = await duplicateJourney(ctx.state.journey!)
 })
+
+router.post('/:journeyId/version', async ctx => {
+    ctx.body = await duplicateJourney(ctx.state.journey!, true)
+})
+
+router.post(
+    '/:journeyId/publish',
+    projectRoleMiddleware('publisher'),
+    async ctx => {
+        ctx.body = await publishJourney(ctx.state.journey!)
+    },
+)
 
 router.get('/:journeyId/entrances', async ctx => {
     const params = extractQueryParams(ctx.query, searchParamsSchema)
@@ -197,17 +211,21 @@ router.get('/:journeyId/steps/:stepId/users', async ctx => {
     ctx.body = await pagedUsersByStep(step.id, params)
 })
 
-router.delete('/:journeyId/users/:userId', async ctx => {
+router.delete('/:journeyId/users/:userId/step/:stepId', async ctx => {
     const user = await getUserFromContext(ctx)
     if (!user) return ctx.throw(404)
     const results = await JourneyUserStep.update(
-        q => q.where('user_id', user.id)
-            .whereNull('entrance_id')
+        q => q.where('id', parseInt(ctx.params.stepId))
+            .where('user_id', user.id)
             .whereNull('ended_at')
             .where('journey_id', ctx.state.journey!.id),
-        { ended_at: new Date() },
+        { ended_at: new Date(), delay_until: null, type: 'completed' },
     )
     ctx.body = { exits: results }
+})
+
+router.post('/:journeyId/users/:userId/steps/:stepId/resume', async ctx => {
+    ctx.body = await skipDelayStep(parseInt(ctx.params.stepId, 10))
 })
 
 const journeyTriggerParams: JSONSchemaType<JourneyEntranceTriggerParams> = {

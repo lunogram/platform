@@ -76,10 +76,10 @@ export const createProject = async (admin: Admin, params: ProjectParams): Promis
     })
 
     // Create a single subscription for each type
-    await createSubscription(projectId, { name: 'Default Email', channel: 'email' })
-    await createSubscription(projectId, { name: 'Default SMS', channel: 'text' })
-    await createSubscription(projectId, { name: 'Default Push', channel: 'push' })
-    await createSubscription(projectId, { name: 'Default Webhook', channel: 'webhook' })
+    await createSubscription(projectId, { name: 'Default Email', channel: 'email', is_public: true })
+    await createSubscription(projectId, { name: 'Default SMS', channel: 'text', is_public: true })
+    await createSubscription(projectId, { name: 'Default Push', channel: 'push', is_public: true })
+    await createSubscription(projectId, { name: 'Default Webhook', channel: 'webhook', is_public: false })
 
     const project = await getProject(projectId, admin.id)
     return project!

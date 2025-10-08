@@ -4,18 +4,16 @@
   "workspaces": [
     "apps/*"
   ],
-  "devDependencies": {
-    "lerna": "~6.6.1"
-  },
   "scripts": {
-    "start": "lerna run start",
-    "build": "lerna run build",
-    "lint": "lerna run lint",
-    "test": "lerna run test",
-    "docker:build": "lerna run docker:build",
-    "docker:build:push": "lerna run docker:build:push",
-    "analyze:ui:bundle": "lerna run build && npx source-map-explorer './apps/ui/build/static/js/*.js'",
-    "package:build": "lerna run package:build",
-    "package:publish": "lerna run package:publish"
-  }
+    "start": "pnpm --filter \"@parcelvoy/*\" --stream start",
+    "build": "pnpm --filter \"@parcelvoy/*\" build",
+    "lint": "pnpm --filter \"@parcelvoy/*\" lint",
+    "test": "pnpm --filter \"@parcelvoy/*\" --stream test",
+    "docker:build": "pnpm --filter \"@parcelvoy/*\" docker:build",
+    "docker:build-beta": "pnpm --filter \"@parcelvoy/*\" docker:build-beta",
+    "docker:build:push": "pnpm --filter \"@parcelvoy/*\" docker:build:push",
+    "docker:build-beta:push": "pnpm --filter \"@parcelvoy/*\" docker:build-beta:push",
+    "analyze:ui:bundle": "pnpm build && npx source-map-explorer './apps/ui/build/static/js/*.js'"
+  },
+  "packageManager": "pnpm@10.8.0+sha512.0e82714d1b5b43c74610193cb20734897c1d00de89d0e18420aebc5977fa13d780a9cb05734624e81ebd81cc876cd464794850641c48b9544326b5622ca29971"
 }

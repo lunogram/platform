@@ -5,7 +5,7 @@
     --color-primary: var(--color-black);
     --color-primary-soft: #6b707b;
 
-    --color-grey: #eae8e8;
+    --color-grey: #e8e8ea;
     --color-grey-soft: #F5F5F7;
     --color-grey-hard: #cecfd2;
 
@@ -32,6 +32,10 @@
     --color-green-soft: #D1FADF;
     --color-green-hard: #039855;
 
+    --color-purple: #8729c1;
+    --color-purple-soft: #F7D8FF;
+    --color-purple-hard: #4e0c77;
+
     --color-shadow: rgba(0, 0, 0, 0.1);
     --color-shadow-soft: rgba(0, 0, 0, 0.05);
 
@@ -57,6 +61,9 @@
     --color-on-primary: var(--color-black);
     --color-on-background: var(--color-white);
 
-    --color-shadow: var(--color-grey);
-    --color-shadow-soft: var(--color-grey-soft);
+    --color-shadow: var(--color-grey-soft);
+    --color-shadow-soft: var(--color-black);
+
+    --color-purple-soft: #4e0c77;
+    --color-purple-hard: #d1a7ea;
 }

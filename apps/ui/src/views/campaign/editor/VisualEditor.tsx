@@ -3,8 +3,8 @@ import './VisualEditor.css'
 import grapesJS, { Editor } from 'grapesjs'
 import grapesJSMJML from 'grapesjs-mjml'
 import { useEffect, useState } from 'react'
-import { Font, Image, Resource, Template } from '../../../types'
-import ImageGalleryModal from '../ImageGalleryModal'
+import { Font, Resource, Template } from '../../../types'
+import ImageGalleryModal, { ImageUpload } from './ImageGalleryModal'
 
 interface GrapesAssetManagerProps {
     event: 'open' | 'close'
@@ -70,6 +70,57 @@ function GrapesReact({ id, mjml, onChange, setAssetState, fonts = [] }: GrapesRe
         updateHead(editor, fonts)
     }
 
+    const registerSourcePlugin = (editor: Editor) => {
+        editor.Commands.add('edit-raw-source', {
+            run(editor) {
+                const escapeHtml = (str: string): string => {
+                    const div = document.createElement('div')
+                    div.textContent = str
+                    return div.innerHTML
+                }
+
+                const modal = editor.Modal
+                const html = editor.getHtml()
+                const css = editor.getCss()
+
+                const container = document.createElement('div')
+                container.style.padding = '8px'
+                container.innerHTML = `
+                    <div style="margin-bottom: 6px">HTML</div>
+                    <textarea id="raw-html" style="width:100%;height:220px">${escapeHtml(html)}</textarea>
+                    <div style="margin: 10px 0 6px">CSS</div>
+                    <textarea id="raw-css" style="width:100%;height:140px">${css}</textarea>
+                    <button id="apply-code" class="gjs-btn gjs-btn-prim" style="margin-top:10px">Apply</button>
+                `
+                modal.open({ title: 'Edit Source', content: container })
+
+                const htmlEl = container.querySelector<HTMLTextAreaElement>('#raw-html')
+                const cssEl = container.querySelector<HTMLTextAreaElement>('#raw-css')
+                const applyBtn = container.querySelector<HTMLButtonElement>('#apply-code')
+
+                applyBtn?.addEventListener('click', () => {
+                    const newHtml = htmlEl?.value ?? ''
+                    const newCss = cssEl?.value ?? ''
+                    editor.setComponents(newHtml)
+                    editor.setStyle(newCss)
+                    modal.close()
+                })
+            },
+        })
+
+        editor.Panels.addButton('options', {
+            id: 'edit-raw-source',
+            label: '<i class="fa fa-code"></i>',
+            command: 'edit-raw-source',
+            togglable: false,
+        })
+
+        editor.Panels.getButton('options', 'export-template')?.set({
+            className: 'fa fa-solid fa-html5',
+            attributes: { title: 'View MJML & HTML' }, // Optional tooltip
+        })
+    }
+
     useEffect(() => {
         if (!editor) {
             const editor = grapesJS.init({
@@ -99,6 +150,7 @@ function GrapesReact({ id, mjml, onChange, setAssetState, fonts = [] }: GrapesRe
             editor.on('load', () => {
                 editor.Panels.getButton('views', 'open-blocks')
                     ?.set('active', true)
+                registerSourcePlugin(editor)
                 setLoaded(true)
             })
             editor.render()
@@ -130,7 +182,7 @@ export default function VisualEditor({ template, setTemplate, resources }: Visua
         setTemplate({ ...template, data: { ...template.data, mjml, html } })
     }
 
-    function handleImageInsert(image: Image) {
+    function handleImageInsert(image: ImageUpload) {
         assetManager?.select({ src: image.url })
         handleHideImages()
     }

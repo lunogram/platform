@@ -32,10 +32,30 @@ export const CampaignContext = createContext<UseStateContext<Campaign>>([
     () => {},
 ])
 
-export const TemplateContext = createContext<UseStateContext<Template>>([
-    {} as unknown as Template,
-    () => {},
-])
+interface TemplateManager {
+    campaign: Campaign
+    setCampaign: Dispatch<SetStateAction<Campaign>>
+    currentTemplate?: Template
+    templates: Template[]
+    currentLocale?: LocaleOption
+    locales: LocaleOption[]
+    variants: Template[]
+    variantMap: Record<string, Template[]>
+    setTemplate: Dispatch<SetStateAction<Template | undefined>>
+    setLocale: (locale: LocaleOption | string | undefined) => void
+}
+export const TemplateContext = createContext<TemplateManager>({
+    campaign: {} as unknown as Campaign,
+    setCampaign: () => {},
+    currentTemplate: undefined,
+    templates: [],
+    currentLocale: undefined,
+    locales: [],
+    variants: [],
+    variantMap: {},
+    setTemplate: () => {},
+    setLocale: () => {},
+})
 
 export const ListContext = createContext<UseStateContext<List>>([
     {} as unknown as List,

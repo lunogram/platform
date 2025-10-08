@@ -1,6 +1,6 @@
-import { TemplateEvent } from '../users/UserEvent'
-import { TemplateUser } from '../users/User'
-import Rule, { AnyJson, RuleTree, Operator, RuleGroup, RuleType } from './Rule'
+import { TemplateEvent } from 'users/UserEvent'
+import { TemplateUser, User } from '../users/User'
+import { Rule, AnyJson, RuleTree, Operator, RuleGroup, RuleType, EventRuleFrequency, EventRuleTree } from './Rule'
 import NumberRule from './NumberRule'
 import StringRule from './StringRule'
 import BooleanRule from './BooleanRule'
@@ -8,6 +8,7 @@ import DateRule from './DateRule'
 import ArrayRule from './ArrayRule'
 import WrapperRule from './WrapperRule'
 import { uuid } from '../utilities'
+import App from '../app'
 
 class Registry<T> {
     #registered: { [key: string]: T } = {}
@@ -25,17 +26,26 @@ class Registry<T> {
 export interface RuleCheckInput {
     user: TemplateUser
     events: TemplateEvent[] // all of this user's events
+    journey: Record<string, AnyJson>
 }
 
-export interface RuleCheckParams {
+export interface RuleBaseParams {
     registry: typeof ruleRegistry
-    input: RuleCheckInput // all contextual input data
     rule: RuleTree // current rule to use
-    value: Record<string, unknown> // current value to evaluate against
+}
+
+export interface RuleQueryParams extends RuleBaseParams {
+    projectId: number
+}
+
+export interface RuleCheckParams extends RuleBaseParams {
+    input: RuleCheckInput // all contextual input data
+    value: Record<string, AnyJson> // current value to evaluate against
 }
 
 export interface RuleCheck {
     check(params: RuleCheckParams): boolean
+    query(params: RuleQueryParams): string
 }
 
 const ruleRegistry = new Registry<RuleCheck>()
@@ -56,12 +66,43 @@ ruleRegistry.register('wrapper', WrapperRule)
 export const check = (input: RuleCheckInput, rule: RuleTree | RuleTree[]) => {
     if (Array.isArray(rule)) {
         rule = make({
+            group: 'parent',
             type: 'wrapper',
             operator: 'and',
             children: rule,
         })
     }
-    return ruleRegistry.get(rule.type).check({ registry: ruleRegistry, input, rule, value: input.user })
+
+    // NOTE: we have to flatten the user object to be backwards compatible with existing rules
+    // the journey property within the user object is overwritten if defined.
+    const value = {
+        ...input.user,
+        journey: input.journey,
+    }
+
+    return ruleRegistry.get(rule.type).check({ registry: ruleRegistry, input, rule, value })
+}
+
+export const checkQuery = async (user: User, rule: RuleTree | RuleTree[]) => {
+    const subquery = getRuleQuery(user.project_id, rule)
+    const query = `select exists(${subquery}) as check`
+    const result = await App.main.clickhouse.query({
+        query,
+        format: 'JSONEachRow',
+    })
+    const data = await result.json() as { check: boolean }[]
+    return data[0].check
+}
+
+export const getRuleQuery = (projectId: number, rule: RuleTree | RuleTree[]) => {
+    if (Array.isArray(rule)) {
+        rule = make({
+            type: 'wrapper',
+            operator: 'and',
+            children: rule,
+        })
+    }
+    return ruleRegistry.get(rule.type).query({ projectId, registry: ruleRegistry, rule })
 }
 
 interface RuleMake {
@@ -71,10 +112,19 @@ interface RuleMake {
     operator?: Operator
     value?: AnyJson
     children?: RuleTree[]
+    frequency?: EventRuleFrequency
 }
 
-export const make = ({ type, group = 'user', path = '$', operator = '=', value, children }: RuleMake): RuleTree => {
-    return {
+export const make = ({
+    type,
+    group = 'user',
+    path = '$',
+    operator = '=',
+    value,
+    children,
+    frequency,
+}: RuleMake): RuleTree | EventRuleTree => {
+    const rule = {
         uuid: uuid(),
         type,
         group,
@@ -82,5 +132,12 @@ export const make = ({ type, group = 'user', path = '$', operator = '=', value, 
         operator,
         value,
         children,
+        frequency,
     }
+
+    children?.forEach(child => {
+        child.parent_uuid = rule.uuid
+    })
+
+    return rule
 }

@@ -6,8 +6,8 @@ import { Journey } from '../../types'
 import FormWrapper from '../../ui/form/FormWrapper'
 import TextInput from '../../ui/form/TextInput'
 import { TagPicker } from '../settings/TagPicker'
-import SwitchField from '../../ui/form/SwitchField'
 import { useTranslation } from 'react-i18next'
+import RadioInput from '../../ui/form/RadioInput'
 
 interface JourneyFormProps {
     journey?: Journey
@@ -17,12 +17,17 @@ interface JourneyFormProps {
 export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
+    const statusOptions = [
+        { key: 'live', label: t('live') },
+        { key: 'off', label: t('off') },
+    ]
+    const isCreated = journey?.id && journey?.status !== 'draft'
     return (
         <FormWrapper<Journey>
-            onSubmit={async ({ id, name, description, published = false, tags }) => {
+            onSubmit={async ({ id, name, description, status, tags }) => {
                 const saved = id
-                    ? await api.journeys.update(project.id, id, { name, description, published, tags })
-                    : await api.journeys.create(project.id, { name, description, published, tags })
+                    ? await api.journeys.update(project.id, id, { name, description, status, tags })
+                    : await api.journeys.create(project.id, { name, description, status, tags })
                 toast.success(t('journey_saved'))
                 onSaved?.(saved)
             }}
@@ -49,11 +54,13 @@ export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
                             name="tags"
                             label={t('tags')}
                         />
-                        <SwitchField
+                        {isCreated && <RadioInput.Field
                             form={form}
-                            name="published"
-                            label={t('published')}
-                        />
+                            name="status"
+                            label={t('status')}
+                            options={statusOptions}
+                            required
+                        />}
                     </>
                 )
             }

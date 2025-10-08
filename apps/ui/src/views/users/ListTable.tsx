@@ -7,7 +7,7 @@ import { useRoute } from '../router'
 import Menu, { MenuItem } from '../../ui/Menu'
 import { ArchiveIcon, DuplicateIcon, EditIcon } from '../../ui/icons'
 import api from '../../api'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router'
 import { Translation, useTranslation } from 'react-i18next'
 
 interface ListTableParams {
@@ -47,7 +47,7 @@ export default function ListTable({ search, selectedRow, onSelectRow, title }: L
 
     const handleDuplicateList = async (id: number) => {
         const list = await api.lists.duplicate(projectId, id)
-        navigate(list.id.toString())
+        await navigate(list.id.toString())
     }
 
     const handleArchiveList = async (id: number) => {
@@ -67,6 +67,7 @@ export default function ListTable({ search, selectedRow, onSelectRow, title }: L
                     key: 'name',
                     title: t('name'),
                     sortable: true,
+                    minWidth: '200px',
                 },
                 {
                     key: 'type',

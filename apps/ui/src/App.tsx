@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { RouterProvider } from 'react-router-dom'
+import { RouterProvider } from 'react-router'
 import { PreferencesProvider } from './ui/PreferencesContext'
 import { RouterProps, createRouter } from './views/router'
 import { Toaster } from './ui/Toast'

@@ -10,7 +10,7 @@ export default class List extends Model {
     type!: ListType
     state!: ListState
     rule_id?: number
-    rule?: RuleTree
+    rule!: RuleTree
     version!: number
     users_count?: number
     tags?: string[]
@@ -18,6 +18,8 @@ export default class List extends Model {
     refreshed_at?: Date | null
     deleted_at?: Date
     progress?: ListProgress
+
+    static jsonAttributes = ['rule']
 }
 
 export type ListProgress = {
@@ -25,18 +27,6 @@ export type ListProgress = {
     total: number
 }
 
-export type DynamicList = List & { rule_id: number, rule: RuleTree }
-
-export class UserList extends Model {
-    user_id!: number
-    list_id!: number
-    event_id!: number
-    version!: number
-    deleted_at?: Date
-
-    static tableName = 'user_list'
-}
-
-export type ListUpdateParams = Pick<List, 'name' | 'tags'> & { rule?: RuleTree, published?: boolean }
-export type ListCreateParams = ListUpdateParams & Pick<List, 'type' | 'is_visible'> & { rule?: RuleTree }
+export type ListUpdateParams = Pick<List, 'name' | 'tags'> & { rule: RuleTree, published?: boolean }
+export type ListCreateParams = Pick<List, 'name' | 'tags' | 'type' | 'is_visible'> & { rule?: RuleTree }
 export type ListVersion = Pick<List, 'id' | 'version'>

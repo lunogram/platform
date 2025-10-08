@@ -1,74 +1,40 @@
 import Button from '../../ui/Button'
 import PageContent from '../../ui/PageContent'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router'
 import { NavigationTabs } from '../../ui/Tabs'
-import { useContext, useEffect, useState } from 'react'
-import { CampaignContext, LocaleContext, LocaleSelection, ProjectContext } from '../../contexts'
-import { languageName } from '../../utils'
-import { Campaign, LocaleOption, Template } from '../../types'
+import { useContext, useState } from 'react'
+import { CampaignContext, ProjectContext } from '../../contexts'
+import { checkProjectRole } from '../../utils'
 import api from '../../api'
 import { CampaignTag } from './Campaigns'
-import LaunchCampaign from './LaunchCampaign'
-import { ForbiddenIcon, RestartIcon, SendIcon } from '../../ui/icons'
+import LaunchCampaign from './launch/LaunchCampaign'
+import { ArchiveIcon, DuplicateIcon, ForbiddenIcon, RestartIcon, SendIcon } from '../../ui/icons'
 import { useTranslation } from 'react-i18next'
-
-export interface LocaleParams {
-    locale: string
-    data: {
-        editor: string
-    }
-}
-
-export const localeOption = (locale: string): LocaleOption => {
-    const language = languageName(locale)
-    return {
-        key: locale,
-        label: language ? `${language} (${locale})` : locale,
-    }
-}
-
-export const locales = (templates: Template[]) => templates?.map(item => localeOption(item.locale))
-
-export const localeState = (templates: Template[]) => {
-    const allLocales = locales(templates)
-
-    const url: URL = new URL(window.location.href)
-    const searchParams: URLSearchParams = url.searchParams
-    const queryLocale = searchParams.get('locale')
-    return {
-        currentLocale: allLocales.find(item => item.key === queryLocale) ?? allLocales[0],
-        allLocales: locales(templates ?? []),
-    }
-}
-
-export const createLocale = async ({ locale, data }: LocaleParams, campaign: Campaign): Promise<Template> => {
-    // TODO: Get base locale from user preferences
-    const baseLocale = 'en'
-    const template = campaign.templates.find(template => template.locale === baseLocale) ?? campaign.templates[0]
-    return await api.templates.create(campaign.project_id, {
-        campaign_id: campaign.id,
-        type: campaign.channel,
-        locale,
-        data: template?.data || data ? { ...template?.data, ...data } : undefined,
-    })
-}
+import { Menu, MenuItem } from '../../ui'
+import { TemplateContextProvider } from './template/TemplateContextProvider'
 
 export default function CampaignDetail() {
     const [project] = useContext(ProjectContext)
     const { t } = useTranslation()
+    const navigate = useNavigate()
     const [campaign, setCampaign] = useContext(CampaignContext)
-    const { name, templates, state, send_at, progress } = campaign
-    const [locale, setLocale] = useState<LocaleSelection>(localeState(templates ?? []))
-    useEffect(() => {
-        setLocale(localeState(templates ?? []))
-    }, [campaign.id])
+    const { name, state, send_at, progress } = campaign
     const [isLaunchOpen, setIsLaunchOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
+
+    const handleDuplicate = async (id: number) => {
+        const campaign = await api.campaigns.duplicate(project.id, id)
+        await navigate(`/projects/${project.id}/campaigns/${campaign.id}`)
+    }
+
+    const handleArchive = async (id: number) => {
+        await api.campaigns.delete(project.id, id)
+        await navigate(`/projects/${project.id}/campaigns`)
+    }
 
     const handleAbort = async () => {
         setIsLoading(true)
         const value = await api.campaigns.update(project.id, campaign.id, { state: 'aborted' })
-        console.log('finished', value)
         setCampaign(value)
         setIsLoading(false)
     }
@@ -122,7 +88,13 @@ export default function CampaignDetail() {
                     isLoading={true}
                 >{t('abort_campaign')}</Button>
             ),
-        loading: <></>,
+        loading: (
+            <Button
+                icon={<ForbiddenIcon />}
+                isLoading={isLoading}
+                onClick={async () => await handleAbort()}
+            >{t('abort_campaign')}</Button>
+        ),
         scheduled: (
             <>
                 <Button
@@ -154,14 +126,27 @@ export default function CampaignDetail() {
                 progress={progress}
                 send_at={send_at}
             />}
-            actions={campaign.type !== 'trigger' && action[state]}
+            actions={
+                <>
+                    {checkProjectRole('publisher', project.role) && (
+                        campaign.type !== 'trigger' && action[state]
+                    )}
+                    <Menu size="regular">
+                        <MenuItem onClick={async () => await handleDuplicate(campaign.id)}>
+                            <DuplicateIcon />{t('duplicate')}
+                        </MenuItem>
+                        <MenuItem onClick={async () => await handleArchive(campaign.id)}>
+                            <ArchiveIcon />{t('archive')}
+                        </MenuItem>
+                    </Menu>
+                </>
+            }
             fullscreen={true}>
             <NavigationTabs tabs={tabs} />
-            <LocaleContext.Provider value={[locale, setLocale]}>
+            <TemplateContextProvider campaign={campaign} setCampaign={setCampaign}>
                 <Outlet />
-            </LocaleContext.Provider>
-
-            <LaunchCampaign open={isLaunchOpen} onClose={setIsLaunchOpen} />
+                <LaunchCampaign open={isLaunchOpen} onClose={setIsLaunchOpen} />
+            </TemplateContextProvider>
         </PageContent>
     )
 }

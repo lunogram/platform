@@ -1,7 +1,9 @@
 import { WebhookTemplate } from '../../render/Template'
-import Render, { Variables } from '../../render'
+import { Variables } from '../../render'
 import { WebhookProvider } from './WebhookProvider'
 import { WebhookResponse } from './Webhook'
+import App from '../../app'
+import { cacheGet, cacheSet } from '../../config/redis'
 
 export default class WebhookChannel {
     readonly provider: WebhookProvider
@@ -13,27 +15,22 @@ export default class WebhookChannel {
         }
     }
 
-    async send(options: WebhookTemplate, variables: Variables): Promise<WebhookResponse> {
-        const headers = this.compile(options.headers, variables)
-        const endpoint = Render(options.endpoint, variables)
-        const method = options.method
-        const body = method === 'POST' || method === 'PATCH' || method === 'PUT'
-            ? this.compile(options.body, variables)
-            : undefined
+    async send(template: WebhookTemplate, variables: Variables): Promise<WebhookResponse> {
 
-        return await this.provider.send({
-            endpoint,
-            method,
-            headers,
-            body,
-        })
-    }
+        const message = template.compile(variables)
+        const redis = App.main.redis
 
-    private compile(object: Record<string, string> | undefined, variables: Variables) {
-        if (!object) return {}
-        return Object.keys(object).reduce((body, key) => {
-            body[key] = Render(object[key], variables)
-            return body
-        }, {} as Record<string, any>)
+        // If we have a cache key, check cache first
+        if (message.cacheKey?.length) {
+            const key = `wh:${variables.context.campaign_id}:${message.cacheKey}`
+            const value = await cacheGet<WebhookResponse>(redis, key)
+            if (value) return value
+            const response = await this.provider.send(message)
+
+            await cacheSet(redis, key, response, 3600)
+            return response
+        }
+
+        return await this.provider.send(message)
     }
 }

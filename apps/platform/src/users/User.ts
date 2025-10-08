@@ -1,6 +1,8 @@
 import { ClientIdentity } from '../client/Client'
-import Model, { ModelParams } from '../core/Model'
+import { UniversalModel } from '../core/Model'
 import parsePhoneNumber from 'libphonenumber-js'
+import { SubscriptionState } from '../subscriptions/Subscription'
+import { Device } from './Device'
 
 export interface TemplateUser extends Record<string, any> {
     id: string
@@ -15,34 +17,21 @@ export interface UserAttribute {
     value: any
 }
 
-export interface Device {
-    device_id: string
-    token?: string
-    os?: string
-    os_version?: string
-    model?: string
-    app_build?: string
-    app_version?: string
-}
-
-export type DeviceParams = Omit<Device, ModelParams> & ClientIdentity
-
-interface PushEnabledDevice extends Device {
-    token: string
-}
-
-export class User extends Model {
+export class User extends UniversalModel {
     project_id!: number
     anonymous_id!: string
     external_id!: string
     email?: string
     phone?: string
     devices?: Device[]
+    has_push_device!: boolean
     data!: Record<string, any> // first_name, last_name live in data
+    unsubscribe_ids?: number[]
     timezone?: string
     locale?: string
+    version!: number
 
-    static jsonAttributes = ['data', 'devices']
+    static jsonAttributes = ['data', 'devices', 'unsubscribe_ids']
     static virtualAttributes = ['firstName', 'lastName', 'fullName']
 
     flatten(): TemplateUser {
@@ -55,11 +44,10 @@ export class User extends Model {
             created_at: this.created_at,
             locale: this.locale,
             timezone: this.timezone,
+            firstName: this.firstName,
+            lastName: this.lastName,
+            fullName: this.fullName,
         }
-    }
-
-    get pushEnabledDevices(): PushEnabledDevice[] {
-        return this.devices?.filter(device => device.token != null) as PushEnabledDevice[] ?? []
     }
 
     get fullName() {
@@ -86,7 +74,13 @@ export class User extends Model {
         return this.data.last_name ?? this.data.lastName ?? this.data.surname
     }
 
-    static formatJson(json: Record<string, any>): Record<string, unknown> {
+    subscriptionState(subscriptionId: number): SubscriptionState {
+        return this.unsubscribe_ids?.includes(subscriptionId)
+            ? SubscriptionState.unsubscribed
+            : SubscriptionState.subscribed
+    }
+
+    static formatDb(json: any): Record<string, unknown> {
         if (json.phone) {
             const parsedNumber = parsePhoneNumber(json.phone)
             if (parsedNumber) {
@@ -97,7 +91,7 @@ export class User extends Model {
                 }
             }
         }
-        return super.formatJson(json)
+        return super.formatDb(json)
     }
 
     toJSON() {
@@ -115,4 +109,4 @@ export class User extends Model {
 }
 
 export type UserParams = Partial<Pick<User, 'email' | 'phone' | 'timezone' |'locale' | 'data'>> & ClientIdentity
-export type UserInternalParams = Partial<Pick<User, 'email' | 'phone' | 'timezone' |'locale' | 'created_at' | 'data'>> & ClientIdentity
+export type UserInternalParams = Partial<Pick<User, 'email' | 'phone' | 'timezone' |'locale' | 'created_at' | 'data' | 'unsubscribe_ids'>> & ClientIdentity

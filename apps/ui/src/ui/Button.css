@@ -40,6 +40,10 @@
     margin: 0;
 }
 
+.ui-button.regular.ui-button-no-children {
+    padding: 10px;
+}
+
 .ui-button:focus {
     outline: none;
 }

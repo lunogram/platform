@@ -1,11 +1,12 @@
 import Project from '../../projects/Project'
 import Journey from '../Journey'
-import { JourneyEntrance, JourneyUserStep } from '../JourneyStep'
+import { JourneyEntrance } from '../JourneyStep'
+import JourneyUserStep from '../JourneyUserStep'
 import { Frequency, RRule } from 'rrule'
 import { addDays } from 'date-fns'
-import List, { UserList } from '../../lists/List'
 import { User } from '../../users/User'
 import ScheduledEntranceJob from '../ScheduledEntranceJob'
+import { addUserToList, createList } from '../../lists/ListService'
 
 describe('ScheduledEntranceJob', () => {
 
@@ -15,18 +16,20 @@ describe('ScheduledEntranceJob', () => {
             name: 'scheduler test ' + Date.now(),
         })
 
-        const list_id = await List.insert({
-            project_id: project.id,
+        const list = await createList(project.id, {
             name: 'scheduler list',
             type: 'static',
+            is_visible: true,
         })
 
-        const userIds = await Promise.all(Array.from({ length: 3 }).map((_, i) => User.insert({
+        const users = await Promise.all(Array.from({ length: 3 }).map((_, i) => User.insertAndFetch({
             project_id: project.id,
             external_id: `u${i}`,
         })))
 
-        await UserList.insert(userIds.map(user_id => ({ user_id, list_id })))
+        for (const user of users) {
+            await addUserToList(user, list)
+        }
 
         const now = new Date()
 
@@ -37,7 +40,7 @@ describe('ScheduledEntranceJob', () => {
                 type: JourneyEntrance.type,
                 data: {
                     trigger: 'schedule',
-                    list_id,
+                    list_id: list.id,
                     schedule: new RRule({
                         dtstart: addDays(now, -1),
                         freq: Frequency.DAILY,
