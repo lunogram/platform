@@ -9,9 +9,11 @@ import { Button, Modal } from '../../ui'
 import FormWrapper from '../../ui/form/FormWrapper'
 import UploadField from '../../ui/form/UploadField'
 import { TrashIcon } from '../../ui/icons'
+import { UUID } from 'crypto'
+import { NIL } from 'uuid'
 
 export default function UserTabs() {
-    const { projectId = '' } = useParams()
+    const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
     const { t } = useTranslation()
     const route = useRoute()
     const state = useSearchTableQueryState(useCallback(async params => await api.users.search(projectId, params), [projectId]))

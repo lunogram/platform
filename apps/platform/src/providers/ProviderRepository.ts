@@ -1,11 +1,12 @@
+import { UUID } from 'crypto'
 import App from '../app'
 import Provider, { ProviderMap, ProviderParams, ExternalProviderParams } from './Provider'
 
-export const getProvider = async (id: number, projectId?: number) => {
+export const getProvider = async (id: UUID, projectId?: UUID) => {
     return await Provider.find(id, qb => projectId ? qb.where('project_id', projectId) : qb)
 }
 
-export const loadProvider = async <T extends Provider>(id: number, mapper: ProviderMap<T>, projectId?: number, app = App.main) => {
+export const loadProvider = async <T extends Provider>(id: UUID, mapper: ProviderMap<T>, projectId?: UUID, app = App.main) => {
 
     // Check if value is cached in memory
     const cache = app.get<T>(Provider.cacheKey.internal(id))
@@ -22,7 +23,7 @@ export const loadProvider = async <T extends Provider>(id: number, mapper: Provi
     return mappedValue
 }
 
-export const loadDefaultProvider = async <T extends Provider>(group: string, projectId: number, mapper: ProviderMap<T>, app = App.main) => {
+export const loadDefaultProvider = async <T extends Provider>(group: string, projectId: UUID, mapper: ProviderMap<T>, app = App.main) => {
 
     // Check if value is cached in memory
     const cache = app.get<T>(Provider.cacheKey.default(projectId, group))
@@ -42,7 +43,7 @@ export const loadDefaultProvider = async <T extends Provider>(group: string, pro
     return mappedValue
 }
 
-export const createProvider = async (projectId: number, params: ProviderParams) => {
+export const createProvider = async (projectId: UUID, params: ProviderParams) => {
     params.is_default = params.data.is_default ?? false
 
     const provider = await Provider.insertAndFetch({
@@ -55,7 +56,7 @@ export const createProvider = async (projectId: number, params: ProviderParams) 
     return provider
 }
 
-export const updateProvider = async (id: number, params: ExternalProviderParams, app = App.main) => {
+export const updateProvider = async (id: UUID, params: ExternalProviderParams, app = App.main) => {
     params.is_default = params.data.is_default ?? false
 
     const provider = await Provider.updateAndFetch(id, params)

@@ -1,12 +1,12 @@
 import { RequestError } from '../core/errors'
 import Admin from '../auth/Admin'
 import Provider from '../providers/Provider'
-import { encodeHashid, uuid } from '../utilities'
+import { uuid } from '../utilities'
 import Organization, { OrganizationRole, organizationRoles } from './Organization'
 import { JwtAdmin } from '../auth/AuthMiddleware'
 import { Next, ParameterizedContext } from 'koa'
 
-export const getOrganization = async (id: number) => {
+export const getOrganization = async (id: UUID) => {
     return await Organization.find(id)
 }
 
@@ -47,7 +47,7 @@ export const createOrganization = async (domain?: string): Promise<Organization>
     // a random username from the org id
     if (!username) {
         await Organization.updateAndFetch(org.id, {
-            username: encodeHashid(org.id),
+            username: org.id,
         })
     }
     return org

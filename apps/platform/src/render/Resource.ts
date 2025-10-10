@@ -3,7 +3,7 @@ import Model, { ModelParams } from '../core/Model'
 export type ResourceType = 'font' | 'snippet'
 
 export default class Resource extends Model {
-    project_id!: number
+    project_id!: UUID
     type!: ResourceType
     name!: string
     value!: Record<string, any>

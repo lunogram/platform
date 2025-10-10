@@ -7,6 +7,7 @@ import api from '../../../api'
 import { TemplateContext } from '../../../contexts'
 import { useTranslation } from 'react-i18next'
 import VariantFormModal from './VariantFormModal'
+import { UUID } from 'crypto'
 
 interface VariantEditParams {
     open: boolean
@@ -20,7 +21,7 @@ export default function VariantListModal({ open, setIsOpen, campaign, setCampaig
     const { variants, setTemplate } = useContext(TemplateContext)
     const [editVariant, setEditVariant] = useState<VariantUpdateParams | undefined>()
 
-    const handleRemoveVariant = async (id: number) => {
+    const handleRemoveVariant = async (id: UUID) => {
         if (!confirm(t('variant_remove_warning'))) return
         await api.templates.delete(campaign.project_id, id)
 

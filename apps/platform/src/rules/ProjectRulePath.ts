@@ -5,7 +5,7 @@ export type RulePathVisibility = 'public' | 'hidden' | 'classified'
 export type RulePathEventName = string
 export class ProjectRulePath extends Model {
 
-    project_id!: number
+    project_id!: UUID
     path!: string
     type!: 'user' | 'event'
     name?: RulePathEventName // event name

@@ -4,9 +4,10 @@ import { chunk } from '../utilities'
 import JourneyUserStep from './JourneyUserStep'
 import Journey from './Journey'
 import JourneyProcessJob from './JourneyProcessJob'
+import { UUID } from 'node:crypto'
 
 interface JourneyDelayJobParams {
-    journey_id: number
+    journey_id: UUID
 }
 
 export default class JourneyDelayJob extends Job {
@@ -17,39 +18,30 @@ export default class JourneyDelayJob extends Job {
             .select('id')
             .whereNot('status', 'off')
             .whereNull('deleted_at')
-        await chunk<{ id: number }>(query, app.queue.batchSize, async journeys => {
+        await chunk<{ id: UUID }>(query, app.queue.batchSize, async journeys => {
             app.queue.enqueueBatch(journeys.map(({ id }) => JourneyDelayJob.from(id)))
         })
     }
 
-    static from(journey_id: number) {
+    static from(journey_id: UUID) {
         return new JourneyDelayJob({ journey_id })
     }
 
     static async handler({ journey_id }: JourneyDelayJobParams) {
-
         if (!journey_id) return
 
-        const { db, queue } = App.main
+        const { queue } = App.main
 
-        const count = await JourneyUserStep.update(
-            q => q
-                .where('journey_id', journey_id)
-                .where('type', 'delay') // only include steps where the current type/status is 'delay'
-                .where('delay_until', '<=', new Date()),
-            { type: 'pending' },
-        )
+        const updated = await JourneyUserStep
+            .query()
+            .update({ type: 'pending' })
+            .where('journey_id', journey_id)
+            .where('type', 'delay')
+            .where('delay_until', '<=', 'NOW()')
+            .returning(['id']);
 
-        if (count) {
-            // maybe this should have a lock?
-            const query = JourneyUserStep.query(db)
-                .select('id')
-                .where('journey_id', journey_id)
-                .where('type', 'pending')
+        if (updated.length === 0) return
 
-            await chunk<{ id: number }>(query, queue.batchSize, async items => {
-                await queue.enqueueBatch(items.map(({ id }) => JourneyProcessJob.from({ entrance_id: id })))
-            })
-        }
+        await queue.enqueueBatch(updated.map(({ id }) => JourneyProcessJob.from({ entrance_id: id })))
     }
 }

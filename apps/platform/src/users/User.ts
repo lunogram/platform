@@ -1,8 +1,9 @@
 import { ClientIdentity } from '../client/Client'
-import { UniversalModel } from '../core/Model'
+import Model from '../core/Model'
 import parsePhoneNumber from 'libphonenumber-js'
 import { SubscriptionState } from '../subscriptions/Subscription'
 import { Device } from './Device'
+import { UUID } from 'crypto'
 
 export interface TemplateUser extends Record<string, any> {
     id: string
@@ -11,14 +12,14 @@ export interface TemplateUser extends Record<string, any> {
 }
 
 export interface UserAttribute {
-    id: number
-    user_id: number
+    id: UUID
+    user_id: UUID
     key: string
     value: any
 }
 
-export class User extends UniversalModel {
-    project_id!: number
+export class User extends Model {
+    project_id!: UUID
     anonymous_id!: string
     external_id!: string
     email?: string
@@ -26,7 +27,7 @@ export class User extends UniversalModel {
     devices?: Device[]
     has_push_device!: boolean
     data!: Record<string, any> // first_name, last_name live in data
-    unsubscribe_ids?: number[]
+    unsubscribe_ids?: UUID[]
     timezone?: string
     locale?: string
     version!: number
@@ -74,7 +75,7 @@ export class User extends UniversalModel {
         return this.data.last_name ?? this.data.lastName ?? this.data.surname
     }
 
-    subscriptionState(subscriptionId: number): SubscriptionState {
+    subscriptionState(subscriptionId: UUID): SubscriptionState {
         return this.unsubscribe_ids?.includes(subscriptionId)
             ? SubscriptionState.unsubscribed
             : SubscriptionState.subscribed
@@ -108,5 +109,5 @@ export class User extends UniversalModel {
     }
 }
 
-export type UserParams = Partial<Pick<User, 'email' | 'phone' | 'timezone' |'locale' | 'data'>> & ClientIdentity
-export type UserInternalParams = Partial<Pick<User, 'email' | 'phone' | 'timezone' |'locale' | 'created_at' | 'data' | 'unsubscribe_ids'>> & ClientIdentity
+export type UserParams = Partial<Pick<User, 'email' | 'phone' | 'timezone' | 'locale' | 'data'>> & ClientIdentity
+export type UserInternalParams = Partial<Pick<User, 'email' | 'phone' | 'timezone' | 'locale' | 'created_at' | 'data' | 'unsubscribe_ids'>> & ClientIdentity

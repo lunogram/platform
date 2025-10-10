@@ -3,7 +3,7 @@ import { Job } from '../queue'
 import { syncUserDataPaths } from './UserSchemaService'
 
 interface UserSchemaSyncTrigger {
-    project_id?: number
+    project_id?: UUID
     delta?: Date
 }
 

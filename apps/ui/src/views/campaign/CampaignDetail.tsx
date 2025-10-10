@@ -12,6 +12,7 @@ import { ArchiveIcon, DuplicateIcon, ForbiddenIcon, RestartIcon, SendIcon } from
 import { useTranslation } from 'react-i18next'
 import { Menu, MenuItem } from '../../ui'
 import { TemplateContextProvider } from './template/TemplateContextProvider'
+import { UUID } from 'crypto'
 
 export default function CampaignDetail() {
     const [project] = useContext(ProjectContext)
@@ -22,12 +23,12 @@ export default function CampaignDetail() {
     const [isLaunchOpen, setIsLaunchOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
 
-    const handleDuplicate = async (id: number) => {
+    const handleDuplicate = async (id: UUID) => {
         const campaign = await api.campaigns.duplicate(project.id, id)
         await navigate(`/projects/${project.id}/campaigns/${campaign.id}`)
     }
 
-    const handleArchive = async (id: number) => {
+    const handleArchive = async (id: UUID) => {
         await api.campaigns.delete(project.id, id)
         await navigate(`/projects/${project.id}/campaigns`)
     }

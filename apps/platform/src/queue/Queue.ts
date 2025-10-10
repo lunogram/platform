@@ -34,6 +34,8 @@ export default class Queue {
             App.main.error.notify(new Error(`No handler found for job: ${job.name}`))
         }
 
+        logger.info('queue:dequeue:job', job.name)
+
         const start = Date.now()
         await this.started(job)
         await handler(job.data, job)

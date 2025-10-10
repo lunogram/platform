@@ -3,16 +3,16 @@ import List from './List'
 import { getList, listUserCount } from './ListService'
 
 interface ListStatsParams {
-    listId: number
-    projectId: number
+    listId: UUID
+    projectId: UUID
 }
 
 export default class ListStatsJob extends Job {
     static $name = 'list_stats_job'
 
     static from(
-        listId: number,
-        projectId: number,
+        listId: UUID,
+        projectId: UUID,
     ): ListStatsJob {
         return new this({ listId, projectId }).deduplicationKey(`${this.$name}_${listId}`)
     }

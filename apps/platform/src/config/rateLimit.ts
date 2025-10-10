@@ -62,6 +62,16 @@ export class RateLimiter {
     }
 
     async consume(key: string, { limit = 10, points = 1, msDuration = 1000 }: RateLimitOptions): Promise<RateLimitResponse> {
+        // NOTE: the limit could be set to 0, which means unlimited (Journey Balancer Step)
+        if (limit === 0) {
+            return {
+                exceeded: false,
+                pointsRemaining: 0,
+                pointsUsed: 0,
+                expires: 0,
+            }
+        }
+
         const window = Math.floor(msDuration / 1000)
         const [consumed, exceeded, expires] = await this.client.slidingRateLimiter(key, window, points, limit)
         return {

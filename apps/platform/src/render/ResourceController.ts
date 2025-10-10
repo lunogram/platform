@@ -3,6 +3,8 @@ import { ProjectState } from '../auth/AuthMiddleware'
 import { JSONSchemaType, validate } from '../core/validate'
 import Resource, { ResourceParams, ResourceType } from './Resource'
 import { allResources, createResource, deleteResource, getResource } from './ResourceService'
+import { UUID } from 'crypto'
+import { validate as uuidValidate } from 'uuid'
 
 const router = new Router<
     ProjectState & { resource?: Resource }
@@ -38,7 +40,12 @@ router.post('/', async ctx => {
 })
 
 router.param('resourceId', async (value: string, ctx, next) => {
-    ctx.state.resource = await getResource(parseInt(value, 10), ctx.state.project.id)
+    if (!uuidValidate(value)) {
+        ctx.throw(400, 'Invalid resource ID')
+        return
+    }
+
+    ctx.state.resource = await getResource(value as UUID, ctx.state.project.id)
     if (!ctx.state.resource) {
         ctx.throw(404)
         return

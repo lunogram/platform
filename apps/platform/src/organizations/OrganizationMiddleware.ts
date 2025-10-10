@@ -7,7 +7,7 @@ export const organizationMiddleware = async (ctx: Context, next: () => void) => 
     if (!App.main.env.config.multiOrg) {
         ctx.state.organization = await getDefaultOrganization()
     } else if (organizationId) {
-        ctx.state.organization = await getOrganization(parseInt(organizationId))
+        ctx.state.organization = await getOrganization(organizationId)
     } else if (ctx.subdomains && ctx.subdomains[0]) {
         const subdomain = ctx.subdomains[0]
         ctx.state.organization = await getOrganizationByUsername(subdomain)

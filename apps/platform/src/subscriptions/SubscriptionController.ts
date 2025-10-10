@@ -7,25 +7,27 @@ import { createSubscription, getSubscription, getUserSubscriptions, pagedSubscri
 import SubscriptionError from './SubscriptionError'
 import { encodedLinkToParts } from '../render/LinkService'
 import { ProjectState } from '../auth/AuthMiddleware'
-import { decodeHashid, extractQueryParams } from '../utilities'
+import { extractQueryParams } from '../utilities'
 import { searchParamsSchema } from '../core/searchParams'
 import { projectRoleMiddleware } from '../projects/ProjectService'
 import { compileTemplate } from '../render'
 import { getUser } from '../users/UserRepository'
 import { User } from 'users/User'
+import { UUID } from 'crypto'
+import { validate as uuidValidate } from 'uuid'
 
 /**
  ***
  * Public routes for webhooks & unsubscribe links
  ***
  */
-const publicRouter = new Router<{app: App}>({
+const publicRouter = new Router<{ app: App }>({
     prefix: '/unsubscribe',
 })
 
 interface EmailUnsubscribeParams {
-    campaign_id: number
-    user_id: number
+    campaign_id: UUID
+    user_id: UUID
 }
 
 const strings: Record<any, Record<string, string>> = {
@@ -90,10 +92,12 @@ export const emailUnsubscribeSchema: JSONSchemaType<EmailUnsubscribeParams> = {
     required: ['campaign_id', 'user_id'],
     properties: {
         campaign_id: {
-            type: 'integer',
+            type: 'string',
+            format: 'uuid',
         },
         user_id: {
-            type: 'integer',
+            type: 'string',
+            format: 'uuid',
         },
     },
     additionalProperties: false,
@@ -152,14 +156,18 @@ const preferencesPage = new Router<{
     user?: User
     subscriptions?: SubscriptionPreferencesArgs['subscriptions']
 }>({
-    prefix: '/preferences/:encodedUserId',
+    prefix: '/preferences/:userId',
 })
 
-preferencesPage.param('encodedUserId', async (value, ctx, next) => {
-
-    const userId = decodeHashid(value)
+preferencesPage.param('userId', async (userId, ctx, next) => {
     if (!userId) throw new RequestError(SubscriptionError.UnsubscribeInvalidUser)
-    const user = await getUser(userId)
+
+    if (!uuidValidate(userId)) {
+        ctx.throw(400, 'Invalid user ID')
+        return
+    }
+
+    const user = await getUser(userId as UUID)
     if (!user) throw new RequestError(SubscriptionError.UnsubscribeInvalidUser)
     const subscriptions = await getUserSubscriptions(user)
 
@@ -271,8 +279,7 @@ preferencesPage.get('/', async ctx => {
 preferencesPage.post('/', async ctx => {
     const { subscriptionIds } = ctx.request.body
     const ids = (Array.isArray(subscriptionIds) ? subscriptionIds : [subscriptionIds as string])
-        ?.map(Number)
-        .filter(n => !isNaN(n)) ?? []
+        ?.filter(id => typeof id === 'string' && id.length > 0) ?? []
     for (const { subscription_id } of ctx.state.subscriptions ?? []) {
         await toggleSubscription(
             ctx.state.user!.id,
@@ -298,7 +305,7 @@ export { publicRouter }
  * our client side libraries
  ***
  */
-const clientRouter = new Router<{app: App}>({
+const clientRouter = new Router<{ app: App }>({
     prefix: '/unsubscribe',
 })
 clientRouter.post('/push', async ctx => {
@@ -352,7 +359,12 @@ router.post('/', projectRoleMiddleware('admin'), async ctx => {
 })
 
 router.param('subscriptionId', async (value, ctx, next) => {
-    ctx.state.subscription = await getSubscription(parseInt(value), ctx.state.project.id)
+    if (!uuidValidate(value)) {
+        ctx.throw(400, 'Invalid subscription ID')
+        return
+    }
+
+    ctx.state.subscription = await getSubscription(value as UUID, ctx.state.project.id)
     if (!ctx.state.subscription) {
         ctx.throw(404)
         return

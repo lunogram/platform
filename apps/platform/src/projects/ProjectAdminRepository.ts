@@ -6,7 +6,7 @@ import { ProjectAdmin } from './ProjectAdmins'
 const adminSelectFields = ['admins.first_name', 'admins.last_name', 'admins.email']
 const projectAdminFields = [`${ProjectAdmin.tableName}.*`, ...adminSelectFields]
 
-const baseProjectAdminQuery = (builder: Database.QueryBuilder<any>, projectId: number) => {
+const baseProjectAdminQuery = (builder: Database.QueryBuilder<any>, projectId: UUID) => {
     return builder
         .select(projectAdminFields)
         .join('admins', 'admin_id', '=', 'admins.id')
@@ -14,18 +14,18 @@ const baseProjectAdminQuery = (builder: Database.QueryBuilder<any>, projectId: n
         .whereNull(`${ProjectAdmin.tableName}.deleted_at`)
 }
 
-export const pagedProjectAdmins = async (params: PageParams, projectId: number) => {
+export const pagedProjectAdmins = async (params: PageParams, projectId: UUID) => {
     return await ProjectAdmin.search(
         { ...params, fields: adminSelectFields },
         q => baseProjectAdminQuery(q, projectId),
     )
 }
 
-export const getProjectAdmin = async (projectId: number, adminId: number) => {
+export const getProjectAdmin = async (projectId: UUID, adminId: UUID) => {
     return await ProjectAdmin.first(q => baseProjectAdminQuery(q.where('admin_id', adminId), projectId))
 }
 
-export const addAdminToProject = async (projectId: number, adminId: number, role: ProjectRole) => {
+export const addAdminToProject = async (projectId: UUID, adminId: UUID, role: ProjectRole) => {
     const admin = await getProjectAdmin(projectId, adminId)
     if (admin) {
         return await ProjectAdmin.update(
@@ -41,7 +41,7 @@ export const addAdminToProject = async (projectId: number, adminId: number, role
     })
 }
 
-export const removeAdminFromProject = async (projectId: number, adminId: number) => {
+export const removeAdminFromProject = async (projectId: UUID, adminId: UUID) => {
     return await ProjectAdmin.update(
         qb => qb.where('admin_id', adminId).where('project_id', projectId),
         { deleted_at: new Date() },

@@ -1,7 +1,7 @@
 import Model from '../core/Model'
 
 export class AccessToken extends Model {
-    admin_id!: number
+    admin_id!: UUID
     expires_at!: Date
     token!: string
     revoked!: boolean

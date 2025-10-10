@@ -8,8 +8,9 @@ import { createTagSubquery, getTags, setTags } from '../tags/TagService'
 import { pick } from '../utilities'
 import { fetchAndCompileRule } from '../rules/RuleService'
 import { createEvent } from '../users/UserEventRepository'
+import { UUID } from 'crypto'
 
-export const pagedLists = async (params: PageParams, projectId: number) => {
+export const pagedLists = async (params: PageParams, projectId: UUID) => {
     const result = await List.search(
         { ...params, fields: ['name'] },
         b => {
@@ -29,7 +30,7 @@ export const pagedLists = async (params: PageParams, projectId: number) => {
     return result
 }
 
-export const allLists = async (projectId: number, listIds?: number[]) => {
+export const allLists = async (projectId: UUID, listIds?: UUID[]) => {
     const lists = await List.all(qb => {
         qb.where('project_id', projectId)
         if (listIds) {
@@ -48,7 +49,7 @@ export const allLists = async (projectId: number, listIds?: number[]) => {
     return lists
 }
 
-export const getList = async (id: number, projectId: number) => {
+export const getList = async (id: UUID, projectId: UUID) => {
     const list = await List.find(id, qb => qb.where('project_id', projectId))
     if (list) {
         list.tags = await getTags(List.tableName, [list.id]).then(m => m.get(list.id))
@@ -58,35 +59,30 @@ export const getList = async (id: number, projectId: number) => {
     return list
 }
 
-export const getListUsers = async (list: List, params: PageParams, projectId: number) => {
-
+export const getListUsers = async (list: List, params: PageParams, projectId: UUID) => {
     const limit = params.limit ?? 25
     const offset = parseInt(params.cursor ?? '0') ?? 0
     const subquery = getRuleQuery(projectId, list.rule)
     const query = `
         SELECT DISTINCT id FROM (${subquery})
         ORDER BY id DESC
-        LIMIT {limit: UInt32}
-        OFFSET {offset: UInt32}
+        LIMIT ?
+        OFFSET ?
     `
-    const results = await User.clickhouse().all(
-        query,
-        {
-            projectId,
-            limit,
-            offset,
-        },
-    )
-    const users = await User.all(query => query.whereIn('id', results.map(r => r.id)))
+
+    const result = await User.raw(query, [limit, offset])
+    const rows = result.rows as { id: UUID }[]
+
+    const users = await User.all(query => query.whereIn('id', rows.map(r => r.id)))
     return {
         results: users,
         limit,
         prevCursor: offset > 0 ? `${Math.max(0, offset - limit)}` : undefined,
-        nextCursor: results.length < limit ? undefined : `${offset + limit}`,
+        nextCursor: rows.length < limit ? undefined : `${offset + limit}`,
     }
 }
 
-export const createList = async (projectId: number, { tags, name, type, rule }: ListCreateParams): Promise<List> => {
+export const createList = async (projectId: UUID, { tags, name, type, rule }: ListCreateParams): Promise<List> => {
     let list = await List.insertAndFetch({
         name,
         type,
@@ -140,12 +136,12 @@ export const updateList = async (list: List, { tags, published, ...params }: Lis
     return await getList(list.id, list.project_id)
 }
 
-export const archiveList = async (id: number, projectId: number) => {
+export const archiveList = async (id: UUID, projectId: UUID) => {
     await List.archive(id, qb => qb.where('project_id', projectId))
     return getList(id, projectId)
 }
 
-export const deleteList = async (id: number, projectId: number) => {
+export const deleteList = async (id: UUID, projectId: UUID) => {
     return await List.deleteById(id, qb => qb.where('project_id', projectId))
 }
 
@@ -205,12 +201,16 @@ export const addUserToList = async (user: User, list: ListVersion) => {
 }
 
 export const listUserCount = async (list: Pick<List, 'project_id' | 'rule'>): Promise<number> => {
-    return await User.clickhouse().count(
-        getRuleQuery(list.project_id, list.rule),
-    )
+    const subquery = getRuleQuery(list.project_id, list.rule)
+    const result = await User.query()
+        .count('* as count')
+        .from(User.query().fromRaw(`(${subquery})`).as('sub'))
+        .first()
+
+    return result.count ?? 0
 }
 
-export const updateListState = async (id: number, params: Partial<Pick<List, 'state' | 'version' | 'users_count' | 'refreshed_at'>>) => {
+export const updateListState = async (id: UUID, params: Partial<Pick<List, 'state' | 'version' | 'users_count' | 'refreshed_at'>>) => {
     return await List.updateAndFetch(id, params)
 }
 

@@ -6,11 +6,12 @@ import { getCampaign } from '../campaigns/CampaignService'
 import EventPostJob from '../client/EventPostJob'
 import { User } from '../users/User'
 import { getUser } from '../users/UserRepository'
-import { combineURLs, decodeHashid, encodeHashid } from '../utilities'
+import { combineURLs } from '../utilities'
+import { UUID } from 'node:crypto'
 
 export interface TrackedLinkParams {
-    userId: number
-    campaignId: number
+    userId: UUID
+    campaignId: UUID
     referenceId?: string
 }
 
@@ -20,13 +21,10 @@ interface TrackedLinkParts extends TrackedLinkParams {
 }
 
 export const paramsToEncodedLink = (params: TrackedLinkParts): string => {
-    const hashUserId = encodeHashid(params.userId)
-    const hashCampaignId = encodeHashid(params.campaignId)
-
     const baseUrl = combineURLs([App.main.env.baseUrl, params.path])
     const url = new URL(baseUrl)
-    url.searchParams.set('u', hashUserId)
-    url.searchParams.set('c', hashCampaignId)
+    url.searchParams.set('u', params.userId)
+    url.searchParams.set('c', params.campaignId)
     if (params.referenceId) {
         url.searchParams.set('s', params.referenceId)
     }
@@ -45,8 +43,8 @@ interface TrackedLinkExport {
 
 export const encodedLinkToParts = async (link: string | URL): Promise<TrackedLinkExport> => {
     const url = link instanceof URL ? link : new URL(link)
-    const userId = decodeHashid(url.searchParams.get('u'))
-    const campaignId = decodeHashid(url.searchParams.get('c'))
+    const userId = url.searchParams.get('u')
+    const campaignId = url.searchParams.get('c')
     const referenceId = url.searchParams.get('s') ?? undefined
     const redirect = decodeURIComponent(url.searchParams.get('r') ?? '')
 

@@ -64,7 +64,7 @@ export default {
         const ruleValue = compile(rule, item => String(item))
 
         if (['=', '!=', 'contains', 'not contain', 'any', 'none', 'starts with', 'not start with'].includes(rule.operator)) {
-            return whereQuery(path, rule.operator, ruleValue, 'String')
+            return whereQuery(path, rule.operator, ruleValue)
         }
 
         throw new RuleEvalException(rule, 'unknown operator: ' + rule.operator)

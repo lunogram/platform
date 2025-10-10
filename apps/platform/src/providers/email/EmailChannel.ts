@@ -2,7 +2,7 @@ import App from '../../app'
 import { Variables } from '../../render'
 import { EmailTemplate } from '../../render/Template'
 import { unsubscribeEmailLink } from '../../subscriptions/SubscriptionService'
-import { encodeHashid, pick } from '../../utilities'
+import { pick } from '../../utilities'
 import { Email } from './Email'
 import EmailProvider from './EmailProvider'
 
@@ -27,8 +27,8 @@ export default class EmailChannel {
             ...compiled,
             to: variables.user.email,
             headers: {
-                'X-Campaign-Id': encodeHashid(variables.context.campaign_id),
-                'X-Subscription-Id': encodeHashid(variables.context.subscription_id),
+                'X-Campaign-Id': variables.context.campaign_id,
+                'X-Subscription-Id': variables.context.subscription_id,
             },
             list: {
                 unsubscribe: unsubscribeEmailLink({

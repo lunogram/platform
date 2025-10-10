@@ -24,7 +24,6 @@ import UpdateJourneysJob from '../journey/UpdateJourneysJob'
 import ScheduledEntranceJob from '../journey/ScheduledEntranceJob'
 import ScheduledEntranceOrchestratorJob from '../journey/ScheduledEntranceOrchestratorJob'
 import CampaignAbortJob from '../campaigns/CampaignAbortJob'
-import MigrateJob from '../organizations/MigrateJob'
 import UnsubscribeJob from '../subscriptions/UnsubscribeJob'
 import InAppJob from '../providers/inapp/InAppJob'
 
@@ -41,7 +40,6 @@ export const jobs = [
     JourneyProcessJob,
     JourneyStatsJob,
     ListStatsJob,
-    MigrateJob,
     ProcessListsJob,
     ProcessCampaignsJob,
     PushJob,

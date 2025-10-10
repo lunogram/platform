@@ -10,6 +10,7 @@ import JourneyUserStep from '../JourneyUserStep'
 import { make } from '../../rules/RuleEngine'
 import { uuid } from '../../utilities'
 import { JourneyState } from '../JourneyState'
+import { UUID } from 'node:crypto'
 
 describe('JourneyService', () => {
 
@@ -19,7 +20,7 @@ describe('JourneyService', () => {
         data: {},
     }
 
-    const entrance = (list_id: number, childId: string) => {
+    const entrance = (list_id: UUID, childId: string) => {
         return {
             ...baseStep,
             type: 'entrance',
@@ -82,7 +83,7 @@ describe('JourneyService', () => {
         ],
     })
 
-    const linkStep = (target_id: number, childId: string) => ({
+    const linkStep = (target_id: UUID, childId: string) => ({
         ...baseStep,
         type: 'link',
         data: {

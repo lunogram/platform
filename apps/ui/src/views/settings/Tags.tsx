@@ -9,6 +9,8 @@ import { PlusIcon } from '../../ui/icons'
 import Modal from '../../ui/Modal'
 import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
 import { useTranslation } from 'react-i18next'
+import { UUID } from 'crypto'
+import { NIL } from 'uuid'
 
 export default function Tags() {
 
@@ -31,7 +33,7 @@ export default function Tags() {
                         <Button
                             size="small"
                             variant="primary"
-                            onClick={() => setEditing({ id: 0, name: 'New Tag' })}
+                            onClick={() => setEditing({ id: NIL as UUID, name: 'New Tag' })}
                             icon={<PlusIcon />}
                         >{t('create_tag')}</Button>
                     </>

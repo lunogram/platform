@@ -33,10 +33,12 @@ const segmentEventsRequest: JSONSchemaType<SegmentPostEventsRequest> = {
             },
             userId: {
                 type: 'string',
+                format: 'uuid',
                 nullable: true,
             },
             previousId: {
                 type: 'string',
+                format: 'uuid',
                 nullable: true,
             },
             properties: {

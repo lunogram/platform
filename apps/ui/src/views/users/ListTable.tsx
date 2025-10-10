@@ -9,6 +9,8 @@ import { ArchiveIcon, DuplicateIcon, EditIcon } from '../../ui/icons'
 import api from '../../api'
 import { useNavigate, useParams } from 'react-router'
 import { Translation, useTranslation } from 'react-i18next'
+import { UUID } from 'crypto'
+import { NIL } from 'uuid'
 
 interface ListTableParams {
     search: (params: SearchParams) => Promise<SearchResult<List>>
@@ -30,7 +32,7 @@ export const ListTag = ({ state, progress }: Pick<List, 'state' | 'progress'>) =
     const percentStr = percent.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 })
 
     return <Tag variant={variant[state]}>
-        <Translation>{ (t) => t(state) }</Translation>
+        <Translation>{(t) => t(state)}</Translation>
         {progress && ` (${percentStr})`}
     </Tag>
 }
@@ -39,18 +41,18 @@ export default function ListTable({ search, selectedRow, onSelectRow, title }: L
     const route = useRoute()
     const { t } = useTranslation()
     const navigate = useNavigate()
-    const { projectId = '' } = useParams()
+    const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
 
     function handleOnSelectRow(list: List) {
         onSelectRow ? onSelectRow(list) : route(`lists/${list.id}`)
     }
 
-    const handleDuplicateList = async (id: number) => {
+    const handleDuplicateList = async (id: UUID) => {
         const list = await api.lists.duplicate(projectId, id)
         await navigate(list.id.toString())
     }
 
-    const handleArchiveList = async (id: number) => {
+    const handleArchiveList = async (id: UUID) => {
         await api.lists.delete(projectId, id)
         await state.reload()
     }

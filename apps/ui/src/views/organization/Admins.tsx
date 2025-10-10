@@ -11,6 +11,7 @@ import TextInput from '../../ui/form/TextInput'
 import { checkOrganizationRole, snakeToTitle } from '../../utils'
 import { SingleSelect } from '../../ui/form/SingleSelect'
 import { ArchiveIcon, EditIcon } from '../../ui/icons'
+import { UUID } from 'crypto'
 
 export default function Admins() {
     const { t } = useTranslation()
@@ -18,7 +19,7 @@ export default function Admins() {
     const admin = useContext(AdminContext)
     const [editing, setEditing] = useState<Partial<Admin>>()
 
-    const handleDelete = async (id: number) => {
+    const handleDelete = async (id: UUID) => {
         if (confirm(t('delete_admin_confirmation'))) {
             await api.admins.delete(id)
             await state.reload()

@@ -1,8 +1,8 @@
 import { Database } from 'config/database'
-import Model from 'core/Model'
+import Model, { UUID } from 'core/Model'
 import { EntityTag, Tag } from './Tag'
 
-export async function getTags(entity: string, entityIds: number[], db?: Database) {
+export async function getTags(entity: string, entityIds: UUID[], db?: Database) {
     return await EntityTag
         .query(db)
         .select('entity_id as entityId')
@@ -11,17 +11,17 @@ export async function getTags(entity: string, entityIds: number[], db?: Database
         .whereIn('entity_id', entityIds)
         .andWhere('entity', entity)
         .orderBy('tags.name', 'asc')
-        .then((r: Array<{ entityId: number, name: string }>) => r.reduce((a, { entityId, name }) => {
+        .then((r: Array<{ entityId: UUID, name: string }>) => r.reduce((a, { entityId, name }) => {
             const list = a.get(entityId) ?? a.set(entityId, []).get(entityId)!
             list.push(name)
             return a
-        }, new Map<number, string[]>()))
+        }, new Map<UUID, string[]>()))
 }
 
 interface SetTagsParams {
-    project_id: number
+    project_id: UUID
     entity: string
-    entity_id: number
+    entity_id: UUID
     names: string[]
 }
 
@@ -77,7 +77,7 @@ export async function setTags({
 }
 
 // use with knex:  myQuery.whereIn('id', createTagSubquery(MyEntity, 1, ['tag 1', 'tag 2']))
-export function createTagSubquery<T extends typeof Model>(model: T, project_id: number, names: string[]) {
+export function createTagSubquery<T extends typeof Model>(model: T, project_id: UUID, names: string[]) {
     const sq = EntityTag.query()
         .select('entity_id')
         .join('tags', 'tag_id', '=', 'tags.id')
@@ -89,18 +89,17 @@ export function createTagSubquery<T extends typeof Model>(model: T, project_id: 
     return sq
 }
 
-export async function getUsedTags(projectId: number, entity: string, db?: Database): Promise<{
-    id: number
+export async function getUsedTags(projectId: UUID, entity: string, db?: Database): Promise<{
+    id: UUID
     name: string
     count: number
 }> {
-    return await EntityTag.query(db)
-        .select('tags.id as id')
-        .select('tags.name as name')
-        .countDistinct('entity_id as count')
-        .join('tags', 'tag_id', '=', 'tags.id')
-        .where('entity', entity)
+    return EntityTag.query(db)
+        .select('tags.id as id', 'tags.name as name')
+        .countDistinct({ count: 'entity_tags.entity_id' })
+        .join('tags', 'entity_tags.tag_id', 'tags.id')
+        .where('entity_tags.entity', entity)
         .andWhere('tags.project_id', projectId)
-        .groupBy('tag_id')
+        .groupBy('tags.id', 'tags.name')
         .orderBy('tags.name', 'asc')
 }

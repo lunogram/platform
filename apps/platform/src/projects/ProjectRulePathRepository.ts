@@ -6,7 +6,7 @@ import { userPathForQuery } from '../rules/RuleHelpers'
 
 type PagedRulePathParams = {
     search: PageParams,
-    projectId: number,
+    projectId: UUID,
     visibilities: RulePathVisibility[]
 }
 export const pagedUserRulePaths = async ({ search, projectId, visibilities }: PagedRulePathParams) => {
@@ -29,7 +29,7 @@ export const pagedEventRulePaths = async ({ search, projectId, visibilities }: P
     )
 }
 
-export const updateRulePath = async (id: number, visibility: RulePathVisibility) => {
+export const updateRulePath = async (id: UUID, visibility: RulePathVisibility) => {
     return await ProjectRulePath.update(qb => qb.where('id', id), { visibility })
 }
 
@@ -38,7 +38,7 @@ type RulePaths = {
     eventPaths: { [name: string]: KeyedSet<GetProjectRulePath> }
 }
 export const getRulePaths = async (
-    projectId: number,
+    projectId: UUID,
     visibilities: RulePathVisibility[] = ['public'],
 ): Promise<RulePaths> => {
     const rulePaths = await ProjectRulePath.all(q => q
@@ -67,7 +67,7 @@ export const getRulePaths = async (
     } as RulePaths)
 }
 
-export const filterObjectForRulePaths = async <T extends Record<string, any>>(obj: T, projectId: number, visibilities: RulePathVisibility[] = ['public']) => {
+export const filterObjectForRulePaths = async <T extends Record<string, any>>(obj: T, projectId: UUID, visibilities: RulePathVisibility[] = ['public']) => {
     const rulePaths = await ProjectRulePath.all(q => q
         .where('project_id', projectId)
         .whereNotIn('visibility', visibilities)

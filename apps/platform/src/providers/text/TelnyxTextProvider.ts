@@ -1,5 +1,4 @@
 import App from '../../app'
-import { encodeHashid } from '../../utilities'
 import { ExternalProviderParams, ProviderControllers, ProviderSchema, ProviderSetupMeta } from '../Provider'
 import { createController } from '../ProviderService'
 import TextError, { UndeliverableTextError, UnsubscribeTextError } from './TextError'
@@ -46,7 +45,7 @@ export default class TelnyxTextProvider extends TextProvider {
     loadSetup(app: App): ProviderSetupMeta[] {
         return [{
             name: 'Inbound URL',
-            value: `${app.env.apiBaseUrl}/providers/${encodeHashid(this.id)}/${(this.constructor as any).namespace}/inbound`,
+            value: `${app.env.apiBaseUrl}/providers/${this.id}/${(this.constructor as any).namespace}/inbound`,
         }]
     }
 

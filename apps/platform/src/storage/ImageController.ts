@@ -6,6 +6,8 @@ import Image, { ImageParams } from './Image'
 import { ProjectState } from '../auth/AuthMiddleware'
 import { extractQueryParams } from '../utilities'
 import { SearchSchema } from '../core/searchParams'
+import { validate as uuidValidate } from 'uuid'
+import { UUID } from 'crypto'
 
 const router = new Router<
     ProjectState & { image?: Image }
@@ -54,7 +56,12 @@ router.get('/', async ctx => {
 })
 
 router.param('imageId', async (value, ctx, next) => {
-    ctx.state.image = await getImage(parseInt(value), ctx.state.project.id)
+    if (!uuidValidate(value)) {
+        ctx.throw(400, 'Invalid image ID')
+        return
+    }
+
+    ctx.state.image = await getImage(value as UUID, ctx.state.project.id)
     if (!ctx.state.image) {
         ctx.throw(404)
         return

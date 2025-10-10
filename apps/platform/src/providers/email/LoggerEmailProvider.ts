@@ -19,7 +19,6 @@ export default class LoggerEmailProvider extends EmailProvider {
     })
 
     async send(message: Email): Promise<any> {
-
         // Allow for having random latency to aid in performance testing
         if (this.addLatency) await sleep(randomInt())
 

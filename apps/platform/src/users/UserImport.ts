@@ -9,9 +9,9 @@ import { getList, updateListState } from '../lists/ListService'
 import UserDeleteJob from './UserDeleteJob'
 
 export interface UserImport {
-    project_id: number
+    project_id: UUID
     stream: FileStream
-    list_id: number
+    list_id: UUID
 }
 
 export const importUsers = async ({ project_id, stream, list_id }: UserImport) => {
@@ -64,7 +64,7 @@ export const importUsers = async ({ project_id, stream, list_id }: UserImport) =
 }
 
 export interface UserRemoval {
-    project_id: number
+    project_id: UUID
     stream: FileStream
 }
 

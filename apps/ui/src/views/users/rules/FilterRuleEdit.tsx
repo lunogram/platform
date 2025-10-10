@@ -1,4 +1,4 @@
-import { useContext, useMemo } from 'react'
+import { useContext, useEffect, useMemo } from 'react'
 import { highlightSearch, usePopperSelectDropdown } from '../../../ui/utils'
 import { operatorTypes, VariablesContext, RuleEditProps, ruleTypes } from './RuleHelpers'
 import { ButtonGroup } from '../../../ui'
@@ -7,7 +7,7 @@ import { Combobox } from '@headlessui/react'
 import { ChevronUpDownIcon } from '../../../ui/icons'
 import clsx from 'clsx'
 import TextInput from '../../../ui/form/TextInput'
-import { RulePath } from '../../../types'
+import { defaultOperator, RulePath, typeOperators } from '../../../types'
 
 export default function FilterRuleEdit({
     rule,
@@ -41,6 +41,23 @@ export default function FilterRuleEdit({
 
         return paths
     }, [suggestions, group, eventName, path])
+
+    // NOTE: the value field could be empty when switching between operators
+    useEffect(() => {
+        if (!hasValue) return
+
+        if (!typeOperators(rule.type).includes(rule.operator)) {
+            rule.operator = defaultOperator(rule.type)
+        }
+
+        const isBool = rule.type === 'boolean'
+        const isValidBool = rule.value === 'true' || rule.value === 'false'
+
+        if (isBool && !isValidBool) {
+
+            setRule({ ...rule, value: 'true' })
+        }
+    }, [hasValue, rule.type, setRule])
 
     return (
         <div className="rule">
@@ -99,16 +116,28 @@ export default function FilterRuleEdit({
                     size="small"
                     toValue={x => x.key}
                 />
-                { hasValue && <TextInput
-                    size="small"
-                    type="text"
-                    name="value"
-                    placeholder="Value"
-                    disabled={rule.type === 'boolean'}
-                    hideLabel={true}
-                    value={rule.type === 'boolean' ? 'true' : rule?.value?.toString()}
-                    onChange={value => setRule({ ...rule, value })}
-                />}
+                {hasValue && rule.type === 'boolean'
+                    ? (<SingleSelect
+                        value={rule.value === 'true' ? 'true' : rule.value === 'false' ? 'false' : undefined}
+                        onChange={value => setRule({ ...rule, value })}
+                        options={[
+                            { key: 'true', label: 'True' },
+                            { key: 'false', label: 'False' },
+                        ]}
+                        required
+                        hideLabel
+                        size="small"
+                        toValue={x => x.key}
+                    />)
+                    : (<TextInput
+                        size="small"
+                        type="text"
+                        name="value"
+                        placeholder="Value"
+                        hideLabel={true}
+                        value={rule?.value?.toString()}
+                        onChange={value => setRule({ ...rule, value })}
+                    />)}
                 {controls}
             </ButtonGroup>
         </div>

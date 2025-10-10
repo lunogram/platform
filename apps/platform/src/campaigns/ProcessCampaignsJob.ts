@@ -11,7 +11,6 @@ export default class ProcessCampaignsJob extends Job {
     }
 
     static async handler() {
-
         const campaigns = await Campaign.query()
             .whereIn('state', ['loading', 'scheduled', 'running'])
             .whereNotNull('send_at')

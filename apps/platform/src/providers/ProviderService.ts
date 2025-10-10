@@ -5,16 +5,18 @@ import { JSONSchemaType, validate } from '../core/validate'
 import Provider, { ProviderControllers, ProviderGroup, ProviderMeta, ProviderParams } from './Provider'
 import { createProvider, getProvider, loadProvider, updateProvider } from './ProviderRepository'
 import App from '../app'
+import { UUID } from 'crypto'
+import { validate as uuidValidate } from 'uuid'
 
-export const allProviders = async (projectId: number) => {
+export const allProviders = async (projectId: UUID) => {
     return await Provider.all(qb => qb.where('project_id', projectId).whereNull('deleted_at'))
 }
 
-export const hasProvider = async (projectId: number) => {
+export const hasProvider = async (projectId: UUID) => {
     return await Provider.exists(qb => qb.where('project_id', projectId))
 }
 
-export const pagedProviders = async (params: PageParams, projectId: number) => {
+export const pagedProviders = async (params: PageParams, projectId: UUID) => {
     return await Provider.search(
         { ...params, fields: ['name', 'group'] },
         b => b.where('project_id', projectId).whereNull('deleted_at'),
@@ -26,7 +28,7 @@ export const pagedProviders = async (params: PageParams, projectId: number) => {
     )
 }
 
-export const archiveProvider = async (id: number, projectId: number) => {
+export const archiveProvider = async (id: UUID, projectId: UUID) => {
     await Provider.archive(id, qb => qb.where('project_id', projectId))
     return getProvider(id, projectId)
 }
@@ -70,7 +72,13 @@ export const createController = (group: ProviderGroup, type: typeof Provider): R
         const map = (record: any) => {
             return type.fromJson(record)
         }
-        ctx.state.provider = await loadProvider(parseInt(value, 10), map, ctx.state.project.id)
+
+        if (!uuidValidate(value)) {
+            ctx.throw(400, 'Invalid provider ID')
+            return
+        }
+
+        ctx.state.provider = await loadProvider(value as UUID, map, ctx.state.project.id)
         if (!ctx.state.provider) {
             ctx.throw(404)
             return

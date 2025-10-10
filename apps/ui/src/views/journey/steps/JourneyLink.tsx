@@ -7,9 +7,11 @@ import { JourneyForm } from '../JourneyForm'
 import { useResolver } from '../../../hooks'
 import RadioInput from '../../../ui/form/RadioInput'
 import { useTranslation } from 'react-i18next'
+import { UUID } from 'crypto'
+import { NIL } from 'uuid'
 
 interface JourneyLinkConfig {
-    target_id: number
+    target_id: UUID
     delay: '1 minute' | '15 minutes' | '1 hour' | '1 day'
 }
 
@@ -44,7 +46,7 @@ export const journeyLinkStep: JourneyStepType<JourneyLinkConfig> = {
         return <>{t('link_empty')} &#8211;</>
     },
     newData: async () => ({
-        target_id: 0,
+        target_id: NIL as UUID,
         delay: '1 day',
     }),
     Edit({
@@ -60,7 +62,7 @@ export const journeyLinkStep: JourneyStepType<JourneyLinkConfig> = {
                 get={useCallback(async id => await api.journeys.get(project.id, id), [project])}
                 search={useCallback(async q => await api.journeys.search(project.id, { q, limit: 50 }), [project])}
                 value={value.target_id}
-                onChange={target_id => onChange({ ...value, target_id })}
+                onChange={target_id => onChange({ ...value, target_id: target_id ?? NIL as UUID })}
                 required
                 renderCreateForm={onCreated => (
                     <JourneyForm onSaved={onCreated} />
@@ -74,7 +76,7 @@ export const journeyLinkStep: JourneyStepType<JourneyLinkConfig> = {
                 { key: '1 day', label: t('day', { count: 1 }) },
             ]}
             value={value.delay}
-            onChange={delay => onChange({ ...value, delay }) } />
+            onChange={delay => onChange({ ...value, delay })} />
         </>
     },
     validate: ({ target_id, delay }) => {

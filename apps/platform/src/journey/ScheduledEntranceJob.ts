@@ -10,9 +10,10 @@ import { getRuleQuery } from '../rules/RuleEngine'
 import Project from '../projects/Project'
 import { logger } from '../config/logger'
 import { processUsers } from '../users/ProcessUsers'
+import { UUID } from 'crypto'
 
 interface ScheduledEntranceTrigger {
-    entranceId: number
+    entranceId: UUID
 }
 
 export default class ScheduledEntranceJob extends Job {
@@ -50,7 +51,7 @@ export default class ScheduledEntranceJob extends Job {
                 try {
                     const ref = uuid()
                     const items = pairs.map(({ key }) => ({
-                        user_id: parseInt(key),
+                        user_id: key as UUID,
                         type: 'completed',
                         journey_id: entrance.journey_id,
                         step_id: entrance.id,

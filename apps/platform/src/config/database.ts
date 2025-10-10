@@ -32,7 +32,7 @@ const connect = (config: DatabaseConfig, withDB = true) => {
         connection = removeKey('database', connection)
     }
     return knex({
-        client: 'mysql2',
+        client: 'pg',
         connection: {
             ...connection,
             typeCast(field: any, next: any) {

@@ -3,6 +3,7 @@ import Model, { ModelParams } from '../core/Model'
 import { JSONSchemaType } from '../core/validate'
 import type App from '../app'
 import { Context } from 'koa'
+import { UUID } from 'crypto'
 
 export type ProviderGroup = 'email' | 'text' | 'push' | 'webhook' | 'analytics'
 export interface ProviderMeta {
@@ -58,7 +59,7 @@ type RateInterval = 'second' | 'minute' | 'hour' | 'day'
 export default class Provider extends Model {
     type!: string
     name!: string
-    project_id!: number
+    project_id!: UUID
     group!: ProviderGroup
     data!: Record<string, any>
     is_default!: boolean
@@ -78,10 +79,10 @@ export default class Provider extends Model {
 
     static get cacheKey() {
         return {
-            internal(id: number) {
+            internal(id: UUID) {
                 return `providers:id:${id}`
             },
-            default(projectId: number, group: string) {
+            default(projectId: UUID, group: string) {
                 return `providers:project:${projectId}:${group}`
             },
         }

@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import { User } from '../users/User'
 import Notification, { NotificationContent } from './Notification'
 
@@ -10,7 +11,7 @@ export const getNotifications = async (user: User, cursor?: string) => {
     )
 }
 
-export const readNotification = async (user: User, id: number) => {
+export const readNotification = async (user: User, id: UUID) => {
     await Notification.update(
         qb =>
             qb.where('id', id)

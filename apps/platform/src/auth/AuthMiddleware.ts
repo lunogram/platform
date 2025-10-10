@@ -8,10 +8,11 @@ import { getProjectApiKey } from '../projects/ProjectService'
 import AuthError from './AuthError'
 import { getTokenCookies, isAccessTokenRevoked } from './TokenRepository'
 import { OrganizationRole } from '../organizations/Organization'
+import { UUID } from 'node:crypto'
 
 export interface JwtAdmin {
-    id: number
-    organization_id: number
+    id: UUID
+    organization_id: UUID
     role: OrganizationRole
 }
 
