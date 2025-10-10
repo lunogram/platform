@@ -1,14 +1,8 @@
 import { Job } from '../queue'
-import { JourneyEntrance, JourneyStep } from './JourneyStep'
-import JourneyUserStep from './JourneyUserStep'
-import { uuid } from '../utilities'
-import App from '../app'
-import JourneyProcessJob from './JourneyProcessJob'
+import { JourneyEntrance } from './JourneyStep'
 import Journey from './Journey'
 import List from '../lists/List'
-import { getRuleQuery } from '../rules/RuleEngine'
 import Project from '../projects/Project'
-import { logger } from '../config/logger'
 import { UUID } from 'crypto'
 
 interface ScheduledEntranceTrigger {

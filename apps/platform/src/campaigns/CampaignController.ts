@@ -91,7 +91,7 @@ const campaignCreateParams: JSONSchemaType<CampaignCreateParams> = {
             nullable: true,
         },
     },
-};
+}
 
 router.post('/', async ctx => {
     const payload = validate(campaignCreateParams, ctx.request.body)

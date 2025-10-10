@@ -96,7 +96,7 @@ export async function syncUserDataPaths({
         if (updatedAfter) {
             userQuery.where('updated_at', '>=', updatedAfter)
         }
-        await userQuery.stream(async function (stream) {
+        await userQuery.stream(async function(stream) {
             for await (const { data } of stream) {
                 addLeafPaths(userPaths, data)
             }

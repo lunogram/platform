@@ -5,7 +5,7 @@ import EmailJob from '../providers/email/EmailJob'
 import InAppJob from '../providers/inapp/InAppJob'
 import { logger } from '../config/logger'
 import { User } from '../users/User'
-import Campaign, { CampaignCreateParams, CampaignDelivery, CampaignParams, CampaignPopulationProgress, CampaignProgress, CampaignSend, CampaignSendParams, CampaignSendReferenceType, CampaignSendState, CampaignState, SentCampaign } from './Campaign'
+import Campaign, { CampaignCreateParams, CampaignDelivery, CampaignParams, CampaignPopulationProgress, CampaignProgress, CampaignSend, CampaignSendReferenceType, CampaignSendState, CampaignState, SentCampaign } from './Campaign'
 import List from '../lists/List'
 import Subscription, { SubscriptionState } from '../subscriptions/Subscription'
 import { RequestError } from '../core/errors'
@@ -13,7 +13,7 @@ import { PageParams } from '../core/searchParams'
 import { allLists } from '../lists/ListService'
 import { allTemplates, duplicateTemplate, screenshotHtml, templateInUserLocale, validateTemplates } from '../render/TemplateService'
 import { getSubscription, getUserSubscriptionState } from '../subscriptions/SubscriptionService'
-import { batch, chunk, cleanString, pick, shallowEqual } from '../utilities'
+import { chunk, pick, shallowEqual } from '../utilities'
 import { getProvider } from '../providers/ProviderRepository'
 import { createTagSubquery, getTags, setTags } from '../tags/TagService'
 import { getProject } from '../projects/ProjectService'
@@ -22,14 +22,12 @@ import CampaignGenerateListJob from './CampaignGenerateListJob'
 import Project from '../projects/Project'
 import Template from '../render/Template'
 import { differenceInDays, subDays } from 'date-fns'
-import { cacheDel, cacheGet, cacheIncr, cacheSet, DataPair } from '../config/redis'
+import { cacheDel, cacheGet } from '../config/redis'
 import App from '../app'
 import CampaignAbortJob from './CampaignAbortJob'
-import { getRuleQuery } from '../rules/RuleEngine'
 import { getJourneysForCampaign } from '../journey/JourneyService'
 import { createAuditLog } from '../core/audit/AuditService'
 import { WithAdmin } from '../core/audit/Audit'
-import { raw } from '../core/Model'
 import { UUID } from 'node:crypto'
 
 export const CacheKeys = {
@@ -284,7 +282,6 @@ export const triggerCampaignSend = async ({ campaign, user, exists, reference_ty
 }
 
 export const sendCampaignJob = ({ campaign, user, reference_type, reference_id }: SendCampaign): EmailJob | TextJob | PushJob | WebhookJob => {
-
     const body = {
         campaign_id: campaign.id,
         user_id: user instanceof User ? user.id : user,
@@ -341,15 +338,6 @@ export const updateSendState = async ({ campaign, user, state = 'sent', referenc
     return records
 }
 
-const cleanupSendListGeneration = async (campaign: Campaign) => {
-
-    // Update the state & count of the campaign
-    await updateCampaignProgress(campaign, 'scheduled')
-
-    // Clear out all the keys related to the generation
-    await cleanupGenerationCacheKeys(campaign)
-}
-
 const cleanupGenerationCacheKeys = async (campaign: Campaign) => {
     const redis = App.main.redis
     await cacheDel(redis, CacheKeys.generate(campaign))
@@ -358,90 +346,12 @@ const cleanupGenerationCacheKeys = async (campaign: Campaign) => {
 }
 
 export const populateSendList = async (campaign: SentCampaign) => {
-
     const project = await getProject(campaign.project_id)
     if (!campaign.list_ids || !project) {
         throw new RequestError('Unable to send to a campaign that does not have an associated list', 404)
     }
 
-    const now = Date.now()
-    const redis = App.main.redis
-    const oneDay = 86400 // 24 hours in seconds
-    const progressCacheKey = CacheKeys.populationProgress(campaign)
-    const totalCacheKey = CacheKeys.populationTotal(campaign)
-
-    const insertRows = async (rows: CampaignSendParams[]): Promise<UUID[]> => {
-        try {
-            await App.main.db.transaction(async (trx) => {
-                // Inserts records but merge on conflict if record
-                // already exists. We don't want to remove the sent
-                // state from existing records so checks for that
-                await CampaignSend.query(trx)
-                    .insert(rows)
-                    .onConflict(['campaign_id', 'user_id', 'reference_id'])
-                    .merge({
-                        send_at: raw(
-                            "CASE WHEN `campaign_sends`.`state` = 'sent' THEN `campaign_sends`.`send_at` ELSE VALUES(`send_at`) END",
-                        ),
-                        state: raw(
-                            "CASE WHEN `campaign_sends`.`state` = 'sent' THEN `campaign_sends`.`state` ELSE VALUES(`state`) END",
-                        ),
-                    })
-            })
-        } catch (error: any) {
-
-            const invalidUserIds: UUID[] = []
-
-            // If foreign key error, retry in smaller chunks
-            if (error.errno === 1452) {
-                if (rows.length > 1) {
-                    const size = Math.max(1, Math.floor(rows.length / 2))
-                    const batches = batch(rows, size)
-                    for (const items of batches) {
-                        const userIds = await insertRows(items)
-                        invalidUserIds.push(...userIds)
-                    }
-                    return invalidUserIds
-                }
-
-                // Is related to the user_id foreign key
-                if (error.sqlMessage.includes('campaign_sends_user_id_foreign')) {
-                    return rows.map(r => r.user_id)
-                }
-            }
-
-            logger.error({ error, invalidUserIds, campaignId: campaign.id }, 'campaign:generate:progress:error')
-        }
-        return []
-    }
-
     throw Error('Not implemented yet')
-    // await processUsers({
-    //     query: await recipientClickhouseQuery(campaign),
-    //     cacheKey: CacheKeys.generate(campaign),
-    //     itemMap: (user: User) => ({
-    //         key: user.id,
-    //         value: cleanString(user.timezone) ?? project.timezone,
-    //     }),
-    //     beforeCallback: async (count: number) => {
-    //         await cacheSet<number>(redis, progressCacheKey, 0, oneDay)
-    //         await cacheSet(redis, totalCacheKey, count, oneDay)
-
-    //         // Double check that the campaign hasn't been aborted
-    //         const updatedCampaign = await getCampaign(campaign.id, campaign.project_id) as SentCampaign
-    //         return !updatedCampaign.isAborted
-    //     },
-    //     callback: async (pairs: DataPair[]) => {
-    //         const items = pairs.map(({ key, value }) => CampaignSend.create(campaign, project, { id: key as UUID, timezone: value }))
-    //         await insertRows(items)
-    //         await cacheIncr(redis, progressCacheKey, items.length, oneDay)
-    //     },
-    //     afterCallback: async () => {
-    //         await cleanupSendListGeneration(campaign)
-    //     },
-    // })
-
-    logger.info({ campaignId: campaign.id, elapsed: Date.now() - now }, 'campaign:generate:progress:finished')
 }
 
 export const campaignSendReadyQuery = (
@@ -482,48 +392,6 @@ export const failStalledSends = async (campaign: Campaign) => {
             .update({ state: 'failed' })
             .whereIn(['user_id', 'campaign_id'], items)
     }, ({ user_id, campaign_id }: CampaignSend) => ([user_id, campaign_id]))
-}
-
-const recipientClickhouseQuery = async (campaign: Campaign) => {
-
-    const listQueries = async (ids: UUID[]) => {
-        const queries = []
-        const lists = await List.query()
-            .select('rule')
-            .whereIn('id', ids)
-        for (const list of lists) {
-            queries.push('(' + getRuleQuery(campaign.project_id, list.rule) + ')')
-        }
-        return queries.join(' union distinct ')
-    }
-
-    const channelClause = () => {
-        if (campaign.channel === 'email') {
-            return ["(users.email != '' AND users.email IS NOT NULL)"]
-        } else if (campaign.channel === 'text') {
-            return ["(users.phone != '' AND users.phone IS NOT NULL)"]
-        } else if (campaign.channel === 'push') {
-            return ['(users.has_push_device = 1)']
-        }
-        return []
-    }
-
-    const parts = [
-        ...channelClause(),
-        `NOT has(unsubscribe_ids, ${campaign.subscription_id})`,
-    ]
-    if (campaign.exclusion_list_ids?.length) {
-        parts.push(`id NOT IN (${await listQueries(campaign.exclusion_list_ids)})`)
-    }
-    if (campaign.list_ids?.length) {
-        parts.push(`id IN (${await listQueries(campaign.list_ids)})`)
-    }
-    return `
-        SELECT distinct id, argMax(timezone, version) AS timezone
-        FROM users
-        WHERE ${parts.join(' AND ')}
-        GROUP BY id
-    `
 }
 
 export const abortCampaign = async (campaign: Campaign) => {
