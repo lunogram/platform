@@ -134,7 +134,7 @@ export const actionStep: JourneyStepType<ActionConfig> = {
         )
     },
     validate: ({ campaign_id }) => {
-        return !!campaign_id
+        return !!campaign_id && campaign_id !== NIL
     },
     hasDataKey: true,
 }
