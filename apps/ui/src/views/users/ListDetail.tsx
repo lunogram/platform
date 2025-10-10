@@ -39,7 +39,7 @@ const RuleSection = ({ list, isSaving, onRuleSave, onChange }: RuleSectionProps)
         <Heading size="h3" title={t('rules')} actions={
             <Button
                 size="small"
-                onClick={() => onRuleSave(rule) }
+                onClick={() => onRuleSave(rule)}
                 isLoading={isSaving}
             >{t('rules_save')}</Button>
         } />
@@ -64,7 +64,7 @@ export default function ListDetail() {
         api.lists.get(project.id, list.id)
             .then(setList)
             .then(() => state.reload)
-            .catch(() => {})
+            .catch(() => { })
     }
 
     useEffect(() => {
@@ -120,11 +120,6 @@ export default function ListDetail() {
         window.location.reload()
     }
 
-    const handleMigrateList = async () => {
-        await api.lists.migrate(project.id, list.id)
-        window.location.reload()
-    }
-
     const handleArchiveList = async () => {
         await api.lists.delete(project.id, list.id)
         window.location.href = `/projects/${project.id}/lists`
@@ -159,9 +154,6 @@ export default function ListDetail() {
                         </MenuItem>
                         <MenuItem onClick={async () => await handleArchiveList()}>
                             <ArchiveIcon />{t('archive')}
-                        </MenuItem>
-                        <MenuItem onClick={async () => await handleMigrateList()}>
-                            <SendIcon />{t('migrate')}
                         </MenuItem>
                     </Menu>
                 </>

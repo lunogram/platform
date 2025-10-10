@@ -9,6 +9,7 @@ import Heading from '../../ui/Heading'
 import { SearchTable, useTableSearchParams } from '../../ui/SearchTable'
 import { snakeToTitle } from '../../utils'
 import { useTranslation } from 'react-i18next'
+import { UUID } from 'crypto'
 
 export default function UserDetailSubscriptions() {
     const { t } = useTranslation()
@@ -18,7 +19,7 @@ export default function UserDetailSubscriptions() {
 
     const [search, _, reload] = useResolver(useCallback(async () => await api.users.subscriptions(project.id, user.id, params), [api.users, project, params]))
 
-    const updateSubscription = async (subscription_id: number, state: SubscriptionState) => {
+    const updateSubscription = async (subscription_id: UUID, state: SubscriptionState) => {
         if (!confirm(t('users_change_subscription_status'))) return
         await updateSubscriptions([{ subscription_id, state }])
     }

@@ -1,6 +1,6 @@
 import Provider from '../providers/Provider'
 import { ChannelType } from '../config/channels'
-import Model, { ModelParams, SQLModel } from '../core/Model'
+import Model, { ModelParams, SQLModel, UUID } from '../core/Model'
 import List from '../lists/List'
 import Template from '../render/Template'
 import Subscription from '../subscriptions/Subscription'
@@ -22,17 +22,17 @@ export type CampaignProgress = CampaignDelivery & { pending: number }
 export type CampaignType = 'blast' | 'trigger'
 
 export default class Campaign extends Model {
-    project_id!: number
+    project_id!: UUID
     type!: CampaignType
     name!: string
-    list_ids?: number[]
+    list_ids?: UUID[]
     lists?: List[]
-    exclusion_list_ids?: number[]
+    exclusion_list_ids?: UUID[]
     exclusion_lists?: List[]
     channel!: ChannelType
-    subscription_id!: number
+    subscription_id!: UUID
     subscription?: Subscription
-    provider_id!: number
+    provider_id!: UUID
     provider?: Provider
     templates!: Template[]
     state!: CampaignState
@@ -68,13 +68,13 @@ export type SentCampaign = Campaign & { send_at: Date }
 export type CampaignParams = Omit<Campaign, ModelParams | 'delivery' | 'eventName' | 'templates' | 'lists' | 'exclusion_lists' | 'subscription' | 'provider' | 'journeys' | 'deleted_at' | 'progress' | 'isAborted' | 'isAbortedOrDraft'>
 export type CampaignCreateParams = Omit<CampaignParams, 'state'>
 export type CampaignUpdateParams = Omit<CampaignParams, 'channel' | 'type'>
-export type CampaignCreateWithAdminParams = CampaignCreateParams & { admin_id?: number }
+export type CampaignCreateWithAdminParams = CampaignCreateParams & { admin_id?: UUID }
 
 export type CampaignSendState = 'pending' | 'sent' | 'throttled' | 'failed' | 'bounced' | 'aborted'
 export type CampaignSendReferenceType = 'journey' | 'trigger'
 export class CampaignSend extends SQLModel {
-    campaign_id!: number
-    user_id!: number
+    campaign_id!: UUID
+    user_id!: UUID
     state!: CampaignSendState
     send_at!: string | Date
     opened_at!: string | Date
@@ -109,6 +109,6 @@ export class CampaignSend extends SQLModel {
 export type CampaignSendParams = Pick<CampaignSend, 'campaign_id' | 'user_id' | 'state' | 'send_at'>
 
 export interface CampaignJobParams {
-    id: number
-    project_id: number
+    id: UUID
+    project_id: UUID
 }

@@ -13,10 +13,10 @@ import { acquireLock } from '../core/Lock'
 
 export default (app: App) => {
     const scheduler = new Scheduler(app)
+    JourneyDelayJob.enqueueActive(app)
     scheduler.schedule({
         rule: '* * * * *',
         callback: () => {
-            JourneyDelayJob.enqueueActive(app)
             app.queue.enqueue(ProcessCampaignsJob.from())
             app.queue.enqueue(CampaignStateJob.from())
             app.queue.enqueue(ScheduledEntranceOrchestratorJob.from())

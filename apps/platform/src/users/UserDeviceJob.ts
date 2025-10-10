@@ -3,9 +3,10 @@ import { saveDevice } from './UserRepository'
 import { DeviceParams } from './Device'
 import { LockError } from '../core/Lock'
 import App from '../app'
+import { UUID } from 'crypto'
 
 type UserDeviceTrigger = DeviceParams & {
-    project_id: number
+    project_id: UUID
 }
 
 export default class UserDeviceJob extends Job {

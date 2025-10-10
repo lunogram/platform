@@ -11,8 +11,9 @@ import { combine, snakeToTitle } from '../../utils'
 import RadioInput from '../../ui/form/RadioInput'
 import TextInput from '../../ui/form/TextInput'
 import { useTranslation } from 'react-i18next'
+import { UUID } from 'crypto'
 
-type EditMemberData = Pick<ProjectAdmin, 'admin_id' | 'role'> & { id?: number }
+type EditMemberData = Pick<ProjectAdmin, 'admin_id' | 'role'> & { id?: UUID }
 type InviteMemberData = ProjectAdminInviteParams
 
 interface TeamInviteProps extends ModalStateProps {
@@ -49,7 +50,7 @@ export default function TeamInvite({ member, onMember, ...props }: TeamInvitePro
                     { key: 'new', label: t('new_team_member') },
                 ]}
             />
-            { newOrExisting === 'new'
+            {newOrExisting === 'new'
                 ? (
                     <FormWrapper<InviteMemberData>
                         onSubmit={async (member) => {

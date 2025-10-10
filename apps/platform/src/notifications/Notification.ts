@@ -27,8 +27,8 @@ interface HtmlNotification extends StyledNotification {
 export type NotificationContent = BannerNotification | AlertNotification | HtmlNotification
 
 export default class Notification extends Model {
-    project_id!: number
-    user_id!: number
+    project_id!: UUID
+    user_id!: UUID
     content_type!: NotificationType
     content!: NotificationContent
     read_at?: Date

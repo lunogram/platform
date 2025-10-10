@@ -7,13 +7,20 @@ import { extractQueryParams } from '../utilities'
 import { ProjectState } from '../auth/AuthMiddleware'
 import { projectRoleMiddleware } from '../projects/ProjectService'
 import { Context, Next } from 'koa'
+import { validate as uuidValidate } from 'uuid'
+import { UUID } from 'crypto'
 
 const router = new Router<ProjectState & { campaign?: Campaign }>({
     prefix: '/campaigns',
 })
 
 const checkCampaignId = async (value: string, ctx: Context, next: Next) => {
-    ctx.state.campaign = await getCampaign(parseInt(value, 10), ctx.state.project.id)
+    if (!uuidValidate(value)) {
+        ctx.throw(400, 'Invalid campaign ID')
+        return
+    }
+
+    ctx.state.campaign = await getCampaign(value as UUID, ctx.state.project.id)
     if (!ctx.state.campaign) {
         ctx.throw(404)
         return
@@ -49,19 +56,21 @@ const campaignCreateParams: JSONSchemaType<CampaignCreateParams> = {
             enum: ['email', 'text', 'push', 'webhook', 'in_app'],
         },
         subscription_id: {
-            type: 'integer',
+            type: 'string',
+            format: 'uuid',
         },
         provider_id: {
-            type: 'integer',
+            type: 'string',
+            format: 'uuid',
         },
         list_ids: {
             type: 'array',
-            items: { type: 'integer' },
+            items: { type: 'string', format: 'uuid' },
             nullable: true,
         },
         exclusion_list_ids: {
             type: 'array',
-            items: { type: 'integer' },
+            items: { type: 'string', format: 'uuid' },
             nullable: true,
         },
         send_in_user_timezone: {
@@ -101,17 +110,20 @@ router.get('/:campaignId', async ctx => {
 const campaignUpdateParams: JSONSchemaType<Partial<CampaignUpdateParams>> = {
     $id: 'campaignUpdate',
     type: 'object',
+    required: [],
     properties: {
         name: {
             type: 'string',
             nullable: true,
         },
         subscription_id: {
-            type: 'integer',
+            type: 'string',
+            format: 'uuid',
             nullable: true,
         },
         provider_id: {
-            type: 'integer',
+            type: 'string',
+            format: 'uuid',
             nullable: true,
         },
         state: {
@@ -121,12 +133,12 @@ const campaignUpdateParams: JSONSchemaType<Partial<CampaignUpdateParams>> = {
         },
         list_ids: {
             type: 'array',
-            items: { type: 'integer' },
+            items: { type: 'string', format: 'uuid' },
             nullable: true,
         },
         exclusion_list_ids: {
             type: 'array',
-            items: { type: 'integer' },
+            items: { type: 'string', format: 'uuid' },
             nullable: true,
         },
         send_in_user_timezone: {

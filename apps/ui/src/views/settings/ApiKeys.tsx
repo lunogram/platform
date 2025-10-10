@@ -15,6 +15,7 @@ import { snakeToTitle } from '../../utils'
 import { toast } from 'react-hot-toast/headless'
 import Alert from '../../ui/Alert'
 import { useTranslation } from 'react-i18next'
+import { UUID } from 'crypto'
 
 export default function ProjectApiKeys() {
     const { t } = useTranslation()
@@ -23,7 +24,7 @@ export default function ProjectApiKeys() {
 
     const [editing, setEditing] = useState<null | Partial<ProjectApiKey>>(null)
 
-    const handleArchive = async (id: number) => {
+    const handleArchive = async (id: UUID) => {
         if (confirm(t('delete_key_confirmation'))) {
             await api.apiKeys.delete(project.id, id)
             await state.reload()

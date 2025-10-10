@@ -22,7 +22,7 @@ const checkWrapper = ({ input, registry, rule, value }: RuleCheckParams) => {
 
 const periodQuery = (period: EventRulePeriod) => {
     if (period.type === 'rolling') {
-        return `created_at >= now() - INTERVAL ${period.value} ${period.unit}`
+        return `created_at >= now() - INTERVAL '${period.value} ${period.unit}'`
     } else if (period.type === 'fixed') {
         const start = new Date(period.start_date)
         if (!period.end_date) {
@@ -37,7 +37,7 @@ const periodQuery = (period: EventRulePeriod) => {
 const frequencyQuery = (frequency?: EventRuleFrequency) => {
     const count = frequency?.count ?? 1
     const operator = frequency?.operator ?? '>='
-    return whereQuery('count()', operator, count)
+    return whereQuery('count(*)', operator, count)
 }
 
 const eventWrapperQuery = ({ rule, registry, projectId }: RuleQueryParams & { rule: EventRuleTree }) => {
@@ -53,7 +53,7 @@ const eventWrapperQuery = ({ rule, registry, projectId }: RuleQueryParams & { ru
             ?.query({ registry, rule: child, projectId }),
         ).join(` ${operator} `)
     const where = [
-        `project_id = ${projectId}`,
+        `project_id = '${projectId}'`,
         whereQuery('name', '=', rule.value),
     ]
     if (filters) where.push(`(${filters})`)
@@ -109,14 +109,13 @@ export default {
             throw new RuleEvalException(rule, 'unknown operator: ' + rule.operator)
         }
 
-        // Need to wrap the query to get latest version of data
-        const baseQuery = 'SELECT id FROM users FINAL'
+        const baseQuery = 'SELECT id FROM users'
 
         const children = rule.children ?? []
         if (isEventWrapper(rule)) {
             return eventWrapperQuery({ rule, registry, projectId })
         } else if (!children.length) {
-            return baseQuery + ' WHERE project_id = ' + projectId
+            return baseQuery + ` WHERE project_id = '${projectId}'`
         }
 
         const parentOperator = rule.operator === 'and' ? 'INTERSECT' : 'UNION DISTINCT'
@@ -125,11 +124,11 @@ export default {
 
         const queries = []
         if (userRules.length) {
-            const userQuery = `${baseQuery} PREWHERE `
+            const userQuery = `${baseQuery} WHERE `
                 + userRules
                     .map(child => registry.get(child.type)?.query({ registry, rule: child, projectId }))
                     .join(` ${operator} `)
-                + ` WHERE project_id = ${projectId}`
+                + ` AND project_id = '${projectId}'`
             queries.push(userQuery)
         }
 

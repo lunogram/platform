@@ -1,14 +1,15 @@
 import { AnyJson } from 'rules/Rule'
 import Model from '../core/Model'
 import { type JourneyStep } from './JourneyStep'
+import { UUID } from 'node:crypto'
 
 export default class JourneyUserStep extends Model {
-    user_id!: number
+    user_id!: UUID
     type!: string
-    journey_id!: number
-    step_id!: number
+    journey_id!: UUID
+    step_id!: UUID
     delay_until?: Date | null
-    entrance_id?: number
+    entrance_id?: UUID
     ended_at?: Date
     data?: Record<string, AnyJson> | null
     ref?: string

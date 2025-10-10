@@ -10,6 +10,8 @@ import { UserEvent } from '../users/UserEvent'
 import { extractQueryParams } from '../utilities'
 import Template, { TemplateParams, TemplateUpdateParams } from './Template'
 import { createTemplate, deleteTemplate, getTemplate, pagedTemplates, sendProof, updateTemplate } from './TemplateService'
+import { UUID } from 'crypto'
+import { validate as uuidValidate } from 'uuid'
 
 const router = new Router<
     ProjectState & { template?: Template }
@@ -143,7 +145,8 @@ const baseCreateType = (type: ChannelType, data: any) => ({
             enum: [type],
         },
         campaign_id: {
-            type: 'integer',
+            type: 'string',
+            format: 'uuid',
         },
         locale: {
             type: 'string',
@@ -184,7 +187,12 @@ router.post('/', async ctx => {
 })
 
 router.param('templateId', async (value, ctx, next) => {
-    ctx.state.template = await getTemplate(parseInt(value), ctx.state.project.id)
+    if (!uuidValidate(value)) {
+        ctx.throw(400, 'Invalid template ID')
+        return
+    }
+
+    ctx.state.template = await getTemplate(value as UUID, ctx.state.project.id)
     if (!ctx.state.template) {
         ctx.throw(404)
         return

@@ -53,7 +53,7 @@ router.param('keyId', async (value, ctx, next) => {
     const apiKey = await ProjectApiKey.first(q => q
         .whereNull('deleted_at')
         .where('project_id', ctx.state.project.id)
-        .where('id', parseInt(value, 10)),
+        .where('id', value),
     )
     if (!apiKey) {
         return ctx.throw(404)
@@ -71,7 +71,7 @@ router.patch('/:keyId', async ctx => {
 })
 
 router.delete('/:keyId', async ctx => {
-    ctx.body = await revokeProjectApiKey(parseInt(ctx.params.keyId, 10))
+    ctx.body = await revokeProjectApiKey(ctx.params.keyId)
 })
 
 export default router

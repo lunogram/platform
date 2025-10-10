@@ -5,7 +5,7 @@ import MixpanelAnalyticsProvider from './MixpanelProvider'
 import PostHogAnalyticsProvider from './PosthogProvider'
 import SegmentAnalyticsProvider from './SegmentProvider'
 
-type AnalyticsProviderDerived = { new (): AnalyticsProvider } & typeof AnalyticsProvider
+type AnalyticsProviderDerived = { new(): AnalyticsProvider } & typeof AnalyticsProvider
 export const typeMap: Record<string, AnalyticsProviderDerived> = {
     segment: SegmentAnalyticsProvider,
     posthog: PostHogAnalyticsProvider,
@@ -16,7 +16,7 @@ export const providerMap = (record: { type: AnalyticsProviderName }): AnalyticsP
     return typeMap[record.type].fromJson(record)
 }
 
-export const loadAnalytics = async (projectId: number): Promise<Analytics> => {
+export const loadAnalytics = async (projectId: UUID): Promise<Analytics> => {
     const provider = await loadDefaultProvider('analytics', projectId, providerMap)
     return new Analytics(provider)
 }

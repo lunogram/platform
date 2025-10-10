@@ -19,7 +19,7 @@ export interface EncodedJob {
     token?: string
 }
 
-export class JobError extends Error {}
+export class JobError extends Error { }
 export class RetryError extends JobError {
     constructor() {
         super('RetryError')

@@ -1,5 +1,5 @@
 import { RuleCheck, RuleEvalException } from './RuleEngine'
-import { queryPath, queryValue, whereQuery, whereQueryNullable } from './RuleHelpers'
+import { queryPath, queryValue, whereQueryNullable, formattedQueryValue } from './RuleHelpers'
 
 export default {
     check({ rule, value }) {
@@ -31,7 +31,11 @@ export default {
         }
 
         if (rule.operator === 'empty') {
-            return whereQuery(path, '=', [])
+            return `${path} = '[]'::jsonb`
+        }
+
+        if (rule.operator === 'contains') {
+            return `jsonb_exists(${path}, ${formattedQueryValue(rule.value)})`
         }
 
         throw new RuleEvalException(rule, 'unknown operator: ' + rule.operator)

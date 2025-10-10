@@ -8,6 +8,8 @@ import { getOrganization, organizationRoleMiddleware, requireOrganizationRole } 
 import Admin from './Admin'
 import { organizationRoles } from '../organizations/Organization'
 import { JSONSchemaType, validate } from '../core/validate'
+import { validate as uuidValidate } from 'uuid'
+import { UUID } from 'crypto'
 
 const router = new Router<
     AuthState & { modelAdmin?: Admin }
@@ -61,7 +63,12 @@ router.post('/', async ctx => {
 })
 
 router.param('adminId', async (value, ctx, next) => {
-    ctx.state.modelAdmin = await getAdmin(parseInt(value, 10), ctx.state.admin!.organization_id)
+    if (!uuidValidate(value)) {
+        ctx.throw(400, 'Invalid admin ID')
+        return
+    }
+
+    ctx.state.modelAdmin = await getAdmin(value as UUID, ctx.state.admin!.organization_id)
     if (!ctx.state.modelAdmin) {
         ctx.throw(404)
         return

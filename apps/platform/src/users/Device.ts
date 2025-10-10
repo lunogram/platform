@@ -1,9 +1,9 @@
 import { ClientIdentity } from '../client/Client'
-import Model, { ModelParams } from '../core/Model'
+import Model, { ModelParams, UUID } from '../core/Model'
 
 export class Device extends Model {
-    project_id!: number
-    user_id!: number
+    project_id!: UUID
+    user_id!: UUID
     device_id!: string
     token?: string | null
     os?: string

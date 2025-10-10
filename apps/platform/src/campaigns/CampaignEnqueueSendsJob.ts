@@ -5,6 +5,7 @@ import { chunk } from '../utilities'
 import App from '../app'
 import { acquireLock, releaseLock } from '../core/Lock'
 import { getProvider } from '../providers/ProviderRepository'
+import { UUID } from 'node:crypto'
 
 export default class CampaignEnqueueSendsJob extends Job {
     static $name = 'campaign_enqueue_sends_job'
@@ -33,7 +34,7 @@ export default class CampaignEnqueueSendsJob extends Job {
 
         // Anything that is ready to be sent, enqueue for sending
         const query = campaignSendReadyQuery(campaign.id, includeThrottled, ratePerMinute)
-        await chunk<{ user_id: number, reference_id?: string }>(query, 100, async (items) => {
+        await chunk<{ user_id: UUID, reference_id?: string }>(query, 100, async (items) => {
             const jobs = items.map(({ user_id, reference_id }) => sendCampaignJob({ campaign, user: user_id, reference_id }))
             await App.main.queue.enqueueBatch(jobs)
         })

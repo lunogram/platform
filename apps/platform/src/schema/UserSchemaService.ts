@@ -5,7 +5,7 @@ import { UserEvent } from '../users/UserEvent'
 import { reservedPathDataType, reservedPaths } from '../rules/RuleHelpers'
 import { KeyedSet } from '../utilities'
 
-export async function listUserPaths(project_id: number) {
+export async function listUserPaths(project_id: UUID) {
     const paths: Array<{ path: string }> = await ProjectRulePath.query()
         .select('path')
         .where('type', 'user')
@@ -13,7 +13,7 @@ export async function listUserPaths(project_id: number) {
     return paths.map(p => p.path)
 }
 
-export async function listEventNames(project_id: number) {
+export async function listEventNames(project_id: UUID) {
     return await ProjectRulePath.query()
         .distinct()
         .where('project_id', project_id)
@@ -23,7 +23,7 @@ export async function listEventNames(project_id: number) {
         .then(list => list.filter(Boolean) as string[])
 }
 
-export async function listEventPaths(project_id: number, name: string) {
+export async function listEventPaths(project_id: UUID, name: string) {
     const paths: Array<{ path: string }> = await ProjectRulePath.query()
         .select('path')
         .where('type', 'event')
@@ -76,7 +76,7 @@ const inferDataType = (value: any): RulePathDataType => {
 }
 
 interface SyncProjectRulePathsParams {
-    project_id: number
+    project_id: UUID
     updatedAfter?: Date
 }
 
@@ -104,23 +104,23 @@ export async function syncUserDataPaths({
             userPaths.add([joinPath('$', path), reservedPathDataType(path)])
         }
 
-        const eventQuery = await UserEvent.clickhouse().query(`SELECT name, data FROM user_events WHERE project_id = {projectId: UInt32} ${updatedAfter ? 'AND created_at >= {updatedAfter: DateTime64(3, \'UTC\')}' : ''}`, {
-            projectId: project_id,
-            updatedAfter,
-        })
+        const eventQuery = UserEvent.query()
+            .select('name', 'data')
+            .where('project_id', project_id)
 
-        for await (const chunk of eventQuery.stream() as any) {
-            for (const result of chunk) {
-                const { name, data } = result.json()
-                let set = eventPaths.get(name)
-                if (!set) {
-                    set = new KeyedSet<[string, RulePathDataType]>(item => item[0])
-                    eventPaths.set(name, set)
-                }
-                addLeafPaths(set, data)
-                for (const path of reservedPaths.event) {
-                    set.add([joinPath('$', path), reservedPathDataType(path)])
-                }
+        if (updatedAfter) {
+            eventQuery.where('created_at', '>=', updatedAfter)
+        }
+
+        for await (const { name, data } of eventQuery.stream() as AsyncIterable<UserEvent>) {
+            let set = eventPaths.get(name)
+            if (!set) {
+                set = new KeyedSet<[string, RulePathDataType]>(item => item[0])
+                eventPaths.set(name, set)
+            }
+            addLeafPaths(set, data)
+            for (const path of reservedPaths.event) {
+                set.add([joinPath('$', path), reservedPathDataType(path)])
             }
         }
 

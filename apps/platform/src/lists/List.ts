@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import Model from '../core/Model'
 import { RuleTree } from '../rules/Rule'
 
@@ -5,11 +6,11 @@ export type ListState = 'draft' | 'ready' | 'loading'
 type ListType = 'static' | 'dynamic'
 
 export default class List extends Model {
-    project_id!: number
+    project_id!: UUID
     name!: string
     type!: ListType
     state!: ListState
-    rule_id?: number
+    rule_id?: UUID
     rule!: RuleTree
     version!: number
     users_count?: number

@@ -1,10 +1,11 @@
+import { UUID } from 'node:crypto'
 import { Job } from '../queue'
 import Journey from './Journey'
 import { JourneyState } from './JourneyState'
 import JourneyUserStep from './JourneyUserStep'
 
 interface JourneyProcessParams {
-    entrance_id: number
+    entrance_id: UUID
 }
 
 export default class JourneyProcessJob extends Job {
@@ -15,7 +16,6 @@ export default class JourneyProcessJob extends Job {
     }
 
     static async handler({ entrance_id }: JourneyProcessParams) {
-
         const entrance = await JourneyUserStep.find(entrance_id)
         if (!entrance) return
 
@@ -25,6 +25,8 @@ export default class JourneyProcessJob extends Job {
                 .whereNot('status', 'off')
                 .whereNull('deleted_at'),
         )
+
+        console.log("----- PROCESSING ENTRANCE", entrance_id, exists)
         if (!exists) return
 
         await JourneyState.resume(entrance)

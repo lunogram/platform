@@ -1,13 +1,13 @@
-import { UniversalModel } from '../core/Model'
+import Model from '../core/Model'
 
 export interface TemplateEvent extends Record<string, any> {
     name: string
 }
 
-export class UserEvent extends UniversalModel {
+export class UserEvent extends Model {
     uuid!: string
-    project_id!: number
-    user_id!: number
+    project_id!: UUID
+    user_id!: UUID
     name!: string
     data!: Record<string, unknown>
     created_at: Date = new Date()

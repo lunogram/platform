@@ -3,16 +3,16 @@ import { deepDiff } from '../../utilities'
 import Audit, { Auditable } from './Audit'
 
 type AuditParams = {
-    project_id: number
+    project_id: UUID
     event: string
-    item_id: number
+    item_id: UUID
     item_type: string
 }
 
 type AuditCreateParams = RequireAtLeastOne<{
-    project_id: number
+    project_id: UUID
     event: string
-    admin_id?: number
+    admin_id?: UUID
 } & ({
     object?: Auditable
     previous?: Record<string, any>

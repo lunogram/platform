@@ -31,6 +31,7 @@ import { createAuditLog } from '../core/audit/AuditService'
 import { WithAdmin } from '../core/audit/Audit'
 import { processUsers } from '../users/ProcessUsers'
 import { raw } from '../core/Model'
+import { UUID } from 'node:crypto'
 
 export const CacheKeys = {
     pendingStats: 'campaigns:pending_stats',
@@ -40,7 +41,7 @@ export const CacheKeys = {
     populationTotal: (campaign: Campaign) => `campaigns:${campaign.id}:total`,
 }
 
-export const pagedCampaigns = async (params: PageParams, projectId: number) => {
+export const pagedCampaigns = async (params: PageParams, projectId: UUID) => {
     const result = await Campaign.search(
         { ...params, fields: ['name'] },
         b => {
@@ -63,11 +64,11 @@ export const pagedCampaigns = async (params: PageParams, projectId: number) => {
     return result
 }
 
-export const allCampaigns = async (projectId: number): Promise<Campaign[]> => {
+export const allCampaigns = async (projectId: UUID): Promise<Campaign[]> => {
     return await Campaign.all(qb => qb.where('project_id', projectId))
 }
 
-export const getCampaign = async (id: number, projectId: number): Promise<Campaign | undefined> => {
+export const getCampaign = async (id: UUID, projectId: UUID): Promise<Campaign | undefined> => {
     const campaign = await Campaign.find(id,
         qb => qb.where('project_id', projectId)
             .whereNull('deleted_at'),
@@ -89,7 +90,7 @@ export const getCampaign = async (id: number, projectId: number): Promise<Campai
     return campaign
 }
 
-export const createCampaign = async (projectId: number, { tags, admin_id, ...params }: WithAdmin<CampaignCreateParams>): Promise<Campaign> => {
+export const createCampaign = async (projectId: UUID, { tags, admin_id, ...params }: WithAdmin<CampaignCreateParams>): Promise<Campaign> => {
     const subscription = await Subscription.find(params.subscription_id)
     if (!subscription) {
         throw new RequestError('Unable to find associated subscription', 404)
@@ -125,7 +126,7 @@ export const createCampaign = async (projectId: number, { tags, admin_id, ...par
     return await getCampaign(campaign.id, projectId) as Campaign
 }
 
-export const updateCampaign = async (id: number, projectId: number, { tags, admin_id, ...params }: WithAdmin<Partial<CampaignParams>>): Promise<Campaign | undefined> => {
+export const updateCampaign = async (id: UUID, projectId: UUID, { tags, admin_id, ...params }: WithAdmin<Partial<CampaignParams>>): Promise<Campaign | undefined> => {
 
     // Ensure finished campaigns are no longer modified
     const campaign = await getCampaign(id, projectId) as Campaign
@@ -210,7 +211,7 @@ export const updateCampaign = async (id: number, projectId: number, { tags, admi
     return await getCampaign(id, projectId)
 }
 
-export const archiveCampaign = async (campaign: Campaign, adminId?: number) => {
+export const archiveCampaign = async (campaign: Campaign, adminId?: UUID) => {
     await Campaign.archive(campaign.id, qb => qb.where('project_id', campaign.project_id))
 
     if (adminId) {
@@ -225,7 +226,7 @@ export const archiveCampaign = async (campaign: Campaign, adminId?: number) => {
     return getCampaign(campaign.id, campaign.project_id)
 }
 
-export const deleteCampaign = async (campaign: Campaign, adminId?: number) => {
+export const deleteCampaign = async (campaign: Campaign, adminId?: UUID) => {
     const results = await Campaign.deleteById(campaign.id, qb => qb.where('project_id', campaign.project_id))
     if (adminId) {
         await createAuditLog({
@@ -238,7 +239,7 @@ export const deleteCampaign = async (campaign: Campaign, adminId?: number) => {
     return results
 }
 
-export const getCampaignUsers = async (id: number, params: PageParams, projectId: number) => {
+export const getCampaignUsers = async (id: UUID, params: PageParams, projectId: UUID) => {
     return await User.search(
         { ...params, fields: ['email', 'phone'], mode: 'exact' },
         b => b.rightJoin('campaign_sends', 'campaign_sends.user_id', 'users.id')
@@ -250,10 +251,10 @@ export const getCampaignUsers = async (id: number, params: PageParams, projectId
 
 interface SendCampaign {
     campaign: Campaign
-    user: User | number
+    user: User | UUID
     exists?: boolean
     reference_type?: CampaignSendReferenceType
-    reference_id?: string
+    reference_id?: UUID
 }
 
 export const triggerCampaignSend = async ({ campaign, user, exists, reference_type, reference_id }: SendCampaign & { user: User }) => {
@@ -431,7 +432,7 @@ export const populateSendList = async (campaign: SentCampaign) => {
             return !updatedCampaign.isAborted
         },
         callback: async (pairs: DataPair[]) => {
-            const items = pairs.map(({ key, value }) => CampaignSend.create(campaign, project, { id: parseInt(key), timezone: value }))
+            const items = pairs.map(({ key, value }) => CampaignSend.create(campaign, project, { id: key as UUID, timezone: value }))
             await insertRows(items)
             await cacheIncr(redis, progressCacheKey, items.length, oneDay)
         },
@@ -444,7 +445,7 @@ export const populateSendList = async (campaign: SentCampaign) => {
 }
 
 export const campaignSendReadyQuery = (
-    campaignId: number,
+    campaignId: UUID,
     includeThrottled = false,
     limit?: number,
 ) => {
@@ -540,7 +541,7 @@ export const clearCampaign = async (campaign: Campaign) => {
         .delete()
 }
 
-export const duplicateCampaign = async (campaign: Campaign, adminId?: number) => {
+export const duplicateCampaign = async (campaign: Campaign, adminId?: UUID) => {
     const params: CampaignCreateParams = pick(campaign, ['project_id', 'list_ids', 'exclusion_list_ids', 'provider_id', 'subscription_id', 'channel', 'name', 'type'])
     params.name = `Copy of ${params.name}`
     const { id: cloneId } = await createCampaign(campaign.project_id, { ...params, admin_id: adminId })
@@ -558,10 +559,10 @@ export const campaignPopulationProgress = async (campaign: Campaign): Promise<Ca
     }
 }
 
-export const campaignDeliveryProgress = async (campaignId: number): Promise<CampaignProgress> => {
+export const campaignDeliveryProgress = async (campaignId: UUID): Promise<CampaignProgress> => {
     const progress = await CampaignSend.query()
         .where('campaign_id', campaignId)
-        .select(CampaignSend.raw("SUM(IF(state = 'sent', 1, 0)) AS sent, SUM(IF(state IN('pending', 'throttled'), 1, 0)) AS pending, COUNT(*) AS total, SUM(IF(opened_at IS NOT NULL, 1, 0)) AS opens, SUM(IF(clicks > 0, 1, 0)) AS clicks"))
+        .select(CampaignSend.raw("SUM(CASE WHEN state = 'sent' THEN 1 ELSE 0 END) AS sent, SUM(CASE WHEN state IN ('pending', 'throttled') THEN 1 ELSE 0 END) AS pending, COUNT(*) AS total, SUM(CASE WHEN opened_at IS NOT NULL THEN 1 ELSE 0 END) AS opens, SUM(CASE WHEN clicks > 0 THEN 1 ELSE 0 END) AS clicks"))
         .first()
     return {
         sent: parseInt(progress.sent ?? 0),
@@ -601,7 +602,7 @@ export const updateCampaignProgress = async (campaign: Campaign, stateOverride?:
     await Campaign.update(qb => qb.where('id', campaign.id).where('project_id', campaign.project_id), { state, delivery })
 }
 
-export const getCampaignSend = async (campaignId: number, userId: number, referenceId = '0') => {
+export const getCampaignSend = async (campaignId: UUID, userId: UUID, referenceId = '0') => {
     return CampaignSend.first(qb => qb
         .where('campaign_id', campaignId)
         .where('user_id', userId)
@@ -609,7 +610,7 @@ export const getCampaignSend = async (campaignId: number, userId: number, refere
     )
 }
 
-export const updateCampaignSend = async (campaignId: number, userId: number, referenceId: string, update: Partial<CampaignSend>) => {
+export const updateCampaignSend = async (campaignId: UUID, userId: UUID, referenceId: string, update: Partial<CampaignSend>) => {
     await CampaignSend.update(
         qb => qb
             .where('campaign_id', campaignId)

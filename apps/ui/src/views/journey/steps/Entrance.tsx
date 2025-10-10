@@ -18,6 +18,8 @@ import { createEventRule, isEventWrapper } from '../../users/rules/RuleHelpers'
 import { ruleDescription } from '../../users/rules/RuleDescriptions'
 import { Tag } from '../../../ui'
 import { Link } from 'react-router'
+import { UUID } from 'crypto'
+import { NIL } from 'uuid'
 
 interface EntranceConfig {
     trigger: 'none' | 'event' | 'schedule'
@@ -29,10 +31,10 @@ interface EntranceConfig {
     concurrent?: boolean
 
     // schedule based
-    list_id?: number
+    list_id?: UUID
     schedule?: string
 
-    references?: Array<{ id: number, name: string }>
+    references?: Array<{ id: UUID, name: string }>
 }
 
 const triggerOptions = [
@@ -50,7 +52,7 @@ const triggerOptions = [
     },
 ]
 
-const codeExample = (journeyId: number, entranceId: number) => `curl --request POST \\
+const codeExample = (journeyId: UUID, entranceId: UUID) => `curl --request POST \\
 --url '${env.api.baseURL}/client/journeys/${journeyId}/trigger' \\
 --header 'Authorization: Bearer API_KEY' \\
 --header 'Content-Type: application/json' \\
@@ -161,7 +163,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
     Edit({ onChange, project: { id: projectId }, journey: { id: journeyId }, stepId, value }) {
 
         const { t } = useTranslation()
-        const getList = useCallback(async (id: number) => await api.lists.get(projectId, id), [projectId])
+        const getList = useCallback(async (id: UUID) => await api.lists.get(projectId, id), [projectId])
         const searchLists = useCallback(async (q: string) => await api.lists.search(projectId, { q, limit: 50 }), [projectId])
 
         return (
@@ -233,7 +235,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                             <EntityIdPicker
                                 get={getList}
                                 search={searchLists}
-                                value={value.list_id ?? 0}
+                                value={value.list_id ?? NIL as UUID}
                                 onChange={list_id => onChange({ ...value, list_id })}
                                 label={t('list')}
                                 subtitle={t('entrance_list_desc')}

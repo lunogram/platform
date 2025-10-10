@@ -11,6 +11,8 @@ import { ProjectAdminParams } from './ProjectAdmins'
 import { projectRoles } from './Project'
 import { RequestError } from '../core/errors'
 import { createOrUpdateAdmin } from '../auth/AdminRepository'
+import { UUID } from 'crypto'
+import { validate as uuidValidate } from 'uuid'
 
 const router = new Router<
     ProjectState & { admin?: Admin }
@@ -67,7 +69,12 @@ const projectAdminParamsSchema: JSONSchemaType<ProjectAdminParams> = {
 }
 
 router.put('/:adminId', async ctx => {
-    const admin = await Admin.find(ctx.params.adminId)
+    if (!uuidValidate(ctx.params.adminId)) {
+        ctx.throw(400, 'Invalid admin ID')
+        return
+    }
+
+    const admin = await Admin.find(ctx.params.adminId as UUID)
     if (!admin) throw new RequestError('Invalid admin ID', 404)
     const { role } = validate(projectAdminParamsSchema, ctx.request.body)
     if (ctx.state.admin!.id === admin.id) throw new RequestError('You cannot add yourself to a project')
@@ -76,13 +83,13 @@ router.put('/:adminId', async ctx => {
 })
 
 router.get('/:adminId', async ctx => {
-    const projectAdmin = await getProjectAdmin(ctx.state.project.id, parseInt(ctx.params.adminId, 10))
+    const projectAdmin = await getProjectAdmin(ctx.state.project.id, ctx.params.adminId)
     if (!projectAdmin) return ctx.throw(404)
     ctx.body = projectAdmin
 })
 
 router.delete('/:adminId', async ctx => {
-    await removeAdminFromProject(ctx.state.project.id, parseInt(ctx.params.adminId, 10))
+    await removeAdminFromProject(ctx.state.project.id, ctx.params.adminId)
     ctx.body = true
 })
 

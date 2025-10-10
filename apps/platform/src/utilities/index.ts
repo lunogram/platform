@@ -1,7 +1,6 @@
 import { JSONSchemaType } from 'ajv'
 import { validate } from '../core/validate'
-import crypto from 'crypto'
-import Hashids from 'hashids'
+import crypto, { UUID } from 'crypto'
 import { differenceInSeconds } from 'date-fns'
 import { utcToZonedTime } from 'date-fns-tz'
 import { Database } from '../config/database'
@@ -29,7 +28,7 @@ export const shuffle = <T>(array: T[]): T[] => {
     return array
 }
 
-export const pick = <T extends object, K extends keyof T> (obj: T, keys: K[]): Pick<T, K> => {
+export const pick = <T extends object, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> => {
     const ret: any = {}
     keys.forEach(key => {
         ret[key] = obj[key]
@@ -63,33 +62,12 @@ export const snakeCase = (str: string): string => str.match(/[A-Z]{2,}(?=[A-Z][a
     ?.map(x => x.toLowerCase())
     .join('_') ?? ''
 
-export const uuid = (): string => {
+export const uuid = (): UUID => {
     return crypto.randomUUID()
 }
 
 export const secondsAgo = (timestamp: Date | number) => {
     return differenceInSeconds(Date.now(), timestamp)
-}
-
-const hashCharacters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
-const hashMinimumLength = 10
-export const encodeHashid = function(value: number): string {
-    const hashids = new Hashids(
-        process.env.APP_SECRET,
-        hashMinimumLength,
-        hashCharacters,
-    )
-    return hashids.encode(value)
-}
-
-export const decodeHashid = function(value?: string | null): number | undefined {
-    if (!value) return
-    const hashids = new Hashids(
-        process.env.APP_SECRET,
-        hashMinimumLength,
-        hashCharacters,
-    )
-    return hashids.decode(value)?.[0] as number | undefined
 }
 
 export const combineURLs = (parts: string[], sep = '/'): string => {
@@ -247,8 +225,8 @@ export function deepEqual<T>(a: T, b: T): boolean {
 
     return Boolean(
         bothAreObjects
-          && Object.keys(a).length === Object.keys(b).length
-          && Object.entries(a).every(([k, v]) => deepEqual(v, b[k as keyof T])),
+        && Object.keys(a).length === Object.keys(b).length
+        && Object.entries(a).every(([k, v]) => deepEqual(v, b[k as keyof T])),
     )
 }
 
@@ -306,7 +284,7 @@ export const chunk = async <T>(
             }
         }
     }
-    await query.stream(async function(stream) {
+    await query.stream(async function (stream) {
         for await (const result of stream) {
             await handler(result)
         }
@@ -321,7 +299,7 @@ export class Chunker<T> {
     constructor(
         private callback: ChunkCallback<T>,
         private size: number,
-    ) {}
+    ) { }
 
     public async add(...items: T[]) {
         for (const item of items) {
@@ -348,7 +326,7 @@ export class AsyncChunker<T> {
     constructor(
         private readonly callback: ChunkCallback<T>,
         private readonly batchSize: number,
-    ) {}
+    ) { }
 
     add(item: T): void {
         this.buffer.push(item)

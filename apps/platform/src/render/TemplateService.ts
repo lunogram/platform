@@ -19,15 +19,16 @@ import EventPostJob from '../client/EventPostJob'
 import { getPushDevicesForUser } from '../users/DeviceRepository'
 import Campaign from '../campaigns/Campaign'
 import { loadInAppChannel } from '../providers/inapp'
+import { UUID } from 'crypto'
 
-export const pagedTemplates = async (params: PageParams, projectId: number) => {
+export const pagedTemplates = async (params: PageParams, projectId: UUID) => {
     return await Template.search(
         params,
         qb => qb.where('project_id', projectId),
     )
 }
 
-export const allTemplates = async (projectId: number, campaignId?: number): Promise<Template[]> => {
+export const allTemplates = async (projectId: UUID, campaignId?: UUID): Promise<Template[]> => {
     return await Template.all(qb => {
         if (campaignId) {
             qb.where('campaign_id', campaignId)
@@ -36,11 +37,11 @@ export const allTemplates = async (projectId: number, campaignId?: number): Prom
     })
 }
 
-export const getTemplate = async (id: number, projectId: number) => {
+export const getTemplate = async (id: UUID, projectId: UUID) => {
     return await Template.find(id, qb => qb.where('project_id', projectId))
 }
 
-export const createTemplate = async (projectId: number, params: TemplateParams) => {
+export const createTemplate = async (projectId: UUID, params: TemplateParams) => {
     return await Template.insertAndFetch({
         ...params,
         name: params.name ?? 'Control',
@@ -49,16 +50,16 @@ export const createTemplate = async (projectId: number, params: TemplateParams) 
     })
 }
 
-export const updateTemplate = async (templateId: number, params: TemplateUpdateParams) => {
+export const updateTemplate = async (templateId: UUID, params: TemplateUpdateParams) => {
     const template = await Template.updateAndFetch(templateId, prune(params))
     return template
 }
 
-export const deleteTemplate = async (id: number, projectId: number) => {
+export const deleteTemplate = async (id: UUID, projectId: UUID) => {
     return await Template.deleteById(id, qb => qb.where('project_id', projectId))
 }
 
-export const duplicateTemplate = async (template: Template, campaignId: number) => {
+export const duplicateTemplate = async (template: Template, campaignId: UUID) => {
     const params: Partial<Template> = pick(template, ['project_id', 'locale', 'name', 'type', 'data'])
     params.campaign_id = campaignId
     return await Template.insert(params)
@@ -75,7 +76,7 @@ export const screenshotHtml = (template: TemplateType) => {
     return ''
 }
 
-export const validateTemplates = async (projectId: number, campaignId: number) => {
+export const validateTemplates = async (projectId: UUID, campaignId: UUID) => {
     const templates = await allTemplates(projectId, campaignId)
     if (!templates.length) throw new RequestError('No templates found for this campaign.')
     for (const template of templates) {

@@ -1,8 +1,9 @@
+import { UUID } from 'crypto'
 import { ChannelType } from '../config/channels'
 import Model, { ModelParams } from '../core/Model'
 
 export default class Subscription extends Model {
-    project_id!: number
+    project_id!: UUID
     name!: string
     channel!: ChannelType
     is_public!: boolean
@@ -15,7 +16,7 @@ export enum SubscriptionState {
 }
 
 export type UserSubscription = {
-    subscription_id: number
+    subscription_id: UUID
     state: SubscriptionState
     name: string
     channel: string

@@ -25,7 +25,7 @@ export default class ScheduledEntranceOrchestratorJob extends Job {
             .whereNotNull('journey_steps.next_scheduled_at')
             .where('journey_steps.next_scheduled_at', '<=', new Date())
             .select('journey_steps.*', 'journeys.project_id'),
-        ) as Array<JourneyEntrance & { project_id: number }>
+        ) as Array<JourneyEntrance & { project_id: UUID }>
 
         if (!entrances.length) return
 

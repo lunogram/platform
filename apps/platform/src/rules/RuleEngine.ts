@@ -1,5 +1,5 @@
 import { TemplateEvent } from 'users/UserEvent'
-import { TemplateUser, User } from '../users/User'
+import { TemplateUser } from '../users/User'
 import { Rule, AnyJson, RuleTree, Operator, RuleGroup, RuleType, EventRuleFrequency, EventRuleTree } from './Rule'
 import NumberRule from './NumberRule'
 import StringRule from './StringRule'
@@ -8,7 +8,7 @@ import DateRule from './DateRule'
 import ArrayRule from './ArrayRule'
 import WrapperRule from './WrapperRule'
 import { uuid } from '../utilities'
-import App from '../app'
+import { UUID } from 'crypto'
 
 class Registry<T> {
     #registered: { [key: string]: T } = {}
@@ -35,7 +35,7 @@ export interface RuleBaseParams {
 }
 
 export interface RuleQueryParams extends RuleBaseParams {
-    projectId: number
+    projectId: UUID
 }
 
 export interface RuleCheckParams extends RuleBaseParams {
@@ -83,18 +83,7 @@ export const check = (input: RuleCheckInput, rule: RuleTree | RuleTree[]) => {
     return ruleRegistry.get(rule.type).check({ registry: ruleRegistry, input, rule, value })
 }
 
-export const checkQuery = async (user: User, rule: RuleTree | RuleTree[]) => {
-    const subquery = getRuleQuery(user.project_id, rule)
-    const query = `select exists(${subquery}) as check`
-    const result = await App.main.clickhouse.query({
-        query,
-        format: 'JSONEachRow',
-    })
-    const data = await result.json() as { check: boolean }[]
-    return data[0].check
-}
-
-export const getRuleQuery = (projectId: number, rule: RuleTree | RuleTree[]) => {
+export const getRuleQuery = (projectId: UUID, rule: RuleTree | RuleTree[]) => {
     if (Array.isArray(rule)) {
         rule = make({
             type: 'wrapper',

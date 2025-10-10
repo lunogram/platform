@@ -18,6 +18,7 @@ import { ProjectContext } from '../../contexts'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import { Translation, useTranslation } from 'react-i18next'
 import { SingleSelect } from '../../ui/form/SingleSelect'
+import { UUID } from 'crypto'
 
 export const CampaignTag = ({ state, progress, send_at }: Pick<Campaign, 'state' | 'progress' | 'send_at'>) => {
     const variant: Record<CampaignState, TagVariant> = {
@@ -94,16 +95,16 @@ export default function Campaigns() {
         await navigate(`${campaign.id}/design`)
     }
 
-    const handleEditCampaign = async (id: number) => {
+    const handleEditCampaign = async (id: UUID) => {
         await navigate(id.toString())
     }
 
-    const handleDuplicateCampaign = async (id: number) => {
+    const handleDuplicateCampaign = async (id: UUID) => {
         const campaign = await api.campaigns.duplicate(project.id, id)
         await navigate(campaign.id.toString())
     }
 
-    const handleArchiveCampaign = async (id: number) => {
+    const handleArchiveCampaign = async (id: UUID) => {
         await api.campaigns.delete(project.id, id)
         await state.reload()
     }

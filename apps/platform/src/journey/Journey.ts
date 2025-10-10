@@ -1,3 +1,4 @@
+import { UUID } from 'node:crypto'
 import Model, { ModelParams } from '../core/Model'
 import { User } from '../users/User'
 import { setJourneyStepMap } from './JourneyRepository'
@@ -7,9 +8,9 @@ type JourneyStatus = 'draft' | 'live' | 'off'
 
 export default class Journey extends Model {
     name!: string
-    project_id!: number
-    parent_id?: number
-    draft_id?: number
+    project_id!: UUID
+    parent_id?: UUID
+    draft_id?: UUID
     description?: string
     status!: JourneyStatus
     deleted_at?: Date
@@ -19,7 +20,7 @@ export default class Journey extends Model {
 
     static jsonAttributes = ['stats']
 
-    static async create(project_id: number, name: string, stepMap: JourneyStepMapParams) {
+    static async create(project_id: UUID, name: string, stepMap: JourneyStepMapParams) {
         const journey = await this.insertAndFetch({
             project_id,
             name,
@@ -34,7 +35,7 @@ export type JourneyParams = Omit<Journey, ModelParams | 'parent_id' | 'draft_id'
 export type UpdateJourneyParams = Omit<JourneyParams, 'project_id'>
 
 export interface JourneyEntranceTriggerParams {
-    entrance_id: number
+    entrance_id: UUID
     user: Pick<User, 'email' | 'phone' | 'timezone' | 'locale'> & { external_id: string, device_token?: string }
     event?: Record<string, unknown>
 }

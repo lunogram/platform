@@ -10,13 +10,14 @@ import { ProjectApiKey, ProjectApiKeyParams } from './ProjectApiKey'
 import Admin from '../auth/Admin'
 import { getAdmin } from '../auth/AdminRepository'
 import Locale, { LocaleParams } from './Locale'
+import { UUID } from 'crypto'
 
-export const adminProjectIds = async (adminId: number) => {
+export const adminProjectIds = async (adminId: UUID) => {
     const records = await ProjectAdmin.all(qb => qb.where('admin_id', adminId))
     return records.map(item => item.project_id)
 }
 
-export const pagedProjects = async (params: PageParams, adminId: number, organizationId: number) => {
+export const pagedProjects = async (params: PageParams, adminId: UUID, organizationId: UUID) => {
     const admin = await getAdmin(adminId, organizationId)
     const projectIds = await adminProjectIds(adminId)
     return await Project.search({ ...params, fields: ['name'] }, qb =>
@@ -27,7 +28,7 @@ export const pagedProjects = async (params: PageParams, adminId: number, organiz
     )
 }
 
-export const allProjects = async (adminId: number, organizationId: number) => {
+export const allProjects = async (adminId: UUID, organizationId: UUID) => {
     const admin = await getAdmin(adminId, organizationId)
     if (!admin) return []
     const projectIds = await adminProjectIds(adminId)
@@ -40,7 +41,7 @@ export const allProjects = async (adminId: number, organizationId: number) => {
     })
 }
 
-export const getProject = async (id: number, adminId?: number) => {
+export const getProject = async (id: UUID, adminId?: UUID) => {
     return Project.first(
         qb => {
             qb.where('projects.id', id)
@@ -85,12 +86,12 @@ export const createProject = async (admin: Admin, params: ProjectParams): Promis
     return project!
 }
 
-export const updateProject = async (id: number, adminId: number, params: Partial<ProjectParams>) => {
+export const updateProject = async (id: UUID, adminId: UUID, params: Partial<ProjectParams>) => {
     await Project.update(qb => qb.where('id', id), params)
     return await getProject(id, adminId)
 }
 
-export const pagedApiKeys = async (params: PageParams, projectId: number) => {
+export const pagedApiKeys = async (params: PageParams, projectId: UUID) => {
     return await ProjectApiKey.search(
         { ...params, fields: ['name', 'description'] },
         qb => qb.where('project_id', projectId).whereNull('deleted_at'),
@@ -101,7 +102,7 @@ export const getProjectApiKey = async (key: string) => {
     return ProjectApiKey.first(qb => qb.where('value', key).whereNull('deleted_at'))
 }
 
-export const createProjectApiKey = async (projectId: number, params: ProjectApiKeyParams) => {
+export const createProjectApiKey = async (projectId: UUID, params: ProjectApiKeyParams) => {
     return await ProjectApiKey.insertAndFetch({
         ...params,
         value: generateApiKey(params.scope),
@@ -109,11 +110,11 @@ export const createProjectApiKey = async (projectId: number, params: ProjectApiK
     })
 }
 
-export const updateProjectApiKey = async (id: number, params: ProjectApiKeyParams) => {
+export const updateProjectApiKey = async (id: UUID, params: ProjectApiKeyParams) => {
     return await ProjectApiKey.updateAndFetch(id, params)
 }
 
-export const revokeProjectApiKey = async (id: number) => {
+export const revokeProjectApiKey = async (id: UUID) => {
     return await ProjectApiKey.archive(id)
 }
 
@@ -134,20 +135,20 @@ export const projectRoleMiddleware = (minRole: ProjectRole) => async (ctx: Param
     return next()
 }
 
-export const pagedLocales = async (params: PageParams, projectId: number) => {
+export const pagedLocales = async (params: PageParams, projectId: UUID) => {
     return await Locale.search(
         { ...params, fields: ['name'] },
         qb => qb.where('project_id', projectId),
     )
 }
 
-export const createLocale = async (projectId: number, params: LocaleParams) => {
+export const createLocale = async (projectId: UUID, params: LocaleParams) => {
     return await Locale.insertAndFetch({
         ...params,
         project_id: projectId,
     })
 }
 
-export const deleteLocale = async (projectId: number, id: number) => {
+export const deleteLocale = async (projectId: UUID, id: UUID) => {
     return await Locale.deleteById(id, qb => qb.where('project_id', projectId))
 }

@@ -12,6 +12,7 @@ import JourneyError from './JourneyError'
 import { RequestError } from '../core/errors'
 import EventPostJob from '../client/EventPostJob'
 import { pick, uuid } from '../utilities'
+import { UUID } from 'node:crypto'
 
 export const enterJourneysFromEvent = async (event: UserEvent, user?: User) => {
 
@@ -92,7 +93,7 @@ export const enterJourneysFromEvent = async (event: UserEvent, user?: User) => {
     }
 }
 
-export const loadUserStepDataMap = async (referenceId: number | string) => {
+export const loadUserStepDataMap = async (referenceId: UUID | string) => {
     let step = await JourneyUserStep.find(referenceId)
     if (!step) return {}
     if (step.entrance_id) step = await JourneyUserStep.find(step.entrance_id)
@@ -104,7 +105,6 @@ export const loadUserStepDataMap = async (referenceId: number | string) => {
 }
 
 export const triggerEntrance = async (journey: Journey, payload: JourneyEntranceTriggerParams) => {
-
     // Look up target entrance step
     const step = await JourneyStep.first(qb => qb
         .where('journey_id', journey.id)
@@ -151,7 +151,7 @@ export const triggerEntrance = async (journey: Journey, payload: JourneyEntrance
     await JourneyProcessJob.from({ entrance_id }).queue()
 }
 
-export const getJourneysForCampaign = async (projectId: number, campaignId: number) => {
+export const getJourneysForCampaign = async (projectId: UUID, campaignId: UUID) => {
     const journeys = await Journey.all(q => q
         .where('project_id', projectId)
         .leftJoin('journey_steps', 'journeys.id', '=', 'journey_steps.journey_id')

@@ -47,6 +47,7 @@ import EntranceDetails from './journey/EntranceDetails'
 import { Translation } from 'react-i18next'
 import Organization from './organization/Organization'
 import DataSchema from './settings/DataSchema'
+import { UUID } from 'crypto'
 
 export const useRoute = (includeProject = true) => {
     const { projectId = '' } = useParams()
@@ -156,34 +157,34 @@ export const createRouter = ({
                                 {
                                     key: 'campaigns',
                                     to: 'campaigns',
-                                    children: <Translation>{ t => t('campaigns') }</Translation>,
+                                    children: <Translation>{t => t('campaigns')}</Translation>,
                                     icon: <CampaignsIcon />,
                                     minRole: 'editor',
                                 },
                                 {
                                     key: 'journeys',
                                     to: 'journeys',
-                                    children: <Translation>{ t => t('journeys') }</Translation>,
+                                    children: <Translation>{t => t('journeys')}</Translation>,
                                     icon: <JourneysIcon />,
                                     minRole: 'editor',
                                 },
                                 {
                                     key: 'users',
                                     to: 'users',
-                                    children: <Translation>{ t => t('users') }</Translation>,
+                                    children: <Translation>{t => t('users')}</Translation>,
                                     icon: <UsersIcon />,
                                 },
                                 {
                                     key: 'lists',
                                     to: 'lists',
-                                    children: <Translation>{ t => t('lists') }</Translation>,
+                                    children: <Translation>{t => t('lists')}</Translation>,
                                     icon: <ListsIcon />,
                                     minRole: 'editor',
                                 },
                                 {
                                     key: 'settings',
                                     to: 'settings',
-                                    children: <Translation>{ t => t('settings') }</Translation>,
+                                    children: <Translation>{t => t('settings')}</Translation>,
                                     icon: <SettingsIcon />,
                                     minRole: 'admin',
                                 },
@@ -302,7 +303,7 @@ export const createRouter = ({
                     }),
                     {
                         path: 'entrances/:entranceId',
-                        loader: async ({ params }) => await api.journeys.entrances.log(params.projectId!, params.entranceId!),
+                        loader: async ({ params }) => await api.journeys.entrances.log(params.projectId! as UUID, params.entranceId! as UUID),
                         element: <EntranceDetails />,
                     },
                     {

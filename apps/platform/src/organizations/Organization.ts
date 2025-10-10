@@ -18,7 +18,7 @@ export default class Organization extends Model {
     username!: string
     domain?: string
     auth!: AuthProviderConfig
-    notification_provider_id?: number
+    notification_provider_id?: UUID
     tracking_deeplink_mirror_url?: string
 
     static jsonAttributes = ['auth']

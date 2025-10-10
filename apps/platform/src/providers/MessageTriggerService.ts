@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import App from '../app'
 import Campaign from '../campaigns/Campaign'
 import { getCampaignSend, updateSendState } from '../campaigns/CampaignService'
@@ -29,9 +30,10 @@ interface MessageTriggerHydrated<T> {
 }
 
 export async function loadSendJob<T extends TemplateType>({ campaign_id, user_id, reference_type, reference_id }: MessageTrigger): Promise<MessageTriggerHydrated<T> | undefined> {
-
     const user = await User.find(user_id)
-    const project = await Project.find(user?.project_id)
+    if (!user) throw new Error('User not found')
+
+    const project = await Project.find(user.project_id)
     const send = await getCampaignSend(campaign_id, user_id, reference_id)
 
     // If user or project is deleted, abort and discard job
@@ -223,10 +225,7 @@ export const finalizeSend = async (data: MessageTriggerHydrated<TemplateType>, r
     }
 }
 
-export const notifyJourney = async (reference_id: string, response?: any) => {
-
-    const referenceId = parseInt(reference_id, 10)
-
+export const notifyJourney = async (referenceId: UUID, response?: any) => {
     // Save response into user step
     if (response) {
         await JourneyUserStep.update(q => q.where('id', referenceId), {

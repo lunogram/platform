@@ -4,7 +4,7 @@ import LoggerWebhookProvider from './LoggerWebhookProvider'
 import WebhookChannel from './WebhookChannel'
 import { WebhookProvider, WebhookProviderName } from './WebhookProvider'
 
-type WebhookProviderDerived = { new (): WebhookProvider } & typeof WebhookProvider
+type WebhookProviderDerived = { new(): WebhookProvider } & typeof WebhookProvider
 export const typeMap: Record<string, WebhookProviderDerived> = {
     local: LocalWebhookProvider,
     logger: LoggerWebhookProvider,
@@ -14,7 +14,7 @@ export const providerMap = (record: { type: WebhookProviderName }): WebhookProvi
     return typeMap[record.type].fromJson(record)
 }
 
-export const loadWebhookChannel = async (providerId: number, projectId: number): Promise<WebhookChannel | undefined> => {
+export const loadWebhookChannel = async (providerId: UUID, projectId: UUID): Promise<WebhookChannel | undefined> => {
     const provider = await loadProvider(providerId, providerMap, projectId)
     if (!provider) return
     return new WebhookChannel(provider)

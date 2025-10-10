@@ -11,6 +11,7 @@ import { Menu, MenuItem, Tag } from '../../ui'
 import { ProjectContext } from '../../contexts'
 import { useTranslation } from 'react-i18next'
 import { Journey } from '../../types'
+import { UUID } from 'crypto'
 
 export const JourneyTag = ({ status }: Pick<Journey, 'status'>) => {
     const { t } = useTranslation()
@@ -26,16 +27,16 @@ export default function Journeys() {
     const [open, setOpen] = useState<null | 'create'>(null)
     const state = useSearchTableQueryState(useCallback(async params => await api.journeys.search(project.id, params), [project.id]))
 
-    const handleEditJourney = async (id: number) => {
+    const handleEditJourney = async (id: UUID) => {
         await navigate(id.toString())
     }
 
-    const handleDuplicateJourney = async (id: number) => {
+    const handleDuplicateJourney = async (id: UUID) => {
         const journey = await api.journeys.duplicate(project.id, id)
         await navigate(journey.id.toString())
     }
 
-    const handleArchiveJourney = async (id: number) => {
+    const handleArchiveJourney = async (id: UUID) => {
         await api.journeys.delete(project.id, id)
         await state.reload()
     }

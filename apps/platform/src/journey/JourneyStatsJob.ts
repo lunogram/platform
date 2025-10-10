@@ -1,26 +1,21 @@
+import { UUID } from 'node:crypto'
 import { Job } from '../queue'
 import Journey from './Journey'
 import { JourneyStep } from './JourneyStep'
 import JourneyUserStep from './JourneyUserStep'
 
 interface JourneyStatsParams {
-    journey_id: number
+    journey_id: UUID
 }
 
 export default class JourneyStatsJob extends Job {
     static $name = 'journey_stats_job'
 
-    static from(journey_id: number) {
+    static from(journey_id: UUID) {
         return new this({ journey_id })
     }
 
     static async handler({ journey_id }: JourneyStatsParams) {
-
-        journey_id = Number(journey_id)
-        if (isNaN(journey_id)) {
-            return
-        }
-
         const stats_at = new Date()
 
         const [steps, counts] = await Promise.all([
@@ -30,23 +25,30 @@ export default class JourneyStatsJob extends Job {
             JourneyUserStep.query()
                 .select('step_id')
                 .sum({
-                    entrance: JourneyUserStep.raw('if(entrance_id is null, 1, 0)'),
-                    ended: JourneyUserStep.raw('if(entrance_id is null and ended_at is not null, 1, 0)'),
-                    completed: JourneyUserStep.raw('if(type = \'completed\', 1, 0)'),
-                    error: JourneyUserStep.raw('if(type = \'error\', 1, 0)'),
-                    delay: JourneyUserStep.raw('if(type = \'delay\', 1, 0)'),
-                    action: JourneyUserStep.raw('if(type = \'action\', 1, 0)'),
+                    entrance: JourneyUserStep.raw('case when entrance_id is null then 1 else 0 end'),
+                    ended: JourneyUserStep.raw('case when entrance_id is null and ended_at is not null then 1 else 0 end'),
+                    completed: JourneyUserStep.raw('case when type = ? then 1 else 0 end', ['completed']),
+                    error: JourneyUserStep.raw('case when type = ? then 1 else 0 end', ['error']),
+                    delay: JourneyUserStep.raw('case when type = ? then 1 else 0 end', ['delay']),
+                    action: JourneyUserStep.raw('case when type = ? then 1 else 0 end', ['action']),
                 })
                 .where('journey_id', journey_id)
                 .groupBy('step_id') as Promise<Array<{
-                    step_id: number
-                    [stat: string]: number
+                    step_id: UUID
+                    entrance: number
+                    ended: number
+                    completed: number
+                    error: number
+                    delay: number
+                    action: number
                 }>>,
         ])
 
         // knex returns the sums as strings for some reason
         counts.forEach(o => Object.entries(o).forEach(([stat, count]) => {
-            o[stat] = Number(count)
+            if (stat !== 'step_id') {
+                (o as any)[stat] = Number(count)
+            }
         }))
 
         await Journey.update(q => q.where('id', journey_id), {

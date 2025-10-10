@@ -5,7 +5,6 @@ import EmailProvider from './EmailProvider'
 import Router = require('@koa/router')
 import Provider, { ExternalProviderParams, ProviderControllers, ProviderSchema, ProviderSetupMeta } from '../Provider'
 import { createController } from '../ProviderService'
-import { decodeHashid, encodeHashid } from '../../utilities'
 import { getUserFromEmail } from '../../users/UserRepository'
 import { RequestError } from '../../core/errors'
 import { getCampaign } from '../../campaigns/CampaignService'
@@ -55,7 +54,7 @@ export default class MailgunEmailProvider extends EmailProvider {
     loadSetup(app: App): ProviderSetupMeta[] {
         return [{
             name: 'Webhook URL',
-            value: `${app.env.apiBaseUrl}/providers/${encodeHashid(this.id)}/${(this.constructor as any).namespace}`,
+            value: `${app.env.apiBaseUrl}/providers/${this.id}/${(this.constructor as any).namespace}`,
         }]
     }
 
@@ -96,7 +95,7 @@ export default class MailgunEmailProvider extends EmailProvider {
             const type = event === 'failed' ? 'bounced' : 'complained'
 
             // Get values from webhook to identify user and campaign
-            const campaignId = decodeHashid(headers['X-Campaign-Id'])
+            const campaignId = headers['X-Campaign-Id']
             if (!email || !campaignId) return
 
             const projectId = provider.project_id

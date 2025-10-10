@@ -1,4 +1,3 @@
-import { inferClickHouseType } from '../config/clickhouse'
 import { Operator } from './Rule'
 import { RuleCheck, RuleEvalException } from './RuleEngine'
 import { compile, queryPath, queryValue as queryValues, whereQuery, whereQueryNullable } from './RuleHelpers'
@@ -57,10 +56,8 @@ export default {
         }
 
         const ruleValue = compile(rule, item => Number(item))
-        const type = inferClickHouseType(ruleValue)
-
         if (['=', '!=', '<', '<=', '>', '>=', 'any', 'none'].includes(rule.operator)) {
-            return whereQuery(path, rule.operator, ruleValue, type)
+            return whereQuery(path, rule.operator, ruleValue)
         }
 
         throw new RuleEvalException(rule, 'unknown operator: ' + rule.operator)

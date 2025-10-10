@@ -8,7 +8,8 @@ import { ProjectState } from '../auth/AuthMiddleware'
 import parse from '../storage/FileStream'
 import { projectRoleMiddleware } from '../projects/ProjectService'
 import ListStatsJob from './ListStatsJob'
-import { migrateStaticList } from '../utilities/migrate'
+import { UUID } from 'crypto'
+import { validate as uuidValidate } from 'uuid'
 
 const router = new Router<
     ProjectState & { list?: List }
@@ -32,16 +33,19 @@ const ruleDefinition = (nullable = false) => ({
     required: ['uuid', 'type', 'group', 'path', 'operator'],
     properties: {
         id: {
-            type: 'number',
+            type: 'string',
+            format: 'uuid',
             nullable: true,
         },
-        uuid: { type: 'string' },
+        uuid: { type: 'string', format: 'uuid' },
         root_uuid: {
             type: 'string',
+            format: 'uuid',
             nullable: true,
         },
         parent_uuid: {
             type: 'string',
+            format: 'uuid',
             nullable: true,
         },
         type: { type: 'string', enum: ['wrapper', 'string', 'number', 'boolean', 'date', 'array'] },
@@ -79,7 +83,7 @@ const listParams: JSONSchemaType<ListCreateParams> = {
     definitions: {
         rule: ruleDefinition() as any,
     },
-    oneOf: [{
+    anyOf: [{
         type: 'object',
         required: ['name', 'type', 'rule'],
         properties: {
@@ -138,7 +142,12 @@ router.post('/', async ctx => {
 })
 
 router.param('listId', async (value, ctx, next) => {
-    ctx.state.list = await getList(parseInt(value, 10), ctx.state.project.id)
+    if (!uuidValidate(value)) {
+        ctx.throw(400, 'Invalid list ID')
+        return
+    }
+
+    ctx.state.list = await getList(value as UUID, ctx.state.project.id)
     if (!ctx.state.list) {
         ctx.throw(404)
         return
@@ -217,11 +226,6 @@ router.post('/:listId/recount', async ctx => {
         ctx.state.list!.id,
         ctx.state.project.id,
     ).queue()
-    ctx.status = 204
-})
-
-router.post('/:listId/migrate', async ctx => {
-    await migrateStaticList(ctx.state.list!)
     ctx.status = 204
 })
 

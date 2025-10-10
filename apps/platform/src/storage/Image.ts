@@ -2,7 +2,7 @@ import Model from '../core/Model'
 import Storage from './Storage'
 
 export default class Image extends Model {
-    project_id!: number
+    project_id!: UUID
     uuid!: string
     name!: string
     original_name!: string

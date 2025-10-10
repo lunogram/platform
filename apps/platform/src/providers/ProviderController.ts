@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import { ProjectState } from '../auth/AuthMiddleware'
 import { searchParamsSchema } from '../core/searchParams'
-import { decodeHashid, extractQueryParams } from '../utilities'
+import { extractQueryParams } from '../utilities'
 import { analyticsProviders } from './analytics'
 import { emailProviders } from './email'
 import Provider from './Provider'
@@ -10,22 +10,23 @@ import { allProviders, archiveProvider, loadController, pagedProviders } from '.
 import { pushProviders } from './push'
 import { textProviders } from './text'
 import { webhookProviders } from './webhook'
+import { UUID } from 'crypto'
+import { validate as uuidValidate } from 'uuid'
 
 const adminRouter = new Router<ProjectState>({
     prefix: '/providers',
 })
 
 const publicRouter = new Router({
-    prefix: '/providers/:hash',
+    prefix: '/providers/:providersId',
 })
-publicRouter.param('hash', async (value, ctx, next) => {
-    const providerId = decodeHashid(value)
-    if (!providerId) {
-        ctx.throw(404)
+publicRouter.param('providersId', async (value, ctx, next) => {
+    if (!uuidValidate(value)) {
+        ctx.throw(400, 'Invalid provider ID')
         return
     }
 
-    ctx.state.provider = await getProvider(providerId)
+    ctx.state.provider = await getProvider(value as UUID)
     if (!ctx.state.provider) {
         ctx.throw(404)
         return
@@ -75,7 +76,12 @@ adminRouter.get('/meta', async ctx => {
 })
 
 adminRouter.delete('/:id', async ctx => {
-    ctx.body = await archiveProvider(parseInt(ctx.params.id), ctx.state.project.id)
+    if (!uuidValidate(ctx.params.id)) {
+        ctx.throw(400, 'Invalid provider ID')
+        return
+    }
+
+    ctx.body = await archiveProvider(ctx.params.id as UUID, ctx.state.project.id)
 })
 
 export { adminRouter, publicRouter, providers }

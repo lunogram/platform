@@ -9,7 +9,7 @@ export type LoggerConfig = {
 }
 
 export const logger = pino({
-    level: process.env.LOG_LEVEL || 'warn',
+    level: process.env.LOG_LEVEL || 'info',
 }, process.env.LOG_PRETTY_PRINT ? pretty({ colorize: true }) : undefined)
 
 export default async (config: LoggerConfig) => {

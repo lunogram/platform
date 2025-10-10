@@ -14,13 +14,14 @@ import { Device, DeviceParams } from './Device'
 import { getDeviceFromIdOrToken, markDevicesAsPushDisabled, userHasPushDevice } from './DeviceRepository'
 import Project from '../projects/Project'
 import { acquireLock, LockError, releaseLock } from '../core/Lock'
+import { UUID } from 'node:crypto'
 
 const CacheKeys = {
-    userPatch: (id: number) => `lock:u:${id}`,
+    userPatch: (id: UUID) => `lock:u:${id}`,
     devicePatch: (deviceId: string) => `lock:d:${deviceId}`,
 }
 
-export const getUser = async (id: number, projectId?: number, trx?: Transaction): Promise<User | undefined> => {
+export const getUser = async (id: UUID, projectId?: UUID, trx?: Transaction): Promise<User | undefined> => {
     return await User.find(id, qb => {
         if (projectId) {
             qb.where('project_id', projectId)
@@ -32,10 +33,10 @@ export const getUser = async (id: number, projectId?: number, trx?: Transaction)
 export const getUserFromContext = async (ctx: Context): Promise<User | undefined> => {
     return ctx.state.scope === 'secret'
         ? await getUserFromClientId(ctx.state.project.id, { external_id: ctx.params.userId })
-        : await getUser(parseInt(ctx.params.userId), ctx.state.project.id)
+        : await getUser(ctx.params.userId, ctx.state.project.id)
 }
 
-export const getUsersFromIdentity = async (projectId: number, identity: ClientIdentity, trx?: Transaction) => {
+export const getUsersFromIdentity = async (projectId: UUID, identity: ClientIdentity, trx?: Transaction) => {
     const externalId = `${identity.external_id}`
     const anonymousId = `${identity.anonymous_id}`
 
@@ -66,7 +67,7 @@ export const getUsersFromIdentity = async (projectId: number, identity: ClientId
     }
 }
 
-export const getUserFromClientId = async (projectId: number, identity: ClientIdentity, trx?: Transaction): Promise<User | undefined> => {
+export const getUserFromClientId = async (projectId: UUID, identity: ClientIdentity, trx?: Transaction): Promise<User | undefined> => {
     const users = await getUsersFromIdentity(projectId, identity, trx)
 
     // There are circumstances in which both the external ID and
@@ -75,32 +76,32 @@ export const getUserFromClientId = async (projectId: number, identity: ClientIde
     return users.external ?? users.anonymous
 }
 
-export const getUserFromPhone = async (projectId: number, phone: string): Promise<User | undefined> => {
+export const getUserFromPhone = async (projectId: UUID, phone: string): Promise<User | undefined> => {
     return await User.first(
         qb => qb.where('phone', phone)
             .where('project_id', projectId),
     )
 }
 
-export const getUserFromEmail = async (projectId: number, email: string): Promise<User | undefined> => {
+export const getUserFromEmail = async (projectId: UUID, email: string): Promise<User | undefined> => {
     return await User.first(
         qb => qb.where('email', email)
             .where('project_id', projectId),
     )
 }
 
-export const pagedUsers = async (params: PageParams, projectId: number) => {
+export const pagedUsers = async (params: PageParams, projectId: UUID) => {
     return await User.search(
         {
             ...params,
             fields: ['external_id', 'email', 'phone'],
-            mode: 'exact',
+            mode: 'partial',
         },
         b => b.where('project_id', projectId),
     )
 }
 
-export const aliasUser = async (projectId: number, {
+export const aliasUser = async (projectId: UUID, {
     external_id,
     anonymous_id,
     previous_id,
@@ -123,7 +124,7 @@ export const aliasUser = async (projectId: number, {
     return await User.updateAndFetch(previous.id, { external_id })
 }
 
-export const createUser = async (projectId: number, { external_id, anonymous_id, data, locale, created_at, ...fields }: UserInternalParams, trx?: Transaction) => {
+export const createUser = async (projectId: UUID, { external_id, anonymous_id, data, locale, created_at, ...fields }: UserInternalParams, trx?: Transaction) => {
     const project = await Project.find(projectId)
     const user = await User.insertAndFetch({
         project_id: projectId,
@@ -132,13 +133,8 @@ export const createUser = async (projectId: number, { external_id, anonymous_id,
         data: data ?? {},
         devices: [],
         locale: locale ?? project?.locale,
-        created_at: created_at ? new Date(created_at) : new Date(),
         ...fields,
-        version: Date.now(),
     }, trx)
-
-    // Send user to ClickHouse as well
-    await User.clickhouse().upsert(user)
 
     // Create an event for the user creation
     await EventPostJob.from({
@@ -156,19 +152,15 @@ export const createUser = async (projectId: number, { external_id, anonymous_id,
 }
 
 const patchUser = async (fields: Partial<User>, existing: User, trx?: Transaction) => {
-
     // Create a lock to prevent concurrent updates
     const key = CacheKeys.userPatch(existing.id)
     const acquired = await acquireLock({ key, timeout: 90 })
     if (!acquired) throw new LockError()
 
     try {
-        const after = await User.updateAndFetch(existing.id, {
+        return await User.updateAndFetch(existing.id, {
             ...fields,
-            version: Date.now(),
         }, trx)
-        await User.clickhouse().upsert(after, existing)
-        return after
     } finally {
         await releaseLock(key)
     }
@@ -182,13 +174,12 @@ export const updateUser = async (existing: User, params: Partial<User>, anonymou
             data: data ? { ...existing.data, ...data } : undefined,
             ...fields,
             ...!anonymous ? { anonymous_id } : {},
-            version: Date.now(),
         }, existing, trx)
     }
     return existing
 }
 
-export const deleteUser = async (projectId: number, externalId: string): Promise<void> => {
+export const deleteUser = async (projectId: UUID, externalId: UUID): Promise<void> => {
     const user = await getUserFromClientId(projectId, { external_id: externalId } as ClientIdentity)
     if (!user) return
 
@@ -201,21 +192,9 @@ export const deleteUser = async (projectId: number, externalId: string): Promise
     await User.delete(qb => qb.where('project_id', projectId)
         .where('id', user.id),
     )
-
-    // Delete the user from ClickHouse
-    await User.clickhouse().delete('project_id = {projectId: UInt32} AND id = {id: UInt32}', {
-        projectId,
-        id: user.id,
-    })
-
-    // Delete the user events from ClickHouse
-    await UserEvent.clickhouse().delete('project_id = {projectId: UInt32} AND user_id = {userId: UInt32}', {
-        projectId,
-        userId: user.id,
-    })
 }
 
-export const saveDevice = async (projectId: number, { external_id, anonymous_id, ...params }: DeviceParams, trx?: Transaction): Promise<number | undefined> => {
+export const saveDevice = async (projectId: UUID, { external_id, anonymous_id, ...params }: DeviceParams, trx?: Transaction): Promise<UUID | undefined> => {
 
     // Make sure we aren't trying to add the same device twice
     const { device_id, token } = params
@@ -298,7 +277,7 @@ const updateUserDeviceState = async (user: User, hasPushDevice: boolean, trx?: T
 }
 
 export const getUserEventsForRules = async (
-    userId: number,
+    userId: UUID,
     rule: RuleTree,
 ) => {
     const params = getRuleEventParams(rule)

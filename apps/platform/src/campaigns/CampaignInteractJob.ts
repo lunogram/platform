@@ -1,3 +1,4 @@
+import { UUID } from 'node:crypto'
 import App from '../app'
 import { Job } from '../queue'
 import { unsubscribe } from '../subscriptions/SubscriptionService'
@@ -5,10 +6,10 @@ import { CampaignSend } from './Campaign'
 import { CacheKeys, getCampaignSend, updateCampaignSend } from './CampaignService'
 
 interface CampaignIteraction {
-    user_id: number
-    campaign_id: number
+    user_id: UUID
+    campaign_id: UUID
     reference_id: string
-    subscription_id?: number
+    subscription_id?: UUID
     type: 'clicked' | 'opened' | 'bounced' | 'complained' | 'failed'
     action?: 'unsubscribe'
 }
