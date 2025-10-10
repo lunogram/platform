@@ -284,7 +284,7 @@ export const chunk = async <T>(
             }
         }
     }
-    await query.stream(async function (stream) {
+    await query.stream(async function(stream) {
         for await (const result of stream) {
             await handler(result)
         }
