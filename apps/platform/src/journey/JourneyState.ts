@@ -28,20 +28,20 @@ export class JourneyState {
             entrance = (await JourneyUserStep.find(entrance))!
         }
         if (!entrance) {
-            console.log("Entrance not found")
+            console.log('Entrance not found')
             return
         }
         if (entrance.entrance_id) {
             entrance = (await JourneyUserStep.find(entrance.entrance_id))!
             if (!entrance || entrance.entrance_id) {
-                console.log("Invalid entrance")
+                console.log('Invalid entrance')
                 return
             }
         }
 
         // Entrance has already ended
         if (entrance.ended_at) {
-            console.log("already ended at")
+            console.log('already ended at')
             return
         }
 
@@ -50,7 +50,7 @@ export class JourneyState {
             user = await User.find(entrance.user_id)
         }
         if (!user) {
-            console.log("User not found")
+            console.log('User not found')
             return
         }
 
@@ -62,7 +62,7 @@ export class JourneyState {
         const key = `journey:entrance:${entrance.id}`
 
         const acquired = await acquireLock({ key })
-        console.log("=================", key, "acquire", acquired)
+        console.log('=================', key, 'acquire', acquired)
         if (!acquired) {
             return
         }

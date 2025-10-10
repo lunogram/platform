@@ -38,7 +38,7 @@ export default class JourneyDelayJob extends Job {
             .where('journey_id', journey_id)
             .where('type', 'delay')
             .where('delay_until', '<=', 'NOW()')
-            .returning(['id']);
+            .returning(['id'])
 
         if (updated.length === 0) return
 

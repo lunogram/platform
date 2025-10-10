@@ -1,4 +1,4 @@
-import { UUID } from "node:crypto"
+import { UUID } from 'node:crypto'
 
 export interface MessageTrigger {
     campaign_id: UUID

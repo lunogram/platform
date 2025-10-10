@@ -26,7 +26,7 @@ export default class JourneyProcessJob extends Job {
                 .whereNull('deleted_at'),
         )
 
-        console.log("----- PROCESSING ENTRANCE", entrance_id, exists)
+        console.log('----- PROCESSING ENTRANCE', entrance_id, exists)
         if (!exists) return
 
         await JourneyState.resume(entrance)
