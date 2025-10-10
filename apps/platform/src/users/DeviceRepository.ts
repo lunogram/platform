@@ -23,7 +23,7 @@ export const userHasPushDevice = async (projectId: UUID, userId: UUID, trx?: Tra
         qb.where('project_id', projectId)
             .where('user_id', userId)
             .whereNotNull('token'),
-        trx,
+    trx,
     )
 }
 
