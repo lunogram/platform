@@ -30,7 +30,7 @@ export default class TwilioTextProvider extends TextProvider {
         name: 'Twilio',
         description: '',
         url: 'https://twilio.com',
-        icon: 'https://parcelvoy.com/providers/twilio.svg',
+        icon: 'https://lunogram.com/providers/twilio.svg',
     }
 
     static schema = ProviderSchema<TwilioProviderParams, TwilioDataParams>('twilioTextProviderParams', {
@@ -68,7 +68,7 @@ export default class TwilioTextProvider extends TextProvider {
             method: 'POST',
             headers: {
                 Authorization: `Basic ${this.apiKey}`,
-                'User-Agent': 'parcelvoy/v1 (+https://github.com/parcelvoy/platform)',
+                'User-Agent': 'lunogram/v1 (+https://github.com/lunogram/platform)',
             },
             body: form,
         })

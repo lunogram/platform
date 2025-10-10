@@ -22,6 +22,6 @@ If you are sending a blast type campaign, this is how you target what users will
 
 #### Channel
 - **Medium**: The type of message to send. One of either: email, text (SMS), push notification, webhook.
-- **Provider**: Which integration you want to use to send the campaign. Parcelvoy handles the orchestration of sending a message, but uses third parties as the pipes to deliver the message to the end user. 
+- **Provider**: Which integration you want to use to send the campaign. Lunogram handles the orchestration of sending a message, but uses third parties as the pipes to deliver the message to the end user. 
 - **Subscription Group**: What group to associate this message with. Subscription groups allow a user to unsubscribe from a given set of messages from you. It's recommended to create different groups for different types of messages you might send over a given channel.
 

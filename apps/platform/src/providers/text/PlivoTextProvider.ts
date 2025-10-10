@@ -23,7 +23,7 @@ export default class PlivoTextProvider extends TextProvider {
     static meta = {
         name: 'Plivo',
         url: 'https://plivo.com',
-        icon: 'https://parcelvoy.com/providers/plivo.svg',
+        icon: 'https://lunogram.com/providers/plivo.svg',
     }
 
     static schema = ProviderSchema<PlivoProviderParams, PlivoDataParams>('plivoTextProviderParams', {
@@ -50,7 +50,7 @@ export default class PlivoTextProvider extends TextProvider {
             headers: {
                 Authorization: `Basic ${this.apiKey}`,
                 'Content-Type': 'application/json',
-                'User-Agent': 'parcelvoy/v1 (+https://github.com/parcelvoy/platform)',
+                'User-Agent': 'lunogram/v1 (+https://github.com/lunogram/platform)',
             },
             body: JSON.stringify({
                 src: this.phone_number,

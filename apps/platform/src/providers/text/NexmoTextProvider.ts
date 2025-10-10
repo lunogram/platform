@@ -23,7 +23,7 @@ export default class NexmoTextProvider extends TextProvider {
     static meta = {
         name: 'Nexmo',
         url: 'https://nexmo.com',
-        icon: 'https://parcelvoy.com/providers/vonage.svg',
+        icon: 'https://lunogram.com/providers/vonage.svg',
     }
 
     static schema = ProviderSchema<NexmoProviderParams, NexmoDataParams>('nexmoTextProviderParams', {
@@ -49,7 +49,7 @@ export default class NexmoTextProvider extends TextProvider {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'User-Agent': 'parcelvoy/v1 (+https://github.com/parcelvoy/platform)',
+                'User-Agent': 'lunogram/v1 (+https://github.com/lunogram/platform)',
             },
             body: JSON.stringify({
                 api_key,

@@ -21,7 +21,7 @@ export default class HttpSMSTextProvider extends TextProvider {
     static meta = {
         name: 'httpSMS',
         url: 'https://httpsms.com',
-        icon: 'https://parcelvoy.com/providers/httpsms.svg',
+        icon: 'https://lunogram.com/providers/httpsms.svg',
     }
 
     static schema = ProviderSchema<HttpSMSProviderParams, HttpSMSDataParams>('httpSMSTextProviderParams', {
@@ -45,7 +45,7 @@ export default class HttpSMSTextProvider extends TextProvider {
                 'x-api-key': api_key,
                 Accept: 'application/json',
                 'Content-Type': 'application/json',
-                'User-Agent': 'parcelvoy/v1 (+https://github.com/parcelvoy/platform)',
+                'User-Agent': 'lunogram/v1 (+https://github.com/lunogram/platform)',
             },
             body: JSON.stringify({
                 from,

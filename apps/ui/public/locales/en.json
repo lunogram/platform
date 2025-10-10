@@ -252,7 +252,7 @@
     "now": "Now",
     "off": "Off",
     "onboarding_installation_success": "Looks like everything is working with the installation! Now let's get you setup and ready to run some campaigns!",
-    "onboarding_project_setup_description": "At Parcelvoy, projects represent a single workspace for sending messages. You can use them for creating staging environments, isolating different clients, etc. Let's create your first one to get you started!",
+    "onboarding_project_setup_description": "At Lunogram, projects represent a single workspace for sending messages. You can use them for creating staging environments, isolating different clients, etc. Let's create your first one to get you started!",
     "onboarding_project_setup_title": "Project Setup",
     "open_rate": "Open Rate",
     "opened_at": "Opened At",

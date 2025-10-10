@@ -85,7 +85,7 @@ See the [Storage](/advanced/storage) page for more details on how to use differe
 | TRACKING_DEEPLINK_MIRROR_URL | string | false
 
 ### Error Handling
-Parcelvoy supports both logging information about the system to the terminal as well as logging errors to either Bugsnag or Sentry.
+Lunogram supports both logging information about the system to the terminal as well as logging errors to either Bugsnag or Sentry.
 
 | Key | Type | Required | Description
 |--|--|--|--|

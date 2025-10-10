@@ -42,7 +42,7 @@ export default class LocalPushProvider extends PushProvider {
     static namespace = 'local'
     static meta = {
         name: 'APN & Firebase',
-        icon: 'https://parcelvoy.com/providers/notification.svg',
+        icon: 'https://lunogram.com/providers/notification.svg',
     }
 
     static schema = ProviderSchema<PushProviderParams, PushDataParams>('localPushProviderParams', {

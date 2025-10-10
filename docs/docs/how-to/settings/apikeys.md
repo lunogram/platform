@@ -1,7 +1,7 @@
 # API Keys
-To ingest data into Parcelvoy via the client libraries or modify data via admin endpoints you first need to create an API Key. Each key is bound to a given project and only allows for interacting with data in that project.
+To ingest data into Lunogram via the client libraries or modify data via admin endpoints you first need to create an API Key. Each key is bound to a given project and only allows for interacting with data in that project.
 
-Parcelvoy has two different kinds of API keys, each with a particular purpose:
+Lunogram has two different kinds of API keys, each with a particular purpose:
 - **Public**: These are keys to be used in client libraries and allow for ingestion only. They are intended to be used in environments where they key could be exposed publically.
 - **Secret**: These allow for accessing data via the admin APIs. These keys can perform destructive actions as well as create new campaigns, trigger sends, etc. Secret keys also allow for setting a Role similar to restrict access similar to how you can with admins.
 

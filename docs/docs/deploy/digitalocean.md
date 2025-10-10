@@ -2,7 +2,7 @@
 title: Digital Ocean
 ---
 
-This page guides you through deploying Parcelvoy Open-Source on a Digital Ocean droplet by setting up the deployment environment, installing and starting Parcelvoy, and connecting it to the droplet.
+This page guides you through deploying Lunogram Open-Source on a Digital Ocean droplet by setting up the deployment environment, installing and starting Lunogram, and connecting it to the droplet.
 
 ## Requirements
 - A $14/mo droplet or larger. While you can run it on a smaller droplet, performance may not be optimal.
@@ -28,10 +28,10 @@ sudo apt install docker-compose-plugin
 docker compose version
 ```
 
-5. Download Parcelvoy configuration:
+5. Download Lunogram configuration:
 ```
-mkdir parcelvoy && cd parcelvoy
-wget https://raw.githubusercontent.com/parcelvoy/platform/master/{.env.example,docker-compose.yml}
+mkdir lunogram && cd lunogram
+wget https://raw.githubusercontent.com/lunogram/platform/master/{.env.example,docker-compose.yml}
 ```
 
 6. Setup environment variables
@@ -43,7 +43,7 @@ For default installations, security is set to `basic` which only allows for a si
 
 ```
 APP_SECRET=//Please pick a random value at least 16 characters in length
-AUTH_BASIC_EMAIL=test@parcelvoy.com
+AUTH_BASIC_EMAIL=test@lunogram.com
 AUTH_BASIC_PASSWORD=password
 ```
 

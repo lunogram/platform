@@ -291,7 +291,7 @@ const edgeTypes: EdgeTypes = {
     step: memo(JourneyStepEdge),
 }
 
-const DATA_FORMAT = 'application/parcelvoy-journey-step'
+const DATA_FORMAT = 'application/lunogram-journey-step'
 const STEP_STYLE = 'smoothstep'
 
 interface CreateEdgeParams {

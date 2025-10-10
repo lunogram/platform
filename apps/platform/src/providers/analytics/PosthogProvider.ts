@@ -23,7 +23,7 @@ export default class PostHogAnalyticsProvider extends AnalyticsProvider {
     static meta = {
         name: 'PostHog',
         url: 'https://posthog.com',
-        icon: 'https://parcelvoy.com/providers/posthog.svg',
+        icon: 'https://lunogram.com/providers/posthog.svg',
     }
 
     static schema = ProviderSchema<PostHogProviderParams, PostHogDataParams>('postHogAnalyticsProviderParams', {

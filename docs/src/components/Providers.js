@@ -11,7 +11,7 @@ export default function Providers() {
         <div className="providers">
             <Cards>
                 {items.map((item) => <Card
-                    image={`https://parcelvoy.com/${item.docId}.svg`}
+                    image={`https://lunogram.com/${item.docId}.svg`}
                     key={item.docId}
                     title={item.label}
                     href={item.href}></Card>)}

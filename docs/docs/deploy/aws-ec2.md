@@ -1,9 +1,9 @@
 ---
 title: AWS EC2
 ---
-# Deploy Parcelvoy on AWS (Amazon EC2)
+# Deploy Lunogram on AWS (Amazon EC2)
 
-This page guides you through deploying Parcelvoy Open-Source on an Amazon EC2 instance by setting up the deployment environment, installing and starting Parcelvoy, and connecting it to the Amazon EC2 instance.
+This page guides you through deploying Lunogram Open-Source on an Amazon EC2 instance by setting up the deployment environment, installing and starting Lunogram, and connecting it to the Amazon EC2 instance.
 
 ## Requirements​
 - A t3.medium instance or larger. While you can run it on smaller instances, performance may not be optimal.
@@ -28,10 +28,10 @@ sudo systemctl enable docker.service --now
 docker compose version
 ```
 
-4. Download Parcelvoy configuration:
+4. Download Lunogram configuration:
 ```
-mkdir parcelvoy && cd parcelvoy
-wget https://raw.githubusercontent.com/parcelvoy/platform/master/{.env.example,docker-compose.yml}
+mkdir lunogram && cd lunogram
+wget https://raw.githubusercontent.com/lunogram/platform/master/{.env.example,docker-compose.yml}
 ```
 
 5. Setup environment variables
@@ -43,7 +43,7 @@ For default installations, security is set to `basic` which only allows for a si
 
 ```
 APP_SECRET=//Please pick a random value at least 16 characters in length
-AUTH_BASIC_EMAIL=test@parcelvoy.com
+AUTH_BASIC_EMAIL=test@lunogram.com
 AUTH_BASIC_PASSWORD=password
 ```
 
@@ -61,7 +61,7 @@ Based on what port you are using for the UI portion, you will want to make sure 
 
 8. Upgrading versions
 :::note
-If you are running a single instance of Parcelvoy you will experience downtime when upgrading versions, it's recommended for high availability to run Parcelvoy in an auto-scaling group with rolling deployments.
+If you are running a single instance of Lunogram you will experience downtime when upgrading versions, it's recommended for high availability to run Lunogram in an auto-scaling group with rolling deployments.
 :::
 
 ```

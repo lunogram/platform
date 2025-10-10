@@ -117,7 +117,7 @@ export async function loadSendJob<T extends TemplateType>({ campaign_id, user_id
     return response
 }
 
-export const messageLock = (campaign: Campaign, user: User) => `parcelvoy:send:${campaign.id}:${user.id}`
+export const messageLock = (campaign: Campaign, user: User) => `lunogram:send:${campaign.id}:${user.id}`
 
 export const prepareSend = async <T>(
     channel: Channel,

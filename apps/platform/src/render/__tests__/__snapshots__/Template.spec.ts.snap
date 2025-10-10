@@ -3,7 +3,7 @@
 exports[`Template compile email link wrap disabled 1`] = `
 Object {
   "from": "from",
-  "html": "<html><body><a href=\\"https://google.com\\">link</a><img border=\\"0\\" width=\\"1\\" height=\\"1\\" alt=\\"\\" src=\\"https://parcelvoy.com/o?u=M8LRMWZ645&c=M8LRMWZ645&s=1\\" /></body></html>",
+  "html": "<html><body><a href=\\"https://google.com\\">link</a><img border=\\"0\\" width=\\"1\\" height=\\"1\\" alt=\\"\\" src=\\"https://lunogram.com/o?u=M8LRMWZ645&c=M8LRMWZ645&s=1\\" /></body></html>",
   "subject": "subject",
   "text": "link [https://google.com]",
 }
@@ -12,7 +12,7 @@ Object {
 exports[`Template compile email link wrap enabled 1`] = `
 Object {
   "from": "from",
-  "html": "<html><body><a href=\\"https://parcelvoy.com/c?u=M8LRMWZ645&c=M8LRMWZ645&s=1&r=https%253A%252F%252Fgoogle.com\\">link</a><img border=\\"0\\" width=\\"1\\" height=\\"1\\" alt=\\"\\" src=\\"https://parcelvoy.com/o?u=M8LRMWZ645&c=M8LRMWZ645&s=1\\" /></body></html>",
+  "html": "<html><body><a href=\\"https://lunogram.com/c?u=M8LRMWZ645&c=M8LRMWZ645&s=1&r=https%253A%252F%252Fgoogle.com\\">link</a><img border=\\"0\\" width=\\"1\\" height=\\"1\\" alt=\\"\\" src=\\"https://lunogram.com/o?u=M8LRMWZ645&c=M8LRMWZ645&s=1\\" /></body></html>",
   "subject": "subject",
   "text": "link [https://google.com]",
 }
@@ -35,7 +35,7 @@ Object {
   "body": "body",
   "custom": Object {
     "key": "value",
-    "url": "https://parcelvoy.com/c?u=M8LRMWZ645&c=M8LRMWZ645&s=1&r=https%253A%252F%252Fgoogle.com",
+    "url": "https://lunogram.com/c?u=M8LRMWZ645&c=M8LRMWZ645&s=1&r=https%253A%252F%252Fgoogle.com",
   },
   "silent": false,
   "title": "title",

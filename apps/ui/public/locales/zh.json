@@ -208,7 +208,7 @@
   "no_providers": "没有提供商",
   "no_template_alert_body": "此活动还没有模板。请在上面选择一个地区或使用下面的按钮开始创建。",
   "onboarding_installation_success": "看起来安装一切正常！现在让我们来设置并准备好运行一些活动吧！",
-  "onboarding_project_setup_description": "在Parcelvoy中，项目代表发送消息的单个工作区。您可以使用它们来创建暂存环境、隔离不同的客户等。让我们创建第一个项目来开始吧！",
+  "onboarding_project_setup_description": "在Lunogram中，项目代表发送消息的单个工作区。您可以使用它们来创建暂存环境、隔离不同的客户等。让我们创建第一个项目来开始吧！",
   "onboarding_project_setup_title": "项目设置",
   "open_rate": "打开率",
   "opened_at": "打开时间",

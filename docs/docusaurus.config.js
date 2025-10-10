@@ -6,19 +6,19 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'Parcelvoy',
+  title: 'Lunogram',
   tagline: 'Dinosaurs are cool',
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
-  url: 'https://docs.parcelvoy.com',
+  url: 'https://docs.lunogram.com',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: '/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'parcelvoy', // Usually your GitHub org/user name.
+  organizationName: 'lunogram', // Usually your GitHub org/user name.
   projectName: 'platform', // Usually your repo name.
 
   onBrokenLinks: 'throw',
@@ -42,7 +42,7 @@ const config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/parcelvoy/platform/blob/main/docs/',
+            'https://github.com/lunogram/platform/blob/main/docs/',
           routeBasePath: '/',
         },
         theme: {
@@ -61,13 +61,13 @@ const config = {
       navbar: {
         title: '',
         logo: {
-          alt: 'Parcelvoy',
-          src: 'img/parcelvoy.svg',
-          srcDark: 'img/parcelvoy-light.svg',
+          alt: 'Lunogram',
+          src: 'img/lunogram.svg',
+          srcDark: 'img/lunogram-light.svg',
         },
         items: [
           {
-            href: 'https://github.com/parcelvoy/platform',
+            href: 'https://github.com/lunogram/platform',
             label: 'GitHub',
             position: 'right',
           },
@@ -75,7 +75,7 @@ const config = {
       },
       footer: {
         style: 'dark',
-        copyright: `© ${new Date().getFullYear()} Parcelvoy`,
+        copyright: `© ${new Date().getFullYear()} Lunogram`,
       },
       prism: {
         theme: darkCodeTheme,
@@ -89,7 +89,7 @@ const config = {
         // Public API key: it is safe to commit it
         apiKey: '0a521d036d0eeb2ac5c8bafbcfe5b830',
   
-        indexName: 'parcelvoy',
+        indexName: 'lunogram',
   
         // Optional: see doc section below
         contextualSearch: true,

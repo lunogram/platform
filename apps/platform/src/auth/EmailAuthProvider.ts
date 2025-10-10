@@ -65,9 +65,9 @@ export default class EmailAuthProvider extends AuthProvider {
         await this.provider.send({
             to: email,
             from: this.config.from,
-            subject: 'Login to Parcelvoy',
+            subject: 'Login to Lunogram',
             html: this.generateMessage(link),
-            text: `Click the link below to login to Parcelvoy: ${link}`,
+            text: `Click the link below to login to Lunogram: ${link}`,
         })
     }
 
@@ -99,8 +99,8 @@ export default class EmailAuthProvider extends AuthProvider {
                             <tbody>
                                 <tr>
                                     <td align="center" valign="top" style="padding: 20px 0px">
-                                        <a href="https://parcelvoy.com">
-                                            <img src="https://parcelvoy.com/images/parcelvoy.svg" alt="Logo">
+                                        <a href="https://lunogram.com">
+                                            <img src="https://lunogram.com/images/lunogram.svg" alt="Logo">
                                         </a>
                                     </td>
                                 </tr>
@@ -111,8 +111,8 @@ export default class EmailAuthProvider extends AuthProvider {
                                 <tr>
                                     <td align="left" style="padding: 25px 30px;">
                                         <h2>Hello!</h2>
-                                        <p>You asked us to send you a magic link to get you signed in to Parcelvoy! Hit the button below to continue.</p>
-                                        <a class="button" href="${link}">Sign in to Parcelvoy</a>
+                                        <p>You asked us to send you a magic link to get you signed in to Lunogram! Hit the button below to continue.</p>
+                                        <a class="button" href="${link}">Sign in to Lunogram</a>
                                         <p>Note: The link expires after 15 minutes.</p>
                                     </td>
                                 </tr>

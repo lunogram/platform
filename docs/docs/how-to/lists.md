@@ -26,10 +26,10 @@ List membership primarily operates off of inbound events and user property updat
 
 To use relative dates, pick the `Date` data type for an event ruleset filter and then use the `{{ now }}` value along with date match to generate the date you are looking for. An example of this might be `{{ subDate "now" 30 "days" }}`.
 
-Once you save, Parcelvoy automatically detects dynamic parameters in your ruleset and will recalculate membership once daily. 
+Once you save, Lunogram automatically detects dynamic parameters in your ruleset and will recalculate membership once daily. 
 
 :::caution
-Where possible, Parcelvoy attempts to efficiently re-evaluate membership in your list but depending on your logic this may not be possible and a full list re-generation may occur. This primarily happens when using relative dates and a `before` operator since all users not in the list must also be evaluated.
+Where possible, Lunogram attempts to efficiently re-evaluate membership in your list but depending on your logic this may not be possible and a full list re-generation may occur. This primarily happens when using relative dates and a `before` operator since all users not in the list must also be evaluated.
 :::
 
 

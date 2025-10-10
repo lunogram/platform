@@ -28,7 +28,7 @@ export default class TelnyxTextProvider extends TextProvider {
         name: 'Telnyx',
         description: '',
         url: 'https://telnyx.com',
-        icon: 'https://parcelvoy.com/providers/telnyx.svg',
+        icon: 'https://lunogram.com/providers/telnyx.svg',
     }
 
     static schema = ProviderSchema<TelnyxProviderParams, TelnyxDataParams>('telnyxTextProviderParams', {
@@ -59,7 +59,7 @@ export default class TelnyxTextProvider extends TextProvider {
             headers: {
                 Authorization: `Bearer ${this.api_key}`,
                 'Content-Type': 'application/json',
-                'User-Agent': 'parcelvoy/v1 (+https://github.com/parcelvoy/platform)',
+                'User-Agent': 'lunogram/v1 (+https://github.com/lunogram/platform)',
             },
             body: JSON.stringify({
                 from,

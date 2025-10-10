@@ -25,7 +25,7 @@ export default class MixpanelAnalyticsProvider extends AnalyticsProvider {
     static meta = {
         name: 'Mixpanel',
         url: 'https://mixpanel.com',
-        icon: 'https://parcelvoy.com/providers/mixpanel.svg',
+        icon: 'https://lunogram.com/providers/mixpanel.svg',
     }
 
     static schema = ProviderSchema<MixpanelProviderParams, MixpanelDataParams>('mixpanelAnalyticsProviderParams', {
@@ -47,7 +47,7 @@ export default class MixpanelAnalyticsProvider extends AnalyticsProvider {
                 Authorization: `Basic ${btoa(this.project_token + ':')}`,
                 Accept: 'application/json',
                 'Content-Type': 'application/json',
-                'User-Agent': 'parcelvoy/v1 (+https://github.com/parcelvoy/platform)',
+                'User-Agent': 'lunogram/v1 (+https://github.com/lunogram/platform)',
             },
             body: JSON.stringify([{
                 event: this.tranformEventName(event.name, this.event_name_convention),

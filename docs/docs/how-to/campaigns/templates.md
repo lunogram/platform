@@ -2,7 +2,7 @@
 Each campaign has a Handlebars template associated to it to help render the final message that is sent to the end user. Each template contains the structure of the design or message as well as placeholders for variables that will be filled in for every user that it is sent to.
 
 ## Getting Started
-Parcelvoy has four different types of templates:
+Lunogram has four different types of templates:
 - Email
 - Text Message
 - Push Notification

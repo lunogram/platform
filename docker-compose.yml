@@ -24,7 +24,7 @@ services:
       - redis_data:/data
   api:
     platform: linux/x86_64
-    image: "ghcr.io/parcelvoy/api:${IMAGE_VERSION:-latest}"
+    image: "ghcr.io/lunogram/api:${IMAGE_VERSION:-latest}"
     restart: always
     healthcheck:
       test: wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
@@ -109,7 +109,7 @@ services:
       - uploads:/usr/src/app/public/uploads
   worker:
     platform: linux/x86_64
-    image: "ghcr.io/parcelvoy/api:${IMAGE_VERSION:-latest}"
+    image: "ghcr.io/lunogram/api:${IMAGE_VERSION:-latest}"
     restart: always
     links:
       - mysql:mysql
@@ -182,7 +182,7 @@ services:
       TRACKING_DEEPLINK_MIRROR_URL: ${TRACKING_DEEPLINK_MIRROR_URL}
   ui:
     platform: linux/x86_64
-    image: "ghcr.io/parcelvoy/ui:${PARCELVOY_VERSION:-latest}"
+    image: "ghcr.io/lunogram/ui:${LUNOGRAM_VERSION:-latest}"
     depends_on:
       api:
         condition: service_healthy

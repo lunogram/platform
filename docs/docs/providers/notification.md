@@ -1,5 +1,5 @@
 # Push Notifications
-Currently Parcelvoy supports sending push notifications to the two largest push notification services (Apple & Google). Since push notifications are a single message type, both services are included inside of a single provider. If you do not wish to send notifications to one platform, just leave that section blank and any devices that fall into the excluded platform will be excluded from sends.
+Currently Lunogram supports sending push notifications to the two largest push notification services (Apple & Google). Since push notifications are a single message type, both services are included inside of a single provider. If you do not wish to send notifications to one platform, just leave that section blank and any devices that fall into the excluded platform will be excluded from sends.
 
 ## APN (Apple Push Notifications)
 ### Enable In Xcode
@@ -13,11 +13,11 @@ To begin, you'll need to add the Push Notification capability to your app in Xco
 5. Hit save in the top right corner. 
 
 ### Create Token Authentication File
-Parcelvoy only supports using a .p8 Token-basen authentication file to enable Apple Push Notification sending. This is the recommended approach by Apple, will let you send notifications to both production and development apps and does not expire.
+Lunogram only supports using a .p8 Token-basen authentication file to enable Apple Push Notification sending. This is the recommended approach by Apple, will let you send notifications to both production and development apps and does not expire.
 1. Follow the instructions that Apple provides in their [Establishing a Token-Based Connection to APNs](https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/establishing_a_token-based_connection_to_apns) article.
 2. Download the .p8 file you are provided.
 
-### Setup Parcelvoy
+### Setup Lunogram
 1. Select the `APN & Firebase` integration or pick an existing integration.
 2. Open the key you downloaded in a text editor and copy it into the `Key` field.
 3. You can find the `Key ID` in the keys section of your Apple [developer account](https://developer.apple.com/account/). Make sure to use the key for the same p8 key you downloaded. Copy that in.
@@ -35,7 +35,7 @@ Parcelvoy only supports using a .p8 Token-basen authentication file to enable Ap
 4. Now navigate to `Service Accounts` on the `Project Settings` page.
 5. Click `Generate a new private key`. On the warning popup, hit `Generate key` and save the downloaded file.
 
-### Setup Parcelvoy
+### Setup Lunogram
 1. Select the `APN & Firebase` integration or pick an existing integration.
 2. Open the previously downloaded file in a text editor and copy the contents into the `Server Key` field.
 3. Hit save.

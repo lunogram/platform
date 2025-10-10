@@ -29,7 +29,7 @@ export default class MailgunEmailProvider extends EmailProvider {
     static meta = {
         name: 'Mailgun',
         url: 'https://mailgun.com',
-        icon: 'https://parcelvoy.com/providers/mailgun.svg',
+        icon: 'https://lunogram.com/providers/mailgun.svg',
         paths: {
             'Feedback URL': `/${this.namespace}`,
         },

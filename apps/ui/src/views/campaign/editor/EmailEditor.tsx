@@ -90,7 +90,7 @@ function EmailEditor() {
                         icon={<QuestionIcon />}
                         variant="secondary"
                         size="small"
-                        to="https://docs.parcelvoy.com/how-to/campaigns/templates"
+                        to="https://docs.lunogram.com/how-to/campaigns/templates"
                         target="_blank" />
                     <VariantSelector />
                     <LocaleSelector />

@@ -1,19 +1,19 @@
 # Authentication
-Parcelvoy comes with a few different types of authentication out of the box:
+Lunogram comes with a few different types of authentication out of the box:
 - Basic
 - SAML
 - OpenID
 - Google
 
-Whereas a lot of platforms will gate SSO as a luxury feature and charge extra for it (this is known as the **SSO Tax**) we opted to go the opposite direction and lean in completely to SSO to make sure you understand that Parcelvoy takes your security seriously. SSO is not something that only Enterprise companies should have, but should be available at every level.
+Whereas a lot of platforms will gate SSO as a luxury feature and charge extra for it (this is known as the **SSO Tax**) we opted to go the opposite direction and lean in completely to SSO to make sure you understand that Lunogram takes your security seriously. SSO is not something that only Enterprise companies should have, but should be available at every level.
 
 ## Basic
-Right out of the gate Parcelvoy is setup to use a simple **Basic** auth that allows for a single user that can be set inside of the environment variables. This is a limited form of auth as it does not allow for multiple users and is largely meant for evaluation purposes.
+Right out of the gate Lunogram is setup to use a simple **Basic** auth that allows for a single user that can be set inside of the environment variables. This is a limited form of auth as it does not allow for multiple users and is largely meant for evaluation purposes.
 
-To change the credentials for basic auth, modify the following environment variables and restart your Parcelvoy instance.
+To change the credentials for basic auth, modify the following environment variables and restart your Lunogram instance.
 ```
 AUTH_BASIC_NAME=Login
-AUTH_BASIC_USERNAME=parcelvoy
+AUTH_BASIC_USERNAME=lunogram
 AUTH_BASIC_PASSWORD=password
 ```
 

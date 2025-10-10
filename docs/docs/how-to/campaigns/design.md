@@ -39,7 +39,7 @@ By default, the render of the message shows you what it would look like inside o
 ![Design Campaign Text](/img/campaigns_design_text.png)
 
 #### Opt Out
-Carriers typically require you to send opt out verbiage to a user so they know how they can stop receiving messages. Parcelvoy handles users unsubscribing from receiving text messages automatically for you if you've appropriately configured your provider.
+Carriers typically require you to send opt out verbiage to a user so they know how they can stop receiving messages. Lunogram handles users unsubscribing from receiving text messages automatically for you if you've appropriately configured your provider.
 
 The opt out verbiage can be configured under project settings and will only be sent included in the very first text message you send to a user. Subsequent messages will not include it.
 

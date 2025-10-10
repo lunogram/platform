@@ -1,5 +1,5 @@
 # Quick Start
-You can run Parcelvoy locally or in the cloud easily using Docker. For this quickstart we will be using Docker Compose, but you can also provide each of the components yourself.
+You can run Lunogram locally or in the cloud easily using Docker. For this quickstart we will be using Docker Compose, but you can also provide each of the components yourself.
 
 We'll run you through the basics of how to get up and running quickly, for more specific installation steps on different platforms please check out our deployment section.
 
@@ -9,12 +9,12 @@ We'll run you through the basics of how to get up and running quickly, for more 
 
 ## Installation
 
-### 1. Download Parcelvoy
+### 1. Download Lunogram
 Copy our latest `docker-compose.yml` and `.env.example` file onto your machine:
 
 ```
-mkdir parcelvoy && cd parcelvoy
-wget https://raw.githubusercontent.com/parcelvoy/platform/master/{.env.example,docker-compose.yml}
+mkdir lunogram && cd lunogram
+wget https://raw.githubusercontent.com/lunogram/platform/master/{.env.example,docker-compose.yml}
 ```
 
 ### 2. Setup Environment Variables
@@ -27,7 +27,7 @@ For default installations, security is set to `basic` which only allows for a si
 
 ```
 APP_SECRET=//Please pick a random value at least 16 characters in length
-AUTH_BASIC_EMAIL=test@parcelvoy.com
+AUTH_BASIC_EMAIL=test@lunogram.com
 AUTH_BASIC_PASSWORD=password
 ```
 
@@ -45,9 +45,9 @@ You can login to the web app at [http://localhost:3000](http://localhost:3000) b
 After login, you'll be prompted to go through onboarding. This will get you setup with your first project. 
 
 ### Integrations
-Parcelvoy at its core is an orchestration service that lets you determine how, when and to whom to send messages. Different mediums of messages as well as different platforms require integrations in order for them to work. 
+Lunogram at its core is an orchestration service that lets you determine how, when and to whom to send messages. Different mediums of messages as well as different platforms require integrations in order for them to work. 
 
 Check out our [providers](../providers) section for instructions on how to get each one setup.
 
 ### How To
-For more indepth tutorials on all of the functionality in Parcelvoy, make sure to checkout our How To section.
+For more indepth tutorials on all of the functionality in Lunogram, make sure to checkout our How To section.

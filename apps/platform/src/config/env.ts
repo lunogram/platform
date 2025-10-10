@@ -64,7 +64,7 @@ export default (type?: EnvType): Env => {
 
     // Validate required env vars
     if (!isValidUrl(baseUrl)) {
-        logger.error(`parcelvoy:env Please ensure BASE_URL is a valid non relative URL. Current value is "${baseUrl}"`)
+        logger.error(`lunogram:env Please ensure BASE_URL is a valid non relative URL. Current value is "${baseUrl}"`)
     }
 
     return {

@@ -30,7 +30,7 @@ export default class SendGridEmailProvider extends EmailProvider {
     static meta = {
         name: 'SendGrid',
         url: 'https://sendgrid.com',
-        icon: 'https://parcelvoy.com/providers/sendgrid.svg',
+        icon: 'https://lunogram.com/providers/sendgrid.svg',
         paths: {
             'Webhook URL': `/${this.namespace}`,
         },

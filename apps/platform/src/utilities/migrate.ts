@@ -25,7 +25,7 @@ export const migrateToClickhouse = async () => {
 }
 
 export const migrateUsers = async (since?: Date, id?: number) => {
-    logger.info('parcelvoy:migration users start')
+    logger.info('lunogram:migration users start')
     const users = await User.query()
         .select('users.*', raw("CONCAT('[', GROUP_CONCAT(user_subscription.subscription_id), ']') AS unsubscribe_ids"))
         .leftJoin('user_subscription', (qb) => {
@@ -59,12 +59,12 @@ export const migrateUsers = async (since?: Date, id?: number) => {
     }
 
     await chunker.flush()
-    logger.info('parcelvoy:migration users finished')
+    logger.info('lunogram:migration users finished')
     await cacheDel(App.main.redis, 'migration:users')
 }
 
 export const migrateEvents = async (since?: Date) => {
-    logger.info('parcelvoy:migration events start')
+    logger.info('lunogram:migration events start')
     const events = await App.main
         .db('user_events')
         .where((sqb) => {
@@ -84,7 +84,7 @@ export const migrateEvents = async (since?: Date) => {
     }
 
     await chunker.flush()
-    logger.info('parcelvoy:migration events finished')
+    logger.info('lunogram:migration events finished')
     await cacheDel(App.main.redis, 'migration:events')
 }
 
@@ -116,7 +116,7 @@ export const migrateStaticList = async ({ id, project_id }: List) => {
 }
 
 export const migrateLists = async () => {
-    logger.info('parcelvoy:migration lists start')
+    logger.info('lunogram:migration lists start')
     const lists = await List.all(qb => qb.whereNull('deleted_at'))
     for (const list of lists) {
         if (!list.rule) {
@@ -133,6 +133,6 @@ export const migrateLists = async () => {
         }
     }
 
-    logger.info('parcelvoy:migration lists finished')
+    logger.info('lunogram:migration lists finished')
     await cacheDel(App.main.redis, 'migration:lists')
 }

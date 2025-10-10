@@ -30,8 +30,8 @@ export default function TeamInvite({ member, onMember, ...props }: TeamInvitePro
     const [invitedMember, setInvitedMember] = useState<ProjectAdmin>()
 
     const mailto = (email: string) => {
-        const text = `Hello!\n\nI have just added you to the project ${project.name} on Parcelvoy. To get started and setup your account, please click the link below:\n\n${window.location.origin}`
-        return `mailto:${email}?subject=Parcelvoy%20Project&body=${encodeURI(text)}`
+        const text = `Hello!\n\nI have just added you to the project ${project.name} on Lunogram. To get started and setup your account, please click the link below:\n\n${window.location.origin}`
+        return `mailto:${email}?subject=Lunogram%20Project&body=${encodeURI(text)}`
     }
 
     return <>

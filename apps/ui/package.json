@@ -1,7 +1,7 @@
 {
-  "name": "@parcelvoy/ui",
+  "name": "@lunogram/ui",
   "version": "0.1.0",
-  "repository": "https://github.com/parcelvoy/platform",
+  "repository": "https://github.com/lunogram/platform",
   "dependencies": {
     "@fontsource/inter": "^4.5.14",
     "@headlessui/react": "1.7.18",
@@ -42,8 +42,8 @@
     "build": "react-app-rewired build",
     "eject": "react-app-rewired eject",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
-    "docker:build": "docker buildx build -f ./Dockerfile -t ghcr.io/parcelvoy/ui:latest -t ghcr.io/parcelvoy/ui:$TAG ../../",
-    "docker:build-beta": "docker buildx build -f ./Dockerfile -t ghcr.io/parcelvoy/ui:$TAG ../../",
+    "docker:build": "docker buildx build -f ./Dockerfile -t ghcr.io/lunogram/ui:latest -t ghcr.io/lunogram/ui:$TAG ../../",
+    "docker:build-beta": "docker buildx build -f ./Dockerfile -t ghcr.io/lunogram/ui:$TAG ../../",
     "docker:build:push": "pnpm docker:build --push",
     "docker:build-beta:push": "pnpm docker:build-beta --push"
   },

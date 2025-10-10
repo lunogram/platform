@@ -40,7 +40,7 @@ jobs:
         image: mysql:8.0.27
         env:
           MYSQL_ALLOW_EMPTY_PASSWORD: 'true'
-          MYSQL_DATABASE: 'parcelvoy'
+          MYSQL_DATABASE: 'lunogram'
         ports:
           - 3306:3306
         options: >-
@@ -76,11 +76,11 @@ jobs:
         NODE_ENV: test
         APP_SECRET: testing
         DB_CLIENT: mysql2
-        DB_DATABASE: parcelvoy
+        DB_DATABASE: lunogram
         DB_USERNAME: root
         DB_PORT: 3306
         CLICKHOUSE_URL: http://localhost:8123
-        BASE_URL: https://parcelvoy.com
+        BASE_URL: https://lunogram.com
         AUTH_DRIVER: basic
         QUEUE_DRIVER: memory
         STORAGE_DRIVER: s3

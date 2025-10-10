@@ -217,7 +217,7 @@
     "no_template_alert_body": "Todavía no hay plantillas para esta campaña. Agrega una configuración regional arriba o usa el botón a continuación para comenzar.",
     "now": "Ahora",
     "onboarding_installation_success": "¡Parece que todo está funcionando con la instalación! ¡Ahora vamos a configurarlo y prepararlo para ejecutar algunas campañas!",
-    "onboarding_project_setup_description": "En Parcelvoy, los proyectos representan un espacio de trabajo único para el envío de mensajes. Puede utilizarlos para crear entornos de ensayo, aislar diferentes clientes, etc. ¡Vamos a crear tu primero para empezar!",
+    "onboarding_project_setup_description": "En Lunogram, los proyectos representan un espacio de trabajo único para el envío de mensajes. Puede utilizarlos para crear entornos de ensayo, aislar diferentes clientes, etc. ¡Vamos a crear tu primero para empezar!",
     "onboarding_project_setup_title": "Configuración del proyecto",
     "open_rate": "Ratio de apertura",
     "opened_at": "Abierto En",

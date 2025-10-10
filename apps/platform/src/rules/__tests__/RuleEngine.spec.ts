@@ -215,7 +215,7 @@ describe('RuleEngine', () => {
                             id: 'abcd',
                             email: 'test@test.com',
                             name: 'Name',
-                            project: 'Parcelvoy',
+                            project: 'Lunogram',
                         },
                         events: [
                             {
@@ -261,7 +261,7 @@ describe('RuleEngine', () => {
                             id: 'abcd',
                             email: 'test@test.com',
                             name: 'Name',
-                            project: 'Parcelvoy',
+                            project: 'Lunogram',
                         },
                         events: [
                             {
@@ -317,7 +317,7 @@ describe('RuleEngine', () => {
                             id: 'abcd',
                             email: 'test@test.com',
                             name: 'Name',
-                            project: 'Parcelvoy',
+                            project: 'Lunogram',
                         },
                         events: [
                             {
@@ -348,7 +348,7 @@ describe('RuleEngine', () => {
                             id: 'abcd',
                             email: 'test@test.com',
                             name: 'Name',
-                            project: 'Parcelvoy',
+                            project: 'Lunogram',
                         },
                         events: [
                             {
@@ -394,7 +394,7 @@ describe('RuleEngine', () => {
                             id: 'abcd',
                             email: 'test@test.com',
                             name: 'Name',
-                            project: 'Parcelvoy',
+                            project: 'Lunogram',
                         },
                         events: [
                             {

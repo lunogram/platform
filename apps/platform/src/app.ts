@@ -27,7 +27,7 @@ export default class App {
 
     static async init<T extends typeof App>(this: T, env: Env): Promise<InstanceType<T>> {
 
-        logger.info('parcelvoy:initializing')
+        logger.info('lunogram:initializing')
 
         // Boot up error tracking
         const error = await loadError(env.logger)
@@ -102,13 +102,13 @@ export default class App {
         const server = this.api?.listen(this.env.port)
         server.keepAliveTimeout = 65000
         server.requestTimeout = 0
-        logger.info('parcelvoy:api ready')
+        logger.info('lunogram:api ready')
     }
 
     startWorker(worker?: Worker) {
         this.worker = worker ?? new Worker(this)
         this.worker?.run()
-        logger.info('parcelvoy:worker ready')
+        logger.info('lunogram:worker ready')
     }
 
     async close() {

@@ -1,7 +1,7 @@
 {
-  "name": "@parcelvoy/platform",
+  "name": "@lunogram/platform",
   "version": "0.1.0",
-  "repository": "https://github.com/parcelvoy/platform",
+  "repository": "https://github.com/lunogram/platform",
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "dependencies": {
@@ -60,8 +60,8 @@
     "build": "tsc --build",
     "lint": "eslint --ext .ts --max-warnings 0 src/",
     "test": "jest --forceExit --runInBand --testTimeout 10000",
-    "docker:build": "docker buildx build -f ./Dockerfile -t ghcr.io/parcelvoy/api:latest -t ghcr.io/parcelvoy/api:$TAG ../../",
-    "docker:build-beta": "docker buildx build -f ./Dockerfile -t ghcr.io/parcelvoy/api:$TAG ../../",
+    "docker:build": "docker buildx build -f ./Dockerfile -t ghcr.io/lunogram/api:latest -t ghcr.io/lunogram/api:$TAG ../../",
+    "docker:build-beta": "docker buildx build -f ./Dockerfile -t ghcr.io/lunogram/api:$TAG ../../",
     "docker:build:push": "pnpm docker:build --push",
     "docker:build-beta:push": "pnpm docker:build-beta --push",
     "migration:create": "node ./scripts/create-migration.mjs",

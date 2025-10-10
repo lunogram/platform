@@ -7,7 +7,7 @@ export default class LocalWebhookProvider extends WebhookProvider {
     static namespace = 'local'
     static meta = {
         name: 'Local',
-        icon: 'https://parcelvoy.com/providers/webhook.svg',
+        icon: 'https://lunogram.com/providers/webhook.svg',
     }
 
     static schema = ProviderSchema<ProviderParams, any>('localWebhookProviderParams', {

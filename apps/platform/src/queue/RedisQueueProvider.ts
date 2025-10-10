@@ -20,7 +20,7 @@ export default class RedisQueueProvider implements QueueProvider {
     worker?: Worker
     concurrency: number
     batchSize = 50 as const
-    queueName = 'parcelvoy' as const
+    queueName = 'lunogram' as const
 
     constructor({ concurrency, ...config }: RedisQueueConfig, queue: Queue) {
         this.queue = queue
@@ -101,7 +101,7 @@ export default class RedisQueueProvider implements QueueProvider {
     }
 
     start(): void {
-        this.worker = new Worker('parcelvoy', async (job, token) => {
+        this.worker = new Worker('lunogram', async (job, token) => {
             await this.queue.dequeue({
                 ...job.data,
                 options: {
