@@ -4,6 +4,7 @@ import { ProjectRulePath, RulePathDataType } from '../rules/ProjectRulePath'
 import { UserEvent } from '../users/UserEvent'
 import { reservedPathDataType, reservedPaths } from '../rules/RuleHelpers'
 import { KeyedSet } from '../utilities'
+import { UUID } from 'node:crypto'
 
 export async function listUserPaths(project_id: UUID) {
     const paths: Array<{ path: string }> = await ProjectRulePath.query()
@@ -95,7 +96,7 @@ export async function syncUserDataPaths({
         if (updatedAfter) {
             userQuery.where('updated_at', '>=', updatedAfter)
         }
-        await userQuery.stream(async function(stream) {
+        await userQuery.stream(async function (stream) {
             for await (const { data } of stream) {
                 addLeafPaths(userPaths, data)
             }
@@ -127,7 +128,7 @@ export async function syncUserDataPaths({
         const existing = await ProjectRulePath.all(q => q.where('project_id', project_id), trx)
 
         if (!updatedAfter && existing.length) {
-            const removeIds: number[] = []
+            const removeIds: UUID[] = []
             for (const { id, name, type, path } of existing) {
                 let remove = false
                 if (type === 'user') {

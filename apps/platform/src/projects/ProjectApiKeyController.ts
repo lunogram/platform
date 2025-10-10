@@ -7,6 +7,8 @@ import { extractQueryParams } from '../utilities'
 import { projectRoles } from './Project'
 import { ProjectApiKey, ProjectApiKeyParams } from './ProjectApiKey'
 import { createProjectApiKey, pagedApiKeys, projectRoleMiddleware, revokeProjectApiKey, updateProjectApiKey } from './ProjectService'
+import { UUID } from 'crypto'
+import { validate as uuidValidate } from 'uuid'
 
 const router = new Router<
     ProjectState & { apiKey?: ProjectApiKey }
@@ -71,7 +73,12 @@ router.patch('/:keyId', async ctx => {
 })
 
 router.delete('/:keyId', async ctx => {
-    ctx.body = await revokeProjectApiKey(ctx.params.keyId)
+    if (!uuidValidate(ctx.params.keyId)) {
+        ctx.throw(400, 'Invalid API key ID')
+        return
+    }
+
+    ctx.body = await revokeProjectApiKey(ctx.params.keyId as UUID)
 })
 
 export default router

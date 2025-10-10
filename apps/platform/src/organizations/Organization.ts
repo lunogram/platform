@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import { AuthProviderConfig } from '../auth/Auth'
 import Model, { ModelParams } from '../core/Model'
 

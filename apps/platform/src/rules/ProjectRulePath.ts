@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import Model from '../core/Model'
 
 export type RulePathDataType = 'string' | 'number' | 'boolean' | 'date' | 'array'

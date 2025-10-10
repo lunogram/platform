@@ -29,7 +29,6 @@ import { getRuleQuery } from '../rules/RuleEngine'
 import { getJourneysForCampaign } from '../journey/JourneyService'
 import { createAuditLog } from '../core/audit/AuditService'
 import { WithAdmin } from '../core/audit/Audit'
-import { processUsers } from '../users/ProcessUsers'
 import { raw } from '../core/Model'
 import { UUID } from 'node:crypto'
 
@@ -306,8 +305,8 @@ export const sendCampaignJob = ({ campaign, user, reference_type, reference_id }
 }
 
 interface UpdateSendStateParams {
-    campaign: Campaign | number
-    user: User | number
+    campaign: Campaign | UUID
+    user: User | UUID
     state?: CampaignSendState
     reference_id?: string
     response?: any
@@ -371,7 +370,7 @@ export const populateSendList = async (campaign: SentCampaign) => {
     const progressCacheKey = CacheKeys.populationProgress(campaign)
     const totalCacheKey = CacheKeys.populationTotal(campaign)
 
-    const insertRows = async (rows: CampaignSendParams[]): Promise<number[]> => {
+    const insertRows = async (rows: CampaignSendParams[]): Promise<UUID[]> => {
         try {
             await App.main.db.transaction(async (trx) => {
                 // Inserts records but merge on conflict if record
@@ -391,7 +390,7 @@ export const populateSendList = async (campaign: SentCampaign) => {
             })
         } catch (error: any) {
 
-            const invalidUserIds: number[] = []
+            const invalidUserIds: UUID[] = []
 
             // If foreign key error, retry in smaller chunks
             if (error.errno === 1452) {
@@ -416,30 +415,31 @@ export const populateSendList = async (campaign: SentCampaign) => {
         return []
     }
 
-    await processUsers({
-        query: await recipientClickhouseQuery(campaign),
-        cacheKey: CacheKeys.generate(campaign),
-        itemMap: (user) => ({
-            key: user.id,
-            value: cleanString(user.timezone) ?? project.timezone,
-        }),
-        beforeCallback: async (count: number) => {
-            await cacheSet<number>(redis, progressCacheKey, 0, oneDay)
-            await cacheSet(redis, totalCacheKey, count, oneDay)
+    throw Error('Not implemented yet')
+    // await processUsers({
+    //     query: await recipientClickhouseQuery(campaign),
+    //     cacheKey: CacheKeys.generate(campaign),
+    //     itemMap: (user: User) => ({
+    //         key: user.id,
+    //         value: cleanString(user.timezone) ?? project.timezone,
+    //     }),
+    //     beforeCallback: async (count: number) => {
+    //         await cacheSet<number>(redis, progressCacheKey, 0, oneDay)
+    //         await cacheSet(redis, totalCacheKey, count, oneDay)
 
-            // Double check that the campaign hasn't been aborted
-            const updatedCampaign = await getCampaign(campaign.id, campaign.project_id) as SentCampaign
-            return !updatedCampaign.isAborted
-        },
-        callback: async (pairs: DataPair[]) => {
-            const items = pairs.map(({ key, value }) => CampaignSend.create(campaign, project, { id: key as UUID, timezone: value }))
-            await insertRows(items)
-            await cacheIncr(redis, progressCacheKey, items.length, oneDay)
-        },
-        afterCallback: async () => {
-            await cleanupSendListGeneration(campaign)
-        },
-    })
+    //         // Double check that the campaign hasn't been aborted
+    //         const updatedCampaign = await getCampaign(campaign.id, campaign.project_id) as SentCampaign
+    //         return !updatedCampaign.isAborted
+    //     },
+    //     callback: async (pairs: DataPair[]) => {
+    //         const items = pairs.map(({ key, value }) => CampaignSend.create(campaign, project, { id: key as UUID, timezone: value }))
+    //         await insertRows(items)
+    //         await cacheIncr(redis, progressCacheKey, items.length, oneDay)
+    //     },
+    //     afterCallback: async () => {
+    //         await cleanupSendListGeneration(campaign)
+    //     },
+    // })
 
     logger.info({ campaignId: campaign.id, elapsed: Date.now() - now }, 'campaign:generate:progress:finished')
 }
@@ -486,7 +486,7 @@ export const failStalledSends = async (campaign: Campaign) => {
 
 const recipientClickhouseQuery = async (campaign: Campaign) => {
 
-    const listQueries = async (ids: number[]) => {
+    const listQueries = async (ids: UUID[]) => {
         const queries = []
         const lists = await List.query()
             .select('rule')

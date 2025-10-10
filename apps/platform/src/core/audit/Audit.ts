@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import Model from '../Model'
 
 export default class Audit extends Model {

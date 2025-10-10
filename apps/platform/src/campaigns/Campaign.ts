@@ -1,6 +1,6 @@
 import Provider from '../providers/Provider'
 import { ChannelType } from '../config/channels'
-import Model, { ModelParams, SQLModel, UUID } from '../core/Model'
+import Model, { ModelParams, SQLModel } from '../core/Model'
 import List from '../lists/List'
 import Template from '../render/Template'
 import Subscription from '../subscriptions/Subscription'
@@ -8,6 +8,7 @@ import { crossTimezoneCopy } from '../utilities'
 import Project from '../projects/Project'
 import { User } from '../users/User'
 import type Journey from '../journey/Journey'
+import { UUID } from 'crypto'
 
 export type CampaignState = 'draft' | 'scheduled' | 'loading' | 'running' | 'finished' | 'aborting' | 'aborted'
 export interface CampaignDelivery {
@@ -65,8 +66,22 @@ export type CampaignPopulationProgress = {
 
 export type SentCampaign = Campaign & { send_at: Date }
 
+export interface CampaignCreateParams {
+    type: CampaignType;
+    subscription_id: UUID;
+    provider_id: UUID;
+
+    // optional + nullable fields (match schema)
+    name?: string;
+    channel?: ChannelType;
+    list_ids?: UUID[];
+    exclusion_list_ids?: UUID[];
+    send_in_user_timezone?: boolean;
+    send_at?: string; // ISO8601
+    tags?: string[];
+}
+
 export type CampaignParams = Omit<Campaign, ModelParams | 'delivery' | 'eventName' | 'templates' | 'lists' | 'exclusion_lists' | 'subscription' | 'provider' | 'journeys' | 'deleted_at' | 'progress' | 'isAborted' | 'isAbortedOrDraft'>
-export type CampaignCreateParams = Omit<CampaignParams, 'state'>
 export type CampaignUpdateParams = Omit<CampaignParams, 'channel' | 'type'>
 export type CampaignCreateWithAdminParams = CampaignCreateParams & { admin_id?: UUID }
 

@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import { loadPushChannel } from '../push'
 import InAppChannel from './InAppChannel'
 

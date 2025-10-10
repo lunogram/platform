@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import { loadProvider } from '../ProviderRepository'
 import EmailChannel from './EmailChannel'
 import EmailProvider, { EmailProviderName } from './EmailProvider'

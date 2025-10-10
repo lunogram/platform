@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import Model from '../core/Model'
 
 export interface TemplateEvent extends Record<string, any> {

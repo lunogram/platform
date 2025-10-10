@@ -3,6 +3,7 @@ import { PageParams } from '../core/searchParams'
 import { GetProjectRulePath, ProjectRulePath, RulePathVisibility } from '../rules/ProjectRulePath'
 import { KeyedSet } from '../utilities'
 import { userPathForQuery } from '../rules/RuleHelpers'
+import { UUID } from 'node:crypto'
 
 type PagedRulePathParams = {
     search: PageParams,

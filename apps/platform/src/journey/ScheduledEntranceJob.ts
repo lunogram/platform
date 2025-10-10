@@ -9,7 +9,6 @@ import List from '../lists/List'
 import { getRuleQuery } from '../rules/RuleEngine'
 import Project from '../projects/Project'
 import { logger } from '../config/logger'
-import { processUsers } from '../users/ProcessUsers'
 import { UUID } from 'crypto'
 
 interface ScheduledEntranceTrigger {
@@ -39,40 +38,42 @@ export default class ScheduledEntranceJob extends Job {
 
         const project = await Project.find(journey.project_id)
 
-        const query = getRuleQuery(list.project_id, list.rule)
-        await processUsers({
-            query,
-            cacheKey: `journeys:${journey.id}:entrance:${entrance.id}:users`,
-            itemMap: (user) => ({
-                key: user.id,
-                value: `${user.id}`,
-            }),
-            callback: async (pairs) => {
-                try {
-                    const ref = uuid()
-                    const items = pairs.map(({ key }) => ({
-                        user_id: key as UUID,
-                        type: 'completed',
-                        journey_id: entrance.journey_id,
-                        step_id: entrance.id,
-                        ref,
-                    }))
-                    await JourneyUserStep.insert(items)
+        // TODO: schedule entrance job!
+        console.log(project, journey, entrance, list)
+        // const query = getRuleQuery(list.project_id, list.rule)
+        // await processUsers({
+        //     query,
+        //     cacheKey: `journeys:${journey.id}:entrance:${entrance.id}:users`,
+        //     itemMap: (user) => ({
+        //         key: user.id,
+        //         value: `${user.id}`,
+        //     }),
+        //     callback: async (pairs) => {
+        //         try {
+        //             const ref = uuid()
+        //             const items = pairs.map(({ key }) => ({
+        //                 user_id: key as UUID,
+        //                 type: 'completed',
+        //                 journey_id: entrance.journey_id,
+        //                 step_id: entrance.id,
+        //                 ref,
+        //             }))
+        //             await JourneyUserStep.insert(items)
 
-                    const steps = await JourneyUserStep.all(qb => qb.select('id')
-                        .where('ref', ref),
-                    )
+        //             const steps = await JourneyUserStep.all(qb => qb.select('id')
+        //                 .where('ref', ref),
+        //             )
 
-                    await App.main.queue.enqueueBatch(steps.map(({ id }) => JourneyProcessJob.from({ entrance_id: id })))
-                } catch (error) {
-                    logger.error({ error, journey: journey.id }, 'campaign:generate:progress:error')
-                }
-            },
-            afterCallback: async () => {
-                await JourneyStep.update(q => q.where('id', entrance.id), {
-                    next_scheduled_at: entrance.nextDate(project?.timezone ?? 'UTC'),
-                })
-            },
-        })
+        //             await App.main.queue.enqueueBatch(steps.map(({ id }) => JourneyProcessJob.from({ entrance_id: id })))
+        //         } catch (error) {
+        //             logger.error({ error, journey: journey.id }, 'campaign:generate:progress:error')
+        //         }
+        //     },
+        //     afterCallback: async () => {
+        //         await JourneyStep.update(q => q.where('id', entrance.id), {
+        //             next_scheduled_at: entrance.nextDate(project?.timezone ?? 'UTC'),
+        //         })
+        //     },
+        // })
     }
 }

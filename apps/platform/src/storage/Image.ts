@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import Model from '../core/Model'
 import Storage from './Storage'
 

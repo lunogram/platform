@@ -179,7 +179,7 @@ export const updateUser = async (existing: User, params: Partial<User>, anonymou
     return existing
 }
 
-export const deleteUser = async (projectId: UUID, externalId: UUID): Promise<void> => {
+export const deleteUser = async (projectId: UUID, externalId: string): Promise<void> => {
     const user = await getUserFromClientId(projectId, { external_id: externalId } as ClientIdentity)
     if (!user) return
 

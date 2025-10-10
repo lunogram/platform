@@ -1,6 +1,7 @@
 import { Database } from 'config/database'
-import Model, { UUID } from 'core/Model'
+import Model from 'core/Model'
 import { EntityTag, Tag } from './Tag'
+import { UUID } from 'crypto'
 
 export async function getTags(entity: string, entityIds: UUID[], db?: Database) {
     return await EntityTag

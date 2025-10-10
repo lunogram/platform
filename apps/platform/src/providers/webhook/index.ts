@@ -1,3 +1,4 @@
+import { UUID } from 'node:crypto'
 import { loadProvider } from '../ProviderRepository'
 import LocalWebhookProvider from './LocalWebhookProvider'
 import LoggerWebhookProvider from './LoggerWebhookProvider'

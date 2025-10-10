@@ -11,6 +11,7 @@ import { RequestError } from '../../core/errors'
 import { getCampaign } from '../../campaigns/CampaignService'
 import { trackMessageEvent } from '../../render/LinkService'
 import type App from '../../app'
+import { UUID } from 'node:crypto'
 
 interface SESDataParams {
     config: AWSConfig
@@ -118,7 +119,7 @@ export default class SESEmailProvider extends EmailProvider {
         const eventType = json.eventType ?? json.notificationType
         const email: string | undefined = destination[0]
         const subscriptionId = getHeader(headers, 'X-Subscription-Id')
-        const campaignId = getHeader(headers, 'X-Campaign-Id')
+        const campaignId = getHeader(headers, 'X-Campaign-Id') as UUID
 
         if (!email || !subscriptionId || !campaignId) return
 

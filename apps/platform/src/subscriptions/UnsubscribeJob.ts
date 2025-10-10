@@ -3,6 +3,7 @@ import { toggleSubscription } from './SubscriptionService'
 import { SubscriptionState } from './Subscription'
 import { getUserFromClientId } from '../users/UserRepository'
 import { ClientIdentity } from '../client/Client'
+import { UUID } from 'node:crypto'
 
 type UserUnsubscribeParams = {
     external_id: string

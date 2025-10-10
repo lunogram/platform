@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import { loadProvider } from '../ProviderRepository'
 import LocalPushProvider from './LocalPushProvider'
 import LoggerPushProvider from './LoggerPushProvider'

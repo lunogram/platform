@@ -8,7 +8,6 @@ import PageContent from '../../ui/PageContent'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import Tile, { TileGrid } from '../../ui/Tile'
 import { formatDate, getRecentProjects } from '../../utils'
-import logoUrl from '../../assets/lunogramlogo.png'
 import { PlusIcon } from '../../ui/icons'
 import Modal from '../../ui/Modal'
 import ProjectForm from './ProjectForm'
@@ -71,7 +70,7 @@ export function Projects() {
                                         key={project.id}
                                         onClick={async () => { await navigate('/projects/' + project.id) }}
                                         title={project.name || 'Untitled Project'}
-                                        iconUrl={logoUrl}
+                                        iconUrl={''}
                                     >
                                         {formatDate(preferences, when)}
                                     </Tile>
@@ -89,7 +88,7 @@ export function Projects() {
                             key={project.id}
                             onClick={async () => { await navigate('/projects/' + project.id) }}
                             title={project.name}
-                            iconUrl={logoUrl}
+                            iconUrl={''}
                         >
                             {formatDate(preferences, project.created_at)}
                         </Tile>

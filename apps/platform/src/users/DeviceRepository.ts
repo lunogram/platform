@@ -1,7 +1,8 @@
-import { Transaction, UUID } from '../core/Model'
+import { UUID } from 'crypto'
+import { Transaction } from '../core/Model'
 import { Device, PushDevice } from './Device'
 
-export const getDeviceFromIdOrToken = async (projectId: UUID, deviceId: UUID, token: string | null | undefined, trx?: Transaction): Promise<Device | undefined> => {
+export const getDeviceFromIdOrToken = async (projectId: UUID, deviceId: string, token: string | null | undefined, trx?: Transaction): Promise<Device | undefined> => {
     if (!deviceId && !token) return undefined
     if (deviceId) {
         const device = await Device.first(qb => qb.where('project_id', projectId).where('device_id', deviceId), trx)
@@ -22,7 +23,7 @@ export const userHasPushDevice = async (projectId: UUID, userId: UUID, trx?: Tra
         qb.where('project_id', projectId)
             .where('user_id', userId)
             .whereNotNull('token'),
-    trx,
+        trx,
     )
 }
 

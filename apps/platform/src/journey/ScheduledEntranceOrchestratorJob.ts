@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import App from '../app'
 import { Job } from '../queue'
 import { JourneyEntrance } from './JourneyStep'

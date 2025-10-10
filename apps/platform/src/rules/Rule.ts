@@ -1,3 +1,5 @@
+import { UUID } from "crypto"
+
 export type Operator = '=' | '!=' | '<' | '<=' | '>' | '>=' | '=' | 'is set' | 'is not set' | 'or' | 'and' | 'empty' | 'contains' | 'not contain' | 'starts with' | 'not start with' | 'ends with' | 'any' | 'none' | 'is same day'
 export type RuleType = 'wrapper' | 'string' | 'number' | 'boolean' | 'date' | 'array'
 export type RuleGroup = 'user' | 'event' | 'parent'
