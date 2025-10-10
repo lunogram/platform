@@ -1,12 +1,19 @@
 import { Context } from 'koa'
 import { getDefaultOrganization, getOrganization, getOrganizationByUsername } from './OrganizationService'
 import App from '../app'
+import { UUID } from 'crypto'
+import { validate as uuidValidate } from 'uuid'
 
 export const organizationMiddleware = async (ctx: Context, next: () => void) => {
-    const organizationId = ctx.cookies.get('organization', { signed: true })
+    const organizationId = ctx.cookies.get('organization', { signed: true }) as UUID | undefined
     if (!App.main.env.config.multiOrg) {
         ctx.state.organization = await getDefaultOrganization()
     } else if (organizationId) {
+        if (!uuidValidate(organizationId)) {
+            ctx.throw(400, 'Invalid organization ID')
+            return
+        }
+
         ctx.state.organization = await getOrganization(organizationId)
     } else if (ctx.subdomains && ctx.subdomains[0]) {
         const subdomain = ctx.subdomains[0]

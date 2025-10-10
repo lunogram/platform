@@ -41,9 +41,10 @@ export const enterJourneysFromEvent = async (event: UserEvent, user?: User) => {
     const input = {
         user: user!.flatten(),
         events: [event!.flatten()],
+        journey: {},
     }
 
-    const entranceIds: number[] = []
+    const entranceIds: UUID[] = []
     for (const entrance of entrances) {
 
         // If a rule is specified, check it before pushing user into journey
@@ -93,7 +94,7 @@ export const enterJourneysFromEvent = async (event: UserEvent, user?: User) => {
     }
 }
 
-export const loadUserStepDataMap = async (referenceId: UUID | string) => {
+export const loadUserStepDataMap = async (referenceId: UUID) => {
     let step = await JourneyUserStep.find(referenceId)
     if (!step) return {}
     if (step.entrance_id) step = await JourneyUserStep.find(step.entrance_id)
@@ -164,7 +165,7 @@ export const getJourneysForCampaign = async (projectId: UUID, campaignId: UUID) 
             acc[id] = curr
         }
         return acc
-    }, {} as Record<number, Journey>))
+    }, {} as Record<UUID, Journey>))
 }
 
 export const duplicateJourney = async (journey: Journey, asChild = false) => {

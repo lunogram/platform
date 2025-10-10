@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import { loadDefaultProvider } from '../ProviderRepository'
 import Analytics from './Analytics'
 import { AnalyticsProvider, AnalyticsProviderName } from './AnalyticsProvider'

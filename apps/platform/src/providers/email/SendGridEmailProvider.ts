@@ -9,6 +9,7 @@ import { getCampaign } from '../../campaigns/CampaignService'
 import { trackMessageEvent } from '../../render/LinkService'
 import App from '../../app'
 import { Email } from './Email'
+import { UUID } from 'node:crypto'
 
 interface SendGridDataParams {
     api_key: string
@@ -85,7 +86,7 @@ export default class SendGridEmailProvider extends EmailProvider {
                     : 'complained'
 
                 // Get values from webhook to identify user and campaign
-                const campaignId = event['X-Campaign-Id']
+                const campaignId = event['X-Campaign-Id'] as UUID
                 if (!event.email || !campaignId) return
 
                 const projectId = provider.project_id

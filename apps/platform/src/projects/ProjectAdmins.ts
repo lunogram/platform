@@ -1,3 +1,4 @@
+import { UUID } from 'node:crypto'
 import Model from '../core/Model'
 import { ProjectRole } from './Project'
 

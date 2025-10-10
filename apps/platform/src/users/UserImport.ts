@@ -7,6 +7,7 @@ import App from '../app'
 import { Chunker } from '../utilities'
 import { getList, updateListState } from '../lists/ListService'
 import UserDeleteJob from './UserDeleteJob'
+import { UUID } from 'crypto'
 
 export interface UserImport {
     project_id: UUID

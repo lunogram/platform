@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import { Job } from '../queue'
 import { deleteUser } from './UserRepository'
 

@@ -1,6 +1,7 @@
 import { RequireAtLeastOne } from '../Types'
 import { deepDiff } from '../../utilities'
 import Audit, { Auditable } from './Audit'
+import { UUID } from 'node:crypto'
 
 type AuditParams = {
     project_id: UUID

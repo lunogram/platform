@@ -210,7 +210,7 @@ export const setJourneyStepMap = async (journey: Journey, stepMap: JourneyStepMa
             await JourneyStep.delete(q => q.whereIn('id', deleteSteps), trx)
         }
 
-        const deleteChildSteps: number[] = []
+        const deleteChildSteps: UUID[] = []
         for (const step of steps) {
             const list = stepMap[step.external_id]?.children ?? []
             const childIds: UUID[] = []
@@ -335,7 +335,7 @@ export const pagedUsersByStep = async (stepId: UUID, params: PageParams) => {
 
 export const getEntranceLog = async (entranceId: UUID) => {
     const userSteps = await JourneyUserStep.all(q => q
-        .where(function() {
+        .where(function () {
             return this.where('id', entranceId).orWhere('entrance_id', entranceId)
         })
         .orderBy('id', 'asc'),

@@ -1,5 +1,6 @@
 import { OrganizationRole } from '../organizations/Organization'
 import Model, { ModelParams } from '../core/Model'
+import { UUID } from 'crypto'
 
 export default class Admin extends Model {
     organization_id!: UUID

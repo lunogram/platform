@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import Model, { ModelParams } from '../core/Model'
 
 export type ResourceType = 'font' | 'snippet'

@@ -1,3 +1,4 @@
+import { UUID } from 'node:crypto'
 import Project from '../projects/Project'
 import { Job } from '../queue'
 import { syncUserDataPaths } from './UserSchemaService'
@@ -21,7 +22,7 @@ export default class UserSchemaSyncJob extends Job {
         }
 
         // specific project only, or all projects
-        const projectIds: number[] = project_id
+        const projectIds: UUID[] = project_id
             ? [project_id]
             : await Project.query().select('id').then(rs => rs.map((r: any) => r.id))
 

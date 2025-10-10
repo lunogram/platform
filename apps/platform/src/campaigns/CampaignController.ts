@@ -43,6 +43,7 @@ const campaignCreateParams: JSONSchemaType<CampaignCreateParams> = {
     $id: 'campaignCreate',
     type: 'object',
     required: ['type', 'subscription_id', 'provider_id'],
+    additionalProperties: false,
     properties: {
         type: {
             type: 'string',
@@ -50,10 +51,12 @@ const campaignCreateParams: JSONSchemaType<CampaignCreateParams> = {
         },
         name: {
             type: 'string',
+            nullable: true,
         },
         channel: {
             type: 'string',
             enum: ['email', 'text', 'push', 'webhook', 'in_app'],
+            nullable: true,
         },
         subscription_id: {
             type: 'string',
@@ -84,14 +87,11 @@ const campaignCreateParams: JSONSchemaType<CampaignCreateParams> = {
         },
         tags: {
             type: 'array',
-            items: {
-                type: 'string',
-            },
+            items: { type: 'string' },
             nullable: true,
         },
     },
-    additionalProperties: false,
-}
+};
 
 router.post('/', async ctx => {
     const payload = validate(campaignCreateParams, ctx.request.body)

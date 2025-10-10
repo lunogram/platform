@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import App from '../app'
 import { cacheGet, cacheSet } from '../config/redis'
 import { Rule, RuleTree } from './Rule'

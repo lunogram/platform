@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import { PageParams } from '../core/searchParams'
 import Admin, { AdminParams } from './Admin'
 

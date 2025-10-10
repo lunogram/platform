@@ -1,3 +1,4 @@
+import { UUID } from 'node:crypto'
 import Resource, { ResourceParams, ResourceType } from './Resource'
 
 export const allResources = async (projectId: UUID, type?: ResourceType): Promise<Resource[]> => {

@@ -34,7 +34,7 @@ export default class CampaignEnqueueSendsJob extends Job {
 
         // Anything that is ready to be sent, enqueue for sending
         const query = campaignSendReadyQuery(campaign.id, includeThrottled, ratePerMinute)
-        await chunk<{ user_id: UUID, reference_id?: string }>(query, 100, async (items) => {
+        await chunk<{ user_id: UUID, reference_id?: UUID }>(query, 100, async (items) => {
             const jobs = items.map(({ user_id, reference_id }) => sendCampaignJob({ campaign, user: user_id, reference_id }))
             await App.main.queue.enqueueBatch(jobs)
         })

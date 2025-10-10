@@ -5,6 +5,7 @@ import { uuid } from '../utilities'
 import Organization, { OrganizationRole, organizationRoles } from './Organization'
 import { JwtAdmin } from '../auth/AuthMiddleware'
 import { Next, ParameterizedContext } from 'koa'
+import { UUID } from 'crypto'
 
 export const getOrganization = async (id: UUID) => {
     return await Organization.find(id)

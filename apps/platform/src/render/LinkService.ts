@@ -51,10 +51,10 @@ export const encodedLinkToParts = async (link: string | URL): Promise<TrackedLin
     const parts: TrackedLinkExport = { redirect, referenceId }
 
     if (userId) {
-        parts.user = await getUser(userId)
+        parts.user = await getUser(userId as UUID)
 
         if (parts.user && campaignId) {
-            parts.campaign = await getCampaign(campaignId, parts.user.project_id)
+            parts.campaign = await getCampaign(campaignId as UUID, parts.user.project_id)
         }
     }
 

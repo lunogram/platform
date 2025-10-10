@@ -83,13 +83,23 @@ router.put('/:adminId', async ctx => {
 })
 
 router.get('/:adminId', async ctx => {
-    const projectAdmin = await getProjectAdmin(ctx.state.project.id, ctx.params.adminId)
+    if (!uuidValidate(ctx.params.adminId)) {
+        ctx.throw(400, 'Invalid admin ID')
+        return
+    }
+
+    const projectAdmin = await getProjectAdmin(ctx.state.project.id, ctx.params.adminId as UUID)
     if (!projectAdmin) return ctx.throw(404)
     ctx.body = projectAdmin
 })
 
 router.delete('/:adminId', async ctx => {
-    await removeAdminFromProject(ctx.state.project.id, ctx.params.adminId)
+    if (!uuidValidate(ctx.params.adminId)) {
+        ctx.throw(400, 'Invalid admin ID')
+        return
+    }
+
+    await removeAdminFromProject(ctx.state.project.id, ctx.params.adminId as UUID)
     ctx.body = true
 })
 

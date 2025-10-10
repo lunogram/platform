@@ -2,6 +2,7 @@ import { Database } from 'config/database'
 import { PageParams } from '../core/searchParams'
 import { ProjectRole } from './Project'
 import { ProjectAdmin } from './ProjectAdmins'
+import { UUID } from 'node:crypto'
 
 const adminSelectFields = ['admins.first_name', 'admins.last_name', 'admins.email']
 const projectAdminFields = [`${ProjectAdmin.tableName}.*`, ...adminSelectFields]

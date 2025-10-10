@@ -16,6 +16,8 @@ import { getProjectAdmin } from './ProjectAdminRepository'
 import { ProjectError } from './ProjectError'
 import { getRulePaths, pagedUserRulePaths, updateRulePath } from './ProjectRulePathRepository'
 import { allProjects, createProject, getProject, pagedProjects, requireProjectRole, updateProject } from './ProjectService'
+import { validate as uuidValidate } from 'uuid'
+import { UUID } from 'crypto'
 
 export async function projectMiddleware(ctx: ParameterizedContext<ProjectState>, next: () => void) {
     if (ctx.state.scope !== 'admin' && !ctx.state.key) {
@@ -199,7 +201,12 @@ subrouter.get('/data/paths/users', async ctx => {
 subrouter.put('/data/paths/users/:pathId', async ctx => {
     requireProjectRole(ctx, 'admin')
 
-    ctx.body = await updateRulePath(ctx.params.pathId, ctx.request.body.visibility)
+    if (!uuidValidate(ctx.params.pathId)) {
+        ctx.throw(400, 'Invalid path ID')
+        return
+    }
+
+    ctx.body = await updateRulePath(ctx.params.pathId as UUID, ctx.request.body.visibility)
 })
 
 subrouter.post('/data/paths/sync', async ctx => {

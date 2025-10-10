@@ -6,6 +6,8 @@ import { extractQueryParams } from '../utilities'
 import { searchParamsSchema } from '../core/searchParams'
 import { LocaleParams } from './Locale'
 import { validate } from '../core/validate'
+import { validate as uuidValidate } from 'uuid'
+import { UUID } from 'crypto'
 
 const router = new Router<
     ProjectState & { locale?: Locale }
@@ -36,7 +38,12 @@ router.post('/', async ctx => {
 })
 
 router.delete('/:keyId', async ctx => {
-    ctx.body = await deleteLocale(ctx.state.project.id, ctx.params.keyId)
+    if (!uuidValidate(ctx.params.keyId)) {
+        ctx.throw(400, 'Invalid locale ID')
+        return
+    }
+
+    ctx.body = await deleteLocale(ctx.state.project.id, ctx.params.keyId as UUID)
 })
 
 export default router

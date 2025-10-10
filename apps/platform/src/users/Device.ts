@@ -1,5 +1,6 @@
+import { UUID } from 'crypto'
 import { ClientIdentity } from '../client/Client'
-import Model, { ModelParams, UUID } from '../core/Model'
+import Model, { ModelParams } from '../core/Model'
 
 export class Device extends Model {
     project_id!: UUID
