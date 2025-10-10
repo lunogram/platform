@@ -1,6 +1,6 @@
 import './Sidebar.css'
 import NavLink from './NavLink'
-import { ReactComponent as Logo } from '../assets/logo.svg'
+// import { ReactComponent as Logo } from '../assets/logo.svg'
 import { Link, NavLinkProps, useNavigate } from 'react-router'
 import { PropsWithChildren, ReactNode, useContext, useState } from 'react'
 import Button from './Button'
@@ -41,13 +41,13 @@ export default function Sidebar({ children, links, prepend, append }: PropsWithC
             <header className="header">
                 <Button onClick={() => setIsOpen(!isOpen)} icon={<MenuIcon />} aria-label="Menu" variant="secondary" size="small" />
                 <Link className="logo" to="/">
-                    <Logo />
+                    {/* <Logo /> */}
                 </Link>
             </header>
             <section className={clsx('sidebar', { 'is-open': isOpen })}>
                 <div className="sidebar-header">
                     <Link className="logo" to="/">
-                        <Logo />
+                        {/* <Logo /> */}
                     </Link>
                 </div>
                 {prepend}
