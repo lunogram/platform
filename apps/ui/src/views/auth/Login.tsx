@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router'
-import { ReactComponent as Logo } from '../../assets/logo.svg'
+// import { ReactComponent as Logo } from '../../assets/logo.svg'
 import { env } from '../../config/env'
 import Button from '../../ui/Button'
 import './Auth.css'
@@ -58,13 +58,13 @@ export default function Login() {
     useEffect(() => {
         api.auth.methods().then((methods) => {
             setMethods(methods)
-        }).catch(() => {})
+        }).catch(() => { })
     }, [])
 
     return (
         <div className="auth login">
             <div className="logo">
-                <Logo />
+                {/* <Logo /> */}
             </div>
             {!method && (
                 <div className="auth-step">
