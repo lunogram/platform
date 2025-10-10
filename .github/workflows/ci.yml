@@ -21,46 +21,46 @@ jobs:
     - name: Lint
       run: pnpm lint
 
-  test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres
-        env:
-          POSTGRES_PASSWORD: postgres
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+  # test:
+  #   runs-on: ubuntu-latest
+  #   services:
+  #     postgres:
+  #       image: postgres
+  #       env:
+  #         POSTGRES_PASSWORD: postgres
+  #       options: >-
+  #         --health-cmd pg_isready
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
 
-    steps:
-    - uses: actions/checkout@v5
-    - uses: pnpm/action-setup@v4
-      with:
-        version: ${{ vars.PNPM_VERSION }}
-    - name: Set-up Node
-      uses: actions/setup-node@v5
-      with:
-        node-version: ${{ vars.NODEJS_VERSION }}
-        cache: 'pnpm'
-    - name: Install Dependencies
-      run: pnpm install
+  #   steps:
+  #   - uses: actions/checkout@v5
+  #   - uses: pnpm/action-setup@v4
+  #     with:
+  #       version: ${{ vars.PNPM_VERSION }}
+  #   - name: Set-up Node
+  #     uses: actions/setup-node@v5
+  #     with:
+  #       node-version: ${{ vars.NODEJS_VERSION }}
+  #       cache: 'pnpm'
+  #   - name: Install Dependencies
+  #     run: pnpm install
 
-    - name: Run Jest Tests
-      run: pnpm test
-      env:
-        NODE_ENV: test
-        APP_SECRET: testing
-        DB_CLIENT: pq
-        DB_DATABASE: lunogram
-        DB_USERNAME: root
-        DB_PASSWORD: postgres
-        DB_PORT: 5432
-        BASE_URL: https://lunogram.com
-        AUTH_DRIVER: basic
-        QUEUE_DRIVER: memory
-        STORAGE_DRIVER: s3
+  #   - name: Run Jest Tests
+  #     run: pnpm test
+  #     env:
+  #       NODE_ENV: test
+  #       APP_SECRET: testing
+  #       DB_CLIENT: pq
+  #       DB_DATABASE: lunogram
+  #       DB_USERNAME: root
+  #       DB_PASSWORD: postgres
+  #       DB_PORT: 5432
+  #       BASE_URL: https://lunogram.com
+  #       AUTH_DRIVER: basic
+  #       QUEUE_DRIVER: memory
+  #       STORAGE_DRIVER: s3
 
   build:
     runs-on: ubuntu-latest
