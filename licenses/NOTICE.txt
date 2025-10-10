@@ -1,0 +1,5 @@
+## Third-Party Licenses and Attributions
+
+This project includes code originally distributed under the MIT License
+(c) Parcelvoy contributors. A copy of the original license text is provided
+in licenses/MIT.txt.
