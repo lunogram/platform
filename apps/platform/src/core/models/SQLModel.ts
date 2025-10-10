@@ -4,11 +4,12 @@ import { Database, Query } from '../../config/database'
 import { SearchResult } from '../Model'
 import { RawModel } from './RawModel'
 import { PageQueryParams } from '../searchParams'
+import { UUID } from 'node:crypto'
 
 export type Transaction = Database.Transaction
 
-export const raw = (raw: Database.Value, db: Database = App.main.db) => {
-    return db.raw(raw)
+export const raw = (raw: string, ...bindings: Database.RawBinding[]) => {
+    return App.main.db.raw(raw, ...bindings)
 }
 
 export const ref = (ref: string, db: Database = App.main.db) => {
@@ -53,15 +54,11 @@ export class SQLModel extends RawModel {
 
     static async find<T extends typeof SQLModel>(
         this: T,
-        id: number | string | undefined,
+        id: UUID,
         query: Query = (qb) => qb,
         db: Database = App.main.db,
     ): Promise<InstanceType<T> | undefined> {
         if (!id) return undefined
-        if (typeof id === 'string') {
-            id = parseInt(id, 10)
-            if (isNaN(id)) return undefined
-        }
         const record = await this.build(query, db)
             .where(`${this.tableName}.id`, id)
             .first()
@@ -152,7 +149,7 @@ export class SQLModel extends RawModel {
                 const filter = mode === 'exact'
                     ? params.q
                     : '%' + params.q + '%'
-                return qb.where(function() {
+                return qb.where(function () {
                     fields.reduce((chain, field) => {
                         if (typeof field === 'string') {
                             return chain.orWhereILike(field, filter)
@@ -196,17 +193,17 @@ export class SQLModel extends RawModel {
         }
     }
 
-    static async insert<T extends typeof SQLModel>(this: T, data: Partial<InstanceType<T>>, db?: Database): Promise<number>
-    static async insert<T extends typeof SQLModel>(this: T, data: Partial<InstanceType<T>>[], db?: Database): Promise<number[]>
+    static async insert<T extends typeof SQLModel>(this: T, data: Partial<InstanceType<T>>, db?: Database): Promise<UUID>
+    static async insert<T extends typeof SQLModel>(this: T, data: Partial<InstanceType<T>>[], db?: Database): Promise<UUID[]>
     static async insert<T extends typeof SQLModel>(
         this: T,
         data: Partial<InstanceType<T>> | Partial<InstanceType<T>>[] = {},
         db: Database = App.main.db,
-    ): Promise<number | number[]> {
+    ): Promise<UUID | UUID[]> {
         const formattedData = Array.isArray(data) ? data.map(o => this.formatDb(o)) : this.formatDb(data)
-        const value = await this.table(db).insert(formattedData)
-        if (Array.isArray(data)) return value
-        return value[0]
+        const [value] = await this.table(db).insert(formattedData).returning('id')
+        if (Array.isArray(data)) return value.map((v: any) => v.id)
+        return value.id
     }
 
     static async insertAndFetch<T extends typeof SQLModel>(
@@ -232,7 +229,7 @@ export class SQLModel extends RawModel {
 
     static async updateAndFetch<T extends typeof SQLModel>(
         this: T,
-        id: number,
+        id: UUID,
         data: Partial<InstanceType<T>> = {},
         db: Database = App.main.db,
     ): Promise<InstanceType<T>> {
@@ -245,7 +242,7 @@ export class SQLModel extends RawModel {
 
     static async archive<T extends typeof SQLModel>(
         this: T,
-        id: number,
+        id: UUID,
         query: Query = qb => qb,
         fields: Partial<InstanceType<T>> = {},
         db: Database = App.main.db,
@@ -268,7 +265,7 @@ export class SQLModel extends RawModel {
 
     static async deleteById<T extends typeof SQLModel>(
         this: T,
-        id: number,
+        id: UUID,
         query: Query = qb => qb,
         db: Database = App.main.db,
     ): Promise<boolean> {
@@ -278,30 +275,6 @@ export class SQLModel extends RawModel {
             .delete()
         this.emit('deleted', model)
         return count > 0
-    }
-
-    static scroll = async function * <T extends typeof SQLModel>(
-        this: T,
-        query: Query = qb => qb,
-        batchSize = 100,
-        db: Database = App.main.db,
-    ): AsyncGenerator<InstanceType<T>[]> {
-        let cursor = 0
-        while (true) {
-            const batch = await this.build(query, db)
-                .where(`${this.tableName}.id`, '>', cursor)
-                .clearOrder()
-                .orderBy(`${this.tableName}.id`, 'asc')
-                .limit(batchSize)
-            if (batch.length) {
-                yield batch.map((o: any) => this.fromJson(o))
-                if (batch.length === batchSize) {
-                    cursor = batch.at(-1)!.id
-                    continue
-                }
-            }
-            break
-        }
     }
 
     static table(db: Database = App.main.db): Database.QueryBuilder<any> {

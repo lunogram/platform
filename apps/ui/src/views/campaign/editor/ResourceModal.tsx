@@ -7,6 +7,7 @@ import { Resource } from '../../../types'
 import { Button, DataTable, Heading } from '../../../ui'
 import { useTranslation } from 'react-i18next'
 import ResourceFontModal from './ResourceFontModal'
+import { UUID } from 'crypto'
 
 interface ResourceModalProps extends ModalStateProps {
     resources: Resource[]
@@ -18,7 +19,7 @@ export default function ResourceModal({ open, onClose, resources, setResources }
     const [project] = useContext(ProjectContext)
     const [showFontCreate, setShowFontCreate] = useState(false)
 
-    const handleRemove = async (id: number) => {
+    const handleRemove = async (id: UUID) => {
         await api.resources.delete(project.id, id)
         setResources(resources.filter(resource => resource.id !== id))
     }
@@ -74,7 +75,7 @@ export default function ResourceModal({ open, onClose, resources, setResources }
             <ResourceFontModal
                 open={showFontCreate}
                 onClose={() => setShowFontCreate(false)}
-                onInsert={(resource) => handleAddResource(resource) }
+                onInsert={(resource) => handleAddResource(resource)}
             />
         </Modal>
     )

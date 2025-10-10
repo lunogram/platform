@@ -11,6 +11,8 @@ import UserPatchJob from '../users/UserPatchJob'
 import { getUserFromClientId } from '../users/UserRepository'
 import { ClientIdentifyParams, ClientIdentityKeys, ClientPostEventsRequest } from './Client'
 import EventPostJob from './EventPostJob'
+import { UUID } from 'crypto'
+import { validate as uuidValidate } from 'uuid'
 
 const router = new Router<ProjectState>()
 router.use(projectMiddleware)
@@ -271,9 +273,14 @@ router.put('/notifications/:id', async ctx => {
     const projectId = ctx.state.project.id
     const user = await getUserFromClientId(projectId, ctx.request.body)
     if (user) {
+        if (!uuidValidate(ctx.params.id)) {
+            ctx.throw(400, 'Invalid notification ID')
+            return
+        }
+
         await readNotification(
             user,
-            parseInt(ctx.params.id),
+            ctx.params.id as UUID,
         )
     }
     ctx.status = 204

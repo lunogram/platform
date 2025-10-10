@@ -36,7 +36,7 @@ router.post('/', async ctx => {
 })
 
 router.delete('/:keyId', async ctx => {
-    ctx.body = await deleteLocale(ctx.state.project.id, parseInt(ctx.params.keyId))
+    ctx.body = await deleteLocale(ctx.state.project.id, ctx.params.keyId)
 })
 
 export default router

@@ -1,7 +1,9 @@
+import { UUID } from "node:crypto"
+
 export interface MessageTrigger {
-    campaign_id: number
-    user_id: number
-    event_id?: number
+    campaign_id: UUID
+    user_id: UUID
+    event_id?: UUID
     reference_type?: string
-    reference_id?: string
+    reference_id?: UUID
 }

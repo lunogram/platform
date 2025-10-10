@@ -11,9 +11,10 @@ import { ModalProps } from '../../ui/Modal'
 import { JourneyUserStep, User } from '../../types'
 import { EditIcon, TrashIcon } from '../../ui/icons'
 import { DataTableCol } from '../../ui/DataTable'
+import { UUID } from 'crypto'
 
 interface StepUsersProps extends Omit<ModalProps, 'title'> {
-    stepId: number
+    stepId: UUID
     stepType: string
 }
 
@@ -57,17 +58,17 @@ export function JourneyStepUsers({ open, onClose, stepType, stepId }: StepUsersP
         direction: 'desc',
     })
 
-    const handleAddUserToEntrance = async (stepId: number, user: User) => {
+    const handleAddUserToEntrance = async (stepId: UUID, user: User) => {
         await api.journeys.users.trigger(projectId, journeyId, stepId, user)
         await state.reload()
     }
 
-    const handleSkipDelay = async (stepId: number, user: User) => {
+    const handleSkipDelay = async (stepId: UUID, user: User) => {
         await api.journeys.users.skipDelay(projectId, journeyId, user.id, stepId)
         await state.reload()
     }
 
-    const handleRemoveFromJourney = async (stepId: number, user: User) => {
+    const handleRemoveFromJourney = async (stepId: UUID, user: User) => {
         await api.journeys.users.removeFromJourney(projectId, journeyId, user.id, stepId)
         await state.reload()
     }

@@ -15,11 +15,12 @@ import { EventPostJob, UserPatchJob } from '../jobs'
 import { exitUserFromJourney, getJourneyUserStepByExternalId } from './JourneyRepository'
 import JourneyUserStep from './JourneyUserStep'
 import Journey from './Journey'
+import { UUID } from 'node:crypto'
 
 export class JourneyStepChild extends Model {
 
-    step_id!: number
-    child_id!: number
+    step_id!: UUID
+    child_id!: UUID
     data?: Record<string, unknown>
     path?: string
     priority!: number
@@ -31,7 +32,7 @@ export class JourneyStepChild extends Model {
 
 export class JourneyStep extends Model {
     type!: string
-    journey_id!: number
+    journey_id!: UUID
     name?: string
     data?: Record<string, unknown>
     external_id!: string
@@ -62,7 +63,7 @@ export class JourneyStep extends Model {
         userStep.type = 'completed'
     }
 
-    async next(state: JourneyState): Promise<undefined | number> {
+    async next(state: JourneyState): Promise<undefined | UUID> {
         return state.childrenOf(this.id)[0]?.child_id
     }
 
@@ -84,7 +85,7 @@ export class JourneyEntrance extends JourneyStep {
     concurrent = false
 
     // schedule driven
-    list_id!: number
+    list_id!: UUID
     schedule?: string
 
     parseJson(json: any) {
@@ -126,7 +127,7 @@ export class JourneyEntrance extends JourneyStep {
         return null
     }
 
-    static async create(journeyId: number, listId?: number, db?: Database): Promise<JourneyEntrance> {
+    static async create(journeyId: UUID, listId?: UUID, db?: Database): Promise<JourneyEntrance> {
         return await JourneyEntrance.insertAndFetch({
             type: this.type,
             external_id: uuid(),
@@ -180,7 +181,7 @@ export class JourneyExit extends JourneyStep {
         super.process(state, userStep)
     }
 
-    static async create(journeyId: number, db?: Database): Promise<JourneyExit> {
+    static async create(journeyId: UUID, db?: Database): Promise<JourneyExit> {
         return await JourneyExit.insertAndFetch({
             external_id: uuid(),
             journey_id: journeyId,
@@ -295,7 +296,7 @@ export class JourneyDelay extends JourneyStep {
 export class JourneyAction extends JourneyStep {
     static type = 'action'
 
-    campaign_id!: number
+    campaign_id!: UUID
 
     parseJson(json: any) {
         super.parseJson(json)
@@ -303,7 +304,6 @@ export class JourneyAction extends JourneyStep {
     }
 
     async process(state: JourneyState, userStep: JourneyUserStep): Promise<void> {
-
         const campaign = await getCampaign(this.campaign_id, state.user.project_id)
 
         if (!campaign) {
@@ -413,7 +413,7 @@ export class JourneyExperiment extends JourneyStep {
 export class JourneyLink extends JourneyStep {
     static type = 'link'
 
-    target_id!: number
+    target_id!: UUID
     delay: '1 minute' | '15 minutes' | '1 hour' | '1 day' = '1 day'
 
     parseJson(json: any) {
@@ -485,7 +485,6 @@ export class JourneyBalancer extends JourneyStep {
     }
 
     async process(state: JourneyState, userStep: JourneyUserStep) {
-
         const children = state.childrenOf(this.id)
         if (!children.length) {
             userStep.type = 'completed'
@@ -510,7 +509,7 @@ export class JourneyBalancer extends JourneyStep {
 
     async next(state: JourneyState) {
         const data: any = state.stepData()[this.id]
-        return data?.id as number
+        return data?.id as UUID
     }
 
     interval() {
@@ -646,7 +645,7 @@ export type JourneyStepMap = Record<string, JourneyStepMapItem & {
     stats?: Record<string, number>
     stats_at?: Date
     next_scheduled_at?: Date
-    id?: number
+    id?: UUID
 }>
 
 export type JourneyStepMapParams = Record<string, JourneyStepMapItem>

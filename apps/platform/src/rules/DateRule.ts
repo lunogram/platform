@@ -46,9 +46,8 @@ export default {
         })
     },
     query({ rule }) {
-
         // Make sure we can handle numbers, strings and dates
-        const path = `parseDateTimeBestEffortOrNull(NULLIF(toString(${queryPath(rule)}), ''))`
+        const path = queryPath(rule)
 
         if (rule.operator === 'is set') {
             return whereQueryNullable(path, false)

@@ -7,7 +7,7 @@ import SESEmailProvider from './SESEmailProvider'
 import SMTPEmailProvider from './SMPTEmailProvider'
 import SendGridEmailProvider from './SendGridEmailProvider'
 
-type EmailProviderDerived = { new (): EmailProvider } & typeof EmailProvider
+type EmailProviderDerived = { new(): EmailProvider } & typeof EmailProvider
 export const typeMap: Record<string, EmailProviderDerived> = {
     mailgun: MailgunEmailProvider,
     sendgrid: SendGridEmailProvider,
@@ -20,7 +20,7 @@ export const providerMap = (record: { type: EmailProviderName }): EmailProvider 
     return typeMap[record.type].fromJson(record)
 }
 
-export const loadEmailChannel = async (providerId: number, projectId: number): Promise<EmailChannel | undefined> => {
+export const loadEmailChannel = async (providerId: UUID, projectId: UUID): Promise<EmailChannel | undefined> => {
     const provider = await loadProvider(providerId, providerMap, projectId)
     if (!provider) return
     return new EmailChannel(provider)

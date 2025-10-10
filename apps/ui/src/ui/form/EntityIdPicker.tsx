@@ -9,9 +9,10 @@ import { FieldProps } from './Field'
 import { FieldPath, FieldValues, useController } from 'react-hook-form'
 import Button from '../Button'
 import Modal, { ModalProps } from '../Modal'
+import { UUID } from 'crypto'
 
-interface EntityIdPickerProps<T extends { id: number }> extends ControlledInputProps<number> {
-    get: (value: number) => Promise<T>
+interface EntityIdPickerProps<T extends { id: UUID }> extends ControlledInputProps<UUID | undefined> {
+    get: (value: UUID) => Promise<T>
     search: (q: string) => Promise<SearchResult<T>>
     displayValue?: (entity: T) => string
     optionEnabled?: (entity: T) => boolean
@@ -26,7 +27,7 @@ interface EntityIdPickerProps<T extends { id: number }> extends ControlledInputP
 const defaultDisplayValue = (item: any) => item.name
 const defaultOptionEnabled = () => true
 
-export function EntityIdPicker<T extends { id: number }>({
+export function EntityIdPicker<T extends { id: UUID }>({
     createModalSize,
     disabled,
     displayValue = defaultDisplayValue,
@@ -63,7 +64,7 @@ export function EntityIdPicker<T extends { id: number }>({
             nullable
             disabled={disabled}
             value={entity}
-            onChange={next => onChange(next?.id ?? 0)}
+            onChange={next => onChange(next?.id ?? undefined)}
         >
             <Combobox.Label aria-required={required}>
                 <span>
@@ -90,7 +91,7 @@ export function EntityIdPicker<T extends { id: number }>({
                             icon={<CloseIcon />}
                             variant="secondary"
                             size={size}
-                            onClick={() => onChange(0)} // set to '0' to clear? or null?
+                            onClick={() => onChange(undefined)} // set to undefined to clear
                         />
                     )
                 }
@@ -163,14 +164,14 @@ export function EntityIdPicker<T extends { id: number }>({
     )
 }
 
-interface EntityIdPickerFieldProps<T extends { id: number }, X extends FieldValues, P extends FieldPath<X>> extends FieldProps<X, P>, Omit<EntityIdPickerProps<T>, 'value' | 'onChange'> {
+interface EntityIdPickerFieldProps<T extends { id: UUID }, X extends FieldValues, P extends FieldPath<X>> extends FieldProps<X, P>, Omit<EntityIdPickerProps<T>, 'value' | 'onChange'> {
 
 }
 
 /**
  * react-hook-form bindings
  */
-EntityIdPicker.Field = function EntityIdPickerField<T extends { id: number }, X extends FieldValues, P extends FieldPath<X>>({
+EntityIdPicker.Field = function EntityIdPickerField<T extends { id: UUID }, X extends FieldValues, P extends FieldPath<X>>({
     form,
     name,
     disabled,

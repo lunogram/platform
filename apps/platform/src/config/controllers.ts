@@ -24,7 +24,6 @@ import OrganizationController from '../organizations/OrganizationController'
 import App from '../app'
 import { organizationMiddleware } from '../organizations/OrganizationMiddleware'
 import ResourceController from '../render/ResourceController'
-import MigrationController from '../organizations/MigrationController'
 
 export const register = (parent: Router, ...routers: Router[]) => {
     for (const router of routers) {
@@ -71,7 +70,6 @@ export const adminRouter = () => {
     admin.use(organizationMiddleware)
     admin.use(scopeMiddleware(['admin', 'secret']))
     return register(admin,
-        MigrationController,
         ProjectController,
         projectRouter('/projects/:project'),
         ProfileController,

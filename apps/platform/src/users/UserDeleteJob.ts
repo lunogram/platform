@@ -2,7 +2,7 @@ import { Job } from '../queue'
 import { deleteUser } from './UserRepository'
 
 interface UserDeleteTrigger {
-    project_id: number
+    project_id: UUID
     external_id: string
 }
 

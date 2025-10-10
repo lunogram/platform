@@ -9,8 +9,9 @@ import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
 import { snakeToTitle } from '../../utils'
 import TeamInvite from './TeamInvite'
 import { useTranslation } from 'react-i18next'
+import { UUID } from 'crypto'
 
-type EditFormData = Pick<ProjectAdmin, 'admin_id' | 'role'> & { id?: number }
+type EditFormData = Pick<ProjectAdmin, 'admin_id' | 'role'> & { id?: UUID }
 
 export default function Teams() {
     const { t } = useTranslation()

@@ -5,7 +5,7 @@ import EmailProvider from './EmailProvider'
 import Router = require('@koa/router')
 import Provider, { ExternalProviderParams, ProviderSetupMeta, ProviderControllers, ProviderSchema } from '../Provider'
 import { createController } from '../ProviderService'
-import { decodeHashid, encodeHashid, secondsAgo } from '../../utilities'
+import { secondsAgo } from '../../utilities'
 import { getUserFromEmail } from '../../users/UserRepository'
 import { RequestError } from '../../core/errors'
 import { getCampaign } from '../../campaigns/CampaignService'
@@ -63,7 +63,7 @@ export default class SESEmailProvider extends EmailProvider {
     loadSetup(app: App): ProviderSetupMeta[] {
         return [{
             name: 'Feedback URL',
-            value: `${app.env.apiBaseUrl}/providers/${encodeHashid(this.id)}/${(this.constructor as any).namespace}`,
+            value: `${app.env.apiBaseUrl}/providers/${this.id}/${(this.constructor as any).namespace}`,
         }]
     }
 
@@ -107,7 +107,7 @@ export default class SESEmailProvider extends EmailProvider {
         return { admin, public: router }
     }
 
-    static async rejection(projectId: number, message: string) {
+    static async rejection(projectId: UUID, message: string) {
         const getHeader = (
             headers: Array<{ name: string, value: string }>,
             key: string,
@@ -117,8 +117,8 @@ export default class SESEmailProvider extends EmailProvider {
         const { mail: { destination, headers } } = json
         const eventType = json.eventType ?? json.notificationType
         const email: string | undefined = destination[0]
-        const subscriptionId = decodeHashid(getHeader(headers, 'X-Subscription-Id'))
-        const campaignId = decodeHashid(getHeader(headers, 'X-Campaign-Id'))
+        const subscriptionId = getHeader(headers, 'X-Subscription-Id')
+        const campaignId = getHeader(headers, 'X-Campaign-Id')
 
         if (!email || !subscriptionId || !campaignId) return
 

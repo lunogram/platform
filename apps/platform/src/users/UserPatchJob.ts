@@ -7,9 +7,10 @@ import { ListVersion } from '../lists/List'
 import { addUserToList } from '../lists/ListService'
 import { EncodedJob } from '../queue/Job'
 import { LockError } from '../core/Lock'
+import { UUID } from 'crypto'
 
 interface UserPatchTrigger {
-    project_id: number
+    project_id: UUID
     user: UserInternalParams
     options?: {
         join_list?: ListVersion

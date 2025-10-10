@@ -12,9 +12,11 @@ import { SingleSelect } from '../../../ui/form/SingleSelect'
 import { Heading, LinkButton } from '../../../ui'
 import { TemplateContextProvider } from '../../campaign/template/TemplateContextProvider'
 import { TemplateContext } from '../../../contexts'
+import { UUID } from 'crypto'
+import { NIL } from 'uuid'
 
 interface ActionConfig {
-    campaign_id: number
+    campaign_id: UUID
 }
 
 const JourneyTemplatePreview = ({ campaign }: { campaign: Campaign }) => {
@@ -91,7 +93,7 @@ export const actionStep: JourneyStepType<ActionConfig> = {
         )
     },
     newData: async () => ({
-        campaign_id: 0,
+        campaign_id: NIL as UUID,
     }),
     Edit({
         project: { id: projectId },
@@ -114,7 +116,7 @@ export const actionStep: JourneyStepType<ActionConfig> = {
                     get={useCallback(async id => await api.campaigns.get(projectId, id), [projectId])}
                     search={useCallback(async q => await api.campaigns.search(projectId, { q, limit: 50, filter: { type: 'trigger' } }), [projectId])}
                     value={value.campaign_id}
-                    onChange={campaign_id => onChange({ ...value, campaign_id })}
+                    onChange={campaign_id => onChange({ ...value, campaign_id: campaign_id ?? NIL as UUID })}
                     required
                     createModalSize="large"
                     renderCreateForm={onCreated => (

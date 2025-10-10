@@ -1,6 +1,7 @@
 import Axios from 'axios'
 import { env } from './config/env'
 import { Admin, AuthMethod, Campaign, CampaignCreateParams, CampaignLaunchParams, CampaignUpdateParams, CampaignUser, Image, Journey, JourneyEntranceDetail, JourneyStepMap, JourneyUserStep, List, ListCreateParams, ListUpdateParams, Locale, Organization, OrganizationUpdateParams, Project, ProjectAdmin, ProjectAdminInviteParams, ProjectAdminParams, ProjectApiKey, ProjectApiKeyParams, Provider, ProviderCreateParams, ProviderMeta, ProviderUpdateParams, QueueMetric, Resource, RulePath, SearchParams, SearchResult, Series, Subscription, SubscriptionCreateParams, SubscriptionParams, SubscriptionUpdateParams, Tag, Template, TemplateCreateParams, TemplatePreviewParams, TemplateProofParams, TemplateUpdateParams, User, UserEvent, UserSubscription, VariableSuggestions } from './types'
+import { UUID } from 'crypto'
 
 function appendValue(params: URLSearchParams, name: string, value: unknown) {
     if (typeof value === 'undefined' || value === null || typeof value === 'function') return
@@ -48,9 +49,9 @@ export interface EntityApi<T> {
     basePath: string
     search: (params: Partial<SearchParams>) => Promise<SearchResult<T>>
     create: (params: Omit<T, OmitFields>) => Promise<T>
-    get: (id: number | string) => Promise<T>
-    update: (id: number | string, params: Omit<T, OmitFields>) => Promise<T>
-    delete: (id: number | string) => Promise<number>
+    get: (id: UUID | string) => Promise<T>
+    update: (id: UUID | string, params: Omit<T, OmitFields>) => Promise<T>
+    delete: (id: UUID | string) => Promise<number>
 }
 
 function createEntityPath<T>(basePath: string): EntityApi<T> {
@@ -76,15 +77,15 @@ function createEntityPath<T>(basePath: string): EntityApi<T> {
 
 export interface ProjectEntityPath<T, C = Omit<T, OmitFields>, U = Omit<T, OmitFields>> {
     prefix: string
-    search: (projectId: number | string, params: SearchParams) => Promise<SearchResult<T>>
-    create: (projectId: number | string, params: C) => Promise<T>
-    get: (projectId: number | string, id: number | string) => Promise<T>
-    update: (projectId: number | string, id: number | string, params: U) => Promise<T>
-    delete: (projectId: number | string, id: number | string) => Promise<number>
+    search: (projectId: UUID, params: SearchParams) => Promise<SearchResult<T>>
+    create: (projectId: UUID, params: C) => Promise<T>
+    get: (projectId: UUID, id: UUID) => Promise<T>
+    update: (projectId: UUID, id: UUID, params: U) => Promise<T>
+    delete: (projectId: UUID, id: UUID) => Promise<number>
 }
 
-const projectUrl = (projectId: number | string) => `/admin/projects/${projectId}`
-export const apiUrl = (projectId: number | string, path: string) => `${env.api.baseURL}/admin/projects/${projectId}/${path}`
+const projectUrl = (projectId: UUID) => `/admin/projects/${projectId}`
+export const apiUrl = (projectId: UUID, path: string) => `${env.api.baseURL}/admin/projects/${projectId}/${path}`
 
 function createProjectEntityPath<T, C = Omit<T, OmitFields>, U = Omit<T, OmitFields>>(prefix: string): ProjectEntityPath<T, C, U> {
     return {
@@ -153,21 +154,21 @@ const api = {
         all: async () => await client
             .get<Project[]>('/admin/projects/all')
             .then(r => r.data),
-        pathSuggestions: async (projectId: number | string) => await client
+        pathSuggestions: async (projectId: UUID) => await client
             .get<VariableSuggestions>(`${projectUrl(projectId)}/data/paths`)
             .then(r => r.data),
     },
 
     data: {
         userPaths: {
-            search: async (projectId: number | string, params: SearchParams) => await client
+            search: async (projectId: UUID, params: SearchParams) => await client
                 .get<SearchResult<RulePath>>(`${projectUrl(projectId)}/data/paths/users`, { params })
                 .then(r => r.data),
-            update: async (projectId: number | string, entityId: number | string, params: Partial<RulePath>) => await client
+            update: async (projectId: UUID, entityId: UUID, params: Partial<RulePath>) => await client
                 .put<RulePath>(`${projectUrl(projectId)}/data/paths/users/${entityId}`, params)
                 .then(r => r.data),
         },
-        rebuild: async (projectId: number | string) => await client
+        rebuild: async (projectId: UUID) => await client
             .post(`${projectUrl(projectId)}/data/paths/sync`)
             .then(r => r.data),
     },
@@ -176,52 +177,52 @@ const api = {
 
     campaigns: {
         ...createProjectEntityPath<Campaign, CampaignCreateParams, CampaignUpdateParams | CampaignLaunchParams>('campaigns'),
-        users: async (projectId: number | string, campaignId: number | string, params: SearchParams) => await client
+        users: async (projectId: UUID, campaignId: UUID, params: SearchParams) => await client
             .get<SearchResult<CampaignUser>>(`${projectUrl(projectId)}/campaigns/${campaignId}/users`, { params })
             .then(r => r.data),
-        duplicate: async (projectId: number | string, campaignId: number | string) => await client
+        duplicate: async (projectId: UUID, campaignId: UUID) => await client
             .post<Campaign>(`${projectUrl(projectId)}/campaigns/${campaignId}/duplicate`)
             .then(r => r.data),
     },
 
     journeys: {
         ...createProjectEntityPath<Journey>('journeys'),
-        duplicate: async (projectId: number | string, journeyId: number | string) => await client
+        duplicate: async (projectId: UUID, journeyId: UUID) => await client
             .post<Campaign>(`${projectUrl(projectId)}/journeys/${journeyId}/duplicate`)
             .then(r => r.data),
-        version: async (projectId: number | string, journeyId: number | string) => await client
+        version: async (projectId: UUID, journeyId: UUID) => await client
             .post<Journey>(`${projectUrl(projectId)}/journeys/${journeyId}/version`)
             .then(r => r.data),
-        publish: async (projectId: number | string, journeyId: number | string) => await client
+        publish: async (projectId: UUID, journeyId: UUID) => await client
             .post<Journey>(`${projectUrl(projectId)}/journeys/${journeyId}/publish`)
             .then(r => r.data),
         steps: {
-            get: async (projectId: number | string, journeyId: number | string) => await client
+            get: async (projectId: UUID, journeyId: UUID) => await client
                 .get<JourneyStepMap>(`/admin/projects/${projectId}/journeys/${journeyId}/steps`)
                 .then(r => r.data),
-            set: async (projectId: number | string, journeyId: number | string, stepData: JourneyStepMap) => await client
+            set: async (projectId: UUID, journeyId: UUID, stepData: JourneyStepMap) => await client
                 .put<JourneyStepMap>(`/admin/projects/${projectId}/journeys/${journeyId}/steps`, stepData)
                 .then(r => r.data),
-            searchUsers: async (projectId: number | string, journeyId: number | string, stepId: number | string, params: SearchParams) => await client
+            searchUsers: async (projectId: UUID, journeyId: UUID, stepId: UUID, params: SearchParams) => await client
                 .get<SearchResult<JourneyUserStep>>(`/admin/projects/${projectId}/journeys/${journeyId}/steps/${stepId}/users`, { params })
                 .then(r => r.data),
         },
         entrances: {
-            search: async (projectId: number | string, journeyId: number | string, params: SearchParams) => await client
+            search: async (projectId: UUID, journeyId: UUID, params: SearchParams) => await client
                 .get<SearchResult<JourneyUserStep>>(`/admin/projects/${projectId}/journeys/${journeyId}/entrances`, { params })
                 .then(r => r.data),
-            log: async (projectId: number | string, entranceId: number | string) => await client
+            log: async (projectId: UUID, entranceId: UUID) => await client
                 .get<JourneyEntranceDetail>(`${projectUrl(projectId)}/journeys/entrances/${entranceId}`)
                 .then(r => r.data),
         },
         users: {
-            trigger: async (projectId: number | string, journeyId: number | string, entranceId: number | string, user: User) => await client
+            trigger: async (projectId: UUID, journeyId: UUID, entranceId: UUID, user: User) => await client
                 .post<JourneyEntranceDetail>(`${projectUrl(projectId)}/journeys/${journeyId}/trigger`, { entrance_id: entranceId, user: { external_id: user.external_id } })
                 .then(r => r.data),
-            skipDelay: async (projectId: number | string, journeyId: number | string, userId: number | string, stepId: number | string) => await client
+            skipDelay: async (projectId: UUID, journeyId: UUID, userId: UUID, stepId: UUID) => await client
                 .post<JourneyEntranceDetail>(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/steps/${stepId}/resume`)
                 .then(r => r.data),
-            removeFromJourney: async (projectId: number | string, journeyId: number | string, userId: number | string, stepId: number | string) => await client
+            removeFromJourney: async (projectId: UUID, journeyId: UUID, userId: UUID, stepId: UUID) => await client
                 .delete<number>(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/step/${stepId}`)
                 .then(r => r.data),
         },
@@ -229,32 +230,32 @@ const api = {
 
     templates: {
         ...createProjectEntityPath<Template, TemplateCreateParams, TemplateUpdateParams>('templates'),
-        preview: async (projectId: number | string, templateId: number | string, params: TemplatePreviewParams) => await client.post(`${projectUrl(projectId)}/templates/${templateId}/preview`, params),
-        proof: async (projectId: number | string, templateId: number | string, params: TemplateProofParams) => await client.post(`${projectUrl(projectId)}/templates/${templateId}/proof`, params),
+        preview: async (projectId: UUID, templateId: UUID, params: TemplatePreviewParams) => await client.post(`${projectUrl(projectId)}/templates/${templateId}/preview`, params),
+        proof: async (projectId: UUID, templateId: UUID, params: TemplateProofParams) => await client.post(`${projectUrl(projectId)}/templates/${templateId}/proof`, params),
     },
 
     users: {
         ...createProjectEntityPath<User>('users'),
-        lists: async (projectId: number | string, userId: number | string, params: SearchParams) => await client
+        lists: async (projectId: UUID, userId: UUID, params: SearchParams) => await client
             .get<SearchResult<List>>(`${projectUrl(projectId)}/users/${userId}/lists`, { params })
             .then(r => r.data),
-        events: async (projectId: number | string, userId: number | string, params: SearchParams) => await client
+        events: async (projectId: UUID, userId: UUID, params: SearchParams) => await client
             .get<SearchResult<UserEvent>>(`${projectUrl(projectId)}/users/${userId}/events`, { params })
             .then(r => r.data),
-        subscriptions: async (projectId: number | string, userId: number | string, params: SearchParams) => await client
+        subscriptions: async (projectId: UUID, userId: UUID, params: SearchParams) => await client
             .get<SearchResult<UserSubscription>>(`${projectUrl(projectId)}/users/${userId}/subscriptions`, { params })
             .then(r => r.data),
-        updateSubscriptions: async (projectId: number | string, userId: number | string, subscriptions: SubscriptionParams[]) => await client
+        updateSubscriptions: async (projectId: UUID, userId: UUID, subscriptions: SubscriptionParams[]) => await client
             .patch(`${projectUrl(projectId)}/users/${userId}/subscriptions`, subscriptions)
             .then(r => r.data),
-        deleteImport: async (projectId: number | string, file: File) => {
+        deleteImport: async (projectId: UUID, file: File) => {
             const formData = new FormData()
             formData.append('file', file)
             await client.post(`${projectUrl(projectId)}/users/delete`, formData)
         },
 
         journeys: {
-            search: async (projectId: number | string, userId: number | string, params: SearchParams) => await client
+            search: async (projectId: UUID, userId: UUID, params: SearchParams) => await client
                 .get<SearchResult<JourneyUserStep>>(`${projectUrl(projectId)}/users/${userId}/journeys`, { params })
                 .then(r => r.data),
         },
@@ -262,39 +263,36 @@ const api = {
 
     lists: {
         ...createProjectEntityPath<List, ListCreateParams, ListUpdateParams>('lists'),
-        users: async (projectId: number | string, listId: number | string, params: SearchParams) => await client
+        users: async (projectId: UUID, listId: UUID, params: SearchParams) => await client
             .get<SearchResult<User>>(`${projectUrl(projectId)}/lists/${listId}/users`, { params })
             .then(r => r.data),
-        upload: async (projectId: number | string, listId: number | string, file: File) => {
+        upload: async (projectId: UUID, listId: UUID, file: File) => {
             const formData = new FormData()
             formData.append('file', file)
             await client.post(`${projectUrl(projectId)}/lists/${listId}/users`, formData)
         },
-        duplicate: async (projectId: number | string, listId: number | string) => await client
+        duplicate: async (projectId: UUID, listId: UUID) => await client
             .post<List>(`${projectUrl(projectId)}/lists/${listId}/duplicate`)
             .then(r => r.data),
-        recount: async (projectId: number | string, listId: number | string) => await client
+        recount: async (projectId: UUID, listId: UUID) => await client
             .post<List>(`${projectUrl(projectId)}/lists/${listId}/recount`)
-            .then(r => r.data),
-        migrate: async (projectId: number | string, listId: number | string) => await client
-            .post<List>(`${projectUrl(projectId)}/lists/${listId}/migrate`)
             .then(r => r.data),
     },
 
     projectAdmins: {
-        search: async (projectId: number, params: SearchParams) => await client
+        search: async (projectId: UUID, params: SearchParams) => await client
             .get<SearchResult<ProjectAdmin>>(`${projectUrl(projectId)}/admins`, { params })
             .then(r => r.data),
-        add: async (projectId: number, adminId: number, params: ProjectAdminParams) => await client
+        add: async (projectId: UUID, adminId: UUID, params: ProjectAdminParams) => await client
             .put<ProjectAdmin>(`${projectUrl(projectId)}/admins/${adminId}`, params)
             .then(r => r.data),
-        invite: async (projectId: number, params: ProjectAdminInviteParams) => await client
+        invite: async (projectId: UUID, params: ProjectAdminInviteParams) => await client
             .post<ProjectAdmin>(`${projectUrl(projectId)}/admins`, params)
             .then(r => r.data),
-        get: async (projectId: number, adminId: number) => await client
+        get: async (projectId: UUID, adminId: UUID) => await client
             .get<ProjectAdmin>(`${projectUrl(projectId)}/admins/${adminId}`)
             .then(r => r.data),
-        remove: async (projectId: number, adminId: number) => await client
+        remove: async (projectId: UUID, adminId: UUID) => await client
             .delete(`${projectUrl(projectId)}/admins/${adminId}`)
             .then(r => r.data),
     },
@@ -302,32 +300,32 @@ const api = {
     subscriptions: createProjectEntityPath<Subscription, SubscriptionCreateParams, SubscriptionUpdateParams>('subscriptions'),
 
     providers: {
-        all: async (projectId: number | string) => await client
+        all: async (projectId: UUID) => await client
             .get<Provider[]>(`${projectUrl(projectId)}/providers/all`)
             .then(r => r.data),
-        search: async (projectId: number | string, params: any) => await client
+        search: async (projectId: UUID, params: any) => await client
             .get<SearchResult<Provider>>(`${projectUrl(projectId)}/providers`, { params })
             .then(r => r.data),
-        options: async (projectId: number | string) => await client
+        options: async (projectId: UUID) => await client
             .get<ProviderMeta[]>(`${projectUrl(projectId)}/providers/meta`)
             .then(r => r.data),
-        get: async (projectId: number | string, group: string, type: string, entityId: number | string) => await client
+        get: async (projectId: UUID, group: string, type: string, entityId: UUID) => await client
             .get<Provider>(`${projectUrl(projectId)}/providers/${group}/${type}/${entityId}`)
             .then(r => r.data),
-        create: async (projectId: number | string, { group, type, ...provider }: ProviderCreateParams) => await client
+        create: async (projectId: UUID, { group, type, ...provider }: ProviderCreateParams) => await client
             .post<Provider>(`${projectUrl(projectId)}/providers/${group}/${type}`, provider)
             .then(r => r.data),
-        update: async (projectId: number | string, entityId: number | string, { group, type, ...provider }: ProviderUpdateParams) => await client
+        update: async (projectId: UUID, entityId: UUID, { group, type, ...provider }: ProviderUpdateParams) => await client
             .patch<Provider>(`${projectUrl(projectId)}/providers/${group}/${type}/${entityId}`, provider)
             .then(r => r.data),
-        delete: async (projectId: number | string, id: number) => await client
+        delete: async (projectId: UUID, id: UUID) => await client
             .delete<number>(`${projectUrl(projectId)}/providers/${id}`)
             .then(r => r.data),
     },
 
     images: {
         ...createProjectEntityPath<Image>('images'),
-        create: async (projectId: number | string, image: File) => {
+        create: async (projectId: UUID, image: File) => {
             const formData = new FormData()
             formData.append('image', image)
             await client.post(`${projectUrl(projectId)}/images`, formData)
@@ -335,26 +333,26 @@ const api = {
     },
 
     resources: {
-        all: async (projectId: number | string, type: string = 'font') => await client
+        all: async (projectId: UUID, type: string = 'font') => await client
             .get<Resource[]>(`${projectUrl(projectId)}/resources?type=${type}`)
             .then(r => r.data),
-        create: async (projectId: number | string, params: Partial<Resource>) => await client
+        create: async (projectId: UUID, params: Partial<Resource>) => await client
             .post<Resource>(`${projectUrl(projectId)}/resources`, params)
             .then(r => r.data),
-        delete: async (projectId: number | string, id: number) => await client
+        delete: async (projectId: UUID, id: UUID) => await client
             .delete<number>(`${projectUrl(projectId)}/resources/${id}`)
             .then(r => r.data),
     },
 
     tags: {
         ...createProjectEntityPath<Tag>('tags'),
-        used: async (projectId: number | string, entity: string) => await client
+        used: async (projectId: UUID, entity: string) => await client
             .get<Tag[]>(`${projectUrl(projectId)}/tags/used/${entity}`)
             .then(r => r.data),
-        assign: async (projectId: number | string, entity: string, entityId: number, tags: string[]) => await client
+        assign: async (projectId: UUID, entity: string, entityId: UUID, tags: string[]) => await client
             .put<string[]>(`${projectUrl(projectId)}/tags/assign`, { entity, entityId, tags })
             .then(r => r.data),
-        all: async (projectId: number | string) => await client
+        all: async (projectId: UUID) => await client
             .get<Tag[]>(`${projectUrl(projectId)}/tags/all`)
             .then(r => r.data),
     },
@@ -363,7 +361,7 @@ const api = {
         get: async () => await client
             .get<Organization>('/admin/organizations')
             .then(r => r.data),
-        update: async (id: number | string, params: OrganizationUpdateParams) => await client
+        update: async (id: UUID, params: OrganizationUpdateParams) => await client
             .patch<Organization>(`/admin/organizations/${id}`, params)
             .then(r => r.data),
         delete: async () => await client

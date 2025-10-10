@@ -1,7 +1,7 @@
 import Model, { ModelParams } from '../core/Model'
 
 export default class Locale extends Model {
-    project_id!: number
+    project_id!: UUID
     key!: string
     label!: string
 }

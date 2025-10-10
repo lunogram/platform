@@ -2,7 +2,7 @@ import { OrganizationRole } from '../organizations/Organization'
 import Model, { ModelParams } from '../core/Model'
 
 export default class Admin extends Model {
-    organization_id!: number
+    organization_id!: UUID
     email!: string
     first_name?: string
     last_name?: string

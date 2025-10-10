@@ -9,9 +9,11 @@ import ListTable from './ListTable'
 import { PlusIcon } from '../../ui/icons'
 import { ListCreateForm } from './ListCreateForm'
 import { useTranslation } from 'react-i18next'
+import { NIL } from 'uuid'
+import { UUID } from 'crypto'
 
 export default function Lists() {
-    const { projectId = '' } = useParams()
+    const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
     const { t } = useTranslation()
     const navigate = useNavigate()
     const search = useCallback(async (params: SearchParams) => await api.lists.search(projectId, params), [api.lists, projectId])
@@ -24,7 +26,7 @@ export default function Lists() {
                 actions={
                     <Button
                         icon={<PlusIcon />}
-                        onClick={() => setIsModalOpen(true) }
+                        onClick={() => setIsModalOpen(true)}
                     >{t('create_list')}</Button>
                 }
             >

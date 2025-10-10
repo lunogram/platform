@@ -5,10 +5,11 @@ import { createEvent } from '../users/UserEventRepository'
 import { enterJourneysFromEvent } from '../journey/JourneyService'
 import { UserPatchJob } from '../jobs'
 import { User } from '../users/User'
+import { UUID } from 'crypto'
 
 interface EventPostTrigger {
-    project_id: number
-    user_id?: number
+    project_id: UUID
+    user_id?: UUID
     event: ClientPostEvent
     forward?: boolean
 }

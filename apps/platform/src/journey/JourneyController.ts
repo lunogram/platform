@@ -13,6 +13,8 @@ import { RequestError } from '../core/errors'
 import JourneyError from './JourneyError'
 import { getUserFromContext } from '../users/UserRepository'
 import { duplicateJourney, triggerEntrance } from './JourneyService'
+import { validate as uuidValidate } from 'uuid'
+import { UUID } from 'crypto'
 
 const router = new Router<
     ProjectState & { journey?: Journey }
@@ -63,7 +65,7 @@ router.get('/entrances/:entranceId', async ctx => {
     const entrance = await JourneyUserStep.first(q => q
         .join('journeys', 'journey_user_step.journey_id', '=', 'journeys.id')
         .where('journeys.project_id', ctx.state.project.id)
-        .where('journey_user_step.id', parseInt(ctx.params.entranceId, 10))
+        .where('journey_user_step.id', ctx.params.entranceId)
         .whereNull('journey_user_step.entrance_id'),
     )
     if (!entrance) {
@@ -78,7 +80,12 @@ router.get('/entrances/:entranceId', async ctx => {
 })
 
 const checkJourneyId: ParamMiddleware = async (value, ctx, next) => {
-    ctx.state.journey = await getJourney(parseInt(value), ctx.state.project.id)
+    if (!uuidValidate(value)) {
+        ctx.throw(400, 'Invalid journey ID')
+        return
+    }
+
+    ctx.state.journey = await getJourney(value as UUID, ctx.state.project.id)
     if (!ctx.state.journey) {
         throw new RequestError(JourneyError.JourneyDoesNotExist)
     }
@@ -197,7 +204,13 @@ router.get('/:journeyId/entrances', async ctx => {
 router.delete('/:journeyId/entrances/:entranceId/users/:userId', async ctx => {
     const user = await getUserFromContext(ctx)
     if (!user) return ctx.throw(404)
-    const results = await exitUserFromJourney(user.id, parseInt(ctx.params.entranceId), ctx.state.journey!.id)
+
+    if (!uuidValidate(ctx.params.entranceId)) {
+        ctx.throw(400, 'Invalid entrance ID')
+        return
+    }
+
+    const results = await exitUserFromJourney(user.id, ctx.params.entranceId as UUID, ctx.state.journey!.id)
     ctx.body = { exits: results }
 })
 
@@ -205,7 +218,7 @@ router.get('/:journeyId/steps/:stepId/users', async ctx => {
     const params = extractQueryParams(ctx.query, searchParamsSchema)
     const step = await JourneyStep.first(q => q
         .where('journey_id', ctx.state.journey!.id)
-        .where('id', parseInt(ctx.params.stepId)),
+        .where('id', ctx.params.stepId),
     )
     if (!step) return ctx.throw(404)
     ctx.body = await pagedUsersByStep(step.id, params)
@@ -215,7 +228,7 @@ router.delete('/:journeyId/users/:userId/step/:stepId', async ctx => {
     const user = await getUserFromContext(ctx)
     if (!user) return ctx.throw(404)
     const results = await JourneyUserStep.update(
-        q => q.where('id', parseInt(ctx.params.stepId))
+        q => q.where('id', ctx.params.stepId)
             .where('user_id', user.id)
             .whereNull('ended_at')
             .where('journey_id', ctx.state.journey!.id),
@@ -225,7 +238,12 @@ router.delete('/:journeyId/users/:userId/step/:stepId', async ctx => {
 })
 
 router.post('/:journeyId/users/:userId/steps/:stepId/resume', async ctx => {
-    ctx.body = await skipDelayStep(parseInt(ctx.params.stepId, 10))
+    if (!uuidValidate(ctx.params.stepId)) {
+        ctx.throw(400, 'Invalid step ID')
+        return
+    }
+
+    ctx.body = await skipDelayStep(ctx.params.stepId as UUID)
 })
 
 const journeyTriggerParams: JSONSchemaType<JourneyEntranceTriggerParams> = {
@@ -234,8 +252,8 @@ const journeyTriggerParams: JSONSchemaType<JourneyEntranceTriggerParams> = {
     required: ['entrance_id', 'user'],
     properties: {
         entrance_id: {
-            type: 'number',
-            minimum: 1,
+            type: 'string',
+            format: 'uuid',
         },
         user: {
             type: 'object',

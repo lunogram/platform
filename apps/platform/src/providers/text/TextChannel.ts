@@ -46,7 +46,6 @@ export default class TextChannel {
         // the opt out message
         if (!variables.user.id) return compiled
 
-        // TODO: See if we can move this to ClickHouse
         const hasReceivedOptOut = await UserEvent.exists(qb => qb.where({
             project_id: variables.project.id,
             user_id: variables.user.id,

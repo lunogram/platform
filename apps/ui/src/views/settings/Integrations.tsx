@@ -9,6 +9,7 @@ import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
 import IntegrationModal from './IntegrationModal'
 import { useTranslation } from 'react-i18next'
 import { Menu, MenuItem } from '../../ui'
+import { UUID } from 'crypto'
 
 export default function Integrations() {
     const { t } = useTranslation()
@@ -16,7 +17,7 @@ export default function Integrations() {
     const state = useSearchTableState(useCallback(async params => await api.providers.search(project.id, params), [project]))
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [provider, setProvider] = useState<Provider>()
-    const handleArchive = async (id: number) => {
+    const handleArchive = async (id: UUID) => {
         if (!confirm(t('delete_integration_confirmation'))) return
         await api.providers.delete(project.id, id)
         await state.reload()

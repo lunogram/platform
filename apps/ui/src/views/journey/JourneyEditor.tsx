@@ -49,6 +49,7 @@ import TextInput from '../../ui/form/TextInput'
 import { useTranslation } from 'react-i18next'
 import { JourneyStepUsers } from './JourneyStepUsers'
 import { Menu, MenuItem } from '../../ui'
+import { UUID } from 'crypto'
 
 const getStepType = (type: string) => (type ? journeySteps[type as keyof typeof journeySteps] as JourneyStepType : null) ?? null
 
@@ -457,7 +458,7 @@ export default function JourneyEditor() {
     const [publishing, setPublishing] = useState(false)
     const [saving, setSaving] = useState(false)
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-    const [viewUsersStep, setViewUsersStep] = useState<null | { stepId: number, stepType: string }>(null)
+    const [viewUsersStep, setViewUsersStep] = useState<null | { stepId: UUID, stepType: string }>(null)
 
     const blocker = useBlocker(
         ({ currentLocation, nextLocation }) => hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname,
@@ -512,7 +513,7 @@ export default function JourneyEditor() {
         }
     }
 
-    const editDraft = (id: number) => {
+    const editDraft = (id: UUID) => {
         window.location.href = `/projects/${project.id}/journeys/${id}`
     }
 

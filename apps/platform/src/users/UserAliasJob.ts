@@ -1,9 +1,10 @@
 import { Job } from '../queue'
 import { aliasUser } from './UserRepository'
 import { ClientAliasParams } from '../client/Client'
+import { UUID } from 'crypto'
 
 type UserAliasTrigger = ClientAliasParams & {
-    project_id: number
+    project_id: UUID
 }
 
 export default class UserAliasJob extends Job {

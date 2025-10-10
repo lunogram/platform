@@ -1,4 +1,4 @@
-export type Operator = '=' | '!=' | '<' |'<=' | '>' | '>=' | '=' | 'is set' | 'is not set' | 'or' | 'and' | 'empty' | 'contains' | 'not contain' | 'starts with' | 'not start with' | 'ends with' | 'any' | 'none' | 'is same day'
+export type Operator = '=' | '!=' | '<' | '<=' | '>' | '>=' | '=' | 'is set' | 'is not set' | 'or' | 'and' | 'empty' | 'contains' | 'not contain' | 'starts with' | 'not start with' | 'ends with' | 'any' | 'none' | 'is same day'
 export type RuleType = 'wrapper' | 'string' | 'number' | 'boolean' | 'date' | 'array'
 export type RuleGroup = 'user' | 'event' | 'parent'
 
@@ -39,5 +39,5 @@ export type EventRule = {
     frequency?: EventRuleFrequency
 } & Rule
 
-export type RuleTree = Rule & { children?: RuleTree[], id?: number }
+export type RuleTree = Rule & { children?: RuleTree[], id?: UUID }
 export type EventRuleTree = EventRule & { children?: EventRuleTree[] }

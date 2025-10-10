@@ -17,6 +17,7 @@ import { pagedEntrancesByUser } from '../journey/JourneyRepository'
 import { removeUsers } from './UserImport'
 import { filterObjectForRulePaths } from '../projects/ProjectRulePathRepository'
 import { RulePathVisibility } from '../rules/ProjectRulePath'
+import { UUID } from 'node:crypto'
 
 const router = new Router<
     ProjectState & { user?: User }
@@ -200,7 +201,7 @@ router.get('/:userId/subscriptions', async ctx => {
 })
 
 router.patch('/:userId/subscriptions', async ctx => {
-    const subscriptions = ctx.request.body as Array<{ subscription_id: number, state: SubscriptionState }>
+    const subscriptions = ctx.request.body as Array<{ subscription_id: UUID, state: SubscriptionState }>
     for (const subscription of subscriptions) {
         await toggleSubscription(
             ctx.state.user!.id,

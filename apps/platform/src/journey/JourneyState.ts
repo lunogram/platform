@@ -1,3 +1,4 @@
+import { UUID } from 'node:crypto'
 import App from '../app'
 import { acquireLock, releaseLock } from '../core/Lock'
 import { getProject } from '../projects/ProjectService'
@@ -21,24 +22,26 @@ export class JourneyState {
      * @param user target user to run journey for
      * @returns promise that resolves when processing ends
      */
-    public static async resume(entrance: number | JourneyUserStep, user?: User) {
-
+    public static async resume(entrance: UUID | JourneyUserStep, user?: User) {
         // find entrance
-        if (typeof entrance === 'number') {
+        if (typeof entrance === 'string') {
             entrance = (await JourneyUserStep.find(entrance))!
         }
         if (!entrance) {
+            console.log("Entrance not found")
             return
         }
         if (entrance.entrance_id) {
             entrance = (await JourneyUserStep.find(entrance.entrance_id))!
             if (!entrance || entrance.entrance_id) {
+                console.log("Invalid entrance")
                 return
             }
         }
 
         // Entrance has already ended
         if (entrance.ended_at) {
+            console.log("already ended at")
             return
         }
 
@@ -47,6 +50,7 @@ export class JourneyState {
             user = await User.find(entrance.user_id)
         }
         if (!user) {
+            console.log("User not found")
             return
         }
 
@@ -58,6 +62,7 @@ export class JourneyState {
         const key = `journey:entrance:${entrance.id}`
 
         const acquired = await acquireLock({ key })
+        console.log("=================", key, "acquire", acquired)
         if (!acquired) {
             return
         }
@@ -92,17 +97,14 @@ export class JourneyState {
         public readonly children: JourneyStepChild[],
         public readonly userSteps: JourneyUserStep[],
         public readonly user: User,
-    ) {}
+    ) { }
 
     private async run() {
-
         let userStep = this.userSteps[this.userSteps.length - 1]
         let step = this.steps.find(s => s.id === userStep.step_id)
 
         while (step) {
-
             if (userStep.step_id !== step.id) {
-
                 // create a placeholder for new step
                 this.userSteps.push(userStep = JourneyUserStep.fromJson({
                     journey_id: this.entrance.journey_id,
@@ -177,7 +179,7 @@ export class JourneyState {
                     return step
                 }
             }
-        } catch {}
+        } catch { }
         await this.end()
     }
 
@@ -187,7 +189,7 @@ export class JourneyState {
         })
     }
 
-    public childrenOf(stepId: number) {
+    public childrenOf(stepId: UUID) {
         return this.children.filter(sc => sc.step_id === stepId)
     }
 

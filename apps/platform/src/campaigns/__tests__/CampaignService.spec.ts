@@ -18,9 +18,9 @@ afterEach(() => {
 describe('CampaignService', () => {
 
     interface CampaignRefs {
-        project_id: number
-        provider_id: number
-        subscription_id: number
+        project_id: UUID
+        provider_id: UUID
+        subscription_id: UUID
     }
 
     const createCampaignDependencies = async (): Promise<CampaignRefs> => {
@@ -60,7 +60,7 @@ describe('CampaignService', () => {
         return campaign
     }
 
-    const createEmptyUser = async (project_id: number): Promise<User> => {
+    const createEmptyUser = async (project_id: UUID): Promise<User> => {
         return createUser(project_id, {
             external_id: uuid(),
             email: `${uuid()}@test.com`,

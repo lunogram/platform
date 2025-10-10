@@ -6,8 +6,8 @@ import { ClientIdentity } from '../client/Client'
 
 type UserUnsubscribeParams = {
     external_id: string
-    project_id: number
-    subscription_id: number
+    project_id: UUID
+    subscription_id: UUID
 } & ClientIdentity
 
 export default class UnsubscribeJob extends Job {

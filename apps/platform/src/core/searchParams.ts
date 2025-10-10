@@ -1,5 +1,6 @@
 import { JSONSchemaType } from 'ajv'
 import { RawModel } from './Model'
+import { UUID } from 'crypto'
 
 export interface PageParams {
     limit: number
@@ -10,7 +11,7 @@ export interface PageParams {
     q?: string
     filter?: Record<string, any>
     tag?: string[]
-    id?: number[]
+    id?: UUID[]
 }
 
 export interface PageQueryParams<T extends typeof RawModel> extends PageParams {
@@ -67,7 +68,8 @@ export const SearchSchema = (id: string, defaults?: Partial<PageParams>): JSONSc
             id: {
                 type: 'array',
                 items: {
-                    type: 'integer',
+                    type: 'string',
+                    format: 'uuid',
                     minimum: 1,
                 },
                 nullable: true,

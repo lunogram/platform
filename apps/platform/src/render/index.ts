@@ -9,13 +9,14 @@ import { User } from '../users/User'
 import { preferencesLink, unsubscribeEmailLink } from '../subscriptions/SubscriptionService'
 import { clickWrapHtml, openWrapHtml, preheaderWrapHtml } from './LinkService'
 import Project from '../projects/Project'
+import { UUID } from 'crypto'
 
 export type RenderContext = {
-    template_id: number
-    campaign_id: number
-    subscription_id: number
+    template_id: UUID
+    campaign_id: UUID
+    subscription_id: UUID
     reference_type?: string
-    reference_id?: string
+    reference_id?: UUID
 } & Record<string, unknown>
 
 export interface Variables {

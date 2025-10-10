@@ -24,20 +24,36 @@ export const userPathForQuery = (path: string) => {
     return '$.data' + path.replace('$', '')
 }
 
-const formattedQueryValue = (value: any) => typeof value === 'string' ? `'${value}'` : value
+export const formattedQueryValue = (value: any) => typeof value === 'string' ? `'${value}'` : value
+
+export const castRuleType = (rule: RuleTree): string => {
+    switch (rule.type) {
+    case 'string': return 'text'
+    case 'number': return 'int'
+    case 'boolean': return 'boolean'
+    case 'date': return 'timestamp'
+    case 'array': return 'jsonb'
+    case 'wrapper': return 'wrapper'
+    default: throw new Error('unknown rule type: ' + rule.type)
+    }
+}
 
 export const queryPath = (rule: RuleTree): string => {
     const column = rule.path.replace('$.', '')
     if (reservedPaths[rule.group].includes(column)) {
         return column
     }
-    const parts = column.split('.')
-    return `\`data\`.\`${parts.join('`.`')}\``
+
+    const parts = column.split('.').map(p => `'${p.replace(/\[["']?([^"'\]]+)["']?\]/g, '$1')}'`)
+    parts.unshift('data')
+
+    // NOTE: JSON values are accessed using `->` for objects/arrays and `->>` for scalar values.
+    // Wrapping the path in parentheses ensures compatibility with further operations or type casts.
+    const path = parts.slice(0, -1).join('->') + '->>' + parts[parts.length - 1]
+    return `(${path})::${castRuleType(rule)}`
 }
 
-export const whereQuery = <T extends AnyJson | undefined>(path: string, operator: Operator, value: T, type?: string): string => {
-
-    if (type) path = `accurateCastOrNull(${path}, '${type}')`
+export const whereQuery = <T extends AnyJson | undefined>(path: string, operator: Operator, value: T): string => {
     if (Array.isArray(value)) {
         const parts = value.map(formattedQueryValue).join(',')
 

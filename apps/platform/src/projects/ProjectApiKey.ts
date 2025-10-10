@@ -2,7 +2,7 @@ import Model from '../core/Model'
 import { ProjectRole } from './Project'
 
 export class ProjectApiKey extends Model {
-    project_id!: number
+    project_id!: UUID
     value!: string
     name!: string
     scope!: 'public' | 'secret'

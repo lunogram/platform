@@ -8,10 +8,11 @@ import { Email, NamedEmail } from '../providers/email/Email'
 import { BasePush } from '../providers/push/Push'
 import { Webhook } from '../providers/webhook/Webhook'
 import { paramsToEncodedLink } from './LinkService'
+import { UUID } from 'crypto'
 
 export default class Template extends Model {
-    project_id!: number
-    campaign_id!: number
+    project_id!: UUID
+    campaign_id!: UUID
     name?: string
     type!: ChannelType
     data!: Record<string, any>

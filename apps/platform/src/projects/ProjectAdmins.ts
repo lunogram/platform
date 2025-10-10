@@ -2,8 +2,8 @@ import Model from '../core/Model'
 import { ProjectRole } from './Project'
 
 export class ProjectAdmin extends Model {
-    project_id!: number
-    admin_id?: number
+    project_id!: UUID
+    admin_id?: UUID
     role!: ProjectRole
     deleted_at?: Date
 }

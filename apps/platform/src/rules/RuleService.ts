@@ -5,14 +5,14 @@ import { Rule, RuleTree } from './Rule'
 export type RuleResults = { success: string[], failure: string[] }
 
 const CacheKeys = {
-    ruleTree: (rootId: number) => `rule_tree:${rootId}`,
+    ruleTree: (rootId: UUID) => `rule_tree:${rootId}`,
 }
 
 /**
  * For a given root ID value of a rule set, find all children and compile
  * into a nested tree structure.
  */
-export const fetchAndCompileRule = async (rootId: number): Promise<RuleTree> => {
+export const fetchAndCompileRule = async (rootId: UUID): Promise<RuleTree> => {
 
     const cache = await cacheGet<RuleTree>(App.main.redis, CacheKeys.ruleTree(rootId))
     if (cache) return cache

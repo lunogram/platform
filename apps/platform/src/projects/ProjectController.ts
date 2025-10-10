@@ -18,7 +18,6 @@ import { getRulePaths, pagedUserRulePaths, updateRulePath } from './ProjectRuleP
 import { allProjects, createProject, getProject, pagedProjects, requireProjectRole, updateProject } from './ProjectService'
 
 export async function projectMiddleware(ctx: ParameterizedContext<ProjectState>, next: () => void) {
-
     if (ctx.state.scope !== 'admin' && !ctx.state.key) {
         throw new RequestError(ProjectError.ProjectDoesNotExist)
     }
@@ -27,11 +26,11 @@ export async function projectMiddleware(ctx: ParameterizedContext<ProjectState>,
         throw new RequestError(ProjectError.ProjectDoesNotExist)
     }
 
-    const project = await getProject(
-        ctx.state.scope === 'admin'
-            ? ctx.params.project
-            : ctx.state.key!.project_id,
-    )
+    const projectId = ctx.state.scope === 'admin'
+        ? ctx.params.project
+        : ctx.state.key!.project_id
+
+    const project = await getProject(projectId)
 
     if (!project) {
         throw new RequestError(ProjectError.ProjectDoesNotExist)
@@ -200,7 +199,7 @@ subrouter.get('/data/paths/users', async ctx => {
 subrouter.put('/data/paths/users/:pathId', async ctx => {
     requireProjectRole(ctx, 'admin')
 
-    ctx.body = await updateRulePath(parseInt(ctx.params.pathId), ctx.request.body.visibility)
+    ctx.body = await updateRulePath(ctx.params.pathId, ctx.request.body.visibility)
 })
 
 subrouter.post('/data/paths/sync', async ctx => {

@@ -1,3 +1,4 @@
+import { UUID } from 'crypto'
 import { ComponentType, Dispatch, Key, ReactNode, SetStateAction } from 'react'
 import { FieldPath, FieldValues, UseFormReturn } from 'react-hook-form'
 import { Node } from 'reactflow'
@@ -52,22 +53,44 @@ export interface JsonMap { [key: string]: AnyJson }
 export type JsonArray = AnyJson[]
 
 export type Rule = {
-    uuid: string
-    root_uuid?: string
-    parent_uuid?: string
+    uuid: UUID
+    root_uuid?: UUID
+    parent_uuid?: UUID
     type: RuleType
     group: RuleGroup
     path: string
     operator: Operator
     value?: string
 } & (
-    | { type: 'wrapper' }
-    | { type: 'string' }
-    | { type: 'number' }
-    | { type: 'boolean' }
-    | { type: 'date' }
-    | { type: 'array' }
-)
+        | { type: 'wrapper' }
+        | { type: 'string' }
+        | { type: 'number' }
+        | { type: 'boolean' }
+        | { type: 'date' }
+        | { type: 'array' }
+    )
+
+export function defaultOperator(type: RuleType): Operator {
+    switch (type) {
+    case 'string': return '='
+    case 'number': return '='
+    case 'boolean': return '='
+    case 'date': return '='
+    case 'array': return 'any'
+    case 'wrapper': return 'and'
+    }
+}
+
+export function typeOperators(type: RuleType): Operator[] {
+    switch (type) {
+    case 'string': return ['=', '!=', 'contains', 'not contain', 'starts with', 'not start with', 'is set', 'is not set', 'empty']
+    case 'number': return ['=', '!=', '<', '<=', '>', '>=', 'is set', 'is not set', 'empty']
+    case 'boolean': return ['=', '!=', 'is set', 'is not set', 'empty']
+    case 'date': return ['=', '!=', '<', '<=', '>', '>=', 'is same day', 'is set', 'is not set', 'empty']
+    case 'array': return ['any', 'none', 'is set', 'is not set', 'empty']
+    case 'wrapper': return ['and', 'or', 'xor']
+    }
+}
 
 export type WrapperRule = Rule & { type: 'wrapper', children: Rule[] }
 
@@ -93,7 +116,7 @@ export type EventRule = {
 } & WrapperRule
 
 export interface RulePath {
-    id: number
+    id: UUID
     path: string
     type: 'user' | 'event'
     name: string
@@ -123,7 +146,7 @@ export interface SearchParams {
     filter?: Record<string, any>
     q?: string
     tag?: string[]
-    id?: Array<number | string>
+    id?: UUID[]
 }
 
 export interface SearchResult<T> {
@@ -149,8 +172,8 @@ export const organizationRoles = [
 export type OrganizationRole = (typeof organizationRoles)[number]
 
 export interface Admin {
-    id: number
-    organization_id: number
+    id: UUID
+    organization_id: UUID
     first_name: string
     last_name: string
     email: string
@@ -159,7 +182,7 @@ export interface Admin {
 }
 
 export interface Organization {
-    id: number
+    id: UUID
     username: string
     domain?: string
     auth: any
@@ -178,11 +201,11 @@ export const projectRoles = [
 export type ProjectRole = (typeof projectRoles)[number]
 
 export interface ProjectAdmin extends Omit<Admin, 'id' | 'role'> {
-    id: number
+    id: UUID
     created_at: string
     updated_at: string
-    project_id: number
-    admin_id: number
+    project_id: UUID
+    admin_id: UUID
     role: ProjectRole
 }
 
@@ -192,7 +215,7 @@ export type ProjectAdminInviteParams = ProjectAdminParams & {
 }
 
 export interface Project {
-    id: number
+    id: UUID
     name: string
     description?: string
     locale: string
@@ -213,7 +236,7 @@ export type ChannelType = 'email' | 'push' | 'text' | 'webhook' | 'in_app'
 export type ProjectCreate = Omit<Project, 'id' | AuditFields>
 
 export interface ProjectApiKey {
-    id: number
+    id: UUID
     value: string
     name: string
     scope: 'public' | 'secret'
@@ -224,7 +247,7 @@ export interface ProjectApiKey {
 export type ProjectApiKeyParams = Pick<ProjectApiKey, 'name' | 'description' | 'scope' | 'role'>
 
 export interface User {
-    id: number
+    id: UUID
     external_id: string
     full_name?: string
     email?: string
@@ -246,7 +269,7 @@ export interface Device {
 }
 
 export interface UserEvent {
-    id: number
+    id: UUID
     name: string
     data: Record<string, any>
     created_at: string
@@ -256,8 +279,8 @@ export type ListState = 'draft' | 'ready' | 'loading'
 type ListType = 'static' | 'dynamic'
 
 export type List = {
-    id: number
-    projectId: number
+    id: UUID
+    projectId: UUID
     name: string
     state: ListState
     type: ListType
@@ -272,12 +295,12 @@ export type List = {
     created_at: string
     updated_at: string
 } & (
-    | {
-        type: 'dynamic'
-        rule: WrapperRule
-    }
-    | { type: 'static' }
-)
+        | {
+            type: 'dynamic'
+            rule: WrapperRule
+        }
+        | { type: 'static' }
+    )
 
 export type DynamicList = List & { type: 'dynamic' }
 
@@ -287,9 +310,9 @@ export type ListUpdateParams = Pick<List, 'name' | 'rule' | 'tags'> & { publishe
 type JourneyStatus = 'draft' | 'live' | 'off'
 
 export interface Journey {
-    id: number
-    parent_id?: number
-    draft_id?: number
+    id: UUID
+    parent_id?: UUID
+    draft_id?: UUID
     name: string
     description?: string
     status: JourneyStatus
@@ -302,7 +325,7 @@ export interface Journey {
 }
 
 export interface JourneyStep<T = any> {
-    id: number
+    id: UUID
     type: string
     name: string
     data: T
@@ -329,14 +352,14 @@ export interface JourneyStepMap {
         children?: JourneyStepMapChild[]
         stats?: Record<string, number>
         stats_at?: Date
-        id?: number
+        id?: UUID
     }
 }
 
 export interface JourneyStepTypeEditProps<T> extends ControlledProps<T> {
     journey: Journey
     project: Project
-    stepId?: number // if already saved
+    stepId?: UUID // if already saved
 }
 
 export interface JourneyStepTypeEdgeProps<T, E> extends ControlledProps<E> {
@@ -365,8 +388,8 @@ export interface JourneyStepType<T = any, E = any> {
 }
 
 export interface JourneyUserStep {
-    id: number
-    entrance_id: number
+    id: UUID
+    entrance_id: UUID
     type: string
     delay_until?: string
     created_at: string
@@ -396,21 +419,21 @@ export interface CampaignDelivery {
 export type CampaignType = 'blast' | 'trigger'
 
 export interface Campaign {
-    id: number
-    project_id: number
+    id: UUID
+    project_id: UUID
     type: CampaignType
     name: string
     channel: ChannelType
     state: CampaignState
     delivery: CampaignDelivery
-    provider_id?: number
+    provider_id?: UUID
     provider?: Provider
-    subscription_id?: number
+    subscription_id?: UUID
     subscription?: Subscription
     templates: Template[]
-    list_ids?: number[]
+    list_ids?: UUID[]
     lists?: List[]
-    exclusion_list_ids?: number[]
+    exclusion_list_ids?: UUID[]
     exclusion_lists?: List[]
     tags?: string[]
     journeys?: Journey[]
@@ -476,19 +499,19 @@ export type InAppTemplateData = {
     type: NotificationType
     read_on_view?: boolean
 } & (
-    | {
-        type: 'alert'
-        image?: string
-    }
-    | {
-        type: 'html'
-        html: string
-    }
-)
+        | {
+            type: 'alert'
+            image?: string
+        }
+        | {
+            type: 'html'
+            html: string
+        }
+    )
 
 export type Template = {
-    id: number
-    campaign_id: number
+    id: UUID
+    campaign_id: UUID
     name?: string
     type: ChannelType
     locale: string
@@ -497,31 +520,31 @@ export type Template = {
     created_at: string
     updated_at: string
 } & (
-    | {
-        type: 'email'
-        data: EmailTemplateData
-    }
-    | {
-        type: 'text'
-        data: TextTemplateData
-    }
-    | {
-        type: 'push'
-        data: PushTemplateData
-    }
-    | {
-        type: 'webhook'
-        data: WebhookTemplateData
-    }
-    | {
-        type: 'in_app'
-        data: InAppTemplateData
-    }
-)
+        | {
+            type: 'email'
+            data: EmailTemplateData
+        }
+        | {
+            type: 'text'
+            data: TextTemplateData
+        }
+        | {
+            type: 'push'
+            data: PushTemplateData
+        }
+        | {
+            type: 'webhook'
+            data: WebhookTemplateData
+        }
+        | {
+            type: 'in_app'
+            data: InAppTemplateData
+        }
+    )
 
 export type TemplateCreateParams = Pick<Template, 'name' | 'type' | 'data' | 'campaign_id' | 'locale'>
 export type TemplateUpdateParams = Pick<Template, 'name' | 'data'>
-export type VariantUpdateParams = Pick<Template, 'name'> & { id?: number }
+export type VariantUpdateParams = Pick<Template, 'name'> & { id?: UUID }
 
 export interface TemplatePreviewParams {
     user: Record<string, any>
@@ -541,10 +564,10 @@ export enum SubscriptionState {
 }
 
 export interface UserSubscription {
-    id: number
+    id: UUID
     name: string
     channel: ChannelType
-    subscription_id: number
+    subscription_id: UUID
     state: SubscriptionState
     created_at: string
     updated_at: string
@@ -552,11 +575,11 @@ export interface UserSubscription {
 
 export interface SubscriptionParams {
     state: SubscriptionState
-    subscription_id: number
+    subscription_id: UUID
 }
 
 export interface Subscription {
-    id: number
+    id: UUID
     name: string
     channel: ChannelType
     is_public: boolean
@@ -568,7 +591,7 @@ export type SubscriptionUpdateParams = Pick<SubscriptionCreateParams, 'name' | '
 
 export type ProviderGroup = 'email' | 'text' | 'push' | 'webhook'
 export interface Provider {
-    id: number
+    id: UUID
     name: string
     type: string
     group: string
@@ -597,7 +620,7 @@ export interface ProviderSetupMeta {
 }
 
 export interface Image {
-    id: number
+    id: UUID
     uuid: string
     url: string
     name: string
@@ -608,7 +631,7 @@ export interface Image {
 }
 
 export interface Resource {
-    id: number
+    id: UUID
     type: string
     name: string
     value: Record<string, any>
@@ -621,7 +644,7 @@ export interface Font {
 }
 
 export interface Tag {
-    id: number
+    id: UUID
     name: string
     count?: number
 }
@@ -643,7 +666,7 @@ export interface LocaleOption {
 }
 
 export interface Locale extends LocaleOption {
-    id: number
+    id: UUID
 }
 
 export interface Series {

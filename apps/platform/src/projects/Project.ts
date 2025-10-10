@@ -1,7 +1,7 @@
 import Model, { ModelParams } from '../core/Model'
 
 export default class Project extends Model {
-    organization_id!: number
+    organization_id!: UUID
     name!: string
     description?: string
     deleted_at?: Date

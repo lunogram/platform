@@ -5,11 +5,13 @@ import { User } from '../users/User'
 import { getUser, updateUser } from '../users/UserRepository'
 import Subscription, { SubscriptionParams, SubscriptionState, UserSubscription } from './Subscription'
 import App from '../app'
-import { combineURLs, encodeHashid } from '../utilities'
+import { combineURLs } from '../utilities'
 import { EventPostJob } from '../jobs'
 import { SearchResult } from '../core/Model'
+import { UUID } from 'crypto'
+import { NIL } from 'uuid'
 
-export const pagedSubscriptions = async (params: PageParams, projectId: number) => {
+export const pagedSubscriptions = async (params: PageParams, projectId: UUID) => {
     return await Subscription.search(
         { ...params, fields: ['name', 'channel'] },
         qb => qb.where('project_id', projectId),
@@ -35,13 +37,13 @@ export const getUserSubscriptions = async (user: User, params?: PageParams, only
     }
 }
 
-export const getUserSubscriptionState = async (user: User | number, subscriptionId: number) => {
+export const getUserSubscriptionState = async (user: User | UUID, subscriptionId: UUID) => {
     const fetchedUser = user instanceof User ? user : await getUser(user)
     if (!fetchedUser) return SubscriptionState.subscribed
     return fetchedUser?.subscriptionState(subscriptionId)
 }
 
-export const allSubscriptions = async (projectId: number, channels?: ChannelType[]) => {
+export const allSubscriptions = async (projectId: UUID, channels?: ChannelType[]) => {
     return await Subscription.all(
         qb => {
             if (channels) {
@@ -52,26 +54,26 @@ export const allSubscriptions = async (projectId: number, channels?: ChannelType
     )
 }
 
-export const getSubscription = async (id: number, projectId: number) => {
+export const getSubscription = async (id: UUID, projectId: UUID) => {
     return await Subscription.find(id, qb => qb.where('project_id', projectId))
 }
 
-export const createSubscription = async (projectId: number, params: SubscriptionParams): Promise<Subscription> => {
+export const createSubscription = async (projectId: UUID, params: SubscriptionParams): Promise<Subscription> => {
     return await Subscription.insertAndFetch({
         ...params,
         project_id: projectId,
     })
 }
 
-export const updateSubscription = async (id: number, params: Partial<SubscriptionParams>): Promise<Subscription> => {
+export const updateSubscription = async (id: UUID, params: Partial<SubscriptionParams>): Promise<Subscription> => {
     return await Subscription.updateAndFetch(id, params)
 }
 
-export const subscriptionsForChannel = async (channel: ChannelType, projectId: number): Promise<Subscription[]> => {
+export const subscriptionsForChannel = async (channel: ChannelType, projectId: UUID): Promise<Subscription[]> => {
     return await Subscription.all(qb => qb.where('channel', channel).where('project_id', projectId))
 }
 
-export const toggleSubscription = async (userId: number, subscriptionId: number, state = SubscriptionState.unsubscribed): Promise<void> => {
+export const toggleSubscription = async (userId: UUID, subscriptionId: UUID, state = SubscriptionState.unsubscribed): Promise<void> => {
 
     // Ensure both user and subscription exist
     const user = await getUser(userId)
@@ -112,18 +114,18 @@ export const toggleSubscription = async (userId: number, subscriptionId: number,
     }).queue()
 }
 
-export const toggleChannelSubscriptions = async (projectId: number, user: User, channel: ChannelType, state = SubscriptionState.unsubscribed) => {
+export const toggleChannelSubscriptions = async (projectId: UUID, user: User, channel: ChannelType, state = SubscriptionState.unsubscribed) => {
     const subscriptions = await subscriptionsForChannel(channel, projectId)
     for (const subscription of subscriptions) {
         await toggleSubscription(user.id, subscription.id, state)
     }
 }
 
-export const unsubscribe = async (userId: number, subscriptionId: number): Promise<void> => {
+export const unsubscribe = async (userId: UUID, subscriptionId: UUID): Promise<void> => {
     await toggleSubscription(userId, subscriptionId, SubscriptionState.unsubscribed)
 }
 
-export const subscribe = async (userId: number, subscriptionId: number): Promise<void> => {
+export const subscribe = async (userId: UUID, subscriptionId: UUID): Promise<void> => {
     await toggleSubscription(userId, subscriptionId, SubscriptionState.subscribed)
 }
 
@@ -131,6 +133,8 @@ export const unsubscribeEmailLink = (params: TrackedLinkParams): string => {
     return paramsToEncodedLink({ ...params, path: 'unsubscribe/email' })
 }
 
-export const preferencesLink = (userId: number) => {
-    return combineURLs([App.main.env.baseUrl, 'unsubscribe/preferences', encodeHashid(userId)])
+export const preferencesLink = (userId?: UUID) => {
+    if (!userId) return combineURLs([App.main.env.baseUrl, 'unsubscribe/preferences', NIL])
+
+    return combineURLs([App.main.env.baseUrl, 'unsubscribe/preferences', userId])
 }

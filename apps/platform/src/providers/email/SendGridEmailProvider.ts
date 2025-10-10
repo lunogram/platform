@@ -4,7 +4,6 @@ import EmailProvider from './EmailProvider'
 import Router = require('@koa/router')
 import Provider, { ExternalProviderParams, ProviderControllers, ProviderSchema, ProviderSetupMeta } from '../Provider'
 import { createController } from '../ProviderService'
-import { decodeHashid, encodeHashid } from '../../utilities'
 import { getUserFromEmail } from '../../users/UserRepository'
 import { getCampaign } from '../../campaigns/CampaignService'
 import { trackMessageEvent } from '../../render/LinkService'
@@ -51,7 +50,7 @@ export default class SendGridEmailProvider extends EmailProvider {
     loadSetup(app: App): ProviderSetupMeta[] {
         return [{
             name: 'Webhook URL',
-            value: `${app.env.apiBaseUrl}/providers/${encodeHashid(this.id)}/${(this.constructor as any).namespace}`,
+            value: `${app.env.apiBaseUrl}/providers/${this.id}/${(this.constructor as any).namespace}`,
         }]
     }
 
@@ -86,7 +85,7 @@ export default class SendGridEmailProvider extends EmailProvider {
                     : 'complained'
 
                 // Get values from webhook to identify user and campaign
-                const campaignId = decodeHashid(event['X-Campaign-Id'])
+                const campaignId = event['X-Campaign-Id']
                 if (!event.email || !campaignId) return
 
                 const projectId = provider.project_id

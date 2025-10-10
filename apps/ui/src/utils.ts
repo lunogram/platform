@@ -2,14 +2,10 @@ import { parseISO, formatDuration as dateFnsFormatDuration } from 'date-fns'
 import { format, utcToZonedTime } from 'date-fns-tz'
 import { OrganizationRole, Preferences, ProjectRole, organizationRoles, projectRoles } from './types'
 import { v4 } from 'uuid'
+import { UUID } from 'crypto'
 
 export function createUuid() {
-    return v4()
-}
-
-export function toInt(str: string | undefined, defaultValue: number) {
-    const p = parseInt(str ?? '', 10)
-    return isNaN(p) ? defaultValue : p
+    return v4() as UUID
 }
 
 export function round(n: number, places?: number) {
@@ -141,7 +137,7 @@ export function arrayMove<T>(arr: T[], currentIndex: number, targetIndex: number
 const RECENT_PROJECTS = 'recent-projects'
 
 type RecentProjects = Array<{
-    id: number
+    id: UUID
     when: number
 }>
 
@@ -149,14 +145,14 @@ export function getRecentProjects() {
     return (localStorageGetJson<RecentProjects>(RECENT_PROJECTS) ?? [])
 }
 
-export function pushRecentProject(id: number | string) {
+export function pushRecentProject(id: UUID) {
     const stored = getRecentProjects()
     const idx = stored.findIndex(p => p.id === id)
     if (idx !== -1) {
         arrayMove(stored, idx, 0)
     } else {
         stored.unshift({
-            id: typeof id === 'string' ? parseInt(id, 10) : id,
+            id,
             when: Date.now(),
         })
     }

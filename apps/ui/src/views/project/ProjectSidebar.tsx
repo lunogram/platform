@@ -42,7 +42,6 @@ export default function ProjectSidebar({ children, links }: PropsWithChildren<Si
             project,
             ...recents,
             {
-                id: 0,
                 name: t('view_all'),
             },
         ]
@@ -60,7 +59,7 @@ export default function ProjectSidebar({ children, links }: PropsWithChildren<Si
                 <SingleSelect
                     value={project}
                     onChange={async project => {
-                        if (project.id === 0) {
+                        if (!project.id) {
                             await navigate('/organization/projects')
                         } else {
                             await navigate(`/projects/${project.id}`)
