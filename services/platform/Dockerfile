@@ -16,10 +16,10 @@ WORKDIR /usr/src/app
 
 # Copy only what you need to run
 COPY --chown=65532:65532 --from=build /usr/src/app/packages/node_modules ./node_modules
-COPY --chown=65532:65532 --from=build /usr/src/app/apps/platform/package*.json ./
-COPY --chown=65532:65532 --from=build /usr/src/app/apps/platform/build ./build
-COPY --chown=65532:65532 --from=build /usr/src/app/apps/platform/db ./db
-COPY --chown=65532:65532 --from=build /usr/src/app/apps/platform/public ./public
+COPY --chown=65532:65532 --from=build /usr/src/app/services/platform/package*.json ./
+COPY --chown=65532:65532 --from=build /usr/src/app/services/platform/build ./build
+COPY --chown=65532:65532 --from=build /usr/src/app/services/platform/db ./db
+COPY --chown=65532:65532 --from=build /usr/src/app/services/platform/public ./public
 
 EXPOSE 8080
 

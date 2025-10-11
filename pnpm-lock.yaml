@@ -9,7 +9,7 @@ importers:
 
   .: {}
 
-  apps/platform:
+  services/platform:
     dependencies:
       '@aws-sdk/client-s3':
         specifier: ^3.908.0
@@ -247,7 +247,7 @@ importers:
         specifier: ^9.0.1
         version: 9.0.1
 
-  apps/ui:
+  services/ui:
     dependencies:
       '@fontsource/inter':
         specifier: ^4.5.15
@@ -12490,7 +12490,7 @@ snapshots:
 
   '@types/ioredis-mock@8.2.5':
     dependencies:
-      '@types/node': 18.19.130
+      '@types/node': 24.7.1
       ioredis: 5.8.1
     transitivePeerDependencies:
       - supports-color
