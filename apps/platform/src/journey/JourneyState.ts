@@ -5,12 +5,12 @@ import { getProject } from '../projects/ProjectService'
 import Job from '../queue/Job'
 import { Rule } from '../rules/Rule'
 import { User } from '../users/User'
-import { UserEvent } from '../users/UserEvent'
 import { getUserEventsForRules } from '../users/UserRepository'
 import { shallowEqual } from '../utilities'
 import { getEntranceSubsequentSteps, getJourneyStepChildren, getJourneySteps } from './JourneyRepository'
 import { JourneyStep, JourneyStepChild, journeyStepTypes } from './JourneyStep'
 import JourneyUserStep from './JourneyUserStep'
+import { logger } from '../config/logger'
 
 type JobOrJobFunc = Job | ((state: JourneyState) => Promise<Job | undefined>)
 
@@ -23,25 +23,23 @@ export class JourneyState {
      * @returns promise that resolves when processing ends
      */
     public static async resume(entrance: UUID | JourneyUserStep, user?: User) {
-        // find entrance
         if (typeof entrance === 'string') {
             entrance = (await JourneyUserStep.find(entrance))!
         }
         if (!entrance) {
-            console.log('Entrance not found')
             return
         }
         if (entrance.entrance_id) {
             entrance = (await JourneyUserStep.find(entrance.entrance_id))!
             if (!entrance || entrance.entrance_id) {
-                console.log('Invalid entrance')
                 return
             }
         }
 
-        // Entrance has already ended
+        logger.debug('resuming journey', { entrance_id: entrance.id })
+
         if (entrance.ended_at) {
-            console.log('already ended at')
+            logger.debug('attempt to resume ended journey', { entrance_id: entrance.id })
             return
         }
 
@@ -50,7 +48,6 @@ export class JourneyState {
             user = await User.find(entrance.user_id)
         }
         if (!user) {
-            console.log('User not found')
             return
         }
 
@@ -62,7 +59,6 @@ export class JourneyState {
         const key = `journey:entrance:${entrance.id}`
 
         const acquired = await acquireLock({ key })
-        console.log('=================', key, 'acquire', acquired)
         if (!acquired) {
             return
         }
@@ -84,8 +80,6 @@ export class JourneyState {
         return state
     }
 
-    // Load step dependencies once and cache in state
-    private _events?: UserEvent[]
     private _timezone?: string
 
     // Batch enqueue jobs after processing
@@ -100,51 +94,51 @@ export class JourneyState {
     ) { }
 
     private async run() {
-        let userStep = this.userSteps[this.userSteps.length - 1]
-        let step = this.steps.find(s => s.id === userStep.step_id)
+        let currentStep = this.userSteps[this.userSteps.length - 1]
+        let step = this.steps.find(s => s.id === currentStep.step_id)
 
         while (step) {
-            if (userStep.step_id !== step.id) {
-                // create a placeholder for new step
-                this.userSteps.push(userStep = JourneyUserStep.fromJson({
+            // NOTE: we have to check if we advanced to a new step. A pending JourneyUserStep
+            // is created the type of the step will be updated once processed.
+            if (currentStep.step_id !== step.id) {
+                this.userSteps.push(currentStep = JourneyUserStep.fromJson({
                     journey_id: this.entrance.journey_id,
                     entrance_id: this.entrance.id,
                     user_id: this.user.id,
                     step_id: step.id,
-                    type: 'pending',
                 }))
             }
 
             // continue on if this step is completed
-            if (userStep.type === 'completed') {
-                step = await this.nextOrEnd(step)
+            if (currentStep.type === 'completed') {
+                step = await this.next(step)
                 continue
             }
 
-            const copy = { ...userStep }
+            const copy = { ...currentStep }
 
             // delegate to step type
             try {
-                await step.process(this, userStep)
+                await step.process(this, currentStep)
             } catch (err) {
-                userStep.type = 'error'
+                currentStep.type = 'error'
             }
 
             // persist and update the user step
-            if (userStep.id) {
+            if (currentStep.id) {
                 // only update the step is something has changed
-                if (!shallowEqual(copy, userStep)) {
-                    userStep.parseJson(await JourneyUserStep.updateAndFetch(userStep.id, userStep))
+                if (!shallowEqual(copy, currentStep)) {
+                    currentStep.parseJson(await JourneyUserStep.updateAndFetch(currentStep.id, currentStep))
                 }
             } else {
-                userStep.parseJson(await JourneyUserStep.insertAndFetch(userStep))
+                currentStep.parseJson(await JourneyUserStep.insertAndFetch(currentStep))
             }
 
             // Stop processing if latest isn't completed
-            if (userStep.type !== 'completed') {
+            if (currentStep.type !== 'completed') {
                 // Exit journey completely if a catastrophic error
                 // has occurred to avoid unpredictable behavior
-                if (userStep.type === 'error') {
+                if (currentStep.type === 'error') {
                     await this.end()
                 }
                 break
@@ -165,22 +159,31 @@ export class JourneyState {
         }
     }
 
-    private async nextOrEnd(step: JourneyStep) {
-        try {
-            const stepId = await step.next(this)
-            if (stepId) {
-                const step = this.steps.find(s => s.id === stepId)
-                if (step) {
-                    if (this.userSteps.find(s => s.step_id === step.id)) {
-                        // circular reference, this step has already visited
-                        await this.end()
-                        return
-                    }
-                    return step
-                }
-            }
-        } catch { }
-        await this.end()
+    private async next(step: JourneyStep) {
+        const nextId = await step.next(this)
+        if (!nextId) {
+            await this.end()
+            return
+        }
+
+        const next = this.steps.find(s => s.id === nextId)
+        if (!next) {
+            await this.end()
+            return
+        }
+
+        // NOTE: we want to end circular reference within this entrance
+        const revisited = this.userSteps.find(
+            s => s.step_id === next.id,
+        )
+
+        // TODO: the problem with returning a revisited
+        if (revisited && revisited.type === 'completed') {
+            await this.end()
+            return
+        }
+
+        return next
     }
 
     private async end() {

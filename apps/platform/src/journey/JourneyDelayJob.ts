@@ -34,7 +34,6 @@ export default class JourneyDelayJob extends Job {
 
         const updated = await JourneyUserStep
             .query()
-            .update({ type: 'pending' })
             .where('journey_id', journey_id)
             .where('type', 'delay')
             .where('delay_until', '<=', 'NOW()')
