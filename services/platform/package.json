@@ -52,7 +52,8 @@
     "pino": "^8.21.0",
     "pino-pretty": "^8.1.0",
     "posthog-node": "^3.6.3",
-    "rrule": "2.7.2"
+    "rrule": "2.7.2",
+    "uuid": "^9.0.1"
   },
   "scripts": {
     "start": "nodemon",
@@ -93,7 +94,6 @@
     "supertest": "^6.3.4",
     "ts-jest": "^28.0.8",
     "ts-node": "^10.9.2",
-    "typescript": "^4.9.5",
-    "uuid": "^9.0.1"
+    "typescript": "^4.9.5"
   }
 }
