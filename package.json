@@ -10,9 +10,7 @@
     "lint": "pnpm --filter \"@lunogram/*\" lint",
     "test": "pnpm --filter \"@lunogram/*\" --stream test",
     "docker:build": "pnpm --filter \"@lunogram/*\" docker:build",
-    "docker:build-beta": "pnpm --filter \"@lunogram/*\" docker:build-beta",
     "docker:build:push": "pnpm --filter \"@lunogram/*\" docker:build:push",
-    "docker:build-beta:push": "pnpm --filter \"@lunogram/*\" docker:build-beta:push",
     "analyze:ui:bundle": "pnpm build && npx source-map-explorer './apps/ui/build/static/js/*.js'"
   }
 }

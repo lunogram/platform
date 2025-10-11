@@ -1,19 +1,21 @@
 version: '3.4'
 services:
-  mysql:
-    image: mysql:8.0.36
+  postgres:
+    image: postgres:18
     platform: linux/x86_64
     environment:
-      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     expose:
-      - 3306
+      - 5432
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-p$$MYSQL_ROOT_PASSWORD' ]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
       interval: 5s
-      timeout: 20s
+      timeout: 5s
       retries: 30
   redis:
     image: redis
@@ -27,13 +29,13 @@ services:
     image: "ghcr.io/lunogram/api:${IMAGE_VERSION:-latest}"
     restart: always
     healthcheck:
-      test: wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
+      test: wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1
       interval: 5s
       retries: 30
       start_period: 20s
       timeout: 10s
     ports:
-      - 3001:3001
+      - 8080:8080
     links:
       - mysql:mysql
       - redis:redis
@@ -49,7 +51,7 @@ services:
       BASE_URL: ${BASE_URL}
       RUNNER: 'api'
       APP_SECRET: ${APP_SECRET}
-      PORT: 3001
+      PORT: 8080
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_COMPILED_MESSAGE: ${LOG_COMPILED_MESSAGE:-true}
       DB_CLIENT: ${DB_CLIENT}
@@ -190,28 +192,10 @@ services:
       API_BASE_URL: ${API_BASE_URL}
     ports:
       - ${UI_PORT}:3000
-  clickhouse:
-    image: clickhouse/clickhouse-server:25.5
-    restart: on-failure
-    healthcheck:
-      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
-      interval: 5s
-      timeout: 2s
-      retries: 20
-    environment:
-      CLICKHOUSE_USER: ${CLICKHOUSE_USERNAME}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
-    expose:
-      - 8123
-      - 9000
-    volumes:
-      - clickhouse_data:/var/lib/clickhouse
 volumes:
-  mysql_data:
+  postgres_data:
     driver: local
   redis_data:
     driver: local
   uploads:
-    driver: local
-  clickhouse_data:
     driver: local

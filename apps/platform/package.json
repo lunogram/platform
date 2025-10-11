@@ -60,9 +60,7 @@
     "lint": "eslint --ext .ts --max-warnings 0 src/",
     "test": "jest --forceExit --runInBand --testTimeout 10000",
     "docker:build": "docker buildx build -f ./Dockerfile -t ghcr.io/lunogram/api:latest -t ghcr.io/lunogram/api:$TAG ../../",
-    "docker:build-beta": "docker buildx build -f ./Dockerfile -t ghcr.io/lunogram/api:$TAG ../../",
     "docker:build:push": "pnpm docker:build --push",
-    "docker:build-beta:push": "pnpm docker:build-beta --push",
     "migration:create": "node ./scripts/create-migration.mjs",
     "migration:output": "node ./scripts/output-migration.mjs"
   },

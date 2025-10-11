@@ -1,22 +1,26 @@
-# --------------> The compiler image
-FROM node:22 AS compile
+FROM node:24 AS build
+
 WORKDIR /usr/src/app
+
 RUN corepack enable
+
 COPY . .
+
 RUN pnpm install --filter "@lunogram/platform" --frozen-lockfile --config.platform=linux --config.architecture=x64
 RUN pnpm --filter "@lunogram/platform" build
 RUN pnpm --filter "@lunogram/platform" --prod deploy packages
 
-# --------------> The production image
-FROM node:22-alpine
-RUN apk add dumb-init
-ENV NODE_ENV="production"
-USER node
+FROM gcr.io/distroless/nodejs24-debian12:nonroot
+ENV NODE_ENV=production
 WORKDIR /usr/src/app
-COPY --chown=node:node --from=compile /usr/src/app/packages/node_modules ./node_modules
-COPY --chown=node:node --from=compile /usr/src/app/apps/platform/package*.json ./
-COPY --chown=node:node --from=compile /usr/src/app/apps/platform/build ./build
-COPY --chown=node:node --from=compile /usr/src/app/apps/platform/db ./db
-COPY --chown=node:node --from=compile /usr/src/app/apps/platform/public ./public
-EXPOSE 3001
-CMD ["dumb-init", "node", "build/boot.js"]
+
+# Copy only what you need to run
+COPY --chown=65532:65532 --from=build /usr/src/app/packages/node_modules ./node_modules
+COPY --chown=65532:65532 --from=build /usr/src/app/apps/platform/package*.json ./
+COPY --chown=65532:65532 --from=build /usr/src/app/apps/platform/build ./build
+COPY --chown=65532:65532 --from=build /usr/src/app/apps/platform/db ./db
+COPY --chown=65532:65532 --from=build /usr/src/app/apps/platform/public ./public
+
+EXPOSE 8080
+
+CMD ["build/boot.js"]
