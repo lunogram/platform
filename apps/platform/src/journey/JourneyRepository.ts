@@ -263,7 +263,7 @@ export const setJourneyStepMap = async (journey: Journey, stepMap: JourneyStepMa
 export const getEntranceSubsequentSteps = async (entranceId: UUID) => {
     return JourneyUserStep.all(q => q
         .where('entrance_id', entranceId)
-        .orderBy('id', 'asc'),
+        .orderBy('created_at', 'asc'),
     )
 }
 
