@@ -188,7 +188,7 @@ router.delete('/:userId', projectRoleMiddleware('editor'), async ctx => {
 
 router.get('/:userId/events', async ctx => {
     const searchSchema = SearchSchema('userEventSearchSchema', {
-        sort: 'id',
+        sort: 'created_at',
         direction: 'desc',
     })
     const params = extractQueryParams(ctx.query, searchSchema)
