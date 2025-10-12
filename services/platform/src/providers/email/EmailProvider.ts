@@ -3,6 +3,7 @@ import { LoggerProviderName } from '../LoggerProvider'
 import Provider, { ProviderGroup } from '../Provider'
 import { Email } from './Email'
 import { RateLimitEmailError } from './EmailError'
+import { logger } from '../../config/logger'
 
 export type EmailProviderName = 'ses' | 'smtp' | 'mailgun' | 'sendgrid' | LoggerProviderName
 
@@ -16,6 +17,7 @@ export default abstract class EmailProvider extends Provider {
 
     async send(message: Email): Promise<any> {
         try {
+            logger.debug({ provider: this.name, to: message.to, subject: message.subject }, 'sending email')
             return await this.transport?.sendMail(message)
         } catch (error: any) {
             const isThrottle = error.code === 'Throttling'

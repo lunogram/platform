@@ -48,7 +48,7 @@ export default class MailgunEmailProvider extends EmailProvider {
                 type: 'string',
                 title: 'Region',
                 description: 'Select the region your Mailgun domain is registered in.',
-                enum: ['us', 'eu'],
+                enum: ['US', 'EU'],
             },
             domain: { type: 'string' },
             webhook_signing_key: {
@@ -67,13 +67,13 @@ export default class MailgunEmailProvider extends EmailProvider {
     }
 
     boot() {
-        const hostname = this.region === 'us' ? 'api.mailgun.net' : 'api.eu.mailgun.net'
+        const host = this.region === 'US' ? 'api.mailgun.net' : 'api.eu.mailgun.net'
         const auth = {
             auth: {
                 api_key: this.api_key,
                 domain: this.domain,
             },
-            hostname,
+            host,
         }
         this.transport = nodemailer.createTransport(mg(auth))
     }
