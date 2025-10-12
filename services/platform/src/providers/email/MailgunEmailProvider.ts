@@ -10,7 +10,6 @@ import { RequestError } from '../../core/errors'
 import { getCampaign } from '../../campaigns/CampaignService'
 import { trackMessageEvent } from '../../render/LinkService'
 import App from '../../app'
-import { hostname } from 'os'
 
 interface MailgunDataParams {
     api_key: string
