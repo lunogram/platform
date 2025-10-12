@@ -10,10 +10,12 @@ import { RequestError } from '../../core/errors'
 import { getCampaign } from '../../campaigns/CampaignService'
 import { trackMessageEvent } from '../../render/LinkService'
 import App from '../../app'
+import { hostname } from 'os'
 
 interface MailgunDataParams {
     api_key: string
     domain: string
+    region: string
     webhook_signing_key?: string
 }
 
@@ -22,6 +24,7 @@ type MailgunEmailProviderParams = Pick<MailgunEmailProvider, keyof ExternalProvi
 export default class MailgunEmailProvider extends EmailProvider {
     api_key!: string
     domain!: string
+    region!: string
     webhook_signing_key?: string
 
     static namespace = 'mailgun'
@@ -36,11 +39,17 @@ export default class MailgunEmailProvider extends EmailProvider {
 
     static schema = ProviderSchema<MailgunEmailProviderParams, MailgunDataParams>('mailgunProviderParams', {
         type: 'object',
-        required: ['api_key', 'domain'],
+        required: ['api_key', 'domain', 'region'],
         properties: {
             api_key: {
                 type: 'string',
                 title: 'API Key',
+            },
+            region: {
+                type: 'string',
+                title: 'Region',
+                description: 'Select the region your Mailgun domain is registered in.',
+                enum: ['us', 'eu'],
             },
             domain: { type: 'string' },
             webhook_signing_key: {
@@ -59,11 +68,13 @@ export default class MailgunEmailProvider extends EmailProvider {
     }
 
     boot() {
+        const hostname = this.region === 'us' ? 'api.mailgun.net' : 'api.eu.mailgun.net'
         const auth = {
             auth: {
                 api_key: this.api_key,
                 domain: this.domain,
             },
+            hostname,
         }
         this.transport = nodemailer.createTransport(mg(auth))
     }
