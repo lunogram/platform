@@ -62,7 +62,7 @@ export default class MailgunEmailProvider extends EmailProvider {
     loadSetup(app: App): ProviderSetupMeta[] {
         return [{
             name: 'Webhook URL',
-            value: `${app.env.apiBaseUrl}/providers/${this.id}/${(this.constructor as any).namespace}`,
+            value: new URL(`/providers/${this.id}/${(this.constructor as any).namespace}`, app.env.apiBaseUrl).toString(),
         }]
     }
 
