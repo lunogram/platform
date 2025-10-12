@@ -32,7 +32,7 @@ router.use(projectRoleMiddleware('editor'))
 
 router.get('/', async ctx => {
     const searchSchema = SearchSchema('campaignSearchSchema', {
-        sort: 'id',
+        sort: 'created_at',
         direction: 'desc',
     })
     const params = extractQueryParams(ctx.query, searchSchema)

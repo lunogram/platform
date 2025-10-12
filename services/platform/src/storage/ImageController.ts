@@ -48,7 +48,7 @@ router.post('/', async ctx => {
 
 router.get('/', async ctx => {
     const searchSchema = SearchSchema('imagesSearchSchema', {
-        sort: 'id',
+        sort: 'created_at',
         direction: 'desc',
     })
     const params = extractQueryParams(ctx.query, searchSchema)

@@ -54,7 +54,7 @@ export function JourneyStepUsers({ open, onClose, stepType, stepId }: StepUsersP
 
     const state = useSearchTableState(useCallback(async params => await api.journeys.steps.searchUsers(projectId, journeyId, stepId, params), [projectId, journeyId, stepId]), {
         limit: 10,
-        sort: 'id',
+        sort: 'created_at',
         direction: 'desc',
     })
 
