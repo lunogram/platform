@@ -1,36 +1,34 @@
-import { useCallback, useContext, useState } from 'react'
+import { useCallback } from 'react'
 import PageContent from '../../ui/PageContent'
 import { SearchTable, useSearchTableQueryState } from '../../ui/SearchTable'
 import api from '../../api'
-import { Button, Menu, MenuItem, Modal } from '../../ui'
-import { AdminContext } from '../../contexts'
+// import { Button } from '../../ui'
+// import { AdminContext } from '../../contexts'
 import { useTranslation } from 'react-i18next'
-import FormWrapper from '../../ui/form/FormWrapper'
-import { Admin, organizationRoles } from '../../types'
-import TextInput from '../../ui/form/TextInput'
-import { checkOrganizationRole, snakeToTitle } from '../../utils'
-import { SingleSelect } from '../../ui/form/SingleSelect'
-import { ArchiveIcon, EditIcon } from '../../ui/icons'
-import { UUID } from 'crypto'
+// import FormWrapper from '../../ui/form/FormWrapper'
+// import { Admin, organizationRoles } from '../../types'
+// import TextInput from '../../ui/form/TextInput'
+import { snakeToTitle } from '../../utils'
+// import { SingleSelect } from '../../ui/form/SingleSelect'
+// import { ArchiveIcon, EditIcon } from '../../ui/icons'
+// import { UUID } from 'crypto'
 
 export default function Admins() {
     const { t } = useTranslation()
     const state = useSearchTableQueryState(useCallback(async params => await api.admins.search(params), []))
-    const admin = useContext(AdminContext)
-    const [editing, setEditing] = useState<Partial<Admin>>()
+    // const admin = useContext(AdminContext)
+    // const [editing, setEditing] = useState<Partial<Admin>>()
 
-    const handleDelete = async (id: UUID) => {
-        if (confirm(t('delete_admin_confirmation'))) {
-            await api.admins.delete(id)
-            await state.reload()
-        }
-    }
+    // const handleDelete = async (id: UUID) => {
+    //     if (confirm(t('delete_admin_confirmation'))) {
+    //         await api.admins.delete(id)
+    //         await state.reload()
+    //     }
+    // }
 
     return (
         <>
-            <PageContent title={t('admins')} actions={
-                <Button onClick={() => setEditing({})}>{t('add_admin')}</Button>
-            }>
+            <PageContent title={t('admins')}>
                 <SearchTable
                     {...state}
                     columns={[
@@ -42,27 +40,26 @@ export default function Admins() {
                             title: t('role'),
                             cell: ({ item }) => snakeToTitle(item.role),
                         },
-                        {
-                            key: 'options',
-                            title: t('options'),
-                            cell: ({ item }) => (
-                                <Menu size="small">
-                                    <MenuItem
-                                        onClick={async () => await handleDelete(item.id)}
-                                    >
-                                        <ArchiveIcon /> {t('delete')}
-                                    </MenuItem>
-                                    <MenuItem onClick={() => setEditing(item)}>
-                                        <EditIcon /> {t('edit')}
-                                    </MenuItem>
-                                </Menu>
-                            ),
-                        },
-                    ]}
-                    onSelectRow={setEditing} />
+                        // {
+                        //     key: 'options',
+                        //     title: t('options'),
+                        //     cell: ({ item }) => (
+                        //         <Menu size="small">
+                        //             <MenuItem
+                        //                 onClick={async () => await handleDelete(item.id)}
+                        //             >
+                        //                 <ArchiveIcon /> {t('delete')}
+                        //             </MenuItem>
+                        //             <MenuItem onClick={() => setEditing(item)}>
+                        //                 <EditIcon /> {t('edit')}
+                        //             </MenuItem>
+                        //         </Menu>
+                        //     ),
+                        // },
+                    ]} />
             </PageContent>
 
-            <Modal
+            {/* <Modal
                 open={Boolean(editing)}
                 onClose={() => setEditing(undefined)}
                 title={editing?.id ? t('edit_admin') : t('add_admin')}
@@ -109,7 +106,7 @@ export default function Admins() {
                         </>
                     )}
                 </FormWrapper>}
-            </Modal>
+            </Modal> */}
         </>
     )
 }
