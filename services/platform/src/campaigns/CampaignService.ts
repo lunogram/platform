@@ -11,7 +11,7 @@ import Subscription, { SubscriptionState } from '../subscriptions/Subscription'
 import { RequestError } from '../core/errors'
 import { PageParams } from '../core/searchParams'
 import { allLists } from '../lists/ListService'
-import { allTemplates, duplicateTemplate, screenshotHtml, templateInUserLocale, validateTemplates } from '../render/TemplateService'
+import { allTemplates, duplicateTemplate, validateTemplates } from '../render/TemplateService'
 import { getSubscription, getUserSubscriptionState } from '../subscriptions/SubscriptionService'
 import { chunk, pick, shallowEqual } from '../utilities'
 import { getProvider } from '../providers/ProviderRepository'
@@ -19,8 +19,6 @@ import { createTagSubquery, getTags, setTags } from '../tags/TagService'
 import { getProject } from '../projects/ProjectService'
 import CampaignError from './CampaignError'
 import CampaignGenerateListJob from './CampaignGenerateListJob'
-import Project from '../projects/Project'
-import Template from '../render/Template'
 import { differenceInDays, subDays } from 'date-fns'
 import { cacheDel, cacheGet } from '../config/redis'
 import App from '../app'
@@ -498,17 +496,6 @@ export const updateCampaignSend = async (campaignId: UUID, userId: UUID, referen
             .where('reference_id', referenceId),
         update,
     )
-}
-
-export const campaignPreview = async (project: Project, campaign: Campaign) => {
-    const templates = await Template.all(
-        qb => qb.where('campaign_id', campaign.id),
-    )
-
-    if (templates.length <= 0) return ''
-    const template = templateInUserLocale(templates, project)
-    const mapped = await template.map()
-    return screenshotHtml(mapped)
 }
 
 export const estimatedSendSize = async (campaign: Campaign) => {
