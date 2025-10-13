@@ -649,16 +649,6 @@ export interface Tag {
     count?: number
 }
 
-export interface QueueMetric {
-    data: Metric[]
-    waiting: number
-}
-
-export interface Metric {
-    date: string | Date | number
-    count: number
-}
-
 export interface LocaleOption {
     key: string
     label: string
@@ -667,9 +657,4 @@ export interface LocaleOption {
 
 export interface Locale extends LocaleOption {
     id: UUID
-}
-
-export interface Series {
-    label: string
-    data: Metric[]
 }

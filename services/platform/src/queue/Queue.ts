@@ -4,7 +4,7 @@ import { logger } from '../config/logger'
 import { LoggerConfig } from '../providers/LoggerProvider'
 import Job, { EncodedJob, JobError } from './Job'
 import MemoryQueueProvider, { MemoryConfig } from './MemoryQueueProvider'
-import QueueProvider, { MetricPeriod, QueueMetric, QueueProviderName } from './QueueProvider'
+import QueueProvider, { QueueProviderName } from './QueueProvider'
 import RedisQueueProvider, { RedisQueueConfig } from './RedisQueueProvider'
 
 export type QueueConfig = RedisQueueConfig | MemoryConfig | LoggerConfig
@@ -106,19 +106,7 @@ export default class Queue {
         await this.provider.resume()
     }
 
-    async isRunning(): Promise<boolean> {
-        return await this.provider.isRunning()
-    }
-
     async close() {
         this.provider.close()
-    }
-
-    async metrics(period = MetricPeriod.FOUR_HOURS): Promise<QueueMetric | undefined> {
-        return await this.provider.metrics?.(period)
-    }
-
-    async failed(): Promise<QueueMetric | undefined> {
-        return await this.provider.failed?.()
     }
 }

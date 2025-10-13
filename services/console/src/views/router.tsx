@@ -36,7 +36,6 @@ import OnboardingProject from './auth/OnboardingProject'
 import { CampaignsIcon, JourneysIcon, ListsIcon, SettingsIcon, UsersIcon } from '../ui/icons'
 import { Projects } from './project/Projects'
 import { getRecentProjects, pushRecentProject } from '../utils'
-import Performance from './organization/Performance'
 import Settings from './settings/Settings'
 import ProjectSidebar from './project/ProjectSidebar'
 import Admins from './organization/Admins'
@@ -137,10 +136,6 @@ export const createRouter = ({
                     {
                         path: 'admins',
                         element: <Admins />,
-                    },
-                    {
-                        path: 'performance',
-                        element: <Performance />,
                     },
                     {
                         path: 'settings',
@@ -346,10 +341,6 @@ export const createRouter = ({
                             {
                                 path: 'tags',
                                 element: <Tags />,
-                            },
-                            {
-                                path: 'performance',
-                                element: <Performance />,
                             },
                         ],
                     },
