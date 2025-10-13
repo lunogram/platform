@@ -39,18 +39,6 @@ export default function Settings() {
                 >
                     {form => <>
                         <Heading size="h3" title={t('general')} />
-                        <TextInput.Field
-                            form={form}
-                            disabled={!owner}
-                            name="username"
-                            subtitle="The organization username. Used for the subdomain that the organization is hosted under."
-                        />
-                        <TextInput.Field
-                            form={form}
-                            name="domain"
-                            disabled={!owner}
-                            subtitle="If filled, users who log in with SSO and have this domain will be automatically joined to the organization."
-                        />
                         <Heading size="h3" title="Tracking" />
                         <TextInput.Field
                             form={form}
