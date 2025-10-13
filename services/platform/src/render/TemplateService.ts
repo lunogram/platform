@@ -80,13 +80,12 @@ export const validateTemplates = async (projectId: UUID, campaignId: UUID) => {
     const templates = await allTemplates(projectId, campaignId)
     if (!templates.length) throw new RequestError('No templates found for this campaign.')
     for (const template of templates) {
-        const [isValid, error] = template.map().validate()
+        const [isValid, error] = (await template.map()).validate()
         if (!isValid) throw error
     }
 }
 
 export const sendProof = async (template: TemplateType, variables: Variables, recipient: string) => {
-
     // Ensure proof is ready to send
     const [isValid, error] = template.validate()
     if (!isValid) throw error

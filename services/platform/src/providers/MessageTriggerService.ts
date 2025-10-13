@@ -104,13 +104,13 @@ export async function loadSendJob<T extends TemplateType>({ campaign_id, user_id
         campaign,
         context,
         journey,
-        template: template.map() as T,
+        template: (await template.map()) as T,
         project,
         user,
     }
 
     // Check that the template is valid and capable of being sent
-    const [isValid, error] = template.map().validate()
+    const [isValid, error] = (await template.map()).validate()
     if (!isValid) {
         await failSend(response, error, () => false)
         return

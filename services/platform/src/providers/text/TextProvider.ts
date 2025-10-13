@@ -48,19 +48,19 @@ export abstract class TextProvider extends Provider {
             if (message.text.toLowerCase().includes('stop')) {
                 await toggleChannelSubscriptions(project.id, user, 'text')
 
-            // If the message includes the word START, re-enable
-            // SMS messages for the user
+                // If the message includes the word START, re-enable
+                // SMS messages for the user
             } else if (message.text.toLowerCase().includes('start')) {
                 await toggleChannelSubscriptions(project.id, user, 'text', SubscriptionState.subscribed)
 
-            // If the message includes the word HELP, send the help message
+                // If the message includes the word HELP, send the help message
             } else if (message.text.toLowerCase().includes('help') && project.text_help_message) {
                 channel.provider.send({
                     to: message.from,
                     text: project.text_help_message,
                 })
 
-            // Otherwise create an event so journeys can trigger off of the message
+                // Otherwise create an event so journeys can trigger off of the message
             } else {
                 await EventPostJob.from({
                     project_id: project.id,

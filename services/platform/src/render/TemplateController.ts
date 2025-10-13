@@ -12,9 +12,10 @@ import Template, { TemplateParams, TemplateUpdateParams } from './Template'
 import { createTemplate, deleteTemplate, getTemplate, pagedTemplates, sendProof, updateTemplate } from './TemplateService'
 import { UUID } from 'crypto'
 import { validate as uuidValidate } from 'uuid'
+import Campaign from '../campaigns/Campaign'
 
 const router = new Router<
-    ProjectState & { template?: Template }
+    ProjectState & { template?: Template, campaign?: Campaign }
 >({
     prefix: '/templates',
 })
@@ -227,7 +228,7 @@ router.delete('/:templateId', async ctx => {
 
 router.post('/:templateId/preview', async ctx => {
     const payload = ctx.request.body as Variables
-    const template = ctx.state.template!.map()
+    const template = await ctx.state.template!.map()
 
     try {
         ctx.body = template.compile({
@@ -263,7 +264,7 @@ const templateProofParams: JSONSchemaType<TemplateProofParams> = {
 }
 router.post('/:templateId/proof', async ctx => {
     const { variables, recipient } = validate(templateProofParams, ctx.request.body)
-    const template = ctx.state.template!.map()
+    const template = await ctx.state.template!.map()
     try {
         ctx.body = await sendProof(template, variables, recipient)
     } catch (error) {

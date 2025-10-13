@@ -12,9 +12,10 @@ import FormWrapper from '../../ui/form/FormWrapper'
 import Modal, { ModalProps } from '../../ui/Modal'
 import Tile, { TileGrid } from '../../ui/Tile'
 import { snakeToTitle } from '../../utils'
-import './IntegrationModal.css'
 import { ChevronLeftIcon } from '../../ui/icons'
 import { useTranslation } from 'react-i18next'
+
+import './IntegrationModal.css'
 
 interface IntegrationFormParams {
     project: Project
@@ -33,7 +34,7 @@ export function IntegrationForm({ project, provider: defaultProvider, onChange, 
                 .then(provider => {
                     setProvider(provider)
                 })
-                .catch(() => {})
+                .catch(() => { })
         }
     }, [defaultProvider])
 

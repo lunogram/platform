@@ -1,8 +1,8 @@
 import nodemailer from 'nodemailer'
 import mg from 'nodemailer-sendgrid'
-import EmailProvider from './EmailProvider'
+import EmailProvider, { EmailProviderSchema } from './EmailProvider'
 import Router = require('@koa/router')
-import Provider, { ExternalProviderParams, ProviderControllers, ProviderSchema, ProviderSetupMeta } from '../Provider'
+import Provider, { ExternalProviderParams, ProviderControllers, ProviderSetupMeta } from '../Provider'
 import { createController } from '../ProviderService'
 import { getUserFromEmail } from '../../users/UserRepository'
 import { getCampaign } from '../../campaigns/CampaignService'
@@ -36,7 +36,7 @@ export default class SendGridEmailProvider extends EmailProvider {
         },
     }
 
-    static schema = ProviderSchema<SendGridEmailProviderParams, SendGridDataParams>('SendGridProviderParams', {
+    static schema = EmailProviderSchema<SendGridEmailProviderParams, SendGridDataParams>('SendGridProviderParams', {
         type: 'object',
         required: ['api_key'],
         properties: {

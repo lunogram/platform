@@ -7,8 +7,10 @@ import { NotificationContent } from '../notifications/Notification'
 import { Email, NamedEmail } from '../providers/email/Email'
 import { BasePush } from '../providers/push/Push'
 import { Webhook } from '../providers/webhook/Webhook'
+import Provider from '../providers/Provider'
 import { paramsToEncodedLink } from './LinkService'
 import { UUID } from 'crypto'
+import { getCampaignProvider } from '../campaigns/CampaignService'
 
 export default class Template extends Model {
     project_id!: UUID
@@ -22,18 +24,27 @@ export default class Template extends Model {
 
     static jsonAttributes = ['data']
 
-    map(): TemplateType {
+    async map(): Promise<TemplateType> {
         const json = this as any
-        if (this.type === 'email') {
-            return EmailTemplate.fromJson(json)
-        } else if (this.type === 'text') {
+        switch (this.type) {
+        case 'email': {
+            const provider = await getCampaignProvider(this.campaign_id, this.project_id)
+            const template = EmailTemplate.fromJson(json)
+            return template.withProvider(provider)
+        }
+        case 'text': {
             return TextTemplate.fromJson(json)
-        } else if (this.type === 'push') {
+        }
+        case 'push': {
             return PushTemplate.fromJson(json)
-        } else if (this.type === 'in_app') {
+        }
+        case 'in_app': {
             return InAppTemplate.fromJson(json)
         }
-        return WebhookTemplate.fromJson(json)
+        default: {
+            return WebhookTemplate.fromJson(json)
+        }
+        }
     }
 
     validate(): IsValidSchema {
@@ -67,6 +78,40 @@ export class EmailTemplate extends Template {
     text?: string
     html!: string
     mjml?: string
+
+    withProvider(provider: Provider | undefined) {
+        if (!provider) return this
+
+        const defaults = {
+            name: provider.data.default_from_name ?? '',
+            address: provider.data.default_from ?? '',
+            reply_to: provider.data.default_reply_to ?? undefined,
+        }
+
+        // Normalize existing "from" into an object shape
+        let current: NamedEmail | undefined
+        if (!this.from) {
+            current = undefined
+        } else if (typeof this.from === 'string') {
+            current = { name: '', address: this.from }
+        } else {
+            current = this.from
+        }
+
+        this.reply_to = this.reply_to ?? defaults.reply_to
+        this.from = {
+            name: current?.name ?? defaults.name,
+            address: current?.address ?? defaults.address,
+        }
+
+        this.data = {
+            ...this.data,
+            from: this.from,
+            reply_to: this.reply_to,
+        }
+
+        return this
+    }
 
     parseJson(json: any) {
         super.parseJson(json)

@@ -1,14 +1,49 @@
 import nodemailer from 'nodemailer'
 import { LoggerProviderName } from '../LoggerProvider'
-import Provider, { ProviderGroup } from '../Provider'
+import Provider, { ExternalProviderParams, ProviderGroup, ProviderSchema } from '../Provider'
 import { Email } from './Email'
 import { RateLimitEmailError } from './EmailError'
 import { logger } from '../../config/logger'
+import { JSONSchemaType } from 'ajv'
 
 export type EmailProviderName = 'ses' | 'smtp' | 'mailgun' | 'sendgrid' | LoggerProviderName
 
-export default abstract class EmailProvider extends Provider {
+export interface EmailProviderParams {
+    default_from?: string
+    default_from_name?: string
+    default_reply_to?: string
+}
 
+export function EmailProviderSchema<_ extends ExternalProviderParams, D>(
+    id: string,
+    data: JSONSchemaType<D>,
+): any {
+    const extendedData: JSONSchemaType<D & EmailProviderParams> = {
+        ...data,
+        properties: {
+            ...data.properties,
+            default_from: {
+                type: 'string',
+                description: 'Default "From" email address used if not overridden.',
+                nullable: true,
+            },
+            default_from_name: {
+                type: 'string',
+                description: 'Default display name used in emails.',
+                nullable: true,
+            },
+            default_reply_to: {
+                type: 'string',
+                description: 'Default reply-to email address.',
+                nullable: true,
+            },
+        },
+    } as JSONSchemaType<D & EmailProviderParams>
+
+    return ProviderSchema(id, extendedData)
+}
+
+export default abstract class EmailProvider extends Provider {
     unsubscribe?: string
     transport?: nodemailer.Transporter
     boot?(): void

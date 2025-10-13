@@ -1,9 +1,9 @@
 import nodemailer from 'nodemailer'
 import crypto from 'crypto'
 import mg from 'nodemailer-mailgun-transport'
-import EmailProvider from './EmailProvider'
+import EmailProvider, { EmailProviderSchema } from './EmailProvider'
 import Router = require('@koa/router')
-import Provider, { ExternalProviderParams, ProviderControllers, ProviderSchema, ProviderSetupMeta } from '../Provider'
+import Provider, { ExternalProviderParams, ProviderControllers, ProviderSetupMeta } from '../Provider'
 import { createController } from '../ProviderService'
 import { getUserFromEmail } from '../../users/UserRepository'
 import { RequestError } from '../../core/errors'
@@ -36,7 +36,7 @@ export default class MailgunEmailProvider extends EmailProvider {
         },
     }
 
-    static schema = ProviderSchema<MailgunEmailProviderParams, MailgunDataParams>('mailgunProviderParams', {
+    static schema = EmailProviderSchema<MailgunEmailProviderParams, MailgunDataParams>('mailgunProviderParams', {
         type: 'object',
         required: ['api_key', 'domain', 'region'],
         properties: {

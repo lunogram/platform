@@ -20,7 +20,6 @@ interface TemplateDetailProps {
 }
 
 export default function TemplateDetail({ template }: TemplateDetailProps) {
-
     const { t } = useTranslation()
     const [{ id, type, data }, setTemplate] = useState(template)
     const [campaign, setCampaign] = useContext(CampaignContext)
@@ -38,6 +37,9 @@ export default function TemplateDetail({ template }: TemplateDetailProps) {
         setIsEditOpen(false)
     }
 
+    if (!campaign?.provider) return <></>
+    const provider = campaign.provider
+
     return (
         <>
             <Columns>
@@ -47,7 +49,7 @@ export default function TemplateDetail({ template }: TemplateDetailProps) {
                     } />
                     {
                         {
-                            email: <EmailTable data={data} />,
+                            email: <EmailTable data={data} provider={provider} />,
                             text: <TextTable data={data} />,
                             push: <PushTable data={data} />,
                             webhook: <WebhookTable data={data} />,
@@ -76,7 +78,7 @@ export default function TemplateDetail({ template }: TemplateDetailProps) {
                     {form => <>
                         {
                             {
-                                email: <EmailForm form={form} />,
+                                email: <EmailForm form={form} provider={provider} />,
                                 text: <TextForm form={form} />,
                                 push: <PushForm form={form} />,
                                 webhook: <WebhookForm form={form} />,

@@ -1,9 +1,9 @@
 import { logger } from '../../config/logger'
 import { randomInt, sleep, uuid } from '../../utilities'
-import { ExternalProviderParams, ProviderControllers, ProviderSchema } from '../Provider'
+import { ExternalProviderParams, ProviderControllers } from '../Provider'
 import { createController } from '../ProviderService'
 import { Email } from './Email'
-import EmailProvider from './EmailProvider'
+import EmailProvider, { EmailProviderSchema } from './EmailProvider'
 
 export default class LoggerEmailProvider extends EmailProvider {
     addLatency?: boolean
@@ -16,7 +16,7 @@ export default class LoggerEmailProvider extends EmailProvider {
         icon: 'https://lunogram.com/providers/logger.svg',
     }
 
-    static schema = ProviderSchema<ExternalProviderParams, any>('loggerEmailProviderParams', {
+    static schema = EmailProviderSchema<ExternalProviderParams, any>('loggerEmailProviderParams', {
         type: 'object',
     })
 
