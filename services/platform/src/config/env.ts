@@ -10,6 +10,7 @@ import { isValidUrl } from '../utilities'
 
 export type Runner = 'api' | 'worker'
 export interface Env {
+    environment: 'development' | 'production'
     runners: Runner[]
     config: {
         monoDocker: boolean
@@ -66,6 +67,7 @@ export default (type?: EnvType): Env => {
     }
 
     return {
+        environment: (process.env.ENVIRONMENT as 'development' | 'production') ?? 'development',
         runners: (process.env.RUNNER ?? 'api,worker').split(',') as Runner[],
         config: {
             monoDocker: envBool(process.env.MONO, false),

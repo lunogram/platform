@@ -70,6 +70,7 @@ export default class Provider extends Model {
 
     static jsonAttributes = ['data']
 
+    static isDevelopment = false
     static namespace = this.name
     static meta: Omit<ProviderMeta, 'group' | 'type'> = {
         name: '',

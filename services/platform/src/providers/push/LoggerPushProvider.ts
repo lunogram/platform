@@ -7,6 +7,8 @@ import { PushProvider } from './PushProvider'
 export default class LoggerPushProvider extends PushProvider {
     addLatency?: boolean
 
+    static isDevelopment = true
+
     static namespace = 'logger'
     static meta = {
         name: 'Logger',
