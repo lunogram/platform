@@ -116,7 +116,7 @@ export default class CloudAuthProvider extends AuthProvider {
                 return
             }
 
-            const primaryEmailAddress = data.email_addresses?.find((email: any) => email.id === data.primary_email_address_id)
+            const primaryEmailAddress = data.email_addresses?.find((email) => email.id === data.primary_email_address_id)
             if (!primaryEmailAddress) {
                 logger.error(`Clerk user has no email: ${data.id}`)
                 throw new RequestError(AuthError.InvalidEmail)

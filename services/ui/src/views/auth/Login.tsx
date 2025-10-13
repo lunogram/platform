@@ -40,7 +40,12 @@ export default function Login() {
     }
 
     const handleBasicAuth = async ({ email, password }: LoginParams) => {
-        await api.auth.basicAuth(email, password!, searchParams.get('r') ?? '/')
+        if (!password) {
+            setMessage(t('login_basic_instructions'))
+            return
+        }
+
+        await api.auth.basicAuth(email, password, searchParams.get('r') ?? '/')
     }
 
     const handleEmailAuth = async ({ email }: LoginParams) => {

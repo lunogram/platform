@@ -13,6 +13,7 @@ export default function LoginCallback() {
         switch (driver) {
         case 'cloud':
             await api.auth.cloudAuth(redirect)
+            break
         }
 
         window.location.href = redirect
