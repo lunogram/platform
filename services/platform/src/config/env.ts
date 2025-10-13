@@ -12,8 +12,6 @@ export type Runner = 'api' | 'worker'
 export interface Env {
     runners: Runner[]
     config: {
-        monoDocker: boolean
-        multiOrg: boolean
         logCompiledMessage: boolean
     }
     db: DatabaseConfig
@@ -68,8 +66,6 @@ export default (type?: EnvType): Env => {
     return {
         runners: (process.env.RUNNER ?? 'api,worker').split(',') as Runner[],
         config: {
-            monoDocker: envBool(process.env.MONO, false),
-            multiOrg: envBool(process.env.MULTI_ORG, false),
             logCompiledMessage: envBool(process.env.LOG_COMPILED_MESSAGE, false),
         },
         db: {

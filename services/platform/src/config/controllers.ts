@@ -1,5 +1,4 @@
 import Router from '@koa/router'
-import send from 'koa-send'
 import ProjectController, { ProjectSubrouter, projectMiddleware } from '../projects/ProjectController'
 import ClientController from '../client/ClientController'
 import SegmentController from '../client/SegmentController'
@@ -21,7 +20,6 @@ import ProjectApiKeyController from '../projects/ProjectApiKeyController'
 import ProjectLocaleController from '../projects/ProjectLocaleController'
 import AdminController from '../auth/AdminController'
 import OrganizationController from '../organizations/OrganizationController'
-import App from '../app'
 import { organizationMiddleware } from '../organizations/OrganizationMiddleware'
 import ResourceController from '../render/ResourceController'
 
@@ -34,26 +32,11 @@ export const register = (parent: Router, ...routers: Router[]) => {
 
 export type SubRouter = Router & { global?: boolean }
 
-export default (app: App) => {
-
+export default () => {
     const routers: Record<string, SubRouter> = {
         admin: adminRouter(),
         client: clientRouter(),
         public: publicRouter(),
-    }
-
-    // If we are running in mono mode, we need to also serve the UI
-    if (app.env.config.monoDocker) {
-        const ui = new Router()
-        ui.get('/(.*)', async (ctx, next) => {
-            try {
-                await send(ctx, './public/index.html')
-            } catch {
-                return next()
-            }
-        })
-        routers.ui = ui
-        routers.ui.global = true
     }
 
     return routers

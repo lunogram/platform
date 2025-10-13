@@ -1,7 +1,6 @@
 import Koa from 'koa'
 import koaBody from 'koa-body'
 import cors from '@koa/cors'
-import serve from 'koa-static'
 import controllers, { SubRouter, register } from './config/controllers'
 import { RequestError } from './core/errors'
 import { logger } from './config/logger'
@@ -54,16 +53,12 @@ export default class Api extends Koa {
         this.keys = [app.env.secret]
         this.use(koaBody())
             .use(cors())
-            .use(serve('./public', {
-                hidden: true,
-                defer: !app.env.config.monoDocker,
-            }))
 
         this.registerControllers()
     }
 
     getControllers() {
-        return controllers(this.app)
+        return controllers()
     }
 
     registerControllers() {
