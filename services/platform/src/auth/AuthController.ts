@@ -39,7 +39,7 @@ router.post('/login/:driver/callback', async ctx => {
     await validateAuth(ctx)
 })
 
-router.post('/login/:driver/webhook', async ctx => {
+router.post('/:driver/webhook', async ctx => {
     await authWebhook(ctx)
 })
 
