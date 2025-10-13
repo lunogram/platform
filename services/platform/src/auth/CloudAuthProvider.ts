@@ -66,7 +66,7 @@ export default class CloudAuthProvider extends AuthProvider {
                 email: primaryEmailAddress.emailAddress,
                 external_id: payload.sub,
                 organization_id: organization.id,
-                role: 'admin',
+                role: 'owner',
             })
         }
     }
@@ -111,7 +111,7 @@ export default class CloudAuthProvider extends AuthProvider {
                 email: primaryEmailAddress?.email_address,
                 external_id: data.id,
                 organization_id: organization.id,
-                role: 'admin',
+                role: 'owner',
             })
             break
         }
