@@ -1,8 +1,8 @@
 import { useSearchParams } from 'react-router'
+import { SignIn } from '@clerk/clerk-react'
 // import { ReactComponent as Logo } from '../../assets/logo.svg'
 import { env } from '../../config/env'
 import Button from '../../ui/Button'
-import './Auth.css'
 import { useEffect, useState } from 'react'
 import api from '../../api'
 import { AuthMethod } from '../../types'
@@ -10,6 +10,8 @@ import FormWrapper from '../../ui/form/FormWrapper'
 import TextInput from '../../ui/form/TextInput'
 import { Alert } from '../../ui'
 import { useTranslation } from 'react-i18next'
+
+import './Auth.css'
 
 interface LoginParams {
     email: string
@@ -22,30 +24,34 @@ export default function Login() {
     const [methods, setMethods] = useState<AuthMethod[]>()
     const [method, setMethod] = useState<AuthMethod>()
     const [message, setMessage] = useState<string>()
+    const redirect = searchParams.get('r') ?? '/'
 
     const handleRedirect = (driver: string, email?: string) => {
-        window.location.href = `${env.api.baseURL}/auth/login/${driver}?r=${searchParams.get('r') ?? '/'}&email=${email}`
+        window.location.href = new URL(`/auth/login/${driver}?r=${redirect}&email=${email}`, env.api.baseURL).toString()
     }
 
+    const reservedDrivers = ['cloud', 'basic', 'email']
     const handleMethod = (method: AuthMethod) => {
-        if (['multi', 'basic', 'email'].includes(method.driver)) {
+        if (reservedDrivers.includes(method.driver)) {
             setMethod(method)
         } else {
             handleRedirect(method.driver)
         }
     }
 
+    const handleBasicAuth = async ({ email, password }: LoginParams) => {
+        await api.auth.basicAuth(email, password!, searchParams.get('r') ?? '/')
+    }
+
+    const handleEmailAuth = async ({ email }: LoginParams) => {
+        await api.auth.emailAuth(email, searchParams.get('r') ?? '/')
+        setMessage(t('login_email_confirmation'))
+    }
+
     const handleLogin = (method: string) => {
-        return async ({ email, password }: LoginParams) => {
-            if (password && method === 'basic') {
-                await api.auth.basicAuth(email, password, searchParams.get('r') ?? '/')
-            } else if (method === 'email') {
-                await api.auth.emailAuth(email, searchParams.get('r') ?? '/')
-                setMessage(t('login_email_confirmation'))
-            } else {
-                await checkEmail(method, email)
-                handleRedirect(method, email)
-            }
+        return async ({ email }: LoginParams) => {
+            await checkEmail(method, email)
+            handleRedirect(method, email)
         }
     }
 
@@ -58,8 +64,16 @@ export default function Login() {
     useEffect(() => {
         api.auth.methods().then((methods) => {
             setMethods(methods)
+            if (methods.length === 1) {
+                handleMethod(methods[0])
+            }
         }).catch(() => { })
     }, [])
+
+    // TODO: we have to think what to do if no methods are available
+    if (!methods || methods.length === 0) {
+        return null
+    }
 
     return (
         <div className="auth login">
@@ -82,7 +96,7 @@ export default function Login() {
                     <h2>{t('welcome')}</h2>
                     <p>{t('login_basic_instructions')}</p>
                     <FormWrapper<LoginParams>
-                        onSubmit={handleLogin(method.driver)}>
+                        onSubmit={handleBasicAuth}>
                         {form => <>
                             <TextInput.Field form={form} name="email" />
                             <TextInput.Field form={form} name="password" type="password" />
@@ -102,7 +116,7 @@ export default function Login() {
                         : <>
                             <p>{t('login_email_instructions')}</p>
                             <FormWrapper<LoginParams>
-                                onSubmit={handleLogin(method.driver)}>
+                                onSubmit={handleEmailAuth}>
                                 {form => <>
                                     <TextInput.Field form={form} name="email" />
                                 </>}
@@ -112,7 +126,10 @@ export default function Login() {
                     }
                 </div>
             )}
-            {method && !['basic', 'email'].includes(method.driver) && (
+            {method && method.driver === 'cloud' && (
+                <SignIn forceRedirectUrl={`/login/cloud/callback?r=${redirect}`} />
+            )}
+            {method && !reservedDrivers.includes(method.driver) && (
                 <div className="auth-step">
                     <h2>{t('welcome')}</h2>
                     <p>{t('login_email_available_methods')}</p>

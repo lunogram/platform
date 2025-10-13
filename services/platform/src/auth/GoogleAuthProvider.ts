@@ -10,7 +10,6 @@ export interface GoogleConfig extends AuthTypeConfig {
 }
 
 export default class GoogleAuthProvider extends AuthProvider {
-
     private provider: OpenIDAuthProvider
     constructor(config: GoogleConfig) {
         super()

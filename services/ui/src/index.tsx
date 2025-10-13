@@ -1,8 +1,9 @@
+import './i18n'
+import App from './App'
 import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App'
-import './i18n'
 import reportWebVitals from './reportWebVitals'
+import { ClerkProvider } from '@clerk/clerk-react'
 
 import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'
@@ -10,12 +11,22 @@ import '@fontsource/inter/700.css'
 import './variables.css'
 import './index.css'
 
+const CLERK_PUBLISHABLE_KEY = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY
+
 const root = ReactDOM.createRoot(
     document.getElementById('root') as HTMLElement,
 )
 root.render(
     <StrictMode>
-        <App />
+        {CLERK_PUBLISHABLE_KEY
+            ? (
+                <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+                    <App />
+                </ClerkProvider>
+            )
+            : (
+                <App />
+            )}
     </StrictMode>,
 )
 

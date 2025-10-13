@@ -1,5 +1,5 @@
 exports.up = async function (knex) {
-    await knex.raw(`
+  await knex.raw(`
 CREATE OR REPLACE FUNCTION set_updated_at () RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   NEW.updated_at := current_timestamp;

@@ -17,7 +17,7 @@ export default function Settings() {
     const deleteOrganization = async () => {
         if (confirm('Are you sure you want to delete this organization?')) {
             await api.organizations.delete()
-            await api.auth.logout()
+            // await api.auth.logout()
             window.location.href = '/'
         }
     }

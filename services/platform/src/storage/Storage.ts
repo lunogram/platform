@@ -4,7 +4,7 @@ import Image from './Image'
 import { S3Config, S3StorageProvider } from './S3StorageProvider'
 import { ImageUploadTask, StorageProvider, StorageProviderName } from './StorageProvider'
 import path from 'path'
-import { combineURLs, uuid } from '../utilities'
+import { uuid } from '../utilities'
 import { InternalError } from '../core/errors'
 import StorageError from './StorageError'
 import App from '../app'
@@ -61,7 +61,7 @@ export default class Storage {
 
         // If an override is provide, utilize that
         if (App.main.env.storage.baseUrl) {
-            return combineURLs([App.main.env.storage.baseUrl, path])
+            return new URL(path, App.main.env.storage.baseUrl).toString()
         }
 
         // If we are using S3, provide a path based on endpoint if needed

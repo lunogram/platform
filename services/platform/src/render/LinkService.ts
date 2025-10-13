@@ -6,7 +6,6 @@ import { getCampaign } from '../campaigns/CampaignService'
 import EventPostJob from '../client/EventPostJob'
 import { User } from '../users/User'
 import { getUser } from '../users/UserRepository'
-import { combineURLs } from '../utilities'
 import { UUID } from 'node:crypto'
 
 export interface TrackedLinkParams {
@@ -21,8 +20,7 @@ interface TrackedLinkParts extends TrackedLinkParams {
 }
 
 export const paramsToEncodedLink = (params: TrackedLinkParts): string => {
-    const baseUrl = combineURLs([App.main.env.baseUrl, params.path])
-    const url = new URL(baseUrl)
+    const url = new URL(params.path, App.main.env.baseUrl)
     url.searchParams.set('u', params.userId)
     url.searchParams.set('c', params.campaignId)
     if (params.referenceId) {

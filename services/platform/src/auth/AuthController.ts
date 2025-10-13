@@ -1,8 +1,7 @@
 import Router from '@koa/router'
-import { getTokenCookies, revokeAccessToken } from './TokenRepository'
 import { getOrganizationByEmail } from '../organizations/OrganizationService'
 import Organization from '../organizations/Organization'
-import { authMethods, checkAuth, startAuth, validateAuth } from './Auth'
+import { authMethods, authWebhook, checkAuth, startAuth, validateAuth } from './Auth'
 
 const router = new Router<{
     organization?: Organization
@@ -11,7 +10,7 @@ const router = new Router<{
 })
 
 router.get('/methods', async ctx => {
-    ctx.body = await authMethods(ctx.state.organization)
+    ctx.body = await authMethods()
 })
 
 router.post('/check', async ctx => {
@@ -40,20 +39,8 @@ router.post('/login/:driver/callback', async ctx => {
     await validateAuth(ctx)
 })
 
-router.post('/logout', async ctx => {
-    const oauth = getTokenCookies(ctx)
-    if (oauth) {
-        await revokeAccessToken(oauth.access_token, ctx)
-    }
-    ctx.redirect('/')
-})
-
-router.get('/logout', async ctx => {
-    const oauth = getTokenCookies(ctx)
-    if (oauth) {
-        await revokeAccessToken(oauth.access_token, ctx)
-    }
-    ctx.redirect('/')
+router.post('/login/:driver/webhook', async ctx => {
+    await authWebhook(ctx)
 })
 
 export default router

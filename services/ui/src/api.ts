@@ -130,11 +130,11 @@ const api = {
         emailAuth: async (email: string, redirect: string = '/') => {
             await client.post('/auth/login/email', { email, redirect })
         },
+        cloudAuth: async (redirect: string = '/') => {
+            await client.post('/auth/login/cloud/callback', { redirect })
+        },
         login() {
             window.location.href = `/login?r=${encodeURIComponent(window.location.href)}`
-        },
-        async logout() {
-            window.location.href = env.api.baseURL + '/auth/logout'
         },
     },
 

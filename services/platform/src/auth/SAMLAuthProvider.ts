@@ -88,16 +88,14 @@ export default class SAMLAuthProvider extends AuthProvider {
         // If there is no profile we take no action
         if (!response.profile) throw new RequestError(AuthError.SAMLValidationError)
         if (response.loggedOut) {
-            await this.logout({ email: response.profile.nameID }, ctx)
             return
         }
 
         // If we are logging in, grab profile and create tokens
         const { first_name, last_name, nameID: email } = response.profile
-        const domain = this.getDomain(email)
-        if (!email || !domain) throw new RequestError(AuthError.SAMLValidationError)
+        if (!email) throw new RequestError(AuthError.SAMLValidationError)
 
-        await this.login({ first_name, last_name, email, domain }, ctx, state)
+        await this.login({ first_name, last_name, email }, ctx, state)
 
         ctx.cookies.set('organization', null)
     }

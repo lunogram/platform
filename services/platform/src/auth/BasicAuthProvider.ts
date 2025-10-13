@@ -2,7 +2,7 @@ import { Context } from 'koa'
 import { AuthTypeConfig } from './Auth'
 import AuthProvider from './AuthProvider'
 import App from '../app'
-import { combineURLs, firstQueryParam } from '../utilities'
+import { firstQueryParam } from '../utilities'
 import { RequestError } from '../core/errors'
 import AuthError from './AuthError'
 
@@ -13,7 +13,6 @@ export interface BasicAuthConfig extends AuthTypeConfig {
 }
 
 export default class BasicAuthProvider extends AuthProvider {
-
     private config: BasicAuthConfig
     constructor(config: BasicAuthConfig) {
         super()
@@ -21,15 +20,13 @@ export default class BasicAuthProvider extends AuthProvider {
     }
 
     async start(ctx: Context) {
-
         const redirect = firstQueryParam(ctx.request.query.r)
 
         // Redirect to the login form
-        ctx.redirect(combineURLs([App.main.env.baseUrl, '/login/basic']) + '?r=' + redirect)
+        ctx.redirect(new URL(`/login/basic?r=${redirect}`, App.main.env.baseUrl).toString())
     }
 
     async validate(ctx: Context) {
-
         const { email, password } = ctx.request.body
         if (!email || !password) throw new RequestError(AuthError.MissingCredentials)
 
@@ -39,6 +36,6 @@ export default class BasicAuthProvider extends AuthProvider {
         }
 
         // Process the login
-        await this.login({ email, first_name: 'Admin', domain: 'local' }, ctx)
+        await this.login({ email, first_name: 'Admin' }, ctx)
     }
 }
