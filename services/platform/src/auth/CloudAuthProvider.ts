@@ -94,56 +94,56 @@ export default class CloudAuthProvider extends AuthProvider {
         }) as WebhookEvent
 
         switch (type) {
-            case 'user.created': {
-                const createdExternalAdmin = await getAdminByExternalId(data.id)
-                if (createdExternalAdmin) {
-                    return
-                }
-
-                const primaryEmailAddress = data.email_addresses?.find((email: any) => email.id === data.primary_email_address_id)
-                if (!primaryEmailAddress) {
-                    logger.error(`Clerk user has no email: ${data.id}`)
-                    throw new RequestError(AuthError.InvalidEmail)
-                }
-
-                const organization = await createOrganization()
-                await createOrUpdateAdmin({
-                    email: primaryEmailAddress?.email_address,
-                    external_id: data.id,
-                    organization_id: organization.id,
-                    role: 'admin',
-                })
-                break
+        case 'user.created': {
+            const createdExternalAdmin = await getAdminByExternalId(data.id)
+            if (createdExternalAdmin) {
+                return
             }
-            case 'user.updated': {
-                const updatedExternalAdmin = await getAdminByExternalId(data.id)
-                if (!updatedExternalAdmin) {
-                    return
-                }
 
-                const primaryEmailAddress = data.email_addresses?.find((email) => email.id === data.primary_email_address_id)
-                if (!primaryEmailAddress) {
-                    logger.error(`Clerk user has no email: ${data.id}`)
-                    throw new RequestError(AuthError.InvalidEmail)
-                }
-
-                updatedExternalAdmin.email = primaryEmailAddress.email_address
-                await createOrUpdateAdmin(updatedExternalAdmin)
-                break
+            const primaryEmailAddress = data.email_addresses?.find((email: any) => email.id === data.primary_email_address_id)
+            if (!primaryEmailAddress) {
+                logger.error(`Clerk user has no email: ${data.id}`)
+                throw new RequestError(AuthError.InvalidEmail)
             }
-            case 'user.deleted': {
-                if (!data.id) {
-                    return
-                }
 
-                const deletedExternalAdmin = await getAdminByExternalId(data.id)
-                if (!deletedExternalAdmin) {
-                    return
-                }
-
-                await deleteAdmin(deletedExternalAdmin.id)
-                break
+            const organization = await createOrganization()
+            await createOrUpdateAdmin({
+                email: primaryEmailAddress?.email_address,
+                external_id: data.id,
+                organization_id: organization.id,
+                role: 'admin',
+            })
+            break
+        }
+        case 'user.updated': {
+            const updatedExternalAdmin = await getAdminByExternalId(data.id)
+            if (!updatedExternalAdmin) {
+                return
             }
+
+            const primaryEmailAddress = data.email_addresses?.find((email) => email.id === data.primary_email_address_id)
+            if (!primaryEmailAddress) {
+                logger.error(`Clerk user has no email: ${data.id}`)
+                throw new RequestError(AuthError.InvalidEmail)
+            }
+
+            updatedExternalAdmin.email = primaryEmailAddress.email_address
+            await createOrUpdateAdmin(updatedExternalAdmin)
+            break
+        }
+        case 'user.deleted': {
+            if (!data.id) {
+                return
+            }
+
+            const deletedExternalAdmin = await getAdminByExternalId(data.id)
+            if (!deletedExternalAdmin) {
+                return
+            }
+
+            await deleteAdmin(deletedExternalAdmin.id)
+            break
+        }
         }
     }
 }

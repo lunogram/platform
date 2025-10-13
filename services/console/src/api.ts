@@ -1,6 +1,6 @@
 import Axios from 'axios'
 import { env } from './config/env'
-import { Admin, AuthMethod, Campaign, CampaignCreateParams, CampaignLaunchParams, CampaignUpdateParams, CampaignUser, Image, Journey, JourneyEntranceDetail, JourneyStepMap, JourneyUserStep, List, ListCreateParams, ListUpdateParams, Locale, Organization, OrganizationUpdateParams, Project, ProjectAdmin, ProjectAdminInviteParams, ProjectAdminParams, ProjectApiKey, ProjectApiKeyParams, Provider, ProviderCreateParams, ProviderMeta, ProviderUpdateParams, QueueMetric, Resource, RulePath, SearchParams, SearchResult, Series, Subscription, SubscriptionCreateParams, SubscriptionParams, SubscriptionUpdateParams, Tag, Template, TemplateCreateParams, TemplatePreviewParams, TemplateProofParams, TemplateUpdateParams, User, UserEvent, UserSubscription, VariableSuggestions } from './types'
+import { Admin, AuthMethod, Campaign, CampaignCreateParams, CampaignLaunchParams, CampaignUpdateParams, CampaignUser, Image, Journey, JourneyEntranceDetail, JourneyStepMap, JourneyUserStep, List, ListCreateParams, ListUpdateParams, Locale, Organization, OrganizationUpdateParams, Project, ProjectAdmin, ProjectAdminInviteParams, ProjectAdminParams, ProjectApiKey, ProjectApiKeyParams, Provider, ProviderCreateParams, ProviderMeta, ProviderUpdateParams, Resource, RulePath, SearchParams, SearchResult, Subscription, SubscriptionCreateParams, SubscriptionParams, SubscriptionUpdateParams, Tag, Template, TemplateCreateParams, TemplatePreviewParams, TemplateProofParams, TemplateUpdateParams, User, UserEvent, UserSubscription, VariableSuggestions } from './types'
 import { UUID } from 'crypto'
 
 function appendValue(params: URLSearchParams, name: string, value: unknown) {
@@ -366,24 +366,6 @@ const api = {
             .then(r => r.data),
         delete: async () => await client
             .delete('/admin/organizations')
-            .then(r => r.data),
-        metrics: async () => await client
-            .get<QueueMetric>('/admin/organizations/performance/queue')
-            .then(r => r.data),
-        getQueueState: async () => await client
-            .get<boolean>('/admin/organizations/performance/queue/state')
-            .then(r => r.data),
-        setQueueState: async () => await client
-            .put<boolean>('/admin/organizations/performance/queue/state')
-            .then(r => r.data),
-        jobs: async () => await client
-            .get<string[]>('/admin/organizations/performance/jobs')
-            .then(r => r.data),
-        jobPerformance: async (job: string) => await client
-            .get<{ throughput: Series[], timing: Series[] }>(`/admin/organizations/performance/jobs/${job}`)
-            .then(r => r.data),
-        failed: async () => await client
-            .get<any>('/admin/organizations/performance/failed')
             .then(r => r.data),
     },
 

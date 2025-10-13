@@ -1,11 +1,9 @@
 import Router from '@koa/router'
 import { JSONSchemaType, validate } from '../core/validate'
-import App from '../app'
 import { Context } from 'koa'
 import { JwtAdmin } from '../auth/AuthMiddleware'
 import { deleteOrganization, getOrganization, organizationIntegrations, organizationRoleMiddleware, requireOrganizationRole, updateOrganization } from './OrganizationService'
 import Organization, { OrganizationParams } from './Organization'
-import { jobs } from '../config/queue'
 
 const router = new Router<{
     admin: JwtAdmin
@@ -24,66 +22,6 @@ router.get('/', async ctx => {
 })
 
 router.use(organizationRoleMiddleware('admin'))
-
-router.get('/performance/queue', async ctx => {
-    ctx.body = await App.main.queue.metrics()
-})
-
-router.get('/performance/queue/state', async ctx => {
-    ctx.body = await App.main.queue.isRunning()
-})
-
-router.put('/performance/queue/state', async ctx => {
-    const queue = App.main.queue
-    if (await queue.isRunning()) {
-        await queue.pause()
-    } else {
-        await queue.resume()
-    }
-    ctx.body = await queue.isRunning()
-})
-
-router.get('/performance/jobs', async ctx => {
-    ctx.body = jobs.map(job => job.$name)
-})
-
-router.get('/performance/jobs/:job', async ctx => {
-    const jobName = ctx.params.job
-
-    const added = await App.main.stats.list(jobName)
-    const completed = await App.main.stats.list(`${jobName}:completed`)
-    const duration = await App.main.stats.list(`${jobName}:duration`)
-    const average = duration.map((item, index) => {
-        const count = completed[index]?.count
-        return {
-            date: item.date,
-            count: count ? item.count / count : 0,
-        }
-    })
-
-    ctx.body = {
-        throughput: [
-            {
-                label: 'added',
-                data: added,
-            },
-            {
-                label: 'completed',
-                data: completed,
-            },
-        ],
-        timing: [
-            {
-                label: 'average',
-                data: average,
-            },
-        ],
-    }
-})
-
-router.get('/performance/failed', async ctx => {
-    ctx.body = await App.main.queue.failed()
-})
 
 router.get('/integrations', async ctx => {
     ctx.body = await organizationIntegrations(ctx.state.organization)
