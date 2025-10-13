@@ -255,7 +255,9 @@ export function CampaignForm({ campaign, onSave, type }: CampaignEditParams) {
     const [project] = useContext(ProjectContext)
 
     const [providers, setProviders] = useState<Provider[]>([])
+    const [channelProviders, setChannelProviders] = useState<Provider[]>([])
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+
     useEffect(() => {
         const params: SearchParams = { limit: 9999, q: '' }
         api.subscriptions.search(project.id, params)
@@ -294,8 +296,24 @@ export function CampaignForm({ campaign, onSave, type }: CampaignEditParams) {
             defaultValues={campaign ?? { type: type ?? 'trigger' }}
             submitLabel={t('save')}
         >
-            {form => (
-                <>
+            {form => {
+                const channel = useWatch({
+                    control: form.control,
+                    name: 'channel',
+                })
+
+                useEffect(() => {
+                    const effectiveChannel = type === 'blast' ? campaign?.channel : channel
+                    setChannelProviders(
+                        effectiveChannel
+                            ? providers.filter(
+                                p => p.group === effectiveChannel || (effectiveChannel === 'in_app' && p.group === 'push'),
+                            )
+                            : [],
+                    )
+                }, [campaign, channel, providers, type])
+
+                return <>
                     <TextInput.Field form={form}
                         name="name"
                         label={t('campaign_name')}
@@ -318,18 +336,20 @@ export function CampaignForm({ campaign, onSave, type }: CampaignEditParams) {
                             : (
                                 <>
                                     <Heading size="h3" title={t('channel')}>{t('campaign_form_channel_instruction')} </Heading>
-                                    <ChannelSelection
-                                        subscriptions={subscriptions}
-                                        form={form}
-                                    />
+                                    {providers.length
+                                        ? <ChannelSelection
+                                            subscriptions={subscriptions}
+                                            form={form}
+                                        />
+                                        : <></>}
                                 </>
                             )
                     }
-                    {providers.length
+                    {channelProviders.length
                         ? <Columns>
                             <Column>
                                 <ProviderSelection
-                                    providers={providers}
+                                    providers={channelProviders}
                                     form={form}
                                 />
                             </Column>
@@ -348,7 +368,7 @@ export function CampaignForm({ campaign, onSave, type }: CampaignEditParams) {
                             }>{t('setup_integration_no_providers')}</Alert>
                     }
                 </>
-            )}
+            }}
         </FormWrapper>
     )
 }
