@@ -188,8 +188,4 @@ router.post('/:campaignId/duplicate', async ctx => {
     ctx.body = await duplicateCampaign(ctx.state.campaign!, ctx.state.admin?.id)
 })
 
-router.get('/:campaignId/preview', async ctx => {
-    ctx.body = await campaignPreview(ctx.state.project, ctx.state.campaign!)
-})
-
 export default router
