@@ -1,39 +1,39 @@
-import { useCallback, useContext, useState } from 'react'
+import { useCallback, useContext } from 'react'
 import api from '../../api'
 import { ProjectContext } from '../../contexts'
-import { ProjectAdmin } from '../../types'
-import Button from '../../ui/Button'
-import { ArchiveIcon, EditIcon, PlusIcon } from '../../ui/icons'
-import Menu, { MenuItem } from '../../ui/Menu'
+// import { ProjectAdmin } from '../../types'
+// import Button from '../../ui/Button'
+// import { PlusIcon } from '../../ui/icons'
+// import Menu, { MenuItem } from '../../ui/Menu'
 import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
 import { snakeToTitle } from '../../utils'
-import TeamInvite from './TeamInvite'
+// import TeamInvite from './TeamInvite'
 import { useTranslation } from 'react-i18next'
-import { UUID } from 'crypto'
+// import { UUID } from 'crypto'
 
-type EditFormData = Pick<ProjectAdmin, 'admin_id' | 'role'> & { id?: UUID }
+// type EditFormData = Pick<ProjectAdmin, 'admin_id' | 'role'> & { id?: UUID }
 
 export default function Teams() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const state = useSearchTableState(useCallback(async params => await api.projectAdmins.search(project.id, params), [project]))
-    const [editing, setEditing] = useState<Partial<EditFormData>>()
+    // const [editing, setEditing] = useState<Partial<EditFormData>>()
 
     return (
         <>
             <SearchTable
                 {...state}
                 title={t('team')}
-                actions={
-                    <Button
-                        icon={<PlusIcon />}
-                        size="small"
-                        onClick={() => setEditing({
-                            admin_id: undefined,
-                            role: 'support',
-                        })}
-                    >{t('add_team_member')}</Button>
-                }
+                // actions={
+                //     <Button
+                //         icon={<PlusIcon />}
+                //         size="small"
+                //         onClick={() => setEditing({
+                //             admin_id: undefined,
+                //             role: 'support',
+                //         })}
+                //     >{t('add_team_member')}</Button>
+                // }
                 columns={[
                     { key: 'first_name', title: t('first_name') },
                     { key: 'last_name', title: t('last_name') },
@@ -43,32 +43,32 @@ export default function Teams() {
                         title: t('role'),
                         cell: ({ item }) => snakeToTitle(item.role),
                     },
-                    {
-                        key: 'options',
-                        title: t('options'),
-                        cell: ({ item }) => (
-                            <Menu size="small">
-                                <MenuItem
-                                    onClick={async () => {
-                                        await api.projectAdmins.remove(item.project_id, item.admin_id)
-                                        await state.reload()
-                                    }}
-                                >
-                                    <ArchiveIcon /> {t('remove')}
-                                </MenuItem>
-                                <MenuItem onClick={() => setEditing(item)}>
-                                    <EditIcon /> {t('edit')}
-                                </MenuItem>
-                            </Menu>
-                        ),
-                    },
+                    // {
+                    //     key: 'options',
+                    //     title: t('options'),
+                    //     cell: ({ item }) => (
+                    //         <Menu size="small">
+                    //             <MenuItem
+                    //                 onClick={async () => {
+                    //                     await api.projectAdmins.remove(item.project_id, item.admin_id)
+                    //                     await state.reload()
+                    //                 }}
+                    //             >
+                    //                 <ArchiveIcon /> {t('remove')}
+                    //             </MenuItem>
+                    //             <MenuItem onClick={() => setEditing(item)}>
+                    //                 <EditIcon /> {t('edit')}
+                    //             </MenuItem>
+                    //         </Menu>
+                    //     ),
+                    // },
                 ]}
                 itemKey={({ item }) => item.id}
-                onSelectRow={setEditing}
+                // onSelectRow={setEditing}
                 enableSearch
             />
 
-            <TeamInvite
+            {/* <TeamInvite
                 member={editing}
                 onMember={async () => {
                     await state.reload()
@@ -76,7 +76,7 @@ export default function Teams() {
                 }}
                 open={Boolean(editing)}
                 onClose={() => setEditing(undefined)}
-            />
+            /> */}
         </>
     )
 }
