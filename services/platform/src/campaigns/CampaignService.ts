@@ -29,6 +29,7 @@ import { getJourneysForCampaign } from '../journey/JourneyService'
 import { createAuditLog } from '../core/audit/AuditService'
 import { WithAdmin } from '../core/audit/Audit'
 import { UUID } from 'node:crypto'
+import Provider from '../providers/Provider'
 
 export const CacheKeys = {
     pendingStats: 'campaigns:pending_stats',
@@ -71,20 +72,31 @@ export const getCampaign = async (id: UUID, projectId: UUID): Promise<Campaign |
             .whereNull('deleted_at'),
     )
 
-    if (campaign) {
-        campaign.templates = await allTemplates(projectId, campaign.id)
-        campaign.lists = campaign.list_ids ? await allLists(projectId, campaign.list_ids) : []
-        campaign.exclusion_lists = campaign.exclusion_list_ids ? await allLists(projectId, campaign.exclusion_list_ids) : []
-        campaign.subscription = await getSubscription(campaign.subscription_id, projectId)
-        campaign.provider = await getProvider(campaign.provider_id, projectId)
-        campaign.tags = await getTags(Campaign.tableName, [campaign.id]).then(m => m.get(campaign.id))
-        if (campaign.type === 'trigger') campaign.journeys = await getJourneysForCampaign(projectId, campaign.id)
-        if (campaign.state === 'loading') {
-            campaign.progress = await campaignPopulationProgress(campaign)
-        }
+    if (!campaign) return
+
+    campaign.provider = await getProvider(campaign.provider_id, projectId)
+    campaign.templates = await allTemplates(projectId, campaign.id)
+    campaign.lists = campaign.list_ids ? await allLists(projectId, campaign.list_ids) : []
+    campaign.exclusion_lists = campaign.exclusion_list_ids ? await allLists(projectId, campaign.exclusion_list_ids) : []
+    campaign.subscription = await getSubscription(campaign.subscription_id, projectId)
+    campaign.tags = await getTags(Campaign.tableName, [campaign.id]).then(m => m.get(campaign.id))
+
+    if (campaign.type === 'trigger') campaign.journeys = await getJourneysForCampaign(projectId, campaign.id)
+    if (campaign.state === 'loading') {
+        campaign.progress = await campaignPopulationProgress(campaign)
     }
 
     return campaign
+}
+
+export const getCampaignProvider = async (id: UUID, projectId: UUID): Promise<Provider | undefined> => {
+    const campaign = await Campaign.find(id,
+        qb => qb.where('project_id', projectId)
+            .whereNull('deleted_at'),
+    )
+
+    if (!campaign) return
+    return await getProvider(campaign.provider_id, projectId)
 }
 
 export const createCampaign = async (projectId: UUID, { tags, admin_id, ...params }: WithAdmin<CampaignCreateParams>): Promise<Campaign> => {
@@ -495,7 +507,7 @@ export const campaignPreview = async (project: Project, campaign: Campaign) => {
 
     if (templates.length <= 0) return ''
     const template = templateInUserLocale(templates, project)
-    const mapped = template.map()
+    const mapped = await template.map()
     return screenshotHtml(mapped)
 }
 

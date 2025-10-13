@@ -1,6 +1,7 @@
 import { PropsWithChildren } from 'react'
-import './Tag.css'
 import clsx from 'clsx'
+
+import './Tag.css'
 
 export type TagVariant = 'info' | 'plain' | 'success' | 'error' | 'warn'
 export type TagSize = 'tiny' | 'regular' | 'large'
@@ -16,7 +17,7 @@ export default function Tag({ variant = 'info', size = 'regular', children, onCl
     return (
         <div className={clsx('ui-tag', variant, size)}>
             {children}
-            {onClick && <div className="tag-close bi-x" onClick={onClick} /> }
+            {onClick && <div className="tag-close bi-x" onClick={onClick} />}
         </div>
     )
 }

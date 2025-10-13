@@ -402,6 +402,7 @@
     "users_count": "Users Count",
     "users_unsubscribe_all": "Are you sure you want to unsubscribe from all?",
     "value": "Value",
+    "default_value_overwritten": "Overwritten",
     "variant": "Variant",
     "variant_add": "Add Variant",
     "variant_create": "Create Variant",

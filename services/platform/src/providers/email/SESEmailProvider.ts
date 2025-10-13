@@ -1,9 +1,9 @@
 import nodemailer from 'nodemailer'
 import aws = require('@aws-sdk/client-ses')
 import { AWSConfig } from '../../core/aws'
-import EmailProvider from './EmailProvider'
+import EmailProvider, { EmailProviderSchema } from './EmailProvider'
 import Router = require('@koa/router')
-import Provider, { ExternalProviderParams, ProviderSetupMeta, ProviderControllers, ProviderSchema } from '../Provider'
+import Provider, { ExternalProviderParams, ProviderSetupMeta, ProviderControllers } from '../Provider'
 import { createController } from '../ProviderService'
 import { secondsAgo } from '../../utilities'
 import { getUserFromEmail } from '../../users/UserRepository'
@@ -32,7 +32,7 @@ export default class SESEmailProvider extends EmailProvider {
         },
     }
 
-    static schema = ProviderSchema<SESEmailProviderParams, SESDataParams>('sesProviderParams', {
+    static schema = EmailProviderSchema<SESEmailProviderParams, SESDataParams>('sesProviderParams', {
         type: 'object',
         required: ['config'],
         properties: {

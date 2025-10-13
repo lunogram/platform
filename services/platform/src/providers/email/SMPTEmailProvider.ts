@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer'
-import { ExternalProviderParams, ProviderControllers, ProviderSchema } from '../Provider'
+import { ExternalProviderParams, ProviderControllers } from '../Provider'
 import { createController } from '../ProviderService'
-import EmailProvider from './EmailProvider'
+import EmailProvider, { EmailProviderSchema } from './EmailProvider'
 
 export interface SMTPDataParams {
     host: string
@@ -26,7 +26,7 @@ export default class SMTPEmailProvider extends EmailProvider {
         icon: 'https://lunogram.com/providers/smtp.svg',
     }
 
-    static schema = ProviderSchema<SMTPEmailProviderParams, SMTPDataParams>('smtpProviderParams', {
+    static schema = EmailProviderSchema<SMTPEmailProviderParams, SMTPDataParams>('smtpProviderParams', {
         type: 'object',
         required: ['host', 'port', 'secure', 'auth'],
         properties: {
