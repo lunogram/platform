@@ -1,7 +1,6 @@
 import { RequestError } from '../core/errors'
 import Admin from '../auth/Admin'
 import Provider from '../providers/Provider'
-import { uuid } from '../utilities'
 import Organization, { OrganizationRole, organizationRoles } from './Organization'
 import { JwtAdmin } from '../auth/AuthMiddleware'
 import { Next, ParameterizedContext } from 'koa'
@@ -11,47 +10,14 @@ export const getOrganization = async (id: UUID) => {
     return await Organization.find(id)
 }
 
-export const getOrganizationByUsername = async (username: string) => {
-    return await Organization.first(qb => qb.where('username', username))
-}
-
-export const getOrganizationByDomain = async (domain?: string) => {
-    if (!domain) return undefined
-    return await Organization.first(qb => qb.where('domain', domain))
-}
-
 export const getOrganizationByEmail = async (email: string) => {
     const admin = await Admin.first(qb => qb.where('email', email))
     if (!admin) return undefined
     return await getOrganization(admin.organization_id)
 }
 
-export const getDefaultOrganization = async () => {
-    return await Organization.first()
-}
-
-export const createOrganization = async (domain?: string): Promise<Organization> => {
-    let username = domain?.split('.').shift()
-    let org: Organization | undefined
-    try {
-        org = await Organization.insertAndFetch({
-            username,
-        })
-    } catch {
-        username = undefined
-        org = await Organization.insertAndFetch({
-            username: uuid(),
-        })
-    }
-
-    // If for some reason the domain format is odd, generate
-    // a random username from the org id
-    if (!username) {
-        await Organization.updateAndFetch(org.id, {
-            username: org.id,
-        })
-    }
-    return org
+export const createOrganization = async (): Promise<Organization> => {
+    return await Organization.insertAndFetch()
 }
 
 export const updateOrganization = async (organization: Organization, params: Partial<Organization>) => {

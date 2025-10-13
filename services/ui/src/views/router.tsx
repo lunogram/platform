@@ -29,6 +29,7 @@ import ProjectSettings from './settings/ProjectSettings'
 import Integrations from './settings/Integrations'
 import Tags from './settings/Tags'
 import Login from './auth/Login'
+import LoginCallback from './auth/LoginCallback'
 import OnboardingStart from './auth/OnboardingStart'
 import Onboarding from './auth/Onboarding'
 import OnboardingProject from './auth/OnboardingProject'
@@ -78,6 +79,10 @@ export const createRouter = ({
     {
         path: '/login',
         element: <Login />,
+    },
+    {
+        path: '/login/:driver/callback',
+        element: <LoginCallback />,
     },
     {
         path: '*',

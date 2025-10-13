@@ -2,13 +2,13 @@ import { Context } from 'koa'
 import { AuthTypeConfig } from './Auth'
 import AuthProvider from './AuthProvider'
 import App from '../app'
-import { combineURLs, firstQueryParam } from '../utilities'
+import { firstQueryParam } from '../utilities'
 import { RequestError } from '../core/errors'
 import AuthError from './AuthError'
 import { sign } from 'jsonwebtoken'
 import { addSeconds } from 'date-fns'
 import SMTPEmailProvider, { SMTPDataParams } from '../providers/email/SMPTEmailProvider'
-import { verify } from './AuthMiddleware'
+import { jwtVerify } from './AuthMiddleware'
 
 export interface EmailAuthConfig extends AuthTypeConfig, SMTPDataParams {
     driver: 'email'
@@ -34,7 +34,7 @@ export default class EmailAuthProvider extends AuthProvider {
         if (email) {
             await this.send(email, redirect)
         } else {
-            ctx.redirect(combineURLs([App.main.env.apiBaseUrl, '/login/email']) + '?r=' + redirect)
+            ctx.redirect(new URL(`/login/email?r=${redirect}`, App.main.env.baseUrl).toString())
         }
     }
 
@@ -42,7 +42,7 @@ export default class EmailAuthProvider extends AuthProvider {
         const token = firstQueryParam(ctx.request.query.token)
         if (!token) throw new RequestError(AuthError.MissingCredentials)
 
-        const { email } = await verify(token) as { email: string }
+        const { email } = await jwtVerify(token) as { email: string }
         await this.login({
             email,
             first_name: 'Admin',
@@ -59,14 +59,16 @@ export default class EmailAuthProvider extends AuthProvider {
         }, App.main.env.secret)
 
         // Generate the link
-        const link = `${combineURLs([App.main.env.apiBaseUrl, '/auth/login/email/callback'])}?token=${token}&r=${redirect}`
+        const link = new URL('/auth/login/email/callback', App.main.env.apiBaseUrl)
+        link.searchParams.set('token', token)
+        if (redirect) link.searchParams.set('r', redirect)
 
         // Send the message
         await this.provider.send({
             to: email,
             from: this.config.from,
             subject: 'Login to Lunogram',
-            html: this.generateMessage(link),
+            html: this.generateMessage(link.toString()),
             text: `Click the link below to login to Lunogram: ${link}`,
         })
     }

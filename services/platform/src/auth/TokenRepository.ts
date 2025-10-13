@@ -1,6 +1,6 @@
 import { addSeconds } from 'date-fns'
 import { Context } from 'koa'
-import { sign } from 'jsonwebtoken'
+import jwt from 'jsonwebtoken'
 import { AccessToken } from './AccessToken'
 import App from '../app'
 import Admin from './Admin'
@@ -10,27 +10,15 @@ export interface OAuthResponse {
     expires_at: Date
 }
 
-export async function isAccessTokenRevoked(token: string) {
-    return (await AccessToken.count(qb => qb.where({ token, revoked: true }))) > 0
-}
-
-export async function revokeAccessToken(token: string, ctx?: Context) {
-    await AccessToken.update(qb => qb.where({ token }), { revoked: true })
-    if (ctx) {
-        ctx.cookies.set('oauth')
-    }
-}
-
 export async function cleanupExpiredRevokedTokens(until: Date) {
     await AccessToken.delete(qb => qb.where('expires_at', '<=', until))
 }
 
-export const generateAccessToken = async ({ id, organization_id, role }: Admin, ctx?: Context) => {
+export const generateAccessToken = async ({ id }: Admin, ctx?: Context) => {
     const expires_at = addSeconds(Date.now(), App.main.env.auth.tokenLife)
-    const token = sign({
-        id,
-        organization_id,
-        role,
+    const token = jwt.sign({
+        sub: id,
+        iss: App.main.env.baseUrl,
         exp: Math.floor(expires_at.getTime() / 1000),
     }, App.main.env.secret)
 
@@ -49,15 +37,14 @@ export const generateAccessToken = async ({ id, organization_id, role }: Admin, 
     }
 }
 
-export const getTokenCookies = (ctx: Context) => {
+export const getCookiesOAuthToken = (ctx: Context) => {
     const cookie = ctx.cookies.get('oauth')
     if (cookie) {
         return JSON.parse(cookie) as OAuthResponse
     }
 }
 
-export const setTokenCookies = (ctx: Context, oauth: OAuthResponse): OAuthResponse => {
-
+export const setCookiesOauthToken = (ctx: Context, oauth: OAuthResponse): OAuthResponse => {
     ctx.cookies.set('oauth', JSON.stringify(oauth), {
         secure: ctx.request.secure,
         httpOnly: true,

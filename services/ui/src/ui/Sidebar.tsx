@@ -9,7 +9,6 @@ import clsx from 'clsx'
 import Menu, { MenuItem } from './Menu'
 import { AdminContext, OrganizationContext, ProjectContext } from '../contexts'
 import { PreferencesContext } from './PreferencesContext'
-import api from '../api'
 import { snakeToTitle } from '../utils'
 import Modal from './Modal'
 import RadioInput from './form/RadioInput'
@@ -83,7 +82,7 @@ export default function Sidebar({ children, links, prepend, append }: PropsWithC
                         }}>{t('settings')}</MenuItem>
                         <MenuItem onClick={() => setIsLanguageOpen(true)}>{t('language')}</MenuItem>
                         <MenuItem onClick={() => setPreferences({ ...preferences, mode: preferences.mode === 'dark' ? 'light' : 'dark' })}>{preferences.mode === 'dark' ? t('light_mode') : t('dark_mode')}</MenuItem>
-                        <MenuItem onClick={async () => await api.auth.logout()}>{t('sign_out')}</MenuItem>
+                        {/* <MenuItem onClick={async () => await api.auth.logout()}>{t('sign_out')}</MenuItem> */}
                     </Menu>
                 </div>}
             </section>

@@ -1,7 +1,6 @@
 import Router from '@koa/router'
 import { ParameterizedContext } from 'koa'
 import App from '../app'
-import { getAdmin } from '../auth/AdminRepository'
 import { AuthState, ProjectState } from '../auth/AuthMiddleware'
 import { RequestError } from '../core/errors'
 import { searchParamsSchema } from '../core/searchParams'
@@ -106,9 +105,8 @@ const projectCreateParams: JSONSchemaType<ProjectParams> = {
 router.post('/', async ctx => {
     requireOrganizationRole(ctx.state.admin!, 'admin')
     const payload = validate(projectCreateParams, ctx.request.body)
-    const { id, organization_id } = ctx.state.admin!
-    const admin = await getAdmin(id, organization_id)
-    const project = await createProject(admin!, payload)
+    if (!ctx.state.admin) throw new RequestError(ProjectError.ProjectAccessDenied)
+    const project = await createProject(ctx.state.admin, payload)
     ctx.body = {
         ...project,
         has_provider: await hasProvider(project.id),

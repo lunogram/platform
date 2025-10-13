@@ -118,6 +118,9 @@ export default (type?: EnvType): Env => {
         auth: {
             driver: (process.env.AUTH_DRIVER?.split(',') ?? []) as AuthProviderName[],
             tokenLife: defaultTokenLife,
+            jwt: {
+                jwksUrl: process.env.AUTH_JWKS_URL,
+            },
             basic: {
                 driver: 'basic',
                 name: process.env.AUTH_BASIC_NAME!,
@@ -161,9 +164,10 @@ export default (type?: EnvType): Env => {
                 clientSecret: process.env.AUTH_GOOGLE_CLIENT_SECRET!,
                 redirectUri: `${apiBaseUrl}/auth/login/google/callback`,
             },
-            multi: {
-                driver: 'multi',
-                name: process.env.AUTH_MULTI_NAME!,
+            cloud: {
+                driver: 'cloud',
+                secretKey: process.env.AUTH_CLERK_SECRET_KEY!,
+                webhookSecret: process.env.AUTH_CLERK_WEBHOOK_SECRET!,
             },
         },
         logger: {

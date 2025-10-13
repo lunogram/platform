@@ -3,6 +3,7 @@ import Model, { ModelParams } from '../core/Model'
 import { UUID } from 'crypto'
 
 export default class Admin extends Model {
+    external_id?: string
     organization_id!: UUID
     email!: string
     first_name?: string
@@ -11,6 +12,6 @@ export default class Admin extends Model {
     role!: OrganizationRole
 }
 
-export type AdminParams = Omit<Admin, ModelParams> & { domain?: string }
+export type AdminParams = Omit<Admin, ModelParams>
 
-export type AuthAdminParams = Omit<AdminParams, 'organization_id' | 'role'> & { domain?: string }
+export type AuthAdminParams = Omit<AdminParams, 'organization_id' | 'role'>

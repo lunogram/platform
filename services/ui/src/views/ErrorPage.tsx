@@ -2,7 +2,6 @@ import { isRouteErrorResponse, Navigate, useNavigate, useRouteError } from 'reac
 import Alert, { AlertProps } from '../ui/Alert'
 import Button from '../ui/Button'
 import './ErrorPage.css'
-import api from '../api'
 
 const ErrorAlert = (props: AlertProps) => {
     return <section className="error-page">
@@ -62,7 +61,7 @@ export default function ErrorPage({ status = 500 }: { status?: number }) {
 
 export function AccessDenied() {
     const handleLogout = async () => {
-        await api.auth.logout()
+        // await api.auth.logout()
     }
 
     return (

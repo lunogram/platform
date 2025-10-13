@@ -18,7 +18,6 @@ export interface OpenIDConfig extends AuthTypeConfig {
 }
 
 export default class OpenIDAuthProvider extends AuthProvider {
-
     private config: OpenIDConfig
     private client!: BaseClient
     constructor(config: OpenIDConfig) {
@@ -82,7 +81,6 @@ export default class OpenIDAuthProvider extends AuthProvider {
             const tokenSet = await client.callback(this.config.redirectUri, params, { nonce, state })
 
             const claims = tokenSet.claims()
-            const domain = this.getDomain(claims)
             if (!claims.email) {
                 throw new RequestError(AuthError.InvalidEmail)
             }
@@ -92,7 +90,6 @@ export default class OpenIDAuthProvider extends AuthProvider {
                 first_name: claims.given_name ?? claims.name,
                 last_name: claims.family_name,
                 image_url: claims.picture,
-                domain,
             }
 
             await this.login(admin, ctx, state)

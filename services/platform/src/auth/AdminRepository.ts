@@ -13,6 +13,14 @@ export const getAdmin = async (id: UUID, organizationId: UUID): Promise<Admin | 
     return await Admin.find(id, qb => qb.where('organization_id', organizationId))
 }
 
+export const getAdminById = async (id: UUID): Promise<Admin | undefined> => {
+    return await Admin.find(id)
+}
+
+export const getAdminByExternalId = async (id: string): Promise<Admin | undefined> => {
+    return await Admin.first(qb => qb.where('external_id', id))
+}
+
 export const getAdminByEmail = async (email: string): Promise<Admin | undefined> => {
     return await Admin.first(qb => qb.where('email', email))
 }
@@ -28,4 +36,8 @@ export const createOrUpdateAdmin = async ({ organization_id, ...params }: AdminP
             organization_id,
         })
     }
+}
+
+export const deleteAdmin = async (id: UUID): Promise<void> => {
+    await Admin.delete(qb => qb.where('id', id))
 }

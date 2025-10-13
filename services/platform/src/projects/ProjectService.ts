@@ -1,4 +1,4 @@
-import { ProjectState } from '../auth/AuthMiddleware'
+import { JwtAdmin, ProjectState } from '../auth/AuthMiddleware'
 import { Next, ParameterizedContext } from 'koa'
 import { RequestError } from '../core/errors'
 import { PageParams } from '../core/searchParams'
@@ -7,7 +7,6 @@ import { uuid } from '../utilities'
 import Project, { ProjectParams, ProjectRole, projectRoles } from './Project'
 import { ProjectAdmin } from './ProjectAdmins'
 import { ProjectApiKey, ProjectApiKeyParams } from './ProjectApiKey'
-import Admin from '../auth/Admin'
 import { getAdmin } from '../auth/AdminRepository'
 import Locale, { LocaleParams } from './Locale'
 import { UUID } from 'crypto'
@@ -55,7 +54,7 @@ export const getProject = async (id: UUID, adminId?: UUID) => {
         })
 }
 
-export const createProject = async (admin: Admin, params: ProjectParams): Promise<Project> => {
+export const createProject = async (admin: JwtAdmin, params: ProjectParams): Promise<Project> => {
     const projectId = await Project.insert({
         ...params,
         organization_id: admin.organization_id,
