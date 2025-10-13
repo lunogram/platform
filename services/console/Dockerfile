@@ -1,4 +1,7 @@
 FROM node:24 AS build
+
+ARG REACT_APP_CLERK_PUBLISHABLE_KEY
+
 WORKDIR /usr/src/app
 RUN corepack enable
 COPY . .
