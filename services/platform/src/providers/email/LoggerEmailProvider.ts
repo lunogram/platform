@@ -8,6 +8,8 @@ import EmailProvider from './EmailProvider'
 export default class LoggerEmailProvider extends EmailProvider {
     addLatency?: boolean
 
+    static isDevelopment = true
+
     static namespace = 'logger'
     static meta = {
         name: 'Logger',

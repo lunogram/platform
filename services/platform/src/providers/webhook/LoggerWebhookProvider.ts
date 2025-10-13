@@ -8,6 +8,8 @@ import { WebhookProvider } from './WebhookProvider'
 export default class LoggerWebhookProvider extends WebhookProvider {
     addLatency?: boolean
 
+    static isDevelopment = true
+
     static namespace = 'logger'
     static meta = {
         name: 'Logger',

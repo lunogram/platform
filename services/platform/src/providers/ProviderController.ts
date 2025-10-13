@@ -12,6 +12,7 @@ import { textProviders } from './text'
 import { webhookProviders } from './webhook'
 import { UUID } from 'crypto'
 import { validate as uuidValidate } from 'uuid'
+import App from '../app'
 
 const adminRouter = new Router<ProjectState>({
     prefix: '/providers',
@@ -65,8 +66,9 @@ adminRouter.get('/all', async ctx => {
 })
 
 adminRouter.get('/meta', async ctx => {
+    const isDevelopment = App.main.env.environment === 'development'
     ctx.body = providers
-        .filter(provider => provider.options.filter?.(ctx) ?? true)
+        .filter(provider => (!provider.isDevelopment || isDevelopment) && (provider.options.filter?.(ctx) ?? true))
         .map(provider => ({
             ...provider.meta,
             group: provider.group,

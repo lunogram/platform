@@ -8,6 +8,8 @@ import { TextProvider } from './TextProvider'
 export default class LoggerTextProvider extends TextProvider {
     addLatency?: boolean
 
+    static isDevelopment = true
+
     static namespace = 'logger'
     static meta = {
         name: 'Logger',
