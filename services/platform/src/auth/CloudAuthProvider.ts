@@ -7,7 +7,7 @@ import { createOrUpdateAdmin, deleteAdmin, getAdminByExternalId } from './AdminR
 import { createOrganization } from '../organizations/OrganizationService'
 import { createClerkClient, ClerkClient, WebhookEvent } from '@clerk/backend'
 import { logger } from '../config/logger'
-import svix from 'svix'
+import { Webhook } from 'svix'
 
 export interface CloudConfig extends AuthTypeConfig {
     driver: 'cloud'
@@ -17,12 +17,12 @@ export interface CloudConfig extends AuthTypeConfig {
 
 export default class CloudAuthProvider extends AuthProvider {
     private client: ClerkClient
-    private webhookClient: svix.Webhook
+    private webhookClient?: Webhook
 
     constructor(config: CloudConfig) {
         super()
 
-        this.webhookClient = new svix.Webhook(config.webhookSecret)
+        this.webhookClient = config.webhookSecret ? new Webhook(config.webhookSecret) : undefined
         this.client = createClerkClient({
             secretKey: config.secretKey,
         })
@@ -72,6 +72,11 @@ export default class CloudAuthProvider extends AuthProvider {
     }
 
     async webhook(ctx: AuthContext) {
+        if (!this.webhookClient) {
+            logger.error('Webhook client not configured')
+            throw new RequestError(AuthError.AccessDenied)
+        }
+
         const svixId = ctx.req.headers['svix-id']
         const svixTimestamp = ctx.req.headers['svix-timestamp']
         const svixSignature = ctx.req.headers['svix-signature']
@@ -89,56 +94,56 @@ export default class CloudAuthProvider extends AuthProvider {
         }) as WebhookEvent
 
         switch (type) {
-        case 'user.created': {
-            const createdExternalAdmin = await getAdminByExternalId(data.id)
-            if (createdExternalAdmin) {
-                return
-            }
+            case 'user.created': {
+                const createdExternalAdmin = await getAdminByExternalId(data.id)
+                if (createdExternalAdmin) {
+                    return
+                }
 
-            const primaryEmailAddress = data.email_addresses?.find((email: any) => email.id === data.primary_email_address_id)
-            if (!primaryEmailAddress) {
-                logger.error(`Clerk user has no email: ${data.id}`)
-                throw new RequestError(AuthError.InvalidEmail)
-            }
+                const primaryEmailAddress = data.email_addresses?.find((email: any) => email.id === data.primary_email_address_id)
+                if (!primaryEmailAddress) {
+                    logger.error(`Clerk user has no email: ${data.id}`)
+                    throw new RequestError(AuthError.InvalidEmail)
+                }
 
-            const organization = await createOrganization()
-            await createOrUpdateAdmin({
-                email: primaryEmailAddress?.email_address,
-                external_id: data.id,
-                organization_id: organization.id,
-                role: 'admin',
-            })
-            break
-        }
-        case 'user.updated': {
-            const updatedExternalAdmin = await getAdminByExternalId(data.id)
-            if (!updatedExternalAdmin) {
-                return
+                const organization = await createOrganization()
+                await createOrUpdateAdmin({
+                    email: primaryEmailAddress?.email_address,
+                    external_id: data.id,
+                    organization_id: organization.id,
+                    role: 'admin',
+                })
+                break
             }
+            case 'user.updated': {
+                const updatedExternalAdmin = await getAdminByExternalId(data.id)
+                if (!updatedExternalAdmin) {
+                    return
+                }
 
-            const primaryEmailAddress = data.email_addresses?.find((email) => email.id === data.primary_email_address_id)
-            if (!primaryEmailAddress) {
-                logger.error(`Clerk user has no email: ${data.id}`)
-                throw new RequestError(AuthError.InvalidEmail)
+                const primaryEmailAddress = data.email_addresses?.find((email) => email.id === data.primary_email_address_id)
+                if (!primaryEmailAddress) {
+                    logger.error(`Clerk user has no email: ${data.id}`)
+                    throw new RequestError(AuthError.InvalidEmail)
+                }
+
+                updatedExternalAdmin.email = primaryEmailAddress.email_address
+                await createOrUpdateAdmin(updatedExternalAdmin)
+                break
             }
+            case 'user.deleted': {
+                if (!data.id) {
+                    return
+                }
 
-            updatedExternalAdmin.email = primaryEmailAddress.email_address
-            await createOrUpdateAdmin(updatedExternalAdmin)
-            break
-        }
-        case 'user.deleted': {
-            if (!data.id) {
-                return
+                const deletedExternalAdmin = await getAdminByExternalId(data.id)
+                if (!deletedExternalAdmin) {
+                    return
+                }
+
+                await deleteAdmin(deletedExternalAdmin.id)
+                break
             }
-
-            const deletedExternalAdmin = await getAdminByExternalId(data.id)
-            if (!deletedExternalAdmin) {
-                return
-            }
-
-            await deleteAdmin(deletedExternalAdmin.id)
-            break
-        }
         }
     }
 }

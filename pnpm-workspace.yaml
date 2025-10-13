@@ -1,20 +1,21 @@
 packages:
-  - 'services/*'
-
-syncInjectedDepsAfterScripts:
-  - docker:build
-  - docker:build-beta
-  - docker:build:push
-  - docker:build-beta:push
+  - services/*
 
 injectWorkspacePackages: true
 
 loglevel: debug
 
 onlyBuiltDependencies:
+  - '@clerk/shared'
   - '@firebase/util'
   - core-js
   - core-js-pure
   - farmhash
   - msgpackr-extract
   - protobufjs
+
+syncInjectedDepsAfterScripts:
+  - docker:build
+  - docker:build-beta
+  - docker:build:push
+  - docker:build-beta:push
