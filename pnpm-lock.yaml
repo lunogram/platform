@@ -259,7 +259,7 @@ importers:
         specifier: ^4.9.5
         version: 4.9.5
 
-  services/ui:
+  services/console:
     dependencies:
       '@clerk/clerk-react':
         specifier: ^5.51.0

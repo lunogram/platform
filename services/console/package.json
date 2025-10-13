@@ -1,5 +1,5 @@
 {
-  "name": "@lunogram/ui",
+  "name": "@lunogram/console",
   "version": "0.1.0",
   "repository": "https://github.com/lunogram/platform",
   "dependencies": {

@@ -3,15 +3,15 @@ WORKDIR /usr/src/app
 RUN corepack enable
 COPY . .
 RUN corepack enable
-WORKDIR /usr/src/app/services/ui
+WORKDIR /usr/src/app/services/console
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
 
 FROM nginx:1.29-alpine
 
-COPY --from=build /usr/src/app/services/ui/docker/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /usr/src/app/services/ui/build /usr/share/nginx/html
-COPY --from=build /usr/src/app/services/ui/scripts /usr/share/nginx/html
+COPY --from=build /usr/src/app/services/console/docker/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /usr/src/app/services/console/build /usr/share/nginx/html
+COPY --from=build /usr/src/app/services/console/scripts /usr/share/nginx/html
 
 EXPOSE 8080
 

@@ -11,6 +11,6 @@
     "test": "pnpm --filter \"@lunogram/*\" --stream test",
     "docker:build": "pnpm --filter \"@lunogram/*\" docker:build",
     "docker:build:push": "pnpm --filter \"@lunogram/*\" docker:build:push",
-    "analyze:ui:bundle": "pnpm build && npx source-map-explorer './services/ui/build/static/js/*.js'"
+    "analyze:ui:bundle": "pnpm build && npx source-map-explorer './services/console/build/static/js/*.js'"
   }
 }

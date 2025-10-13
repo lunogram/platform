@@ -1,6 +1,6 @@
 {
     "eslint.workingDirectories": [
-        "./services/ui",
+        "./services/console",
         "./services/platform"
     ]
 }
