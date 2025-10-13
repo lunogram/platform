@@ -206,13 +206,16 @@ const TypeSelection = ({ campaign, showType, form }: { campaign?: Campaign, show
         control: form.control,
         name: 'type',
     })
-    const options = [{
-        key: 'blast',
-        label: t('blast'),
-    }, {
-        key: 'trigger',
-        label: t('trigger'),
-    }]
+    const options = [
+        {
+            key: 'trigger',
+            label: t('trigger'),
+        },
+        {
+            key: 'blast',
+            label: t('blast'),
+        },
+    ]
 
     return <>
         {showType && <RadioInput.Field
@@ -259,13 +262,13 @@ export function CampaignForm({ campaign, onSave, type }: CampaignEditParams) {
             .then(({ results }) => {
                 setSubscriptions(results)
             })
-            .catch(() => {})
+            .catch(() => { })
 
         api.providers.all(project.id)
             .then((results) => {
                 setProviders(results)
             })
-            .catch(() => {})
+            .catch(() => { })
     }, [])
 
     async function handleSave({
@@ -288,7 +291,7 @@ export function CampaignForm({ campaign, onSave, type }: CampaignEditParams) {
     return (
         <FormWrapper<CampaignCreateParams>
             onSubmit={async (item) => await handleSave(item)}
-            defaultValues={campaign ?? { type: type ?? 'blast' }}
+            defaultValues={campaign ?? { type: type ?? 'trigger' }}
             submitLabel={t('save')}
         >
             {form => (
