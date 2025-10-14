@@ -138,10 +138,12 @@ export default class App {
         })
 
         process.on('uncaughtException', async (error) => {
+            console.error('Uncaught exception:', error.stack || error)
             await this.forceClose('uncaughtException', 'uncaught error', error)
         })
 
         process.on('unhandledRejection', async (error, promise) => {
+            console.error('Uncaught exception:', error instanceof Error ? error.stack || error : error)
             await this.forceClose('unhandledRejection', `uncaught error: ${promise}, reason: ${error}`)
         })
     }
