@@ -100,6 +100,7 @@ export const bootstrapProject = async (project: Project): Promise<void> => {
     logger.info({ projectId: project.id }, 'Bootstrapping project')
     const { providers } = await fetchProvidersBootstrapConfig(project.organization_id, project.id)
     if (!providers || providers.length === 0) {
+        logger.info({ projectId: project.id }, 'No providers to bootstrap')
         return
     }
 
