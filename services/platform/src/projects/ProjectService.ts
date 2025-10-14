@@ -112,7 +112,7 @@ export const bootstrapProject = async (project: Project): Promise<void> => {
             data: provider.data || {},
             group: provider.group as ProviderGroup,
             rate_interval: provider.rate_interval as RateInterval,
-            rate_limit: Number(provider.rate_limit),
+            rate_limit: Number(provider.rate_limit ?? 0),
             is_default: provider.is_default || false,
             external_id: provider.external_id ?? undefined,
         })
