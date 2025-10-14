@@ -43,13 +43,13 @@ export default function Tags() {
             <Modal
                 open={!!editing}
                 onClose={() => setEditing(undefined)}
-                title={editing?.id ? t('update_tag') : t('create_tag')}
+                title={editing?.id !== NIL ? t('update_tag') : t('create_tag')}
             >
                 {
                     editing && (
                         <FormWrapper<Tag>
                             onSubmit={async ({ id, name }) => {
-                                id
+                                id !== NIL
                                     ? await api.tags.update(project.id, id, { name })
                                     : await api.tags.create(project.id, { name })
                                 await search.reload()
