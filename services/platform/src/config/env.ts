@@ -85,7 +85,7 @@ export default (type?: EnvType): Env => {
             host: process.env.DB_HOST!,
             user: process.env.DB_USERNAME!,
             password: process.env.DB_PASSWORD!,
-            port: envInt(process.env.DB_PORT, 3306),
+            port: envInt(process.env.DB_PORT, 5432),
             database: process.env.DB_DATABASE!,
             migrationPaths: process.env.DB_MIGRATION_PATHS?.split(',') ?? [],
         },

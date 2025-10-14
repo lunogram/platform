@@ -14,13 +14,11 @@ FROM gcr.io/distroless/nodejs24-debian12:nonroot
 ENV NODE_ENV=production
 WORKDIR /usr/src/app
 
-# Copy only what you need to run
 COPY --chown=65532:65532 --from=build /usr/src/app/packages/node_modules ./node_modules
 COPY --chown=65532:65532 --from=build /usr/src/app/services/platform/package*.json ./
 COPY --chown=65532:65532 --from=build /usr/src/app/services/platform/build ./build
-COPY --chown=65532:65532 --from=build /usr/src/app/services/platform/db ./db
-COPY --chown=65532:65532 --from=build /usr/src/app/services/platform/public ./public
+COPY --chown=65532:65532 --from=build /usr/src/app/services/platform/db ./build/db
 
 EXPOSE 8080
 
-CMD ["build/boot.js"]
+CMD ["build/src/boot.js"]
