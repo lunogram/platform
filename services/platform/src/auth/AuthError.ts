@@ -10,6 +10,10 @@ export default {
         message: 'The refresh token provided is invalid.',
         code: 1001,
     },
+    InvalidToken: {
+        message: 'The access token provided is invalid.',
+        code: 1001,
+    },
     SAMLValidationError: {
         message: 'Unable to parse response from SSO.',
         code: 1002,
