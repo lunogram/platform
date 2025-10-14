@@ -22,6 +22,7 @@ export const typeMap: Record<string, TextProviderDerived> = {
 }
 
 export const providerMap = (record: { type: TextProviderName }): TextProvider => {
+    if (!typeMap[record.type]) throw new Error(`Unknown text provider type: ${record.type}`)
     return typeMap[record.type].fromJson(record)
 }
 

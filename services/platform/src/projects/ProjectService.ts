@@ -138,8 +138,8 @@ export async function fetchProvidersBootstrapConfig(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                projectId,
-                organizationId,
+                project_id: projectId,
+                organization_id: organizationId,
             }),
             signal: controller.signal,
         })

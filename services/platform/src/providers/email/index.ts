@@ -20,6 +20,7 @@ export const typeMap: Record<string, EmailProviderDerived> = {
 }
 
 export const providerMap = (record: { type: EmailProviderName }): EmailProvider => {
+    if (!typeMap[record.type]) throw new Error(`Unknown email provider type: ${record.type}`)
     return typeMap[record.type].fromJson(record)
 }
 

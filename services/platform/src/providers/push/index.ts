@@ -14,6 +14,7 @@ export const typeMap: Record<string, PushProviderDerived> = {
 }
 
 export const providerMap = (record: { type: PushProviderName }): PushProvider => {
+    if (!typeMap[record.type]) throw new Error(`Unknown push provider type: ${record.type}`)
     return typeMap[record.type].fromJson(record)
 }
 

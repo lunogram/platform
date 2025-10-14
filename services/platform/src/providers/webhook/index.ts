@@ -12,6 +12,7 @@ export const typeMap: Record<string, WebhookProviderDerived> = {
 }
 
 export const providerMap = (record: { type: WebhookProviderName }): WebhookProvider => {
+    if (!typeMap[record.type]) throw new Error(`Unknown webhook provider type: ${record.type}`)
     return typeMap[record.type].fromJson(record)
 }
 

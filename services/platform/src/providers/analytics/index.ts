@@ -14,6 +14,7 @@ export const typeMap: Record<string, AnalyticsProviderDerived> = {
 }
 
 export const providerMap = (record: { type: AnalyticsProviderName }): AnalyticsProvider => {
+    if (!typeMap[record.type]) throw new Error(`Unknown analytics provider type: ${record.type}`)
     return typeMap[record.type].fromJson(record)
 }
 
