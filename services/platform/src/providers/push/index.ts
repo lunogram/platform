@@ -1,6 +1,7 @@
 import { UUID } from 'crypto'
 import { loadProvider } from '../ProviderRepository'
 import LocalPushProvider from './LocalPushProvider'
+import WebhookPushProvider from './WebhookPushProvider'
 import LoggerPushProvider from './LoggerPushProvider'
 import PushChannel from './PushChannel'
 import { PushProvider, PushProviderName } from './PushProvider'
@@ -8,6 +9,7 @@ import { PushProvider, PushProviderName } from './PushProvider'
 type PushProviderDerived = { new(): PushProvider } & typeof PushProvider
 export const typeMap: Record<string, PushProviderDerived> = {
     local: LocalPushProvider,
+    webhook: WebhookPushProvider,
     logger: LoggerPushProvider,
 }
 

@@ -599,6 +599,7 @@ export interface Provider {
     rate_limit: number
     rate_interval: string
     setup: ProviderSetupMeta[]
+    external_id?: string
 }
 
 export type ProviderCreateParams = Pick<Provider, 'name' | 'data' | 'type' | 'group' | 'rate_limit' | 'rate_interval'>

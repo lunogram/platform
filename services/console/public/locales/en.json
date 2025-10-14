@@ -387,6 +387,8 @@
     "update_tag": "Update Tag",
     "updated_at": "Updated At",
     "upload": "Upload",
+    "external_integration_title": "External Integration",
+    "external_integration_alert": "This integration was created by an external service and cannot be edited here.",
     "upload_instructions": "Please select a CSV of users to upload. The provided file must have the external ID you wish to use for each user.",
     "upload_list": "Upload List",
     "usage": "Usage",
@@ -418,5 +420,6 @@
     "wait_until": "Wait until",
     "webhook": "Webhook",
     "welcome": "Welcome!",
-    "yes": "Yes"
+    "yes": "Yes",
+    "close": "Close"
 }

@@ -4,6 +4,7 @@ import EmailChannel from './EmailChannel'
 import EmailProvider, { EmailProviderName } from './EmailProvider'
 import LoggerEmailProvider from './LoggerEmailProvider'
 import MailgunEmailProvider from './MailgunEmailProvider'
+import WebhookEmailProvider from './WebhookEmailProvider'
 import SESEmailProvider from './SESEmailProvider'
 import SMTPEmailProvider from './SMPTEmailProvider'
 import SendGridEmailProvider from './SendGridEmailProvider'
@@ -15,6 +16,7 @@ export const typeMap: Record<string, EmailProviderDerived> = {
     ses: SESEmailProvider,
     smtp: SMTPEmailProvider,
     logger: LoggerEmailProvider,
+    webhook: WebhookEmailProvider,
 }
 
 export const providerMap = (record: { type: EmailProviderName }): EmailProvider => {

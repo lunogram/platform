@@ -103,7 +103,8 @@ export const EmailForm = ({ form, provider }: { form: UseFormReturn<TemplateUpda
             placeholder={provider.data?.default_from}
             label={t('from_email')}
             type="email"
-            required={!provider.data?.default_from} />
+            required={!provider.data?.default_from}
+            disabled={!provider.data?.default_from_locked} />
         <TextInput.Field
             form={form}
             name="data.subject"
