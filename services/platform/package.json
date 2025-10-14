@@ -55,6 +55,7 @@
     "pino": "^8.21.0",
     "pino-pretty": "^8.1.0",
     "posthog-node": "^3.6.3",
+    "raw-body": "^3.0.1",
     "rrule": "2.7.2",
     "svix": "^1.77.0",
     "uuid": "^9.0.1"

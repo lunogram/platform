@@ -8,6 +8,7 @@ import { createOrganization } from '../organizations/OrganizationService'
 import { createClerkClient, ClerkClient, WebhookEvent } from '@clerk/backend'
 import { logger } from '../config/logger'
 import { Webhook } from 'svix'
+import getRawBody from 'raw-body'
 
 export interface CloudConfig extends AuthTypeConfig {
     driver: 'cloud'
@@ -86,7 +87,7 @@ export default class CloudAuthProvider extends AuthProvider {
             throw new RequestError(AuthError.AccessDenied)
         }
 
-        const payloadString = ctx.body || ctx.request.body
+        const payloadString = (await getRawBody(ctx.req)).toString('utf8')
         const { type, data } = this.webhookClient.verify(payloadString, {
             'svix-id': svixId as string,
             'svix-timestamp': svixTimestamp as string,
