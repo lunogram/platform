@@ -54,7 +54,7 @@ export function ProviderSchema<_ extends ExternalProviderParams, D>(id: string, 
     } as any
 }
 
-type RateInterval = 'second' | 'minute' | 'hour' | 'day'
+export type RateInterval = 'second' | 'minute' | 'hour' | 'day'
 
 export default class Provider extends Model {
     type!: string
@@ -67,6 +67,7 @@ export default class Provider extends Model {
     rate_interval!: RateInterval
     setup!: ProviderSetupMeta[]
     deleted_at?: Date
+    external_id?: string
 
     static jsonAttributes = ['data']
 

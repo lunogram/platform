@@ -16,6 +16,7 @@ import { ChevronLeftIcon } from '../../ui/icons'
 import { useTranslation } from 'react-i18next'
 
 import './IntegrationModal.css'
+import { t } from 'i18next'
 
 interface IntegrationFormParams {
     project: Project
@@ -114,6 +115,26 @@ export default function IntegrationModal({ onChange, provider, ...props }: Integ
         onChange(provider)
         props.onClose(false)
         setMeta(undefined)
+    }
+
+    if (provider?.external_id) {
+        return <Modal
+            {...props}
+            title={t('external_integration_title')}
+            size="regular"
+        >
+            <Alert title="Internal Integration" variant="plain">
+                {t('external_integration_alert')}
+            </Alert>
+            <div style={{ marginTop: '20px' }}>
+                <Button
+                    icon={<ChevronLeftIcon />}
+                    variant="secondary"
+                    onClick={() => props.onClose(false)}>
+                    {t('close')}
+                </Button>
+            </div>
+        </Modal>
     }
 
     return <Modal

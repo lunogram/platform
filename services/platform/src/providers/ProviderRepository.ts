@@ -59,12 +59,18 @@ export const createProvider = async (projectId: UUID, params: ProviderParams) =>
 export const updateProvider = async (id: UUID, params: ExternalProviderParams, app = App.main) => {
     params.is_default = params.data.is_default ?? false
 
-    const provider = await Provider.updateAndFetch(id, params)
+    await Provider.update(
+        qb => qb.where('id', id).whereNull('external_id'),
+        params,
+    )
+
+    const provider = await getProvider(id)
+    if (!provider) throw new Error('Provider not found')
+
     app.remove(Provider.cacheKey.internal(provider.id))
     app.remove(Provider.cacheKey.default(provider.project_id, provider.group))
 
     await setDefault(provider)
-
     return provider
 }
 

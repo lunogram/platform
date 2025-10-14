@@ -10,6 +10,11 @@ import { ProjectApiKey, ProjectApiKeyParams } from './ProjectApiKey'
 import { getAdmin } from '../auth/AdminRepository'
 import Locale, { LocaleParams } from './Locale'
 import { UUID } from 'crypto'
+import { createProvider } from '../providers/ProviderRepository'
+import App from '../app'
+import { BootstrapResponse } from '../../oapi/webhooks'
+import { ProviderGroup, RateInterval } from '../providers/Provider'
+import { logger } from '../config/logger'
 
 export const adminProjectIds = async (adminId: UUID) => {
     const records = await ProjectAdmin.all(qb => qb.where('admin_id', adminId))
@@ -82,7 +87,69 @@ export const createProject = async (admin: JwtAdmin, params: ProjectParams): Pro
     await createSubscription(projectId, { name: 'Default Webhook', channel: 'webhook', is_public: false })
 
     const project = await getProject(projectId, admin.id)
+    await bootstrapProject(project!)
+
     return project!
+}
+
+export const bootstrapProject = async (project: Project): Promise<void> => {
+    if (!App.main.env.webhooks.bootstrap) {
+        return
+    }
+
+    logger.info({ projectId: project.id }, 'Bootstrapping project')
+    const { providers } = await fetchProvidersBootstrapConfig(project.organization_id, project.id)
+    if (!providers || providers.length === 0) {
+        return
+    }
+
+    for (const provider of providers) {
+        logger.info({ projectId: project.id, type: provider.type }, 'Setting up provider')
+        await createProvider(project.id, {
+            type: provider.type,
+            name: provider.name,
+            data: provider.data || {},
+            group: provider.group as ProviderGroup,
+            rate_interval: provider.rate_interval as RateInterval,
+            rate_limit: Number(provider.rate_limit),
+            is_default: provider.is_default || false,
+            external_id: provider.external_id ?? undefined,
+        })
+    }
+
+}
+
+export async function fetchProvidersBootstrapConfig(
+    organizationId: UUID,
+    projectId: UUID,
+): Promise<BootstrapResponse> {
+    if (!App.main.env.webhooks.bootstrap) {
+        throw new Error('No bootstrap webhook configured')
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), App.main.env.webhooks.bootstrap.timeoutMs)
+
+    try {
+        const res = await fetch(App.main.env.webhooks.bootstrap.url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                projectId,
+                organizationId,
+            }),
+            signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+        if (!res.ok) throw new Error(`Webhook error: ${res.statusText}`)
+        return res.json()
+    } catch (error) {
+        clearTimeout(timeoutId)
+        throw error
+    }
 }
 
 export const updateProject = async (id: UUID, adminId: UUID, params: Partial<ProjectParams>) => {

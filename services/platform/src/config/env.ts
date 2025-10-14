@@ -29,6 +29,17 @@ export interface Env {
         error: ErrorConfig
     }
     redis: RedisConfig
+    webhooks: WebhookConfig
+}
+
+export interface WebhookConfig {
+    bootstrap?: WebhookServiceConfig
+    send?: WebhookServiceConfig
+}
+
+export interface WebhookServiceConfig {
+    url: string
+    timeoutMs: number
 }
 
 export interface DriverConfig {
@@ -179,6 +190,20 @@ export default (type?: EnvType): Env => {
                     dsn: process.env.ERROR_SENTRY_DSN,
                 }),
             }),
+        },
+        webhooks: {
+            bootstrap: process.env.BOOTSTRAP_WEBHOOK_URL
+                ? {
+                    url: process.env.BOOTSTRAP_WEBHOOK_URL,
+                    timeoutMs: envInt(process.env.BOOTSTRAP_WEBHOOK_TIMEOUT_MS, 5000),
+                }
+                : undefined,
+            send: process.env.SEND_WEBHOOK_URL
+                ? {
+                    url: process.env.SEND_WEBHOOK_URL,
+                    timeoutMs: envInt(process.env.SEND_WEBHOOK_TIMEOUT_MS, 5000),
+                }
+                : undefined,
         },
     }
 }

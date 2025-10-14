@@ -1,5 +1,6 @@
 import { UUID } from 'node:crypto'
 import { loadProvider } from '../ProviderRepository'
+import WebhookTextProvider from './WebhookTextProvider'
 import HttpSMSTextProvider from './HttpSMSProvider'
 import LoggerTextProvider from './LoggerTextProvider'
 import NexmoTextProvider from './NexmoTextProvider'
@@ -16,6 +17,7 @@ export const typeMap: Record<string, TextProviderDerived> = {
     telnyx: TelnyxTextProvider,
     twilio: TwilioTextProvider,
     httpsms: HttpSMSTextProvider,
+    webhook: WebhookTextProvider,
     logger: LoggerTextProvider,
 }
 

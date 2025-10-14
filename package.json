@@ -11,6 +11,12 @@
     "test": "pnpm --filter \"@lunogram/*\" --stream test",
     "docker:build": "pnpm --filter \"@lunogram/*\" docker:build",
     "docker:build:push": "pnpm --filter \"@lunogram/*\" docker:build:push",
-    "analyze:ui:bundle": "pnpm build && npx source-map-explorer './services/console/build/static/js/*.js'"
+    "analyze:ui:bundle": "pnpm build && npx source-map-explorer './services/console/build/static/js/*.js'",
+    "generate:openapi": "pnpm run generate:openapi-webhooks",
+    "generate:openapi-webhooks": "openapi-typescript oapi/webhooks.yml -o ./services/platform/oapi/webhooks.generated.ts"
+  },
+  "devDependencies": {
+    "openapi-fetch": "^0.14.1",
+    "openapi-typescript": "^7.9.1"
   }
 }

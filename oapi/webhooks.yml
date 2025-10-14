@@ -1,0 +1,202 @@
+openapi: 3.0.3
+info:
+  title: Lunogram Webhook API
+  version: "1.0.0"
+  description: |
+    These webhook endpoints allow Lunogram to integrate with external systems.
+
+paths:
+  /webhooks/providers/bootstrap:
+    post:
+      summary: Bootstrap default integrations for a new project
+      description: |
+        Called by Lunogram when a new project is created.
+        The endpoint should return one or more default providers and/or an `external_id`
+        that can be used by Lunogram to send or fetch configuration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                  format: uuid
+                  description: Unique identifier of the project
+                organization_id:
+                  type: string
+                  format: uuid
+                  description: Organization to which the project belongs
+              required: [project_id]
+      responses:
+        "200":
+          description: Default providers and/or external reference
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Provider'
+                  external_id:
+                    type: string
+                    description: Identifier for the provider or configuration
+        "400":
+          description: Invalid request
+        "500":
+          description: Server error in external system
+
+  /webhooks/provider/send:
+    post:
+      summary: Send a message through an external provider
+      description: |
+        Called by Lunogram to send a message through the external provider identified by `external_id`.
+        The request body can represent an **email**, **SMS**, or **push** notification.
+      parameters:
+        - in: query
+          name: external_id
+          required: true
+          schema:
+            type: string
+          description: External identifier of the provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/Email'
+                - $ref: '#/components/schemas/TextMessage'
+                - $ref: '#/components/schemas/Push'
+              discriminator:
+                propertyName: type
+                mapping:
+                  email: '#/components/schemas/Email'
+                  text: '#/components/schemas/TextMessage'
+                  push: '#/components/schemas/Push'
+      responses:
+        "201":
+          description: Message accepted by the external system
+        "400":
+          description: Invalid payload or unsupported message type
+        "404":
+          description: Provider not found
+        "500":
+          description: Server error in external system
+
+components:
+  schemas:
+    Provider:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Provider type (e.g., "twilio", "sendgrid", "slack")
+        name:
+          type: string
+          description: Display name of the provider
+        group:
+          type: string
+          enum: [email, text, push, webhook, analytics]
+          description: Group of the provider
+        data:
+          type: object
+          additionalProperties: true
+          description: Provider-specific configuration data
+        is_default:
+          type: boolean
+          description: Whether this provider is marked as default
+        rate_interval:
+          type: string
+          enum: [second, minute, hour, day]
+          description: Rate limit interval
+        rate_limit:
+          type: integer
+          description: Maximum number of requests allowed in the specified interval
+        external_id:
+          type: string
+          nullable: true
+          description: External identifier to fetch or send through
+      required: [type, name, group, data, is_default]
+
+    Email:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [email]
+          example: email
+        to:
+          type: string
+        from:
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/NamedEmail'
+        cc:
+          type: string
+        bcc:
+          type: string
+        reply_to:
+          type: string
+        subject:
+          type: string
+        text:
+          type: string
+        html:
+          type: string
+        headers:
+          type: object
+          additionalProperties: true
+        list:
+          type: object
+          properties:
+            unsubscribe:
+              type: string
+      required: [type, to, from, subject]
+
+    TextMessage:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [text]
+          example: text
+        to:
+          type: string
+        text:
+          type: string
+      required: [type, to, text]
+
+    Push:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [push]
+          example: push
+        tokens:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        title:
+          type: string
+        body:
+          type: string
+        custom:
+          type: object
+          additionalProperties: true
+      required: [type, tokens, title, body]
+
+    NamedEmail:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+      required: [name, email]
