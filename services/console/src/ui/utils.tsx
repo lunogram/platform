@@ -63,11 +63,12 @@ export const highlightSearch = (
     ? text.replaceAll(search, `<strong class="${matchClassName}">$&</strong>`)
     : (text ?? '')
 
-export const flattenUser = ({ email, phone, id, external_id, timezone, locale, created_at, devices, data }: User) => orderKeys({
+export const flattenUser = ({ email, phone, id, anonymous_id, external_id, timezone, locale, created_at, devices, data }: User) => orderKeys({
     ...data,
     email,
     phone,
     id,
+    anonymous_id,
     external_id,
     created_at,
     locale,

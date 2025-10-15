@@ -248,6 +248,7 @@ export type ProjectApiKeyParams = Pick<ProjectApiKey, 'name' | 'description' | '
 
 export interface User {
     id: UUID
+    anonymous_id?: string
     external_id: string
     full_name?: string
     email?: string

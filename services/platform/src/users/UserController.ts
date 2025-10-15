@@ -18,6 +18,7 @@ import { removeUsers } from './UserImport'
 import { filterObjectForRulePaths } from '../projects/ProjectRulePathRepository'
 import { RulePathVisibility } from '../rules/ProjectRulePath'
 import { UUID } from 'node:crypto'
+import { ClientIdentifyParams } from 'client/Client'
 
 const router = new Router<
     ProjectState & { user?: User }
@@ -32,6 +33,71 @@ router.get('/', async ctx => {
     })
     const params = extractQueryParams(ctx.query, searchSchema)
     ctx.body = await pagedUsers(params, ctx.state.project.id)
+})
+
+/**
+ * Identify User
+ * Used by client libraries to identify and populate a single user
+ * using a provider external ID
+ */
+const userParams: JSONSchemaType<ClientIdentifyParams> = {
+    $id: 'userParams',
+    type: 'object',
+    required: [],
+    properties: {
+        anonymous_id: {
+            type: 'string',
+            nullable: true,
+        },
+        external_id: {
+            type: 'string',
+            nullable: true,
+        },
+        email: {
+            type: 'string',
+            nullable: true,
+        },
+        phone: {
+            type: 'string',
+            nullable: true,
+        },
+        timezone: {
+            type: 'string',
+            format: 'timezone',
+            nullable: true,
+            errorMessage: {
+                format: 'The timezone value must be in the IANA format.',
+            },
+        },
+        locale: {
+            type: 'string',
+            nullable: true,
+        },
+        data: {
+            type: 'object',
+            nullable: true,
+            additionalProperties: true,
+        },
+    },
+    anyOf: [
+        {
+            required: ['anonymous_id'],
+        },
+        {
+            required: ['external_id'],
+        },
+    ],
+    additionalProperties: false,
+} as any
+router.post('/', projectRoleMiddleware('editor'), async ctx => {
+    const user = validate(userParams, ctx.request.body)
+    await UserPatchJob.from({
+        project_id: ctx.state.project.id,
+        user,
+    }).queue()
+
+    ctx.status = 204
+    ctx.body = ''
 })
 
 const patchUsersRequest: JSONSchemaType<UserParams[]> = {
@@ -142,7 +208,6 @@ const deleteUsersRequest: JSONSchemaType<string[]> = {
     minItems: 1,
 }
 router.delete('/', projectRoleMiddleware('editor'), async ctx => {
-
     let userIds = ctx.request.query.user_id || []
     if (!Array.isArray(userIds)) userIds = userIds.length ? [userIds] : []
 

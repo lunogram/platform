@@ -10,7 +10,6 @@ import api from '../../api'
 import { useTranslation } from 'react-i18next'
 
 export default function UserDetail() {
-
     const { t } = useTranslation()
     const navigate = useNavigate()
     const [project] = useContext(ProjectContext)
