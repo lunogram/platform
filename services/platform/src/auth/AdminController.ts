@@ -30,6 +30,10 @@ router.get('/', async ctx => {
     ctx.body = await pagedAdmins(organizationId, params)
 })
 
+router.get('/whoami', async ctx => {
+    ctx.body = await getAdmin(ctx.state.admin!.id, ctx.state.admin!.organization_id)
+})
+
 const orgAdminParamsSchema: JSONSchemaType<Pick<Admin, 'email' | 'role' | 'first_name' | 'last_name'>> = {
     $id: 'orgAdminParams',
     type: 'object',

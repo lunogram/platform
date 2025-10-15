@@ -147,7 +147,12 @@ const api = {
         },
     },
 
-    admins: createEntityPath<Admin>('/admin/organizations/admins'),
+    admins: {
+        ...createEntityPath<Admin>('/admin/organizations/admins'),
+        whoami: async () => await client
+            .get<Admin>('/admin/organizations/admins/whoami')
+            .then(r => r.data),
+    },
 
     projects: {
         ...createEntityPath<Project>('/admin/projects'),
