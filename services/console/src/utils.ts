@@ -54,6 +54,21 @@ export function localStorageSetJson<T extends object>(key: string, o: T) {
     localStorage.setItem(key, JSON.stringify(o))
 }
 
+export function sessionStorageGetJson<T extends object>(key: string) {
+    try {
+        const stored = sessionStorage.getItem(key)
+        if (stored) {
+            return JSON.parse(stored) as T
+        }
+    } catch (err) {
+        console.warn(err)
+    }
+}
+
+export function sessionStorageSetJson<T extends object>(key: string, o: T) {
+    sessionStorage.setItem(key, JSON.stringify(o))
+}
+
 export function debounce(fn: Function, ms = 300) {
     let timeoutId: ReturnType<typeof setTimeout>
     return function(this: any, ...args: any[]) {
@@ -143,7 +158,7 @@ type RecentProjects = Array<{
 }>
 
 export function getRecentProjects() {
-    return (localStorageGetJson<RecentProjects>(RECENT_PROJECTS) ?? [])
+    return (sessionStorageGetJson<RecentProjects>(RECENT_PROJECTS) ?? [])
 }
 
 export function pushRecentProject(id: UUID) {
@@ -160,7 +175,7 @@ export function pushRecentProject(id: UUID) {
     while (stored.length > 3) {
         stored.pop()
     }
-    localStorageSetJson(RECENT_PROJECTS, stored)
+    sessionStorageSetJson(RECENT_PROJECTS, stored)
     return stored
 }
 

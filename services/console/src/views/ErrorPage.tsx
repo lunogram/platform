@@ -42,6 +42,8 @@ export default function ErrorPage({ status = 500 }: { status?: number }) {
     }
 
     if (status === 404) {
+        sessionStorage.clear()
+
         return (
             <ErrorAlert
                 variant="plain"
