@@ -7,6 +7,7 @@ import SwitchField from '../../ui/form/SwitchField'
 import Heading from '../../ui/Heading'
 import { LocaleTextField } from '../settings/Locales'
 import { useTranslation } from 'react-i18next'
+import { UseFormReturn } from 'react-hook-form'
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export declare namespace Intl {
@@ -40,12 +41,14 @@ interface ProjectFormProps {
 
 export default function ProjectForm({ project, onSave }: ProjectFormProps) {
     const { t } = useTranslation()
-    const timeZones = Intl.supportedValuesOf('timeZone')
     const locale = navigator.languages[0]?.split('-')[0] ?? 'en'
     const defaults = project ?? {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         locale,
     }
+
+    const editing = project
+
     return (
         <FormWrapper<Project>
             defaultValues={defaults}
@@ -58,51 +61,60 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                     : await api.projects.create(params)
                 onSave?.(project)
             }}
-            submitLabel={project ? t('save_settings') : t('create_project')}
+            submitLabel={editing ? t('save_settings') : t('create_project')}
         >
             {
                 form => (
                     <>
                         <TextInput.Field form={form} name="name" label={t('name')} required />
                         <TextInput.Field form={form} name="description" label={t('description')} textarea />
-                        <Heading size="h4" title={t('defaults')} />
-                        <LocaleTextField
-                            form={form}
-                            name="locale"
-                            label={t('default_locale')}
-                            subtitle={t('default_locale_description')}
-                            required />
-                        <SingleSelect.Field
-                            form={form}
-                            options={timeZones}
-                            name="timezone"
-                            label={t('timezone')}
-                            required
-                        />
-                        <Heading size="h4" title={t('message_settings')} />
-                        <TextInput.Field
-                            form={form}
-                            name="text_opt_out_message"
-                            label={t('sms_opt_out_message')}
-                            subtitle={t('sms_opt_out_message_subtitle')} />
-                        <TextInput.Field
-                            form={form}
-                            name="text_help_message"
-                            label={t('sms_help_message')}
-                            subtitle={t('sms_help_message_subtitle')} />
-                        <SwitchField
-                            form={form}
-                            name="link_wrap_email"
-                            label={t('link_wrapping_email')}
-                            subtitle={t('link_wrapping_email_subtitle')} />
-                        <SwitchField
-                            form={form}
-                            name="link_wrap_push"
-                            label={t('link_wrapping_push')}
-                            subtitle={t('link_wrapping_push_subtitle')} />
+                        {editing && <ProjectSettings form={form} />}
                     </>
                 )
             }
         </FormWrapper>
     )
+}
+
+function ProjectSettings({ form }: { form: UseFormReturn<Project> }) {
+    const timeZones = Intl.supportedValuesOf('timeZone')
+    const { t } = useTranslation()
+
+    return <>
+        <Heading size="h4" title={t('defaults')} />
+        <LocaleTextField
+            form={form}
+            name="locale"
+            label={t('default_locale')}
+            subtitle={t('default_locale_description')}
+            required />
+        <SingleSelect.Field
+            form={form}
+            options={timeZones}
+            name="timezone"
+            label={t('timezone')}
+            required
+        />
+        <Heading size="h4" title={t('message_settings')} />
+        <TextInput.Field
+            form={form}
+            name="text_opt_out_message"
+            label={t('sms_opt_out_message')}
+            subtitle={t('sms_opt_out_message_subtitle')} />
+        <TextInput.Field
+            form={form}
+            name="text_help_message"
+            label={t('sms_help_message')}
+            subtitle={t('sms_help_message_subtitle')} />
+        <SwitchField
+            form={form}
+            name="link_wrap_email"
+            label={t('link_wrapping_email')}
+            subtitle={t('link_wrapping_email_subtitle')} />
+        <SwitchField
+            form={form}
+            name="link_wrap_push"
+            label={t('link_wrapping_push')}
+            subtitle={t('link_wrapping_push_subtitle')} />
+    </>
 }
