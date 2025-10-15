@@ -41,6 +41,7 @@ interface ProjectFormProps {
 
 export default function ProjectForm({ project, onSave }: ProjectFormProps) {
     const { t } = useTranslation()
+    const timeZones = Intl.supportedValuesOf('timeZone')
     const locale = navigator.languages[0]?.split('-')[0] ?? 'en'
     const defaults = project ?? {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -68,6 +69,20 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                     <>
                         <TextInput.Field form={form} name="name" label={t('name')} required />
                         <TextInput.Field form={form} name="description" label={t('description')} textarea />
+                        <Heading size="h4" title={t('defaults')} />
+                        <LocaleTextField
+                            form={form}
+                            name="locale"
+                            label={t('default_locale')}
+                            subtitle={t('default_locale_description')}
+                            required />
+                        <SingleSelect.Field
+                            form={form}
+                            options={timeZones}
+                            name="timezone"
+                            label={t('timezone')}
+                            required
+                        />
                         {editing && <ProjectSettings form={form} />}
                     </>
                 )
@@ -77,24 +92,9 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
 }
 
 function ProjectSettings({ form }: { form: UseFormReturn<Project> }) {
-    const timeZones = Intl.supportedValuesOf('timeZone')
     const { t } = useTranslation()
 
     return <>
-        <Heading size="h4" title={t('defaults')} />
-        <LocaleTextField
-            form={form}
-            name="locale"
-            label={t('default_locale')}
-            subtitle={t('default_locale_description')}
-            required />
-        <SingleSelect.Field
-            form={form}
-            options={timeZones}
-            name="timezone"
-            label={t('timezone')}
-            required
-        />
         <Heading size="h4" title={t('message_settings')} />
         <TextInput.Field
             form={form}
