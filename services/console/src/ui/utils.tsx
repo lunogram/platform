@@ -63,6 +63,19 @@ export const highlightSearch = (
     ? text.replaceAll(search, `<strong class="${matchClassName}">$&</strong>`)
     : (text ?? '')
 
+export const getEditableUserFields = ({ email, phone, id, anonymous_id, external_id, timezone, locale, created_at, devices, data }: User) => orderKeys({
+    data,
+    email,
+    phone,
+    id,
+    anonymous_id,
+    external_id,
+    created_at,
+    locale,
+    timezone,
+    devices,
+})
+
 export const flattenUser = ({ email, phone, id, anonymous_id, external_id, timezone, locale, created_at, devices, data }: User) => orderKeys({
     ...data,
     email,
