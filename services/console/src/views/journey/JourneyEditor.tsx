@@ -36,8 +36,6 @@ import clsx from 'clsx'
 import api from '../../api'
 import { JourneyStep, JourneyStepMap, JourneyStepType } from '../../types'
 
-import './JourneyEditor.css'
-import 'reactflow/dist/style.css'
 import Button from '../../ui/Button'
 import Alert from '../../ui/Alert'
 import Modal from '../../ui/Modal'
@@ -50,6 +48,9 @@ import { useTranslation } from 'react-i18next'
 import { JourneyStepUsers } from './JourneyStepUsers'
 import { Menu, MenuItem } from '../../ui'
 import { UUID } from 'crypto'
+
+import './JourneyEditor.css'
+import 'reactflow/dist/style.css'
 
 const getStepType = (type: string) => (type ? journeySteps[type as keyof typeof journeySteps] as JourneyStepType : null) ?? null
 

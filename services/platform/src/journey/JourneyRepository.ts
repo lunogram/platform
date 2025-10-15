@@ -3,7 +3,7 @@ import { Database } from '../config/database'
 import { RequestError } from '../core/errors'
 import { PageParams } from '../core/searchParams'
 import Journey, { JourneyParams, UpdateJourneyParams } from './Journey'
-import { JourneyStep, JourneyEntrance, JourneyStepMap, toJourneyStepMap, JourneyStepChild, journeyStepTypes } from './JourneyStep'
+import { JourneyStep, JourneyEntrance, JourneyStepMap, toJourneyStepMap, JourneyStepChild, journeyStepTypes, JourneyStepMapParams } from './JourneyStep'
 import JourneyUserStep from './JourneyUserStep'
 import { createTagSubquery, getTags, setTags } from '../tags/TagService'
 import { User } from '../users/User'
@@ -12,6 +12,7 @@ import { duplicateJourney } from './JourneyService'
 import { subSeconds } from 'date-fns'
 import { JourneyState } from './JourneyState'
 import { UUID } from 'node:crypto'
+import { logger } from '../config/logger'
 
 export const pagedJourneys = async (params: PageParams, projectId: UUID) => {
     const result = await Journey.search(
@@ -41,17 +42,25 @@ export const allJourneys = async (projectId: UUID): Promise<Journey[]> => {
     )
 }
 
-export const createJourney = async (projectId: UUID, { tags, ...params }: JourneyParams): Promise<Journey> => {
+export const createJourney = async (projectId: UUID, { tags, template_id, ...params }: JourneyParams): Promise<Journey> => {
     return App.main.db.transaction(async trx => {
-
         const journey = await Journey.insertAndFetch({
             ...params,
             status: 'draft',
             project_id: projectId,
         }, trx)
 
-        // Auto-create entrance step
-        await JourneyEntrance.create(journey.id, undefined, trx)
+        if (template_id && !App.main.env.webhooks.journeyTemplate) {
+            logger.warn('Journey template requested but webhook journey template is disabled')
+        }
+
+        if (template_id && App.main.env.webhooks.journeyTemplate) {
+            const template = await fetchJourneyTemplate(template_id)
+            await setJourneyStepMap(journey, template, trx)
+        } else {
+            // Auto-create entrance step
+            await JourneyEntrance.create(journey.id, undefined, trx)
+        }
 
         if (tags?.length) {
             await setTags({
@@ -64,6 +73,36 @@ export const createJourney = async (projectId: UUID, { tags, ...params }: Journe
 
         return journey
     })
+}
+
+export async function fetchJourneyTemplate(
+    template_id: string,
+): Promise<JourneyStepMapParams> {
+    if (!App.main.env.webhooks.journeyTemplate) {
+        throw new Error('No template webhook configured')
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), App.main.env.webhooks.journeyTemplate.timeoutMs)
+
+    try {
+        const url = new URL(App.main.env.webhooks.journeyTemplate.url)
+        url.searchParams.set('template_id', template_id)
+        const res = await fetch(url, {
+            method: 'GET',
+            headers: {
+                Accept: 'application/json',
+            },
+            signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+        if (!res.ok) throw new Error(`Webhook error: ${res.statusText}`)
+        return res.json()
+    } catch (error) {
+        clearTimeout(timeoutId)
+        throw error
+    }
 }
 
 export const getJourney = async (id: UUID, projectId: UUID): Promise<Journey> => {
@@ -157,9 +196,8 @@ export const getJourneyStepMap = async (journeyId: UUID) => {
     return toJourneyStepMap(steps, children)
 }
 
-export const setJourneyStepMap = async (journey: Journey, stepMap: JourneyStepMap) => {
-    return await App.main.db.transaction(async trx => {
-
+export const setJourneyStepMap = async (journey: Journey, stepMap: JourneyStepMap, trx?: Database.Transaction) => {
+    const handler = async (trx: Database.Transaction) => {
         const [steps, children] = await Promise.all([
             getJourneySteps(journey.id, trx),
             getJourneyStepChildren(journey.id, trx),
@@ -257,7 +295,13 @@ export const setJourneyStepMap = async (journey: Journey, stepMap: JourneyStepMa
         }
 
         return { steps, children }
-    })
+    }
+
+    if (trx) {
+        return handler(trx)
+    }
+
+    return App.main.db.transaction(handler)
 }
 
 export const getEntranceSubsequentSteps = async (entranceId: UUID) => {
@@ -335,7 +379,7 @@ export const pagedUsersByStep = async (stepId: UUID, params: PageParams) => {
 
 export const getEntranceLog = async (entranceId: UUID) => {
     const userSteps = await JourneyUserStep.all(q => q
-        .where(function() {
+        .where(function () {
             return this.where('id', entranceId).orWhere('entrance_id', entranceId)
         })
         .orderBy('id', 'asc'),

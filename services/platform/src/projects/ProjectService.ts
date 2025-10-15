@@ -46,10 +46,20 @@ export const allProjects = async (adminId: UUID, organizationId: UUID) => {
 }
 
 export const getProject = async (id: UUID, adminId?: UUID) => {
-    return Project.first(
+    const project = await Project.first(
         qb => {
-            qb.where('projects.id', id)
-                .select('projects.*')
+            qb.where('projects.id', id).select('projects.*')
+                .select(
+                    Project.raw(
+                        '(SELECT COUNT(*) FROM campaigns WHERE campaigns.project_id = projects.id) AS campaign_count',
+                    ),
+                    Project.raw(
+                        '(SELECT COUNT(*) FROM journeys WHERE journeys.project_id = projects.id) AS journeys_count',
+                    ),
+                    Project.raw(
+                        '(SELECT COUNT(*) FROM users WHERE users.project_id = projects.id) AS users_count',
+                    ),
+                )
             if (adminId != null) {
                 qb.leftJoin('project_admins', 'project_admins.project_id', 'projects.id')
                     .where('admin_id', adminId)
@@ -57,6 +67,13 @@ export const getProject = async (id: UUID, adminId?: UUID) => {
             }
             return qb
         })
+
+    return {
+        ...project,
+        campaigns_count: Number(project?.campaigns_count ?? 0),
+        journeys_count: Number(project?.journeys_count ?? 0),
+        users_count: Number(project?.users_count ?? 0),
+    } as Project
 }
 
 export const createProject = async (admin: JwtAdmin, params: ProjectParams): Promise<Project> => {

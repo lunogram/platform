@@ -229,6 +229,9 @@ export interface Project {
     deleted_at?: string
     role?: ProjectRole
     has_provider?: boolean
+    campaigns_count?: number
+    journeys_count?: number
+    users_count?: number
 }
 
 export type ChannelType = 'email' | 'push' | 'text' | 'webhook' | 'in_app'
@@ -316,6 +319,7 @@ export interface Journey {
     draft_id?: UUID
     name: string
     description?: string
+    template_id?: string
     status: JourneyStatus
     tags?: string[]
     created_at: string

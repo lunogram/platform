@@ -20,59 +20,7 @@ export interface paths {
          *     that can be used by Lunogram to send or fetch configuration.
          *
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /**
-                         * Format: uuid
-                         * @description Unique identifier of the project
-                         */
-                        project_id: string;
-                        /**
-                         * Format: uuid
-                         * @description Organization to which the project belongs
-                         */
-                        organization_id?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Default providers and/or external reference */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            providers?: components["schemas"]["Provider"][];
-                            /** @description Identifier for the provider or configuration */
-                            external_id?: string;
-                        };
-                    };
-                };
-                /** @description Invalid request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Server error in external system */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post: operations["bootstrapProviders"];
         delete?: never;
         options?: never;
         head?: never;
@@ -94,52 +42,30 @@ export interface paths {
          *     The request body can represent an **email**, **SMS**, or **push** notification.
          *
          */
-        post: {
-            parameters: {
-                query: {
-                    /** @description External identifier of the provider */
-                    external_id: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["Email"] | components["schemas"]["TextMessage"] | components["schemas"]["Push"];
-                };
-            };
-            responses: {
-                /** @description Message accepted by the external system */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Invalid payload or unsupported message type */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Provider not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Server error in external system */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
+        post: operations["sendMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/journey/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
+        /**
+         * Retrieve a journey step template
+         * @description Returns a predefined journey step template that defines how users can get started
+         *     with Journeys. The template contains a map of step definitions, including `entrance`,
+         *     `action`, and `sticky` types.
+         *
+         */
+        get: operations["journeyTemplate"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -150,6 +76,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Providers: {
+            /** @description List of providers to create */
+            providers: components["schemas"]["Provider"][];
+        };
         Provider: {
             /** @description Provider type (e.g., "twilio", "sendgrid", "slack") */
             type: string;
@@ -174,7 +104,84 @@ export interface components {
             /** @description Maximum number of requests allowed in the specified interval */
             rate_limit?: number;
             /** @description External identifier to fetch or send through */
-            external_id?: string | null;
+            external_id: string;
+        };
+        /**
+         * @description Represents a journey step template map, where each key is a unique step ID (UUID)
+         *     and the value defines the step configuration.
+         *
+         * @example {
+         *       "819fbabf-c3c0-4fe3-b41f-7f6bbe068379": {
+         *         "type": "entrance",
+         *         "data": {},
+         *         "name": "",
+         *         "data_key": null,
+         *         "x": 0,
+         *         "y": 0,
+         *         "children": [
+         *           {
+         *             "external_id": "a9b91772-f555-4d0b-999e-bae513202821",
+         *             "path": "",
+         *             "data": {}
+         *           }
+         *         ]
+         *       },
+         *       "e6eed3fb-9d7f-4295-947e-6fceb546ad40": {
+         *         "type": "sticky",
+         *         "data": {
+         *           "text": "Journeys define how users progress through your automated steps and actions over time."
+         *         },
+         *         "name": "Getting Started! 🎉",
+         *         "data_key": null,
+         *         "x": 303.37,
+         *         "y": -10.8,
+         *         "children": []
+         *       },
+         *       "a9b91772-f555-4d0b-999e-bae513202821": {
+         *         "type": "action",
+         *         "data": {
+         *           "campaign_id": "00000000-0000-0000-0000-000000000000"
+         *         },
+         *         "name": "",
+         *         "data_key": null,
+         *         "x": -40.62,
+         *         "y": 289.19,
+         *         "children": []
+         *       },
+         *       "a197e316-c2aa-4290-9231-31a56218e5a8": {
+         *         "type": "sticky",
+         *         "data": {
+         *           "text": "Use actions to send emails, SMS, push notifications, or trigger webhooks."
+         *         },
+         *         "name": "Deliver your Message 📣",
+         *         "data_key": null,
+         *         "x": 302.03,
+         *         "y": 385.81,
+         *         "children": []
+         *       }
+         *     }
+         */
+        Journey: {
+            [key: string]: components["schemas"]["JourneyStep"];
+        };
+        JourneyStep: {
+            /** @enum {string} */
+            type: "entrance" | "action" | "sticky";
+            name?: string | null;
+            data?: {
+                [key: string]: unknown;
+            } | null;
+            data_key?: string | null;
+            x: number;
+            y: number;
+            children?: components["schemas"]["JourneyStepChild"][] | null;
+        };
+        JourneyStepChild: {
+            external_id: string;
+            path?: string | null;
+            data?: {
+                [key: string]: unknown;
+            } | null;
         };
         Email: {
             /**
@@ -191,7 +198,7 @@ export interface components {
             text?: string;
             html?: string;
             headers?: {
-                [key: string]: unknown;
+                [key: string]: string;
             };
             list?: {
                 unsubscribe?: string;
@@ -231,4 +238,144 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    bootstrapProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description Unique identifier of the project
+                     */
+                    project_id: string;
+                    /**
+                     * Format: uuid
+                     * @description Organization to which the project belongs
+                     */
+                    organization_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default providers and/or external reference */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Providers"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Server error in external system */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sendMessage: {
+        parameters: {
+            query: {
+                /** @description External identifier of the provider */
+                external_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Email"] | components["schemas"]["TextMessage"] | components["schemas"]["Push"];
+            };
+        };
+        responses: {
+            /** @description Message accepted by the external system */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid payload or unsupported message type */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Server error in external system */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    journeyTemplate: {
+        parameters: {
+            query: {
+                /** @description Identifier of the journey template */
+                template_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Journey template retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Journey"];
+                };
+            };
+            /** @description Invalid template_id or malformed request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Template not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Server error in external system */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+}
