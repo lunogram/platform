@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import Button from '../../ui/Button'
+import Button, { LinkButton } from '../../ui/Button'
 import api from '../../api'
 import { UUID } from 'crypto'
 import { useEffect, useState } from 'react'
@@ -52,8 +52,8 @@ export default function ProjectOnboarding() {
                 <h1>{t('onboarding_users_title')}</h1>
                 <p>{t('onboarding_users_description')}</p>
                 <div className="actions">
+                    <LinkButton to="https://github.com/lunogram/js-sdk" target="_blank" variant="secondary" size="small">SDK</LinkButton>
                     <Button disabled variant="secondary" size="small">Plugins</Button>
-                    <Button disabled variant="secondary" size="small">SDK</Button>
                     <Button disabled variant="secondary" size="small">CSV</Button>
                 </div>
             </section>
