@@ -48,6 +48,10 @@ const journeyParams: JSONSchemaType<JourneyParams> = {
             },
             nullable: true,
         },
+        template_id: {
+            type: 'string',
+            nullable: true,
+        },
         status: {
             type: 'string',
             enum: ['off', 'draft', 'live'],

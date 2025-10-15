@@ -31,7 +31,7 @@ export default class Journey extends Model {
     }
 }
 
-export type JourneyParams = Omit<Journey, ModelParams | 'parent_id' | 'draft_id' | 'deleted_at' | 'stats' | 'stats_at'>
+export type JourneyParams = Omit<Journey, ModelParams | 'parent_id' | 'draft_id' | 'deleted_at' | 'stats' | 'stats_at'> & { template_id?: string }
 export type UpdateJourneyParams = Omit<JourneyParams, 'project_id'>
 
 export interface JourneyEntranceTriggerParams {

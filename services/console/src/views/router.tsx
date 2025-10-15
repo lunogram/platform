@@ -48,6 +48,9 @@ import { Translation } from 'react-i18next'
 import Organization from './organization/Organization'
 import DataSchema from './settings/DataSchema'
 import { UUID } from 'crypto'
+import ProjectOnboarding from './project/ProjectOnboarding'
+import ProjectOnboardingJourney from './project/ProjectOnboardingJourney'
+import ProjectOnboardingUsers from './project/ProjectOnboardingUsers'
 
 export const useRoute = (includeProject = true) => {
     const { projectId = '' } = useParams()
@@ -144,10 +147,30 @@ export const createRouter = ({
                 ],
             },
             {
+                path: 'projects/:projectId/onboarding',
+                element: <ProjectOnboarding />,
+                children: [
+                    {
+                        index: true,
+                        path: 'users',
+                        element: <ProjectOnboardingUsers />,
+                    },
+                    {
+                        path: 'journey',
+                        element: <ProjectOnboardingJourney />,
+                    },
+                ],
+            },
+            {
                 path: 'projects/:projectId',
                 loader: async ({ params: { projectId = '' } }) => {
                     const project = await api.projects.get(projectId)
                     pushRecentProject(project.id)
+
+                    if (!sessionStorage.getItem('skippedOnboarding') && project.campaigns_count === 0 && project.journeys_count === 0 && project.users_count === 0) {
+                        return redirect('onboarding/users')
+                    }
+
                     return project
                 },
                 element: (

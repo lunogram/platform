@@ -1,0 +1,46 @@
+.onboarding-step {
+    min-width: 400px;
+    max-width: 600px;
+    background: var(--color-background);
+    border: 1px solid var(--color-grey-soft);
+    border-radius: var(--border-radius-outer);
+    padding: 40px;
+}
+
+.users-step .actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.users-step .users-sync {
+    margin: 40px 0;
+}
+
+.users-sync .circle {
+    margin-left: 16px;
+    vertical-align: middle;
+}
+
+.circle {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    box-shadow: 0px 0px 1px 1px #ffffff1a;
+    background: var(--color-green);
+}
+
+.pulse {
+    animation: pulse-animation 2s infinite;
+}
+
+@keyframes pulse-animation {
+    0% {
+        box-shadow: 0 0 0 0px rgba(255, 255, 255, 0.2);
+    }
+
+    100% {
+        box-shadow: 0 0 0 15px rgba(255, 255, 255, 0);
+    }
+}

@@ -233,6 +233,7 @@
 .journey-step.info {
     background: var(--color-purple-soft);
     border-color: var(--color-purple-soft);
+    max-width: 275px;
 }
 
 .journey-step.info.selected {
@@ -245,6 +246,8 @@
 
 .journey-step.info .journey-step-body {
     padding-top: 0;
+    word-break: auto-phrase;
+    hyphens: auto;
 }
 
 .journey-step .data-key {

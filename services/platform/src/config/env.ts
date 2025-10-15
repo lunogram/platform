@@ -35,6 +35,7 @@ export interface Env {
 export interface WebhookConfig {
     bootstrap?: WebhookServiceConfig
     send?: WebhookServiceConfig
+    journeyTemplate?: WebhookServiceConfig
 }
 
 export interface WebhookServiceConfig {
@@ -202,6 +203,12 @@ export default (type?: EnvType): Env => {
                 ? {
                     url: process.env.SEND_WEBHOOK_URL,
                     timeoutMs: envInt(process.env.SEND_WEBHOOK_TIMEOUT_MS, 5000),
+                }
+                : undefined,
+            journeyTemplate: process.env.JOURNEY_TEMPLATE_WEBHOOK_URL
+                ? {
+                    url: process.env.JOURNEY_TEMPLATE_WEBHOOK_URL,
+                    timeoutMs: envInt(process.env.JOURNEY_TEMPLATE_WEBHOOK_TIMEOUT_MS, 5000),
                 }
                 : undefined,
         },

@@ -12,9 +12,12 @@ export default class Project extends Model {
     text_help_message?: string
     link_wrap_email?: boolean
     link_wrap_push?: boolean
+    campaigns_count?: number
+    journeys_count?: number
+    users_count?: number
 }
 
-export type ProjectParams = Omit<Project, ModelParams | 'deleted_at' | 'organization_id'>
+export type ProjectParams = Omit<Project, ModelParams | 'deleted_at' | 'organization_id' | 'campaigns_count' | 'journeys_count' | 'users_count'>
 
 export const projectRoles = [
     'support',

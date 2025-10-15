@@ -14,6 +14,7 @@ export interface BaseTextInputProps<T extends TextInputValue> extends Partial<Co
     name: string
     placeholder?: string
     onChange?: (value: T) => void
+    readOnly?: boolean
     onBlur?: React.FocusEventHandler<HTMLTextAreaElement | HTMLInputElement>
     onFocus?: React.FocusEventHandler<HTMLTextAreaElement | HTMLInputElement>
     labelRef?: Ref<HTMLLabelElement>
@@ -55,6 +56,7 @@ export default function TextInput<X extends TextInputValue>({
     textarea,
     size = 'regular',
     value = '',
+    readOnly,
     onChange,
     onBlur,
     onFocus,
@@ -96,6 +98,7 @@ export default function TextInput<X extends TextInputValue>({
                                 value={value}
                                 onChange={(event) => onChange?.(event?.target.value as X)}
                                 onBlur={onBlur}
+                                readOnly={readOnly}
                                 onFocus={onFocus}
                                 ref={inputRef}
                                 minLength={minLength}
@@ -108,6 +111,7 @@ export default function TextInput<X extends TextInputValue>({
                                 type={type}
                                 value={value}
                                 className={size}
+                                readOnly={readOnly}
                                 placeholder={placeholder}
                                 onChange={(event) => {
                                     const inputValue = typeof value === 'number' || type === 'number'

@@ -8,6 +8,7 @@ info:
 paths:
   /webhooks/providers/bootstrap:
     post:
+      operationId: bootstrapProviders
       summary: Bootstrap default integrations for a new project
       description: |
         Called by Lunogram when a new project is created.
@@ -35,15 +36,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  providers:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Provider'
-                  external_id:
-                    type: string
-                    description: Identifier for the provider or configuration
+                $ref: '#/components/schemas/Providers'
         "400":
           description: Invalid request
         "500":
@@ -51,6 +44,7 @@ paths:
 
   /webhooks/provider/send:
     post:
+      operationId: sendMessage
       summary: Send a message through an external provider
       description: |
         Called by Lunogram to send a message through the external provider identified by `external_id`.
@@ -87,8 +81,47 @@ paths:
         "500":
           description: Server error in external system
 
+  /webhooks/journey/template:
+    get:
+      operationId: journeyTemplate
+      summary: Retrieve a journey step template
+      description: |
+        Returns a predefined journey step template that defines how users can get started
+        with Journeys. The template contains a map of step definitions, including `entrance`,
+        `action`, and `sticky` types.
+      parameters:
+        - in: query
+          name: template_id
+          required: true
+          schema:
+            type: string
+          description: Identifier of the journey template
+      responses:
+        "200":
+          description: Journey template retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Journey'
+        "400":
+          description: Invalid template_id or malformed request
+        "404":
+          description: Template not found
+        "500":
+          description: Server error in external system
+
 components:
   schemas:
+    Providers:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Provider'
+          description: List of providers to create
+      required: [providers]
+
     Provider:
       type: object
       properties:
@@ -118,9 +151,96 @@ components:
           description: Maximum number of requests allowed in the specified interval
         external_id:
           type: string
-          nullable: true
           description: External identifier to fetch or send through
-      required: [type, name, group, data, is_default]
+      required: [type, name, group, data, is_default, external_id]
+
+    Journey:
+      type: object
+      description: |
+        Represents a journey step template map, where each key is a unique step ID (UUID)
+        and the value defines the step configuration.
+      additionalProperties:
+        $ref: '#/components/schemas/JourneyStep'
+      example:
+        819fbabf-c3c0-4fe3-b41f-7f6bbe068379:
+          type: entrance
+          data: {}
+          name: ""
+          data_key: null
+          x: 0
+          y: 0
+          children:
+            - external_id: a9b91772-f555-4d0b-999e-bae513202821
+              path: ""
+              data: {}
+        e6eed3fb-9d7f-4295-947e-6fceb546ad40:
+          type: sticky
+          data:
+            text: "Journeys define how users progress through your automated steps and actions over time."
+          name: "Getting Started! 🎉"
+          data_key: null
+          x: 303.37
+          y: -10.80
+          children: []
+        a9b91772-f555-4d0b-999e-bae513202821:
+          type: action
+          data:
+            campaign_id: "00000000-0000-0000-0000-000000000000"
+          name: ""
+          data_key: null
+          x: -40.62
+          y: 289.19
+          children: []
+        a197e316-c2aa-4290-9231-31a56218e5a8:
+          type: sticky
+          data:
+            text: "Use actions to send emails, SMS, push notifications, or trigger webhooks."
+          name: "Deliver your Message 📣"
+          data_key: null
+          x: 302.03
+          y: 385.81
+          children: []
+
+    JourneyStep:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [entrance, action, sticky]
+        name:
+          type: string
+          nullable: true
+        data:
+          type: object
+          nullable: true
+          additionalProperties: true
+        data_key:
+          type: string
+          nullable: true
+        x:
+          type: number
+        y:
+          type: number
+        children:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/JourneyStepChild'
+      required: [type, x, y]
+
+    JourneyStepChild:
+      type: object
+      properties:
+        external_id:
+          type: string
+        path:
+          type: string
+          nullable: true
+        data:
+          type: object
+          nullable: true
+          additionalProperties: true
+      required: [external_id]
 
     Email:
       type: object
@@ -149,7 +269,8 @@ components:
           type: string
         headers:
           type: object
-          additionalProperties: true
+          additionalProperties:
+            type: string
         list:
           type: object
           properties:
