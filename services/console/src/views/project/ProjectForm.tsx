@@ -1,13 +1,37 @@
 import api from '../../api'
 import TextInput from '../../ui/form/TextInput'
-import { Project, Intl } from '../../types'
+import { Project } from '../../types'
 import FormWrapper from '../../ui/form/FormWrapper'
 import { SingleSelect } from '../../ui/form/SingleSelect'
 import SwitchField from '../../ui/form/SwitchField'
 import Heading from '../../ui/Heading'
 import { LocaleTextField } from '../settings/Locales'
 import { useTranslation } from 'react-i18next'
-import { UseFormReturn } from 'react-hook-form'
+
+// eslint-disable-next-line @typescript-eslint/no-namespace
+export declare namespace Intl {
+    type Key = 'calendar' | 'collation' | 'currency' | 'numberingSystem' | 'timeZone' | 'unit'
+    function supportedValuesOf(input: Key): string[]
+
+    interface DateTimeFormat {
+        // eslint-disable-next-line @typescript-eslint/method-signature-style
+        format(date?: Date | number): string
+        // eslint-disable-next-line @typescript-eslint/method-signature-style
+        resolvedOptions(): ResolvedDateTimeFormatOptions
+    }
+
+    interface ResolvedDateTimeFormatOptions {
+        locale: string
+        timeZone: string
+        timeZoneName?: string
+    }
+
+    // eslint-disable-next-line no-var
+    var DateTimeFormat: {
+        new(locales?: string | string[]): DateTimeFormat
+        (locales?: string | string[]): DateTimeFormat
+    }
+}
 
 interface ProjectFormProps {
     project?: Project
@@ -22,9 +46,6 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         locale,
     }
-
-    const editing = project
-
     return (
         <FormWrapper<Project>
             defaultValues={defaults}
@@ -37,7 +58,7 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                     : await api.projects.create(params)
                 onSave?.(project)
             }}
-            submitLabel={editing ? t('save_settings') : t('create_project')}
+            submitLabel={project ? t('save_settings') : t('create_project')}
         >
             {
                 form => (
@@ -58,38 +79,30 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                             label={t('timezone')}
                             required
                         />
-                        {editing && <ProjectSettings form={form} />}
+                        <Heading size="h4" title={t('message_settings')} />
+                        <TextInput.Field
+                            form={form}
+                            name="text_opt_out_message"
+                            label={t('sms_opt_out_message')}
+                            subtitle={t('sms_opt_out_message_subtitle')} />
+                        <TextInput.Field
+                            form={form}
+                            name="text_help_message"
+                            label={t('sms_help_message')}
+                            subtitle={t('sms_help_message_subtitle')} />
+                        <SwitchField
+                            form={form}
+                            name="link_wrap_email"
+                            label={t('link_wrapping_email')}
+                            subtitle={t('link_wrapping_email_subtitle')} />
+                        <SwitchField
+                            form={form}
+                            name="link_wrap_push"
+                            label={t('link_wrapping_push')}
+                            subtitle={t('link_wrapping_push_subtitle')} />
                     </>
                 )
             }
         </FormWrapper>
     )
-}
-
-function ProjectSettings({ form }: { form: UseFormReturn<Project> }) {
-    const { t } = useTranslation()
-
-    return <>
-        <Heading size="h4" title={t('message_settings')} />
-        <TextInput.Field
-            form={form}
-            name="text_opt_out_message"
-            label={t('sms_opt_out_message')}
-            subtitle={t('sms_opt_out_message_subtitle')} />
-        <TextInput.Field
-            form={form}
-            name="text_help_message"
-            label={t('sms_help_message')}
-            subtitle={t('sms_help_message_subtitle')} />
-        <SwitchField
-            form={form}
-            name="link_wrap_email"
-            label={t('link_wrapping_email')}
-            subtitle={t('link_wrapping_email_subtitle')} />
-        <SwitchField
-            form={form}
-            name="link_wrap_push"
-            label={t('link_wrapping_push')}
-            subtitle={t('link_wrapping_push_subtitle')} />
-    </>
 }
