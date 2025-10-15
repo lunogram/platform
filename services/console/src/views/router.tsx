@@ -30,7 +30,6 @@ import Integrations from './settings/Integrations'
 import Tags from './settings/Tags'
 import Login from './auth/Login'
 import LoginCallback from './auth/LoginCallback'
-import OnboardingStart from './auth/OnboardingStart'
 import Onboarding from './auth/Onboarding'
 import OnboardingProject from './auth/OnboardingProject'
 import { CampaignsIcon, JourneysIcon, ListsIcon, SettingsIcon, UsersIcon } from '../ui/icons'
@@ -111,10 +110,6 @@ export const createRouter = ({
                 path: 'onboarding',
                 element: <Onboarding />,
                 children: [
-                    {
-                        index: true,
-                        element: <OnboardingStart />,
-                    },
                     {
                         path: 'project',
                         element: <OnboardingProject />,

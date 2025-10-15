@@ -39,7 +39,7 @@ export function Projects() {
 
     useEffect(() => {
         if (projects && !projects.length) {
-            navigate('/onboarding')?.catch(e => {
+            navigate('/onboarding/project')?.catch(e => {
                 console.error('Failed to navigate to onboarding:', e)
             })
         }
