@@ -13,32 +13,7 @@ import { SingleSelect } from '../../ui/form/SingleSelect'
 import { PlusIcon, TrashIcon } from '../../ui/icons'
 import { UUID } from 'crypto'
 import { NIL } from 'uuid'
-import { User } from '../../types'
-
-// eslint-disable-next-line @typescript-eslint/no-namespace
-export declare namespace Intl {
-    type Key = 'calendar' | 'collation' | 'currency' | 'numberingSystem' | 'timeZone' | 'unit'
-    function supportedValuesOf(input: Key): string[]
-
-    interface DateTimeFormat {
-        // eslint-disable-next-line @typescript-eslint/method-signature-style
-        format(date?: Date | number): string
-        // eslint-disable-next-line @typescript-eslint/method-signature-style
-        resolvedOptions(): ResolvedDateTimeFormatOptions
-    }
-
-    interface ResolvedDateTimeFormatOptions {
-        locale: string
-        timeZone: string
-        timeZoneName?: string
-    }
-
-    // eslint-disable-next-line no-var
-    var DateTimeFormat: {
-        new(locales?: string | string[]): DateTimeFormat
-        (locales?: string | string[]): DateTimeFormat
-    }
-}
+import { User, Intl } from '../../types'
 
 export default function UserTabs() {
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
@@ -57,14 +32,16 @@ export default function UserTabs() {
     }
 
     const createUser = async (user: User) => {
-        user.anonymous_id = crypto.randomUUID() as UUID
-
-        if (user.full_name) {
-            user.data = { full_name: user.full_name }
-            user.full_name = undefined
+        const { full_name, ...rest } = user
+        const newUser: User = {
+            ...rest,
+            anonymous_id: crypto.randomUUID() as UUID,
+            ...(full_name
+                ? { data: { full_name } }
+                : { data: user.data }),
         }
 
-        await api.users.create(projectId, user)
+        await api.users.create(projectId, newUser)
         await state.reload()
 
         setIsCreateUserOpen(false)
