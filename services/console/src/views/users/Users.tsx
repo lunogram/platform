@@ -8,29 +8,63 @@ import { useTranslation } from 'react-i18next'
 import { Button, Modal } from '../../ui'
 import FormWrapper from '../../ui/form/FormWrapper'
 import UploadField from '../../ui/form/UploadField'
-import { TrashIcon } from '../../ui/icons'
+import TextInput from '../../ui/form/TextInput'
+import { SingleSelect } from '../../ui/form/SingleSelect'
+import { PlusIcon, TrashIcon } from '../../ui/icons'
 import { UUID } from 'crypto'
 import { NIL } from 'uuid'
+import { User, Intl } from '../../types'
 
 export default function UserTabs() {
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
     const { t } = useTranslation()
     const route = useRoute()
-    const state = useSearchTableQueryState(useCallback(async params => await api.users.search(projectId, params), [projectId]))
-    const [isUploadOpen, setIsUploadOpen] = useState(false)
+    const timeZones = Intl.supportedValuesOf('timeZone')
+    const locale = navigator.languages[0]?.split('-')[0] ?? 'en'
 
-    const removeUsers = async (file: FileList) => {
+    const state = useSearchTableQueryState(useCallback(async params => await api.users.search(projectId, params), [projectId]))
+    const [isBulkRemovalOpen, setIsBulkRemovalOpen] = useState(false)
+    const [isCreateUserOpen, setIsCreateUserOpen] = useState(false)
+
+    const defaultUser = {
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        locale,
+    }
+
+    const createUser = async (user: User) => {
+        const { full_name, ...rest } = user
+        const newUser: User = {
+            ...rest,
+            anonymous_id: crypto.randomUUID() as UUID,
+            ...(full_name
+                ? { data: { full_name } }
+                : { data: user.data }),
+        }
+
+        await api.users.create(projectId, newUser)
+        await state.reload()
+
+        setIsCreateUserOpen(false)
+    }
+
+    const bulkRemoveUsers = async (file: FileList) => {
         await api.users.deleteImport(projectId, file[0])
         await state.reload()
-        setIsUploadOpen(false)
+        setIsBulkRemovalOpen(false)
     }
 
     return <PageContent
         title={t('users')}
         actions={
-            <Button icon={<TrashIcon />}
-                onClick={() => setIsUploadOpen(true)}
-                variant="destructive">{t('delete_users')}</Button>
+            <>
+                <Button icon={<TrashIcon />}
+                    onClick={() => setIsBulkRemovalOpen(true)}
+                    variant="destructive">{t('delete_users')}
+                </Button>
+                <Button icon={<PlusIcon />}
+                    onClick={() => setIsCreateUserOpen(true)}>{t('create_user')}
+                </Button>
+            </>
         }>
         <SearchTable
             {...state}
@@ -48,11 +82,35 @@ export default function UserTabs() {
         />
 
         <Modal
-            open={isUploadOpen}
-            onClose={() => setIsUploadOpen(false)}
+            open={isCreateUserOpen}
+            onClose={() => setIsCreateUserOpen(false)}
+            title={t('create_user')}>
+            <FormWrapper<User>
+                defaultValues={defaultUser}
+                onSubmit={async (form) => await createUser(form)}
+                submitLabel={t('create')}
+            >
+                {form => <>
+                    <TextInput.Field form={form} name="full_name" label={t('full_name')} />
+                    <TextInput.Field form={form} name="email" label={t('email')} />
+                    <TextInput.Field form={form} name="phone" label={t('phone')} />
+                    <SingleSelect.Field
+                        form={form}
+                        options={timeZones}
+                        name="timezone"
+                        label={t('timezone')}
+                    />
+                    <TextInput.Field form={form} name="locale" label={t('locale')} />
+                </>}
+            </FormWrapper>
+        </Modal>
+
+        <Modal
+            open={isBulkRemovalOpen}
+            onClose={() => setIsBulkRemovalOpen(false)}
             title={t('delete_users')}>
             <FormWrapper<{ file: FileList }>
-                onSubmit={async (form) => await removeUsers(form.file)}
+                onSubmit={async (form) => await bulkRemoveUsers(form.file)}
                 submitLabel={t('delete')}
             >
                 {form => <>
