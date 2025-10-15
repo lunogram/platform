@@ -68,6 +68,10 @@ export const getProject = async (id: UUID, adminId?: UUID) => {
             return qb
         })
 
+    if (!project) {
+        return null
+    }
+
     return {
         ...project,
         campaigns_count: Number(project?.campaigns_count ?? 0),
