@@ -62,7 +62,6 @@ export default function UserDetail() {
                 disabled={!dirty || saving}
                 isLoading={saving}
                 onClick={handleSave}
-                className=""
             >
                 {t('save')}
             </Button>

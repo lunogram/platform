@@ -311,7 +311,6 @@ const patchUserRequest: JSONSchemaType<UserParams> = {
             },
         },
     }],
-    minItems: 1,
 }
 router.patch('/:userId', async ctx => {
     const user = validate(patchUserRequest, ctx.request.body)
