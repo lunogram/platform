@@ -3,6 +3,7 @@ import { format, utcToZonedTime } from 'date-fns-tz'
 import { OrganizationRole, Preferences, ProjectRole, organizationRoles, projectRoles } from './types'
 import { v4 } from 'uuid'
 import { UUID } from 'crypto'
+import { SignOut } from '@clerk/types'
 
 export function createUuid() {
     return v4() as UUID
@@ -172,4 +173,10 @@ export function checkProjectRole(minRole: ProjectRole, currentRole: ProjectRole 
 
 export function checkOrganizationRole(minRole: OrganizationRole, currentRole: OrganizationRole = 'member') {
     return organizationRoles.indexOf(minRole) <= organizationRoles.indexOf(currentRole)
+}
+
+export async function logout(signOut: SignOut | undefined) {
+    if (signOut) {
+        await signOut()
+    }
 }

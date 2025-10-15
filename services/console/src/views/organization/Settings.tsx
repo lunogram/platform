@@ -9,15 +9,19 @@ import api from '../../api'
 import { toast } from 'react-hot-toast/headless'
 import { Button } from '../../ui'
 import { useTranslation } from 'react-i18next'
+import { logout } from '../../utils'
+import { useClerk } from '@clerk/clerk-react'
 
 export default function Settings() {
     const profile = useContext(AdminContext)
+    const { signOut } = useClerk()
     const { t } = useTranslation()
     const [organization] = useContext(OrganizationContext)
+
     const deleteOrganization = async () => {
         if (confirm('Are you sure you want to delete this organization?')) {
             await api.organizations.delete()
-            // await api.auth.logout()
+            await logout(signOut)
             window.location.href = '/'
         }
     }

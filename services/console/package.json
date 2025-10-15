@@ -4,6 +4,7 @@
   "repository": "https://github.com/lunogram/platform",
   "dependencies": {
     "@clerk/clerk-react": "^5.51.0",
+    "@clerk/types": "^4.93.0",
     "@fontsource/inter": "^4.5.15",
     "@headlessui/react": "1.7.18",
     "@monaco-editor/react": "^4.7.0",

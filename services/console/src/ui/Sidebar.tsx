@@ -9,10 +9,11 @@ import clsx from 'clsx'
 import Menu, { MenuItem } from './Menu'
 import { AdminContext, OrganizationContext, ProjectContext } from '../contexts'
 import { PreferencesContext } from './PreferencesContext'
-import { snakeToTitle } from '../utils'
+import { logout, snakeToTitle } from '../utils'
 import Modal from './Modal'
 import RadioInput from './form/RadioInput'
 import { useTranslation } from 'react-i18next'
+import { useClerk } from '@clerk/clerk-react'
 
 export interface SidebarLink extends NavLinkProps {
     key: string
@@ -27,6 +28,7 @@ interface SidebarProps {
 
 export default function Sidebar({ children, links, prepend, append }: PropsWithChildren<SidebarProps>) {
     const { t, i18n } = useTranslation()
+    const { signOut } = useClerk()
     const profile = useContext(AdminContext)
     const [project] = useContext(ProjectContext)
     const [organization] = useContext(OrganizationContext)
@@ -82,7 +84,7 @@ export default function Sidebar({ children, links, prepend, append }: PropsWithC
                         }}>{t('settings')}</MenuItem>
                         <MenuItem onClick={() => setIsLanguageOpen(true)}>{t('language')}</MenuItem>
                         <MenuItem onClick={() => setPreferences({ ...preferences, mode: preferences.mode === 'dark' ? 'light' : 'dark' })}>{preferences.mode === 'dark' ? t('light_mode') : t('dark_mode')}</MenuItem>
-                        {/* <MenuItem onClick={async () => await api.auth.logout()}>{t('sign_out')}</MenuItem> */}
+                        <MenuItem onClick={async () => await logout(signOut)}>{t('sign_out')}</MenuItem>
                     </Menu>
                 </div>}
             </section>

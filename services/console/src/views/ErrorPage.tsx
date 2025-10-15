@@ -1,6 +1,9 @@
 import { isRouteErrorResponse, Navigate, useNavigate, useRouteError } from 'react-router'
 import Alert, { AlertProps } from '../ui/Alert'
 import Button from '../ui/Button'
+import { logout } from '../utils'
+import { useClerk } from '@clerk/clerk-react'
+
 import './ErrorPage.css'
 
 const ErrorAlert = (props: AlertProps) => {
@@ -60,16 +63,17 @@ export default function ErrorPage({ status = 500 }: { status?: number }) {
 }
 
 export function AccessDenied() {
-    const handleLogout = async () => {
-        // await api.auth.logout()
-    }
+    const { signOut } = useClerk()
 
     return (
         <ErrorAlert
             variant="warn"
             title="Access Denied"
             actions={
-                <Button onClick={handleLogout}>Logout</Button>
+                <>
+                    <Button onClick={async () => { await logout(signOut) }}>Logout</Button>
+                    <Button onClick={() => { window.location.href = '/' }}>Back</Button>
+                </>
             }
         >
             Additional permission is required in order to access this section.
