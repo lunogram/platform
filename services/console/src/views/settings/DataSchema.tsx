@@ -4,16 +4,23 @@ import { ProjectContext } from '../../contexts'
 import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
 import { snakeToTitle } from '../../utils'
 import { useTranslation } from 'react-i18next'
-import { Modal } from '../../ui'
+import { Button, Modal } from '../../ui'
 import { RulePath } from '../../types'
 import FormWrapper from '../../ui/form/FormWrapper'
 import RadioInput from '../../ui/form/RadioInput'
+import { toast } from 'react-hot-toast/headless'
 
 export default function DataSchema() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const state = useSearchTableState(useCallback(async params => await api.data.userPaths.search(project.id, params), [project]))
     const [editing, setEditing] = useState<null | Partial<RulePath>>(null)
+
+    const handleRebuildAttributeSchema = async () => {
+        await api.data.rebuild(project.id)
+        toast.success(t('rebuild_path_suggestions_success'))
+        await state.reload()
+    }
 
     return (
         <>
@@ -41,6 +48,9 @@ export default function DataSchema() {
                 onSelectRow={(row) => setEditing(row)}
                 title={t('data_schema')}
                 description={t('data_schema_description')}
+                actions={
+                    <Button onClick={handleRebuildAttributeSchema}>Sync</Button>
+                }
             />
             <Modal
                 title={editing?.path}
@@ -59,7 +69,7 @@ export default function DataSchema() {
                             }
                             defaultValues={editing}
                         >
-                            { form => <>
+                            {form => <>
                                 <RadioInput.Field
                                     form={form}
                                     name="visibility"
