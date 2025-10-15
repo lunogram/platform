@@ -15,6 +15,8 @@ import { UUID } from 'crypto'
 import { NIL } from 'uuid'
 import { User, Intl } from '../../types'
 
+import './Users.css'
+
 export default function UserTabs() {
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
     const { t } = useTranslation()

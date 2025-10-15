@@ -241,6 +241,93 @@ router.get('/:userId', async ctx => {
     ctx.body = await filterObjectForRulePaths(ctx.state.user!, ctx.state.project.id, visibilities)
 })
 
+const patchUserRequest: JSONSchemaType<UserParams> = {
+    $id: 'patchUser',
+    anyOf: [{
+        type: 'object',
+        required: ['anonymous_id'],
+        properties: {
+            anonymous_id: {
+                type: 'string',
+            },
+            external_id: {
+                type: 'string',
+                nullable: true,
+            },
+            email: {
+                type: 'string',
+                nullable: true,
+            },
+            phone: {
+                type: 'string',
+                nullable: true,
+            },
+            timezone: {
+                type: 'string',
+                nullable: true,
+            },
+            locale: {
+                type: 'string',
+                nullable: true,
+            },
+            data: {
+                type: 'object',
+                nullable: true,
+                additionalProperties: true,
+            },
+        },
+    },
+    {
+        type: 'object',
+        required: ['external_id'],
+        properties: {
+            anonymous_id: {
+                type: 'string',
+                nullable: true,
+            },
+            external_id: {
+                type: 'string',
+            },
+            email: {
+                type: 'string',
+                nullable: true,
+            },
+            phone: {
+                type: 'string',
+                nullable: true,
+            },
+            timezone: {
+                type: 'string',
+                nullable: true,
+            },
+            locale: {
+                type: 'string',
+                nullable: true,
+            },
+            data: {
+                type: 'object',
+                nullable: true,
+                additionalProperties: true,
+            },
+        },
+    }],
+    minItems: 1,
+}
+router.patch('/:userId', async ctx => {
+    const user = validate(patchUserRequest, ctx.request.body)
+
+    const jobs = [
+        UserPatchJob.from({
+            project_id: ctx.state.project.id,
+            user,
+        }),
+    ]
+    await App.main.queue.enqueueBatch(jobs)
+
+    ctx.status = 204
+    ctx.body = ''
+})
+
 router.delete('/:userId', projectRoleMiddleware('editor'), async ctx => {
     await UserDeleteJob.from({
         project_id: ctx.state.project.id,
