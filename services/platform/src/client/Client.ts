@@ -14,6 +14,8 @@ export type ClientAliasParams = ClientIdentity & {
 
 export type ClientIdentifyParams = Partial<Pick<User, 'email' | 'phone' | 'timezone' | 'locale' | 'data'>> & ClientIdentity
 
+export type ClientDeleteParams = Pick<User, 'external_id'>
+
 export type ClientIdentifyUser = Pick<User, 'external_id'> & Partial<Pick<User, 'email' | 'phone' | 'data'>>
 
 export type ClientPatchUsersRequest = ClientIdentifyUser[]

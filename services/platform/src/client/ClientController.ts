@@ -9,10 +9,12 @@ import UserAliasJob from '../users/UserAliasJob'
 import UserDeviceJob from '../users/UserDeviceJob'
 import UserPatchJob from '../users/UserPatchJob'
 import { getUserFromClientId } from '../users/UserRepository'
-import { ClientIdentifyParams, ClientIdentityKeys, ClientPostEventsRequest } from './Client'
+import { ClientDeleteParams, ClientIdentifyParams, ClientIdentityKeys, ClientPostEventsRequest } from './Client'
 import EventPostJob from './EventPostJob'
 import { UUID } from 'crypto'
 import { validate as uuidValidate } from 'uuid'
+import { requireProjectRole } from '../projects/ProjectService'
+import UserDeleteJob from '../users/UserDeleteJob'
 
 const router = new Router<ProjectState>()
 router.use(projectMiddleware)
@@ -107,6 +109,30 @@ router.post('/identify', async ctx => {
     }).queue()
 
     ctx.status = 204
+    ctx.body = ''
+})
+
+const deleteParams: JSONSchemaType<ClientDeleteParams> = {
+    $id: 'deleteParams',
+    type: 'object',
+    required: ['external_id'],
+    properties: {
+        external_id: {
+            type: 'string',
+        },
+    },
+    additionalProperties: false,
+} as any
+router.delete('/identify', async ctx => {
+    requireProjectRole(ctx, 'editor')
+    const params = validate(deleteParams, ctx.query)
+
+    await UserDeleteJob.from({
+        project_id: ctx.state.project.id,
+        external_id: params.external_id,
+    }).queue()
+
+    ctx.status = 202
     ctx.body = ''
 })
 
