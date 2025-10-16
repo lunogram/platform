@@ -190,6 +190,8 @@
     "invalid_email": "Invalid Email",
     "invite_to_project": "Invite to Project",
     "joined_list_at": "Joined List At",
+    "onboarding_tools_title": "Select your tools",
+    "onboarding_tools_description": "This helps us suggest the right integrations for your workspace.",
     "onboarding_users_title": "Connect your Users",
     "onboarding_users_description": "Bring your users into Lunogram. Install our SDK/plugin or upload a CSV to start syncing users.",
     "onboarding_users_api_key_title": "Your API key is ready",

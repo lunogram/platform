@@ -7,7 +7,40 @@
     padding: 40px;
 }
 
-.users-step .actions {
+.onboarding-step .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.tools-step .tools-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 24px 0;
+}
+
+.tools-step .tools-grid>button {
+    padding: 8px 12px;
+    color: var(--color-primary);
+    border: 1px solid var(--color-grey-soft);
+    border-radius: var(--border-radius-inner);
+    background: var(--color-grey-softer);
+    cursor: pointer;
+}
+
+.tools-step .tools-grid>button>img {
+    height: 20px;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+.tools-step .tools-grid>button.active {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+}
+
+.users-step .connectors {
     display: flex;
     gap: 8px;
     margin-bottom: 16px;

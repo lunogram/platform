@@ -32,7 +32,9 @@ export default function ProjectOnboarding() {
             <h1>{t('onboarding_journey_title')}</h1>
             <p>{t('onboarding_journey_description')}</p>
 
-            <Button onClick={createOnboardingJourney} isLoading={isLoading}>{t('onboarding_journey_action')}</Button>
+            <div className="actions">
+                <Button onClick={createOnboardingJourney} isLoading={isLoading}>{t('onboarding_journey_action')}</Button>
+            </div>
         </div>
     )
 }

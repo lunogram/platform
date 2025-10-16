@@ -51,7 +51,7 @@ export default function ProjectOnboarding() {
             <section>
                 <h1>{t('onboarding_users_title')}</h1>
                 <p>{t('onboarding_users_description')}</p>
-                <div className="actions">
+                <div className="connectors">
                     <LinkButton to="https://github.com/lunogram/js-sdk" target="_blank" variant="secondary" size="small">SDK</LinkButton>
                     <Button disabled variant="secondary" size="small">Plugins</Button>
                     <Button disabled variant="secondary" size="small">CSV</Button>
@@ -67,14 +67,16 @@ export default function ProjectOnboarding() {
                 </section>
             )}
 
-            <section className="users-sync">
+            {/* <section className="users-sync">
                 <p>
                     {t('onboarding_awaiting_users')}
                     <div className="circle pulse"></div>
                 </p>
-            </section>
+            </section> */}
 
-            <Button onClick={skip} isLoading={loading} variant="secondary">{t('skip')}</Button>
+            <div className="actions">
+                <Button onClick={skip} isLoading={loading} variant="secondary">{t('skip')}</Button>
+            </div>
         </div>
     )
 }

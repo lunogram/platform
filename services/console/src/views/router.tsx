@@ -50,6 +50,7 @@ import { UUID } from 'crypto'
 import ProjectOnboarding from './project/ProjectOnboarding'
 import ProjectOnboardingJourney from './project/ProjectOnboardingJourney'
 import ProjectOnboardingUsers from './project/ProjectOnboardingUsers'
+import ProjectOnboardingTools from './project/ProjectOnboardingTools'
 
 export const useRoute = (includeProject = true) => {
     const { projectId = '' } = useParams()
@@ -147,6 +148,10 @@ export const createRouter = ({
                 children: [
                     {
                         index: true,
+                        path: '',
+                        element: <ProjectOnboardingTools />,
+                    },
+                    {
                         path: 'users',
                         element: <ProjectOnboardingUsers />,
                     },
@@ -163,7 +168,7 @@ export const createRouter = ({
                     pushRecentProject(project.id)
 
                     if (!sessionStorage.getItem('skippedOnboarding') && project.campaigns_count === 0 && project.journeys_count === 0 && project.users_count === 0) {
-                        return redirect('onboarding/users')
+                        return redirect('onboarding')
                     }
 
                     return project
