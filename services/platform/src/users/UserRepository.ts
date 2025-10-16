@@ -179,19 +179,21 @@ export const updateUser = async (existing: User, params: Partial<User>, anonymou
     return existing
 }
 
-export const deleteUser = async (projectId: UUID, externalId: string): Promise<void> => {
+export const deleteUserById = async (projectId: UUID, id: UUID): Promise<void> => {
+    await UserEvent.delete(qb => qb.where('project_id', projectId)
+        .where('user_id', id),
+    )
+
+    await User.delete(qb => qb.where('project_id', projectId)
+        .where('id', id),
+    )
+}
+
+export const deleteUserByExternalId = async (projectId: UUID, externalId: string): Promise<void> => {
     const user = await getUserFromClientId(projectId, { external_id: externalId } as ClientIdentity)
     if (!user) return
 
-    // Delete the user events from the database
-    await UserEvent.delete(qb => qb.where('project_id', projectId)
-        .where('user_id', user.id),
-    )
-
-    // Delete the user from the database
-    await User.delete(qb => qb.where('project_id', projectId)
-        .where('id', user.id),
-    )
+    await deleteUserById(projectId, user.id)
 }
 
 export const saveDevice = async (projectId: UUID, { external_id, anonymous_id, ...params }: DeviceParams, trx?: Transaction): Promise<UUID | undefined> => {

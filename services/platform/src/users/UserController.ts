@@ -220,7 +220,7 @@ router.delete('/', projectRoleMiddleware('editor'), async ctx => {
         }).queue()
     }
 
-    ctx.status = 204
+    ctx.status = 202
     ctx.body = ''
 })
 
@@ -330,10 +330,10 @@ router.patch('/:userId', async ctx => {
 router.delete('/:userId', projectRoleMiddleware('editor'), async ctx => {
     await UserDeleteJob.from({
         project_id: ctx.state.project.id,
-        external_id: ctx.state.user!.external_id,
+        id: ctx.state.user!.id,
     }).queue()
 
-    ctx.status = 204
+    ctx.status = 202
     ctx.body = ''
 })
 

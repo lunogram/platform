@@ -1,10 +1,11 @@
 import { UUID } from 'crypto'
 import { Job } from '../queue'
-import { deleteUser } from './UserRepository'
+import { deleteUserByExternalId, deleteUserById } from './UserRepository'
 
 interface UserDeleteTrigger {
     project_id: UUID
-    external_id: string
+    id?: UUID
+    external_id?: string
 }
 
 export default class UserDeleteJob extends Job {
@@ -14,7 +15,8 @@ export default class UserDeleteJob extends Job {
         return new this(data)
     }
 
-    static async handler({ project_id, external_id }: UserDeleteTrigger) {
-        await deleteUser(project_id, external_id)
+    static async handler({ project_id, id, external_id }: UserDeleteTrigger) {
+        if (external_id) await deleteUserByExternalId(project_id, external_id)
+        if (id) await deleteUserById(project_id, id)
     }
 }
