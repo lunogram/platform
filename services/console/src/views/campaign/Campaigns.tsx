@@ -71,6 +71,7 @@ export const ClickRate = ({ delivery }: { delivery: CampaignDelivery }) => {
 }
 
 const campaignTypes = [
+    { key: '', label: 'All' },
     { key: 'blast', label: 'Blast' },
     { key: 'trigger', label: 'Journey' },
 ]
@@ -84,7 +85,7 @@ export default function Campaigns() {
         useCallback(async params => await api.campaigns.search(project.id, params), [project.id]),
         {
             filter: {
-                type: 'trigger',
+                type: '',
             },
         })
     const [isCreateOpen, setIsCreateOpen] = useState(false)
