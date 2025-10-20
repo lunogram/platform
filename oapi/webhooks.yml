@@ -80,6 +80,36 @@ paths:
           description: Provider not found
         "500":
           description: Server error in external system
+  
+  /webhooks/journey/templates:
+    get:
+      operationId: journeyTemplates
+      summary: List available journey step templates
+      description: |
+        Returns a list of available journey step templates that define how users can get started
+        with Journeys. Each template includes an identifier and a brief description.
+      responses:
+        "200":
+          description: List of journey templates retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    template_id:
+                      type: string
+                      description: Identifier of the journey template
+                    name:
+                      type: string
+                      description: Name of the journey template
+                    description:
+                      type: string
+                      description: Brief description of the journey template
+                  required: [template_id, name]
+        "500":
+          description: Server error in external system
 
   /webhooks/journey/template:
     get:

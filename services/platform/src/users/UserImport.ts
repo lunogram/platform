@@ -64,12 +64,50 @@ export const importUsers = async ({ project_id, stream, list_id }: UserImport) =
     await updateListState(list_id, { state: 'ready' })
 }
 
+export interface UserInsert {
+    project_id: UUID
+    stream: FileStream
+}
+
+export const addUsersStream = async ({ project_id, stream }: UserInsert) => {
+    const options: Options = {
+        columns: true,
+        cast: true,
+        skip_empty_lines: true,
+        bom: true,
+    }
+
+    const chunker = new Chunker<UserDeleteJob>(
+        items => App.main.queue.enqueueBatch(items),
+        App.main.queue.batchSize,
+    )
+    const parser = stream.file.pipe(parse(options))
+    for await (const row of parser) {
+        const { external_id, email, phone, timezone, locale, created_at, ...data } = cleanRow(row)
+        if (!external_id) throw new RequestError('Every upload must only contain a column `external_id` which contains the identifier for that user.')
+
+        await chunker.add(UserPatchJob.from({
+            project_id,
+            user: {
+                external_id: `${external_id}`,
+                email,
+                phone,
+                timezone,
+                locale,
+                data,
+                created_at,
+            },
+        }))
+    }
+    await chunker.flush()
+}
+
 export interface UserRemoval {
     project_id: UUID
     stream: FileStream
 }
 
-export const removeUsers = async ({ project_id, stream }: UserRemoval) => {
+export const removeUsersStream = async ({ project_id, stream }: UserRemoval) => {
     const options: Options = {
         columns: true,
         cast: true,

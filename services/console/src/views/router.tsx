@@ -32,11 +32,16 @@ import Login from './auth/Login'
 import LoginCallback from './auth/LoginCallback'
 import Onboarding from './auth/Onboarding'
 import OnboardingProject from './auth/OnboardingProject'
-import { CampaignsIcon, JourneysIcon, ListsIcon, SettingsIcon, UsersIcon } from '../ui/icons'
+import { CampaignsIcon, CheckCircleIcon, JourneysIcon, ListsIcon, SettingsIcon, UsersIcon } from '../ui/icons'
 import { Projects } from './project/Projects'
-import { getRecentProjects, pushRecentProject } from '../utils'
+import { completedGettingStarted, getRecentProjects, pushRecentProject } from '../utils'
 import Settings from './settings/Settings'
 import ProjectSidebar from './project/ProjectSidebar'
+import ProjectGettingStarted from './project/GettingStarted'
+import ProjectOnboarding from './project/ProjectOnboarding'
+import ProjectOnboardingGettingStarted from './project/ProjectOnboardingGettingStarted'
+import ProjectOnboardingUsers from './project/ProjectOnboardingUsers'
+import ProjectOnboardingTools from './project/ProjectOnboardingTools'
 import Admins from './organization/Admins'
 import OrganizationSettings from './organization/Settings'
 import Locales from './settings/Locales'
@@ -47,10 +52,7 @@ import { Translation } from 'react-i18next'
 import Organization from './organization/Organization'
 import DataSchema from './settings/DataSchema'
 import { UUID } from 'crypto'
-import ProjectOnboarding from './project/ProjectOnboarding'
-import ProjectOnboardingJourney from './project/ProjectOnboardingJourney'
-import ProjectOnboardingUsers from './project/ProjectOnboardingUsers'
-import ProjectOnboardingTools from './project/ProjectOnboardingTools'
+import { Project } from '../types'
 
 export const useRoute = (includeProject = true) => {
     const { projectId = '' } = useParams()
@@ -143,227 +145,254 @@ export const createRouter = ({
                 ],
             },
             {
-                path: 'projects/:projectId/onboarding',
-                element: <ProjectOnboarding />,
-                children: [
-                    {
-                        index: true,
-                        path: '',
-                        element: <ProjectOnboardingTools />,
-                    },
-                    {
-                        path: 'users',
-                        element: <ProjectOnboardingUsers />,
-                    },
-                    {
-                        path: 'journey',
-                        element: <ProjectOnboardingJourney />,
-                    },
-                ],
-            },
-            {
                 path: 'projects/:projectId',
-                loader: async ({ params: { projectId = '' } }) => {
-                    const project = await api.projects.get(projectId)
-                    pushRecentProject(project.id)
-
-                    if (!sessionStorage.getItem('skippedOnboarding') && project.campaigns_count === 0 && project.journeys_count === 0 && project.users_count === 0) {
-                        return redirect('onboarding')
-                    }
-
-                    return project
-                },
-                element: (
-                    <StatefulLoaderContextProvider context={ProjectContext}>
-                        <ProjectSidebar
-                            links={projectSidebarLinks([
-                                {
-                                    key: 'campaigns',
-                                    to: 'campaigns',
-                                    children: <Translation>{t => t('campaigns')}</Translation>,
-                                    icon: <CampaignsIcon />,
-                                    minRole: 'editor',
-                                },
-                                {
-                                    key: 'journeys',
-                                    to: 'journeys',
-                                    children: <Translation>{t => t('journeys')}</Translation>,
-                                    icon: <JourneysIcon />,
-                                    minRole: 'editor',
-                                },
-                                {
-                                    key: 'users',
-                                    to: 'users',
-                                    children: <Translation>{t => t('users')}</Translation>,
-                                    icon: <UsersIcon />,
-                                },
-                                {
-                                    key: 'lists',
-                                    to: 'lists',
-                                    children: <Translation>{t => t('lists')}</Translation>,
-                                    icon: <ListsIcon />,
-                                    minRole: 'editor',
-                                },
-                                {
-                                    key: 'settings',
-                                    to: 'settings',
-                                    children: <Translation>{t => t('settings')}</Translation>,
-                                    icon: <SettingsIcon />,
-                                    minRole: 'admin',
-                                },
-                            ])}
-                        >
-                            <Outlet />
-                        </ProjectSidebar>
-                    </StatefulLoaderContextProvider>
-                ),
                 children: [
                     {
-                        index: true,
+                        path: 'onboarding',
                         loader: async ({ params: { projectId = '' } }) => {
                             const project = await api.projects.get(projectId)
-                            if (project.role === 'support') {
-                                return redirect(`/projects/${project.id}/users`)
-                            }
-                            return redirect('campaigns')
+                            return project
                         },
+                        element: (
+                            <StatefulLoaderContextProvider context={ProjectContext}>
+                                <ProjectOnboarding />
+                            </StatefulLoaderContextProvider>
+                        ),
+                        children: [
+                            {
+                                index: true,
+                                path: '',
+                                element: <ProjectOnboardingTools />,
+                            },
+                            {
+                                path: 'users',
+                                element: <ProjectOnboardingUsers />,
+                            },
+                            {
+                                path: 'getting-started',
+                                element: <ProjectOnboardingGettingStarted />,
+                            },
+                        ],
                     },
-                    createStatefulRoute({
-                        path: 'campaigns',
-                        apiPath: api.campaigns,
-                        element: <Campaigns />,
-                    }),
-                    createStatefulRoute({
-                        path: 'campaigns/:entityId',
-                        apiPath: api.campaigns,
-                        context: CampaignContext,
-                        element: <CampaignDetail />,
+                    {
+                        path: '',
+                        loader: async ({ params: { projectId = '' } }) => {
+                            const project = await api.projects.get(projectId)
+                            pushRecentProject(project.id)
+
+                            if (!sessionStorage.getItem('skippedOnboarding') && project.campaigns_count === 0 && project.journeys_count === 0 && project.users_count === 0 && project.lists_count === 0) {
+                                return redirect('onboarding')
+                            }
+
+                            return project
+                        },
+                        element: (
+                            <StatefulLoaderContextProvider context={ProjectContext}>
+                                <ProjectSidebar
+                                    links={projectSidebarLinks([
+                                        {
+                                            key: 'getting-started',
+                                            to: 'getting-started',
+                                            children: <Translation>{t => t('getting-started')}</Translation>,
+                                            icon: <CheckCircleIcon />,
+                                            active: (project: Project) => {
+                                                return !completedGettingStarted(project)
+                                            },
+                                            minRole: 'editor',
+                                        },
+                                        {
+                                            key: 'campaigns',
+                                            to: 'campaigns',
+                                            children: <Translation>{t => t('campaigns')}</Translation>,
+                                            icon: <CampaignsIcon />,
+                                            minRole: 'editor',
+                                        },
+                                        {
+                                            key: 'journeys',
+                                            to: 'journeys',
+                                            children: <Translation>{t => t('journeys')}</Translation>,
+                                            icon: <JourneysIcon />,
+                                            minRole: 'editor',
+                                        },
+                                        {
+                                            key: 'users',
+                                            to: 'users',
+                                            children: <Translation>{t => t('users')}</Translation>,
+                                            icon: <UsersIcon />,
+                                        },
+                                        {
+                                            key: 'lists',
+                                            to: 'lists',
+                                            children: <Translation>{t => t('lists')}</Translation>,
+                                            icon: <ListsIcon />,
+                                            minRole: 'editor',
+                                        },
+                                        {
+                                            key: 'settings',
+                                            to: 'settings',
+                                            children: <Translation>{t => t('settings')}</Translation>,
+                                            icon: <SettingsIcon />,
+                                            minRole: 'admin',
+                                        },
+                                    ])}
+                                >
+                                    <Outlet />
+                                </ProjectSidebar>
+                            </StatefulLoaderContextProvider>
+                        ),
                         children: [
                             {
                                 index: true,
-                                element: <CampaignOverview />,
+                                loader: async ({ params: { projectId = '' } }) => {
+                                    const project = await api.projects.get(projectId)
+                                    if (project.role === 'support') {
+                                        return redirect(`/projects/${project.id}/users`)
+                                    }
+                                    return redirect('campaigns')
+                                },
                             },
                             {
-                                path: 'design',
-                                element: <CampaignDesign />,
+                                path: 'getting-started',
+                                element: <ProjectGettingStarted />,
                             },
-                            {
-                                path: 'delivery',
-                                element: <CampaignDelivery />,
-                            },
-                            {
-                                path: 'preview',
-                                element: <CampaignPreview />,
-                            },
-                        ],
-                    }),
-                    createStatefulRoute({
-                        path: 'campaigns/:entityId/editor',
-                        apiPath: api.campaigns,
-                        context: CampaignContext,
-                        element: <EmailEditor />,
-                    }),
-                    createStatefulRoute({
-                        path: 'journeys',
-                        apiPath: api.journeys,
-                        element: <Journeys />,
-                    }),
-                    createStatefulRoute({
-                        path: 'journeys/:entityId',
-                        apiPath: api.journeys,
-                        context: JourneyContext,
-                        element: <JourneyEditor />,
-                        children: [
-                            {
-                                index: true,
-                                element: <JourneyEditor />,
-                            },
-                            {
-                                path: 'entrances',
-                                element: <JourneyUserEntrances />,
-                            },
-                        ],
-                    }),
-                    createStatefulRoute({
-                        path: 'users',
-                        apiPath: api.users,
-                        element: <Users />,
-                    }),
-                    createStatefulRoute({
-                        path: 'users/:entityId',
-                        apiPath: api.users,
-                        context: UserContext,
-                        element: <UserDetail />,
-                        children: [
-                            {
-                                index: true,
-                                element: <UserDetailAttrs />,
-                            },
-                            {
-                                path: 'events',
-                                element: <UserDetailEvents />,
-                            },
-                            {
-                                path: 'subscriptions',
-                                element: <UserDetailSubscriptions />,
-                            },
-                            {
+                            createStatefulRoute({
+                                path: 'campaigns',
+                                apiPath: api.campaigns,
+                                element: <Campaigns />,
+                            }),
+                            createStatefulRoute({
+                                path: 'campaigns/:entityId',
+                                apiPath: api.campaigns,
+                                context: CampaignContext,
+                                element: <CampaignDetail />,
+                                children: [
+                                    {
+                                        index: true,
+                                        element: <CampaignOverview />,
+                                    },
+                                    {
+                                        path: 'design',
+                                        element: <CampaignDesign />,
+                                    },
+                                    {
+                                        path: 'delivery',
+                                        element: <CampaignDelivery />,
+                                    },
+                                    {
+                                        path: 'preview',
+                                        element: <CampaignPreview />,
+                                    },
+                                ],
+                            }),
+                            createStatefulRoute({
+                                path: 'campaigns/:entityId/editor',
+                                apiPath: api.campaigns,
+                                context: CampaignContext,
+                                element: <EmailEditor />,
+                            }),
+                            createStatefulRoute({
                                 path: 'journeys',
-                                element: <UserDetailJourneys />,
-                            },
-                        ],
-                    }),
-                    createStatefulRoute({
-                        path: 'lists',
-                        apiPath: api.lists,
-                        element: <Lists />,
-                    }),
-                    createStatefulRoute({
-                        path: 'lists/:entityId',
-                        apiPath: api.lists,
-                        context: ListContext,
-                        element: <ListDetail />,
-                    }),
-                    {
-                        path: 'entrances/:entranceId',
-                        loader: async ({ params }) => await api.journeys.entrances.log(params.projectId! as UUID, params.entranceId! as UUID),
-                        element: <EntranceDetails />,
-                    },
-                    {
-                        path: 'settings',
-                        element: <Settings />,
-                        children: [
+                                apiPath: api.journeys,
+                                element: <Journeys />,
+                            }),
+                            createStatefulRoute({
+                                path: 'journeys/:entityId',
+                                apiPath: api.journeys,
+                                context: JourneyContext,
+                                element: <JourneyEditor />,
+                                children: [
+                                    {
+                                        index: true,
+                                        element: <JourneyEditor />,
+                                    },
+                                    {
+                                        path: 'entrances',
+                                        element: <JourneyUserEntrances />,
+                                    },
+                                ],
+                            }),
+                            createStatefulRoute({
+                                path: 'users',
+                                apiPath: api.users,
+                                element: <Users />,
+                            }),
+                            createStatefulRoute({
+                                path: 'users/:entityId',
+                                apiPath: api.users,
+                                context: UserContext,
+                                element: <UserDetail />,
+                                children: [
+                                    {
+                                        index: true,
+                                        element: <UserDetailAttrs />,
+                                    },
+                                    {
+                                        path: 'events',
+                                        element: <UserDetailEvents />,
+                                    },
+                                    {
+                                        path: 'subscriptions',
+                                        element: <UserDetailSubscriptions />,
+                                    },
+                                    {
+                                        path: 'journeys',
+                                        element: <UserDetailJourneys />,
+                                    },
+                                ],
+                            }),
+                            createStatefulRoute({
+                                path: 'lists',
+                                apiPath: api.lists,
+                                element: <Lists />,
+                            }),
+                            createStatefulRoute({
+                                path: 'lists/:entityId',
+                                apiPath: api.lists,
+                                context: ListContext,
+                                element: <ListDetail />,
+                            }),
                             {
-                                index: true,
-                                element: <ProjectSettings />,
+                                path: 'entrances/:entranceId',
+                                loader: async ({ params }) => await api.journeys.entrances.log(params.projectId! as UUID, params.entranceId! as UUID),
+                                element: <EntranceDetails />,
                             },
                             {
-                                path: 'team',
-                                element: <Teams />,
-                            },
-                            {
-                                path: 'locales',
-                                element: <Locales />,
-                            },
-                            {
-                                path: 'data',
-                                element: <DataSchema />,
-                            },
-                            {
-                                path: 'api-keys',
-                                element: <ApiKeys />,
-                            },
-                            {
-                                path: 'integrations',
-                                element: <Integrations />,
-                            },
-                            {
-                                path: 'subscriptions',
-                                element: <Subscriptions />,
-                            },
-                            {
-                                path: 'tags',
-                                element: <Tags />,
+                                path: 'settings',
+                                element: <Settings />,
+                                children: [
+                                    {
+                                        index: true,
+                                        element: <ProjectSettings />,
+                                    },
+                                    {
+                                        path: 'team',
+                                        element: <Teams />,
+                                    },
+                                    {
+                                        path: 'locales',
+                                        element: <Locales />,
+                                    },
+                                    {
+                                        path: 'data',
+                                        element: <DataSchema />,
+                                    },
+                                    {
+                                        path: 'api-keys',
+                                        element: <ApiKeys />,
+                                    },
+                                    {
+                                        path: 'integrations',
+                                        element: <Integrations />,
+                                    },
+                                    {
+                                        path: 'subscriptions',
+                                        element: <Subscriptions />,
+                                    },
+                                    {
+                                        path: 'tags',
+                                        element: <Tags />,
+                                    },
+                                ],
                             },
                         ],
                     },

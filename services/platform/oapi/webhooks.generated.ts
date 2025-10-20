@@ -49,6 +49,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/webhooks/journey/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List available journey step templates
+         * @description Returns a list of available journey step templates that define how users can get started
+         *     with Journeys. Each template includes an identifier and a brief description.
+         *
+         */
+        get: operations["journeyTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/webhooks/journey/template": {
         parameters: {
             query?: never;
@@ -324,6 +346,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Server error in external system */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    journeyTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of journey templates retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Identifier of the journey template */
+                        template_id: string;
+                        /** @description Name of the journey template */
+                        name: string;
+                        /** @description Brief description of the journey template */
+                        description?: string;
+                    }[];
+                };
             };
             /** @description Server error in external system */
             500: {

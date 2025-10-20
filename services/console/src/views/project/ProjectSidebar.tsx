@@ -5,7 +5,7 @@ import api from '../../api'
 import { useResolver } from '../../hooks'
 import { SingleSelect } from '../../ui/form/SingleSelect'
 import { checkProjectRole, getRecentProjects } from '../../utils'
-import { ProjectRole } from '../../types'
+import { Project, ProjectRole } from '../../types'
 import Sidebar from '../../ui/Sidebar'
 import { useTranslation } from 'react-i18next'
 
@@ -14,6 +14,7 @@ interface SidebarProps {
         key: string
         icon: ReactNode
         minRole?: ProjectRole
+        active?: (project: Project) => boolean
     }>
     prepend?: ReactNode
     append?: ReactNode
@@ -50,9 +51,8 @@ export default function ProjectSidebar({ children, links }: PropsWithChildren<Si
     return (
         project && <Sidebar
             links={
-                links?.filter(({ minRole }) =>
-                    !minRole
-                    || checkProjectRole(minRole, project.role),
+                links?.filter(({ minRole, active }) =>
+                    (!minRole || checkProjectRole(minRole, project.role)) && (!active || active(project)),
                 ).map(({ minRole, ...props }) => props)
             }
             prepend={

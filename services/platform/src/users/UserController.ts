@@ -14,7 +14,7 @@ import { SubscriptionState } from '../subscriptions/Subscription'
 import { getUserEvents } from './UserEventRepository'
 import { projectRoleMiddleware } from '../projects/ProjectService'
 import { pagedEntrancesByUser } from '../journey/JourneyRepository'
-import { removeUsers } from './UserImport'
+import { addUsersStream, removeUsersStream } from './UserImport'
 import { filterObjectForRulePaths } from '../projects/ProjectRulePathRepository'
 import { RulePathVisibility } from '../rules/ProjectRulePath'
 import { UUID } from 'node:crypto'
@@ -188,10 +188,21 @@ router.patch('/', projectRoleMiddleware('editor'), async ctx => {
     ctx.body = ''
 })
 
-router.post('/delete', async ctx => {
+router.post('/bulk/add', async ctx => {
     const stream = await parse(ctx)
 
-    await removeUsers({
+    await addUsersStream({
+        project_id: ctx.state.project.id,
+        stream,
+    })
+
+    ctx.status = 204
+})
+
+router.post('/bulk/delete', async ctx => {
+    const stream = await parse(ctx)
+
+    await removeUsersStream({
         project_id: ctx.state.project.id,
         stream,
     })

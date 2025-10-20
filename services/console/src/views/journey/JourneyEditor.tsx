@@ -30,7 +30,7 @@ import ReactFlow, {
     useReactFlow,
 } from 'reactflow'
 import { JourneyContext, ProjectContext } from '../../contexts'
-import { checkProjectRole, createComparator, createUuid } from '../../utils'
+import { completedGettingStarted, checkProjectRole, createComparator, createUuid } from '../../utils'
 import * as journeySteps from './steps/index'
 import clsx from 'clsx'
 import api from '../../api'
@@ -709,7 +709,14 @@ export default function JourneyEditor() {
             size="fullscreen"
             title={journey.name}
             open={true}
-            onClose={async () => { await navigate('../journeys') }}
+            onClose={async () => {
+                if (!completedGettingStarted(project)) {
+                    await navigate('../getting-started')
+                    return
+                }
+
+                await navigate('../journeys')
+            }}
             actions={
                 isDeleted
                     ? <Tag variant="error" size="large">

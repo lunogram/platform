@@ -51,13 +51,16 @@ export const getProject = async (id: UUID, adminId?: UUID) => {
             qb.where('projects.id', id).select('projects.*')
                 .select(
                     Project.raw(
-                        '(SELECT COUNT(*) FROM campaigns WHERE campaigns.project_id = projects.id) AS campaign_count',
+                        '(SELECT COUNT(*) FROM campaigns WHERE campaigns.project_id = projects.id) AS campaigns_count',
                     ),
                     Project.raw(
                         '(SELECT COUNT(*) FROM journeys WHERE journeys.project_id = projects.id) AS journeys_count',
                     ),
                     Project.raw(
                         '(SELECT COUNT(*) FROM users WHERE users.project_id = projects.id) AS users_count',
+                    ),
+                    Project.raw(
+                        '(SELECT COUNT(*) FROM lists WHERE lists.project_id = projects.id) AS lists_count',
                     ),
                 )
             if (adminId != null) {
@@ -77,6 +80,7 @@ export const getProject = async (id: UUID, adminId?: UUID) => {
         campaigns_count: Number(project?.campaigns_count ?? 0),
         journeys_count: Number(project?.journeys_count ?? 0),
         users_count: Number(project?.users_count ?? 0),
+        lists_count: Number(project?.lists_count ?? 0),
     } as Project
 }
 

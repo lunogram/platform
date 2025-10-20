@@ -54,12 +54,12 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
             defaultValues={defaults}
             onSubmit={async ({ id, name, description, locale, timezone, text_opt_out_message, text_help_message, link_wrap_email, link_wrap_push }) => {
 
-                const params = { name, description, locale, timezone, text_opt_out_message, text_help_message, link_wrap_email, link_wrap_push }
+                const params = { name, description, locale, timezone, text_opt_out_message, text_help_message, link_wrap_email, link_wrap_push, tools: project?.tools }
 
-                const project = id
+                const updatedProject = id
                     ? await api.projects.update(id, params)
                     : await api.projects.create(params)
-                onSave?.(project)
+                onSave?.(updatedProject)
             }}
             submitLabel={isEditing ? t('save_settings') : t('create_project')}
         >

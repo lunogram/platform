@@ -98,6 +98,13 @@ const projectCreateParams: JSONSchemaType<ProjectParams> = {
             type: 'boolean',
             nullable: true,
         },
+        tools: {
+            type: 'array',
+            items: {
+                type: 'string',
+            },
+            nullable: true,
+        },
     },
     additionalProperties: false,
 }
@@ -159,6 +166,13 @@ const projectUpdateParams: JSONSchemaType<Partial<ProjectParams>> = {
         },
         link_wrap_push: {
             type: 'boolean',
+            nullable: true,
+        },
+        tools: {
+            type: 'array',
+            items: {
+                type: 'string',
+            },
             nullable: true,
         },
     },

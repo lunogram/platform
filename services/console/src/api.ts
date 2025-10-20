@@ -253,10 +253,15 @@ const api = {
         updateSubscriptions: async (projectId: UUID, userId: UUID, subscriptions: SubscriptionParams[]) => await client
             .patch(`${projectUrl(projectId)}/users/${userId}/subscriptions`, subscriptions)
             .then(r => r.data),
+        addImport: async (projectId: UUID, file: File) => {
+            const formData = new FormData()
+            formData.append('file', file)
+            await client.post(`${projectUrl(projectId)}/users/bulk/add`, formData)
+        },
         deleteImport: async (projectId: UUID, file: File) => {
             const formData = new FormData()
             formData.append('file', file)
-            await client.post(`${projectUrl(projectId)}/users/delete`, formData)
+            await client.post(`${projectUrl(projectId)}/users/bulk/delete`, formData)
         },
 
         journeys: {

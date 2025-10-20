@@ -232,6 +232,8 @@ export interface Project {
     campaigns_count?: number
     journeys_count?: number
     users_count?: number
+    lists_count?: number
+    tools?: string[]
 }
 
 export type ChannelType = 'email' | 'push' | 'text' | 'webhook' | 'in_app'

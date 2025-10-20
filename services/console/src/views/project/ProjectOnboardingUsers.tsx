@@ -1,49 +1,56 @@
 import { useNavigate, useParams } from 'react-router'
-import { useTranslation } from 'react-i18next'
-import Button, { LinkButton } from '../../ui/Button'
+import { Trans, useTranslation } from 'react-i18next'
+import Button from '../../ui/Button'
 import api from '../../api'
 import { UUID } from 'crypto'
-import { useEffect, useState } from 'react'
-import TextInput from '../../ui/form/TextInput'
+import { useState } from 'react'
+import FormWrapper from '../../ui/form/FormWrapper'
+import UploadField from '../../ui/form/UploadField'
+import { NIL } from 'uuid'
 
 export default function ProjectOnboarding() {
     const navigate = useNavigate()
     const { t } = useTranslation()
-    const { projectId } = useParams<{ projectId: UUID }>()
-    const [apiKey, setApiKey] = useState<string | undefined>(undefined)
-    const [loading, setLoading] = useState(false)
+    const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
+    const [skipLoading, setSkipLoading] = useState(false)
+    const [nextLoading, setNextLoading] = useState(false)
 
-    useEffect(() => {
-        const createApiKey = async () => {
-            if (projectId) {
-                const key = await api.apiKeys.create(projectId, { name: 'External', scope: 'public' })
-                setApiKey(key.value)
+    const next = async (file: FileList) => {
+        setNextLoading(true)
+        try {
+            if (file) {
+                await api.users.addImport(projectId, file[0])
+            } else {
+                await createInitialUser()
             }
+            await navigate(`/projects/${projectId}/onboarding/getting-started`)
+        } finally {
+            setNextLoading(false)
         }
-        createApiKey().catch(console.error)
-    }, [projectId])
+    }
 
     async function skip() {
-        setLoading(true)
+        setSkipLoading(true)
         try {
-            if (!projectId) return
-
-            const admin = await api.admins.whoami()
-            if (!admin) return
-
-            await api.users.create(projectId, {
-                anonymous_id: crypto.randomUUID(),
-                data: {
-                    first_name: admin.first_name,
-                    last_name: admin.last_name,
-                },
-                email: admin.email,
-            })
-
-            await navigate(`/projects/${projectId}/onboarding/journey`)
+            await createInitialUser()
+            await navigate(`/projects/${projectId}/onboarding/getting-started`)
         } finally {
-            setLoading(false)
+            setSkipLoading(false)
         }
+    }
+
+    async function createInitialUser() {
+        const admin = await api.admins.whoami()
+        if (!admin) return
+
+        await api.users.create(projectId, {
+            anonymous_id: crypto.randomUUID(),
+            data: {
+                first_name: admin.first_name,
+                last_name: admin.last_name,
+            },
+            email: admin.email,
+        })
     }
 
     return (
@@ -51,32 +58,32 @@ export default function ProjectOnboarding() {
             <section>
                 <h1>{t('onboarding_users_title')}</h1>
                 <p>{t('onboarding_users_description')}</p>
-                <div className="connectors">
-                    <LinkButton to="https://github.com/lunogram/js-sdk" target="_blank" variant="secondary" size="small">SDK</LinkButton>
-                    <Button disabled variant="secondary" size="small">Plugins</Button>
-                    <Button disabled variant="secondary" size="small">CSV</Button>
-                </div>
             </section>
 
-            {apiKey && (
-                <section>
-                    <h3>{t('onboarding_users_api_key_title')}</h3>
-                    <div>
-                        <TextInput type="text" name="apiKey" label="" value={apiKey} readOnly />
+            <hr />
+
+            <FormWrapper<{ file: FileList }>
+                onSubmit={async (form) => await next(form.file)}
+                showSubmitButton={false}
+            >
+                {form => <>
+                    <p className="import-instructions">
+                        <Trans
+                            i18nKey="onboarding_project_users_template"
+                            components={{
+                                download: <a href="/templates/users.csv" download="users.csv" />,
+                            }}
+                        />
+                    </p>
+                    <UploadField form={form} name="file" label={t('users')} required />
+
+                    <div className="actions">
+                        <Button isLoading={nextLoading} type="submit">{t('next')}</Button>
+                        <Button onClick={skip} isLoading={skipLoading} variant="secondary">{t('skip')}</Button>
                     </div>
-                </section>
-            )}
+                </>}
+            </FormWrapper>
 
-            {/* <section className="users-sync">
-                <p>
-                    {t('onboarding_awaiting_users')}
-                    <div className="circle pulse"></div>
-                </p>
-            </section> */}
-
-            <div className="actions">
-                <Button onClick={skip} isLoading={loading} variant="secondary">{t('skip')}</Button>
-            </div>
         </div>
     )
 }

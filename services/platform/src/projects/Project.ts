@@ -15,6 +15,8 @@ export default class Project extends Model {
     campaigns_count?: number
     journeys_count?: number
     users_count?: number
+    lists_count?: number
+    tools?: string[]
 }
 
 export type ProjectParams = Omit<Project, ModelParams | 'deleted_at' | 'organization_id' | 'campaigns_count' | 'journeys_count' | 'users_count'>

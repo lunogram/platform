@@ -1,6 +1,6 @@
 import { parseISO, formatDuration as dateFnsFormatDuration } from 'date-fns'
 import { format, utcToZonedTime } from 'date-fns-tz'
-import { OrganizationRole, Preferences, ProjectRole, organizationRoles, projectRoles } from './types'
+import { OrganizationRole, Preferences, Project, ProjectRole, organizationRoles, projectRoles } from './types'
 import { v4 } from 'uuid'
 import { UUID } from 'crypto'
 import { SignOut } from '@clerk/types'
@@ -177,6 +177,10 @@ export function pushRecentProject(id: UUID) {
     }
     sessionStorageSetJson(RECENT_PROJECTS, stored)
     return stored
+}
+
+export function completedGettingStarted(project: Project) {
+    return (project.campaigns_count ?? 0) > 0 && (project.journeys_count ?? 0) > 0 && (project.users_count ?? 0) > 0 && (project.lists_count ?? 0) > 0
 }
 
 /**
