@@ -1,8 +1,9 @@
 import NavLink from './NavLink'
 import './Tabs.css'
 import { Tab } from '@headlessui/react'
-import { NavLinkProps } from 'react-router'
-import { Fragment, ReactNode } from 'react'
+import type { NavLinkProps } from 'react-router'
+import type { ReactNode } from 'react';
+import { Fragment } from 'react'
 import clsx from 'clsx'
 
 interface NavigationTabProps {

@@ -10,8 +10,8 @@ import { JourneyForm } from './JourneyForm'
 import { Menu, MenuItem, Tag } from '../../ui'
 import { ProjectContext } from '../../contexts'
 import { useTranslation } from 'react-i18next'
-import { Journey } from '../../types'
-import { UUID } from 'crypto'
+import type { Journey } from '../../types'
+import type { UUID } from '@/types/common'
 
 export const JourneyTag = ({ status }: Pick<Journey, 'status'>) => {
     const { t } = useTranslation()

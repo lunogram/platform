@@ -1,7 +1,8 @@
-import { Key } from 'react'
-import { List, ListState, SearchParams, SearchResult } from '../../types'
+import type { Key } from 'react'
+import type { List, ListState, SearchParams, SearchResult } from '../../types'
 import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
-import Tag, { TagVariant } from '../../ui/Tag'
+import type { TagVariant } from '../../ui/Tag';
+import Tag from '../../ui/Tag'
 import { snakeToTitle } from '../../utils'
 import { useRoute } from '../router'
 import Menu, { MenuItem } from '../../ui/Menu'
@@ -9,7 +10,7 @@ import { ArchiveIcon, DuplicateIcon, EditIcon } from '../../ui/icons'
 import api from '../../api'
 import { useNavigate, useParams } from 'react-router'
 import { Translation, useTranslation } from 'react-i18next'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 import { NIL } from 'uuid'
 
 interface ListTableParams {
@@ -44,7 +45,11 @@ export default function ListTable({ search, selectedRow, onSelectRow, title }: L
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
 
     function handleOnSelectRow(list: List) {
-        onSelectRow ? onSelectRow(list) : route(`lists/${list.id}`)
+        if (onSelectRow) {
+            onSelectRow(list)
+        } else {
+            route(`lists/${list.id}`)
+        }
     }
 
     const handleDuplicateList = async (id: UUID) => {

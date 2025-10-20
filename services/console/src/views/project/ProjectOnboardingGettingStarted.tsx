@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LinkButton } from '../../ui/Button'
 import { CampaignsIcon, JourneysIcon } from '../../ui/icons'
 import api from '../../api'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 import { useState } from 'react'
 import { NIL } from 'uuid'
 

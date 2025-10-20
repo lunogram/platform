@@ -1,13 +1,15 @@
 import { useContext, useEffect, useMemo } from 'react'
 import { highlightSearch, usePopperSelectDropdown } from '../../../ui/utils'
-import { operatorTypes, VariablesContext, RuleEditProps, ruleTypes } from './RuleHelpers'
+import type { RuleEditProps } from './RuleHelpers';
+import { operatorTypes, VariablesContext, ruleTypes } from './RuleHelpers'
 import { ButtonGroup } from '../../../ui'
 import { SingleSelect } from '../../../ui/form/SingleSelect'
 import { Combobox } from '@headlessui/react'
 import { ChevronUpDownIcon } from '../../../ui/icons'
 import clsx from 'clsx'
 import TextInput from '../../../ui/form/TextInput'
-import { defaultOperator, RulePath, typeOperators } from '../../../types'
+import type { RulePath } from '../../../types';
+import { defaultOperator, typeOperators } from '../../../types'
 
 export default function FilterRuleEdit({
     rule,
@@ -47,7 +49,7 @@ export default function FilterRuleEdit({
         if (!hasValue) return
 
         if (!typeOperators(rule.type).includes(rule.operator)) {
-            rule.operator = defaultOperator(rule.type)
+            setRule({ ...rule, operator: defaultOperator(rule.type) })
         }
 
         const isBool = rule.type === 'boolean'
@@ -57,7 +59,7 @@ export default function FilterRuleEdit({
 
             setRule({ ...rule, value: 'true' })
         }
-    }, [hasValue, rule.type, setRule])
+    }, [hasValue, rule, setRule])
 
     return (
         <div className="rule">

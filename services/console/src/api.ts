@@ -1,7 +1,7 @@
 import Axios from 'axios'
 import { env } from './config/env'
-import { Admin, AuthMethod, Campaign, CampaignCreateParams, CampaignLaunchParams, CampaignUpdateParams, CampaignUser, Image, Journey, JourneyEntranceDetail, JourneyStepMap, JourneyUserStep, List, ListCreateParams, ListUpdateParams, Locale, Organization, OrganizationUpdateParams, Project, ProjectAdmin, ProjectAdminInviteParams, ProjectAdminParams, ProjectApiKey, ProjectApiKeyParams, Provider, ProviderCreateParams, ProviderMeta, ProviderUpdateParams, Resource, RulePath, SearchParams, SearchResult, Subscription, SubscriptionCreateParams, SubscriptionParams, SubscriptionUpdateParams, Tag, Template, TemplateCreateParams, TemplatePreviewParams, TemplateProofParams, TemplateUpdateParams, User, UserEvent, UserSubscription, VariableSuggestions } from './types'
-import { UUID } from 'crypto'
+import type { Admin, AuthMethod, Campaign, CampaignCreateParams, CampaignLaunchParams, CampaignUpdateParams, CampaignUser, Image, Journey, JourneyEntranceDetail, JourneyStepMap, JourneyUserStep, List, ListCreateParams, ListUpdateParams, Locale, Organization, OrganizationUpdateParams, Project, ProjectAdmin, ProjectAdminInviteParams, ProjectAdminParams, ProjectApiKey, ProjectApiKeyParams, Provider, ProviderCreateParams, ProviderMeta, ProviderUpdateParams, Resource, RulePath, SearchParams, SearchResult, Subscription, SubscriptionCreateParams, SubscriptionParams, SubscriptionUpdateParams, Tag, Template, TemplateCreateParams, TemplatePreviewParams, TemplateProofParams, TemplateUpdateParams, User, UserEvent, UserSubscription, VariableSuggestions } from './types'
+import type { UUID } from '@/types/common'
 
 function appendValue(params: URLSearchParams, name: string, value: unknown) {
     if (typeof value === 'undefined' || value === null || typeof value === 'function') return
@@ -38,7 +38,7 @@ client.interceptors.response.use(
 
 export interface NetworkError {
     response: {
-        data: any
+        data: unknown
         status: number
     }
 }
@@ -313,7 +313,7 @@ const api = {
         all: async (projectId: UUID) => await client
             .get<Provider[]>(`${projectUrl(projectId)}/providers/all`)
             .then(r => r.data),
-        search: async (projectId: UUID, params: any) => await client
+        search: async (projectId: UUID, params: string) => await client
             .get<SearchResult<Provider>>(`${projectUrl(projectId)}/providers`, { params })
             .then(r => r.data),
         options: async (projectId: UUID) => await client
@@ -384,4 +384,10 @@ const api = {
 
 export default api;
 
-(window as any).API = api
+declare global {
+    interface Window {
+        API: typeof api
+    }
+}
+
+window.API = api

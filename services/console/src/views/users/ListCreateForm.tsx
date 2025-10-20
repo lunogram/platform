@@ -1,7 +1,7 @@
 import { useContext } from 'react'
 import api from '../../api'
 import { ProjectContext } from '../../contexts'
-import { List, ListCreateParams } from '../../types'
+import type { List, ListCreateParams } from '../../types'
 import FormWrapper from '../../ui/form/FormWrapper'
 import RadioInput from '../../ui/form/RadioInput'
 import TextInput from '../../ui/form/TextInput'

@@ -1,4 +1,4 @@
-import { JourneyStepType } from '../../../types'
+import type { JourneyStepType } from '../../../types'
 import RadioInput from '../../../ui/form/RadioInput'
 import TextInput from '../../../ui/form/TextInput'
 import { BalancerStepIcon } from '../../../ui/icons'

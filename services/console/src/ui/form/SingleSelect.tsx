@@ -1,10 +1,11 @@
 import { Listbox } from '@headlessui/react'
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { CheckIcon, ChevronUpDownIcon } from '../icons'
-import { FieldPath, FieldValues, useController } from 'react-hook-form'
+import type { FieldPath, FieldValues } from 'react-hook-form'
+import { useController } from 'react-hook-form'
 import './Select.css'
 import { defaultGetOptionDisplay, defaultGetValueKey, defaultToValue, usePopperSelectDropdown } from '../utils'
-import { ControlledInputProps, FieldBindingsProps, OptionsProps } from '../../types'
+import type { ControlledInputProps, FieldBindingsProps, OptionsProps } from '../../types'
 import clsx from 'clsx'
 
 export interface SingleSelectProps<T, O = T> extends ControlledInputProps<T>, OptionsProps<O, T> {
@@ -148,7 +149,7 @@ SingleSelect.Field = function SingleSelectField<T, O, X extends FieldValues, P e
     ...rest
 }: FieldBindingsProps<SingleSelectProps<T, O>, T, X, P>) {
 
-    const { field: { ref, ...field }, fieldState } = useController({
+    const { field: { ...field }, fieldState } = useController({
         control: form.control,
         name,
         rules: {

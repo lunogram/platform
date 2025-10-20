@@ -1,9 +1,11 @@
-import { ReactNode, useCallback, useContext, useMemo } from 'react'
-import { FieldPath, FieldValues, useController } from 'react-hook-form'
+import type { ReactNode } from 'react';
+import { useCallback, useContext, useMemo } from 'react'
+import type { FieldPath, FieldValues } from 'react-hook-form';
+import { useController } from 'react-hook-form'
 import api from '../../api'
 import { ProjectContext } from '../../contexts'
 import { useResolver } from '../../hooks'
-import { ControlledInputProps, FieldBindingsProps } from '../../types'
+import type { ControlledInputProps, FieldBindingsProps } from '../../types'
 import { MultiSelect } from '../../ui/form/MultiSelect'
 import { snakeToTitle } from '../../utils'
 
@@ -49,7 +51,7 @@ TagPicker.Field = function TagPickerField<X extends FieldValues, P extends Field
     ...rest
 }: FieldBindingsProps<TagPickerProps, string[], X, P>) {
 
-    const { field: { ref, ...field } } = useController({
+    const { field: { ...field } } = useController({
         control: form.control,
         name,
         rules: {

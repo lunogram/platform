@@ -1,15 +1,16 @@
-import { useCallback, useContext, useEffect, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import api from '../../api'
 import { ProjectContext } from '../../contexts'
 import { useResolver } from '../../hooks'
-import { Project, Provider, ProviderCreateParams, ProviderMeta, ProviderUpdateParams } from '../../types'
+import type { Project, Provider, ProviderCreateParams, ProviderMeta, ProviderUpdateParams } from '../../types'
 import Alert from '../../ui/Alert'
 import Button from '../../ui/Button'
 import SchemaFields from '../../ui/form/SchemaFields'
 import TextInput from '../../ui/form/TextInput'
 import RadioInput from '../../ui/form/RadioInput'
 import FormWrapper from '../../ui/form/FormWrapper'
-import Modal, { ModalProps } from '../../ui/Modal'
+import type { ModalProps } from '../../ui/Modal';
+import Modal from '../../ui/Modal'
 import Tile, { TileGrid } from '../../ui/Tile'
 import { snakeToTitle } from '../../utils'
 import { ChevronLeftIcon } from '../../ui/icons'
@@ -37,7 +38,7 @@ export function IntegrationForm({ project, provider: defaultProvider, onChange, 
                 })
                 .catch(() => { })
         }
-    }, [defaultProvider])
+    }, [project.id, defaultProvider])
 
     async function handleCreate({ name, rate_limit, rate_interval, data = {} }: ProviderCreateParams | ProviderUpdateParams) {
 
@@ -104,12 +105,15 @@ interface IntegrationModalProps extends Omit<ModalProps, 'title'> {
 
 export default function IntegrationModal({ onChange, provider, ...props }: IntegrationModalProps) {
     const [project] = useContext(ProjectContext)
-    const [options] = useResolver(useCallback(async () => await api.providers.options(project.id), [project, open]))
+    const [options] = useResolver(useCallback(async () => await api.providers.options(project.id), [project]))
     const [meta, setMeta] = useState<ProviderMeta | undefined>()
 
-    useEffect(() => {
-        setMeta(options?.find(item => item.group === provider?.group && item.type === provider?.type))
-    }, [provider])
+    const derivedMeta = useMemo(() =>
+        options?.find(item => item.group === provider?.group && item.type === provider?.type),
+        [options, provider]
+    )
+
+    const activeMeta = meta ?? derivedMeta
 
     const handleChange = (provider: Provider) => {
         onChange(provider)
@@ -139,15 +143,15 @@ export default function IntegrationModal({ onChange, provider, ...props }: Integ
 
     return <Modal
         {...props}
-        title={meta
+        title={activeMeta
             ? provider?.id
-                ? `${provider?.name} (${meta.name})`
+                ? `${provider?.name} (${activeMeta.name})`
                 : 'Setup Integration'
             : 'Integrations'
         }
         size="regular"
     >
-        {!meta
+        {!activeMeta
             ? (<>
                 <p>To get started, pick one of the integrations from the list below.</p>
                 <TileGrid>
@@ -174,7 +178,7 @@ export default function IntegrationModal({ onChange, provider, ...props }: Integ
                 <IntegrationForm
                     project={project}
                     provider={provider}
-                    meta={meta}
+                    meta={activeMeta}
                     onChange={handleChange} />
             </>)
         }

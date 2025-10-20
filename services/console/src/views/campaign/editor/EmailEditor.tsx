@@ -1,9 +1,10 @@
-import { SetStateAction, Suspense, lazy, useContext, useEffect, useState } from 'react'
+import type { SetStateAction} from 'react';
+import { Suspense, lazy, useContext, useEffect, useState } from 'react'
 import { CampaignContext, ProjectContext, TemplateContext } from '../../../contexts'
 import './EmailEditor.css'
 import Button, { LinkButton } from '../../../ui/Button'
 import api from '../../../api'
-import { Resource, Template } from '../../../types'
+import type { Resource, Template } from '../../../types'
 import { useBlocker, useNavigate } from 'react-router'
 import Modal from '../../../ui/Modal'
 import HtmlEditor from './HtmlEditor'

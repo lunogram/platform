@@ -3,7 +3,7 @@ import { BookIcon, CampaignsIcon, CheckCircleIcon, JourneysIcon, ListsIcon, User
 import Button, { LinkButton } from '../../ui/Button'
 import { ProjectContext } from '../../contexts'
 import { useNavigate, useParams } from 'react-router'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 import { NIL } from 'uuid'
 import api from '../../api'
 
@@ -22,7 +22,7 @@ export default function ProjectGettingStarted() {
         }
 
         loadProject().catch((err) => console.error(err))
-    }, [projectId])
+    }, [setProject, projectId])
 
     const hasCampaigns = (project.campaigns_count ?? 0) > 0
     const hasJourneys = (project.journeys_count ?? 0) > 0

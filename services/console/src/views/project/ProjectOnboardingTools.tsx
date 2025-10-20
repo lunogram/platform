@@ -2,7 +2,7 @@ import { useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import Button from '../../ui/Button'
 import api from '../../api'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 import { useContext, useEffect, useState } from 'react'
 import { NIL } from 'uuid'
 import { ProjectContext } from '../../contexts'
@@ -31,7 +31,7 @@ export default function ProjectOnboarding() {
             ...tool,
             active: project.tools ? project.tools.includes(tool.id) : false,
         })))
-    }, [project])
+    }, [tools, project])
 
     function toggleTool(id: string) {
         setTools(prev =>

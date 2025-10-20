@@ -7,11 +7,11 @@ import { Button, Menu, MenuItem, Modal, Tag } from '../../ui'
 import { camelToTitle } from '../../utils'
 import { UserLookup } from '../users/UserLookup'
 import { typeVariants } from './EntranceDetails'
-import { ModalProps } from '../../ui/Modal'
-import { JourneyUserStep, User } from '../../types'
+import type { ModalProps } from '../../ui/Modal'
+import type { JourneyUserStep, User } from '../../types'
 import { EditIcon, TrashIcon } from '../../ui/icons'
-import { DataTableCol } from '../../ui/DataTable'
-import { UUID } from 'crypto'
+import type { DataTableCol } from '../../ui/DataTable'
+import type { UUID } from 'uuid'
 
 interface StepUsersProps extends Omit<ModalProps, 'title'> {
     stepId: UUID

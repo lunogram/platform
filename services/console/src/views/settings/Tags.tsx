@@ -1,7 +1,7 @@
 import { useCallback, useContext, useState } from 'react'
 import api from '../../api'
 import { ProjectContext } from '../../contexts'
-import { Tag } from '../../types'
+import type { Tag } from '../../types'
 import Button from '../../ui/Button'
 import FormWrapper from '../../ui/form/FormWrapper'
 import TextInput from '../../ui/form/TextInput'
@@ -9,7 +9,7 @@ import { PlusIcon } from '../../ui/icons'
 import Modal from '../../ui/Modal'
 import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
 import { useTranslation } from 'react-i18next'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 import { NIL } from 'uuid'
 
 export default function Tags() {
@@ -49,9 +49,11 @@ export default function Tags() {
                     editing && (
                         <FormWrapper<Tag>
                             onSubmit={async ({ id, name }) => {
-                                id !== NIL
-                                    ? await api.tags.update(project.id, id, { name })
-                                    : await api.tags.create(project.id, { name })
+                                if (id !== NIL) {
+                                    await api.tags.update(project.id, id, { name })
+                                } else {
+                                    await api.tags.create(project.id, { name })
+                                }
                                 await search.reload()
                                 setEditing(undefined)
                             }}

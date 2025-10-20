@@ -1,6 +1,6 @@
 import { Outlet, useLoaderData } from 'react-router'
 import { AdminContext } from '../contexts'
-import { Admin } from '../types'
+import type { Admin } from '../types'
 
 export default function Auth() {
     return (

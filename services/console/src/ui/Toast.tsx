@@ -1,8 +1,9 @@
 import * as React from 'react'
+import type {
+    ToasterProps,
+    ToastPosition} from 'react-hot-toast/headless';
 import {
     resolveValue,
-    ToasterProps,
-    ToastPosition,
     useToaster,
 } from 'react-hot-toast/headless'
 import ToastBar from './ToastBar'

@@ -1,7 +1,7 @@
 import { useCallback, useContext, useState } from 'react'
 import api from '../../api'
 import { ProjectContext } from '../../contexts'
-import { Provider } from '../../types'
+import type { Provider } from '../../types'
 import Button from '../../ui/Button'
 import Heading from '../../ui/Heading'
 import { ArchiveIcon, PlusIcon } from '../../ui/icons'
@@ -9,7 +9,7 @@ import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
 import IntegrationModal from './IntegrationModal'
 import { useTranslation } from 'react-i18next'
 import { Menu, MenuItem } from '../../ui'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 
 export default function Integrations() {
     const { t } = useTranslation()

@@ -12,7 +12,7 @@ import { ArchiveIcon, DuplicateIcon, ForbiddenIcon, RestartIcon, SendIcon } from
 import { useTranslation } from 'react-i18next'
 import { Menu, MenuItem } from '../../ui'
 import { TemplateContextProvider } from './template/TemplateContextProvider'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 
 export default function CampaignDetail() {
     const [project] = useContext(ProjectContext)

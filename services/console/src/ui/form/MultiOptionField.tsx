@@ -1,6 +1,6 @@
 import clsx from 'clsx'
-import { ControlledInputProps } from '../../types'
-import { FieldOption } from './Field'
+import type { ControlledInputProps } from '../../types'
+import type { FieldOption } from './Field'
 
 interface MultiOptionFieldProps extends ControlledInputProps<any[]> {
     options: FieldOption[]

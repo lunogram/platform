@@ -1,14 +1,15 @@
 import { useCallback, useContext, useState } from 'react'
 import { useNavigate } from 'react-router'
 import api from '../../api'
-import { Campaign, CampaignDelivery, CampaignState } from '../../types'
+import type { Campaign, CampaignDelivery, CampaignState } from '../../types'
 import Button, { LinkButton } from '../../ui/Button'
 import { ArchiveIcon, DuplicateIcon, EditIcon, PlusIcon } from '../../ui/icons'
 import Menu, { MenuItem } from '../../ui/Menu'
 import Modal from '../../ui/Modal'
 import PageContent from '../../ui/PageContent'
 import { SearchTable, useSearchTableQueryState } from '../../ui/SearchTable'
-import Tag, { TagVariant } from '../../ui/Tag'
+import type { TagVariant } from '../../ui/Tag';
+import Tag from '../../ui/Tag'
 import { formatDate, snakeToTitle } from '../../utils'
 import { CampaignForm } from './CampaignForm'
 import { ChannelIcon } from './ChannelTag'
@@ -17,7 +18,7 @@ import { ProjectContext } from '../../contexts'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import { Translation, useTranslation } from 'react-i18next'
 import { SingleSelect } from '../../ui/form/SingleSelect'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 
 export const CampaignTag = ({ state, progress, send_at }: Pick<Campaign, 'state' | 'progress' | 'send_at'>) => {
     const variant: Record<CampaignState, TagVariant> = {

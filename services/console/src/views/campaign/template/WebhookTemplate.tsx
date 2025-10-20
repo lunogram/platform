@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
-import { TemplateUpdateParams, WebhookTemplateData } from '../../../types'
+import type { TemplateUpdateParams, WebhookTemplateData } from '../../../types'
 import { InfoTable, Tag } from '../../../ui'
-import { UseFormReturn } from 'react-hook-form'
+import type { UseFormReturn } from 'react-hook-form'
 import { SingleSelect } from '../../../ui/form/SingleSelect'
 import JsonField from '../../../ui/form/JsonField'
 import TextInput from '../../../ui/form/TextInput'
@@ -17,7 +17,7 @@ export const WebhookTable = ({ data }: { data: WebhookTemplateData }) => {
     }} />
 }
 
-export const WebhookForm = ({ form }: { form: UseFormReturn<TemplateUpdateParams, any> }) => {
+export const WebhookForm = ({ form }: { form: UseFormReturn<TemplateUpdateParams, undefined> }) => {
     const { t } = useTranslation()
     return <>
         <SingleSelect.Field

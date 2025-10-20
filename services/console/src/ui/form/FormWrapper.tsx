@@ -1,6 +1,9 @@
-import { ReactNode, useState } from 'react'
-import { DeepRequired, DefaultValues, FieldErrorsImpl, FieldValues, useForm, UseFormReturn } from 'react-hook-form'
-import { NavigateFunction, useNavigate } from 'react-router'
+import type { ReactNode} from 'react';
+import { useState } from 'react'
+import type { DeepRequired, DefaultValues, FieldErrorsImpl, FieldValues, UseFormReturn } from 'react-hook-form';
+import { useForm } from 'react-hook-form'
+import type { NavigateFunction} from 'react-router';
+import { useNavigate } from 'react-router'
 import Alert from '../Alert'
 import Button from '../Button'
 import { useTranslation } from 'react-i18next'

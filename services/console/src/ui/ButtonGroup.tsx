@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { CSSProperties, PropsWithChildren } from 'react'
+import type { CSSProperties, PropsWithChildren } from 'react'
 import './ButtonGroup.css'
 
 type ButtonGroupProps = PropsWithChildren<{

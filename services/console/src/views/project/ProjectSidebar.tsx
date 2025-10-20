@@ -1,11 +1,13 @@
-import { NavLinkProps, useNavigate } from 'react-router'
-import { PropsWithChildren, ReactNode, useCallback, useContext } from 'react'
+import type { NavLinkProps } from 'react-router';
+import { useNavigate } from 'react-router'
+import type { PropsWithChildren, ReactNode } from 'react';
+import { useCallback, useContext } from 'react'
 import { ProjectContext } from '../../contexts'
 import api from '../../api'
 import { useResolver } from '../../hooks'
 import { SingleSelect } from '../../ui/form/SingleSelect'
 import { checkProjectRole, getRecentProjects } from '../../utils'
-import { Project, ProjectRole } from '../../types'
+import type { Project, ProjectRole } from '../../types'
 import Sidebar from '../../ui/Sidebar'
 import { useTranslation } from 'react-i18next'
 
@@ -46,14 +48,14 @@ export default function ProjectSidebar({ children, links }: PropsWithChildren<Si
                 name: t('view_all'),
             },
         ]
-    }, [project]))
+    }, [project, t]))
 
     return (
         project && <Sidebar
             links={
                 links?.filter(({ minRole, active }) =>
                     (!minRole || checkProjectRole(minRole, project.role)) && (!active || active(project)),
-                ).map(({ minRole, ...props }) => props)
+                ).map(({ ...props }) => props)
             }
             prepend={
                 <SingleSelect

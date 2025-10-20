@@ -1,7 +1,9 @@
-import { useCallback, useContext, useState, MouseEvent } from 'react'
+import type { MouseEvent } from 'react';
+import { useCallback, useContext, useState } from 'react'
 import api from '../../api'
 import { ProjectContext } from '../../contexts'
-import { ProjectApiKey, projectRoles } from '../../types'
+import type { ProjectApiKey} from '../../types';
+import { projectRoles } from '../../types'
 import Button from '../../ui/Button'
 import RadioInput from '../../ui/form/RadioInput'
 import TextInput from '../../ui/form/TextInput'
@@ -15,7 +17,7 @@ import { snakeToTitle } from '../../utils'
 import { toast } from 'react-hot-toast/headless'
 import Alert from '../../ui/Alert'
 import { useTranslation } from 'react-i18next'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 
 export default function ProjectApiKeys() {
     const { t } = useTranslation()

@@ -1,5 +1,5 @@
-import { Control, FieldPath, FieldValues, UseFormReturn } from 'react-hook-form'
-import { CommonInputProps } from '../../types'
+import type { Control, FieldPath, FieldValues, UseFormReturn } from 'react-hook-form'
+import type { CommonInputProps } from '../../types'
 
 export interface FieldProps<X extends FieldValues, P extends FieldPath<X>> extends CommonInputProps {
     form?: UseFormReturn<X>

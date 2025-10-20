@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import api from '../../api'
-import { SearchParams } from '../../types'
+import type { SearchParams } from '../../types'
 import Button from '../../ui/Button'
 import Modal from '../../ui/Modal'
 import PageContent from '../../ui/PageContent'
@@ -10,13 +10,13 @@ import { PlusIcon } from '../../ui/icons'
 import { ListCreateForm } from './ListCreateForm'
 import { useTranslation } from 'react-i18next'
 import { NIL } from 'uuid'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 
 export default function Lists() {
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
     const { t } = useTranslation()
     const navigate = useNavigate()
-    const search = useCallback(async (params: SearchParams) => await api.lists.search(projectId, params), [api.lists, projectId])
+    const search = useCallback(async (params: SearchParams) => await api.lists.search(projectId, params), [projectId])
     const [isModalOpen, setIsModalOpen] = useState(false)
 
     return (

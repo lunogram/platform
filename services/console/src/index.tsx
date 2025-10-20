@@ -5,13 +5,10 @@ import ReactDOM from 'react-dom/client'
 import reportWebVitals from './reportWebVitals'
 import { ClerkProvider } from '@clerk/clerk-react'
 
-import '@fontsource/inter/400.css'
-import '@fontsource/inter/500.css'
-import '@fontsource/inter/700.css'
 import './variables.css'
 import './index.css'
 
-const CLERK_PUBLISHABLE_KEY = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 const root = ReactDOM.createRoot(
     document.getElementById('root') as HTMLElement,

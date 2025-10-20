@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { getEditableUserFields } from '../../ui/utils'
 import api from '../../api'
 import Button from '../../ui/Button'
-import { User } from '../../types'
+import type { User } from '../../types'
 
 export default function UserDetail() {
     const { t } = useTranslation()
@@ -22,13 +22,13 @@ export default function UserDetail() {
         setDirty(false)
     }, [user])
 
-    function handleChange(path: Array<string | number>, _: any, value: any) {
+    function handleChange(path: Array<string | number>, _: unknown, value: unknown) {
         // Update nested field in editableUser
         setEditableUser(prev => {
             const clone = structuredClone(prev)
-            let target: any = clone
+            let target: Record<string, unknown> = clone
             for (let i = 0; i < path.length - 1; i++) {
-                target = target[path[i]]
+                target = target[path[i]] as Record<string, unknown>
             }
             target[path[path.length - 1]] = value
             return clone

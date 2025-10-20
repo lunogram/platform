@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { snakeToTitle } from '../../utils'
 // import { SingleSelect } from '../../ui/form/SingleSelect'
 // import { ArchiveIcon, EditIcon } from '../../ui/icons'
-// import { UUID } from 'crypto'
+// import type { UUID } from '@/types/common'
 
 export default function Admins() {
     const { t } = useTranslation()

@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useState } from 'react'
 import api from '../../api'
 import { ListContext, ProjectContext } from '../../contexts'
-import { DynamicList, ListUpdateParams, Rule } from '../../types'
+import type { DynamicList, ListUpdateParams, Rule, WrapperRule } from '../../types'
 import Button from '../../ui/Button'
 import Heading from '../../ui/Heading'
 import PageContent from '../../ui/PageContent'
@@ -60,12 +60,12 @@ export default function ListDetail() {
     const state = useSearchTableState(useCallback(async params => await api.lists.users(project.id, list.id, params), [list, project]))
     const route = useRoute()
 
-    const refreshList = () => {
+    const refreshList = useCallback(() => {
         api.lists.get(project.id, list.id)
             .then(setList)
             .then(() => state.reload)
             .catch(() => { })
-    }
+    }, [project.id, list.id, setList, state.reload])
 
     useEffect(() => {
         if (list.state !== 'loading') return
@@ -77,7 +77,7 @@ export default function ListDetail() {
         refreshList()
 
         return () => clearInterval(interval)
-    }, [list.state])
+    }, [list.state, list.progress?.complete, list.progress?.total, refreshList])
 
     const blocker = useBlocker(
         ({ currentLocation, nextLocation }) => hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname,
@@ -90,7 +90,7 @@ export default function ListDetail() {
         } else {
             blocker.reset()
         }
-    }, [blocker.state])
+    }, [blocker, t])
 
     const saveList = async ({ name, rule, published, tags }: ListUpdateParams) => {
         setIsSaving(true)
@@ -100,8 +100,8 @@ export default function ListDetail() {
             setList(value)
             setIsEditListOpen(false)
             setHasUnsavedChanges(false)
-        } catch (error: any) {
-            const errorMessage = error.response?.data?.error ?? error.message
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
             setError(errorMessage)
             setIsEditListOpen(false)
         } finally {
@@ -165,7 +165,7 @@ export default function ListDetail() {
                 <RuleSection
                     list={list}
                     isSaving={isSaving}
-                    onRuleSave={async (rule: any) => await saveList({ name: list.name, rule })}
+                    onRuleSave={async (rule) => await saveList({ name: list.name, rule: rule as WrapperRule })}
                     onChange={() => setHasUnsavedChanges(true)} />
             )}
 

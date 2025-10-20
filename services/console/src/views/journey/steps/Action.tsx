@@ -1,6 +1,6 @@
-import { useCallback, useContext } from 'react'
+import { useCallback } from 'react'
 import api from '../../../api'
-import { Campaign, JourneyStepType } from '../../../types'
+import type { JourneyStepType } from '../../../types'
 import { EntityIdPicker } from '../../../ui/form/EntityIdPicker'
 import { ActionStepIcon } from '../../../ui/icons'
 import { CampaignForm } from '../../campaign/CampaignForm'
@@ -8,50 +8,13 @@ import { useResolver } from '../../../hooks'
 import { useTranslation } from 'react-i18next'
 import { ChannelIcon } from '../../campaign/ChannelTag'
 import Preview from '../../../ui/Preview'
-import { SingleSelect } from '../../../ui/form/SingleSelect'
-import { Heading, LinkButton } from '../../../ui'
 import { TemplateContextProvider } from '../../campaign/template/TemplateContextProvider'
-import { TemplateContext } from '../../../contexts'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 import { NIL } from 'uuid'
+import JourneyTemplatePreview from './JourneyTemplatePreview'
 
 interface ActionConfig {
     campaign_id: UUID
-}
-
-const JourneyTemplatePreview = ({ campaign }: { campaign: Campaign }) => {
-    const { t } = useTranslation()
-    const { variants, locales, currentLocale, currentTemplate, setTemplate, setLocale } = useContext(TemplateContext)
-    return <>
-        <Heading
-            title={t('preview')}
-            size="h4"
-            actions={
-                <>
-                    {variants.length > 1 && <SingleSelect
-                        options={variants}
-                        size="small"
-                        value={currentTemplate}
-                        onChange={(variant) => setTemplate(variant)}
-                    />}
-                    <SingleSelect
-                        options={locales}
-                        size="small"
-                        value={currentLocale}
-                        onChange={(locale) => setLocale(locale)}
-                    />
-                    <LinkButton
-                        to={`/projects/${campaign.project_id}/campaigns/${campaign.id}`}
-                        size="small"
-                        target="_blank"
-                    >
-                        {t('edit_campaign')}
-                    </LinkButton>
-                </>
-            }
-        />
-        {currentTemplate && <Preview template={currentTemplate} />}
-    </>
 }
 
 export const actionStep: JourneyStepType<ActionConfig> = {

@@ -2,7 +2,7 @@ import toast from 'react-hot-toast'
 import Button from './Button'
 import { CopyIcon } from './icons'
 import './CodeExample.css'
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import Heading from './Heading'
 
 interface CodeExampleProps {

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
-import { PushTemplateData, TemplateUpdateParams } from '../../../types'
+import type { PushTemplateData, TemplateUpdateParams } from '../../../types'
 import { InfoTable, Tag } from '../../../ui'
-import { UseFormReturn } from 'react-hook-form'
+import type { UseFormReturn } from 'react-hook-form'
 import TextInput from '../../../ui/form/TextInput'
 import JsonField from '../../../ui/form/JsonField'
 

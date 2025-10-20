@@ -1,5 +1,6 @@
 import clsx from 'clsx'
-import { Key, ReactNode, useContext } from 'react'
+import type { Key, ReactNode} from 'react';
+import { useContext } from 'react'
 import { formatDate, snakeToTitle } from '../utils'
 import Button from './Button'
 import './DataTable.css'

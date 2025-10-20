@@ -1,7 +1,8 @@
 import clsx from 'clsx'
-import { Ref, ReactNode } from 'react'
-import { FieldPath, FieldValues, useController } from 'react-hook-form'
-import { ControlledInputProps, FieldProps } from '../../types'
+import type { Ref, ReactNode } from 'react'
+import type { FieldPath, FieldValues } from 'react-hook-form'
+import { useController } from 'react-hook-form'
+import type { ControlledInputProps, FieldProps } from '../../types'
 import { snakeToTitle } from '../../utils'
 import './TextInput.css'
 

@@ -1,4 +1,4 @@
-import { Campaign, LocaleOption } from '../../../types'
+import type { Campaign, LocaleOption } from '../../../types'
 import FormWrapper from '../../../ui/form/FormWrapper'
 import Modal from '../../../ui/Modal'
 import RadioInput from '../../../ui/form/RadioInput'
@@ -34,8 +34,8 @@ export default function CreateTemplateModal({ open, setIsOpen, campaign, onCreat
     useEffect(() => {
         api.locales.search(project.id, { limit: 100 })
             .then((result) => setLocales(result.results))
-            .catch(() => {})
-    }, [])
+            .catch(() => { })
+    }, [project.id])
 
     async function handleCreateTemplate({ locale, data }: LocaleParams) {
         const clonedTemplate = campaign.templates.find(template => template.locale === 'en') ?? campaign.templates[0]
@@ -75,7 +75,7 @@ export default function CreateTemplateModal({ open, setIsOpen, campaign, onCreat
                             variant="secondary"
                             to={`/projects/${project.id}/settings/locales`}>{t('create_locale')}</LinkButton>
                     </div>}
-                    { campaign.channel === 'email' && (
+                    {campaign.channel === 'email' && (
                         <RadioInput.Field
                             form={form}
                             name="data.editor"

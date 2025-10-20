@@ -1,4 +1,4 @@
-import { PropsWithChildren, ReactNode } from 'react'
+import type { PropsWithChildren, ReactNode } from 'react'
 import Heading from './Heading'
 import clsx from 'clsx'
 

@@ -1,12 +1,13 @@
 import { useEffect, useId } from 'react'
-import { FieldPath, FieldValues, useController } from 'react-hook-form'
+import type { FieldPath, FieldValues } from 'react-hook-form'
+import { useController } from 'react-hook-form'
 import { RadioGroup } from '@headlessui/react'
-import { ControlledInputProps, FieldBindingsProps, OptionsProps } from '../../types'
+import type { ControlledInputProps, FieldBindingsProps, OptionsProps } from '../../types'
 import './RadioInput.css'
 import clsx from 'clsx'
 import { defaultGetOptionDisplay, defaultGetValueKey } from '../utils'
 
-interface RadioInputProps<T, O = T> extends ControlledInputProps<T>, OptionsProps<O, T> {}
+interface RadioInputProps<T, O = T> extends ControlledInputProps<T>, OptionsProps<O, T> { }
 
 export default function RadioInput<X, P = X>({
     disabled,

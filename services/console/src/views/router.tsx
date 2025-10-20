@@ -1,8 +1,9 @@
-import { createBrowserRouter, Outlet, redirect, RouteObject, useNavigate, useParams } from 'react-router'
+import type { RouteObject } from 'react-router';
+import { createBrowserRouter, Outlet, redirect, useNavigate, useParams } from 'react-router'
 import api from '../api'
 
 import ErrorPage from './ErrorPage'
-import { SidebarLink } from '../ui/Sidebar'
+import type { SidebarLink } from '../ui/Sidebar'
 import { LoaderContextProvider, StatefulLoaderContextProvider } from './LoaderContextProvider'
 import { AdminContext, CampaignContext, JourneyContext, ListContext, ProjectContext, UserContext } from '../contexts'
 import ApiKeys from './settings/ApiKeys'
@@ -51,8 +52,8 @@ import EntranceDetails from './journey/EntranceDetails'
 import { Translation } from 'react-i18next'
 import Organization from './organization/Organization'
 import DataSchema from './settings/DataSchema'
-import { UUID } from 'crypto'
-import { Project } from '../types'
+import type { UUID } from '@/types/common'
+import type { Project } from '../types'
 
 export const useRoute = (includeProject = true) => {
     const { projectId = '' } = useParams()
@@ -62,8 +63,8 @@ export const useRoute = (includeProject = true) => {
         parts.push('projects', projectId)
     }
     return (path: string) => {
-        parts.push(path)
-        navigate('/' + parts.join('/'))?.catch(e => {
+        const newParts = [...parts, path]
+        navigate('/' + newParts.join('/'))?.catch(e => {
             console.error('Failed to navigate to:', e)
         })
     }

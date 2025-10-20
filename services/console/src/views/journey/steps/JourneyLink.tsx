@@ -1,13 +1,13 @@
 import { useCallback } from 'react'
 import api from '../../../api'
-import { JourneyStepType } from '../../../types'
+import type { JourneyStepType } from '../../../types'
 import { EntityIdPicker } from '../../../ui/form/EntityIdPicker'
 import { LinkStepIcon } from '../../../ui/icons'
 import { JourneyForm } from '../JourneyForm'
 import { useResolver } from '../../../hooks'
 import RadioInput from '../../../ui/form/RadioInput'
 import { useTranslation } from 'react-i18next'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 import { NIL } from 'uuid'
 
 interface JourneyLinkConfig {
@@ -75,8 +75,8 @@ export const journeyLinkStep: JourneyStepType<JourneyLinkConfig> = {
                 { key: '1 hour', label: t('hour', { count: 1 }) },
                 { key: '1 day', label: t('day', { count: 1 }) },
             ]}
-            value={value.delay}
-            onChange={delay => onChange({ ...value, delay })} />
+                value={value.delay}
+                onChange={delay => onChange({ ...value, delay })} />
         </>
     },
     validate: ({ target_id, delay }) => {

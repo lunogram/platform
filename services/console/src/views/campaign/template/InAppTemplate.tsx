@@ -1,5 +1,5 @@
-import { UseFormReturn } from 'react-hook-form'
-import { InAppTemplateData, TemplateUpdateParams } from '../../../types'
+import type { UseFormReturn } from 'react-hook-form'
+import type { InAppTemplateData, TemplateUpdateParams } from '../../../types'
 import { InfoTable, Tag } from '../../../ui'
 import { SingleSelect } from '../../../ui/form/SingleSelect'
 import TextInput from '../../../ui/form/TextInput'

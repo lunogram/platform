@@ -1,13 +1,13 @@
-import { Context } from 'react'
-import { RouteObject } from 'react-router'
-import { ProjectEntityPath } from '../api'
-import { UseStateContext } from '../types'
+import type { Context } from 'react'
+import type { RouteObject } from 'react-router'
+import type { ProjectEntityPath } from '../api'
+import type { UseStateContext } from '../types'
 import ErrorPage from './ErrorPage'
 import { StatefulLoaderContextProvider } from './LoaderContextProvider'
 import { NIL } from 'uuid'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 
-interface StatefulRoute<T extends Record<string, any>> {
+interface StatefulRoute<T extends Record<string, unknown>> {
     context?: Context<UseStateContext<T>>
     apiPath: ProjectEntityPath<T>
     path: string
@@ -36,7 +36,7 @@ export function createStatefulRoute<T extends { id: UUID }>({ context, path, api
                 </StatefulLoaderContextProvider>
             )
             : element,
-        children: children.map(({ tab, ...rest }) => rest),
+        children: children.map(({ ...rest }) => rest),
         errorElement: <ErrorPage />,
     }
 }

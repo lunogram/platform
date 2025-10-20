@@ -1,4 +1,4 @@
-import { Campaign, Template, VariantUpdateParams } from '../../../types'
+import type { Campaign, Template, VariantUpdateParams } from '../../../types'
 import FormWrapper from '../../../ui/form/FormWrapper'
 import Modal from '../../../ui/Modal'
 import { useContext } from 'react'

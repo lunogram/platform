@@ -8,8 +8,10 @@ loglevel: debug
 onlyBuiltDependencies:
   - '@clerk/shared'
   - '@firebase/util'
+  - '@swc/core'
   - core-js
   - core-js-pure
+  - esbuild
   - farmhash
   - msgpackr-extract
   - protobufjs

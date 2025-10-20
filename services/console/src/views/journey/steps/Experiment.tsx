@@ -1,4 +1,4 @@
-import { JourneyStepType } from '../../../types'
+import type { JourneyStepType } from '../../../types'
 import TextInput from '../../../ui/form/TextInput'
 import { ExperimentStepIcon } from '../../../ui/icons'
 import { round } from '../../../utils'
@@ -8,7 +8,7 @@ interface ExperimentStepChildConfig {
     ratio: number
 }
 
-export const experimentStep: JourneyStepType<{}, ExperimentStepChildConfig> = {
+export const experimentStep: JourneyStepType<object, ExperimentStepChildConfig> = {
     name: 'experiment',
     icon: <ExperimentStepIcon />,
     category: 'flow',
@@ -31,7 +31,7 @@ export const experimentStep: JourneyStepType<{}, ExperimentStepChildConfig> = {
     }) {
         const { t } = useTranslation()
         const ratio = value.ratio ?? 0
-        const totalRatio = siblingData.reduce((a, c) => a + c.ratio ?? 0, ratio)
+        const totalRatio = siblingData.reduce((a, c) => a + c.ratio, ratio)
         const percentage = totalRatio > 0 ? round(ratio / totalRatio * 100, 2) : 0
         return (
             <TextInput

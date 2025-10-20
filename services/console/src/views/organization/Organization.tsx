@@ -1,10 +1,10 @@
 import { AdminContext, OrganizationContext } from '../../contexts'
 import { useContext } from 'react'
-import Sidebar, { SidebarLink } from '../../ui/Sidebar'
+import Sidebar, { type SidebarLink } from '../../ui/Sidebar'
 import { ProjectIcon, SettingsIcon, UsersIcon } from '../../ui/icons'
 import { checkOrganizationRole } from '../../utils'
 import { StatefulLoaderContextProvider } from '../LoaderContextProvider'
-import { OrganizationRole } from '../../types'
+import type { OrganizationRole } from '../../types'
 import { Outlet } from 'react-router'
 import { Translation } from 'react-i18next'
 

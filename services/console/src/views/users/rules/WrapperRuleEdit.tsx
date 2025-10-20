@@ -4,8 +4,9 @@ import { SingleSelect } from '../../../ui/form/SingleSelect'
 import { PlusIcon, TrashIcon } from '../../../ui/icons'
 import { createUuid } from '../../../utils'
 import EventRuleEdit from './EventRuleEdit'
-import { createEventRule, isEventWrapper, operatorTypes, RuleEditProps } from './RuleHelpers'
-import { EventRule, WrapperRule } from '../../../types'
+import type { RuleEditProps } from './RuleHelpers';
+import { createEventRule, isEventWrapper, operatorTypes } from './RuleHelpers'
+import type { EventRule, WrapperRule } from '../../../types'
 import RuleEdit from './RuleEdit'
 
 export default function WrapperRuleEdit({

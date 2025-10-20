@@ -1,5 +1,6 @@
-import { createContext, ReactNode } from 'react'
-import { EventRule, Operator, Rule, RuleGroup, RuleType, VariableSuggestions, WrapperRule } from '../../../types'
+import type { ReactNode } from 'react';
+import { createContext } from 'react'
+import type { EventRule, Operator, Rule, RuleGroup, RuleType, VariableSuggestions, WrapperRule } from '../../../types'
 import { createUuid } from '../../../utils'
 
 export interface GroupedRule extends Omit<Rule, 'value'> {

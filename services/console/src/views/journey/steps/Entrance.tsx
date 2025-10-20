@@ -1,4 +1,4 @@
-import { JourneyStepType, Rule } from '../../../types'
+import type { JourneyStepType, Rule } from '../../../types'
 import { EntranceStepIcon } from '../../../ui/icons'
 import RadioInput from '../../../ui/form/RadioInput'
 import TextInput from '../../../ui/form/TextInput'
@@ -18,7 +18,7 @@ import { createEventRule, isEventWrapper } from '../../users/rules/RuleHelpers'
 import { ruleDescription } from '../../users/rules/RuleDescriptions'
 import { Tag } from '../../../ui'
 import { Link } from 'react-router'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 import { NIL } from 'uuid'
 
 interface EntranceConfig {
@@ -101,19 +101,17 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
         if (trigger === 'schedule') {
             let s = ''
             if (schedule) {
-                try {
-                    const rule = RRule.fromString(schedule)
-                    if (rule.options.freq) {
-                        s = rule.toText()
-                        if (rule.options.freq === RRule.DAILY) {
-                            s += Number(rule.options.byhour) < 12
-                                ? 'am'
-                                : 'pm'
-                        }
-                    } else {
-                        s = 'once'
+                const rule = RRule.fromString(schedule)
+                if (rule.options.freq) {
+                    s = rule.toText()
+                    if (rule.options.freq === RRule.DAILY) {
+                        s += Number(rule.options.byhour) < 12
+                            ? 'am'
+                            : 'pm'
                     }
-                } catch { }
+                } else {
+                    s = 'once'
+                }
             }
             return (
                 <div style={{ maxWidth: 300 }}>

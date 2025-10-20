@@ -1,13 +1,13 @@
 import api from '../../api'
 import TextInput from '../../ui/form/TextInput'
-import { Project } from '../../types'
+import type { Project } from '../../types'
 import FormWrapper from '../../ui/form/FormWrapper'
 import { SingleSelect } from '../../ui/form/SingleSelect'
 import SwitchField from '../../ui/form/SwitchField'
 import Heading from '../../ui/Heading'
 import { LocaleTextField } from '../settings/Locales'
 import { useTranslation } from 'react-i18next'
-import { UseFormReturn } from 'react-hook-form'
+import type { UseFormReturn } from 'react-hook-form'
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export declare namespace Intl {
@@ -15,9 +15,9 @@ export declare namespace Intl {
     function supportedValuesOf(input: Key): string[]
 
     interface DateTimeFormat {
-        // eslint-disable-next-line @typescript-eslint/method-signature-style
+         
         format(date?: Date | number): string
-        // eslint-disable-next-line @typescript-eslint/method-signature-style
+         
         resolvedOptions(): ResolvedDateTimeFormatOptions
     }
 

@@ -1,6 +1,7 @@
 import { useCallback, useContext } from 'react'
-import { User } from '../../types'
-import Modal, { ModalProps } from '../../ui/Modal'
+import type { User } from '../../types'
+import type { ModalProps } from '../../ui/Modal';
+import Modal from '../../ui/Modal'
 import { ProjectContext } from '../../contexts'
 import { useTranslation } from 'react-i18next'
 import { SearchTable, useSearchTableState } from '../../ui/SearchTable'

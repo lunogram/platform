@@ -1,5 +1,6 @@
 import FilterRuleEdit from './FilterRuleEdit'
-import { isWrapper, RuleEditProps } from './RuleHelpers'
+import type { RuleEditProps } from './RuleHelpers';
+import { isWrapper } from './RuleHelpers'
 import WrapperRuleEdit from './WrapperRuleEdit'
 
 export default function RuleEdit({ rule, setRule, ...props }: RuleEditProps) {

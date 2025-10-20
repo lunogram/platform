@@ -1,6 +1,7 @@
-import { Dispatch, ReactNode, SetStateAction, useEffect, useState } from 'react'
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import { useEffect, useState } from 'react'
 import { TemplateContext } from '../../../contexts'
-import { Campaign, LocaleOption, Template } from '../../../types'
+import type { Campaign, LocaleOption, Template } from '../../../types'
 import { languageName } from '../../../utils'
 import { useSearchParams } from 'react-router'
 
@@ -32,7 +33,7 @@ export const TemplateContextProvider = ({ campaign, setCampaign, children }: Tem
 
     useEffect(() => {
         setTemplate(templates.find(t => `${t.id}` === templateId) ?? templates[0])
-    }, [campaign.id, searchParams])
+    }, [templateId, templates, campaign.id, searchParams])
 
     const templateManager = {
         campaign,

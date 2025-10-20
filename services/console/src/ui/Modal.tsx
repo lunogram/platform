@@ -1,5 +1,6 @@
 import { Dialog, Transition } from '@headlessui/react'
-import { Fragment, PropsWithChildren, ReactNode } from 'react'
+import type { PropsWithChildren, ReactNode } from 'react';
+import { Fragment } from 'react'
 import Button from './Button'
 import { CloseIcon } from './icons'
 import { useTranslation } from 'react-i18next'

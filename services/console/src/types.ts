@@ -1,7 +1,7 @@
-import { UUID } from 'crypto'
-import { ComponentType, Dispatch, Key, ReactNode, SetStateAction } from 'react'
-import { FieldPath, FieldValues, UseFormReturn } from 'react-hook-form'
-import { Node } from 'reactflow'
+import type { ComponentType, Dispatch, Key, ReactNode, SetStateAction } from 'react'
+import type { FieldPath, FieldValues, UseFormReturn } from 'react-hook-form'
+import type { Node } from 'reactflow'
+import type { UUID } from '@/types/common'
 
 export type Class<T> = new () => T
 
@@ -72,23 +72,23 @@ export type Rule = {
 
 export function defaultOperator(type: RuleType): Operator {
     switch (type) {
-    case 'string': return '='
-    case 'number': return '='
-    case 'boolean': return '='
-    case 'date': return '='
-    case 'array': return 'any'
-    case 'wrapper': return 'and'
+        case 'string': return '='
+        case 'number': return '='
+        case 'boolean': return '='
+        case 'date': return '='
+        case 'array': return 'any'
+        case 'wrapper': return 'and'
     }
 }
 
 export function typeOperators(type: RuleType): Operator[] {
     switch (type) {
-    case 'string': return ['=', '!=', 'contains', 'not contain', 'starts with', 'not start with', 'is set', 'is not set', 'empty']
-    case 'number': return ['=', '!=', '<', '<=', '>', '>=', 'is set', 'is not set', 'empty']
-    case 'boolean': return ['=', '!=', 'is set', 'is not set', 'empty']
-    case 'date': return ['=', '!=', '<', '<=', '>', '>=', 'is same day', 'is set', 'is not set', 'empty']
-    case 'array': return ['any', 'none', 'is set', 'is not set', 'empty']
-    case 'wrapper': return ['and', 'or', 'xor']
+        case 'string': return ['=', '!=', 'contains', 'not contain', 'starts with', 'not start with', 'is set', 'is not set', 'empty']
+        case 'number': return ['=', '!=', '<', '<=', '>', '>=', 'is set', 'is not set', 'empty']
+        case 'boolean': return ['=', '!=', 'is set', 'is not set', 'empty']
+        case 'date': return ['=', '!=', '<', '<=', '>', '>=', 'is same day', 'is set', 'is not set', 'empty']
+        case 'array': return ['any', 'none', 'is set', 'is not set', 'empty']
+        case 'wrapper': return ['and', 'or', 'xor']
     }
 }
 
@@ -564,11 +564,13 @@ export interface TemplateProofParams {
     recipient: string
 }
 
-export enum SubscriptionState {
-    unsubscribed = 0,
-    subscribed = 1,
-    optedIn = 2,
-}
+export const SubscriptionState = {
+    unsubscribed: 0,
+    subscribed: 1,
+    optedIn: 2,
+} as const
+
+export type SubscriptionState = typeof SubscriptionState[keyof typeof SubscriptionState]
 
 export interface UserSubscription {
     id: UUID

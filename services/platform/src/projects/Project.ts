@@ -19,7 +19,7 @@ export default class Project extends Model {
     tools?: string[]
 }
 
-export type ProjectParams = Omit<Project, ModelParams | 'deleted_at' | 'organization_id' | 'campaigns_count' | 'journeys_count' | 'users_count'>
+export type ProjectParams = Omit<Project, ModelParams | 'deleted_at' | 'organization_id' | 'campaigns_count' | 'journeys_count' | 'users_count' | 'lists_count'>
 
 export const projectRoles = [
     'support',

@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import { JourneyStepType } from '../../../types'
+import type { JourneyStepType } from '../../../types'
 import RadioInput from '../../../ui/form/RadioInput'
 import TextInput from '../../../ui/form/TextInput'
 import { DelayStepIcon } from '../../../ui/icons'
@@ -8,7 +8,7 @@ import { PreferencesContext } from '../../../ui/PreferencesContext'
 import { parse, parseISO } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import { MultiOptionField } from '../../../ui/form/MultiOptionField'
-import { FieldOption } from '../../../ui/form/Field'
+import type { FieldOption } from '../../../ui/form/Field'
 
 interface DelayStepConfig {
     format: 'duration' | 'time' | 'date'

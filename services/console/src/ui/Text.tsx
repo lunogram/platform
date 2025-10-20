@@ -1,4 +1,5 @@
-import { createElement, PropsWithChildren } from 'react'
+import type { PropsWithChildren } from 'react';
+import { createElement } from 'react'
 
 type TextProps = PropsWithChildren<{
     html?: string

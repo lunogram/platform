@@ -1,9 +1,10 @@
 import { parseISO, formatDuration as dateFnsFormatDuration } from 'date-fns'
-import { format, utcToZonedTime } from 'date-fns-tz'
-import { OrganizationRole, Preferences, Project, ProjectRole, organizationRoles, projectRoles } from './types'
+import { format, toZonedTime } from 'date-fns-tz'
+import { organizationRoles, projectRoles } from './types'
+import type { OrganizationRole, Preferences, Project, ProjectRole } from './types'
 import { v4 } from 'uuid'
-import { UUID } from 'crypto'
-import { SignOut } from '@clerk/types'
+import type { UUID } from '@/types/common'
+import type { SignOut } from '@clerk/types'
 
 export function createUuid() {
     return v4() as UUID
@@ -71,7 +72,7 @@ export function sessionStorageSetJson<T extends object>(key: string, o: T) {
 
 export function debounce(fn: Function, ms = 300) {
     let timeoutId: ReturnType<typeof setTimeout>
-    return function(this: any, ...args: any[]) {
+    return function (this: any, ...args: any[]) {
         clearTimeout(timeoutId)
         timeoutId = setTimeout(() => fn.apply(this, args), ms)
     }
@@ -90,7 +91,7 @@ function parseDate(date: DateArg) {
 }
 
 export function formatDate(preferences: Preferences, date: DateArg, fmt: string = 'Pp', timeZone = preferences.timeZone) {
-    const zonedDate = utcToZonedTime(parseDate(date), timeZone)
+    const zonedDate = toZonedTime(parseDate(date), timeZone)
     return format(zonedDate, fmt)
 }
 

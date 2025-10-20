@@ -1,9 +1,11 @@
-import { PropsWithChildren, useState } from 'react'
+import type { PropsWithChildren} from 'react';
+import { useState } from 'react'
 import { Popover } from '@headlessui/react'
 import { usePopper } from 'react-popper'
-import Button, { ButtonSize, ButtonVariant } from './Button'
+import type { ButtonSize, ButtonVariant } from './Button';
+import Button from './Button'
 import './Menu.css'
-import { Placement } from '@popperjs/core'
+import type { Placement } from '@popperjs/core'
 import { ThreeDotsIcon } from './icons'
 
 interface MenuProps {

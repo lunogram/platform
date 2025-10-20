@@ -1,27 +1,30 @@
-import { createElement, DragEventHandler, Fragment, memo, ReactNode, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import type { DragEventHandler, ReactNode, SetStateAction } from 'react';
+import { createElement, Fragment, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useBlocker, useNavigate } from 'react-router'
-import ReactFlow, {
-    addEdge,
-    Background,
+import type {
     Connection,
-    Controls,
     Edge,
-    EdgeLabelRenderer,
     EdgeProps,
     EdgeTypes,
-    getBezierPath,
-    getConnectedEdges,
-    Handle,
-    MarkerType,
-    MiniMap,
     Node,
     NodeMouseHandler,
     NodeProps,
     NodeTypes,
     OnEdgeUpdateFunc,
+    ReactFlowInstance
+} from 'reactflow';
+import ReactFlow, {
+    addEdge,
+    Background,
+    Controls,
+    EdgeLabelRenderer,
+    getBezierPath,
+    getConnectedEdges,
+    Handle,
+    MarkerType,
+    MiniMap,
     Panel,
     Position,
-    ReactFlowInstance,
     updateEdge,
     useEdges,
     useEdgesState,
@@ -34,7 +37,7 @@ import { completedGettingStarted, checkProjectRole, createComparator, createUuid
 import * as journeySteps from './steps/index'
 import clsx from 'clsx'
 import api from '../../api'
-import { JourneyStep, JourneyStepMap, JourneyStepType } from '../../types'
+import type { JourneyStep, JourneyStepMap, JourneyStepType } from '../../types'
 
 import Button from '../../ui/Button'
 import Alert from '../../ui/Alert'
@@ -47,7 +50,7 @@ import TextInput from '../../ui/form/TextInput'
 import { useTranslation } from 'react-i18next'
 import { JourneyStepUsers } from './JourneyStepUsers'
 import { Menu, MenuItem } from '../../ui'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 
 import './JourneyEditor.css'
 import 'reactflow/dist/style.css'

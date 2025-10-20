@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Template } from '../../../types'
-import { editor as Editor } from 'monaco-editor'
+import type { Template } from '../../../types'
+import type { editor as Editor } from 'monaco-editor'
 import Button from '../../../ui/Button'
-import ImageGalleryModal, { ImageUpload } from './ImageGalleryModal'
+import type { ImageUpload } from './ImageGalleryModal';
+import ImageGalleryModal from './ImageGalleryModal'
 import Preview from '../../../ui/Preview'
 import Tabs from '../../../ui/Tabs'
 import { ImageIcon } from '../../../ui/icons'

@@ -1,10 +1,12 @@
 import 'grapesjs/dist/css/grapes.min.css'
 import './VisualEditor.css'
-import grapesJS, { Editor } from 'grapesjs'
+import type { Editor } from 'grapesjs';
+import grapesJS from 'grapesjs'
 import grapesJSMJML from 'grapesjs-mjml'
 import { useEffect, useState } from 'react'
-import { Font, Resource, Template } from '../../../types'
-import ImageGalleryModal, { ImageUpload } from './ImageGalleryModal'
+import type { Font, Resource, Template } from '../../../types'
+import type { ImageUpload } from './ImageGalleryModal';
+import ImageGalleryModal from './ImageGalleryModal'
 
 interface GrapesAssetManagerProps {
     event: 'open' | 'close'

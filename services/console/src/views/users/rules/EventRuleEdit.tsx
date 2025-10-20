@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import RuleEventName from './RuleEventName'
 import { ButtonGroup } from '../../../ui'
 import { SingleSelect } from '../../../ui/form/SingleSelect'
-import { EventRule } from '../../../types'
+import type { EventRule } from '../../../types'
 import TextInput from '../../../ui/form/TextInput'
 import { frequencyOperators, operatorTypes, periodUnits } from './RuleHelpers'
 

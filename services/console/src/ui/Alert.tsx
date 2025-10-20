@@ -1,4 +1,4 @@
-import { CSSProperties, PropsWithChildren } from 'react'
+import type { CSSProperties, PropsWithChildren } from 'react'
 import './Alert.css'
 
 export interface AlertProps extends PropsWithChildren {

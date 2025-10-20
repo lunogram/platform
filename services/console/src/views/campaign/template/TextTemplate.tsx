@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
-import { TemplateUpdateParams, TextTemplateData } from '../../../types'
+import type { TemplateUpdateParams, TextTemplateData } from '../../../types'
 import { useContext } from 'react'
 import { ProjectContext } from '../../../contexts'
 import { Alert, Heading, InfoTable, Tag } from '../../../ui'
-import { UseFormReturn } from 'react-hook-form'
+import type { UseFormReturn } from 'react-hook-form'
 import TextInput from '../../../ui/form/TextInput'
 
 export const TextTable = ({ data: { text } }: { data: TextTemplateData }) => {
@@ -33,7 +33,7 @@ export const TextTable = ({ data: { text } }: { data: TextTemplateData }) => {
     </>
 }
 
-export const TextForm = ({ form }: { form: UseFormReturn<TemplateUpdateParams, any> }) => {
+export const TextForm = ({ form }: { form: UseFormReturn<TemplateUpdateParams, unknown> }) => {
     const { t } = useTranslation()
     return <TextInput.Field
         form={form}

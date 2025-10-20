@@ -1,4 +1,4 @@
-import { Campaign, Template, VariantUpdateParams } from '../../../types'
+import type { Campaign, Template, VariantUpdateParams } from '../../../types'
 import Modal from '../../../ui/Modal'
 import { DataTable } from '../../../ui/DataTable'
 import Button from '../../../ui/Button'
@@ -7,7 +7,7 @@ import api from '../../../api'
 import { TemplateContext } from '../../../contexts'
 import { useTranslation } from 'react-i18next'
 import VariantFormModal from './VariantFormModal'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 
 interface VariantEditParams {
     open: boolean

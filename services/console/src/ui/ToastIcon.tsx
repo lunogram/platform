@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Toast } from 'react-hot-toast/headless'
+import type { Toast } from 'react-hot-toast/headless'
 
 export const ToastIcon: React.FC<{
     toast: Toast

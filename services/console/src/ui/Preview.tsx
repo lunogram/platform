@@ -1,8 +1,9 @@
 import { format } from 'date-fns'
-import { Template } from '../types'
+import type { Template } from '../types'
 import Iframe from './Iframe'
 import './Preview.css'
-import { ReactNode, useContext } from 'react'
+import type { ReactNode} from 'react';
+import { useContext } from 'react'
 import { ProjectContext } from '../contexts'
 import JsonPreview from './JsonPreview'
 import clsx from 'clsx'

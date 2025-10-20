@@ -1,9 +1,9 @@
 import { useContext, useState } from 'react'
-import { CampaignLaunchParams } from '../../../types'
-import { SelectionProps } from '../../../ui/form/Field'
+import type { CampaignLaunchParams } from '../../../types'
+import type { SelectionProps } from '../../../ui/form/Field'
 import { useTranslation } from 'react-i18next'
 import { useController } from 'react-hook-form'
-import { zonedTimeToUtc } from 'date-fns-tz'
+import { fromZonedTime } from 'date-fns-tz'
 import { ProjectContext } from '../../../contexts'
 import { Column, Columns } from '../../../ui'
 import TextInput from '../../../ui/form/TextInput'
@@ -30,7 +30,7 @@ export default function DateTimeField({ name, control, required }: DateTimeField
     const handleOnChange = () => {
         if (!date || !time) return
         const localDate = new Date(`${date}T${time}`)
-        const utcDate = zonedTimeToUtc(localDate, project.timezone)
+        const utcDate = fromZonedTime(localDate, project.timezone)
         onChange(utcDate.toISOString())
     }
 

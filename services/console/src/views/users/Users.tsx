@@ -11,9 +11,9 @@ import UploadField from '../../ui/form/UploadField'
 import TextInput from '../../ui/form/TextInput'
 import { SingleSelect } from '../../ui/form/SingleSelect'
 import { PlusIcon, TrashIcon } from '../../ui/icons'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 import { NIL } from 'uuid'
-import { User } from '../../types'
+import type { User } from '../../types'
 
 import './Users.css'
 
@@ -23,9 +23,9 @@ export declare namespace Intl {
     function supportedValuesOf(input: Key): string[]
 
     interface DateTimeFormat {
-        // eslint-disable-next-line @typescript-eslint/method-signature-style
+         
         format(date?: Date | number): string
-        // eslint-disable-next-line @typescript-eslint/method-signature-style
+         
         resolvedOptions(): ResolvedDateTimeFormatOptions
     }
 

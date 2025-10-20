@@ -1,9 +1,10 @@
 import { Listbox } from '@headlessui/react'
-import { Fragment, ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { CheckIcon, ChevronUpDownIcon } from '../icons'
-import { FieldPath, FieldValues, useController } from 'react-hook-form'
+import { useController } from 'react-hook-form'
+import type { FieldPath, FieldValues } from 'react-hook-form'
 import { defaultGetOptionDisplay, defaultGetValueKey, defaultToValue, usePopperSelectDropdown } from '../utils'
-import { ControlledInputProps, FieldBindingsProps, OptionsProps } from '../../types'
+import type { ControlledInputProps, FieldBindingsProps, OptionsProps } from '../../types'
 import clsx from 'clsx'
 
 export interface MultiSelectProps<T, O = T> extends ControlledInputProps<T[]>, OptionsProps<O, T> {

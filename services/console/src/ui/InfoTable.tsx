@@ -1,5 +1,5 @@
 import './InfoTable.css'
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { snakeToTitle } from '../utils'
 
 interface InfoTableProps {

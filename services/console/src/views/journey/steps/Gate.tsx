@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import { JourneyStepType, Rule } from '../../../types'
+import type { JourneyStepType, Rule } from '../../../types'
 import { GateStepIcon } from '../../../ui/icons'
 import RuleBuilder from '../../users/rules/RuleBuilder'
 import { PreferencesContext } from '../../../ui/PreferencesContext'

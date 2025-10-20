@@ -1,5 +1,5 @@
 import { Combobox } from '@headlessui/react'
-import { Rule } from '../../../types'
+import type { Rule } from '../../../types'
 import { highlightSearch, usePopperSelectDropdown } from '../../../ui/utils'
 import { useContext } from 'react'
 import { VariablesContext } from './RuleHelpers'

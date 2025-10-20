@@ -1,7 +1,8 @@
 import { useCallback, useContext, useState } from 'react'
-import { ProjectAdmin, ProjectAdminInviteParams, projectRoles } from '../../types'
+import type { ProjectAdmin, ProjectAdminInviteParams} from '../../types';
+import { projectRoles } from '../../types'
 import { Button, LinkButton, Modal } from '../../ui'
-import { ModalStateProps } from '../../ui/Modal'
+import type { ModalStateProps } from '../../ui/Modal'
 import { EntityIdPicker } from '../../ui/form/EntityIdPicker'
 import FormWrapper from '../../ui/form/FormWrapper'
 import { SingleSelect } from '../../ui/form/SingleSelect'
@@ -11,7 +12,7 @@ import { combine, snakeToTitle } from '../../utils'
 import RadioInput from '../../ui/form/RadioInput'
 import TextInput from '../../ui/form/TextInput'
 import { useTranslation } from 'react-i18next'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 
 type EditMemberData = Pick<ProjectAdmin, 'admin_id' | 'role'> & { id?: UUID }
 type InviteMemberData = ProjectAdminInviteParams

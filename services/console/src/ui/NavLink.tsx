@@ -1,7 +1,8 @@
 import * as React from 'react'
-import { NavLink as BaseNavLink, NavLinkProps as BaseNavLinkProps } from 'react-router'
+import type { NavLinkProps as BaseNavLinkProps } from 'react-router';
+import { NavLink as BaseNavLink } from 'react-router'
 
-export type NavLinkProps = BaseNavLinkProps & { key: string, icon?: React.ReactNode }
+export type NavLinkProps = BaseNavLinkProps & { icon?: React.ReactNode }
 
 const NavLink = React.forwardRef(
     function NavLink({ icon, ...props }: NavLinkProps, ref: React.Ref<HTMLAnchorElement> | undefined) {
@@ -9,7 +10,7 @@ const NavLink = React.forwardRef(
             <BaseNavLink
                 ref={ref}
                 {...props}
-                className={({ isActive }) =>
+                className={({ isActive }: { isActive: boolean }) =>
                     [
                         props.className,
                         isActive ? 'selected' : null,

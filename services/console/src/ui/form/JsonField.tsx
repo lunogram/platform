@@ -1,6 +1,7 @@
-import TextInput, { TextInputProps } from './TextInput'
-import { FieldProps } from '../../types'
-import { FieldPath, FieldValues, useController } from 'react-hook-form'
+import TextInput, { type TextInputProps } from './TextInput'
+import type { FieldProps } from '../../types'
+import type { FieldPath, FieldValues } from 'react-hook-form'
+import { useController } from 'react-hook-form'
 import { useState } from 'react'
 
 export default function JsonField<X extends FieldValues, P extends FieldPath<X>>({
@@ -28,7 +29,7 @@ export default function JsonField<X extends FieldValues, P extends FieldPath<X>>
                 setJsonValue(value)
                 try {
                     field.onChange(JSON.parse(value))
-                } catch {}
+                } catch { }
             }}
             required={required}
             error={fieldState.error?.message}

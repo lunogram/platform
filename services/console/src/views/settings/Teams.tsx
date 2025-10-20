@@ -9,7 +9,7 @@ import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
 import { snakeToTitle } from '../../utils'
 // import TeamInvite from './TeamInvite'
 import { useTranslation } from 'react-i18next'
-// import { UUID } from 'crypto'
+// import type { UUID } from '@/types/common'
 
 // type EditFormData = Pick<ProjectAdmin, 'admin_id' | 'role'> & { id?: UUID }
 

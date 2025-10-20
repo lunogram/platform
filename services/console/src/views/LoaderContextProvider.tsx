@@ -1,4 +1,5 @@
-import { Context, Dispatch, ReactNode, SetStateAction, useEffect, useMemo, useState } from 'react'
+import type { Context, Dispatch, ReactNode, SetStateAction} from 'react';
+import { useEffect, useMemo, useState } from 'react'
 import { useLoaderData } from 'react-router'
 
 interface LoaderContextProviderProps<T> {

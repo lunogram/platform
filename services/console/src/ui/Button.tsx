@@ -1,6 +1,8 @@
-import { forwardRef, MouseEvent, PropsWithChildren, Ref } from 'react'
+import type { MouseEvent, PropsWithChildren, Ref } from 'react';
+import { forwardRef } from 'react'
 import clsx from 'clsx'
-import { Link, To } from 'react-router'
+import type { To } from 'react-router';
+import { Link } from 'react-router'
 import './Button.css'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'plain'

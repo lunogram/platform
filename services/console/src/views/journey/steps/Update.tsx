@@ -1,4 +1,4 @@
-import { JourneyStepType } from '../../../types'
+import type { JourneyStepType } from '../../../types'
 import SourceEditor from '../../../ui/SourceEditor'
 import { UpdateStepIcon } from '../../../ui/icons'
 import { JsonPreview } from '../../../ui'

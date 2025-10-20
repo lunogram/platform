@@ -2,7 +2,7 @@ import { formatISO, isPast } from 'date-fns'
 import { useContext, useState } from 'react'
 import api from '../../../api'
 import { CampaignContext, ProjectContext, TemplateContext } from '../../../contexts'
-import { Campaign, CampaignLaunchParams } from '../../../types'
+import type { Campaign, CampaignLaunchParams } from '../../../types'
 import RadioInput from '../../../ui/form/RadioInput'
 import SwitchField from '../../../ui/form/SwitchField'
 import FormWrapper from '../../../ui/form/FormWrapper'
@@ -15,7 +15,8 @@ import { Button, InfoTable } from '../../../ui'
 import { snakeToTitle } from '../../../utils'
 import { localeOption } from '../template/TemplateContextProvider'
 import { DelimitedLists } from '../ui/DelimitedItems'
-import { UseFormReturn, useWatch } from 'react-hook-form'
+import type { UseFormReturn } from 'react-hook-form';
+import { useWatch } from 'react-hook-form'
 
 interface LaunchCampaignParams {
     open: boolean
@@ -54,7 +55,7 @@ interface LaunchFormProps {
 
 function LaunchForm({ onSubmit }: LaunchFormProps) {
     const { t } = useTranslation()
-    const renderForm = ({ form }: { form: UseFormReturn<CampaignLaunchParams> }) => {
+    const RenderForm = ({ form }: { form: UseFormReturn<CampaignLaunchParams> }) => {
         const launchType = useWatch({
             control: form.control,
             name: 'launch_type',
@@ -86,7 +87,7 @@ function LaunchForm({ onSubmit }: LaunchFormProps) {
         <FormWrapper<CampaignLaunchParams>
             submitLabel={t('continue')}
             onSubmit={onSubmit}>
-            {form => renderForm({ form })}
+            {form => <RenderForm form={form} />}
         </FormWrapper>
     </>
 }
@@ -119,9 +120,10 @@ export default function LaunchCampaign({ open, onClose }: LaunchCampaignParams) 
             setCampaign(value)
             onClose(false)
             await navigate('delivery')
-        } catch (error: any) {
-            if (error?.response?.data) {
-                setError(error?.response?.data?.error)
+        } catch (error: unknown) {
+            if (error && typeof error === 'object' && 'response' in error) {
+                const apiError = error as { response?: { data?: { error?: string } } }
+                setError(apiError?.response?.data?.error)
             }
         }
     }

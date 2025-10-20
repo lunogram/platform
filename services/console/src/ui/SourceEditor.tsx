@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import MEditor, { Monaco, EditorProps } from '@monaco-editor/react'
-import { editor as Editor } from 'monaco-editor'
+import type { Monaco, EditorProps } from '@monaco-editor/react';
+import MEditor from '@monaco-editor/react'
+import type { editor as Editor } from 'monaco-editor'
 import './SourceEditor.css'
 
 export interface SourceEditorProps extends EditorProps {

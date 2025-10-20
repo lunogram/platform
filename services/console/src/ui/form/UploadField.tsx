@@ -1,6 +1,7 @@
 import React, { useId, useState } from 'react'
-import { FieldPath, FieldValues, useController } from 'react-hook-form'
-import { FieldProps } from './Field'
+import type { FieldPath, FieldValues } from 'react-hook-form'
+import { useController } from 'react-hook-form'
+import type { FieldProps } from './Field'
 import './UploadField.css'
 
 interface UploadFieldProps<X extends FieldValues, P extends FieldPath<X>> extends FieldProps<X, P> {
@@ -62,7 +63,7 @@ export default function UploadField<X extends FieldValues, P extends FieldPath<X
                 ? isUploading
                     ? `Uploading ${value?.[0].name} ...`
                     : value?.[0].name
-                : 'Click to select file or drop one in.' }</p>
+                : 'Click to select file or drop one in.'}</p>
             <input
                 type="file"
                 id={id}

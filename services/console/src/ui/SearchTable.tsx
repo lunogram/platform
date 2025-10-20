@@ -1,10 +1,12 @@
-import { useState, ReactNode, useCallback, useMemo } from 'react'
+import type { ReactNode} from 'react';
+import { useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { useDebounceControl, useResolver } from '../hooks'
-import { SearchParams, SearchResult } from '../types'
+import type { SearchParams, SearchResult } from '../types'
 import { prune } from '../utils'
 import { TagPicker } from '../views/settings/TagPicker'
-import { DataTable, DataTableProps } from './DataTable'
+import type { DataTableProps } from './DataTable';
+import { DataTable } from './DataTable'
 import TextInput from './form/TextInput'
 import Heading from './Heading'
 import { SearchIcon } from './icons'
@@ -173,7 +175,7 @@ export function SearchTable<T extends Record<string, any>>({
     return (
         <>
             {
-                // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+                 
                 (title || actions || description) && (
                     <Heading
                         size="h3"

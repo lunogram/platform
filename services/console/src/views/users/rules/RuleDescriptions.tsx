@@ -1,6 +1,7 @@
-import { ReactNode } from 'react'
-import { Operator, Preferences, Rule } from '../../../types'
-import { GroupedRule, isEventWrapper, isWrapper, operatorTypes, trimPathDisplay } from './RuleHelpers'
+import type { ReactNode } from 'react'
+import type { Operator, Preferences, Rule } from '../../../types'
+import type { GroupedRule } from './RuleHelpers';
+import { isEventWrapper, isWrapper, operatorTypes, trimPathDisplay } from './RuleHelpers'
 import { formatDate } from '../../../utils'
 
 export function ruleDescription(preferences: Preferences, rule: Rule | GroupedRule, nodes: ReactNode[] = [], wrapperOperator?: Operator): ReactNode {
@@ -93,18 +94,14 @@ export function ruleDescription(preferences: Preferences, rule: Rule | GroupedRu
                     value = value.trim()
                     if (rule.type === 'boolean') value = 'true'
                     if (rule.type === 'number') {
-                        try {
-                            if (value.includes('.')) {
-                                value = parseFloat(value).toLocaleString()
-                            } else {
-                                value = parseInt(value, 10).toLocaleString()
-                            }
-                        } catch {}
+                        if (value.includes('.')) {
+                            value = parseFloat(value).toLocaleString()
+                        } else {
+                            value = parseInt(value, 10).toLocaleString()
+                        }
                     }
                     if (rule.type === 'date') {
-                        try {
-                            value = formatDate(preferences, value, 'Ppp')
-                        } catch {}
+                        value = formatDate(preferences, value, 'Ppp')
                     }
                     nodes.push(
                         <strong key={nodes.length}>

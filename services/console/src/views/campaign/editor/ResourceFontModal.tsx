@@ -1,6 +1,7 @@
-import Modal, { ModalStateProps } from '../../../ui/Modal'
+import type { ModalStateProps } from '../../../ui/Modal';
+import Modal from '../../../ui/Modal'
 import './ImageGalleryModal.css'
-import { Font, Resource } from '../../../types'
+import type { Font, Resource } from '../../../types'
 import { useTranslation } from 'react-i18next'
 import FormWrapper from '../../../ui/form/FormWrapper'
 import TextInput from '../../../ui/form/TextInput'

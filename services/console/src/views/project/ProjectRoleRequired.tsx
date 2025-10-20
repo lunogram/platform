@@ -1,6 +1,8 @@
-import { PropsWithChildren, useContext } from 'react'
+import type { PropsWithChildren} from 'react';
+import { useContext } from 'react'
 import { ProjectContext } from '../../contexts'
-import { ProjectRole, projectRoles } from '../../types'
+import type { ProjectRole} from '../../types';
+import { projectRoles } from '../../types'
 import { AccessDenied } from '../ErrorPage'
 
 type ProjectRoleRequiredProps = PropsWithChildren<{

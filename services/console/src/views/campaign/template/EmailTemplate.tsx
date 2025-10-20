@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
-import { EmailTemplateData, Provider, TemplateUpdateParams } from '../../../types'
+import type { EmailTemplateData, Provider, TemplateUpdateParams } from '../../../types'
 import { useContext } from 'react'
 import { TemplateContext } from '../../../contexts'
 import { InfoTable, Tag } from '../../../ui'
-import { UseFormReturn } from 'react-hook-form'
+import type { UseFormReturn } from 'react-hook-form'
 import TextInput from '../../../ui/form/TextInput'
 
 const getFieldDisplay = ({

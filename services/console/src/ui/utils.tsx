@@ -1,6 +1,8 @@
-import { Key, useState } from 'react'
-import { Modifier, usePopper } from 'react-popper'
-import { User } from '../types'
+import type { Key} from 'react';
+import { useState } from 'react'
+import type { Modifier} from 'react-popper';
+import { usePopper } from 'react-popper'
+import type { User } from '../types'
 
 const modifiers: Array<Partial<Modifier<any, any>>> = [
     {

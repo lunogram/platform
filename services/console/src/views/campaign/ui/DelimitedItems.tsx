@@ -1,15 +1,17 @@
-import { ReactNode, useContext } from 'react'
+import type { ReactNode } from 'react';
+import { useContext } from 'react'
 import { Link } from 'react-router'
 import { Tag } from '../../../ui'
-import { Journey, List } from '../../../types'
+import type { Journey, List } from '../../../types'
 import { ProjectContext } from '../../../contexts'
 
-interface DelimitedItemParams {
-    items?: any[]
+interface DelimitedItemParams<T> {
+    items?: T[]
     delimiter?: ReactNode
-    mapper: (item: any) => { id: string | number, title: string, url: string }
+    mapper: (item: T) => { id: string | number, title: string, url: string }
 }
-const DelimitedItems = ({ items, delimiter = ' ', mapper }: DelimitedItemParams) => {
+
+const DelimitedItems = <T,>({ items, delimiter = ' ', mapper }: DelimitedItemParams<T>) => {
     if (!items || items?.length === 0) return <>&#8211;</>
     return <div className="tag-list">
         {items?.map<ReactNode>(

@@ -2,14 +2,14 @@ import { useCallback, useContext } from 'react'
 import api from '../../api'
 import { ProjectContext, UserContext } from '../../contexts'
 import { useResolver } from '../../hooks'
-import { SubscriptionParams, SubscriptionState } from '../../types'
+import type { SubscriptionParams, SubscriptionState } from '../../types'
 import Button from '../../ui/Button'
 import SwitchField from '../../ui/form/SwitchField'
 import Heading from '../../ui/Heading'
 import { SearchTable, useTableSearchParams } from '../../ui/SearchTable'
 import { snakeToTitle } from '../../utils'
 import { useTranslation } from 'react-i18next'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 
 export default function UserDetailSubscriptions() {
     const { t } = useTranslation()
@@ -17,7 +17,7 @@ export default function UserDetailSubscriptions() {
     const [user] = useContext(UserContext)
     const [params, setParams] = useTableSearchParams()
 
-    const [search, _, reload] = useResolver(useCallback(async () => await api.users.subscriptions(project.id, user.id, params), [api.users, project, params]))
+    const [search, , reload] = useResolver(useCallback(async () => await api.users.subscriptions(project.id, user.id, params), [project, user, params]))
 
     const updateSubscription = async (subscription_id: UUID, state: SubscriptionState) => {
         if (!confirm(t('users_change_subscription_status'))) return
@@ -28,7 +28,7 @@ export default function UserDetailSubscriptions() {
         if (!confirm(t('users_unsubscribe_all'))) return
         const subscriptions = search?.results.map(item => ({
             subscription_id: item.subscription_id,
-            state: 0,
+            state: 0 as SubscriptionState,
         })) ?? []
         await updateSubscriptions(subscriptions)
     }

@@ -1,13 +1,14 @@
-import Modal, { ModalStateProps } from '../../../ui/Modal'
+import type { ModalStateProps } from '../../../ui/Modal';
+import Modal from '../../../ui/Modal'
 import { useContext, useState } from 'react'
 import { ProjectContext } from '../../../contexts'
 import api from '../../../api'
 import './ImageGalleryModal.css'
-import { Resource } from '../../../types'
+import type { Resource } from '../../../types'
 import { Button, DataTable, Heading } from '../../../ui'
 import { useTranslation } from 'react-i18next'
 import ResourceFontModal from './ResourceFontModal'
-import { UUID } from 'crypto'
+import type { UUID } from '@/types/common'
 
 interface ResourceModalProps extends ModalStateProps {
     resources: Resource[]

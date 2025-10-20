@@ -11,8 +11,9 @@ import Alert from '../../ui/Alert'
 import Button from '../../ui/Button'
 import { Column, Columns } from '../../ui/Columns'
 import TextInput from '../../ui/form/TextInput'
-import Modal, { ModalProps } from '../../ui/Modal'
-import { ChannelType, Template, TemplateProofParams } from '../../types'
+import type { ModalProps } from '../../ui/Modal';
+import Modal from '../../ui/Modal'
+import type { ChannelType, Template, TemplateProofParams } from '../../types'
 import FormWrapper from '../../ui/form/FormWrapper'
 import SourceEditor from '../../ui/SourceEditor'
 import { useTranslation } from 'react-i18next'
@@ -54,24 +55,25 @@ const TemplatePreview = ({ template }: TemplatePreviewProps) => {
     const [isUserLookupOpen, setIsUserLookupOpen] = useState(false)
     const [templatePreviewError, setTemplatePreviewError] = useState<string | undefined>(undefined)
     const [isSendProofOpen, setIsSendProofOpen] = useState(false)
-    const [proofResponse, setProofResponse] = useState<any>(undefined)
+    const [proofResponse, setProofResponse] = useState<unknown>(undefined)
     const [data, setData] = useState(template.data)
     const [value, setValue] = useState<string | undefined>('{\n    "user": {},\n    "event": {}\n}')
-    useEffect(() => { handleEditorChange(value) }, [value, template])
 
     const handleEditorChange = useMemo(() => debounce(async (value?: string) => {
         try {
             const { data } = await api.templates.preview(project.id, template.id, JSON.parse(value ?? '{}'))
             setTemplatePreviewError(undefined)
             setData(data)
-        } catch (error: any) {
-            if (error?.response?.data.error) {
-                setTemplatePreviewError(error.response.data.error)
+        } catch (error: unknown) {
+            if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response && error.response.data && typeof error.response.data === 'object' && 'error' in error.response.data) {
+                setTemplatePreviewError(String(error.response.data.error))
                 return
             }
-            setTemplatePreviewError(error.message)
+            setTemplatePreviewError(error instanceof Error ? error.message : String(error))
         }
-    }), [template])
+    }), [project, template])
+
+    useEffect(() => { handleEditorChange(value) }, [handleEditorChange, value, template])
 
     const handleSendProof = async (recipient: string) => {
         try {
@@ -80,18 +82,20 @@ const TemplatePreview = ({ template }: TemplatePreviewProps) => {
                 recipient,
             })
             setProofResponse(response)
-        } catch (error: any) {
-            if (error?.response?.data.error) {
-                toast.error(error.response.data.error)
+        } catch (error: unknown) {
+            if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response && error.response.data && typeof error.response.data === 'object' && 'error' in error.response.data) {
+                toast.error(String(error.response.data.error))
                 return
             }
-            toast.error(error.message)
+            toast.error(error instanceof Error ? error.message : String(error))
             return
         }
         setIsSendProofOpen(false)
-        template.type === 'webhook'
-            ? toast.success('Webhook test has been successfully sent!')
-            : toast.success('Template proof has been successfully sent!')
+        toast.success(
+            template.type === 'webhook'
+                ? 'Webhook test has been successfully sent!'
+                : 'Template proof has been successfully sent!'
+        )
     }
 
     return (

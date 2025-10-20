@@ -1,5 +1,6 @@
 import * as React from 'react'
-import { Toast, ToastPosition, resolveValue } from 'react-hot-toast/headless'
+import type { Toast, ToastPosition} from 'react-hot-toast/headless';
+import { resolveValue } from 'react-hot-toast/headless'
 import { ToastIcon } from './ToastIcon'
 import clsx from 'clsx'
 

@@ -1,6 +1,6 @@
 import { useContext, useState } from 'react'
 import { TemplateContext } from '../../../contexts'
-import { Campaign, LocaleOption, UseStateContext } from '../../../types'
+import type { Campaign, LocaleOption, UseStateContext } from '../../../types'
 import Button from '../../../ui/Button'
 import ButtonGroup from '../../../ui/ButtonGroup'
 import { SingleSelect } from '../../../ui/form/SingleSelect'
@@ -16,7 +16,8 @@ interface LocaleSelectorParams {
 export default function LocaleSelector({ showAddState }: LocaleSelectorParams) {
     const { t } = useTranslation()
     const [editOpen, setEditOpen] = useState(false)
-    const [addOpen, setAddOpen] = showAddState ?? useState(false)
+    const localAddState = useState(false)
+    const [addOpen, setAddOpen] = showAddState ?? localAddState
     const navigate = useNavigate()
 
     const {
