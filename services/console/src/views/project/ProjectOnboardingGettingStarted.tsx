@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { LinkButton } from '../../ui/Button'
-import { CampaignsIcon, JourneysIcon } from '../../ui/icons'
+import { CampaignsIcon, JourneysIcon } from '../../components/icons'
 import api from '../../api'
 import type { UUID } from '@/types/common'
 import { useState } from 'react'

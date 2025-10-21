@@ -1,4 +1,4 @@
-import type { SetStateAction} from 'react';
+import type { SetStateAction } from 'react';
 import { Suspense, lazy, useContext, useEffect, useState } from 'react'
 import { CampaignContext, ProjectContext, TemplateContext } from '../../../contexts'
 import './EmailEditor.css'
@@ -10,7 +10,7 @@ import Modal from '../../../ui/Modal'
 import HtmlEditor from './HtmlEditor'
 import LocaleSelector from '../locale/LocaleSelector'
 import { toast } from 'react-hot-toast/headless'
-import { QuestionIcon } from '../../../ui/icons'
+import { QuestionIcon } from '../../../components/icons'
 import { useTranslation } from 'react-i18next'
 import ResourceModal from './ResourceModal'
 import { TemplateContextProvider } from '../template/TemplateContextProvider'

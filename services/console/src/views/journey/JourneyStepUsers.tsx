@@ -9,7 +9,7 @@ import { UserLookup } from '../users/UserLookup'
 import { typeVariants } from './EntranceDetails'
 import type { ModalProps } from '../../ui/Modal'
 import type { JourneyUserStep, User } from '../../types'
-import { EditIcon, TrashIcon } from '../../ui/icons'
+import { EditIcon, TrashIcon } from '../../components/icons'
 import type { DataTableCol } from '../../ui/DataTable'
 import type { UUID } from 'uuid'
 

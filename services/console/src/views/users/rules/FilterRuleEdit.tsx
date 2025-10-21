@@ -5,7 +5,7 @@ import { operatorTypes, VariablesContext, ruleTypes } from './RuleHelpers'
 import { ButtonGroup } from '../../../ui'
 import { SingleSelect } from '../../../ui/form/SingleSelect'
 import { Combobox } from '@headlessui/react'
-import { ChevronUpDownIcon } from '../../../ui/icons'
+import { ChevronUpDownIcon } from '../../../components/icons'
 import clsx from 'clsx'
 import TextInput from '../../../ui/form/TextInput'
 import type { RulePath } from '../../../types';

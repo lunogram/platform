@@ -1,7 +1,7 @@
 import { AdminContext, OrganizationContext } from '../../contexts'
 import { useContext } from 'react'
 import Sidebar, { type SidebarLink } from '../../ui/Sidebar'
-import { ProjectIcon, SettingsIcon, UsersIcon } from '../../ui/icons'
+import { ProjectIcon, SettingsIcon, UsersIcon } from '../../components/icons'
 import { checkOrganizationRole } from '../../utils'
 import { StatefulLoaderContextProvider } from '../LoaderContextProvider'
 import type { OrganizationRole } from '../../types'

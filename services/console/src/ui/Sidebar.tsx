@@ -1,12 +1,12 @@
 import './Sidebar.css'
 import NavLink from './NavLink'
 // import { ReactComponent as Logo } from '../assets/logo.svg'
-import type { NavLinkProps} from 'react-router';
+import type { NavLinkProps } from 'react-router';
 import { Link, useNavigate } from 'react-router'
-import type { PropsWithChildren, ReactNode} from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 import { useContext, useState } from 'react'
 import Button from './Button'
-import { ChevronDownIcon, MenuIcon } from './icons'
+import { ChevronDownIcon, MenuIcon } from '../components/icons'
 import clsx from 'clsx'
 import Menu, { MenuItem } from './Menu'
 import { AdminContext, OrganizationContext, ProjectContext } from '../contexts'

@@ -4,7 +4,7 @@ import { highlightSearch, usePopperSelectDropdown } from '../../../ui/utils'
 import { useContext } from 'react'
 import { VariablesContext } from './RuleHelpers'
 import { ButtonGroup } from '../../../ui'
-import { ChevronUpDownIcon } from '../../../ui/icons'
+import { ChevronUpDownIcon } from '../../../components/icons'
 import clsx from 'clsx'
 
 export default function RuleEventName<T extends Rule>({ rule, setRule }: {

@@ -1,10 +1,10 @@
 import clsx from 'clsx'
-import type { Key, ReactNode} from 'react';
+import type { Key, ReactNode } from 'react';
 import { useContext } from 'react'
 import { formatDate, snakeToTitle } from '../utils'
 import Button from './Button'
 import './DataTable.css'
-import { CheckIcon, ChevronDownIcon, ChevronUpDownIcon, ChevronUpIcon, CloseIcon } from './icons'
+import { CheckIcon, ChevronDownIcon, ChevronUpDownIcon, ChevronUpIcon, CloseIcon } from '../components/icons'
 import { PreferencesContext } from './PreferencesContext'
 
 type DataTableResolver<T, R> = (args: {

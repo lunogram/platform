@@ -2,7 +2,7 @@ import { useContext } from 'react'
 import type { JourneyStepType } from '../../../types'
 import RadioInput from '../../../ui/form/RadioInput'
 import TextInput from '../../../ui/form/TextInput'
-import { DelayStepIcon } from '../../../ui/icons'
+import { DelayStepIcon } from '../../../components/icons'
 import { formatDate, formatDuration, snakeToTitle } from '../../../utils'
 import { PreferencesContext } from '../../../ui/PreferencesContext'
 import { parse, parseISO } from 'date-fns'
@@ -119,9 +119,9 @@ export const delayStep: JourneyStepType<DelayStepConfig> = {
                     { key: 'time', label: t('until_time') },
                     { key: 'date', label: t('until_date') },
                 ]}
-                value={value.format}
-                onChange={format => onChange({ ...value, format }) } />
-                { value.format === 'duration'
+                    value={value.format}
+                    onChange={format => onChange({ ...value, format })} />
+                {value.format === 'duration'
                     && ['days', 'hours', 'minutes'].map(name => (
                         <TextInput
                             key={name}
@@ -134,7 +134,7 @@ export const delayStep: JourneyStepType<DelayStepConfig> = {
                         />
                     ))
                 }
-                { value.format === 'time'
+                {value.format === 'time'
                     && <div style={{ maxWidth: 400 }}>
                         <TextInput
                             name="time"
@@ -154,7 +154,7 @@ export const delayStep: JourneyStepType<DelayStepConfig> = {
                         />
                     </div>
                 }
-                { value.format === 'date'
+                {value.format === 'date'
                     && <TextInput
                         name="date"
                         label={t('date')}

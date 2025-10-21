@@ -1,6 +1,6 @@
 import { Listbox } from '@headlessui/react'
 import type { ReactNode } from 'react'
-import { CheckIcon, ChevronUpDownIcon } from '../icons'
+import { CheckIcon, ChevronUpDownIcon } from '../../components/icons'
 import type { FieldPath, FieldValues } from 'react-hook-form'
 import { useController } from 'react-hook-form'
 import './Select.css'

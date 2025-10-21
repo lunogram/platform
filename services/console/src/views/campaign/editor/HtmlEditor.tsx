@@ -6,7 +6,7 @@ import type { ImageUpload } from './ImageGalleryModal';
 import ImageGalleryModal from './ImageGalleryModal'
 import Preview from '../../../ui/Preview'
 import Tabs from '../../../ui/Tabs'
-import { ImageIcon } from '../../../ui/icons'
+import { ImageIcon } from '../../../components/icons'
 import SourceEditor from '../../../ui/SourceEditor'
 import { useTranslation } from 'react-i18next'
 

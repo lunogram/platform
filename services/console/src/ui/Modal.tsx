@@ -2,7 +2,7 @@ import { Dialog, Transition } from '@headlessui/react'
 import type { PropsWithChildren, ReactNode } from 'react';
 import { Fragment } from 'react'
 import Button from './Button'
-import { CloseIcon } from './icons'
+import { CloseIcon } from '../components/icons'
 import { useTranslation } from 'react-i18next'
 import './Modal.css'
 

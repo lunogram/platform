@@ -1,5 +1,5 @@
 import type { JourneyStepType, Rule } from '../../../types'
-import { EntranceStepIcon } from '../../../ui/icons'
+import { EntranceStepIcon } from '../../../components/icons'
 import RadioInput from '../../../ui/form/RadioInput'
 import TextInput from '../../../ui/form/TextInput'
 import RuleBuilder from '../../users/rules/RuleBuilder'

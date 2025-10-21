@@ -1,5 +1,5 @@
 import type { ChannelType } from '../../types'
-import { EmailIcon, InAppIcon, PushIcon, TextIcon, WebhookIcon } from '../../ui/icons'
+import { EmailIcon, InAppIcon, PushIcon, TextIcon, WebhookIcon } from '../../components/icons'
 import type { TagProps } from '../../ui/Tag';
 import Tag from '../../ui/Tag'
 import { useTranslation } from 'react-i18next'

@@ -2,7 +2,7 @@ import type { MouseEvent } from 'react';
 import { useCallback, useContext, useState } from 'react'
 import api from '../../api'
 import { ProjectContext } from '../../contexts'
-import type { ProjectApiKey} from '../../types';
+import type { ProjectApiKey } from '../../types';
 import { projectRoles } from '../../types'
 import Button from '../../ui/Button'
 import RadioInput from '../../ui/form/RadioInput'
@@ -10,7 +10,7 @@ import TextInput from '../../ui/form/TextInput'
 import FormWrapper from '../../ui/form/FormWrapper'
 import Modal from '../../ui/Modal'
 import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
-import { ArchiveIcon, CopyIcon, PlusIcon } from '../../ui/icons'
+import { ArchiveIcon, CopyIcon, PlusIcon } from '../../components/icons'
 import Menu, { MenuItem } from '../../ui/Menu'
 import { SingleSelect } from '../../ui/form/SingleSelect'
 import { snakeToTitle } from '../../utils'

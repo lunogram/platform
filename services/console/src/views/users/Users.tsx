@@ -10,7 +10,7 @@ import FormWrapper from '../../ui/form/FormWrapper'
 import UploadField from '../../ui/form/UploadField'
 import TextInput from '../../ui/form/TextInput'
 import { SingleSelect } from '../../ui/form/SingleSelect'
-import { PlusIcon, TrashIcon } from '../../ui/icons'
+import { PlusIcon, TrashIcon } from '../../components/icons'
 import type { UUID } from '@/types/common'
 import { NIL } from 'uuid'
 import type { User } from '../../types'
@@ -23,9 +23,9 @@ export declare namespace Intl {
     function supportedValuesOf(input: Key): string[]
 
     interface DateTimeFormat {
-         
+
         format(date?: Date | number): string
-         
+
         resolvedOptions(): ResolvedDateTimeFormatOptions
     }
 

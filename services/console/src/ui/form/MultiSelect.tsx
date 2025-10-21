@@ -1,6 +1,6 @@
 import { Listbox } from '@headlessui/react'
 import { Fragment, type ReactNode } from 'react'
-import { CheckIcon, ChevronUpDownIcon } from '../icons'
+import { CheckIcon, ChevronUpDownIcon } from '../../components/icons'
 import { useController } from 'react-hook-form'
 import type { FieldPath, FieldValues } from 'react-hook-form'
 import { defaultGetOptionDisplay, defaultGetValueKey, defaultToValue, usePopperSelectDropdown } from '../utils'

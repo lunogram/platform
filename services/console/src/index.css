@@ -222,10 +222,10 @@ fieldset {
     min-width: 0;
 }
 
-.icon {
+/* .icon {
     width: 16px;
     height: 16px;
-}
+} */
 
 .icon-box {
     align-self: start;
@@ -378,10 +378,11 @@ code {
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+    * {
+        @apply border-border outline-ring/50;
     }
-  body {
-    @apply bg-background text-foreground;
+
+    body {
+        @apply bg-background text-foreground;
     }
 }

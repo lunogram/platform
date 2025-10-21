@@ -8,7 +8,7 @@ import type { Locale, LocaleOption, FieldProps } from '../../types'
 import TextInput, { type TextInputProps } from '../../ui/form/TextInput'
 import type { FieldPath, FieldValues } from 'react-hook-form'
 import Button from '../../ui/Button'
-import { PlusIcon } from '../../ui/icons'
+import { PlusIcon } from '../../components/icons'
 import { languageName } from '../../utils'
 import { useTranslation } from 'react-i18next'
 

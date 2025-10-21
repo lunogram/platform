@@ -1,6 +1,6 @@
 import toast from 'react-hot-toast'
 import Button from './Button'
-import { CopyIcon } from './icons'
+import { CopyIcon } from '../components/icons'
 import './CodeExample.css'
 import type { ReactNode } from 'react'
 import Heading from './Heading'

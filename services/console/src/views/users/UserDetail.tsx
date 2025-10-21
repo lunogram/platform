@@ -5,7 +5,7 @@ import { NavigationTabs } from '../../ui/Tabs'
 import { Outlet, useNavigate } from 'react-router'
 import { InfoTable } from '../../ui/InfoTable'
 import { Button } from '../../ui'
-import { TrashIcon } from '../../ui/icons'
+import { TrashIcon } from '../../components/icons'
 import api from '../../api'
 import { useTranslation } from 'react-i18next'
 

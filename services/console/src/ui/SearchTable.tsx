@@ -1,4 +1,4 @@
-import type { ReactNode} from 'react';
+import type { ReactNode } from 'react';
 import { useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { useDebounceControl, useResolver } from '../hooks'
@@ -9,7 +9,7 @@ import type { DataTableProps } from './DataTable';
 import { DataTable } from './DataTable'
 import TextInput from './form/TextInput'
 import Heading from './Heading'
-import { SearchIcon } from './icons'
+import { SearchIcon } from '../components/icons'
 import Pagination from './Pagination'
 import Stack from './Stack'
 import { useTranslation } from 'react-i18next'
@@ -89,7 +89,7 @@ export function useSearchTableState<T>(loader: (params: SearchParams) => Promise
         ...initialParams ?? {},
     })
 
-    const [results,, reload] = useResolver(useCallback(async () => await loader(params), [loader, params]))
+    const [results, , reload] = useResolver(useCallback(async () => await loader(params), [loader, params]))
 
     return {
         params,
@@ -113,7 +113,7 @@ export function useSearchTableQueryState<T>(loader: (params: SearchParams) => Pr
 
     const [params, setParams] = useTableSearchParams(initialParams)
 
-    const [results,, reload] = useResolver(useCallback(async () => await loader(params), [loader, params]))
+    const [results, , reload] = useResolver(useCallback(async () => await loader(params), [loader, params]))
 
     return {
         params,
@@ -175,7 +175,7 @@ export function SearchTable<T extends Record<string, any>>({
     return (
         <>
             {
-                 
+
                 (title || actions || description) && (
                     <Heading
                         size="h3"

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../../ui'
 import { SingleSelect } from '../../../ui/form/SingleSelect'
-import { PlusIcon, TrashIcon } from '../../../ui/icons'
+import { PlusIcon, TrashIcon } from '../../../components/icons'
 import { createUuid } from '../../../utils'
 import EventRuleEdit from './EventRuleEdit'
 import type { RuleEditProps } from './RuleHelpers';

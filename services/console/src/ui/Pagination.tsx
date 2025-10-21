@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon } from './icons'
+import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
 import './Pagination.css'
 
 interface PaginationProps {

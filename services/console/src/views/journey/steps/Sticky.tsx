@@ -1,5 +1,5 @@
 import type { JourneyStepType } from '../../../types'
-import { StickyStepIcon } from '../../../ui/icons'
+import { StickyStepIcon } from '../../../components/icons'
 import { useTranslation } from 'react-i18next'
 import TextInput from '../../../ui/form/TextInput'
 import TextAutoLink from './TextAutoLink'

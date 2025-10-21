@@ -1,7 +1,7 @@
 import type { JourneyStepType } from '../../../types'
 import RadioInput from '../../../ui/form/RadioInput'
 import TextInput from '../../../ui/form/TextInput'
-import { BalancerStepIcon } from '../../../ui/icons'
+import { BalancerStepIcon } from '../../../components/icons'
 import { useTranslation } from 'react-i18next'
 
 interface BalancerStepChildConfig {
@@ -38,8 +38,8 @@ export const balancerStep: JourneyStepType<BalancerStepChildConfig> = {
                     { key: 'hour', label: t('hour') },
                     { key: 'day', label: t('day') },
                 ]}
-                value={value.rate_interval}
-                onChange={rate_interval => onChange({ ...value, rate_interval }) } />
+                    value={value.rate_interval}
+                    onChange={rate_interval => onChange({ ...value, rate_interval })} />
 
                 <TextInput
                     name="rate_limit"

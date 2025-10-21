@@ -13,7 +13,7 @@ import type { ModalProps } from '../../ui/Modal';
 import Modal from '../../ui/Modal'
 import Tile, { TileGrid } from '../../ui/Tile'
 import { snakeToTitle } from '../../utils'
-import { ChevronLeftIcon } from '../../ui/icons'
+import { ChevronLeftIcon } from '../../components/icons'
 import { useTranslation } from 'react-i18next'
 
 import './IntegrationModal.css'

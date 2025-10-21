@@ -8,7 +8,7 @@ import type { Subscription } from '../../types'
 import TextInput from '../../ui/form/TextInput'
 import { SingleSelect } from '../../ui/form/SingleSelect'
 import Button from '../../ui/Button'
-import { PlusIcon } from '../../ui/icons'
+import { PlusIcon } from '../../components/icons'
 import { snakeToTitle } from '../../utils'
 import { useTranslation } from 'react-i18next'
 import SwitchField from '../../ui/form/SwitchField'
@@ -51,7 +51,7 @@ export default function Subscriptions() {
                 }
             />
             <Modal
-                title={editing ? t('update_subscription') : t('create_subscription') }
+                title={editing ? t('update_subscription') : t('create_subscription')}
                 open={Boolean(editing)}
                 onClose={() => setEditing(null)}
             >

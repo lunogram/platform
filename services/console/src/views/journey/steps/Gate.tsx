@@ -1,6 +1,6 @@
 import { useContext } from 'react'
 import type { JourneyStepType, Rule } from '../../../types'
-import { GateStepIcon } from '../../../ui/icons'
+import { GateStepIcon } from '../../../components/icons'
 import RuleBuilder from '../../users/rules/RuleBuilder'
 import { PreferencesContext } from '../../../ui/PreferencesContext'
 import { useTranslation } from 'react-i18next'

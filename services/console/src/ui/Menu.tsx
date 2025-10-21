@@ -1,4 +1,4 @@
-import type { PropsWithChildren} from 'react';
+import type { PropsWithChildren } from 'react';
 import { useState } from 'react'
 import { Popover } from '@headlessui/react'
 import { usePopper } from 'react-popper'
@@ -6,7 +6,7 @@ import type { ButtonSize, ButtonVariant } from './Button';
 import Button from './Button'
 import './Menu.css'
 import type { Placement } from '@popperjs/core'
-import { ThreeDotsIcon } from './icons'
+import { ThreeDotsIcon } from '../components/icons'
 
 interface MenuProps {
     thing?: string
@@ -27,7 +27,7 @@ export function MenuItem({ children, onClick }: PropsWithChildren<MenuItemProps>
                 onClick?.()
                 event.preventDefault()
                 event.stopPropagation()
-            }}>{ children }</div>
+            }}>{children}</div>
     )
 }
 

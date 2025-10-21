@@ -1,9 +1,9 @@
 import type { JourneyStepType } from '../../../types'
-import { CloseIcon } from '../../../ui/icons'
+import { CloseIcon } from '../../../components/icons'
 import { useTranslation } from 'react-i18next'
 import { SingleSelect } from '../../../ui/form/SingleSelect'
 import { snakeToTitle } from '../../../utils'
-import type { Node} from 'reactflow';
+import type { Node } from 'reactflow';
 import { useReactFlow } from 'reactflow'
 
 interface ExitConfig {

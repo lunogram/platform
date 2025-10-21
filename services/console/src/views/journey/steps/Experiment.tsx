@@ -1,6 +1,6 @@
 import type { JourneyStepType } from '../../../types'
 import TextInput from '../../../ui/form/TextInput'
-import { ExperimentStepIcon } from '../../../ui/icons'
+import { ExperimentStepIcon } from '../../../components/icons'
 import { round } from '../../../utils'
 import { useTranslation } from 'react-i18next'
 

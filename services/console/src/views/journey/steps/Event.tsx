@@ -1,6 +1,6 @@
 import type { JourneyStepType } from '../../../types'
 import SourceEditor from '../../../ui/SourceEditor'
-import { EventStepIcon } from '../../../ui/icons'
+import { EventStepIcon } from '../../../components/icons'
 import { JsonPreview } from '../../../ui'
 import TextInput from '../../../ui/form/TextInput'
 import { useTranslation } from 'react-i18next'
