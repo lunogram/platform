@@ -15,7 +15,8 @@ main {
     margin-left: 225px;
 }
 
-header, .sidebar .sidebar-header {
+header,
+.sidebar .sidebar-header {
     display: flex;
     position: relative;
     border-bottom: 1px solid var(--color-grey);
@@ -24,12 +25,14 @@ header, .sidebar .sidebar-header {
     align-items: center;
 }
 
-header .logo, .sidebar-header .logo {
+header .logo,
+.sidebar-header .logo {
     display: flex;
     align-items: center;
 }
 
-header .logo svg, .sidebar-header .logo svg {
+header .logo svg,
+.sidebar-header .logo svg {
     height: 30px;
     flex-shrink: 0;
     fill: var(--color-primary);
@@ -60,7 +63,7 @@ header {
 nav {
     padding: 20px;
     flex-grow: 1;
-    overflow-y: scroll;
+    overflow-y: auto;
 }
 
 nav a {
