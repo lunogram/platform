@@ -10,7 +10,7 @@
 }
 
 .preview iframe {
-    overflow: scroll;
+    overflow: auto;
     min-height: 500px;
     flex-grow: 1;
 }
@@ -24,7 +24,7 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    overflow: scroll;
+    overflow: auto;
 }
 
 .email-frame-header {
@@ -108,15 +108,15 @@
 }
 
 .push-frame {
-    background: rgb(2,0,36);
-    background: linear-gradient(45deg, rgba(2,0,36,1) 0%, rgba(9,9,121,1) 35%, rgba(0,212,255,1) 100%);
+    background: rgb(2, 0, 36);
+    background: linear-gradient(45deg, rgba(2, 0, 36, 1) 0%, rgba(9, 9, 121, 1) 35%, rgba(0, 212, 255, 1) 100%);
     align-items: center;
     justify-content: center;
 }
 
 .push-notification {
     width: 100%;
-    background: rgba(0,0,0,.5);
+    background: rgba(0, 0, 0, .5);
     color: var(--color-white);
     border-radius: 20px;
     padding: 15px;
@@ -134,7 +134,7 @@
     grid-area: icon;
     width: 40px;
     height: 40px;
-    background: rgba(255,255,255,0.3);
+    background: rgba(255, 255, 255, 0.3);
     border-radius: 10px;
     align-self: center;
 }
@@ -190,10 +190,10 @@
     padding: 0;
     transform: scale(0.8);
     transform-origin: center center;
-    background: linear-gradient(45deg, rgba(2,0,36,1) 0%, rgba(9,9,121,1) 35%, rgba(0,212,255,1) 100%);
+    background: linear-gradient(45deg, rgba(2, 0, 36, 1) 0%, rgba(9, 9, 121, 1) 35%, rgba(0, 212, 255, 1) 100%);
     border: 1px solid #1b1721;
     border-radius: 45px;
-    box-shadow: inset 0 0 4px 2px #c0b7cd,inset 0 0 0 6px #342c3f;
+    box-shadow: inset 0 0 4px 2px #c0b7cd, inset 0 0 0 6px #342c3f;
 }
 
 .preview.small .email-frame iframe {

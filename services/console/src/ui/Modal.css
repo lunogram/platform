@@ -27,7 +27,7 @@
     padding: 30px;
     box-shadow: 0 20px 40px 0 rgba(0, 0, 0, 0.12);
     max-height: 90vh;
-    overflow-y: scroll;
+    overflow-y: auto;
     position: relative;
 }
 
@@ -61,7 +61,7 @@
     margin-bottom: 0;
 }
 
-.modal-inner .modal-header > * + * {
+.modal-inner .modal-header>*+* {
     margin-left: 15px;
 }
 
@@ -105,7 +105,7 @@
 }
 
 .modal-overlay {
-    background: rgba(0,0,0,0.3);
+    background: rgba(0, 0, 0, 0.3);
     position: fixed;
     top: 0;
     left: 0;
@@ -115,7 +115,7 @@
 }
 
 .modal .transition-enter {
-    transition: opacity .1s cubic-bezier(.4,0,.2,1), transform .1s ease-out;
+    transition: opacity .1s cubic-bezier(.4, 0, .2, 1), transform .1s ease-out;
 }
 
 .modal .transition-leave {

@@ -94,7 +94,7 @@
     list-style: none;
     padding: 5px;
     max-height: 275px;
-    overflow: scroll;
+    overflow: auto;
     margin: 0;
     z-index: 999;
 }

@@ -20,7 +20,7 @@
     border-width: 0;
     border-left-width: 1px;
     position: relative;
-    overflow: scroll;
+    overflow: auto;
 }
 
 .journey-options-edit {
