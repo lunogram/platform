@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import api from '../../api'
 import { ProjectContext } from '../../contexts'
 import type { Campaign, CampaignCreateParams, CampaignType, List, Provider, SearchParams, Subscription } from '../../types'
-import type { UseFormReturn} from 'react-hook-form';
+import type { UseFormReturn } from 'react-hook-form';
 import { useController, useWatch } from 'react-hook-form'
 import TextInput from '../../ui/form/TextInput'
 import FormWrapper from '../../ui/form/FormWrapper'
@@ -132,10 +132,13 @@ const ChannelSelection = ({ subscriptions, form }: {
     form: UseFormReturn<CampaignCreateParams>
 }) => {
     const { t } = useTranslation()
-    const channels = [...new Set(subscriptions.map(item => item.channel))].map(item => ({
-        key: item,
-        label: snakeToTitle(item),
-    }))
+    const channelOrder = ['email', 'text', 'push', 'webhook']
+    const channels = [...new Set(subscriptions.map(item => item.channel))]
+        .sort((a, b) => channelOrder.indexOf(a) - channelOrder.indexOf(b))
+        .map(item => ({
+            key: item,
+            label: snakeToTitle(item),
+        }))
     return (
         <RadioInput.Field
             form={form}
@@ -251,6 +254,40 @@ const TypeSelection = ({ campaign, showType, form }: { campaign?: Campaign, show
     </>
 }
 
+function ChannelProviderUpdater({
+    form,
+    type,
+    campaign,
+    providers,
+    setChannelProviders,
+}: {
+    form: UseFormReturn<CampaignCreateParams>
+    type?: CampaignType
+    campaign?: Campaign
+    providers: Provider[]
+    setChannelProviders: React.Dispatch<React.SetStateAction<Provider[]>>
+}) {
+    const channel = useWatch({
+        control: form.control,
+        name: 'channel',
+    })
+
+    useEffect(() => {
+        const effectiveChannel = type === 'blast' ? campaign?.channel : channel
+        setChannelProviders(
+            effectiveChannel
+                ? providers.filter(
+                    (p) =>
+                        p.group === effectiveChannel ||
+                        (effectiveChannel === 'in_app' && p.group === 'push'),
+                )
+                : [],
+        )
+    }, [campaign, channel, providers, type, setChannelProviders])
+
+    return null
+}
+
 export function CampaignForm({ campaign, onSave, type }: CampaignEditParams) {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
@@ -298,23 +335,15 @@ export function CampaignForm({ campaign, onSave, type }: CampaignEditParams) {
             submitLabel={t('save')}
         >
             {form => {
-                const channel = useWatch({
-                    control: form.control,
-                    name: 'channel',
-                })
-
-                useEffect(() => {
-                    const effectiveChannel = type === 'blast' ? campaign?.channel : channel
-                    setChannelProviders(
-                        effectiveChannel
-                            ? providers.filter(
-                                p => p.group === effectiveChannel || (effectiveChannel === 'in_app' && p.group === 'push'),
-                            )
-                            : [],
-                    )
-                }, [campaign, channel, providers, type])
-
                 return <>
+                    <ChannelProviderUpdater
+                        form={form}
+                        type={type}
+                        campaign={campaign}
+                        providers={providers}
+                        setChannelProviders={setChannelProviders}
+                    />
+
                     <TextInput.Field form={form}
                         name="name"
                         label={t('campaign_name')}
