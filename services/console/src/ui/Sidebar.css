@@ -148,6 +148,7 @@ nav a .nav-icon {
 
 .sidebar-profile .profile-caret {
     grid-area: caret;
+    width: 20px;
 }
 
 @media only screen and (max-width: 600px) {
