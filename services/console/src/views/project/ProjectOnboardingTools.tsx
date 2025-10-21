@@ -27,11 +27,11 @@ export default function ProjectOnboarding() {
 
     useEffect(() => {
         if (!project) return
-        setTools(tools.map(tool => ({
+        setTools(prev => prev.map(tool => ({
             ...tool,
             active: project.tools ? project.tools.includes(tool.id) : false,
         })))
-    }, [tools, project])
+    }, [project])
 
     function toggleTool(id: string) {
         setTools(prev =>
