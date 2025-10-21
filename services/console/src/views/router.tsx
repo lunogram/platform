@@ -257,36 +257,6 @@ export const createRouter = ({
                                 element: <Campaigns />,
                             }),
                             createStatefulRoute({
-                                path: 'campaigns/:entityId',
-                                apiPath: api.campaigns,
-                                context: CampaignContext,
-                                element: <CampaignDetail />,
-                                children: [
-                                    {
-                                        index: true,
-                                        element: <CampaignOverview />,
-                                    },
-                                    {
-                                        path: 'design',
-                                        element: <CampaignDesign />,
-                                    },
-                                    {
-                                        path: 'delivery',
-                                        element: <CampaignDelivery />,
-                                    },
-                                    {
-                                        path: 'preview',
-                                        element: <CampaignPreview />,
-                                    },
-                                ],
-                            }),
-                            createStatefulRoute({
-                                path: 'campaigns/:entityId/editor',
-                                apiPath: api.campaigns,
-                                context: CampaignContext,
-                                element: <EmailEditor />,
-                            }),
-                            createStatefulRoute({
                                 path: 'journeys',
                                 apiPath: api.journeys,
                                 element: <Journeys />,
@@ -391,6 +361,36 @@ export const createRouter = ({
                                 element: <JourneyUserEntrances />,
                             },
                         ],
+                    }),
+                    createStatefulRoute({
+                        path: 'campaigns/:entityId',
+                        apiPath: api.campaigns,
+                        context: CampaignContext,
+                        element: <CampaignDetail />,
+                        children: [
+                            {
+                                index: true,
+                                element: <CampaignOverview />,
+                            },
+                            {
+                                path: 'design',
+                                element: <CampaignDesign />,
+                            },
+                            {
+                                path: 'delivery',
+                                element: <CampaignDelivery />,
+                            },
+                            {
+                                path: 'preview',
+                                element: <CampaignPreview />,
+                            },
+                        ],
+                    }),
+                    createStatefulRoute({
+                        path: 'campaigns/:entityId/editor',
+                        apiPath: api.campaigns,
+                        context: CampaignContext,
+                        element: <EmailEditor />,
                     }),
                 ],
             },
