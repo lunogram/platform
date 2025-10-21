@@ -1,4 +1,35 @@
 {
+    "project": {
+        "getting_started": {
+            "title": "Onboarding checklist",
+            "checklist": {
+                "campaign": {
+                    "title": "Create your first campaign",
+                    "description": "Send a one-time message like a newsletter or announcement",
+                    "action": "Create Campaign"
+                },
+                "journey": {
+                    "title": "Create your first Journey",
+                    "description": "Automate messages based on user actions or scheduled events",
+                    "action": "Create Journey"
+                },
+                "users": {
+                    "title": "Add your first users",
+                    "description": "Upload a CSV or connect one of your data sources",
+                    "action": "Onboard Users"
+                },
+                "lists": {
+                    "title": "Create your first list",
+                    "description": "Segment your users into lists for targeted campaigns",
+                    "action": "Create List"
+                }
+            },
+            "documentation": {
+                "title": "Documentation",
+                "description": "Explore our comprehensive guides and API documentation to get the most out of Lunogram."
+            }
+        }
+    },
     "abort_campaign": "Abort Campaign",
     "aborted": "Aborted",
     "aborting": "Aborting",
@@ -276,7 +307,7 @@
     "plain_text": "Plain Text",
     "preheader": "Preheader",
     "preview": "Preview",
-    "project": "Project",
+    "project_selector": "Project",
     "projects": "Projects",
     "projects_all": "All Projects",
     "projects_description": "Projects are isolated workspaces with their own sets of users, events, lists, campaigns, and journeys.",

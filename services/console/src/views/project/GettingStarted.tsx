@@ -17,6 +17,7 @@ import type { UUID } from '@/types/common'
 import { NIL } from 'uuid'
 import api from '@/api'
 import { cn } from '@/lib/utils'
+import { t } from 'i18next'
 
 export default function ProjectGettingStarted() {
     const navigate = useNavigate()
@@ -56,49 +57,48 @@ export default function ProjectGettingStarted() {
         {
             icon: <CampaignsIcon />,
             completed: hasCampaigns,
-            title: 'Create your first campaign',
-            description: 'Send a one-time message like a newsletter or announcement',
+            title: t('project.getting_started.checklist.campaign.title'),
+            description: t('project.getting_started.checklist.campaign.description'),
             action: (
                 <Button variant="secondary" onClick={() => navigate('../campaigns')}>
-                    Create Campaign
+                    {t('project.getting_started.checklist.campaign.action')}
                 </Button>
             ),
         },
         {
             icon: <JourneysIcon />,
             completed: hasJourneys,
-            title: 'Create your first Journey',
-            description:
-                'Automate messages based on user actions or scheduled events',
+            title: t('project.getting_started.checklist.journey.title'),
+            description: t('project.getting_started.checklist.journey.description'),
             action: (
                 <Button
                     variant="secondary"
                     onClick={createOnboardingJourney}
                     isLoading={isJourneyLoading}
                 >
-                    Create Journey
+                    {t('project.getting_started.checklist.journey.action')}
                 </Button>
             ),
         },
         {
             icon: <UsersIcon />,
             completed: hasUsers,
-            title: 'Add your first users',
-            description: 'Upload a CSV or connect one of your data sources',
+            title: t('project.getting_started.checklist.users.title'),
+            description: t('project.getting_started.checklist.users.description'),
             action: (
                 <Button variant="secondary" onClick={() => navigate('../users')}>
-                    Onboard Users
+                    {t('project.getting_started.checklist.users.action')}
                 </Button>
             ),
         },
         {
             icon: <ListsIcon />,
             completed: hasLists,
-            title: 'Create your first list',
-            description: 'Segment your users into lists for targeted campaigns',
+            title: t('project.getting_started.checklist.lists.title'),
+            description: t('project.getting_started.checklist.lists.description'),
             action: (
                 <Button variant="secondary" onClick={() => navigate('../lists')}>
-                    Create List
+                    {t('project.getting_started.checklist.lists.action')}
                 </Button>
             ),
         },
@@ -146,10 +146,9 @@ export default function ProjectGettingStarted() {
                         <div className="w-6 h-6 mb-2 text-muted-foreground">
                             <BookIcon />
                         </div>
-                        <h4 className="font-semibold mb-1">Documentation</h4>
+                        <h4 className="font-semibold mb-1">{t('project.getting_started.documentation.title')}</h4>
                         <p className="text-sm text-muted-foreground">
-                            Explore our comprehensive guides and API documentation to get the
-                            most out of Lunogram.
+                            {t('project.getting_started.documentation.description')}
                         </p>
                     </div>
                 </CardContent>

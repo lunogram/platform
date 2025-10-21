@@ -70,7 +70,7 @@ export default function ProjectSidebar({ children, links }: PropsWithChildren<Si
                     options={recents ?? []}
                     getSelectedOptionDisplay={p => (
                         <>
-                            <div className="project-switcher-label">{t('project')}</div>
+                            <div className="project-switcher-label">{t('project_selector')}</div>
                             <div className="project-switcher-value">{p.name}</div>
                         </>
                     )}
