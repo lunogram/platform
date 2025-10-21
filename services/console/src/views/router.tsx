@@ -33,7 +33,7 @@ import Login from './auth/Login'
 import LoginCallback from './auth/LoginCallback'
 import Onboarding from './auth/Onboarding'
 import OnboardingProject from './auth/OnboardingProject'
-import { CampaignsIcon, CheckCircleIcon, JourneysIcon, ListsIcon, SettingsIcon, UsersIcon } from '../components/icons'
+import { CampaignsIcon, CheckCircleIcon, JourneysIcon, ListsIcon, SettingsIcon, UsersIcon } from '@/components/icons'
 import { Projects } from './project/Projects'
 import { completedGettingStarted, getRecentProjects, pushRecentProject } from '../utils'
 import Settings from './settings/Settings'
@@ -147,18 +147,19 @@ export const createRouter = ({
             },
             {
                 path: 'projects/:projectId',
+                loader: async ({ params: { projectId = '' } }) => {
+                    const project = await api.projects.get(projectId)
+                    return project
+                },
+                element: (
+                    <StatefulLoaderContextProvider context={ProjectContext}>
+                        <Outlet />
+                    </StatefulLoaderContextProvider>
+                ),
                 children: [
                     {
                         path: 'onboarding',
-                        loader: async ({ params: { projectId = '' } }) => {
-                            const project = await api.projects.get(projectId)
-                            return project
-                        },
-                        element: (
-                            <StatefulLoaderContextProvider context={ProjectContext}>
-                                <ProjectOnboarding />
-                            </StatefulLoaderContextProvider>
-                        ),
+                        element: <ProjectOnboarding />,
                         children: [
                             {
                                 index: true,
@@ -179,67 +180,61 @@ export const createRouter = ({
                         path: '',
                         loader: async ({ params: { projectId = '' } }) => {
                             const project = await api.projects.get(projectId)
-                            pushRecentProject(project.id)
-
                             if (!sessionStorage.getItem('skippedOnboarding') && project.campaigns_count === 0 && project.journeys_count === 0 && project.users_count === 0 && project.lists_count === 0) {
                                 return redirect('onboarding')
                             }
-
-                            return project
                         },
                         element: (
-                            <StatefulLoaderContextProvider context={ProjectContext}>
-                                <ProjectSidebar
-                                    links={projectSidebarLinks([
-                                        {
-                                            key: 'getting-started',
-                                            to: 'getting-started',
-                                            children: <Translation>{t => t('getting-started')}</Translation>,
-                                            icon: <CheckCircleIcon />,
-                                            active: (project: Project) => {
-                                                return !completedGettingStarted(project)
-                                            },
-                                            minRole: 'editor',
+                            <ProjectSidebar
+                                links={projectSidebarLinks([
+                                    {
+                                        key: 'getting-started',
+                                        to: 'getting-started',
+                                        children: <Translation>{t => t('getting-started')}</Translation>,
+                                        icon: <CheckCircleIcon />,
+                                        active: (project: Project) => {
+                                            return !completedGettingStarted(project)
                                         },
-                                        {
-                                            key: 'campaigns',
-                                            to: 'campaigns',
-                                            children: <Translation>{t => t('campaigns')}</Translation>,
-                                            icon: <CampaignsIcon />,
-                                            minRole: 'editor',
-                                        },
-                                        {
-                                            key: 'journeys',
-                                            to: 'journeys',
-                                            children: <Translation>{t => t('journeys')}</Translation>,
-                                            icon: <JourneysIcon />,
-                                            minRole: 'editor',
-                                        },
-                                        {
-                                            key: 'users',
-                                            to: 'users',
-                                            children: <Translation>{t => t('users')}</Translation>,
-                                            icon: <UsersIcon />,
-                                        },
-                                        {
-                                            key: 'lists',
-                                            to: 'lists',
-                                            children: <Translation>{t => t('lists')}</Translation>,
-                                            icon: <ListsIcon />,
-                                            minRole: 'editor',
-                                        },
-                                        {
-                                            key: 'settings',
-                                            to: 'settings',
-                                            children: <Translation>{t => t('settings')}</Translation>,
-                                            icon: <SettingsIcon />,
-                                            minRole: 'admin',
-                                        },
-                                    ])}
-                                >
-                                    <Outlet />
-                                </ProjectSidebar>
-                            </StatefulLoaderContextProvider>
+                                        minRole: 'editor',
+                                    },
+                                    {
+                                        key: 'campaigns',
+                                        to: 'campaigns',
+                                        children: <Translation>{t => t('campaigns')}</Translation>,
+                                        icon: <CampaignsIcon />,
+                                        minRole: 'editor',
+                                    },
+                                    {
+                                        key: 'journeys',
+                                        to: 'journeys',
+                                        children: <Translation>{t => t('journeys')}</Translation>,
+                                        icon: <JourneysIcon />,
+                                        minRole: 'editor',
+                                    },
+                                    {
+                                        key: 'users',
+                                        to: 'users',
+                                        children: <Translation>{t => t('users')}</Translation>,
+                                        icon: <UsersIcon />,
+                                    },
+                                    {
+                                        key: 'lists',
+                                        to: 'lists',
+                                        children: <Translation>{t => t('lists')}</Translation>,
+                                        icon: <ListsIcon />,
+                                        minRole: 'editor',
+                                    },
+                                    {
+                                        key: 'settings',
+                                        to: 'settings',
+                                        children: <Translation>{t => t('settings')}</Translation>,
+                                        icon: <SettingsIcon />,
+                                        minRole: 'admin',
+                                    },
+                                ])}
+                            >
+                                <Outlet />
+                            </ProjectSidebar>
                         ),
                         children: [
                             {
@@ -295,22 +290,6 @@ export const createRouter = ({
                                 path: 'journeys',
                                 apiPath: api.journeys,
                                 element: <Journeys />,
-                            }),
-                            createStatefulRoute({
-                                path: 'journeys/:entityId',
-                                apiPath: api.journeys,
-                                context: JourneyContext,
-                                element: <JourneyEditor />,
-                                children: [
-                                    {
-                                        index: true,
-                                        element: <JourneyEditor />,
-                                    },
-                                    {
-                                        path: 'entrances',
-                                        element: <JourneyUserEntrances />,
-                                    },
-                                ],
                             }),
                             createStatefulRoute({
                                 path: 'users',
@@ -397,6 +376,22 @@ export const createRouter = ({
                             },
                         ],
                     },
+                    createStatefulRoute({
+                        path: 'journeys/:entityId',
+                        apiPath: api.journeys,
+                        context: JourneyContext,
+                        element: <JourneyEditor />,
+                        children: [
+                            {
+                                index: true,
+                                element: <JourneyEditor />,
+                            },
+                            {
+                                path: 'entrances',
+                                element: <JourneyUserEntrances />,
+                            },
+                        ],
+                    }),
                 ],
             },
             {
