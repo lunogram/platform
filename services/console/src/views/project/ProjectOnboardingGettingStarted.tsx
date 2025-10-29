@@ -56,7 +56,7 @@ export default function ProjectOnboarding() {
                 </div>
             </section>
 
-            <div className="actions">
+            <div className="flex gap-2 mt-4">
                 <LinkButton to={`/projects/${projectId}/getting-started`} variant="secondary">{t('skip')}</LinkButton>
             </div>
         </div>

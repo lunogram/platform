@@ -6,6 +6,7 @@ import type { UUID } from '@/types/common'
 import { useContext, useEffect, useState } from 'react'
 import { NIL } from 'uuid'
 import { ProjectContext } from '../../contexts'
+import { cn } from '@/lib/utils'
 
 export default function ProjectOnboarding() {
     const navigate = useNavigate()
@@ -60,24 +61,27 @@ export default function ProjectOnboarding() {
     }
 
     return (
-        <div className="tools-step">
+        <div>
             <h1>{t('onboarding_tools_title')}</h1>
             <p>{t('onboarding_tools_description')}</p>
 
-            <div className="tools-grid">
+            <div className="flex flex-wrap gap-2 my-6">
                 {tools.map((tool) => (
                     <button
                         key={tool.id}
                         onClick={() => toggleTool(tool.id)}
-                        className={tool.active ? 'active' : ''}
+                        className={cn(
+                            'flex px-3 py-2 text-[var(--color-primary)] border border-[var(--color-grey-soft)] rounded-md bg-[var(--color-grey-softer)] cursor-pointer',
+                            tool.active ? 'bg-[var(--color-primary)] text-[var(--color-on-primary)]' : '',
+                        )}
                     >
-                        {tool.icon && <img src={tool.icon} alt={tool.name} />}
+                        {tool.icon && <img src={tool.icon} alt={tool.name} className="h-5 align-middle mr-2" />}
                         <span>{tool.name}</span>
                     </button>
                 ))}
             </div>
 
-            <div className="actions">
+            <div className="flex gap-2 mt-4">
                 <Button onClick={saveTools} isLoading={isLoading}>{t('next')}</Button>
             </div>
         </div>

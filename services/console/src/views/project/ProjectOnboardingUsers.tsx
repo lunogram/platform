@@ -54,7 +54,7 @@ export default function ProjectOnboarding() {
     }
 
     return (
-        <div className="users-step">
+        <div>
             <section>
                 <h1>{t('onboarding_users_title')}</h1>
                 <p>{t('onboarding_users_description')}</p>
@@ -67,17 +67,18 @@ export default function ProjectOnboarding() {
                 showSubmitButton={false}
             >
                 {form => <>
-                    <p className="import-instructions">
+                    <p>
                         <Trans
                             i18nKey="onboarding_project_users_template"
                             components={{
-                                download: <a href="/templates/users.csv" download="users.csv" />,
+                                download: <a href="/templates/users.csv" download="users.csv" className="underline" />,
                             }}
                         />
                     </p>
+
                     <UploadField form={form} name="file" label={t('users')} required />
 
-                    <div className="actions">
+                    <div className="flex gap-2 mt-4">
                         <Button isLoading={nextLoading} type="submit">{t('next')}</Button>
                         <Button onClick={skip} isLoading={skipLoading} variant="secondary">{t('skip')}</Button>
                     </div>
