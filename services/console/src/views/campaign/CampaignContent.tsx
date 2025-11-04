@@ -1,7 +1,7 @@
-import EmailEditor from "./editor/EmailEditor";
+import Editor from "./editor/mail/Editor";
 
 export default function CampaignContent() {
     return (
-        <EmailEditor />
+        <Editor />
     )
 }
