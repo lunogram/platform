@@ -1,0 +1,4 @@
+.Puck {
+    /* The height of the Puck component has to be set to 100% to avoid it overflowing the parent element */
+    height: 100%;
+}

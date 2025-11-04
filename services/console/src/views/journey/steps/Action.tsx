@@ -8,10 +8,8 @@ import { useResolver } from '../../../hooks'
 import { useTranslation } from 'react-i18next'
 import { ChannelIcon } from '../../campaign/ChannelTag'
 import Preview from '../../../ui/Preview'
-import { TemplateContextProvider } from '../../campaign/template/TemplateContextProvider'
 import type { UUID } from '@/types/common'
 import { NIL } from 'uuid'
-import JourneyTemplatePreview from './JourneyTemplatePreview'
 
 interface ActionConfig {
     campaign_id: UUID
@@ -86,10 +84,6 @@ export const actionStep: JourneyStepType<ActionConfig> = {
                         <CreateCampaign />
                     )}
                 />
-
-                {campaign && <TemplateContextProvider campaign={campaign} setCampaign={() => { }}>
-                    <JourneyTemplatePreview campaign={campaign} />
-                </TemplateContextProvider>}
             </>
         )
     },

@@ -20,7 +20,6 @@ import UserDetailSubscriptions from './users/UserDetailSubscriptions'
 import CampaignDetail from './campaign/CampaignDetail'
 import Campaigns from './campaign/Campaigns'
 import CampaignDelivery from './campaign/CampaignDelivery'
-import CampaignPreview from './campaign/CampaignPreview'
 import CampaignSetup from './campaign/CampaignSetup'
 import CampaignContent from './campaign/CampaignContent'
 import Journeys from './journey/Journeys'
@@ -374,14 +373,6 @@ export const createRouter = ({
                             {
                                 path: 'content',
                                 element: <CampaignContent />,
-                            },
-                            {
-                                path: 'delivery',
-                                element: <CampaignDelivery />,
-                            },
-                            {
-                                path: 'preview',
-                                element: <CampaignPreview />,
                             },
                         ],
                     }),

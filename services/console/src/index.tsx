@@ -1,3 +1,4 @@
+import "web-streams-polyfill/polyfill";
 import './i18n'
 import App from './App'
 import { StrictMode } from 'react'
