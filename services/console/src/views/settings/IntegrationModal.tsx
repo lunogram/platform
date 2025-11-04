@@ -59,7 +59,7 @@ export function IntegrationForm({ project, provider: defaultProvider, onChange, 
                 <>
                     {provider?.id
                         ? <>
-                            {provider.setup.length > 0 && <h4>Details</h4>}
+                            {provider.setup.length > 0 && <h4 className="legacy-typography">Details</h4>}
                             {provider.setup?.map(item => {
                                 return (
                                     <TextInput
@@ -73,7 +73,7 @@ export function IntegrationForm({ project, provider: defaultProvider, onChange, 
                         : <Alert title={meta.name} variant="plain">Fill out the fields below to setup this integration. For more information on this integration please see the documentation on our website</Alert>
                     }
 
-                    <h4>Config</h4>
+                    <h4 className="legacy-typography">Config</h4>
                     <TextInput.Field form={form} name="name" required />
                     <SchemaFields parent="data" schema={meta.schema.properties.data} form={form} />
                     <TextInput.Field

@@ -38,7 +38,7 @@ export default function Tile({
                 )
             }
             <div className="ui-tile-text">
-                <h5>{title}</h5>
+                <h5 className="legacy-typography">{title}</h5>
                 <p>{children}</p>
             </div>
         </div>

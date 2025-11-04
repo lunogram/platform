@@ -7,7 +7,7 @@ export default function OnboardingProject() {
     const navigate = useNavigate()
     return (
         <div className="auth-step">
-            <h1>{t('onboarding_project_setup_title')}</h1>
+            <h1 className="legacy-typography">{t('onboarding_project_setup_title')}</h1>
             <p>{t('onboarding_project_setup_description')}</p>
             <ProjectForm onSave={async ({ id }) => { await navigate('/projects/' + id) }} />
         </div>

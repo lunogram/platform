@@ -7,7 +7,6 @@ import type { SidebarLink } from '../ui/Sidebar'
 import { LoaderContextProvider, StatefulLoaderContextProvider } from './LoaderContextProvider'
 import { AdminContext, CampaignContext, JourneyContext, ListContext, ProjectContext, UserContext } from '../contexts'
 import ApiKeys from './settings/ApiKeys'
-import EmailEditor from './campaign/editor/EmailEditor'
 import Lists from './users/Lists'
 import ListDetail from './users/ListDetail'
 import Users from './users/Users'
@@ -22,8 +21,8 @@ import CampaignDetail from './campaign/CampaignDetail'
 import Campaigns from './campaign/Campaigns'
 import CampaignDelivery from './campaign/CampaignDelivery'
 import CampaignPreview from './campaign/CampaignPreview'
-import CampaignOverview from './campaign/CampaignOverview'
-import CampaignDesign from './campaign/CampaignDesign'
+import CampaignSetup from './campaign/CampaignSetup'
+import CampaignContent from './campaign/CampaignContent'
 import Journeys from './journey/Journeys'
 import JourneyEditor from './journey/JourneyEditor'
 import ProjectSettings from './settings/ProjectSettings'
@@ -35,7 +34,7 @@ import Onboarding from './auth/Onboarding'
 import OnboardingProject from './auth/OnboardingProject'
 import { CampaignsIcon, CheckCircleIcon, JourneysIcon, ListsIcon, SettingsIcon, UsersIcon } from '@/components/icons'
 import { Projects } from './project/Projects'
-import { completedGettingStarted, getRecentProjects, pushRecentProject } from '../utils'
+import { completedGettingStarted, getRecentProjects } from '../utils'
 import Settings from './settings/Settings'
 import ProjectSidebar from './project/ProjectSidebar'
 import ProjectGettingStarted from './project/GettingStarted'
@@ -200,7 +199,7 @@ export const createRouter = ({
                                     {
                                         key: 'campaigns',
                                         to: 'campaigns',
-                                        children: <Translation>{t => t('campaigns')}</Translation>,
+                                        children: <Translation>{t => t('campaign.plural')}</Translation>,
                                         icon: <CampaignsIcon />,
                                         minRole: 'editor',
                                     },
@@ -370,11 +369,11 @@ export const createRouter = ({
                         children: [
                             {
                                 index: true,
-                                element: <CampaignOverview />,
+                                element: <CampaignSetup />,
                             },
                             {
-                                path: 'design',
-                                element: <CampaignDesign />,
+                                path: 'content',
+                                element: <CampaignContent />,
                             },
                             {
                                 path: 'delivery',
@@ -385,12 +384,6 @@ export const createRouter = ({
                                 element: <CampaignPreview />,
                             },
                         ],
-                    }),
-                    createStatefulRoute({
-                        path: 'campaigns/:entityId/editor',
-                        apiPath: api.campaigns,
-                        context: CampaignContext,
-                        element: <EmailEditor />,
                     }),
                 ],
             },

@@ -4,7 +4,7 @@
  * work well for content-centric websites.
  */
 
- @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 /* You can override the default Infima variables here. */
 :root {
@@ -76,7 +76,12 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     color: var(--color-primary) !important;
 }
 
@@ -97,7 +102,7 @@ h1, h2, h3, h4, h5, h6 {
     border-right-color: var(--color-grey-soft) !important;
 }
 
-.main-wrapper .container {
+.main-wrapper .legacy-container {
     padding: 40px !important;
 }
 
@@ -113,8 +118,8 @@ h1, h2, h3, h4, h5, h6 {
     margin: 0;
 }
 
-.menu .menu__list .menu__list .menu__list-item > .menu__list-item-collapsible,
-.menu .menu__list .menu__list .menu__list-item > .menu__link {
+.menu .menu__list .menu__list .menu__list-item>.menu__list-item-collapsible,
+.menu .menu__list .menu__list .menu__list-item>.menu__link {
     border-left: 1px solid var(--color-grey);
     border-radius: 0;
 }
@@ -138,20 +143,20 @@ h1, h2, h3, h4, h5, h6 {
     background: none;
 }
 
-.menu .menu__list .menu__list .menu__list-item > .menu__list-item-collapsible:hover,
-.menu .menu__list .menu__list .menu__list-item > .menu__link:hover,
-.menu .menu__list .menu__list .menu__list-item > .menu__link.menu__link--active {
+.menu .menu__list .menu__list .menu__list-item>.menu__list-item-collapsible:hover,
+.menu .menu__list .menu__list .menu__list-item>.menu__link:hover,
+.menu .menu__list .menu__list .menu__list-item>.menu__link.menu__link--active {
     border-left: 1px solid var(--color-primary);
     color: var(--color-primary);
 }
 
-.menu .menu__list .menu__list .menu__list-item > .menu__list-item-collapsible:hover .menu__link,
-.menu .menu__list .menu__list .menu__list-item > .menu__link.menu__link--active {
+.menu .menu__list .menu__list .menu__list-item>.menu__list-item-collapsible:hover .menu__link,
+.menu .menu__list .menu__list .menu__list-item>.menu__link.menu__link--active {
     background: none;
     color: var(--color-primary);
 }
 
-.menu .menu__list .menu__list .menu__list-item > .menu__link.menu__link--active {
+.menu .menu__list .menu__list .menu__list-item>.menu__link.menu__link--active {
     font-weight: 600;
 }
 
@@ -189,17 +194,18 @@ h1, h2, h3, h4, h5, h6 {
     --ifm-h1-font-size: 2.5rem;
 }
 
-.markdown > h2 {
+.markdown>h2 {
     --ifm-h2-font-size: 1.7rem;
     border-bottom: 1px solid var(--color-grey);
     padding-bottom: 10px;
 }
 
-.markdown > h3 {
+.markdown>h3 {
     --ifm-h3-font-size: 1.3rem;
 }
 
-.markdown > h2, .markdown > h3 {
+.markdown>h2,
+.markdown>h3 {
     margin-bottom: 10px;
 }
 
@@ -216,5 +222,5 @@ h1, h2, h3, h4, h5, h6 {
 
 .markdown p img {
     border-radius: 8px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }

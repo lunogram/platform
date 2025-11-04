@@ -137,7 +137,7 @@ function JourneyStepNode({
                     <span className={clsx('step-header-icon', stepCategoryColors[type.category])}>
                         {type.icon}
                     </span>
-                    <h4 className="step-header-title">{name || t(type.name)}</h4>
+                    <h4 className="legacy-typography step-header-title">{name || t(type.name)}</h4>
                     {type.category !== 'info' && <div className="step-header-stats"
                         onClickCapture={stepId
                             ? () => setViewUsersStep({ stepId, stepType: typeName })
@@ -626,7 +626,7 @@ export default function JourneyEditor() {
                         <span className={clsx('step-header-icon', stepCategoryColors[type.category])}>
                             {type.icon}
                         </span>
-                        <h4 className="step-header-title">{t(type.name)}</h4>
+                        <h4 className="legacy-typography step-header-title">{t(type.name)}</h4>
                         <div
                             className="step-header-stats"
                             role={editNode.data.stepId ? 'button' : undefined}
@@ -848,7 +848,7 @@ export default function JourneyEditor() {
                     {
                         stepEdit ?? (
                             <>
-                                <h4>{t('components')}</h4>
+                                <h4 className="legacy-typography">{t('components')}</h4>
                                 {
                                     Object.entries(journeySteps).sort(createComparator(x => x[1].category)).map(([key, type]) => (
                                         <div

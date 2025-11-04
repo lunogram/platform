@@ -16,7 +16,7 @@ import { useNavigate, useParams } from 'react-router'
 import type { UUID } from '@/types/common'
 import { NIL } from 'uuid'
 import api from '@/api'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils'
 import { t } from 'i18next'
 
 export default function ProjectGettingStarted() {
@@ -109,7 +109,7 @@ export default function ProjectGettingStarted() {
             {/* Checklist */}
             <Card className="border rounded-lg">
                 <CardHeader className="border-b">
-                    <CardTitle className="text-lg font-semibold">Onboarding checklist</CardTitle>
+                    <CardTitle className="text-lg font-semibold">{t('project.getting_started.title')}</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-2">
                     <ul className="divide-y divide-border">
@@ -146,7 +146,7 @@ export default function ProjectGettingStarted() {
                         <div className="w-6 h-6 mb-2 text-muted-foreground">
                             <BookIcon />
                         </div>
-                        <h4 className="font-semibold mb-1">{t('project.getting_started.documentation.title')}</h4>
+                        <h4 className="legacy-typography font-semibold mb-1">{t('project.getting_started.documentation.title')}</h4>
                         <p className="text-sm text-muted-foreground">
                             {t('project.getting_started.documentation.description')}
                         </p>

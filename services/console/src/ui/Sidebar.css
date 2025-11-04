@@ -60,13 +60,13 @@ header {
     display: none;
 }
 
-nav {
+nav.sidebar-nav {
     padding: 20px;
     flex-grow: 1;
     overflow-y: auto;
 }
 
-nav a {
+nav.sidebar-nav a {
     display: flex;
     padding: 15px;
     text-decoration: none;
@@ -79,18 +79,18 @@ nav a {
     gap: 5px;
 }
 
-nav a:hover {
+nav.sidebar-nav a:hover {
     color: var(--color-primary);
     background: var(--color-grey);
     text-decoration: none;
 }
 
-nav a.selected {
+nav.sidebar-nav a.selected {
     color: var(--color-on-primary);
     background: var(--color-primary);
 }
 
-nav a .nav-icon {
+nav.sidebar-nav a .nav-icon {
     width: 16px;
     height: 16px;
     display: flex;

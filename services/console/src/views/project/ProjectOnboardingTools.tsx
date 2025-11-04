@@ -6,7 +6,7 @@ import type { UUID } from '@/types/common'
 import { useContext, useEffect, useState } from 'react'
 import { NIL } from 'uuid'
 import { ProjectContext } from '../../contexts'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils'
 
 export default function ProjectOnboarding() {
     const navigate = useNavigate()

@@ -50,7 +50,7 @@ export default function UserDetail() {
         <div className="user-details-attrs">
             <Heading size="h3" title={t('details')} />
 
-            <section className="container">
+            <section className="legacy-container">
                 <JsonPreview
                     editable
                     onChange={handleChange}

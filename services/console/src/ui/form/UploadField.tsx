@@ -49,7 +49,7 @@ export default function UploadField<X extends FieldValues, P extends FieldPath<X
     }
 
     return (
-        <label className={`ui-upload-field ${isHighlighted ? 'highlighted' : ''}`}
+        <label className={`legacy ui-upload-field ${isHighlighted ? 'highlighted' : ''}`}
             onDragEnter={dragEnter}
             onDragOver={dragEnter}
             onDragLeave={dragExit}
@@ -67,6 +67,7 @@ export default function UploadField<X extends FieldValues, P extends FieldPath<X
             <input
                 type="file"
                 id={id}
+                className="legacy"
                 name={name}
                 accept={accept}
                 required={required}

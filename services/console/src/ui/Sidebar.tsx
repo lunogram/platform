@@ -54,7 +54,7 @@ export default function Sidebar({ children, links, prepend, append }: PropsWithC
                     </Link>
                 </div>
                 {prepend}
-                <nav>
+                <nav className="sidebar-nav">
                     {
                         links?.map(({ key, ...props }) => (
                             <NavLink {...props} key={key} onClick={() => setIsOpen(false)} />

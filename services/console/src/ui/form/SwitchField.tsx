@@ -19,7 +19,7 @@ export default function SwitchField<X extends FieldValues, P extends FieldPath<X
 }: SwitchFieldProps<X, P>) {
     const id = useId()
     return (
-        <label>
+        <label className="legacy">
             {label && <span>
                 {label ?? name}
                 {required && <span style={{ color: 'red' }}>&nbsp;*</span>}
@@ -28,6 +28,7 @@ export default function SwitchField<X extends FieldValues, P extends FieldPath<X
             {subtitle && <span className="label-subtitle">{subtitle}</span>}
             <div className="switch">
                 <input
+                    className="legacy"
                     type="checkbox"
                     id={id}
                     checked={checked}
