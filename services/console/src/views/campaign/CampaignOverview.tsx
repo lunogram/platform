@@ -1,18 +1,19 @@
 import { useContext, useState } from 'react'
-import { CampaignContext, ProjectContext } from '../../contexts'
+import { CampaignContext, ProjectContext } from '@/contexts'
+
 import Button from '../../ui/Button'
 import Heading from '../../ui/Heading'
 import { InfoTable } from '../../ui/InfoTable'
-import Modal from '../../ui/Modal'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import { formatDate } from '../../utils'
-import { CampaignForm } from './CampaignForm'
 import { CampaignTag, DeliveryRatio } from './Campaigns'
 import ChannelTag from './ChannelTag'
 import CodeExample from '../../ui/CodeExample'
 import { env } from '../../config/env'
 import { useTranslation } from 'react-i18next'
 import { DelimitedJourneys, DelimitedLists } from './ui/DelimitedItems'
+
+import { CreateCampaign } from './CreateCampaign'
 
 export default function CampaignOverview() {
     const [project] = useContext(ProjectContext)
@@ -94,21 +95,7 @@ export default function CampaignOverview() {
                     }
                 </>
             }
-            <Modal
-                open={isEditOpen}
-                onClose={setIsEditOpen}
-                title={t('edit_campaign')}
-                size="large"
-            >
-                <CampaignForm
-                    campaign={campaign}
-                    type={campaign.type}
-                    onSave={campaign => {
-                        setCampaign(campaign)
-                        setIsEditOpen(false)
-                    }}
-                />
-            </Modal>
+            <CreateCampaign />
         </>
     )
 }

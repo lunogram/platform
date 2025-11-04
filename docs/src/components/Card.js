@@ -6,7 +6,7 @@ export default function Card({ image, title, href, children }) {
         <a href={href} className="card">
             <img src={image} />
             <div className="card-content">
-                <h3 style={{ margin: '0 0 5px 0', padding: '0' }}>{title}</h3>
+                <h3 className="legacy-typography" style={{ margin: '0 0 5px 0', padding: '0' }}>{title}</h3>
                 <div>{children}</div>
             </div>
         </a>

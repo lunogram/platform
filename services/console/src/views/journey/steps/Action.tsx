@@ -3,7 +3,7 @@ import api from '../../../api'
 import type { JourneyStepType } from '../../../types'
 import { EntityIdPicker } from '../../../ui/form/EntityIdPicker'
 import { ActionStepIcon } from '../../../components/icons'
-import { CampaignForm } from '../../campaign/CampaignForm'
+import { CreateCampaign } from '@/views/campaign/CreateCampaign'
 import { useResolver } from '../../../hooks'
 import { useTranslation } from 'react-i18next'
 import { ChannelIcon } from '../../campaign/ChannelTag'
@@ -74,7 +74,7 @@ export const actionStep: JourneyStepType<ActionConfig> = {
         return (
             <>
                 <EntityIdPicker
-                    label={t('campaign')}
+                    label={t('campaign.singluar')}
                     subtitle={t('send_campaign_desc')}
                     get={useCallback(async id => await api.campaigns.get(projectId, id), [projectId])}
                     search={useCallback(async q => await api.campaigns.search(projectId, { q, limit: 50, filter: { type: 'trigger' } }), [projectId])}
@@ -83,10 +83,7 @@ export const actionStep: JourneyStepType<ActionConfig> = {
                     required
                     createModalSize="large"
                     renderCreateForm={onCreated => (
-                        <CampaignForm
-                            type="trigger"
-                            onSave={onCreated}
-                        />
+                        <CreateCampaign />
                     )}
                 />
 

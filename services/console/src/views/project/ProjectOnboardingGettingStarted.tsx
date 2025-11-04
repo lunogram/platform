@@ -36,7 +36,7 @@ export default function ProjectOnboarding() {
 
     return (
         <div className="getting-started-step">
-            <h1>{t('getting-started')}</h1>
+            <h1 className="legacy-typography">{t('getting-started')}</h1>
 
             <section className="selection">
                 <div onClick={createOnboardingJourney}>

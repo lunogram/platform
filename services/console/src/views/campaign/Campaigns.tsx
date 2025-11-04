@@ -1,23 +1,25 @@
 import { useCallback, useContext, useState } from 'react'
 import { useNavigate } from 'react-router'
 import api from '../../api'
-import type { Campaign, CampaignDelivery, CampaignState } from '../../types'
+
 import Button, { LinkButton } from '../../ui/Button'
 import { ArchiveIcon, DuplicateIcon, EditIcon, PlusIcon } from '../../components/icons'
 import Menu, { MenuItem } from '../../ui/Menu'
-import Modal from '../../ui/Modal'
 import PageContent from '../../ui/PageContent'
 import { SearchTable, useSearchTableQueryState } from '../../ui/SearchTable'
 import type { TagVariant } from '../../ui/Tag';
 import Tag from '../../ui/Tag'
 import { formatDate, snakeToTitle } from '../../utils'
-import { CampaignForm } from './CampaignForm'
 import { ChannelIcon } from './ChannelTag'
 import { Alert } from '../../ui'
 import { ProjectContext } from '../../contexts'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import { Translation, useTranslation } from 'react-i18next'
 import { SingleSelect } from '../../ui/form/SingleSelect'
+
+import { CreateCampaign } from './CreateCampaign'
+
+import type { Campaign, CampaignDelivery, CampaignState } from '@/types'
 import type { UUID } from '@/types/common'
 
 export const CampaignTag = ({ state, progress, send_at }: Pick<Campaign, 'state' | 'progress' | 'send_at'>) => {
@@ -89,12 +91,6 @@ export default function Campaigns() {
                 type: '',
             },
         })
-    const [isCreateOpen, setIsCreateOpen] = useState(false)
-
-    const handleCreateCampaign = async (campaign: Campaign) => {
-        setIsCreateOpen(false)
-        await navigate(`${campaign.id}/design`)
-    }
 
     const handleEditCampaign = async (id: UUID) => {
         await navigate(id.toString())
@@ -112,8 +108,8 @@ export default function Campaigns() {
 
     return (
         <>
-            <PageContent title={t('campaigns')} actions={
-                <Button icon={<PlusIcon />} onClick={() => setIsCreateOpen(true)}>{t('create_campaign')}</Button>
+            <PageContent title={t('campaign.plural')} actions={
+                <CreateCampaign />
             } banner={project.has_provider === false && (
                 <Alert
                     variant="plain"
@@ -230,14 +226,6 @@ export default function Campaigns() {
                     ]}
                 />
             </PageContent>
-            <Modal
-                open={isCreateOpen}
-                onClose={setIsCreateOpen}
-                title={t('create_campaign')}
-                size="large"
-            >
-                <CampaignForm onSave={handleCreateCampaign} />
-            </Modal>
         </>
     )
 }

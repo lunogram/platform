@@ -49,7 +49,7 @@ const Gallery = ({ onInsert }: OnInsert) => {
                 {results.results.map(image => <>
                     <div className="image"
                         key={`image-${image.id}`}
-                        onClick={() => onInsert?.(image) }>
+                        onClick={() => onInsert?.(image)}>
                         <img src={image.url} alt={image.alt} />
                     </div>
                 </>)}

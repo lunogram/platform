@@ -12,7 +12,7 @@ export default function Heading({ title, actions, children, size = 'h2' }: Headi
     return (
         <div className={`heading heading-${size}`}>
             <div className="heading-text">
-                <HeadingTitle>{title}</HeadingTitle>
+                <HeadingTitle className="legacy-typography">{title}</HeadingTitle>
                 {children && <div className="desc">{children}</div>}
             </div>
             {actions && <div className="actions">{actions}</div>}

@@ -112,7 +112,7 @@ export default class EmailAuthProvider extends AuthProvider {
                             <tbody>
                                 <tr>
                                     <td align="left" style="padding: 25px 30px;">
-                                        <h2>Hello!</h2>
+                                        <h2 class="legacy-typography">Hello!</h2>
                                         <p>You asked us to send you a magic link to get you signed in to Lunogram! Hit the button below to continue.</p>
                                         <a class="button" href="${link}">Sign in to Lunogram</a>
                                         <p>Note: The link expires after 15 minutes.</p>

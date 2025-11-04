@@ -27,7 +27,7 @@ export default function ProjectSettings() {
 
             <br />
             <Heading size="h3" title={t('advanced')} />
-            <label>
+            <label className="legacy">
                 <span>{t('rebuild_path_suggestions')}</span>
                 <span className="label-subtitle">{t('rebuild_path_suggestions_desc')}</span>
                 <Button variant="secondary" style={{ marginTop: '10px' }} onClick={async () => await handleRebuildAttributeSchema()}>{t('rebuild')}</Button>

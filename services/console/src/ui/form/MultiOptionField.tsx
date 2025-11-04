@@ -43,9 +43,10 @@ export function MultiOptionField({
                         return (
                             <label
                                 key={key}
-                                className={clsx('option', selected && 'selected')}
+                                className={clsx('legacy option', selected && 'selected')}
                             >
                                 <input
+                                    className="legacy"
                                     type="checkbox"
                                     checked={Boolean(value?.includes(key))}
                                     onChange={e => onChange(e.target.checked

@@ -30,8 +30,8 @@ export default function SchemaFields({ title, description, parent, form, schema 
     const props = schema.properties
     const keys = Object.keys(schema.properties)
     return <div className="ui-schema-form">
-        {title && <h5>{snakeToTitle(title)}</h5>}
-        {description && <p>{description}</p> }
+        {title && <h5 className="legacy-typography">{snakeToTitle(title)}</h5>}
+        {description && <p>{description}</p>}
         <div className="ui-schema-fields">
             {keys.map(key => {
                 const item = props[key]

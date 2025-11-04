@@ -30,6 +30,33 @@
             }
         }
     },
+    "campaign": {
+        "plural": "Campaigns",
+        "singular": "Campaign",
+        "create": {
+            "action": "Create Campaign",
+            "title": "New Campaign",
+            "description": "Select a campaign type you would like to create."
+        }
+    },
+    "channels": {
+        "email": {
+            "title": "Email",
+            "description": "Send emails to your users using customizable templates."
+        },
+        "sms": {
+            "title": "SMS",
+            "description": "Send SMS messages to your users for quick and direct communication."
+        },
+        "push": {
+            "title": "Push Notification",
+            "description": "Send push notifications to mobile devices for instant engagement."
+        },
+        "webhook": {
+            "title": "Webhook",
+            "description": "Trigger webhooks to integrate with external systems and services."
+        }
+    },
     "abort_campaign": "Abort Campaign",
     "aborted": "Aborted",
     "aborting": "Aborting",
@@ -78,8 +105,6 @@
     "campaign_name": "Campaign Name",
     "campaign_variant_add": "Create Experiment",
     "no_campaigns_found": "No Results, please try adjusting your search or filter criteria.",
-    "campaigns": "Campaigns",
-    "campaign": "Campaign",
     "cancel": "Cancel",
     "cc": "CC",
     "change_schedule": "Change Schedule",

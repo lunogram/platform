@@ -62,7 +62,7 @@ export function Projects() {
             {
                 !!recents?.length && (
                     <>
-                        <h3>{t('recently_viewed')}</h3>
+                        <h3 className="legacy-typography">{t('recently_viewed')}</h3>
                         <TileGrid>
                             {
                                 recents.map(({ project, when }) => (
@@ -80,7 +80,7 @@ export function Projects() {
                     </>
                 )
             }
-            <h3>{t('projects_all')}</h3>
+            <h3 className="legacy-typography">{t('projects_all')}</h3>
             <TileGrid>
                 {
                     projects?.map(project => (

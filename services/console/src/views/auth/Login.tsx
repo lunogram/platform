@@ -87,7 +87,7 @@ export default function Login() {
             </div>
             {!method && (
                 <div className="auth-step">
-                    <h2>{t('welcome')}</h2>
+                    <h2 className="legacy-typography">{t('welcome')}</h2>
                     <p>{t('login_select_method')}</p>
                     <div className="auth-methods">
                         {methods?.map((method) => (
@@ -98,7 +98,7 @@ export default function Login() {
             )}
             {method && method.driver === 'basic' && (
                 <div className="auth-step">
-                    <h2>{t('welcome')}</h2>
+                    <h2 className="legacy-typography">{t('welcome')}</h2>
                     <p>{t('login_basic_instructions')}</p>
                     <FormWrapper<LoginParams>
                         onSubmit={handleBasicAuth}>
@@ -112,7 +112,7 @@ export default function Login() {
             )}
             {method && method.driver === 'email' && (
                 <div className="auth-step">
-                    <h2>{t('welcome')}</h2>
+                    <h2 className="legacy-typography">{t('welcome')}</h2>
                     {message
                         ? <>
                             <Alert variant="info" title="Success">{message}</Alert>
@@ -136,7 +136,7 @@ export default function Login() {
             )}
             {method && !reservedDrivers.includes(method.driver) && (
                 <div className="auth-step">
-                    <h2>{t('welcome')}</h2>
+                    <h2 className="legacy-typography">{t('welcome')}</h2>
                     <p>{t('login_email_available_methods')}</p>
                     <FormWrapper<LoginParams>
                         onSubmit={handleLogin(method.driver)}

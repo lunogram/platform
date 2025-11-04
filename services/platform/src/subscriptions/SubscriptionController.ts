@@ -131,7 +131,7 @@ publicRouter.get('/email', async ctx => {
             </style>
         </head>
         <body>
-            <h3>${keys.unsubscribed}</h3>
+            <h3 class="legacy-typography">${keys.unsubscribed}</h3>
         </body>
     </html>`
 })
@@ -230,7 +230,7 @@ const subscriptionPreferencesTemplate = compileTemplate<SubscriptionPreferencesA
         <main>
             {{#if subscriptions}}
             <form action="{{url}}" method="post">
-                <h1>{{title}}</h1>
+                <h1 class="legacy-typography">{{title}}</h1>
                 <p>{{description}}</p>
                 {{#if showUpdatedMessage}}
                 <div class="alert-success">

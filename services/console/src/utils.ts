@@ -5,6 +5,8 @@ import type { OrganizationRole, Preferences, Project, ProjectRole } from './type
 import { v4 } from 'uuid'
 import type { UUID } from '@/types/common'
 import type { SignOut } from '@clerk/types'
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
 
 export function createUuid() {
     return v4() as UUID
@@ -206,4 +208,8 @@ export async function logout(signOut: SignOut | undefined) {
         document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
         document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`
     })
+}
+
+export function cn(...inputs: ClassValue[]) {
+    return twMerge(clsx(inputs))
 }

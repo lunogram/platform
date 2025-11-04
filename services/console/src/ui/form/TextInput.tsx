@@ -5,6 +5,7 @@ import { useController } from 'react-hook-form'
 import type { ControlledInputProps, FieldProps } from '../../types'
 import { snakeToTitle } from '../../utils'
 import './TextInput.css'
+import { cn } from '@/utils'
 
 type TextInputValue = string | number | readonly string[] | undefined
 export interface BaseTextInputProps<T extends TextInputValue> extends Partial<ControlledInputProps<T>> {
@@ -70,7 +71,7 @@ export default function TextInput<X extends TextInputValue>({
     suffix,
 }: TextInputProps<X>) {
     return (
-        <label ref={labelRef} className={clsx('ui-text-input', { 'hide-label': hideLabel })}>
+        <label ref={labelRef} className={clsx('legacy ui-text-input', { 'hide-label': hideLabel })}>
             {
                 !hideLabel && (
                     <span>
@@ -111,7 +112,7 @@ export default function TextInput<X extends TextInputValue>({
                             <input
                                 type={type}
                                 value={value}
-                                className={size}
+                                className={cn('legacy', size)}
                                 readOnly={readOnly}
                                 placeholder={placeholder}
                                 onChange={(event) => {
