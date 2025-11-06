@@ -24,14 +24,10 @@ const config: Config<Components> = {
             }
 
             return (
-                <Html lang="en">
-                    <Head />
-                    <Tailwind config={config}>
-                        <Body>
-                            {children}
-                        </Body>
-                    </Tailwind>
-                </Html>
+                <Tailwind config={config}>
+                    {children}
+                </Tailwind>
+
             );
         },
     },
@@ -50,7 +46,15 @@ function SaveHandler() {
 
     onNext(async () => {
         const { appState } = getPuck();
-        const html = await pretty(await render(<Render config={config} data={appState.data} />));
+        const html = await pretty(await render((
+            <Html lang="en">
+                <Head />
+                <Body>
+                    <Render config={config} data={appState.data} />
+                </Body>
+            </Html>
+        )));
+
         console.log(html)
 
         await new Promise(resolve => setTimeout(resolve, 1000));

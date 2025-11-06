@@ -11,10 +11,10 @@ import Subscription, { SubscriptionState } from '../subscriptions/Subscription'
 import { RequestError } from '../core/errors'
 import { PageParams } from '../core/searchParams'
 import { allLists } from '../lists/ListService'
-import { allTemplates, duplicateTemplate, validateTemplates } from '../render/TemplateService'
+import { allTemplates, createTemplate, duplicateTemplate, validateTemplates } from '../render/TemplateService'
 import { getSubscription, getUserSubscriptionState } from '../subscriptions/SubscriptionService'
 import { chunk, pick, shallowEqual } from '../utilities'
-import { getProvider } from '../providers/ProviderRepository'
+import { getProvider, getDefaultProvider } from '../providers/ProviderRepository'
 import { createTagSubquery, getTags, setTags } from '../tags/TagService'
 import { getProject } from '../projects/ProjectService'
 import CampaignError from './CampaignError'
@@ -98,17 +98,24 @@ export const getCampaignProvider = async (id: UUID, projectId: UUID): Promise<Pr
 }
 
 export const createCampaign = async (projectId: UUID, { tags, admin_id, ...params }: WithAdmin<CampaignCreateParams>): Promise<Campaign> => {
-    const subscription = await Subscription.find(params.subscription_id)
-    if (!subscription) {
-        throw new RequestError('Unable to find associated subscription', 404)
+    const project = await getProject(projectId)
+    if (!project) {
+        throw new RequestError(CampaignError.CampaignProjectNotFound)
+    }
+
+    if (!params.provider_id) {
+        const defaultProvider = await getDefaultProvider(projectId, params.channel)
+        if (defaultProvider) {
+            params.provider_id = defaultProvider.id
+        }
     }
 
     const delivery = { sent: 0, total: 0, opens: 0, clicks: 0 }
     const campaign = await Campaign.insertAndFetch({
         ...params,
-        state: params.type === 'trigger' ? 'running' : 'draft',
+        state: 'draft',
         delivery,
-        channel: subscription.channel,
+        channel: params.channel,
         project_id: projectId,
     })
 
@@ -129,6 +136,14 @@ export const createCampaign = async (projectId: UUID, { tags, admin_id, ...param
             object: campaign,
         })
     }
+
+    // NOTE: we always create an initial template for the campaign in the project locale
+    await createTemplate(projectId, {
+        campaign_id: campaign.id,
+        locale: project.locale,
+        type: params.channel,
+        data: {},
+    })
 
     return await getCampaign(campaign.id, projectId) as Campaign
 }

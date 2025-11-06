@@ -42,47 +42,21 @@ router.get('/', async ctx => {
 const campaignCreateParams: JSONSchemaType<CampaignCreateParams> = {
     $id: 'campaignCreate',
     type: 'object',
-    required: ['type', 'subscription_id', 'provider_id'],
+    required: ['name', 'channel'],
     additionalProperties: false,
     properties: {
-        type: {
-            type: 'string',
-            enum: ['blast', 'trigger'],
-        },
         name: {
             type: 'string',
-            nullable: true,
+            nullable: false,
         },
         channel: {
             type: 'string',
             enum: ['email', 'text', 'push', 'webhook', 'in_app'],
-            nullable: true,
-        },
-        subscription_id: {
-            type: 'string',
-            format: 'uuid',
+            nullable: false,
         },
         provider_id: {
             type: 'string',
             format: 'uuid',
-        },
-        list_ids: {
-            type: 'array',
-            items: { type: 'string', format: 'uuid' },
-            nullable: true,
-        },
-        exclusion_list_ids: {
-            type: 'array',
-            items: { type: 'string', format: 'uuid' },
-            nullable: true,
-        },
-        send_in_user_timezone: {
-            type: 'boolean',
-            nullable: true,
-        },
-        send_at: {
-            type: 'string',
-            format: 'date-time',
             nullable: true,
         },
         tags: {
@@ -189,3 +163,4 @@ router.post('/:campaignId/duplicate', async ctx => {
 })
 
 export default router
+

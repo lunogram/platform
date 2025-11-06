@@ -37,6 +37,20 @@
             "action": "Create Campaign",
             "title": "New Campaign",
             "description": "Select a campaign type you would like to create."
+        },
+        "setup": {
+            "title": "Setup",
+            "description": "Configure your settings below.",
+            "form": {
+                "name": {
+                    "label": "Campaign Name",
+                    "description": "Give your campaign a descriptive name to identify it"
+                },
+                "provider": {
+                    "label": "Provider",
+                    "description": "Select the provider to send this campaign through"
+                }
+            }
         }
     },
     "channels": {
@@ -55,6 +69,28 @@
         "webhook": {
             "title": "Webhook",
             "description": "Trigger webhooks to integrate with external systems and services."
+        }
+    },
+    "locale": {
+        "singular": "Locale",
+        "delete_confirmation": "Are you sure you want to delete this locale? No existing templates will be deleted, this language option will just not be present for future templates.",
+        "field_subtitle": "The abbreviated language code i.e. en, es, fr",
+        "select": {
+            "placeholder": "Select locale...",
+            "search_placeholder": "Search locale...",
+            "loading": "Loading...",
+            "no_locale_found": "No locale found.",
+            "create_new": "Create new locale",
+            "dialog": {
+                "title": "Create New Locale",
+                "description": "Enter the locale key and label for the new locale.",
+                "locale_key_label": "Locale Key",
+                "locale_key_placeholder": "e.g., de, pt-BR, zh-CN",
+                "locale_label_label": "Locale Label",
+                "locale_label_placeholder": "e.g., German, Portuguese (Brazil)",
+                "cancel": "Cancel",
+                "create": "Create Locale"
+            }
         }
     },
     "abort_campaign": "Abort Campaign",
@@ -289,10 +325,6 @@
     "lists": "Lists",
     "live": "Live",
     "load_user": "Load User",
-    "loading": "Loading",
-    "locale": "Locale",
-    "locale_delete_confirmation": "Are you sure you want to delete this locale? No existing templates will be deleted, this language option will just not be present for future templates.",
-    "locale_field_subtitle": "The abbreviated language code i.e. en, es, fr",
     "locales": "Locales",
     "login_basic_instructions": "Enter your email and password to continue.",
     "login_email_available_methods": "What is your email address?",
@@ -491,5 +523,7 @@
     "welcome": "Welcome!",
     "yes": "Yes",
     "next": "Next",
-    "close": "Close"
+    "close": "Close",
+    "skip": "Skip",
+    "loading": "Loading"
 }

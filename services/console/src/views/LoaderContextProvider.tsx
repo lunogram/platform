@@ -1,4 +1,4 @@
-import type { Context, Dispatch, ReactNode, SetStateAction} from 'react';
+import type { Context, Dispatch, ReactNode, SetStateAction } from 'react';
 import { useEffect, useMemo, useState } from 'react'
 import { useLoaderData } from 'react-router'
 
@@ -27,7 +27,7 @@ export function StatefulLoaderContextProvider<T>({ children, key, context }: Loa
     }, [loader])
     const value = useMemo<[T, Dispatch<SetStateAction<T>>]>(
         () => [state, setState],
-        [state, loader],
+        [state],
     )
     return (
         <context.Provider key={key} value={value}>

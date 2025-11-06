@@ -1,4 +1,4 @@
-import Editor from "./editor/mail/Editor";
+import Editor from "./mail/editor/Editor";
 
 export default function CampaignContent() {
     return (

@@ -229,7 +229,7 @@ export const projectRoleMiddleware = (minRole: ProjectRole) => async (ctx: Param
 
 export const pagedLocales = async (params: PageParams, projectId: UUID) => {
     return await Locale.search(
-        { ...params, fields: ['name'] },
+        { ...params, fields: ['label'] },
         qb => qb.where('project_id', projectId),
     )
 }
@@ -239,6 +239,13 @@ export const createLocale = async (projectId: UUID, params: LocaleParams) => {
         ...params,
         project_id: projectId,
     })
+}
+
+export const getLocale = async (projectId: UUID, key: string) => {
+    return await Locale.first(qb =>
+        qb.where('project_id', projectId)
+            .where('key', key),
+    )
 }
 
 export const deleteLocale = async (projectId: UUID, id: UUID) => {

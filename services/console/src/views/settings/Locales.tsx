@@ -58,7 +58,7 @@ export default function Locales() {
                     },
                 ]}
                 itemKey={({ item }) => item.key}
-                title={t('locale')}
+                title={t('locale.singular')}
                 actions={
                     <>
                         <Button
@@ -88,7 +88,7 @@ export default function Locales() {
                                 <LocaleTextField
                                     form={form}
                                     name="key"
-                                    label={t('locale')}
+                                    label={t('locale.singular')}
                                     subtitle={t('locale_field_subtitle')}
                                     required />
                             </>
