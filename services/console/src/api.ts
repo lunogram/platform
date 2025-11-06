@@ -379,7 +379,12 @@ const api = {
             .then(r => r.data),
     },
 
-    locales: createProjectEntityPath<Locale>('locales'),
+    locales: {
+        ...createProjectEntityPath<Locale>('locales'),
+        getByKey: async (projectId: UUID, code: string) => await client
+            .get<Locale>(`${projectUrl(projectId)}/locales/${code}`)
+            .then(r => r.data),
+    },
 }
 
 export default api;

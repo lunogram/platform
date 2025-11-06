@@ -1,6 +1,11 @@
 import { ErrorSet, ErrorType } from '../core/errors'
 
 export default {
+    CampaignProjectNotFound: {
+        message: 'The project for this campaign does not exist or you do not have access.',
+        code: 1999,
+        statusCode: 400,
+    },
     CampaignDoesNotExist: {
         message: 'The requested campaign does not exist or you do not have access.',
         code: 2000,

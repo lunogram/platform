@@ -458,7 +458,7 @@ export interface Campaign {
 export type CampaignSendState = 'pending' | 'sent' | 'throttled' | 'failed' | 'bounced' | 'aborted'
 
 export type CampaignUpdateParams = Partial<Pick<Campaign, 'name' | 'state' | 'list_ids' | 'exclusion_list_ids' | 'subscription_id' | 'tags'>>
-export type CampaignCreateParams = Pick<Campaign, 'name' | 'type' | 'list_ids' | 'exclusion_list_ids' | 'channel' | 'subscription_id' | 'provider_id' | 'tags'>
+export type CampaignCreateParams = Pick<Campaign, 'name' | 'channel' | 'tags'>
 export type CampaignLaunchType = 'now' | 'later'
 export type CampaignLaunchParams = Pick<Campaign, 'send_at' | 'send_in_user_timezone' | 'state'> & { launch_type?: CampaignLaunchType }
 // export type ListUpdateParams = Pick<List, 'name' | 'rule'>

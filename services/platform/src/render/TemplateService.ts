@@ -44,7 +44,6 @@ export const getTemplate = async (id: UUID, projectId: UUID) => {
 export const createTemplate = async (projectId: UUID, params: TemplateParams) => {
     return await Template.insertAndFetch({
         ...params,
-        name: params.name ?? 'Control',
         data: params.data ?? {},
         project_id: projectId,
     })
@@ -60,7 +59,7 @@ export const deleteTemplate = async (id: UUID, projectId: UUID) => {
 }
 
 export const duplicateTemplate = async (template: Template, campaignId: UUID) => {
-    const params: Partial<Template> = pick(template, ['project_id', 'locale', 'name', 'type', 'data'])
+    const params: Partial<Template> = pick(template, ['project_id', 'locale', 'type', 'data'])
     params.campaign_id = campaignId
     return await Template.insert(params)
 }

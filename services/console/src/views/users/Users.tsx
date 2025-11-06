@@ -100,7 +100,7 @@ export default function UserTabs() {
                 { key: 'external_id', title: t('external_id') },
                 { key: 'email', title: t('email') },
                 { key: 'phone', title: t('phone') },
-                { key: 'locale', title: t('locale') },
+                { key: 'locale', title: t('locale.singular') },
                 { key: 'created_at', title: t('created_at'), sortable: true },
             ]}
             onSelectRow={({ id }) => route(`users/${id}`)}
@@ -127,7 +127,7 @@ export default function UserTabs() {
                         name="timezone"
                         label={t('timezone')}
                     />
-                    <TextInput.Field form={form} name="locale" label={t('locale')} />
+                    <TextInput.Field form={form} name="locale" label={t('locale.singular')} />
                 </>}
             </FormWrapper>
         </Modal>

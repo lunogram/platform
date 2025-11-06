@@ -67,17 +67,9 @@ export type CampaignPopulationProgress = {
 export type SentCampaign = Campaign & { send_at: Date }
 
 export interface CampaignCreateParams {
-    type: CampaignType;
-    subscription_id: UUID;
-    provider_id: UUID;
-
-    // optional + nullable fields (match schema)
-    name?: string;
-    channel?: ChannelType;
-    list_ids?: UUID[];
-    exclusion_list_ids?: UUID[];
-    send_in_user_timezone?: boolean;
-    send_at?: string; // ISO8601
+    name: string;
+    channel: ChannelType;
+    provider_id?: UUID;
     tags?: string[];
 }
 

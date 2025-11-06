@@ -1,13 +1,21 @@
+import Provider, { ProviderMap, ProviderParams, ExternalProviderParams } from './Provider'
+import { ChannelType } from 'config/channels'
 import { UUID } from 'crypto'
 import App from '../app'
-import Provider, { ProviderMap, ProviderParams, ExternalProviderParams } from './Provider'
 
 export const getProvider = async (id: UUID, projectId?: UUID) => {
     return await Provider.find(id, qb => projectId ? qb.where('project_id', projectId) : qb)
 }
 
-export const loadProvider = async <T extends Provider>(id: UUID, mapper: ProviderMap<T>, projectId?: UUID, app = App.main) => {
+export const getDefaultProvider = async (projectId: UUID, channel: ChannelType) => {
+    return await Provider.table()
+        .where('project_id', projectId)
+        .where('group', channel)
+        .where('is_default', true)
+        .first()
+}
 
+export const loadProvider = async <T extends Provider>(id: UUID, mapper: ProviderMap<T>, projectId?: UUID, app = App.main) => {
     // Check if value is cached in memory
     const cache = app.get<T>(Provider.cacheKey.internal(id))
     if (cache) return cache
@@ -24,7 +32,6 @@ export const loadProvider = async <T extends Provider>(id: UUID, mapper: Provide
 }
 
 export const loadDefaultProvider = async <T extends Provider>(group: string, projectId: UUID, mapper: ProviderMap<T>, app = App.main) => {
-
     // Check if value is cached in memory
     const cache = app.get<T>(Provider.cacheKey.default(projectId, group))
     if (cache) return cache

@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import { ProjectState } from '../auth/AuthMiddleware'
 import { JSONSchemaType } from 'ajv'
-import { createLocale, deleteLocale, pagedLocales, projectRoleMiddleware } from './ProjectService'
+import { createLocale, deleteLocale, getLocale, pagedLocales, projectRoleMiddleware } from './ProjectService'
 import { extractQueryParams } from '../utilities'
 import { searchParamsSchema } from '../core/searchParams'
 import { LocaleParams } from './Locale'
@@ -35,6 +35,10 @@ const localeParams: JSONSchemaType<LocaleParams> = {
 router.post('/', async ctx => {
     const payload = validate(localeParams, ctx.request.body)
     ctx.body = await createLocale(ctx.state.project.id, payload)
+})
+
+router.get('/:keyId', async ctx => {
+    ctx.body = await getLocale(ctx.state.project.id, ctx.params.keyId)
 })
 
 router.delete('/:keyId', async ctx => {
