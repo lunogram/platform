@@ -236,7 +236,7 @@ export interface Project {
     tools?: string[]
 }
 
-export type ChannelType = 'email' | 'push' | 'text' | 'webhook' | 'in_app'
+export type ChannelType = 'email' | 'push' | 'text' | 'webhook'
 
 export type ProjectCreate = Omit<Project, 'id' | AuditFields>
 
@@ -457,7 +457,7 @@ export interface Campaign {
 
 export type CampaignSendState = 'pending' | 'sent' | 'throttled' | 'failed' | 'bounced' | 'aborted'
 
-export type CampaignUpdateParams = Partial<Pick<Campaign, 'name' | 'state' | 'list_ids' | 'exclusion_list_ids' | 'subscription_id' | 'tags'>>
+export type CampaignUpdateParams = Partial<Pick<Campaign, 'name' | 'provider_id' | 'state' | 'list_ids' | 'exclusion_list_ids' | 'subscription_id' | 'tags'>>
 export type CampaignCreateParams = Pick<Campaign, 'name' | 'channel' | 'tags'>
 export type CampaignLaunchType = 'now' | 'later'
 export type CampaignLaunchParams = Pick<Campaign, 'send_at' | 'send_in_user_timezone' | 'state'> & { launch_type?: CampaignLaunchType }
@@ -475,7 +475,6 @@ export interface EmailTemplateData {
     editor: 'code' | 'visual'
     text: string
     html: string
-    mjml: string
 }
 
 export interface TextTemplateData {
@@ -498,28 +497,9 @@ export interface WebhookTemplateData {
     cache_key?: string
 }
 
-type NotificationType = 'banner' | 'alert' | 'html'
-export type InAppTemplateData = {
-    title: string
-    body: string
-    custom: Record<string, string | number>
-    type: NotificationType
-    read_on_view?: boolean
-} & (
-        | {
-            type: 'alert'
-            image?: string
-        }
-        | {
-            type: 'html'
-            html: string
-        }
-    )
-
 export type Template = {
     id: UUID
     campaign_id: UUID
-    name?: string
     type: ChannelType
     locale: string
     data: any
@@ -543,15 +523,11 @@ export type Template = {
             type: 'webhook'
             data: WebhookTemplateData
         }
-        | {
-            type: 'in_app'
-            data: InAppTemplateData
-        }
     )
 
-export type TemplateCreateParams = Pick<Template, 'name' | 'type' | 'data' | 'campaign_id' | 'locale'>
-export type TemplateUpdateParams = Pick<Template, 'name' | 'data'>
-export type VariantUpdateParams = Pick<Template, 'name'> & { id?: UUID }
+export type TemplateCreateParams = Pick<Template, | 'type' | 'data' | 'campaign_id' | 'locale'>
+export type TemplateUpdateParams = Pick<Template, | 'data'>
+export type VariantUpdateParams = { id?: UUID }
 
 export interface TemplatePreviewParams {
     user: Record<string, any>
@@ -604,7 +580,9 @@ export interface Provider {
     name: string
     type: string
     group: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: any
+    is_default: boolean
     rate_limit: number
     rate_interval: string
     setup: ProviderSetupMeta[]
@@ -620,6 +598,7 @@ export interface ProviderMeta {
     icon?: string
     type: string
     group: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     schema: any
     paths?: Record<string, string>
 }

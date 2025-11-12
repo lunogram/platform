@@ -1,24 +1,28 @@
+import { useContext, useState } from "react";
 import { Controller, useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { Campaign, Provider, Template } from "@/types";
-import { SetupBaseFormSchema } from "../schemas";
-import { cn } from "@/utils";
+import type { Campaign, Template, User } from "@/types";
+import { useTranslation } from "react-i18next";
+import { ProjectContext, TemplateContext } from "@/contexts";
 import * as z from "zod";
 
 import { Input } from "@/components/ui/input";
 
 import {
     Field,
-    FieldDescription,
     FieldError,
     FieldGroup,
     FieldLabel,
 } from "@/components/ui/field";
 
-const emailSetupFormSchema = SetupBaseFormSchema.extend({
-    subject: z.string().min(1, "Subject is required"),
-    fromName: z.string().optional(),
-    fromEmail: z.email("Invalid from email address").optional(),
+import { UserSelection } from "../UserSelection";
+
+const emailSetupFormSchema = z.object({
+    subject: z.string("Subject is required").min(1, "Subject is required"),
+    from: z.object({
+        name: z.string().optional(),
+        email: z.email("Invalid from email address").optional(),
+    }),
     replyTo: z.email("Invalid reply-to email address").optional(),
 });
 
@@ -41,35 +45,42 @@ function randomSubject() {
     return randomSubjects[index];
 }
 
-export function EmailForm(campaign: Campaign, template: Template) {
+export function EmailForm(campaign: Campaign, template?: Template) {
     const formSchema = emailSetupFormSchema.extend({
-        fromEmail: campaign?.provider?.data.default_from
-            ? z.string().optional()
-            : z.email("Invalid from email address"),
-        fromName: campaign?.provider?.data.default_from_name
-            ? z.string().optional()
-            : z.string().min(1, "From name is required"),
+        from: z.object({
+            email: campaign?.provider?.data.default_from
+                ? z.string().optional()
+                : z.email("Invalid from email address"),
+            name: campaign?.provider?.data.default_from_name
+                ? z.string().optional()
+                : z.string("From name is required").min(1),
+        }),
     });
 
-    return useForm({
+    const form = useForm({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            name: campaign.name,
-            provider_id: campaign.provider_id ?? '',
-            subject: template.data.subject ?? randomSubject(),
-            fromName: template.data.fromName,
-            fromEmail: template.data.fromEmail,
-            replyTo: template.data.replyTo,
+            from: {
+                name: template?.data.from.name,
+                email: template?.data.from.email,
+            },
+            subject: template?.data.subject ?? randomSubject(),
+            replyTo: template?.data.replyTo,
         },
     });
+
+    return form
 }
 
 interface EmailFormControlProps {
     campaign: Campaign;
     form: UseFormReturn<z.infer<typeof emailSetupFormSchema>>;
+    disabled?: boolean;
 }
 
-export function EmailFormControl({ campaign, form }: EmailFormControlProps) {
+export function EmailFormControl({ campaign, form, disabled = false }: EmailFormControlProps) {
+    const { t } = useTranslation();
+
     return (
         <FieldGroup className="mt-7">
             <Controller
@@ -77,49 +88,54 @@ export function EmailFormControl({ campaign, form }: EmailFormControlProps) {
                 control={form.control}
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid} className="gap-2">
-                        <FieldLabel htmlFor="form-rhf-demo-subject">Subject</FieldLabel>
+                        <FieldLabel htmlFor="form-rhf-demo-subject">{t('campaign.setup.channels.email.subject.label')}</FieldLabel>
                         <Input
                             {...field}
                             id="form-rhf-demo-subject"
                             aria-invalid={fieldState.invalid}
                             placeholder=""
                             autoComplete="off"
+                            disabled={disabled}
+                            readOnly={disabled}
                         />
                         {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
                 )}
             />
             <Controller
-                name="fromName"
+                name="from.name"
                 control={form.control}
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor="form-rhf-demo-fromName">From Name</FieldLabel>
+                        <FieldLabel htmlFor="form-rhf-demo-fromName">{t('campaign.setup.channels.email.from.name.label')}</FieldLabel>
                         <Input
                             {...field}
                             id="form-rhf-demo-fromName"
                             aria-invalid={fieldState.invalid}
                             placeholder={campaign?.provider?.data.default_from_name || ''}
                             autoComplete="off"
+                            disabled={disabled}
+                            readOnly={disabled}
                         />
                         {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
                 )}
             />
             <Controller
-                name="fromEmail"
+                name="from.email"
                 control={form.control}
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
                         <FieldLabel htmlFor="form-rhf-demo-fromEmail">
-                            From Email
+                            {t('campaign.setup.channels.email.from.email.label')}
                         </FieldLabel>
                         <Input
                             {...field}
                             id="form-rhf-demo-fromEmail"
                             aria-invalid={fieldState.invalid}
                             placeholder={campaign?.provider?.data.default_from || ''}
-                            disabled={campaign?.provider?.data.default_from_locked}
+                            disabled={disabled || campaign?.provider?.data.default_from_locked}
+                            readOnly={disabled}
                             autoComplete="off"
                         />
                         {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -132,7 +148,7 @@ export function EmailFormControl({ campaign, form }: EmailFormControlProps) {
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
                         <FieldLabel htmlFor="form-rhf-demo-replyTo">
-                            Reply-To Email
+                            {t('campaign.setup.channels.email.reply_to.label')}
                         </FieldLabel>
                         <Input
                             {...field}
@@ -140,6 +156,8 @@ export function EmailFormControl({ campaign, form }: EmailFormControlProps) {
                             aria-invalid={fieldState.invalid}
                             placeholder=""
                             autoComplete="off"
+                            disabled={disabled}
+                            readOnly={disabled}
                         />
                         {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
@@ -155,14 +173,27 @@ export interface EmailSetupProps {
 }
 
 export function EmailPreview({ campaign, form }: EmailSetupProps) {
-    const loadingSubjects = 3;
-    const { subject, fromName, fromEmail } = form.watch();
+    const [project] = useContext(ProjectContext);
+    const [template] = useContext(TemplateContext);
+    const { t } = useTranslation();
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-    const displayFromName = fromName || campaign?.provider?.data.default_from_name || '';
-    const displayFromEmail = fromEmail || campaign?.provider?.data.default_from || '';
+    const loadingSubjects = 3;
+    const { subject, from } = form.watch();
+
+    const displayFromName = from.name || template.data.from.name || campaign?.provider?.data.default_from_name || '';
+    const displayFromEmail = from.email || template.data.from.email || campaign?.provider?.data.default_from || '';
 
     return (
         <>
+            <div className="mb-4">
+                <UserSelection
+                    projectId={project?.id}
+                    value={selectedUser}
+                    onChange={setSelectedUser}
+                />
+            </div>
+
             <div
                 className="bg-white border rounded-md shadow-sm w-full overflow-hidden"
             >
@@ -189,7 +220,7 @@ export function EmailPreview({ campaign, form }: EmailSetupProps) {
                             </span>
                         )}
                     </div>
-                    <div className="w-3/5 font-medium text-sm truncate">{subject}</div>
+                    <div className="w-3/5 font-semibold text-sm truncate">{subject}</div>
                 </div>
 
                 <div>
@@ -218,7 +249,7 @@ export function EmailPreview({ campaign, form }: EmailSetupProps) {
                 </div>
             </div>
             <p className="text-center leading-7 mt-4 text-muted-foreground">
-                Preview only, email clients may display differently.
+                {t('campaign.setup.channels.email.preview_disclaimer')}
             </p>
         </>
     );

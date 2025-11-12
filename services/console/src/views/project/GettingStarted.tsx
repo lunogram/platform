@@ -60,7 +60,7 @@ export default function ProjectGettingStarted() {
             title: t('project.getting_started.checklist.campaign.title'),
             description: t('project.getting_started.checklist.campaign.description'),
             action: (
-                <Button variant="secondary" onClick={() => navigate('../campaigns')}>
+                <Button variant="secondary" onClick={() => navigate('../campaigns/new')}>
                     {t('project.getting_started.checklist.campaign.action')}
                 </Button>
             ),

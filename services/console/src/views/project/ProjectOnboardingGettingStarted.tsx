@@ -30,8 +30,7 @@ export default function ProjectOnboarding() {
     }
 
     async function createCampaign() {
-        // TODO: create onboarding campaign
-        await navigate(`/projects/${projectId}/campaigns`)
+        await navigate(`/projects/${projectId}/campaigns/new`)
     }
 
     return (

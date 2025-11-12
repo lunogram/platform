@@ -1,5 +1,5 @@
 import { PageParams } from '../core/searchParams'
-import Template, { EmailTemplate, InAppTemplate, PushTemplate, TemplateParams, TemplateType, TemplateUpdateParams, TextTemplate, WebhookTemplate } from './Template'
+import Template, { EmailTemplate, PushTemplate, TemplateParams, TemplateType, TemplateUpdateParams, TextTemplate, WebhookTemplate } from './Template'
 import { partialMatchLocale, pick, prune } from '../utilities'
 import { Variables } from '.'
 import { loadEmailChannel } from '../providers/email'
@@ -18,7 +18,6 @@ import { logger } from '../config/logger'
 import EventPostJob from '../client/EventPostJob'
 import { getPushDevicesForUser } from '../users/DeviceRepository'
 import Campaign from '../campaigns/Campaign'
-import { loadInAppChannel } from '../providers/inapp'
 import { UUID } from 'crypto'
 
 export const pagedTemplates = async (params: PageParams, projectId: UUID) => {
@@ -50,8 +49,7 @@ export const createTemplate = async (projectId: UUID, params: TemplateParams) =>
 }
 
 export const updateTemplate = async (templateId: UUID, params: TemplateUpdateParams) => {
-    const template = await Template.updateAndFetch(templateId, prune(params))
-    return template
+    return await Template.updateAndFetch(templateId, params)
 }
 
 export const deleteTemplate = async (id: UUID, projectId: UUID) => {
@@ -113,8 +111,6 @@ export const sendProof = async (template: TemplateType, variables: Variables, re
         response = await sendPushProof(campaign, template, variables)
     } else if (template.type === 'webhook') {
         response = await sendWebhookProof(campaign, template, variables)
-    } else if (template.type === 'in_app') {
-        response = await sendInAppProof(campaign, template, variables)
     } else {
         throw new RequestError('Sending template proofs is only supported for email and text message types at this time.')
     }
@@ -170,21 +166,6 @@ const sendPushProof = async (campaign: Campaign, template: PushTemplate, variabl
 const sendWebhookProof = async (campaign: Campaign, template: WebhookTemplate, variables: Variables) => {
     const channel = await loadWebhookChannel(campaign.provider_id, variables.project.id)
     return await channel?.send(template, variables)
-}
-
-const sendInAppProof = async (campaign: Campaign, template: InAppTemplate, variables: Variables) => {
-    const { user, project } = variables
-    const devices = await getPushDevicesForUser(project.id, user.id)
-    const channel = await loadInAppChannel(campaign.provider_id, project.id)
-    if (!user.id) throw new RequestError('Unable to find a user matching the criteria.')
-    const response = await channel?.send(template, devices, variables)
-
-    // Disable any tokens that we've discovered are invalid
-    if (response?.invalidTokens.length) {
-        await disableNotifications(user, response.invalidTokens)
-    }
-    logger.info(response, 'template:proof:in_app:result')
-    return response
 }
 
 // Determine what template to send to the user based on the following:

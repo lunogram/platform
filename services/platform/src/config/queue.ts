@@ -25,7 +25,6 @@ import ScheduledEntranceJob from '../journey/ScheduledEntranceJob'
 import ScheduledEntranceOrchestratorJob from '../journey/ScheduledEntranceOrchestratorJob'
 import CampaignAbortJob from '../campaigns/CampaignAbortJob'
 import UnsubscribeJob from '../subscriptions/UnsubscribeJob'
-import InAppJob from '../providers/inapp/InAppJob'
 
 export const jobs = [
     CampaignAbortJob,
@@ -35,7 +34,6 @@ export const jobs = [
     CampaignStateJob,
     EmailJob,
     EventPostJob,
-    InAppJob,
     JourneyDelayJob,
     JourneyProcessJob,
     JourneyStatsJob,

@@ -3,12 +3,14 @@ import { pixelBasedPreset, Tailwind, Html, Head, Body } from "@react-email/compo
 import { render, pretty } from "@react-email/render";
 import { viewports } from "./viewport";
 import { useContext } from "react";
-import { CampaignDetailContext } from "../../contexts";
+import { CampaignWorkflowContext } from "../../../contexts";
 
 import { Button, type ButtonProps } from "./components/Button";
 
 import "@measured/puck/puck.css";
 import "./Editor.css";
+import { ProjectContext, TemplateContext } from "@/contexts";
+import api from "@/api";
 
 interface Components {
     Button: ButtonProps
@@ -41,30 +43,40 @@ const config: Config<Components> = {
 // user clicks the "Next" button in the CampaignDetail view. This handler has to
 // be defined within a separate component to have access to the Puck context.
 function SaveHandler() {
-    const { onNext } = useContext(CampaignDetailContext);
+    const { onSubmit } = useContext(CampaignWorkflowContext);
+    const [project] = useContext(ProjectContext);
+    const [template, setTemplate] = useContext(TemplateContext);
     const getPuck = useGetPuck();
 
-    onNext(async () => {
+    onSubmit(async () => {
         const { appState } = getPuck();
-        const html = await pretty(await render((
-            <Html lang="en">
+        const html = await render((
+            <Html lang={template.locale}>
                 <Head />
                 <Body>
                     <Render config={config} data={appState.data} />
                 </Body>
             </Html>
-        )));
+        ));
 
-        console.log(html)
+        const updated = await api.templates.update(project.id, template.id, {
+            data: {
+                ...template.data,
+                editor: appState.data,
+                html,
+            }
+        })
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        setTemplate(updated);
+        return true
     });
 
     return null;
 }
 
 export default function Editor() {
-    const data = {}
+    const [template] = useContext(TemplateContext);
+    const data = template.data.editor ?? {}
 
     return (
         <div className="w-full h-full">

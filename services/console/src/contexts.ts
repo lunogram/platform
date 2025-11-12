@@ -45,7 +45,7 @@ interface TemplateManager {
     setTemplate: Dispatch<SetStateAction<Template | undefined>>
     setLocale: (locale: LocaleOption | string | undefined) => void
 }
-export const TemplateContext = createContext<TemplateManager>({
+export const TemplateManagerContext = createContext<TemplateManager>({
     campaign: {} as unknown as Campaign,
     setCampaign: () => { },
     currentTemplate: undefined,
@@ -60,6 +60,11 @@ export const TemplateContext = createContext<TemplateManager>({
 
 export const ListContext = createContext<UseStateContext<List>>([
     {} as unknown as List,
+    () => { },
+])
+
+export const TemplateContext = createContext<UseStateContext<Template>>([
+    {} as unknown as Template,
     () => { },
 ])
 

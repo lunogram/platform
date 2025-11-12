@@ -5,7 +5,7 @@ import api from '../api'
 import ErrorPage from './ErrorPage'
 import type { SidebarLink } from '../ui/Sidebar'
 import { LoaderContextProvider, StatefulLoaderContextProvider } from './LoaderContextProvider'
-import { AdminContext, CampaignContext, JourneyContext, ListContext, ProjectContext, UserContext } from '../contexts'
+import { AdminContext, CampaignContext, TemplateContext, JourneyContext, ListContext, ProjectContext, UserContext } from '../contexts'
 import ApiKeys from './settings/ApiKeys'
 import Lists from './users/Lists'
 import ListDetail from './users/ListDetail'
@@ -17,10 +17,12 @@ import { createStatefulRoute } from './createStatefulRoute'
 import UserDetailAttrs from './users/UserDetailAttrs'
 import UserDetailEvents from './users/UserDetailEvents'
 import UserDetailSubscriptions from './users/UserDetailSubscriptions'
-import CampaignDetail from './campaign/CampaignDetail'
 import Campaigns from './campaign/Campaigns'
-import CampaignSetup from './campaign/CampaignSetup'
-import CampaignContent from './campaign/CampaignContent'
+import Campaign from './campaign/Campaign'
+import CampaignSetup from './campaign/Setup'
+import TemplateContent from './campaign/template/Content'
+import TemplateReview from './campaign/template/Review'
+import EmailEditor from './campaign/template/mail/editor/Editor'
 import Journeys from './journey/Journeys'
 import JourneyEditor from './journey/JourneyEditor'
 import ProjectSettings from './settings/ProjectSettings'
@@ -248,15 +250,84 @@ export const createRouter = ({
                                 path: 'getting-started',
                                 element: <ProjectGettingStarted />,
                             },
-                            createStatefulRoute({
+                            {
                                 path: 'campaigns',
-                                apiPath: api.campaigns,
-                                element: <Campaigns />,
-                            }),
+                                children: [
+                                    createStatefulRoute({
+                                        path: '',
+                                        apiPath: api.campaigns,
+                                        element: <Campaigns />,
+                                    }),
+                                    createStatefulRoute({
+                                        path: 'new',
+                                        apiPath: api.campaigns,
+                                        element: <Campaigns create={true} />,
+                                    }),
+                                    createStatefulRoute({
+                                        path: ':entityId',
+                                        apiPath: api.campaigns,
+                                        paramName: 'entityId',
+                                        context: CampaignContext,
+                                        element: <Campaign />,
+                                        children: [
+                                            {
+                                                index: true,
+                                                loader: () => {
+
+
+                                                    return redirect('setup')
+                                                }
+                                            },
+                                            {
+                                                path: 'setup',
+                                                element: <CampaignSetup />,
+                                            },
+                                            createStatefulRoute({
+                                                path: 'templates/:templateId',
+                                                apiPath: api.templates,
+                                                context: TemplateContext,
+                                                paramName: 'templateId',
+                                                element: <Outlet />,
+                                                children: [
+                                                    {
+                                                        index: true,
+                                                        element: <TemplateContent />,
+                                                    },
+                                                    {
+                                                        path: 'email/editor',
+                                                        element: <EmailEditor />,
+                                                    },
+                                                    {
+                                                        path: 'review',
+                                                        element: <TemplateReview />,
+                                                    },
+                                                ]
+                                            })
+                                        ]
+                                    }),
+                                ],
+                            },
                             createStatefulRoute({
                                 path: 'journeys',
                                 apiPath: api.journeys,
                                 element: <Journeys />,
+                            }),
+                            createStatefulRoute({
+                                path: 'journeys/:entityId',
+                                apiPath: api.journeys,
+                                paramName: 'entityId',
+                                context: JourneyContext,
+                                element: <JourneyEditor />,
+                                children: [
+                                    {
+                                        index: true,
+                                        element: <JourneyEditor />,
+                                    },
+                                    {
+                                        path: 'entrances',
+                                        element: <JourneyUserEntrances />,
+                                    },
+                                ],
                             }),
                             createStatefulRoute({
                                 path: 'users',
@@ -266,6 +337,7 @@ export const createRouter = ({
                             createStatefulRoute({
                                 path: 'users/:entityId',
                                 apiPath: api.users,
+                                paramName: 'entityId',
                                 context: UserContext,
                                 element: <UserDetail />,
                                 children: [
@@ -295,6 +367,7 @@ export const createRouter = ({
                             createStatefulRoute({
                                 path: 'lists/:entityId',
                                 apiPath: api.lists,
+                                paramName: 'entityId',
                                 context: ListContext,
                                 element: <ListDetail />,
                             }),
@@ -343,38 +416,6 @@ export const createRouter = ({
                             },
                         ],
                     },
-                    createStatefulRoute({
-                        path: 'journeys/:entityId',
-                        apiPath: api.journeys,
-                        context: JourneyContext,
-                        element: <JourneyEditor />,
-                        children: [
-                            {
-                                index: true,
-                                element: <JourneyEditor />,
-                            },
-                            {
-                                path: 'entrances',
-                                element: <JourneyUserEntrances />,
-                            },
-                        ],
-                    }),
-                    createStatefulRoute({
-                        path: 'campaigns/:entityId',
-                        apiPath: api.campaigns,
-                        context: CampaignContext,
-                        element: <CampaignDetail />,
-                        children: [
-                            {
-                                index: true,
-                                element: <CampaignSetup />,
-                            },
-                            {
-                                path: 'content',
-                                element: <CampaignContent />,
-                            },
-                        ],
-                    }),
                 ],
             },
             {

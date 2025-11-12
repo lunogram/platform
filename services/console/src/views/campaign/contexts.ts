@@ -1,11 +1,11 @@
-import { createContext } from "react";
+import { createContext } from 'react';
 
-export interface CampaignDetailContextValue {
-  onNext: (fn: () => Promise<boolean> | boolean) => () => void;
-  next: () => Promise<void>;
+export interface CampaignWorkflowContextValue {
+    onSubmit: (fn: () => Promise<boolean> | boolean) => () => void;
+    submit: () => Promise<void>;
 }
 
-export const CampaignDetailContext = createContext<CampaignDetailContextValue>({
-  onNext: () => () => false,
-  next: async () => { },
+export const CampaignWorkflowContext = createContext<CampaignWorkflowContextValue>({
+    onSubmit: () => () => { },
+    submit: async () => { },
 });

@@ -1,9 +1,9 @@
-import { useCallback, useContext, useState } from 'react'
+import { useCallback, useContext } from 'react'
 import { useNavigate } from 'react-router'
 import api from '../../api'
 
-import Button, { LinkButton } from '../../ui/Button'
-import { ArchiveIcon, DuplicateIcon, EditIcon, PlusIcon } from '../../components/icons'
+import { LinkButton } from '../../ui/Button'
+import { ArchiveIcon, DuplicateIcon, EditIcon } from '../../components/icons'
 import Menu, { MenuItem } from '../../ui/Menu'
 import PageContent from '../../ui/PageContent'
 import { SearchTable, useSearchTableQueryState } from '../../ui/SearchTable'
@@ -79,26 +79,34 @@ const campaignTypes = [
     { key: 'trigger', label: 'Journey' },
 ]
 
-export default function Campaigns() {
-    const [project] = useContext(ProjectContext)
-    const { t } = useTranslation()
-    const navigate = useNavigate()
+interface CampaignsProps {
+    create?: boolean
+}
+
+export default function Campaigns({ create = false }: CampaignsProps) {
     const [preferences] = useContext(PreferencesContext)
+    const [project] = useContext(ProjectContext)
+    const navigate = useNavigate()
+    const { t } = useTranslation()
+
+    const options = {
+        filter: {
+            type: '',
+        },
+    }
+
     const state = useSearchTableQueryState(
         useCallback(async params => await api.campaigns.search(project.id, params), [project.id]),
-        {
-            filter: {
-                type: '',
-            },
-        })
+        options,
+    )
 
     const handleEditCampaign = async (id: UUID) => {
-        await navigate(id.toString())
+        await navigate(`/projects/${project.id}/campaigns/${id.toString()}`)
     }
 
     const handleDuplicateCampaign = async (id: UUID) => {
         const campaign = await api.campaigns.duplicate(project.id, id)
-        await navigate(campaign.id.toString())
+        await navigate(`/projects/${project.id}/campaigns/${campaign.id.toString()}`)
     }
 
     const handleArchiveCampaign = async (id: UUID) => {
@@ -109,7 +117,7 @@ export default function Campaigns() {
     return (
         <>
             <PageContent title={t('campaign.plural')} actions={
-                <CreateCampaign />
+                <CreateCampaign open={create} />
             } banner={project.has_provider === false && (
                 <Alert
                     variant="plain"
@@ -205,7 +213,7 @@ export default function Campaigns() {
                             ),
                         },
                     ]}
-                    onSelectRow={async ({ id }) => { await navigate(id.toString()) }}
+                    onSelectRow={async ({ id }) => { await navigate(`/projects/${project.id}/campaigns/${id.toString()}`) }}
                     enableSearch
                     tagEntity="campaigns"
                     filters={[

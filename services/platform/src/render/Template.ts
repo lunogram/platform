@@ -37,9 +37,6 @@ export default class Template extends Model {
             case 'push': {
                 return PushTemplate.fromJson(json)
             }
-            case 'in_app': {
-                return InAppTemplate.fromJson(json)
-            }
             default: {
                 return WebhookTemplate.fromJson(json)
             }
@@ -61,7 +58,7 @@ export default class Template extends Model {
 
 export type TemplateParams = Omit<Template, ModelParams | 'map' | 'screenshotUrl' | 'validate' | 'requiredErrors'>
 export type TemplateUpdateParams = Pick<Template, 'type' | 'data'>
-export type TemplateType = EmailTemplate | TextTemplate | PushTemplate | WebhookTemplate | InAppTemplate
+export type TemplateType = EmailTemplate | TextTemplate | PushTemplate | WebhookTemplate
 
 type CompiledEmail = Omit<Email, 'to' | 'headers'> & { preheader?: string }
 
@@ -76,7 +73,6 @@ export class EmailTemplate extends Template {
     editor!: 'code' | 'visual'
     text?: string
     html!: string
-    mjml?: string
 
     withProvider(provider: Provider | undefined) {
         if (!provider) return this
@@ -124,7 +120,6 @@ export class EmailTemplate extends Template {
         this.editor = json?.data.type ?? 'code'
         this.text = json?.data.text
         this.html = json?.data.html ?? ''
-        this.mjml = json?.data.mjml
     }
 
     compile(variables: Variables): CompiledEmail {
@@ -329,47 +324,6 @@ export class WebhookTemplate extends Template {
             errorMessage: {
                 required: this.requiredErrors('method', 'endpoint'),
             },
-        }, this.data)
-    }
-}
-
-export class InAppTemplate extends Template {
-    declare type: 'in_app'
-    content!: NotificationContent
-
-    parseJson(json: any) {
-        super.parseJson(json)
-        this.content = json?.data
-    }
-
-    compile(variables: Variables): NotificationContent {
-        const base = {
-            title: Render(this.content.title, variables),
-            body: Render(this.content.body, variables),
-            custom: RenderObject(this.content.custom, variables),
-        }
-
-        if (this.content.type === 'banner') {
-            return { ...base, type: 'banner' }
-        }
-
-        return {
-            ...base,
-            html: Render(this.content.html, variables),
-            type: this.content.type,
-        }
-    }
-
-    validate() {
-        return isValid({
-            type: 'object',
-            required: ['type', 'title', 'body'],
-            properties: {
-                read_on_show: { type: 'boolean' },
-                title: { type: 'string' },
-                body: { type: 'string' },
-            },
-            additionalProperties: true,
         }, this.data)
     }
 }
