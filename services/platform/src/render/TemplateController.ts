@@ -70,10 +70,6 @@ const templateDataEmailParams = {
             type: 'string',
             nullable: true,
         },
-        mjml: {
-            type: 'string',
-            nullable: true,
-        },
     },
     nullable: true,
 }
@@ -91,7 +87,6 @@ const templateDataTextParams = {
 
 const templateDataPushParams = {
     type: 'object',
-    required: ['title', 'body'],
     properties: {
         title: { type: 'string' },
         body: { type: 'string' },
@@ -106,7 +101,6 @@ const templateDataPushParams = {
 
 const templateDataWebhookParams = {
     type: 'object',
-    required: ['method', 'endpoint'],
     properties: {
         method: { type: 'string' },
         endpoint: { type: 'string' },
@@ -116,19 +110,6 @@ const templateDataWebhookParams = {
             additionalProperties: true,
         },
         headers: {
-            type: 'object',
-            nullable: true,
-            additionalProperties: true,
-        },
-    },
-    nullable: true,
-}
-
-const templateDataInAppParams = {
-    type: 'object',
-    properties: {
-        html: { type: 'string' },
-        custom: {
             type: 'object',
             nullable: true,
             additionalProperties: true,
@@ -179,7 +160,6 @@ const templateCreateParams: JSONSchemaType<TemplateParams> = {
         baseCreateType('text', templateDataTextParams),
         baseCreateType('push', templateDataPushParams),
         baseCreateType('webhook', templateDataWebhookParams),
-        baseCreateType('in_app', templateDataInAppParams),
     ],
 }
 router.post('/', async ctx => {
@@ -212,7 +192,6 @@ const templateUpdateParams: JSONSchemaType<TemplateUpdateParams> = {
         baseUpdateType('text', templateDataTextParams),
         baseUpdateType('push', templateDataPushParams),
         baseUpdateType('webhook', templateDataWebhookParams),
-        baseUpdateType('in_app', templateDataInAppParams),
     ],
 }
 router.patch('/:templateId', async ctx => {

@@ -51,7 +51,7 @@ const campaignCreateParams: JSONSchemaType<CampaignCreateParams> = {
         },
         channel: {
             type: 'string',
-            enum: ['email', 'text', 'push', 'webhook', 'in_app'],
+            enum: ['email', 'text', 'push', 'webhook'],
             nullable: false,
         },
         provider_id: {
@@ -102,7 +102,7 @@ const campaignUpdateParams: JSONSchemaType<Partial<CampaignUpdateParams>> = {
         },
         state: {
             type: 'string',
-            enum: ['draft', 'scheduled', 'finished', 'aborted'],
+            enum: ['draft', 'running', 'finished'],
             nullable: true,
         },
         list_ids: {

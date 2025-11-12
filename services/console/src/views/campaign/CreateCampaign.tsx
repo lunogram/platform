@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 import { ProjectContext } from "@/contexts"
-import { useContext } from "react"
+import { useContext, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Mail, MessageSquareDot, PlusIcon, Smartphone, Webhook } from "lucide-react"
@@ -27,10 +27,23 @@ import {
 } from "@/components/ui/dialog"
 import api from "@/api"
 
-export function CreateCampaign() {
+interface Channel {
+    key: ChannelType;
+    color: string;
+    icon: JSX.Element;
+    title: string;
+    description: string;
+}
+
+interface CreateCampaignProps {
+    open?: boolean;
+}
+
+export function CreateCampaign({ open = false }: CreateCampaignProps) {
     const [project] = useContext(ProjectContext)
     const navigate = useNavigate()
     const { t } = useTranslation()
+    const [isOpen, setIsOpen] = useState(open);
 
     async function create(channel: ChannelType) {
         const campaign = await api.campaigns.create(project.id, {
@@ -40,7 +53,7 @@ export function CreateCampaign() {
         await navigate(`/projects/${project.id}/campaigns/${campaign.id}`)
     }
 
-    const channels = [
+    const channels: Array<Channel> = [
         {
             key: 'email',
             color: 'bg-green-50 text-green-600',
@@ -49,7 +62,7 @@ export function CreateCampaign() {
             description: t('channels.email.description'),
         },
         {
-            key: 'sms',
+            key: 'text',
             color: 'bg-blue-50 text-blue-600',
             icon: <Smartphone strokeWidth={2} />,
             title: t('channels.sms.title'),
@@ -72,7 +85,7 @@ export function CreateCampaign() {
     ]
 
     return (
-        <Dialog>
+        <Dialog open={isOpen} onOpenChange={() => setIsOpen(!isOpen)}>
             <DialogTrigger>
                 <Button size="lg"><PlusIcon /> {t('campaign.create.action')}</Button>
             </DialogTrigger>
@@ -187,5 +200,5 @@ const names = [
 function generateProjectName() {
     const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
     const name = names[Math.floor(Math.random() * names.length)];
-    return `${adjective}_${name}`;
+    return `${adjective} ${name}`;
 }

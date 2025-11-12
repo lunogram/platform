@@ -149,7 +149,7 @@ export class SQLModel extends RawModel {
                 const filter = mode === 'exact'
                     ? params.q
                     : '%' + params.q + '%'
-                return qb.where(function() {
+                return qb.where(function () {
                     fields.reduce((chain, field) => {
                         if (typeof field === 'string') {
                             return chain.orWhereILike(field, filter)

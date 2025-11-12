@@ -4,7 +4,6 @@ import type { ProjectEntityPath } from '../api'
 import type { UseStateContext } from '../types'
 import ErrorPage from './ErrorPage'
 import { StatefulLoaderContextProvider } from './LoaderContextProvider'
-import { NIL } from 'uuid'
 import type { UUID } from '@/types/common'
 
 interface StatefulRoute<T extends Record<string, unknown>> {
@@ -13,21 +12,23 @@ interface StatefulRoute<T extends Record<string, unknown>> {
     path: string
     element?: JSX.Element
     children?: Array<RouteObject & { tab?: string }>
+    paramName?: string
 }
 
-export function createStatefulRoute<T extends { id: UUID }>({ context, path, apiPath, element, children = [] }: StatefulRoute<T>): RouteObject {
+export function createStatefulRoute<T extends { id: UUID }>({ context, path, apiPath, element, children = [], paramName = 'entityId' }: StatefulRoute<T>): RouteObject {
     return {
         path,
-        loader: async ({ params: { projectId = NIL, entityId = NIL } }) => {
-            if (projectId === NIL) {
+        loader: async ({ params }) => {
+            const projectId = params.projectId as UUID | undefined
+            if (!projectId) {
                 throw new Error('Not Found')
             }
 
-            if (entityId === NIL) {
-                return await apiPath.search(projectId as UUID, { limit: 20 })
+            if (!paramName || !(params[paramName])) {
+                return await apiPath.search(projectId, { limit: 20 })
             }
 
-            return await apiPath.get(projectId as UUID, entityId as UUID)
+            return await apiPath.get(projectId, params[paramName] as UUID)
         },
         element: context
             ? (

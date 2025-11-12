@@ -2,7 +2,6 @@ import PushJob from '../providers/push/PushJob'
 import WebhookJob from '../providers/webhook/WebhookJob'
 import TextJob from '../providers/text/TextJob'
 import EmailJob from '../providers/email/EmailJob'
-import InAppJob from '../providers/inapp/InAppJob'
 import { logger } from '../config/logger'
 import { User } from '../users/User'
 import Campaign, { CampaignCreateParams, CampaignDelivery, CampaignParams, CampaignPopulationProgress, CampaignProgress, CampaignSend, CampaignSendReferenceType, CampaignSendState, CampaignState, SentCampaign } from './Campaign'
@@ -319,7 +318,6 @@ export const sendCampaignJob = ({ campaign, user, reference_type, reference_id }
         text: TextJob.from(body),
         push: PushJob.from(body),
         webhook: WebhookJob.from(body),
-        in_app: InAppJob.from(body),
     }
     const job = channels[campaign.channel]
     job.deduplicationKey(`sid_${campaign.id}_${body.user_id}_${body.reference_id}`)

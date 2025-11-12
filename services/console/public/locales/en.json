@@ -38,6 +38,16 @@
             "title": "New Campaign",
             "description": "Select a campaign type you would like to create."
         },
+        "provider": {
+            "title": "Select Provider",
+            "description": "Choose which provider to use for sending this campaign",
+            "form": {
+                "provider": {
+                    "label": "Provider",
+                    "description": "Select the provider to send this campaign through"
+                }
+            }
+        },
         "setup": {
             "title": "Setup",
             "description": "Configure your settings below.",
@@ -47,9 +57,51 @@
                     "description": "Give your campaign a descriptive name to identify it"
                 },
                 "provider": {
-                    "label": "Provider",
-                    "description": "Select the provider to send this campaign through"
+                    "label": "Integration",
+                    "description": "Select which integration should be used to reach your users.\nYou could integrate with multiple providers so you can send through email, SMS, or any other channel you’ve set up."
                 }
+            },
+            "channels": {
+                "email": {
+                    "subject": {
+                        "label": "Subject"
+                    },
+                    "from": {
+                        "name": {
+                            "label": "From Name"
+                        },
+                        "email": {
+                            "label": "From Email"
+                        }
+                    },
+                    "reply_to": {
+                        "label": "Reply-To Email"
+                    },
+                    "preview_disclaimer": "Preview only, email clients may display differently."
+                },
+                "text": {
+                    "message": {
+                        "label": "Message"
+                    },
+                    "text_message_label": "Text Message",
+                    "today": "Today",
+                    "preview_disclaimer": "Preview only, messages may display differently."
+                },
+                "push": {
+                    "title": {
+                        "label": "Notification Title"
+                    },
+                    "body": {
+                        "label": "Notification Message"
+                    },
+                    "preview_disclaimer": "Preview only, notifications may display differently."
+                }
+            }
+        },
+        "template": {
+            "setup": {
+                "title": "Template Setup",
+                "description": "Configure template-specific settings for this locale."
             }
         }
     },
@@ -91,6 +143,36 @@
                 "cancel": "Cancel",
                 "create": "Create Locale"
             }
+        }
+    },
+    "provider": {
+        "select": {
+            "title": "Select Provider",
+            "description": "Choose a provider for this campaign",
+            "placeholder": "Select provider...",
+            "search_placeholder": "Search providers...",
+            "loading": "Loading...",
+            "no_provider_found": "No provider found.",
+            "create_new": "Connect new provider"
+        },
+        "setup": {
+            "title": "Setup Integration",
+            "description": "Configure your integration settings",
+            "details": "Provider Details",
+            "config": "Configuration",
+            "name": "Name",
+            "rate_limit": "Rate Limit",
+            "rate_limit_description": "Maximum number of requests per interval",
+            "rate_interval": "Rate Interval",
+            "back": "Back to providers",
+            "create": "Create Provider",
+            "update": "Update Provider",
+            "submitting": "Saving..."
+        },
+        "external": {
+            "title": "External Integration",
+            "description": "External Integration",
+            "message": "This integration is managed externally and cannot be edited here."
         }
     },
     "abort_campaign": "Abort Campaign",
@@ -278,7 +360,6 @@
     "image_upload": "Click or drag file in to upload a new image. Note, files are uploaded at their original resolution and filesize.",
     "image_url": "Enter an external URL for use for your image.",
     "import_users": "Import Users",
-    "in_app": "In App",
     "in_timezone": "In Timezone",
     "integrations": "Integrations",
     "invalid_email": "Invalid Email",
@@ -369,7 +450,7 @@
     "projects_all": "All Projects",
     "projects_description": "Projects are isolated workspaces with their own sets of users, events, lists, campaigns, and journeys.",
     "project_settings_saved": "Project settings saved!",
-    "provider": "Provider",
+    "provider_label": "Provider",
     "public": "Public",
     "public_desc": "Should a user be able to see this channel in the preferences center?",
     "publish": "Publish",

@@ -2,7 +2,7 @@ import { format } from 'date-fns'
 import type { Template } from '../types'
 import Iframe from './Iframe'
 import './Preview.css'
-import type { ReactNode} from 'react';
+import type { ReactNode } from 'react';
 import { useContext } from 'react'
 import { ProjectContext } from '../contexts'
 import JsonPreview from './JsonPreview'
@@ -42,7 +42,7 @@ export default function Preview({ template, response, size = 'large' }: PreviewP
                         <i className="bi bi-person-fill" />
                     </div>
                 </div>
-                <span className="text-frame-context">Text Message<br/>Today { format(new Date(), 'p') }</span>
+                <span className="text-frame-context">Text Message<br />Today {format(new Date(), 'p')}</span>
                 <div className="text-bubble">{data.text}<br />{project.text_opt_out_message}</div>
             </div>
         )
@@ -70,14 +70,6 @@ export default function Preview({ template, response, size = 'large' }: PreviewP
                     <Heading title="Response" size="h5" />
                     <JsonPreview value={response.data} />
                 </div>}
-            </div>
-        )
-    } else if (type === 'in_app') {
-        preview = (
-            <div className="in-app-frame">
-                <div className="in-app-frame-phone">
-                    <Iframe content={data.html ?? ''} />
-                </div>
             </div>
         )
     }
