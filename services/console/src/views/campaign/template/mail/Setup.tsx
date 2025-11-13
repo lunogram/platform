@@ -5,6 +5,7 @@ import type { Campaign, Template, User } from "@/types";
 import { useTranslation } from "react-i18next";
 import { ProjectContext, TemplateContext } from "@/contexts";
 import * as z from "zod";
+import { Render } from "@/renderTemplates";
 
 import { Input } from "@/components/ui/input";
 
@@ -189,6 +190,7 @@ export function EmailPreview({ campaign, form }: EmailSetupProps) {
 
   const loadingSubjects = 3;
   const { subject, from } = form.watch();
+  let previewSubject = subject;
 
   const displayFromName =
     from?.name ||
@@ -201,6 +203,12 @@ export function EmailPreview({ campaign, form }: EmailSetupProps) {
     template?.data?.from?.email ||
     campaign?.provider?.data?.default_from ||
     "";
+
+  if (selectedUser) {
+    previewSubject = Render(subject, {
+      user: selectedUser,
+    });
+  }
 
   return (
     <>
@@ -236,7 +244,7 @@ export function EmailPreview({ campaign, form }: EmailSetupProps) {
               </span>
             )}
           </div>
-          <div className="w-3/5 font-semibold text-sm truncate">{subject}</div>
+          <div className="w-3/5 font-semibold text-sm truncate">{previewSubject}</div>
         </div>
 
         <div>
