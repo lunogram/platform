@@ -15,12 +15,12 @@ import { Alert } from '../../ui'
 import { ProjectContext } from '../../contexts'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import { Translation, useTranslation } from 'react-i18next'
-import { SingleSelect } from '../../ui/form/SingleSelect'
 
 import { CreateCampaign } from './CreateCampaign'
 
 import type { Campaign, CampaignDelivery, CampaignState } from '@/types'
 import type { UUID } from '@/types/common'
+import { TypeSelect } from '@/ui/TypeSelect'
 
 export const CampaignTag = ({ state, progress, send_at }: Pick<Campaign, 'state' | 'progress' | 'send_at'>) => {
     const variant: Record<CampaignState, TagVariant> = {
@@ -74,7 +74,7 @@ export const ClickRate = ({ delivery }: { delivery: CampaignDelivery }) => {
 }
 
 const campaignTypes = [
-    { key: '', label: 'All' },
+    { key: 'all', label: 'All' },
     { key: 'blast', label: 'Blast' },
     { key: 'trigger', label: 'Journey' },
 ]
@@ -217,16 +217,16 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     enableSearch
                     tagEntity="campaigns"
                     filters={[
-                        <SingleSelect
+                        <TypeSelect
                             key="type"
                             options={campaignTypes}
                             prefix={t('type')}
-                            value={state.params.filter?.type}
+                            value={state.params.filter?.type || 'all'}
                             onChange={value => state.setParams({
                                 ...state.params,
                                 filter: {
                                     ...state.params.filter,
-                                    type: value,
+                                    type: value === 'all' ? '' : value,
                                 },
                             })}
                             toValue={(value) => value.key}
