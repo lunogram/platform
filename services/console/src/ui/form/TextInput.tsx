@@ -1,192 +1,196 @@
-import clsx from 'clsx'
-import type { Ref, ReactNode } from 'react'
-import type { FieldPath, FieldValues } from 'react-hook-form'
-import { useController } from 'react-hook-form'
-import type { ControlledInputProps, FieldProps } from '../../types'
-import { snakeToTitle } from '../../utils'
-import './TextInput.css'
-import { cn } from '@/utils'
+import clsx from "clsx";
+import type { Ref, ReactNode } from "react";
+import type { FieldPath, FieldValues } from "react-hook-form";
+import { useController } from "react-hook-form";
+import type { ControlledInputProps, FieldProps } from "../../types";
+import { snakeToTitle } from "../../utils";
+import "./TextInput.css";
+import { cn } from "@/utils";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
-type TextInputValue = string | number | readonly string[] | undefined
-export interface BaseTextInputProps<T extends TextInputValue> extends Partial<ControlledInputProps<T>> {
-    type?: 'text' | 'time' | 'date' | 'datetime-local' | 'number' | 'password' | 'email'
-    textarea?: boolean
-    size?: 'tiny' | 'small' | 'regular'
-    value?: T
-    name: string
-    placeholder?: string
-    onChange?: (value: T) => void
-    readOnly?: boolean
-    onBlur?: React.FocusEventHandler<HTMLTextAreaElement | HTMLInputElement>
-    onFocus?: React.FocusEventHandler<HTMLTextAreaElement | HTMLInputElement>
-    labelRef?: Ref<HTMLLabelElement>
-    inputRef?: Ref<HTMLInputElement | HTMLTextAreaElement>
-    hideLabel?: boolean
-    min?: number | string
-    minLength?: number
-    max?: number | string
-    maxLength?: number
-    icon?: ReactNode
-    suffix?: ReactNode
-    prefix?: ReactNode
+type TextInputValue = string | number | readonly string[] | undefined;
+export interface BaseTextInputProps<T extends TextInputValue>
+  extends Partial<ControlledInputProps<T>> {
+  type?:
+    | "text"
+    | "time"
+    | "date"
+    | "datetime-local"
+    | "number"
+    | "password"
+    | "email";
+  textarea?: boolean;
+  size?: "tiny" | "small" | "regular";
+  value?: T;
+  name: string;
+  placeholder?: string;
+  onChange?: (value: T) => void;
+  readOnly?: boolean;
+  onBlur?: React.FocusEventHandler<HTMLTextAreaElement | HTMLInputElement>;
+  onFocus?: React.FocusEventHandler<HTMLTextAreaElement | HTMLInputElement>;
+  labelRef?: Ref<HTMLLabelElement>;
+  inputRef?: Ref<HTMLInputElement | HTMLTextAreaElement>;
+  hideLabel?: boolean;
+  min?: number | string;
+  minLength?: number;
+  max?: number | string;
+  maxLength?: number;
+  icon?: ReactNode;
+  suffix?: ReactNode;
+  prefix?: ReactNode;
 }
 
-export type TextInputProps<T extends TextInputValue> = BaseTextInputProps<T> & (
+export type TextInputProps<T extends TextInputValue> = BaseTextInputProps<T> &
+  (
     | {
-        textarea: true
-        inputRef?: Ref<HTMLTextAreaElement>
-    } | {
-        textarea: false
-        inputRef?: Ref<HTMLInputElement>
-    } | {
-        textarea?: undefined
-        inputRef?: Ref<HTMLInputElement>
-    }
-)
+        textarea: true;
+        inputRef?: Ref<HTMLTextAreaElement>;
+      }
+    | {
+        textarea: false;
+        inputRef?: Ref<HTMLInputElement>;
+      }
+    | {
+        textarea?: undefined;
+        inputRef?: Ref<HTMLInputElement>;
+      }
+  );
 
 export default function TextInput<X extends TextInputValue>({
-    type = 'text',
-    disabled,
-    label,
-    subtitle,
-    min,
-    minLength,
-    max,
-    maxLength,
-    name,
-    required,
-    textarea,
-    size = 'regular',
-    value = '',
-    readOnly,
-    onChange,
-    onBlur,
-    onFocus,
-    placeholder,
-    labelRef,
-    inputRef,
-    hideLabel = false,
-    icon,
-    prefix,
-    suffix,
+  type = "text",
+  disabled,
+  label,
+  subtitle,
+  min,
+  minLength,
+  max,
+  maxLength,
+  name,
+  required,
+  textarea,
+  size = "regular",
+  value = "",
+  readOnly,
+  onChange,
+  onBlur,
+  onFocus,
+  placeholder,
+  labelRef,
+  inputRef,
+  hideLabel = false,
+  icon,
+  prefix,
+  suffix,
 }: TextInputProps<X>) {
-    return (
-        <label ref={labelRef} className={clsx('legacy ui-text-input', { 'hide-label': hideLabel })}>
-            {
-                !hideLabel && (
-                    <span>
-                        {label ?? snakeToTitle(name)}
-                        {required && <span style={{ color: 'red' }}>&nbsp;*</span>}
-                    </span>
-                )
-            }
-            {subtitle && <span className="label-subtitle">{subtitle}</span>}
-            <div className={clsx(
-                icon && 'ui-text-input-icon-wrapper',
-                suffix && 'ui-text-input-suffix-wrapper',
-                prefix && 'ui-text-input-prefix-wrapper',
-            )}>
-                {
-                    prefix && (
-                        <div className={clsx('ui-text-input-prefix', size)}>
-                            {prefix}
-                        </div>
-                    )
-                }
-                {
-                    textarea
-                        ? (
-                            <textarea
-                                value={value}
-                                onChange={(event) => onChange?.(event?.target.value as X)}
-                                onBlur={onBlur}
-                                readOnly={readOnly}
-                                onFocus={onFocus}
-                                ref={inputRef}
-                                minLength={minLength}
-                                maxLength={maxLength}
-                                disabled={disabled}
-                            />
-                        )
-                        : (
-                            <input
-                                type={type}
-                                value={value}
-                                className={cn('legacy', size)}
-                                readOnly={readOnly}
-                                placeholder={placeholder}
-                                onChange={(event) => {
-                                    const inputValue = typeof value === 'number' || type === 'number'
-                                        ? event?.target.valueAsNumber
-                                        : event?.target.value
-                                    onChange?.(inputValue as X)
-                                }}
-                                onBlur={onBlur}
-                                onFocus={onFocus}
-                                ref={inputRef}
-                                min={min}
-                                minLength={minLength}
-                                max={max}
-                                maxLength={maxLength}
-                                disabled={disabled}
-                            />
-                        )
-                }
-                {
-                    icon && (
-                        <span className="ui-text-input-icon">
-                            {icon}
-                        </span>
-                    )
-                }
-                {
-                    suffix && (
-                        <div className={clsx('ui-text-input-suffix', size)}>
-                            {suffix}
-                        </div>
-                    )
-                }
-            </div>
-        </label>
-    )
+  return (
+    <label
+      ref={labelRef}
+      className={clsx("ui-text-input", { "hide-label": hideLabel })}
+    >
+      {!hideLabel && (
+        <span>
+          {label ?? snakeToTitle(name)}
+          {required && <span style={{ color: "red" }}>&nbsp;*</span>}
+        </span>
+      )}
+      {subtitle && <span className="label-subtitle">{subtitle}</span>}
+      <div
+        className={clsx(
+          icon && "ui-text-input-icon-wrapper",
+          suffix && "ui-text-input-suffix-wrapper",
+          prefix && "ui-text-input-prefix-wrapper"
+        )}
+      >
+        {prefix && (
+          <div className={clsx("ui-text-input-prefix", size)}>{prefix}</div>
+        )}
+        {textarea ? (
+          <Textarea
+            value={value as string}
+            onChange={(event) => onChange?.(event?.target.value as X)}
+            onBlur={onBlur}
+            readOnly={readOnly}
+            onFocus={onFocus}
+            ref={inputRef as Ref<HTMLTextAreaElement>}
+            minLength={minLength}
+            maxLength={maxLength}
+            disabled={disabled}
+          />
+        ) : (
+          <Input
+            type={type}
+            value={value}
+            className={cn("h-5", size)}
+            readOnly={readOnly}
+            placeholder={placeholder}
+            onChange={(event) => {
+              const inputValue =
+                typeof value === "number" || type === "number"
+                  ? event?.target.valueAsNumber
+                  : event?.target.value;
+              onChange?.(inputValue as X);
+            }}
+            onBlur={onBlur}
+            onFocus={onFocus}
+            ref={inputRef as Ref<HTMLInputElement>}
+            min={min}
+            minLength={minLength}
+            max={max}
+            maxLength={maxLength}
+            disabled={disabled}
+          />
+        )}
+        {icon && <span className="ui-text-input-icon">{icon}</span>}
+        {suffix && (
+          <div className={clsx("ui-text-input-suffix", size)}>{suffix}</div>
+        )}
+      </div>
+    </label>
+  );
 }
 
-TextInput.Field = function TextInputField<X extends FieldValues, P extends FieldPath<X>>({
-    form,
-    name,
-    required,
-    value,
-    onChange,
-    onBlur,
-    ...rest
+TextInput.Field = function TextInputField<
+  X extends FieldValues,
+  P extends FieldPath<X>,
+>({
+  form,
+  name,
+  required,
+  value,
+  onChange,
+  onBlur,
+  ...rest
 }: TextInputProps<P> & FieldProps<X, P>) {
+  const { minLength, maxLength } = rest;
+  const {
+    field: { ref, ...field },
+    fieldState,
+  } = useController({
+    control: form.control,
+    name,
+    rules: {
+      required,
+      minLength,
+      maxLength,
+    },
+  });
 
-    const { minLength, maxLength } = rest
-    const { field: { ref, ...field }, fieldState } = useController({
-        control: form.control,
-        name,
-        rules: {
-            required,
-            minLength,
-            maxLength,
-        },
-    })
-
-    return (
-        <TextInput
-            {...rest}
-            {...field}
-            inputRef={ref}
-            onBlur={async (event) => {
-                await field.onBlur?.()
-                onBlur?.(event)
-            }}
-            onChange={async (event) => {
-                await field.onChange?.(event)
-                onChange?.(event)
-            }}
-            required={required}
-            error={fieldState.error?.message}
-        />
-    )
-}
+  return (
+    <TextInput
+      {...rest}
+      {...field}
+      inputRef={ref}
+      onBlur={async (event) => {
+        await field.onBlur?.();
+        onBlur?.(event);
+      }}
+      onChange={async (event) => {
+        await field.onChange?.(event);
+        onChange?.(event);
+      }}
+      required={required}
+      error={fieldState.error?.message}
+    />
+  );
+};
