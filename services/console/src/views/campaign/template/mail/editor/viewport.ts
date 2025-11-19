@@ -4,7 +4,9 @@ export const viewports = [
     { width: 1280, icon: "Monitor", label: "Large", tailwind: "xl" },
 ];
 
-export function getViewportTailwindBreakpoint(width: number) {
+export type TailwindBreakpoints = 'sm' | 'md' | 'xl';
+
+export function getViewportTailwindBreakpoint(width: number): TailwindBreakpoints {
     if (width <= 360) return "sm";
     if (width <= 768) return "md";
     return "xl";

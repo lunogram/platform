@@ -1,5 +1,5 @@
-import type { ComponentConfig } from '@measured/puck';
-import { Button as EmailButton } from '@react-email/components';
+import type { ComponentConfig, Slot } from '@measured/puck';
+import { Row as EmailRow, Column as EmailColumn } from '@react-email/components';
 import { Layout, type LayoutProps, layoutClassMap } from './fields/Layout';
 import { cn } from '@/utils';
 import { Spacing, type SpacingProps, spacingClassMap } from './fields/Spacing';
@@ -7,22 +7,27 @@ import { Typography, type TypographyProps, typographyClassMap } from './fields/T
 import { Decoration, type DecorationProps, decorationClassMap } from './fields/Decoration';
 import { generateTailwindClasses } from './fields/unit';
 
-export interface ButtonProps {
-    value: string;
-    href: string;
+export interface ColumnProps {
+    align: 'left' | 'center' | 'right';
+    content: Slot;
     layout: LayoutProps;
     spacing: SpacingProps;
     typography: TypographyProps;
     decoration: DecorationProps;
 };
 
-export const Button: ComponentConfig<ButtonProps> = {
+export const Column: ComponentConfig<ColumnProps> = {
     fields: {
-        value: {
-            type: "text",
+        align: {
+            type: "select",
+            options: [
+                { label: "Left", value: "left" },
+                { label: "Center", value: "center" },
+                { label: "Right", value: "right" },
+            ],
         },
-        href: {
-            type: "text",
+        content: {
+            type: "slot",
         },
         layout: Layout,
         typography: Typography,
@@ -30,35 +35,20 @@ export const Button: ComponentConfig<ButtonProps> = {
         decoration: Decoration,
     },
     defaultProps: {
-        value: "Next",
-        href: "#",
+        align: 'left',
+        content: [],
         layout: {
             xl: {
-                width: '100%',
+                width: '33.33%',
             }
         },
-        typography: {
-            xl: {
-                textAlign: 'center',
-                fontSize: '16',
-                fontWeight: 'semibold',
-                color: '#ffffff',
-            }
-        },
+        typography: {},
         spacing: {},
-        decoration: {
-            xl: {
-                borderTopLeftRadius: '8',
-                borderTopRightRadius: '8',
-                borderBottomLeftRadius: '8',
-                borderBottomRightRadius: '8',
-                backgroundColor: '#4f46e5',
-            }
-        },
+        decoration: {},
     },
-    render: ({ value, href, layout, spacing, typography, decoration }) => {
+    render: ({ content: Content, align, layout, spacing, typography, decoration }) => {
         const classes = cn(
-            "box-border",
+            "border-separate",
             generateTailwindClasses(layout, layoutClassMap),
             generateTailwindClasses(spacing, spacingClassMap),
             generateTailwindClasses(typography, typographyClassMap),
@@ -66,9 +56,11 @@ export const Button: ComponentConfig<ButtonProps> = {
         )
 
         return (
-            <EmailButton className={classes} href={href}>
-                {value}
-            </EmailButton>
+            <EmailRow align={align} className={classes}>
+                <EmailColumn>
+                    <Content />
+                </EmailColumn>
+            </EmailRow>
         );
     },
 }
