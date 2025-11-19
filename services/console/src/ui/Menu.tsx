@@ -1,18 +1,21 @@
 import type { PropsWithChildren } from 'react';
-import { useState } from 'react'
-import { Popover } from '@headlessui/react'
-import { usePopper } from 'react-popper'
 import type { ButtonSize, ButtonVariant } from './Button';
 import Button from './Button'
 import './Menu.css'
-import type { Placement } from '@popperjs/core'
 import { ThreeDotsIcon } from '../components/icons'
+
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface MenuProps {
     thing?: string
     variant?: ButtonVariant
     size?: ButtonSize
-    placement?: Placement
+    placement?: 'top' | 'top-start' | 'top-end' | 'right' | 'right-start' | 'right-end' | 'bottom' | 'bottom-start' | 'bottom-end' | 'left' | 'left-start' | 'left-end'
     button?: React.ReactNode
 }
 
@@ -22,37 +25,50 @@ interface MenuItemProps {
 
 export function MenuItem({ children, onClick }: PropsWithChildren<MenuItemProps>) {
     return (
-        <div className="ui-menu-item"
-            onClick={(event) => {
+        <DropdownMenuItem
+            className="ui-menu-item"
+            onSelect={(event) => {
                 onClick?.()
                 event.preventDefault()
-                event.stopPropagation()
-            }}>{children}</div>
+            }}
+        >
+            {children}
+        </DropdownMenuItem>
     )
 }
 
 export default function Menu({ children, variant, size, placement, button }: PropsWithChildren<MenuProps>) {
-    const [referenceElement, setReferenceElement] = useState<Element | null | undefined>()
-    const [popperElement, setPopperElement] = useState<HTMLElement | null | undefined>()
-    const { styles, attributes } = usePopper(referenceElement, popperElement, {
-        placement: placement ?? 'bottom-end',
-    })
     const defaultButton = button ?? <Button
         variant={variant ?? 'secondary'}
         size={size ?? 'tiny'}
         icon={<ThreeDotsIcon />} />
 
+    // Convert Popper placement to Radix side/align
+    const getRadixPlacement = (placement?: string) => {
+        if (!placement) return { side: 'bottom' as const, align: 'end' as const }
+        
+        const parts = placement.split('-')
+        const side = parts[0] as 'top' | 'right' | 'bottom' | 'left'
+        const align = parts[1] === 'start' ? 'start' : parts[1] === 'end' ? 'end' : 'center'
+        
+        return { side, align: align as 'start' | 'end' | 'center' }
+    }
+
+    const { side, align } = getRadixPlacement(placement)
+
     return (
-        <Popover>
-            <Popover.Button as="div" ref={setReferenceElement}>{defaultButton}</Popover.Button>
-            <Popover.Panel
-                ref={setPopperElement}
-                style={styles.popper}
-                {...attributes.popper}
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                {defaultButton}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent 
                 className="ui-menu"
+                side={side}
+                align={align}
+                onClick={(e) => e.stopPropagation()}
             >
                 {children}
-            </Popover.Panel>
-        </Popover>
+            </DropdownMenuContent>
+        </DropdownMenu>
     )
 }
