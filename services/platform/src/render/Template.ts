@@ -26,20 +26,20 @@ export default class Template extends Model {
     async map(): Promise<TemplateType> {
         const json = this as any
         switch (this.type) {
-            case 'email': {
-                const provider = await getCampaignProvider(this.campaign_id, this.project_id)
-                const template = EmailTemplate.fromJson(json)
-                return template.withProvider(provider)
-            }
-            case 'text': {
-                return TextTemplate.fromJson(json)
-            }
-            case 'push': {
-                return PushTemplate.fromJson(json)
-            }
-            default: {
-                return WebhookTemplate.fromJson(json)
-            }
+        case 'email': {
+            const provider = await getCampaignProvider(this.campaign_id, this.project_id)
+            const template = EmailTemplate.fromJson(json)
+            return template.withProvider(provider)
+        }
+        case 'text': {
+            return TextTemplate.fromJson(json)
+        }
+        case 'push': {
+            return PushTemplate.fromJson(json)
+        }
+        default: {
+            return WebhookTemplate.fromJson(json)
+        }
         }
     }
 
