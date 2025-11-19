@@ -18,7 +18,7 @@ export type Query = (builder: Database.QueryBuilder<any>) => Database.QueryBuild
 
 const MIGRATION_RETRIES = 3
 
-knex.QueryBuilder.extend('when', function (
+knex.QueryBuilder.extend('when', function(
     condition: boolean,
     fnif: Query,
     fnelse?: Query,
