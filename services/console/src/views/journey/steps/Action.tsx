@@ -65,7 +65,7 @@ export const actionStep: JourneyStepType<ActionConfig> = {
         return (
             <>
                 <EntityIdPicker
-                    label={t('campaign.singluar')}
+                    label={t('campaign.singular')}
                     subtitle={t('send_campaign_desc')}
                     get={useCallback(async id => await api.campaigns.get(projectId, id), [projectId])}
                     search={useCallback(async q => await api.campaigns.search(projectId, { q, limit: 50, filter: { type: 'trigger' } }), [projectId])}
