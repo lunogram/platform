@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { Puck, Render, useGetPuck, type Config } from "@measured/puck";
-import { Tailwind, Html, Head, Body, pixelBasedPreset, Font } from "@react-email/components";
+import { Tailwind, Html, Head, Body, pixelBasedPreset } from "@react-email/components";
 import { render } from "@react-email/render";
 import { viewports } from "./viewport";
 import { useContext, useEffect } from "react";

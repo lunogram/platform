@@ -55,6 +55,20 @@ import type { UUID } from '@/types/common'
 import './JourneyEditor.css'
 import 'reactflow/dist/style.css'
 
+interface JourneyNodeData {
+    stepId?: string
+    type: string
+    name?: string
+    data?: Record<string, unknown>
+    data_key?: string
+    stats?: Record<string, number>
+    stats_at?: Date
+    editing?: boolean
+    setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void
+}
+
+type JourneyNode = Node<JourneyNodeData, string | undefined>
+
 const getStepType = (type: string) => (type ? journeySteps[type as keyof typeof journeySteps] as JourneyStepType : null) ?? null
 
 const statIcons: Record<string, ReactNode> = {
@@ -66,6 +80,7 @@ const statIcons: Record<string, ReactNode> = {
     ended: <CloseIcon />,
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const stepCategoryColors = {
     entrance: 'red',
     action: 'blue',
@@ -106,7 +121,7 @@ function JourneyStepNode({
         if (!sourceNode) return true
         const existing = getConnectedEdges([sourceNode], getEdges())
         return existing.filter(e => e.sourceHandle === conn.sourceHandle).length < 1
-    }, [id, type, getNode, getEdges])
+    }, [type, getNode, getEdges])
 
     if (!type) {
         return (
@@ -252,10 +267,10 @@ function JourneyStepEdge({
 
     const { setEdges } = useReactFlow()
 
-    const onChangeData = useCallback((data: any) => setEdges(edges => edges.map(e => e.id === id ? { ...e, data } : e)), [id, setEdges])
+    const onChangeData = useCallback((data: Record<string, unknown>) => setEdges(edges => edges.map(e => e.id === id ? { ...e, data } : e)), [id, setEdges])
 
-    const sourceNode = nodes.find(n => n.id === source) as Node<any> | undefined
-    const sourceType = getStepType(sourceNode?.data?.type)
+    const sourceNode = nodes.find(n => n.id === source) as JourneyNode | undefined
+    const sourceType = sourceNode?.data?.type ? getStepType(sourceNode.data.type) : null
 
     return (
         <>
@@ -302,7 +317,7 @@ const STEP_STYLE = 'smoothstep'
 interface CreateEdgeParams {
     sourceId: string
     targetId: string
-    data: any
+    data: Record<string, unknown>
     path?: string
 }
 
@@ -326,9 +341,9 @@ function createEdge({
     }
 }
 
-function stepsToNodes(stepMap: JourneyStepMap, actions: any) {
+function stepsToNodes(stepMap: JourneyStepMap, actions: { setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void }) {
 
-    const nodes: Node[] = []
+    const nodes: JourneyNode[] = []
     const edges: Edge[] = []
 
     for (const [id, { x, y, type, data, name, data_key, children, stats, stats_at, id: stepId }] of Object.entries(stepMap)) {
@@ -453,7 +468,7 @@ export default function JourneyEditor() {
 
         setNodes(nodes)
         setEdges(edges)
-    }, [project, journeyId])
+    }, [project, journeyId, setNodes, setEdges])
 
     useEffect(() => {
         void loadSteps()
@@ -475,14 +490,14 @@ export default function JourneyEditor() {
         } else {
             blocker.reset()
         }
-    }, [blocker.state])
+    }, [blocker, t])
 
-    const handleSetNodes = (nodes: SetStateAction<Array<Node<any, string | undefined>>>) => {
+    const handleSetNodes = useCallback((nodes: SetStateAction<JourneyNode[]>) => {
         setHasUnsavedChanges(true)
         setNodes(nodes)
-    }
+    }, [setNodes])
 
-    async function saveDraft() {
+    const saveDraft = useCallback(async () => {
         const stepMap = await api.journeys.steps.set(project.id, journey.id, nodesToSteps(nodes, edges))
 
         const refreshed = stepsToNodes(stepMap, {
@@ -491,20 +506,20 @@ export default function JourneyEditor() {
 
         setNodes(refreshed.nodes)
         setEdges(refreshed.edges)
-    }
+    }, [project, journey, nodes, edges, setNodes, setEdges])
 
     const saveSteps = useCallback(async () => {
         setSaving(true)
         try {
             await saveDraft()
             toast.success(t('journey_saved'))
-        } catch (error: any) {
+        } catch (error: unknown) {
             toast.error(`Unable to save: ${error}`)
         } finally {
             setHasUnsavedChanges(false)
             setSaving(false)
         }
-    }, [project, journey, nodes, edges])
+    }, [saveDraft, t])
 
     const createDraft = async () => {
         setSaving(true)
@@ -593,7 +608,7 @@ export default function JourneyEditor() {
 
         handleSetNodes(nds => nds.concat(newStep))
 
-    }, [setNodes, flowInstance, project, journey])
+    }, [flowInstance, handleSetNodes])
 
     const [editOpen, setEditOpen] = useState(false)
     const selected = nodes.filter(n => n.selected)
@@ -613,7 +628,7 @@ export default function JourneyEditor() {
         const x = n.position.x + ((n.width ?? 120) / 2)
         const y = n.position.y + ((n.height ?? 120) / 2)
         setTimeout(() => flowInstance?.setCenter(x, y, { zoom: 1 }), 10)
-    }, [flowInstance?.setCenter])
+    }, [flowInstance, setNodes])
 
     let stepEdit: ReactNode = null
     if (editNode) {

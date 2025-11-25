@@ -11,24 +11,22 @@ export default function LoginCallback() {
     const [searchParams] = useSearchParams()
     const redirect = searchParams.get('r') ?? '/'
 
-    const handleAuth = async () => {
-        switch (driver) {
-        case 'cloud':{
-            if (!session) return
-
-            await session.getToken()
-            await api.auth.cloudAuth(redirect)
-            break
-        }
-        }
-
-        window.location.href = redirect
-    }
-
     useEffect(() => {
-        handleAuth().catch((err) => {
-            console.error('Authentication error', err)
-        })
+        const handleAuth = async () => {
+            switch (driver) {
+                case 'cloud': {
+                    if (!session) return
+
+                    await session.getToken()
+                    await api.auth.cloudAuth(redirect)
+                    break
+                }
+            }
+
+            window.location.href = redirect
+        }
+
+        handleAuth()
     }, [driver, redirect, session])
 
     // TODO: handle callback error
