@@ -22,12 +22,10 @@ export default function UploadField<X extends FieldValues, P extends FieldPath<X
         isUploading = false,
         accept = 'text/csv',
     } = props
-    let { value, onChange } = props
-    if (form) {
-        const { field } = useController({ name, control: form?.control })
-        value = field.value
-        onChange = field.onChange
-    }
+    // Always call useController to satisfy rules of hooks
+    const controllerResult = useController({ name, control: form?.control, disabled: !form })
+    const value = form ? controllerResult.field.value : props.value
+    const onChange = form ? controllerResult.field.onChange : props.onChange
 
     const [isHighlighted, setIsHighlighted] = useState(false)
 

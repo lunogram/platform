@@ -1,4 +1,4 @@
-import type { ComponentConfig, Slot } from '@measured/puck';
+import type { ComponentConfig } from '@measured/puck';
 import { Layout, type LayoutProps, layoutClassMap } from './fields/Layout';
 import { cn } from '@/utils';
 import { Spacing, type SpacingProps, spacingClassMap } from './fields/Spacing';

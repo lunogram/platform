@@ -1,7 +1,7 @@
-import type { ReactNode} from 'react';
+import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react'
 import type { ControlledProps } from '../types'
-import type { Options} from 'rrule';
+import type { Options } from 'rrule';
 import { Frequency, RRule, Weekday } from 'rrule'
 import TextInput from './form/TextInput'
 import RadioInput from './form/RadioInput'
@@ -25,6 +25,7 @@ const frequencyOptions: FieldOption[] = [
     },
 ]
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const dayOptions: FieldOption[] = [
     {
         key: 'MO',
@@ -73,7 +74,9 @@ export default function RRuleEditor({ label, onChange, value }: RRuleEditorProps
                     options.freq = 'once'
                 }
                 return options
-            } catch {}
+            } catch {
+                // Ignore parsing errors
+            }
         }
         return {
             freq: 'once',
@@ -115,7 +118,7 @@ export default function RRuleEditor({ label, onChange, value }: RRuleEditorProps
                     setValues({ ...options, dtstart: value ? date : null })
                 }}
             />
-            { options.freq !== 'once' && (
+            {options.freq !== 'once' && (
                 <>
                     <TextInput
                         name="endDate"

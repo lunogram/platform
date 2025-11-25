@@ -155,7 +155,6 @@ TextInput.Field = function TextInputField<X extends FieldValues, P extends Field
     form,
     name,
     required,
-    value,
     onChange,
     onBlur,
     ...rest
