@@ -580,7 +580,7 @@ export interface Provider {
     name: string
     type: string
     group: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     data: any
     is_default: boolean
     rate_limit: number
@@ -598,7 +598,7 @@ export interface ProviderMeta {
     icon?: string
     type: string
     group: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     schema: any
     paths?: Record<string, string>
 }

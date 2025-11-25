@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 interface IframeProps {
     content: string
@@ -10,7 +10,7 @@ interface IframeProps {
 export default function Iframe({ content, fullHeight = false, allowScroll = true, width }: IframeProps) {
     const ref = useRef<HTMLIFrameElement>(null)
 
-    const setBody = () => {
+    const setBody = useCallback(() => {
         const frame = ref.current
         if (frame) {
             if (frame.contentDocument?.body) {
@@ -20,9 +20,9 @@ export default function Iframe({ content, fullHeight = false, allowScroll = true
                 frame.style.minHeight = `${frame.contentWindow?.document.documentElement.scrollHeight}px`
             }
         }
-    }
+    }, [content, fullHeight])
 
-    useEffect(() => setBody(), [content])
+    useEffect(() => setBody(), [content, setBody])
 
     return (
         <iframe

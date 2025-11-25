@@ -10,6 +10,7 @@ import clsx from 'clsx'
 import { stepCategoryColors } from './JourneyEditor'
 import { useTranslation } from 'react-i18next'
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const typeVariants: Record<string, TagProps['variant']> = {
     completed: 'success',
     error: 'error',

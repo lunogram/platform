@@ -17,9 +17,10 @@ const initial: Preferences = {
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const PreferencesContext = createContext<readonly [Preferences, Dispatch<SetStateAction<Preferences>>]>([
     initial,
-    () => {},
+    () => { },
 ])
 
 export function PreferencesProvider({ children }: PropsWithChildren<{}>) {
@@ -44,8 +45,8 @@ export function PreferencesProvider({ children }: PropsWithChildren<{}>) {
     useEffect(() => {
         document.body.setAttribute('data-theme', preferences.mode === 'dark' ? 'dark' : 'light')
         localStorageSetJson(PREFERENCES, preferences)
-        i18n.changeLanguage(preferences.lang).catch(() => {})
-    }, [preferences])
+        i18n.changeLanguage(preferences.lang).catch(() => { })
+    }, [preferences, i18n])
 
     return (
         <PreferencesContext.Provider value={useMemo(() => [preferences, setPreferences] as const, [preferences])}>

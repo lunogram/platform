@@ -3,7 +3,7 @@ import { SignIn } from '@clerk/clerk-react'
 // import { ReactComponent as Logo } from '../../assets/logo.svg'
 import { env } from '../../config/env'
 import Button from '../../ui/Button'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import api from '../../api'
 import type { AuthMethod } from '../../types'
 import FormWrapper from '../../ui/form/FormWrapper'
@@ -18,6 +18,8 @@ interface LoginParams {
     password?: string
 }
 
+const RESERVED_DRIVERS = ['cloud', 'basic', 'email'] as const
+
 export default function Login() {
     const { t } = useTranslation()
     const [searchParams] = useSearchParams()
@@ -26,18 +28,17 @@ export default function Login() {
     const [message, setMessage] = useState<string>()
     const redirect = searchParams.get('r') ?? '/'
 
-    const handleRedirect = (driver: string, email?: string) => {
+    const handleRedirect = useCallback((driver: string, email?: string) => {
         window.location.href = new URL(`/auth/login/${driver}?r=${redirect}&email=${email}`, env.api.baseURL).toString()
-    }
+    }, [redirect])
 
-    const reservedDrivers = ['cloud', 'basic', 'email']
-    const handleMethod = (method: AuthMethod) => {
-        if (reservedDrivers.includes(method.driver)) {
+    const handleMethod = useCallback((method: AuthMethod) => {
+        if (RESERVED_DRIVERS.includes(method.driver as typeof RESERVED_DRIVERS[number])) {
             setMethod(method)
         } else {
             handleRedirect(method.driver)
         }
-    }
+    }, [handleRedirect, setMethod])
 
     const handleBasicAuth = async ({ email, password }: LoginParams) => {
         if (!password) {
@@ -73,7 +74,7 @@ export default function Login() {
                 handleMethod(methods[0])
             }
         }).catch(() => { })
-    }, [])
+    }, [handleMethod])
 
     // TODO: we have to think what to do if no methods are available
     if (!methods || methods.length === 0) {
@@ -134,7 +135,7 @@ export default function Login() {
             {method && method.driver === 'cloud' && (
                 <SignIn forceRedirectUrl={`/login/cloud/callback?r=${redirect}`} />
             )}
-            {method && !reservedDrivers.includes(method.driver) && (
+            {method && !RESERVED_DRIVERS.includes(method.driver as typeof RESERVED_DRIVERS[number]) && (
                 <div className="auth-step">
                     <h2 className="legacy-typography">{t('welcome')}</h2>
                     <p>{t('login_email_available_methods')}</p>
