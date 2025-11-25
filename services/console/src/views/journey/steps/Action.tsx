@@ -61,13 +61,6 @@ export const actionStep: JourneyStepType<ActionConfig> = {
         onChange,
         value,
     }) {
-        const [campaign] = useResolver(useCallback(async () => {
-            if (value) {
-                return await api.campaigns.get(projectId, value.campaign_id)
-            }
-            return null
-        }, [projectId, value]))
-
         const { t } = useTranslation()
         return (
             <>
@@ -80,7 +73,7 @@ export const actionStep: JourneyStepType<ActionConfig> = {
                     onChange={campaign_id => onChange({ ...value, campaign_id: campaign_id ?? NIL as UUID })}
                     required
                     createModalSize="large"
-                    renderCreateForm={onCreated => (
+                    renderCreateForm={() => (
                         <CreateCampaign />
                     )}
                 />

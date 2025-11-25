@@ -31,7 +31,7 @@ export interface TypographyProps {
 export const typographyClassMap: Record<keyof TypographyViewport, (value: string, prefix: string) => string> = {
     fontFamily: (value, prefix) => `${prefix}font-${value}`,
     fontSize: (value, prefix) => `${prefix}text-${addUnit(value)}`,
-    fontWeight: (value, prefix) => `${prefix}font-${value}`,
+    fontWeight: (value, prefix) => `${prefix}font-[${value}]`,
     fontStyle: (value, prefix) => `${prefix}${value}`,
     lineHeight: (value, prefix) => `${prefix}leading-${addUnit(value)}`,
     letterSpacing: (value, prefix) => `${prefix}tracking-${addUnit(value)}`,

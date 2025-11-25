@@ -1,10 +1,12 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { Puck, Render, useGetPuck, type Config } from "@measured/puck";
-import { Tailwind, Html, Head, Body, pixelBasedPreset } from "@react-email/components";
+import { Tailwind, Html, Head, Body, pixelBasedPreset, Font } from "@react-email/components";
 import { render } from "@react-email/render";
 import { viewports } from "./viewport";
 import { useContext, useEffect } from "react";
-import { CampaignWorkflowContext } from "../../../contexts";
+import { TemplateWorkflowContext } from "../../contexts";
+import { renderToString } from 'react-dom/server'
+import parse from 'html-react-parser';
 
 import { Button, type ButtonProps } from "./components/Button";
 import { Container, type ContainerProps } from "./components/Container";
@@ -35,7 +37,14 @@ interface Components {
 const config: Config<Components> = {
     categories: {},
     root: {
-        fields: {},
+        fields: {
+            title: {
+                type: "text",
+            },
+            preview: {
+                type: "textarea",
+            },
+        },
     },
     components: {
         Button,
@@ -54,7 +63,7 @@ const config: Config<Components> = {
 // user clicks the "Next" button in the CampaignDetail view. This handler has to
 // be defined within a separate component to have access to the Puck context.
 function SaveHandler() {
-    const { onSubmit } = useContext(CampaignWorkflowContext);
+    const { onSubmit } = useContext(TemplateWorkflowContext);
     const [project] = useContext(ProjectContext);
     const [template, setTemplate] = useContext(TemplateContext);
     const getPuck = useGetPuck();
@@ -66,14 +75,15 @@ function SaveHandler() {
             presets: [pixelBasedPreset],
         }
 
+        const content = renderToString(<Render config={config} data={appState.data} />)
         const html = await render(
             <Html lang={template.locale}>
                 <Head />
-                <Body>
-                    <Tailwind config={tailwindConfig}>
-                        <Render config={config} data={appState.data} />
-                    </Tailwind>
-                </Body>
+                <Tailwind config={tailwindConfig}>
+                    <Body>
+                        {parse(content)}
+                    </Body>
+                </Tailwind>
             </Html>
         );
 
@@ -83,7 +93,7 @@ function SaveHandler() {
                 editor: appState.data,
                 html,
             }
-        })
+        });
 
         setTemplate(updated);
         return true

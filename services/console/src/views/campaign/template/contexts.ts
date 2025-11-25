@@ -1,11 +1,11 @@
 import { createContext } from 'react';
 
-export interface CampaignWorkflowContextValue {
+export interface TemplateWorkflowContextValue {
     onSubmit: (fn: () => Promise<boolean> | boolean) => () => void;
     submit: () => Promise<void>;
 }
 
-export const CampaignWorkflowContext = createContext<CampaignWorkflowContextValue>({
+export const TemplateWorkflowContext = createContext<TemplateWorkflowContextValue>({
     onSubmit: () => () => { },
     submit: async () => { },
 });

@@ -6,15 +6,14 @@ import api from "@/api";
 
 import { channels } from "./channels";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { CampaignWorkflowContext } from "../contexts";
+import { TemplateWorkflowContext } from "./contexts";
 
 export default function TemplateReview() {
     const [campaign] = useContext(CampaignContext);
     const [project] = useContext(ProjectContext);
-    const { onSubmit } = useContext(CampaignWorkflowContext);
+    const { onSubmit } = useContext(TemplateWorkflowContext);
     const [template] = useContext(CurrentTemplateContext);
     const { t } = useTranslation();
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -41,7 +40,7 @@ export default function TemplateReview() {
 
     const form = config.form(campaign, template);
     const ChannelFormControl = config.FormControl;
-    const ChannelPreview = config.Preview;
+    const ChannelPreview = config.ContentPreview;
 
     onSubmit(async () => {
         if (!template) {
@@ -91,16 +90,7 @@ export default function TemplateReview() {
             </div>
 
             <div className="w-3/5 bg-background p-8 pb-0 border-l">
-                <Tabs defaultValue="preview" className="h-full flex flex-col">
-                    {/* <div>
-                        <TabsList className="mb-2">
-                            <TabsTrigger value="preview">Preview</TabsTrigger>
-                        </TabsList>
-                    </div> */}
-                    <TabsContent value="preview" className="flex-1">
-                        <ChannelPreview campaign={campaign} form={form} />
-                    </TabsContent>
-                </Tabs>
+                <ChannelPreview campaign={campaign} form={form} />
             </div>
         </div>
     );
