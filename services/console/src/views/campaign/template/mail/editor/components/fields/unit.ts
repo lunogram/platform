@@ -42,6 +42,10 @@ function collectAllProperties<T>(
     const properties = new Set<string>();
     const breakpointOrder = ['sm', 'md', 'xl'] as const;
 
+    if (!breakouts) {
+        return properties;
+    }
+
     for (const breakpoint of breakpointOrder) {
         const viewport = breakouts[breakpoint];
         if (!viewport) continue;

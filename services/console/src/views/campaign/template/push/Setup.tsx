@@ -1,15 +1,25 @@
 import { Controller, useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { Campaign, Template, User } from "@/types";
+import type { Campaign, Template, User, Locale } from "@/types";
 import { Bell } from 'lucide-react';
 import { useTranslation } from "react-i18next";
-import { useContext, useState } from "react";
-import { ProjectContext } from "@/contexts";
+import { useContext, useState, useEffect } from "react";
+import { ProjectContext, TemplateContext } from "@/contexts";
+import { useNavigate } from "react-router";
+import { Button } from "@/components/ui/button";
+import api from "@/api";
 import * as z from "zod";
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { UserSelection } from "../UserSelection";
 
 const pushSetupFormSchema = z.object({
@@ -99,11 +109,27 @@ function randomNotification() {
 export interface PushSetupProps {
     campaign: Campaign;
     form: UseFormReturn<z.infer<typeof pushSetupFormSchema>>;
+    edit?: boolean;
 }
 
-export function PushPreview({ campaign: _campaign, form }: PushSetupProps) {
+export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
     const [project] = useContext(ProjectContext);
+    const [template, setTemplate] = useContext(TemplateContext);
+    const { t } = useTranslation();
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [selectedLocale, setSelectedLocale] = useState(template.locale);
+    const [locales, setLocales] = useState<Locale[]>([]);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const fetchLocales = async () => {
+            if (project?.id) {
+                const result = await api.locales.search(project.id, { limit: 100 });
+                setLocales(result.results);
+            }
+        };
+        fetchLocales();
+    }, [project?.id]);
 
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -111,14 +137,51 @@ export function PushPreview({ campaign: _campaign, form }: PushSetupProps) {
     const title = form.watch('title') ?? placeholderTitle;
     const body = form.watch('body') ?? placeholderBody;
 
+    const handleEditTemplate = () => {
+        navigate(`/projects/${project?.id}/campaigns/${campaign.id}/templates/${template.id}`);
+    };
+
+    const handleLocaleChange = async (locale: string) => {
+        setSelectedLocale(locale);
+        const newTemplate = campaign.templates.find(t => t.locale === locale);
+        if (!newTemplate) {
+            return
+        }
+        setTemplate(newTemplate);
+    };
+
     return (
         <>
-            <div className="mb-4">
-                <UserSelection
-                    projectId={project?.id}
-                    value={selectedUser}
-                    onChange={setSelectedUser}
-                />
+            <div className="mb-4 flex items-center justify-between gap-4">
+                <div className="flex-1">
+                    <UserSelection
+                        projectId={project?.id}
+                        value={selectedUser}
+                        onChange={setSelectedUser}
+                    />
+                </div>
+                {edit && (
+                    <div className="flex items-center gap-2">
+                        <Select value={selectedLocale} onValueChange={handleLocaleChange}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {campaign.templates.map((t) => {
+                                    const locale = locales.find(l => l.key === t.locale);
+                                    return (
+                                        <SelectItem key={t.id} value={t.locale}>
+                                            {locale?.label || t.locale}
+                                        </SelectItem>
+                                    );
+                                })}
+                            </SelectContent>
+                        </Select>
+                        <Button onClick={handleEditTemplate}>
+                            {t('campaign.template.edit')}
+                        </Button>
+                    </div>
+                )}
             </div>
             <div className="flex w-full items-end justify-end">
                 <div className="w-full max-w-md">
