@@ -111,6 +111,9 @@ importers:
       date-fns-tz:
         specifier: ^3.2.0
         version: 3.2.0(date-fns@4.1.0)
+      handlebars:
+        specifier: ^4.7.8
+        version: 4.7.8
       html-react-parser:
         specifier: ^5.2.10
         version: 5.2.10(@types/react@18.3.26)(react@18.3.1)
