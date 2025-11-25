@@ -1,5 +1,5 @@
 import { Controller, useForm } from "react-hook-form";
-import { useCallback, useContext, useEffect } from "react";
+import { useContext, useState } from "react";
 import { CampaignContext, ProjectContext } from "@/contexts";
 import { useTranslation } from "react-i18next";
 import api from "@/api";
@@ -9,7 +9,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ProviderSelect } from "@/components/provider/select";
-import { CampaignWorkflowContext } from "./contexts";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router";
 
 const schema = z.object({
     name: z.string().min(1, "Name is required"),
@@ -20,9 +21,10 @@ type FormData = z.infer<typeof schema>;
 
 export default function CampaignSetup() {
     const [campaign, setCampaign] = useContext(CampaignContext);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [project] = useContext(ProjectContext);
-    const { onSubmit: onNext } = useContext(CampaignWorkflowContext);
     const { t } = useTranslation();
+    const navigate = useNavigate();
 
     const form = useForm<FormData>({
         resolver: zodResolver(schema),
@@ -32,46 +34,46 @@ export default function CampaignSetup() {
         },
     });
 
-    onNext(async () => {
-        const isValid = await form.trigger();
-        if (!isValid) {
-            return false;
-        }
-
-        const data = form.getValues();
-        const updated = await api.campaigns.update(project.id, campaign.id, {
-            name: data.name,
-            provider_id: data.provider_id,
-        });
-
-        setCampaign(updated);
-
-        if (campaign.templates?.length === 0) {
-            const template = await api.templates.create(project.id, {
-                campaign_id: campaign.id,
-                locale: project.locale,
-                type: campaign.channel,
-                data: {}
+    const onSubmit = async (data: FormData) => {
+        setIsSubmitting(true);
+        try {
+            const updated = await api.campaigns.update(project.id, campaign.id, {
+                name: data.name,
+                provider_id: data.provider_id,
             });
 
-            setCampaign({
-                ...campaign,
-                templates: [template]
-            });
-        }
+            setCampaign(updated);
 
-        return true;
-    });
+            if (campaign.templates?.length === 0) {
+                const template = await api.templates.create(project.id, {
+                    campaign_id: campaign.id,
+                    locale: project.locale,
+                    type: campaign.channel,
+                    data: {}
+                });
+
+                setCampaign({
+                    ...campaign,
+                    templates: [template]
+                });
+            }
+
+            const template = campaign.templates.find((template) => template.locale === project.locale) ?? campaign.templates[0];
+            await navigate(`/projects/${project.id}/campaigns/${campaign.id.toString()}/templates/${template.id.toString()}`)
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
-        <div className="flex flex-1 items-center justify-center bg-muted/20">
+        <div className="flex h-screen items-center justify-center bg-muted/20">
             <div className="w-full max-w-2xl space-y-6 bg-background p-8 rounded-lg border">
                 <div className="space-y-2">
                     <h1 className="text-2xl font-semibold">{t('campaign.setup.title')}</h1>
                     <p className="text-muted-foreground">{t('campaign.setup.description')}</p>
                 </div>
 
-                <form className="space-y-6">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <FieldGroup>
                         <Controller
                             name="name"
@@ -115,6 +117,16 @@ export default function CampaignSetup() {
                             )}
                         />
                     </FieldGroup>
+
+                    <div className="flex justify-end">
+                        <Button
+                            type="submit"
+                            isLoading={isSubmitting}
+                            disabled={isSubmitting}
+                        >
+                            {t('actions.submit')}
+                        </Button>
+                    </div>
                 </form>
             </div>
         </div>

@@ -37,7 +37,7 @@ export const decorationClassMap: Record<Exclude<keyof DecorationViewport, 'borde
     borderTopRightRadius: (value, prefix) => `${prefix}rounded-tr-${addUnit(value)}`,
     borderBottomLeftRadius: (value, prefix) => `${prefix}rounded-bl-${addUnit(value)}`,
     borderBottomRightRadius: (value, prefix) => `${prefix}rounded-br-${addUnit(value)}`,
-    borderStyle: (value, prefix) => `${prefix}border-[${value}]`,
+    borderStyle: (value, prefix) => `${prefix}border-${value}`,
     borderColor: (value, prefix) => `${prefix}border-[${value}]`,
     borderTopWidth: (value, prefix) => `${prefix}border-t-${addUnit(value)}`,
     borderRightWidth: (value, prefix) => `${prefix}border-r-${addUnit(value)}`,

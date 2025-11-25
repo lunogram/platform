@@ -4,11 +4,11 @@ import { useTranslation } from "react-i18next";
 import api from "@/api";
 
 import { channels } from "./channels";
-import { CampaignWorkflowContext } from "../contexts";
+import { TemplateWorkflowContext } from "./contexts";
 
 export default function TemplateContent() {
     const [campaign] = useContext(CampaignContext);
-    const { onSubmit } = useContext(CampaignWorkflowContext);
+    const { onSubmit } = useContext(TemplateWorkflowContext);
     const [template, setTemplate] = useContext(CurrentTemplateContext);
     const [project] = useContext(ProjectContext);
     const { t } = useTranslation();

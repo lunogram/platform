@@ -209,8 +209,19 @@ export const Pricing: ComponentConfig<PricingProps> = {
                         {
                             type: "Divider",
                             props: {
-                                spacing: {
-                                    xl: {}
+                                layout: {
+                                    xl: {
+                                        width: '100%',
+                                    }
+                                },
+                                spacing: {},
+                                decoration: {
+                                    xl: {
+                                        borderTopWidth: '1',
+                                        borderWidthLinked: false,
+                                        borderColor: '#d1d5db',
+                                        borderStyle: 'solid',
+                                    }
                                 },
                             }
                         },

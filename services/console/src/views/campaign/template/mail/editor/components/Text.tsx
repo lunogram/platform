@@ -43,8 +43,6 @@ export const Text: ComponentConfig<TextProps> = {
         decoration: {},
     },
     render: ({ content: Content, layout, spacing, typography, decoration }) => {
-        console.log(layout)
-
         const classes = cn(
             "puck-text-component",
             generateTailwindClasses(layout, layoutClassMap),
