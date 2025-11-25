@@ -1,6 +1,6 @@
 import { PageParams } from '../core/searchParams'
 import Template, { EmailTemplate, PushTemplate, TemplateParams, TemplateType, TemplateUpdateParams, TextTemplate, WebhookTemplate } from './Template'
-import { partialMatchLocale, pick, prune } from '../utilities'
+import { partialMatchLocale, pick } from '../utilities'
 import { Variables } from '.'
 import { loadEmailChannel } from '../providers/email'
 import { getCampaign } from '../campaigns/CampaignService'
