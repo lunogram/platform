@@ -18,7 +18,8 @@ import { addUsersStream, removeUsersStream } from './UserImport'
 import { filterObjectForRulePaths } from '../projects/ProjectRulePathRepository'
 import { RulePathVisibility } from '../rules/ProjectRulePath'
 import { UUID } from 'node:crypto'
-import { ClientIdentifyParams } from 'client/Client'
+import { ClientIdentifyParams, ClientPostEventsRequest } from 'client/Client'
+import EventPostJob from '../client/EventPostJob'
 
 const router = new Router<
     ProjectState & { user?: User }
@@ -355,6 +356,71 @@ router.get('/:userId/events', async ctx => {
     })
     const params = extractQueryParams(ctx.query, searchSchema)
     ctx.body = await getUserEvents(ctx.state.user!.id, params, ctx.state.project.id)
+})
+
+/**
+ * Post Event
+ * Used by client libraries to trigger an event that can be used
+ * to execute a step in a journey or update a virtual list.
+ */
+const postEventsRequest: JSONSchemaType<ClientPostEventsRequest> = {
+    $id: 'postEvents',
+    type: 'array',
+    items: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+            name: {
+                type: 'string',
+            },
+            data: {
+                type: 'object',
+                nullable: true,
+                additionalProperties: true,
+            },
+            user: {
+                type: 'object',
+                nullable: true,
+                properties: {
+                    email: {
+                        type: 'string',
+                        nullable: true,
+                    },
+                    phone: {
+                        type: 'string',
+                        nullable: true,
+                    },
+                    timezone: {
+                        type: 'string',
+                        nullable: true,
+                    },
+                    locale: {
+                        type: 'string',
+                        nullable: true,
+                    },
+                    data: {
+                        type: 'object',
+                        nullable: true,
+                        additionalProperties: true,
+                    },
+                },
+            },
+        },
+    },
+    minItems: 1,
+} as any
+router.post('/:userId/events', async ctx => {
+    const events = validate(postEventsRequest, ctx.request.body)
+
+    const jobs = events.map(event => EventPostJob.from({
+        project_id: ctx.state.project.id,
+        user_id: ctx.state.user!.id,
+        event,
+    }))
+    await App.main.queue.enqueueBatch(jobs)
+
+    ctx.status = 204
+    ctx.body = ''
 })
 
 router.get('/:userId/subscriptions', async ctx => {

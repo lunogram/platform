@@ -247,6 +247,12 @@ const api = {
         events: async (projectId: UUID, userId: UUID, params: SearchParams) => await client
             .get<SearchResult<UserEvent>>(`${projectUrl(projectId)}/users/${userId}/events`, { params })
             .then(r => r.data),
+        add_event: async (projectId: UUID, userId: UUID, eventName: string, eventData: Record<string, unknown>) => await client
+            .post(`${projectUrl(projectId)}/users/${userId}/events`, [{ 
+                name: eventName,
+                data: eventData 
+        }])
+            .then(r => r.data),
         subscriptions: async (projectId: UUID, userId: UUID, params: SearchParams) => await client
             .get<SearchResult<UserSubscription>>(`${projectUrl(projectId)}/users/${userId}/subscriptions`, { params })
             .then(r => r.data),
