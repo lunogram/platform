@@ -20,7 +20,7 @@ import { CreateCampaign } from './CreateCampaign'
 
 import type { Campaign, CampaignDelivery, CampaignState } from '@/types'
 import type { UUID } from '@/types/common'
-import { TypeSelect } from '@/ui/TypeSelect'
+import { SingleSelect } from '../../ui/form/SingleSelect'
 
 export const CampaignTag = ({ state, progress, send_at }: Pick<Campaign, 'state' | 'progress' | 'send_at'>) => {
     const variant: Record<CampaignState, TagVariant> = {
@@ -217,7 +217,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     enableSearch
                     tagEntity="campaigns"
                     filters={[
-                        <TypeSelect
+                        <SingleSelect
                             key="type"
                             options={campaignTypes}
                             prefix={t('type')}
@@ -230,6 +230,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                 },
                             })}
                             toValue={(value) => value.key}
+                            className='[&_svg]:h-2 [&_select-button]:px-1'
                         />,
                     ]}
                 />
