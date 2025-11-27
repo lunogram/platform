@@ -121,7 +121,7 @@ export default function TextInput<X extends TextInputValue>({
           <Input
             type={type}
             value={value}
-            className={cn("h-5", size)}
+            className={cn(size)}
             readOnly={readOnly}
             placeholder={placeholder}
             onChange={(event) => {
