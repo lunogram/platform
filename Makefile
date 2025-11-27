@@ -46,6 +46,7 @@ TOOLCHAIN = $(STRINGER) $(MINIMOCK) $(OAPI_CODEGEN)
 # Targets
 .PHONY: lint
 lint: | $(EMBEDDED) $(GOLANGCI_LINT) $(BUF) ; $(info $(M) running linters…) @ ## Run the project linters
+	$Q $(PNPM) run lint
 	$Q $(GOLANGCI_LINT) run --max-issues-per-linter 10 --timeout 5m
 
 .PHONY: test
