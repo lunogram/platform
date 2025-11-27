@@ -1,6 +1,5 @@
 import knex, { Knex as Database } from 'knex'
-import path from 'path'
-import { removeKey, sleep } from '../utilities'
+import { removeKey } from '../utilities'
 import { logger } from './logger'
 
 export { Database }
@@ -16,9 +15,7 @@ export interface DatabaseConfig {
 
 export type Query = (builder: Database.QueryBuilder<any>) => Database.QueryBuilder<any>
 
-const MIGRATION_RETRIES = 3
-
-knex.QueryBuilder.extend('when', function (
+knex.QueryBuilder.extend('when', function(
     condition: boolean,
     fnif: Query,
     fnelse?: Query,
