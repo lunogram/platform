@@ -638,7 +638,6 @@ ALTER TABLE "rules" ADD FOREIGN KEY ("parent_id") REFERENCES "rules"("id") ON DE
 
 
 -- Indices
-CREATE UNIQUE INDEX rules_uuid_key ON public.rules USING btree (uuid);
 CREATE INDEX rules_project_id_idx ON public.rules USING btree (project_id);
 CREATE INDEX rules_parent_id_idx ON public.rules USING btree (parent_id);
 CREATE INDEX rules_root_id_idx ON public.rules USING btree (root_id);

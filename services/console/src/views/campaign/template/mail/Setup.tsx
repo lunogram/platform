@@ -34,7 +34,7 @@ const emailSetupFormSchema = z.object({
     name: z.string().optional(),
     email: z.email("Invalid from email address").optional(),
   }),
-  replyTo: z.email("Invalid reply-to email address").optional(),
+  replyTo: z.email("Invalid reply-to email address").optional().or(z.literal("")),
 });
 
 const randomSubjects = [
@@ -75,7 +75,7 @@ export function EmailForm(campaign: Campaign, template?: Template) {
         email: template?.data.from?.email ?? "",
       },
       subject: template?.data.subject ?? randomSubject(),
-      replyTo: template?.data.replyTo,
+      replyTo: template?.data.replyTo ?? "",
     },
   });
 
