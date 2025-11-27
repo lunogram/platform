@@ -151,6 +151,12 @@ func (srv *CampaignsController) GetCampaign(w http.ResponseWriter, r *http.Reque
 	logger.Info("getting campaign")
 
 	campaign, err := srv.store.GetCampaign(ctx, projectID, campaignID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Error("campaign not found", zap.Stringer("campaign_id", campaignID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
+		return
+	}
+
 	if err != nil {
 		logger.Error("failed to fetch campaign", zap.Error(err))
 		oapi.WriteProblem(w, err)
