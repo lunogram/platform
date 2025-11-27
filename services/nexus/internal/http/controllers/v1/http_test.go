@@ -7,3 +7,7 @@ var DefaultProject = store.Project{
 	Timezone: "UTC",
 	Locale:   "en-US",
 }
+
+func ptr[T any](v T) *T {
+	return &v
+}

@@ -274,17 +274,3 @@ func TestUpdateCampaign(t *testing.T) {
 		})
 	}
 }
-
-func ptr(s string) *string {
-	return &s
-}
-
-func ptrLimit(i int) *oapi.Limit {
-	l := oapi.Limit(i)
-	return &l
-}
-
-func ptrOffset(i int) *oapi.Offset {
-	o := oapi.Offset(i)
-	return &o
-}
