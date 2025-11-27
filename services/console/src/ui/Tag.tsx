@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from 'react'
-import clsx from 'clsx'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/utils'
 
 import './Tag.css'
 
@@ -15,10 +16,10 @@ export type TagProps = PropsWithChildren<{
 
 export default function Tag({ variant = 'info', size = 'regular', children, onClick }: TagProps) {
     return (
-        <div className={clsx('ui-tag', variant, size)}>
+        <Badge className={cn('ui-tag', variant, size)}>
             {children}
             {onClick && <div className="tag-close bi-x" onClick={onClick} />}
-        </div>
+        </Badge>
     )
 }
 
