@@ -19,7 +19,9 @@ import UserDetailEvents from './users/UserDetailEvents'
 import UserDetailSubscriptions from './users/UserDetailSubscriptions'
 import Campaigns from './campaign/Campaigns'
 import Campaign from './campaign/Campaign'
-import CampaignSetup from './campaign/Setup'
+import CampaignDetails from './campaign/CampaignDetails';
+import CampaignSetup from './campaign/setup/Setup'
+import Template from './campaign/template/Template';
 import TemplateContent from './campaign/template/Content'
 import TemplateReview from './campaign/template/Review'
 import EmailEditor from './campaign/template/mail/editor/Editor'
@@ -272,11 +274,7 @@ export const createRouter = ({
                                         children: [
                                             {
                                                 index: true,
-                                                loader: () => {
-
-
-                                                    return redirect('setup')
-                                                }
+                                                element: <CampaignDetails />,
                                             },
                                             {
                                                 path: 'setup',
@@ -287,7 +285,7 @@ export const createRouter = ({
                                                 apiPath: api.templates,
                                                 context: TemplateContext,
                                                 paramName: 'templateId',
-                                                element: <Outlet />,
+                                                element: <Template />,
                                                 children: [
                                                     {
                                                         index: true,

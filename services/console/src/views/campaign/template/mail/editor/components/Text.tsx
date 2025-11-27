@@ -1,5 +1,4 @@
-import type { ComponentConfig } from '@measured/puck';
-import { Button as EmailButton } from '@react-email/components';
+import type { ComponentConfig, Slot } from '@measured/puck';
 import { Layout, type LayoutProps, layoutClassMap } from './fields/Layout';
 import { cn } from '@/utils';
 import { Spacing, type SpacingProps, spacingClassMap } from './fields/Spacing';
@@ -7,58 +6,45 @@ import { Typography, type TypographyProps, typographyClassMap } from './fields/T
 import { Decoration, type DecorationProps, decorationClassMap } from './fields/Decoration';
 import { generateTailwindClasses } from './fields/unit';
 
-export interface ButtonProps {
-    value: string;
-    href: string;
+export interface TextProps {
+    content: Slot;
     layout: LayoutProps;
     spacing: SpacingProps;
     typography: TypographyProps;
     decoration: DecorationProps;
 };
 
-export const Button: ComponentConfig<ButtonProps> = {
+export const Text: ComponentConfig<TextProps> = {
     fields: {
-        value: {
-            type: "text",
-        },
-        href: {
-            type: "text",
+        content: {
+            type: "slot",
         },
         layout: Layout,
-        typography: Typography,
         spacing: Spacing,
+        typography: Typography,
         decoration: Decoration,
     },
     defaultProps: {
-        value: "Next",
-        href: "#",
-        layout: {
-            xl: {
-                width: '100%',
+        content: [
+            {
+                type: "TextSection",
+                props: {},
             }
-        },
+        ],
+        layout: {},
+        spacing: {},
         typography: {
             xl: {
-                textAlign: 'center',
                 fontSize: '16',
-                fontWeight: 'semibold',
-                color: '#ffffff',
+                fontWeight: '600',
+                color: '#000000',
             }
         },
-        spacing: {},
-        decoration: {
-            xl: {
-                borderTopLeftRadius: '8',
-                borderTopRightRadius: '8',
-                borderBottomLeftRadius: '8',
-                borderBottomRightRadius: '8',
-                backgroundColor: '#4f46e5',
-            }
-        },
+        decoration: {},
     },
-    render: ({ value, href, layout, spacing, typography, decoration }) => {
+    render: ({ content: Content, layout, spacing, typography, decoration }) => {
         const classes = cn(
-            "box-border",
+            "puck-text-component",
             generateTailwindClasses(layout, layoutClassMap),
             generateTailwindClasses(spacing, spacingClassMap),
             generateTailwindClasses(typography, typographyClassMap),
@@ -66,9 +52,9 @@ export const Button: ComponentConfig<ButtonProps> = {
         )
 
         return (
-            <EmailButton className={classes} href={href}>
-                {value}
-            </EmailButton>
+            <p className={classes}>
+                <Content />
+            </p>
         );
     },
 }

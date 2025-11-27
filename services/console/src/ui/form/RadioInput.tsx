@@ -27,7 +27,7 @@ export default function RadioInput<X, P = X>({
                 onChange?.(toValue(options[0]))
             }, 0)
         }
-    }, [options])
+    }, [options, value, onChange, toValue])
 
     return (
         <RadioGroup

@@ -1,4 +1,4 @@
-import { parseISO, formatDuration as dateFnsFormatDuration } from 'date-fns'
+import { parseISO, formatDuration as dateFnsFormatDuration, type Duration } from 'date-fns'
 import { format, toZonedTime } from 'date-fns-tz'
 import { organizationRoles, projectRoles } from './types'
 import type { OrganizationRole, Preferences, Project, ProjectRole } from './types'

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronsUpDown, Scan } from "lucide-react";
+import { ChevronsUpDown } from "lucide-react";
 
 interface CollapsibleFieldProps {
     icon: React.ReactNode;

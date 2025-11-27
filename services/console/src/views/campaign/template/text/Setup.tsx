@@ -1,15 +1,25 @@
 import { Controller, useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Ellipsis, UserRound } from 'lucide-react';
-import type { Campaign, Template, User } from "@/types";
+import type { Campaign, Template, User, Locale } from "@/types";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
+import api from "@/api";
 import * as z from "zod";
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { UserSelection } from "../UserSelection";
-import { useContext, useState } from "react";
-import { ProjectContext } from "@/contexts";
+import { useContext, useState, useEffect } from "react";
+import { ProjectContext, TemplateContext } from "@/contexts";
 
 const textSetupFormSchema = z.object({
     message: z.string("Message is required").min(1, "Message is required"),
@@ -62,24 +72,80 @@ export function TextFormControl({ form, disabled = false }: TextFormControlProps
 export interface TextSetupProps {
     campaign: Campaign;
     form: UseFormReturn<z.infer<typeof textSetupFormSchema>>;
+    edit?: boolean;
 }
 
-export function TextPreview({ campaign: _campaign, form }: TextSetupProps) {
+export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
     const [project] = useContext(ProjectContext);
+    const [template, setTemplate] = useContext(TemplateContext);
     const { t } = useTranslation();
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [selectedLocale, setSelectedLocale] = useState(template.locale);
+    const [locales, setLocales] = useState<Locale[]>([]);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const fetchLocales = async () => {
+            if (project?.id) {
+                const result = await api.locales.search(project.id, { limit: 100 });
+                setLocales(result.results);
+            }
+        };
+        fetchLocales();
+    }, [project?.id]);
 
     const message = form.watch('message');
     const phoneNumber = project.name.charAt(0).toUpperCase() + project.name.slice(1);
 
+    const handleEditTemplate = () => {
+        navigate(`/projects/${project?.id}/campaigns/${campaign.id}/templates/${template.id}`);
+    };
+
+    const handleLocaleChange = async (locale: string) => {
+        setSelectedLocale(locale);
+        const newTemplate = campaign.templates.find(t => t.locale === locale);
+        if (!newTemplate) {
+            return
+        }
+        setTemplate(newTemplate);
+    };
+
     return (
         <div className="flex h-full items-center flex-col">
-            <div className="mb-8 m-auto">
-                <UserSelection
-                    projectId={project?.id}
-                    value={selectedUser}
-                    onChange={setSelectedUser}
-                />
+            <div className="mb-8 m-auto flex items-center gap-4 w-full max-w-md">
+                <div className={edit ? "flex-1" : "flex-1 flex justify-center"}>
+                    <UserSelection
+                        projectId={project?.id}
+                        value={selectedUser}
+                        onChange={setSelectedUser}
+                    />
+                </div>
+                {edit && (
+                    <>
+                        <div className="flex-1">
+                            <Select value={selectedLocale} onValueChange={handleLocaleChange}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {campaign.templates.map((t) => {
+                                        const locale = locales.find(l => l.key === t.locale);
+                                        return (
+                                            <SelectItem key={t.id} value={t.locale}>
+                                                {locale?.label || t.locale}
+                                            </SelectItem>
+                                        );
+                                    })}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex-1">
+                            <Button onClick={handleEditTemplate} className="w-full">
+                                {t('campaign.template.edit')}
+                            </Button>
+                        </div>
+                    </>
+                )}
             </div>
             <div className="w-[390px] h-[533px] bg-zinc-900 rounded-t-[70px] p-3 pb-0 shadow-2xl">
                 <div className="w-full h-full bg-white rounded-t-[58px] overflow-hidden flex flex-col">

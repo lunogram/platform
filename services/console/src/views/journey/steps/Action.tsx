@@ -61,18 +61,11 @@ export const actionStep: JourneyStepType<ActionConfig> = {
         onChange,
         value,
     }) {
-        const [campaign] = useResolver(useCallback(async () => {
-            if (value) {
-                return await api.campaigns.get(projectId, value.campaign_id)
-            }
-            return null
-        }, [projectId, value]))
-
         const { t } = useTranslation()
         return (
             <>
                 <EntityIdPicker
-                    label={t('campaign.singluar')}
+                    label={t('campaign.singular')}
                     subtitle={t('send_campaign_desc')}
                     get={useCallback(async id => await api.campaigns.get(projectId, id), [projectId])}
                     search={useCallback(async q => await api.campaigns.search(projectId, { q, limit: 50, filter: { type: 'trigger' } }), [projectId])}
@@ -80,7 +73,7 @@ export const actionStep: JourneyStepType<ActionConfig> = {
                     onChange={campaign_id => onChange({ ...value, campaign_id: campaign_id ?? NIL as UUID })}
                     required
                     createModalSize="large"
-                    renderCreateForm={onCreated => (
+                    renderCreateForm={() => (
                         <CreateCampaign />
                     )}
                 />

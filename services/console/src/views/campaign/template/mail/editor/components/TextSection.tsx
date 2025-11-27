@@ -1,5 +1,4 @@
 import type { ComponentConfig } from '@measured/puck';
-import { Button as EmailButton } from '@react-email/components';
 import { Layout, type LayoutProps, layoutClassMap } from './fields/Layout';
 import { cn } from '@/utils';
 import { Spacing, type SpacingProps, spacingClassMap } from './fields/Spacing';
@@ -7,58 +6,34 @@ import { Typography, type TypographyProps, typographyClassMap } from './fields/T
 import { Decoration, type DecorationProps, decorationClassMap } from './fields/Decoration';
 import { generateTailwindClasses } from './fields/unit';
 
-export interface ButtonProps {
+export interface TextSectionProps {
     value: string;
-    href: string;
     layout: LayoutProps;
     spacing: SpacingProps;
     typography: TypographyProps;
     decoration: DecorationProps;
 };
 
-export const Button: ComponentConfig<ButtonProps> = {
+export const TextSection: ComponentConfig<TextSectionProps> = {
     fields: {
         value: {
             type: "text",
-        },
-        href: {
-            type: "text",
+            contentEditable: true,
         },
         layout: Layout,
-        typography: Typography,
         spacing: Spacing,
+        typography: Typography,
         decoration: Decoration,
     },
     defaultProps: {
-        value: "Next",
-        href: "#",
-        layout: {
-            xl: {
-                width: '100%',
-            }
-        },
-        typography: {
-            xl: {
-                textAlign: 'center',
-                fontSize: '16',
-                fontWeight: 'semibold',
-                color: '#ffffff',
-            }
-        },
+        value: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.",
+        layout: {},
         spacing: {},
-        decoration: {
-            xl: {
-                borderTopLeftRadius: '8',
-                borderTopRightRadius: '8',
-                borderBottomLeftRadius: '8',
-                borderBottomRightRadius: '8',
-                backgroundColor: '#4f46e5',
-            }
-        },
+        typography: {},
+        decoration: {},
     },
-    render: ({ value, href, layout, spacing, typography, decoration }) => {
+    render: ({ value, layout, spacing, typography, decoration }) => {
         const classes = cn(
-            "box-border",
             generateTailwindClasses(layout, layoutClassMap),
             generateTailwindClasses(spacing, spacingClassMap),
             generateTailwindClasses(typography, typographyClassMap),
@@ -66,9 +41,9 @@ export const Button: ComponentConfig<ButtonProps> = {
         )
 
         return (
-            <EmailButton className={classes} href={href}>
+            <span className={classes}>
                 {value}
-            </EmailButton>
+            </span>
         );
     },
 }

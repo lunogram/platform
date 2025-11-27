@@ -38,6 +38,10 @@
             "title": "New Campaign",
             "description": "Select a campaign type you would like to create."
         },
+        "details": {
+            "title": "Campaign",
+            "description": "Configure your campaign settings and preview how it will appear to users."
+        },
         "provider": {
             "title": "Select Provider",
             "description": "Choose which provider to use for sending this campaign",
@@ -77,7 +81,8 @@
                     "reply_to": {
                         "label": "Reply-To Email"
                     },
-                    "preview_disclaimer": "Preview only, email clients may display differently."
+                    "preview_disclaimer": "Preview only, email clients may display differently.",
+                    "no_content_available": "No content available"
                 },
                 "text": {
                     "message": {
@@ -102,7 +107,12 @@
             "setup": {
                 "title": "Template Setup",
                 "description": "Configure template-specific settings for this locale."
-            }
+            },
+            "edit": "Edit Template"
+        },
+        "review": {
+            "title": "Review",
+            "description": "Review your campaign before sending."
         }
     },
     "channels": {
@@ -174,6 +184,10 @@
             "description": "External Integration",
             "message": "This integration is managed externally and cannot be edited here."
         }
+    },
+    "actions": {
+        "save": "Save",
+        "submit": "Submit"
     },
     "abort_campaign": "Abort Campaign",
     "aborted": "Aborted",
@@ -606,5 +620,114 @@
     "next": "Next",
     "close": "Close",
     "skip": "Skip",
-    "loading": "Loading"
+    "loading": "Loading",
+    "editor": {
+        "fields": {
+            "spacing": {
+                "padding": "Padding",
+                "margin": "Margin",
+                "top": "Top",
+                "right": "Right",
+                "bottom": "Bottom",
+                "left": "Left",
+                "all": "All",
+                "placeholder": "0"
+            },
+            "layout": {
+                "width": "Width",
+                "width_placeholder": "auto",
+                "height": "Height",
+                "height_placeholder": "auto",
+                "min_width": "Min Width",
+                "min_width_placeholder": "0",
+                "min_height": "Min Height",
+                "min_height_placeholder": "0",
+                "max_width": "Max Width",
+                "max_width_placeholder": "none",
+                "max_height": "Max Height",
+                "max_height_placeholder": "none"
+            },
+            "decoration": {
+                "background": "Background",
+                "background_color": "Background Color",
+                "border_radius": "Border Radius",
+                "border_radius_placeholder": "0",
+                "top_left": "Top Left",
+                "top_right": "Top Right",
+                "bottom_left": "Bottom Left",
+                "bottom_right": "Bottom Right",
+                "border": "Border",
+                "border_style": "Border Style",
+                "border_style_placeholder": "Select style",
+                "border_color": "Border Color",
+                "border_width_placeholder": "0",
+                "border_styles": {
+                    "solid": "Solid",
+                    "dashed": "Dashed",
+                    "dotted": "Dotted",
+                    "double": "Double",
+                    "none": "None"
+                }
+            },
+            "typography": {
+                "title": "Typography",
+                "font_family": "Font Family",
+                "font_family_placeholder": "Select font",
+                "font_size": "Font Size",
+                "font_size_placeholder": "16px",
+                "font_weight": "Font Weight",
+                "font_weight_placeholder": "Select weight",
+                "font_style": "Font Style",
+                "font_style_placeholder": "Select style",
+                "line_height": "Line Height",
+                "line_height_placeholder": "1.5",
+                "letter_spacing": "Letter Spacing",
+                "letter_spacing_placeholder": "0",
+                "color": "Color",
+                "text_align": "Text Align",
+                "text_align_placeholder": "Select align",
+                "text_decoration": "Text Decoration",
+                "text_decoration_placeholder": "Select decoration",
+                "text_transform": "Text Transform",
+                "text_transform_placeholder": "Select transform",
+                "font_families": {
+                    "sans": "Sans Serif",
+                    "serif": "Serif",
+                    "mono": "Monospace"
+                },
+                "font_weights": {
+                    "100": "Thin",
+                    "200": "Extra Light",
+                    "300": "Light",
+                    "400": "Normal",
+                    "500": "Medium",
+                    "600": "Semi Bold",
+                    "700": "Bold",
+                    "800": "Extra Bold",
+                    "900": "Black"
+                },
+                "font_styles": {
+                    "normal": "Normal",
+                    "italic": "Italic"
+                },
+                "text_aligns": {
+                    "left": "Left",
+                    "center": "Center",
+                    "right": "Right",
+                    "justify": "Justify"
+                },
+                "text_decorations": {
+                    "none": "None",
+                    "underline": "Underline",
+                    "line_through": "Line Through"
+                },
+                "text_transforms": {
+                    "none": "None",
+                    "uppercase": "Uppercase",
+                    "lowercase": "Lowercase",
+                    "capitalize": "Capitalize"
+                }
+            }
+        }
+    }
 }

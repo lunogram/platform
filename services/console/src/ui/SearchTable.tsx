@@ -58,6 +58,7 @@ const fromTableParams = (params: Partial<SearchParams>): Record<string, string> 
     })
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useTableSearchParams = (initialParams: Partial<SearchParams> = {}) => {
     const [searchParams, setSearchParams] = useSearchParams({
         page: DEFAULT_PAGE.toString(),
@@ -65,9 +66,11 @@ export const useTableSearchParams = (initialParams: Partial<SearchParams> = {}) 
     })
 
     const setParams = useCallback<(params: SearchParams | ((prev: SearchParams) => SearchParams)) => void>(next => {
-        typeof next === 'function'
-            ? setSearchParams(prev => fromTableParams(next(toTableParams(prev))))
-            : setSearchParams(fromTableParams(next))
+        if (typeof next === 'function') {
+            setSearchParams(prev => fromTableParams(next(toTableParams(prev))))
+        } else {
+            setSearchParams(fromTableParams(next))
+        }
     }, [setSearchParams])
 
     const str = searchParams.toString()
@@ -81,6 +84,7 @@ export const useTableSearchParams = (initialParams: Partial<SearchParams> = {}) 
 /**
  * local state
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSearchTableState<T>(loader: (params: SearchParams) => Promise<SearchResult<T> | null>, initialParams?: Partial<SearchParams>) {
 
     const [params, setParams] = useState<SearchParams>({
@@ -109,6 +113,7 @@ export interface SearchTableQueryState<T> {
 /**
  * global query string state
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSearchTableQueryState<T>(loader: (params: SearchParams) => Promise<SearchResult<T> | null>, initialParams?: Partial<SearchParams>): SearchTableQueryState<T> {
 
     const [params, setParams] = useTableSearchParams(initialParams)
@@ -198,7 +203,8 @@ export function SearchTable<T extends Record<string, any>>({
                 isLoading={!results}
                 columnSort={columnSort}
                 onColumnSort={(onSort) => {
-                    const { sort, direction, ...prevParams } = params
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    const { sort: _sort, direction: _direction, ...prevParams } = params
                     setParams({ ...prevParams, ...onSort })
                 }} />
             {results && (

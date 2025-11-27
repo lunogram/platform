@@ -3,7 +3,6 @@ import Render, { RenderObject, Variables, Wrap } from '.'
 import { ChannelType } from '../config/channels'
 import Model, { ModelParams } from '../core/Model'
 import { isValid, IsValidSchema } from '../core/validate'
-import { NotificationContent } from '../notifications/Notification'
 import { Email, NamedEmail } from '../providers/email/Email'
 import { BasePush } from '../providers/push/Push'
 import { Webhook } from '../providers/webhook/Webhook'
@@ -26,20 +25,20 @@ export default class Template extends Model {
     async map(): Promise<TemplateType> {
         const json = this as any
         switch (this.type) {
-            case 'email': {
-                const provider = await getCampaignProvider(this.campaign_id, this.project_id)
-                const template = EmailTemplate.fromJson(json)
-                return template.withProvider(provider)
-            }
-            case 'text': {
-                return TextTemplate.fromJson(json)
-            }
-            case 'push': {
-                return PushTemplate.fromJson(json)
-            }
-            default: {
-                return WebhookTemplate.fromJson(json)
-            }
+        case 'email': {
+            const provider = await getCampaignProvider(this.campaign_id, this.project_id)
+            const template = EmailTemplate.fromJson(json)
+            return template.withProvider(provider)
+        }
+        case 'text': {
+            return TextTemplate.fromJson(json)
+        }
+        case 'push': {
+            return PushTemplate.fromJson(json)
+        }
+        default: {
+            return WebhookTemplate.fromJson(json)
+        }
         }
     }
 
