@@ -75,7 +75,7 @@ export function EmailForm(campaign: Campaign, template?: Template) {
         email: template?.data.from?.email ?? "",
       },
       subject: template?.data.subject ?? randomSubject(),
-      replyTo: template?.data.replyTo ?? "",
+      replyTo: template?.data.replyTo,
     },
   });
 

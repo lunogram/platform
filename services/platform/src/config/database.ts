@@ -18,7 +18,7 @@ export type Query = (builder: Database.QueryBuilder<any>) => Database.QueryBuild
 
 const MIGRATION_RETRIES = 3
 
-knex.QueryBuilder.extend('when', function(
+knex.QueryBuilder.extend('when', function (
     condition: boolean,
     fnif: Query,
     fnelse?: Query,
@@ -46,57 +46,13 @@ const connect = (config: DatabaseConfig, withDB = true) => {
     })
 }
 
-const migrate = async (config: DatabaseConfig, db: Database, retries = MIGRATION_RETRIES): Promise<void> => {
-    try {
-        return await db.migrate.latest({
-            directory: [
-                path.resolve(__dirname, '../../db/migrations'),
-                ...config.migrationPaths,
-            ],
-            tableName: 'migrations',
-            loadExtensions: ['.js', '.ts'],
-        })
-    } catch (error: any) {
-        if (error?.name === 'MigrationLocked' && retries > 0) {
-            --retries
-            await sleep((MIGRATION_RETRIES - retries) * 1000)
-            return await migrate(config, db, retries)
-        }
-        throw error
-    }
-}
-
-const createDatabase = async (config: DatabaseConfig, db: Database) => {
-    try {
-        await db.raw(`CREATE DATABASE ${config.database}`)
-    } catch (error: any) {
-        if (error.errno !== 1007) throw error
-    }
-}
-
 export default async (config: DatabaseConfig) => {
 
     // Attempt to connect & migrate
     try {
-        const db = connect(config)
-        await migrate(config, db)
-        return db
+        return connect(config)
     } catch (error: any) {
-
-        // Check if error is related to DB not existing
-        if (error?.errno === 1049) {
-
-            // Connect without database and create it
-            let db = connect(config, false)
-            await createDatabase(config, db)
-
-            // Reconnect using new database
-            db = connect(config)
-            await migrate(config, db)
-            return db
-        } else {
-            logger.error(error, 'database error')
-            throw error
-        }
+        logger.error(error, 'database error')
+        throw error
     }
 }
