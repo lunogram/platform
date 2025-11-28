@@ -1,0 +1,542 @@
+openapi: 3.0.3
+info:
+  title: Lunogram Platform API
+  description: API for managing campaigns, templates, and providers
+  version: 1.0.0
+
+paths:
+  /api/admin/projects/{projectID}/campaigns:
+    get:
+      summary: List campaigns
+      description: Retrieves a list of campaigns with optional filtering
+      operationId: listCampaigns
+      tags:
+        - Campaigns
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          $ref: '#/components/responses/CampaignListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+    post:
+      summary: Create campaign
+      description: Creates a new campaign
+      operationId: createCampaign
+      tags:
+        - Campaigns
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCampaign'
+      responses:
+        '201':
+          description: Campaign created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/campaigns/{campaignID}:
+    get:
+      summary: Get campaign by ID
+      description: Retrieves a specific campaign with its templates and provider information
+      operationId: getCampaign
+      tags:
+        - Campaigns
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID
+      responses:
+        '200':
+          description: Campaign retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Campaign'
+        default:
+          $ref: '#/components/responses/Error'
+    
+    patch:
+      summary: Update campaign
+      description: Updates campaign properties such as name and provider
+      operationId: updateCampaign
+      tags:
+        - Campaigns
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCampaign'
+      responses:
+        '200':
+          description: Campaign updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/templates/{templateID}:
+    get:
+      summary: Get template by ID
+      description: Retrieves a specific template with its content and editor data
+      operationId: getTemplate
+      tags:
+        - Templates
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: templateID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The template ID
+      responses:
+        '200':
+          description: Template retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        default:
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+        x-go-type: PaginationLimit
+      description: Maximum number of items to return
+    
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+        x-go-type: PaginationOffset
+      description: Number of items to skip
+
+  responses:
+    Error:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    
+    CampaignListResponse:
+      description: Campaigns retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedResponse'
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Campaign'
+
+  schemas:
+    Problem:
+      type: object
+      required:
+        - title
+        - detail
+      properties:
+        title:
+          type: string
+          description: |
+            A short summary of the problem type. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
+          example: some title for the error situation
+        detail:
+          type: string
+          description: |
+            A human readable explanation specific to this occurrence of the problem that is helpful to locate the problem and give advice on how to proceed. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
+          example: some description for the error situation
+
+    PaginatedResponse:
+      type: object
+      required:
+        - total
+        - limit
+        - offset
+      properties:
+        total:
+          type: integer
+          description: Total number of items matching the filters
+          example: 42
+        limit:
+          type: integer
+          description: Maximum number of items returned
+          example: 20
+        offset:
+          type: integer
+          description: Number of items skipped
+          example: 0
+
+    CreateCampaign:
+      type: object
+      required:
+        - name
+        - channel
+      properties:
+        name:
+          type: string
+          example: "Welcome Campaign"
+        channel:
+          type: string
+          enum: [email, sms, push]
+          example: "email"
+        provider_id:
+          type: string
+          format: uuid
+          example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
+        subscription_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    UpdateCampaign:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "epic hopper"
+        provider_id:
+          type: string
+          format: uuid
+          example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
+
+    Campaign:
+      type: object
+      required:
+        - id
+        - name
+        - project_id
+        - channel
+        - templates
+        - delivery
+        - created_at
+        - updated_at
+      properties:
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+        id:
+          type: string
+          format: uuid
+          example: "52f3f921-1343-48af-b795-87c0fd3b44aa"
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Welcome to the program!"
+        channel:
+          type: string
+          enum: [email, sms, push]
+          example: "email"
+        subscription_id:
+          type: string
+          format: uuid
+          nullable: true
+        provider:
+          $ref: '#/components/schemas/Provider'
+        templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Template'
+        delivery:
+          $ref: '#/components/schemas/Delivery'
+
+    Delivery:
+      type: object
+      required:
+        - sent
+        - opens
+        - total
+        - clicks
+      properties:
+        sent:
+          type: integer
+          example: 0
+        opens:
+          type: integer
+          example: 0
+        total:
+          type: integer
+          example: 0
+        clicks:
+          type: integer
+          example: 0
+
+    Provider:
+      type: object
+      required:
+        - id
+        - type
+        - name
+        - project_id
+        - group
+        - is_default
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
+        type:
+          type: string
+          example: "webhook"
+        name:
+          type: string
+          example: "Lunogram"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        group:
+          type: string
+          enum: [email, sms, push]
+          example: "email"
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/EmailProviderData'
+            - $ref: '#/components/schemas/SmsProviderData'
+            - $ref: '#/components/schemas/PushProviderData'
+          x-go-type: json.RawMessage
+        is_default:
+          type: boolean
+          example: true
+        rate_limit:
+          type: integer
+          example: 0
+          x-go-type: int32
+        rate_interval:
+          type: string
+          enum: [second, minute, hour, day]
+          example: "second"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-05T13:38:03.861Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-11T13:58:40.657Z"
+
+    Template:
+      type: object
+      required:
+        - id
+        - project_id
+        - campaign_id
+        - data
+        - type
+        - locale
+        - created_at
+        - updated_at
+      properties:
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:43.020Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-24T10:06:34.082Z"
+        id:
+          type: string
+          format: uuid
+          example: "4fe0d7e3-3071-40aa-a3ee-ecfb8e26a269"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        campaign_id:
+          type: string
+          format: uuid
+          example: "52f3f921-1343-48af-b795-87c0fd3b44aa"
+        type:
+          type: string
+          enum: [email, sms, push]
+          example: "email"
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/EmailTemplateData'
+            - $ref: '#/components/schemas/SmsTemplateData'
+            - $ref: '#/components/schemas/PushTemplateData'
+          x-go-type: json.RawMessage
+        locale:
+          type: string
+          example: "en"
+
+    EmailTemplateData:
+      type: object
+      properties:
+        from:
+          type: object
+        subject:
+          type: string
+          example: "Quick question for you..."
+        html:
+          type: string
+          description: HTML content of the email template
+        editor:
+          type: object
+          description: Editor configuration and content structure
+          properties:
+            root:
+              type: object
+              properties:
+                props:
+                  type: object
+            zones:
+              type: object
+            content:
+              type: array
+              items:
+                type: object
+
+    SmsTemplateData:
+      type: object
+      properties:
+        body:
+          type: string
+          description: SMS message body
+          example: "Your verification code is: {{code}}"
+
+    PushTemplateData:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Push notification title
+          example: "New message"
+        body:
+          type: string
+          description: Push notification body
+          example: "You have a new message from {{sender}}"
+        data:
+          type: object
+          description: Additional data payload for the push notification
+
+    EmailProviderData:
+      type: object
+      properties:
+        default_from:
+          type: string
+          example: "8f0512c2-e606-4a58-95cb-60a4a7f859e1@campaign.lunogram.com"
+        default_from_name:
+          type: string
+          example: "Onboarding"
+        default_from_locked:
+          type: boolean
+          example: true
+
+    SmsProviderData:
+      type: object
+      properties: {}
+
+    PushProviderData:
+      type: object
+      properties: {}
+
+  securitySchemes:
+    HttpBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
