@@ -1,0 +1,12 @@
+name: reconfigure-docker
+description: reconfigures docker to increase image pull parallelism
+runs:
+  using: composite
+  steps:
+    - name: Reconfigure docker
+      shell: bash
+      run: |
+        sudo touch /etc/docker/daemon.json
+        sudo yq -i '.max-concurrent-downloads = 16' /etc/docker/daemon.json
+        cat /etc/docker/daemon.json
+        sudo systemctl reload docker
