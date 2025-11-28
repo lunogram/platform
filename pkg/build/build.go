@@ -8,7 +8,7 @@ import (
 // populated while building the service through LD flags.
 var name string
 
-// ServiceName returns the name of the serivice. The value <unknown> is returned
+// ServiceName returns the name of the service. The value <unknown> is returned
 // if the name is not set.
 func ServiceName() string {
 	if name == "" {
@@ -22,7 +22,7 @@ func ServiceName() string {
 // populated while building the service through LD flags.
 var version string
 
-// Version returns the version of the serivice. The value <unknown> is returned
+// Version returns the version of the service. The value <unknown> is returned
 // if the version is not set.
 func Version() string {
 	if version == "" {
@@ -48,7 +48,7 @@ func init() {
 	}
 }
 
-// Commit returns the commit hash of the serivice. The value <unknown> is
+// Commit returns the commit hash of the service. The value <unknown> is
 // returned if the commit hash is not set.
 func Commit() string {
 	if commit == "" {
