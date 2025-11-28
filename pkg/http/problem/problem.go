@@ -119,14 +119,17 @@ func Describe(description string) Option {
 	return func(err error) error {
 		var wd *withDescription
 		if errors.As(err, &wd) {
-			// If the error already has a withDescription, update it
+			// If the error already has a withDescription, we need to update the description
+			// while preserving the full error chain. We wrap the original error (not just wd.cause)
+			// to maintain the status information that might be wrapped around it.
 			return &withDescription{
-				cause:       wd.cause,
+				cause:       err,
 				title:       wd.title,
 				description: description,
 			}
 		}
-		// Otherwise, wrap it with a new withDescription
+		// Otherwise, wrap it with a new withDescription, preserving the original error in the cause
+		// so that Unwrap() can find the status information
 		return &withDescription{
 			cause:       err,
 			title:       "",
