@@ -21,7 +21,7 @@ func Migrate(config Config) error {
 		return fmt.Errorf("failed to load embedded migration: %w", err)
 	}
 
-	conn, err := sql.Open("pgx/v5", config.URI)
+	conn, err := sql.Open("pgx", config.URI)
 	if err != nil {
 		return fmt.Errorf("failed to open database connection: %w", err)
 	}
