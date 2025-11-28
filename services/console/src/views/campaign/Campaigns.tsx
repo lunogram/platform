@@ -1,8 +1,8 @@
 import { useCallback, useContext } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import api from '../../api'
 
-import { LinkButton } from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import { ArchiveIcon, DuplicateIcon, EditIcon } from '../../components/icons'
 import Menu, { MenuItem } from '../../ui/Menu'
 import PageContent from '../../ui/PageContent'
@@ -123,7 +123,9 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     variant="plain"
                     title={t('setup')}
                     actions={
-                        <LinkButton to={`/projects/${project.id}/settings/integrations`}>{t('setup_integration')}</LinkButton>
+                        <Link to={`/projects/${project.id}/settings/integrations`}>
+                            <Button>{t('setup_integration')}</Button>
+                        </Link>                        
                     }
                 >{t('setup_integration_description')}</Alert>
             )}>
@@ -199,7 +201,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                             key: 'options',
                             title: t('options'),
                             cell: ({ item: { id } }) => (
-                                <Menu size="small">
+                                <Menu size="min">
                                     <MenuItem onClick={async () => await handleEditCampaign(id)}>
                                         <EditIcon />{t('edit')}
                                     </MenuItem>

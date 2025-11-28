@@ -107,7 +107,7 @@ export default function ListTable({ search, selectedRow, onSelectRow, title }: L
                     key: 'options',
                     title: t('options'),
                     cell: ({ item }) => (
-                        <Menu size="small">
+                        <Menu size="min">
                             <MenuItem onClick={() => handleOnSelectRow(item)}>
                                 <EditIcon />{t('edit')}
                             </MenuItem>

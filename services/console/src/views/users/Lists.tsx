@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import api from '../../api'
 import type { SearchParams } from '../../types'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import Modal from '../../ui/Modal'
 import PageContent from '../../ui/PageContent'
 import ListTable from './ListTable'
@@ -25,9 +25,11 @@ export default function Lists() {
                 title={t('lists')}
                 actions={
                     <Button
-                        icon={<PlusIcon />}
                         onClick={() => setIsModalOpen(true)}
-                    >{t('create_list')}</Button>
+                    >
+                        <PlusIcon />
+                        {t('create_list')}
+                    </Button>
                 }
             >
                 <ListTable search={search} />

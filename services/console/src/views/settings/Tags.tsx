@@ -2,7 +2,7 @@ import { useCallback, useContext, useState } from 'react'
 import api from '../../api'
 import { ProjectContext } from '../../contexts'
 import type { Tag } from '../../types'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import FormWrapper from '../../ui/form/FormWrapper'
 import TextInput from '../../ui/form/TextInput'
 import { PlusIcon } from '../../components/icons'
@@ -31,11 +31,13 @@ export default function Tags() {
                 actions={
                     <>
                         <Button
-                            size="small"
-                            variant="primary"
+                            size="sm"
+                            variant="default"
                             onClick={() => setEditing({ id: NIL as UUID, name: 'New Tag' })}
-                            icon={<PlusIcon />}
-                        >{t('create_tag')}</Button>
+                        >
+                            <PlusIcon />
+                            {t('create_tag')}
+                        </Button>
                     </>
                 }
                 onSelectRow={setEditing}

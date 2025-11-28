@@ -4,7 +4,7 @@ import { ProjectContext } from '../../contexts'
 import { useResolver } from '../../hooks'
 import type { Project, Provider, ProviderCreateParams, ProviderMeta, ProviderUpdateParams } from '../../types'
 import Alert from '../../ui/Alert'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import SchemaFields from '../../ui/form/SchemaFields'
 import TextInput from '../../ui/form/TextInput'
 import RadioInput from '../../ui/form/RadioInput'
@@ -132,9 +132,9 @@ export default function IntegrationModal({ onChange, provider, ...props }: Integ
             </Alert>
             <div style={{ marginTop: '20px' }}>
                 <Button
-                    icon={<ChevronLeftIcon />}
                     variant="secondary"
                     onClick={() => props.onClose(false)}>
+                    <ChevronLeftIcon />
                     {t('close')}
                 </Button>
             </div>
@@ -170,10 +170,12 @@ export default function IntegrationModal({ onChange, provider, ...props }: Integ
             : (<>
                 {!provider?.id && <div style={{ marginBottom: '10px' }}>
                     <Button
-                        icon={<ChevronLeftIcon />}
                         variant="secondary"
-                        size="small"
-                        onClick={() => setMeta(undefined)}>Integrations</Button>
+                        size="sm"
+                        onClick={() => setMeta(undefined)}>
+                            <ChevronLeftIcon />
+                            Integrations
+                        </Button>
                 </div>}
                 <IntegrationForm
                     project={project}

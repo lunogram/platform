@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import type { Key, ReactNode } from 'react';
 import { useContext } from 'react'
 import { formatDate, snakeToTitle } from '../utils'
-import Button from './Button'
+import { Button } from '@/components/ui/button'
 import './DataTable.css'
 import { CheckIcon, ChevronDownIcon, ChevronUpDownIcon, ChevronUpIcon, CloseIcon } from '../components/icons'
 import { PreferencesContext } from './PreferencesContext'
@@ -48,16 +48,16 @@ export function HeaderCell<T>({ col, columnSort, onColumnSort }: HeaderCellProps
             <span>{title ?? snakeToTitle(key)}</span>
             {sortable && (
                 <Button
-                    size="tiny"
-                    variant="secondary"
+                    size="icon"
+                    variant="ghost"
                     onClick={() => handleSort()}
-                    icon={
-                        columnSort?.sort === sort
-                            ? columnSort?.direction === 'asc'
-                                ? <ChevronUpIcon />
-                                : <ChevronDownIcon />
-                            : <ChevronUpDownIcon />
-                    } />
+                >
+                    {columnSort?.sort === sort
+                        ? columnSort?.direction === 'asc'
+                            ? <ChevronUpIcon />
+                            : <ChevronDownIcon />
+                        : <ChevronUpDownIcon />}
+                </Button>
             )}
         </div>
     </div>

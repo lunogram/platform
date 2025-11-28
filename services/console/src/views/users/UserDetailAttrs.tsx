@@ -5,7 +5,7 @@ import JsonPreview from '../../ui/JsonPreview'
 import { useTranslation } from 'react-i18next'
 import { getEditableUserFields } from '../../ui/utils'
 import api from '../../api'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import type { User } from '../../types'
 
 export default function UserDetail() {

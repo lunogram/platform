@@ -2,7 +2,7 @@ import { useSearchParams } from 'react-router'
 import { SignIn } from '@clerk/clerk-react'
 // import { ReactComponent as Logo } from '../../assets/logo.svg'
 import { env } from '../../config/env'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import { useEffect, useState, useCallback } from 'react'
 import api from '../../api'
 import type { AuthMethod } from '../../types'
@@ -108,7 +108,7 @@ export default function Login() {
                             <TextInput.Field form={form} name="password" type="password" />
                         </>}
                     </FormWrapper>
-                    <Button variant="plain" onClick={() => setMethod(undefined)}>{t('back')}</Button>
+                    <Button variant="ghost" onClick={() => setMethod(undefined)}>{t('back')}</Button>
                 </div>
             )}
             {method && method.driver === 'email' && (
@@ -117,7 +117,7 @@ export default function Login() {
                     {message
                         ? <>
                             <Alert variant="info" title="Success">{message}</Alert>
-                            <Button variant="plain" onClick={() => setMethod(undefined)}>{t('cancel')}</Button>
+                            <Button variant="ghost" onClick={() => setMethod(undefined)}>{t('cancel')}</Button>
                         </>
                         : <>
                             <p>{t('login_email_instructions')}</p>
@@ -127,7 +127,7 @@ export default function Login() {
                                     <TextInput.Field form={form} name="email" />
                                 </>}
                             </FormWrapper>
-                            <Button variant="plain" onClick={() => setMethod(undefined)}>{t('next')}</Button>
+                            <Button variant="ghost" onClick={() => setMethod(undefined)}>{t('next')}</Button>
                         </>
                     }
                 </div>

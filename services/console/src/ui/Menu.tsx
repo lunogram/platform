@@ -1,6 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import type { ButtonSize, ButtonVariant } from './Button';
-import Button from './Button'
+import { Button } from '@/components/ui/button';
 import './Menu.css'
 import { ThreeDotsIcon } from '../components/icons'
 
@@ -13,8 +12,8 @@ import {
 
 interface MenuProps {
     thing?: string
-    variant?: ButtonVariant
-    size?: ButtonSize
+    variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
+    size?: 'default' | 'min' | 'sm' | 'lg' | 'icon'
     placement?: 'top' | 'top-start' | 'top-end' | 'right' | 'right-start' | 'right-end' | 'bottom' | 'bottom-start' | 'bottom-end' | 'left' | 'left-start' | 'left-end'
     button?: React.ReactNode
 }
@@ -39,9 +38,11 @@ export function MenuItem({ children, onClick }: PropsWithChildren<MenuItemProps>
 
 export default function Menu({ children, variant, size, placement, button }: PropsWithChildren<MenuProps>) {
     const defaultButton = button ?? <Button
-        variant={variant ?? 'secondary'}
-        size={size ?? 'tiny'}
-        icon={<ThreeDotsIcon />} />
+        variant={variant ?? 'outline'}
+        size={size ?? 'min'}
+    >
+        <ThreeDotsIcon />
+    </Button>
 
     // Convert Popper placement to Radix side/align
     const getRadixPlacement = (placement?: string) => {

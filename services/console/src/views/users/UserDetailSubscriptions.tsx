@@ -3,7 +3,7 @@ import api from '../../api'
 import { ProjectContext, UserContext } from '../../contexts'
 import { useResolver } from '../../hooks'
 import type { SubscriptionParams, SubscriptionState } from '../../types'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import SwitchField from '../../ui/form/SwitchField'
 import Heading from '../../ui/Heading'
 import { SearchTable, useTableSearchParams } from '../../ui/SearchTable'
@@ -44,7 +44,7 @@ export default function UserDetailSubscriptions() {
             title={t('subscriptions')}
             actions={
                 <Button
-                    size="small"
+                    size="sm"
                     onClick={async () => await unsubscribeAll()}
                 >{t('unsubscribe_all')}</Button>
             }

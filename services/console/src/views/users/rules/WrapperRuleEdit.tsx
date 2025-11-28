@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Button } from '../../../ui'
+import { Button } from '@/components/ui/button'
 import { SingleSelect } from '../../../ui/form/SingleSelect'
 import { PlusIcon, TrashIcon } from '../../../components/icons'
 import { createUuid } from '../../../utils'
@@ -76,14 +76,15 @@ export default function WrapperRuleEdit({
                             depth={depth + 1}
                             controls={
                                 <Button
-                                    size="small"
-                                    icon={<TrashIcon />}
+                                    size="sm"
                                     variant="secondary"
                                     onClick={() => setRule({
                                         ...rule,
                                         children: arr.filter((_, i) => i !== index),
                                     })}
-                                />
+                                >
+                                    <TrashIcon />
+                                </Button>
                             }
                         />
                     ))
@@ -91,9 +92,8 @@ export default function WrapperRuleEdit({
             </div>
             <div className="rule-set-actions">
                 <Button
-                    size="small"
+                    size="sm"
                     variant="secondary"
-                    icon={<PlusIcon />}
                     onClick={() => setRule({
                         ...rule,
                         children: [...rule.children ?? [], {
@@ -108,6 +108,8 @@ export default function WrapperRuleEdit({
                         }],
                     })}
                 >
+                    <PlusIcon />
+               
                     {
                         rule.group === 'event'
                             ? t('rule_add_condition')
@@ -117,11 +119,11 @@ export default function WrapperRuleEdit({
                 {
                     (depth === 0 && (rule.group === 'user' || rule.group === 'parent')) && (
                         <Button
-                            size="small"
+                            size="sm"
                             variant="secondary"
-                            icon={<PlusIcon />}
                             onClick={() => handleAddEventWrapper()}
                         >
+                            <PlusIcon />
                             {t('rule_add_event_condition')}
                         </Button>
                     )

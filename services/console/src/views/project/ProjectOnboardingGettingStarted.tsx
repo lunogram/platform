@@ -1,11 +1,11 @@
-import { useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { LinkButton } from '../../ui/Button'
 import { CampaignsIcon, JourneysIcon } from '../../components/icons'
 import api from '../../api'
 import type { UUID } from '@/types/common'
 import { useState } from 'react'
 import { NIL } from 'uuid'
+import { Button } from '@/components/ui/button'
 
 export default function ProjectOnboarding() {
     const navigate = useNavigate()
@@ -56,7 +56,9 @@ export default function ProjectOnboarding() {
             </section>
 
             <div className="flex gap-2 mt-4">
-                <LinkButton to={`/projects/${projectId}/getting-started`} variant="secondary">{t('skip')}</LinkButton>
+                 <Link to={`/projects/${projectId}/getting-started`}>
+                    <Button variant="secondary">{t('skip')}</Button>
+                </Link>   
             </div>
         </div>
     )

@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode } from 'react'
-import Button from './Button'
+import { Button } from '@/components/ui/button'
 import Modal from './Modal'
 
 export interface DialogProps {

@@ -1,5 +1,5 @@
 import toast from 'react-hot-toast'
-import Button from './Button'
+import { Button } from '@/components/ui/button'
 import { CopyIcon } from '../components/icons'
 import './CodeExample.css'
 import type { ReactNode } from 'react'
@@ -35,11 +35,12 @@ export default function CodeExample({ code, description, title }: CodeExamplePro
                 </pre>
                 <div className="copy-button">
                     <Button
-                        icon={<CopyIcon />}
                         variant="secondary"
-                        size="small"
+                        size="sm"
                         onClick={async () => await handleCopy(code)}
-                    />
+                    >
+                        <CopyIcon />
+                    </Button>
                 </div>
             </div>
         </>
