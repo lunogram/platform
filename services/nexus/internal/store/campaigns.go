@@ -200,7 +200,7 @@ type CampaignUser struct {
 	CampaignID uuid.UUID  `db:"campaign_id"`
 	UserID     uuid.UUID  `db:"user_id"`
 	State      string     `db:"state"`
-	SendAt     *time.Time `db:"send_at"`
+	SendAt     *time.Time `db:"sent_at"`
 	CreatedAt  time.Time  `db:"created_at"`
 	UpdatedAt  time.Time  `db:"updated_at"`
 }
@@ -219,7 +219,7 @@ func (user CampaignUser) OAPI() oapi.CampaignUser {
 
 func (s *CampaignsStore) GetCampaignUsers(ctx context.Context, projectID, campaignID uuid.UUID, pagination Pagination) (CampaignUsers, int, error) {
 	query := `
-	SELECT cs.id, cs.campaign_id, cs.user_id, cs.state, cs.send_at, cs.created_at, cs.updated_at,
+	SELECT cs.id, cs.campaign_id, cs.user_id, cs.state, cs.sent_at, cs.created_at, cs.updated_at,
 		COUNT(*) OVER () AS total_count
 	FROM campaign_sends cs
 	JOIN campaigns c ON c.id = cs.campaign_id
