@@ -2,6 +2,7 @@ package v1
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
@@ -340,7 +341,7 @@ func TestDeleteCampaign(t *testing.T) {
 			if test.code == 204 {
 				// Verify campaign is soft deleted
 				campaign, err := campaigns.GetCampaign(ctx, projectID, test.id)
-				require.Error(t, err) // Should not be found after deletion
+				require.ErrorIs(t, err, sql.ErrNoRows)
 				require.Nil(t, campaign)
 			}
 		})
