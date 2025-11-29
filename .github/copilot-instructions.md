@@ -75,6 +75,7 @@ tests := map[string]struct{
 - Follow table-driven test patterns
 - Include both success and error cases
 - Test status codes and response structure
+- Avoid obvious comments - code should be self-explanatory
 
 #### Store Layer
 
@@ -202,6 +203,7 @@ Return pagination metadata:
 - ❌ Don't forget to run `make generate` after OpenAPI changes
 - ❌ Don't hardcode UUIDs in tests - use generated ones
 - ❌ Don't expose internal errors to API responses
+- ❌ Don't add obvious comments explaining what code does - write self-documenting code instead
 
 ## References
 
