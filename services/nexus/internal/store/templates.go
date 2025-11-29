@@ -101,6 +101,31 @@ func (s *TemplatesStore) ListTemplates(ctx context.Context, projectID, campaignI
 	return templates, nil
 }
 
+type TemplateUpdate struct {
+	Data *json.RawMessage
+}
+
+func (s *TemplatesStore) UpdateTemplate(ctx context.Context, projectID, templateID uuid.UUID, update TemplateUpdate) error {
+	query := `
+	UPDATE templates
+	SET data = COALESCE($3, data)
+	WHERE project_id = $1
+	AND id = $2`
+
+	_, err := s.db.ExecContext(ctx, query, projectID, templateID, update.Data)
+	return err
+}
+
+func (s *TemplatesStore) DeleteTemplate(ctx context.Context, projectID, templateID uuid.UUID) error {
+	query := `
+	DELETE FROM templates
+	WHERE project_id = $1
+	AND id = $2`
+
+	_, err := s.db.ExecContext(ctx, query, projectID, templateID)
+	return err
+}
+
 func (s *TemplatesStore) DuplicateTemplate(ctx context.Context, projectID, templateID, newCampaignID uuid.UUID) error {
 	query := `
 	INSERT INTO templates (project_id, campaign_id, type, data, locale)

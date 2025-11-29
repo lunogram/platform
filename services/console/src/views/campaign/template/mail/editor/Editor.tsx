@@ -20,7 +20,7 @@ import { PricingEmphasised, type PricingEmphasisedProps } from "./components/tem
 
 import "@measured/puck/puck.css";
 import "./Editor.css";
-import { ProjectContext, TemplateContext } from "@/contexts";
+import { ProjectContext, TemplateContext, CampaignContext } from "@/contexts";
 import api from "@/api";
 
 interface Components {
@@ -65,6 +65,7 @@ const config: Config<Components> = {
 function SaveHandler() {
     const { onSubmit } = useContext(TemplateWorkflowContext);
     const [project] = useContext(ProjectContext);
+    const [campaign] = useContext(CampaignContext);
     const [template, setTemplate] = useContext(TemplateContext);
     const getPuck = useGetPuck();
 
@@ -87,7 +88,7 @@ function SaveHandler() {
             </Html>
         );
 
-        const updated = await api.templates.update(project.id, template.id, {
+        const updated = await api.campaigns.templates.update(project.id, campaign.id, template.id, {
             data: {
                 ...template.data,
                 editor: appState.data,

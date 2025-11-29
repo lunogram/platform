@@ -280,12 +280,29 @@ export const createRouter = ({
                                                 path: 'setup',
                                                 element: <CampaignSetup />,
                                             },
-                                            createStatefulRoute({
+                                            {
                                                 path: 'templates/:templateId',
-                                                apiPath: api.templates,
-                                                context: TemplateContext,
-                                                paramName: 'templateId',
-                                                element: <Template />,
+                                                loader: async ({ params }) => {
+                                                    const projectId = params.projectId as UUID | undefined
+                                                    const campaignId = params.entityId as UUID | undefined
+                                                    const templateId = params.templateId as UUID | undefined
+
+                                                    if (!projectId || !campaignId) {
+                                                        throw new Error('Not Found')
+                                                    }
+
+                                                    if (!templateId) {
+                                                        return await api.campaigns.templates.search(projectId, campaignId, { limit: 20 })
+                                                    }
+
+                                                    return await api.campaigns.templates.get(projectId, campaignId, templateId)
+                                                },
+                                                element: (
+                                                    <StatefulLoaderContextProvider context={TemplateContext}>
+                                                        <Template />
+                                                    </StatefulLoaderContextProvider>
+                                                ),
+                                                errorElement: <ErrorPage />,
                                                 children: [
                                                     {
                                                         index: true,
@@ -300,7 +317,7 @@ export const createRouter = ({
                                                         element: <TemplateReview />,
                                                     },
                                                 ]
-                                            })
+                                            }
                                         ]
                                     }),
                                 ],

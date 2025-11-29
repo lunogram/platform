@@ -45,10 +45,8 @@ export default function CampaignSetup() {
             setCampaign(updated);
 
             if (campaign.templates?.length === 0) {
-                const template = await api.templates.create(project.id, {
-                    campaign_id: campaign.id,
+                const template = await api.campaigns.templates.create(project.id, campaign.id, {
                     locale: project.locale,
-                    type: campaign.channel,
                     data: {}
                 });
 

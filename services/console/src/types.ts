@@ -525,8 +525,8 @@ export type Template = {
         }
     )
 
-export type TemplateCreateParams = Pick<Template, | 'type' | 'data' | 'campaign_id' | 'locale'>
-export type TemplateUpdateParams = Pick<Template, | 'data'>
+export type TemplateCreateParams = Pick<Template, 'data' | 'locale'>
+export type TemplateUpdateParams = Pick<Template, 'data'>
 export type VariantUpdateParams = { id?: UUID }
 
 export interface TemplatePreviewParams {

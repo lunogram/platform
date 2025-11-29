@@ -40,11 +40,8 @@ export default function TemplateContent() {
         }
 
         const data = form.getValues();
-        const updated = await api.templates.update(project.id, template.id, {
-            data: {
-                ...template.data,
-                ...data,
-            },
+        const updated = await api.campaigns.templates.update(project.id, campaign.id, template.id, {
+            data,
         });
 
         setTemplate(updated)

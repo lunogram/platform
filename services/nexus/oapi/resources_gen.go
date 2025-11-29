@@ -192,6 +192,15 @@ type CreateCampaign struct {
 // CreateCampaignChannel defines model for CreateCampaign.Channel.
 type CreateCampaignChannel string
 
+// CreateTemplate defines model for CreateTemplate.
+type CreateTemplate struct {
+	// Data Template-specific data based on type. Structure varies by template type.
+	Data *json.RawMessage `json:"data"`
+
+	// Locale The locale/language code for the template
+	Locale string `json:"locale"`
+}
+
 // Delivery defines model for Delivery.
 type Delivery struct {
 	Clicks int `json:"clicks"`
@@ -349,6 +358,12 @@ type UpdateAdminRole string
 type UpdateCampaign struct {
 	Name       *string             `json:"name,omitempty"`
 	ProviderId *openapi_types.UUID `json:"provider_id,omitempty"`
+}
+
+// UpdateTemplate defines model for UpdateTemplate.
+type UpdateTemplate struct {
+	// Data Template-specific data based on type. Structure varies by template type.
+	Data *json.RawMessage `json:"data"`
 }
 
 // UpdateUser defines model for UpdateUser.
@@ -580,6 +595,12 @@ type CreateCampaignJSONRequestBody = CreateCampaign
 
 // UpdateCampaignJSONRequestBody defines body for UpdateCampaign for application/json ContentType.
 type UpdateCampaignJSONRequestBody = UpdateCampaign
+
+// CreateTemplateJSONRequestBody defines body for CreateTemplate for application/json ContentType.
+type CreateTemplateJSONRequestBody = CreateTemplate
+
+// UpdateTemplateJSONRequestBody defines body for UpdateTemplate for application/json ContentType.
+type UpdateTemplateJSONRequestBody = UpdateTemplate
 
 // IdentifyUserJSONRequestBody defines body for IdentifyUser for application/json ContentType.
 type IdentifyUserJSONRequestBody = IdentifyUser
@@ -873,9 +894,6 @@ type ClientInterface interface {
 
 	CreateCampaign(ctx context.Context, projectID openapi_types.UUID, body CreateCampaignJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DeleteCampaign request
-	DeleteCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetCampaign request
 	GetCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -886,6 +904,22 @@ type ClientInterface interface {
 
 	// DuplicateCampaign request
 	DuplicateCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTemplateWithBody request with any body
+	CreateTemplateWithBody(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateTemplate(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, body CreateTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteTemplate request
+	DeleteTemplate(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTemplate request
+	GetTemplate(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateTemplateWithBody request with any body
+	UpdateTemplateWithBody(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateTemplate(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body UpdateTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetCampaignUsers request
 	GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1056,18 +1090,6 @@ func (c *Client) CreateCampaign(ctx context.Context, projectID openapi_types.UUI
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteCampaignRequest(c.Server, projectID, campaignID)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) GetCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCampaignRequest(c.Server, projectID, campaignID)
 	if err != nil {
@@ -1106,6 +1128,78 @@ func (c *Client) UpdateCampaign(ctx context.Context, projectID openapi_types.UUI
 
 func (c *Client) DuplicateCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDuplicateCampaignRequest(c.Server, projectID, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateTemplateWithBody(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTemplateRequestWithBody(c.Server, projectID, campaignID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateTemplate(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, body CreateTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTemplateRequest(c.Server, projectID, campaignID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteTemplate(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteTemplateRequest(c.Server, projectID, campaignID, templateID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetTemplate(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTemplateRequest(c.Server, projectID, campaignID, templateID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateTemplateWithBody(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateTemplateRequestWithBody(c.Server, projectID, campaignID, templateID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateTemplate(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body UpdateTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateTemplateRequest(c.Server, projectID, campaignID, templateID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1654,47 +1748,6 @@ func NewCreateCampaignRequestWithBody(server string, projectID openapi_types.UUI
 	return req, nil
 }
 
-// NewDeleteCampaignRequest generates requests for DeleteCampaign
-func NewDeleteCampaignRequest(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "campaignID", runtime.ParamLocationPath, campaignID)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/campaigns/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewGetCampaignRequest generates requests for GetCampaign
 func NewGetCampaignRequest(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -1827,6 +1880,217 @@ func NewDuplicateCampaignRequest(server string, projectID openapi_types.UUID, ca
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateTemplateRequest calls the generic CreateTemplate builder with application/json body
+func NewCreateTemplateRequest(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID, body CreateTemplateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTemplateRequestWithBody(server, projectID, campaignID, "application/json", bodyReader)
+}
+
+// NewCreateTemplateRequestWithBody generates requests for CreateTemplate with any type of body
+func NewCreateTemplateRequestWithBody(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "campaignID", runtime.ParamLocationPath, campaignID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/campaigns/%s/templates", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteTemplateRequest generates requests for DeleteTemplate
+func NewDeleteTemplateRequest(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "campaignID", runtime.ParamLocationPath, campaignID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "templateID", runtime.ParamLocationPath, templateID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/campaigns/%s/templates/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetTemplateRequest generates requests for GetTemplate
+func NewGetTemplateRequest(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "campaignID", runtime.ParamLocationPath, campaignID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "templateID", runtime.ParamLocationPath, templateID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/campaigns/%s/templates/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateTemplateRequest calls the generic UpdateTemplate builder with application/json body
+func NewUpdateTemplateRequest(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body UpdateTemplateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateTemplateRequestWithBody(server, projectID, campaignID, templateID, "application/json", bodyReader)
+}
+
+// NewUpdateTemplateRequestWithBody generates requests for UpdateTemplate with any type of body
+func NewUpdateTemplateRequestWithBody(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "campaignID", runtime.ParamLocationPath, campaignID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "templateID", runtime.ParamLocationPath, templateID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/campaigns/%s/templates/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -2545,9 +2809,6 @@ type ClientWithResponsesInterface interface {
 
 	CreateCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateCampaignJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCampaignResponse, error)
 
-	// DeleteCampaignWithResponse request
-	DeleteCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteCampaignResponse, error)
-
 	// GetCampaignWithResponse request
 	GetCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetCampaignResponse, error)
 
@@ -2558,6 +2819,22 @@ type ClientWithResponsesInterface interface {
 
 	// DuplicateCampaignWithResponse request
 	DuplicateCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DuplicateCampaignResponse, error)
+
+	// CreateTemplateWithBodyWithResponse request with any body
+	CreateTemplateWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTemplateResponse, error)
+
+	CreateTemplateWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, body CreateTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTemplateResponse, error)
+
+	// DeleteTemplateWithResponse request
+	DeleteTemplateWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteTemplateResponse, error)
+
+	// GetTemplateWithResponse request
+	GetTemplateWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetTemplateResponse, error)
+
+	// UpdateTemplateWithBodyWithResponse request with any body
+	UpdateTemplateWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateTemplateResponse, error)
+
+	UpdateTemplateWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body UpdateTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTemplateResponse, error)
 
 	// GetCampaignUsersWithResponse request
 	GetCampaignUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*GetCampaignUsersResponse, error)
@@ -2779,28 +3056,6 @@ func (r CreateCampaignResponse) StatusCode() int {
 	return 0
 }
 
-type DeleteCampaignResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteCampaignResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteCampaignResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type GetCampaignResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2866,6 +3121,99 @@ func (r DuplicateCampaignResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r DuplicateCampaignResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateTemplateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Template
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateTemplateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateTemplateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteTemplateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteTemplateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteTemplateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetTemplateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Data Template `json:"data"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTemplateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTemplateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateTemplateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Template
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateTemplateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateTemplateResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3202,15 +3550,6 @@ func (c *ClientWithResponses) CreateCampaignWithResponse(ctx context.Context, pr
 	return ParseCreateCampaignResponse(rsp)
 }
 
-// DeleteCampaignWithResponse request returning *DeleteCampaignResponse
-func (c *ClientWithResponses) DeleteCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteCampaignResponse, error) {
-	rsp, err := c.DeleteCampaign(ctx, projectID, campaignID, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteCampaignResponse(rsp)
-}
-
 // GetCampaignWithResponse request returning *GetCampaignResponse
 func (c *ClientWithResponses) GetCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetCampaignResponse, error) {
 	rsp, err := c.GetCampaign(ctx, projectID, campaignID, reqEditors...)
@@ -3244,6 +3583,58 @@ func (c *ClientWithResponses) DuplicateCampaignWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseDuplicateCampaignResponse(rsp)
+}
+
+// CreateTemplateWithBodyWithResponse request with arbitrary body returning *CreateTemplateResponse
+func (c *ClientWithResponses) CreateTemplateWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTemplateResponse, error) {
+	rsp, err := c.CreateTemplateWithBody(ctx, projectID, campaignID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTemplateResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateTemplateWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, body CreateTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTemplateResponse, error) {
+	rsp, err := c.CreateTemplate(ctx, projectID, campaignID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTemplateResponse(rsp)
+}
+
+// DeleteTemplateWithResponse request returning *DeleteTemplateResponse
+func (c *ClientWithResponses) DeleteTemplateWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteTemplateResponse, error) {
+	rsp, err := c.DeleteTemplate(ctx, projectID, campaignID, templateID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteTemplateResponse(rsp)
+}
+
+// GetTemplateWithResponse request returning *GetTemplateResponse
+func (c *ClientWithResponses) GetTemplateWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetTemplateResponse, error) {
+	rsp, err := c.GetTemplate(ctx, projectID, campaignID, templateID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTemplateResponse(rsp)
+}
+
+// UpdateTemplateWithBodyWithResponse request with arbitrary body returning *UpdateTemplateResponse
+func (c *ClientWithResponses) UpdateTemplateWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateTemplateResponse, error) {
+	rsp, err := c.UpdateTemplateWithBody(ctx, projectID, campaignID, templateID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateTemplateResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateTemplateWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body UpdateTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTemplateResponse, error) {
+	rsp, err := c.UpdateTemplate(ctx, projectID, campaignID, templateID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateTemplateResponse(rsp)
 }
 
 // GetCampaignUsersWithResponse request returning *GetCampaignUsersResponse
@@ -3617,32 +4008,6 @@ func ParseCreateCampaignResponse(rsp *http.Response) (*CreateCampaignResponse, e
 	return response, nil
 }
 
-// ParseDeleteCampaignResponse parses an HTTP response from a DeleteCampaignWithResponse call
-func ParseDeleteCampaignResponse(rsp *http.Response) (*DeleteCampaignResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteCampaignResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseGetCampaignResponse parses an HTTP response from a GetCampaignWithResponse call
 func ParseGetCampaignResponse(rsp *http.Response) (*GetCampaignResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -3731,6 +4096,133 @@ func ParseDuplicateCampaignResponse(rsp *http.Response) (*DuplicateCampaignRespo
 			return nil, err
 		}
 		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateTemplateResponse parses an HTTP response from a CreateTemplateWithResponse call
+func ParseCreateTemplateResponse(rsp *http.Response) (*CreateTemplateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateTemplateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Template
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteTemplateResponse parses an HTTP response from a DeleteTemplateWithResponse call
+func ParseDeleteTemplateResponse(rsp *http.Response) (*DeleteTemplateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteTemplateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetTemplateResponse parses an HTTP response from a GetTemplateWithResponse call
+func ParseGetTemplateResponse(rsp *http.Response) (*GetTemplateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTemplateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Template `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateTemplateResponse parses an HTTP response from a UpdateTemplateWithResponse call
+func ParseUpdateTemplateResponse(rsp *http.Response) (*UpdateTemplateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateTemplateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Template
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
@@ -4098,9 +4590,6 @@ type ServerInterface interface {
 	// Create campaign
 	// (POST /api/admin/projects/{projectID}/campaigns)
 	CreateCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
-	// Delete campaign
-	// (DELETE /api/admin/projects/{projectID}/campaigns/{campaignID})
-	DeleteCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID)
 	// Get campaign by ID
 	// (GET /api/admin/projects/{projectID}/campaigns/{campaignID})
 	GetCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID)
@@ -4110,6 +4599,18 @@ type ServerInterface interface {
 	// Duplicate campaign
 	// (POST /api/admin/projects/{projectID}/campaigns/{campaignID}/duplicate)
 	DuplicateCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID)
+	// Create template
+	// (POST /api/admin/projects/{projectID}/campaigns/{campaignID}/templates)
+	CreateTemplate(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID)
+	// Delete template
+	// (DELETE /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID})
+	DeleteTemplate(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID)
+	// Get template by ID
+	// (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID})
+	GetTemplate(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID)
+	// Update template
+	// (PATCH /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID})
+	UpdateTemplate(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID)
 	// Get campaign users
 	// (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 	GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams)
@@ -4194,12 +4695,6 @@ func (_ Unimplemented) CreateCampaign(w http.ResponseWriter, r *http.Request, pr
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Delete campaign
-// (DELETE /api/admin/projects/{projectID}/campaigns/{campaignID})
-func (_ Unimplemented) DeleteCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // Get campaign by ID
 // (GET /api/admin/projects/{projectID}/campaigns/{campaignID})
 func (_ Unimplemented) GetCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID) {
@@ -4215,6 +4710,30 @@ func (_ Unimplemented) UpdateCampaign(w http.ResponseWriter, r *http.Request, pr
 // Duplicate campaign
 // (POST /api/admin/projects/{projectID}/campaigns/{campaignID}/duplicate)
 func (_ Unimplemented) DuplicateCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create template
+// (POST /api/admin/projects/{projectID}/campaigns/{campaignID}/templates)
+func (_ Unimplemented) CreateTemplate(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete template
+// (DELETE /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID})
+func (_ Unimplemented) DeleteTemplate(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get template by ID
+// (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID})
+func (_ Unimplemented) GetTemplate(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update template
+// (PATCH /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID})
+func (_ Unimplemented) UpdateTemplate(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -4550,46 +5069,6 @@ func (siw *ServerInterfaceWrapper) CreateCampaign(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
-// DeleteCampaign operation middleware
-func (siw *ServerInterfaceWrapper) DeleteCampaign(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "campaignID" -------------
-	var campaignID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "campaignID", chi.URLParam(r, "campaignID"), &campaignID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteCampaign(w, r, projectID, campaignID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // GetCampaign operation middleware
 func (siw *ServerInterfaceWrapper) GetCampaign(w http.ResponseWriter, r *http.Request) {
 
@@ -4701,6 +5180,193 @@ func (siw *ServerInterfaceWrapper) DuplicateCampaign(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DuplicateCampaign(w, r, projectID, campaignID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTemplate operation middleware
+func (siw *ServerInterfaceWrapper) CreateTemplate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "campaignID" -------------
+	var campaignID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignID", chi.URLParam(r, "campaignID"), &campaignID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTemplate(w, r, projectID, campaignID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteTemplate operation middleware
+func (siw *ServerInterfaceWrapper) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "campaignID" -------------
+	var campaignID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignID", chi.URLParam(r, "campaignID"), &campaignID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "templateID" -------------
+	var templateID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "templateID", chi.URLParam(r, "templateID"), &templateID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "templateID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteTemplate(w, r, projectID, campaignID, templateID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTemplate operation middleware
+func (siw *ServerInterfaceWrapper) GetTemplate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "campaignID" -------------
+	var campaignID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignID", chi.URLParam(r, "campaignID"), &campaignID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "templateID" -------------
+	var templateID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "templateID", chi.URLParam(r, "templateID"), &templateID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "templateID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTemplate(w, r, projectID, campaignID, templateID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateTemplate operation middleware
+func (siw *ServerInterfaceWrapper) UpdateTemplate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "campaignID" -------------
+	var campaignID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignID", chi.URLParam(r, "campaignID"), &campaignID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "templateID" -------------
+	var templateID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "templateID", chi.URLParam(r, "templateID"), &templateID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "templateID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateTemplate(w, r, projectID, campaignID, templateID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5333,9 +5999,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/campaigns", wrapper.CreateCampaign)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}", wrapper.DeleteCampaign)
-	})
-	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}", wrapper.GetCampaign)
 	})
 	r.Group(func(r chi.Router) {
@@ -5343,6 +6006,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/duplicate", wrapper.DuplicateCampaign)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/templates", wrapper.CreateTemplate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}", wrapper.DeleteTemplate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}", wrapper.GetTemplate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}", wrapper.UpdateTemplate)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/users", wrapper.GetCampaignUsers)
