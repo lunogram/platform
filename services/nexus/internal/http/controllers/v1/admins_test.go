@@ -31,10 +31,15 @@ func TestGetProfileWithInternalAdmin(t *testing.T) {
 	db, err := store.Connect(ctx, config.Store)
 	require.NoError(t, err)
 
+	orgsStore := store.NewOrganizationsStore(db)
+	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
+	require.NoError(t, err)
+
 	adminsStore := store.NewAdminsStore(db)
 	adminID, err := adminsStore.CreateAdmin(ctx, store.Admin{
-		Email: "admin@example.com",
-		Role:  "member",
+		OrganizationID: orgID,
+		Email:          "admin@example.com",
+		Role:           "member",
 	})
 	require.NoError(t, err)
 
@@ -86,12 +91,17 @@ func TestGetProfileWithExternalAdmin(t *testing.T) {
 	db, err := store.Connect(ctx, config.Store)
 	require.NoError(t, err)
 
+	orgsStore := store.NewOrganizationsStore(db)
+	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
+	require.NoError(t, err)
+
 	externalID := "user_2abc123def"
 	adminsStore := store.NewAdminsStore(db)
 	adminID, err := adminsStore.CreateAdmin(ctx, store.Admin{
-		ExternalID: &externalID,
-		Email:      "external@example.com",
-		Role:       "owner",
+		OrganizationID: orgID,
+		ExternalID:     &externalID,
+		Email:          "external@example.com",
+		Role:           "owner",
 	})
 	require.NoError(t, err)
 

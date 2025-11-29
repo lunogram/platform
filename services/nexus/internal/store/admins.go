@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -122,4 +124,123 @@ func (s *AdminsStore) CreateAdmin(ctx context.Context, admin Admin) (uuid.UUID, 
 	}
 
 	return id, nil
+}
+
+func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, limit, offset int, search string) ([]Admin, int, error) {
+	var admins []Admin
+	var total int
+
+	query := `
+	SELECT 
+		id, organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at,
+		COUNT(*) OVER () AS total_count
+	FROM admins
+	WHERE organization_id = $1 
+	AND deleted_at IS NULL`
+
+	args := []interface{}{organizationID}
+	argCount := 1
+
+	if search != "" {
+		argCount++
+		query += ` AND (
+			first_name ILIKE $` + strconv.Itoa(argCount) + ` OR 
+			last_name ILIKE $` + strconv.Itoa(argCount) + ` OR 
+			email ILIKE $` + strconv.Itoa(argCount) + `
+		)`
+		searchPattern := "%" + search + "%"
+		args = append(args, searchPattern)
+	}
+
+	argCount++
+	query += ` ORDER BY created_at DESC LIMIT $` + strconv.Itoa(argCount)
+	args = append(args, limit)
+
+	argCount++
+	query += ` OFFSET $` + strconv.Itoa(argCount)
+	args = append(args, offset)
+
+	type result struct {
+		Admin
+		TotalCount int `db:"total_count"`
+	}
+
+	var results []result
+	err := s.db.SelectContext(ctx, &results, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(results) == 0 {
+		return []Admin{}, 0, nil
+	}
+
+	total = results[0].TotalCount
+	for _, r := range results {
+		admins = append(admins, r.Admin)
+	}
+
+	return admins, total, nil
+}
+
+func (s *AdminsStore) GetAdminByEmail(ctx context.Context, email string, organizationID uuid.UUID) (*Admin, error) {
+	stmt := `
+	SELECT id, organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
+	FROM admins
+	WHERE email = $1
+	AND organization_id = $2
+	AND deleted_at IS NULL`
+
+	var admin Admin
+	err := s.db.GetContext(ctx, &admin, stmt, email, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &admin, nil
+}
+
+func (s *AdminsStore) UpdateAdmin(ctx context.Context, id uuid.UUID, email *string, firstName, lastName *string, role *string) error {
+	updates := []string{}
+	args := []interface{}{id}
+	argCount := 1
+
+	if email != nil {
+		argCount++
+		updates = append(updates, "email = $"+strconv.Itoa(argCount))
+		args = append(args, *email)
+	}
+
+	if firstName != nil {
+		argCount++
+		updates = append(updates, "first_name = $"+strconv.Itoa(argCount))
+		args = append(args, *firstName)
+	}
+
+	if lastName != nil {
+		argCount++
+		updates = append(updates, "last_name = $"+strconv.Itoa(argCount))
+		args = append(args, *lastName)
+	}
+
+	if role != nil {
+		argCount++
+		updates = append(updates, "role = $"+strconv.Itoa(argCount))
+		args = append(args, *role)
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
+
+	stmt := `UPDATE admins SET ` + strings.Join(updates, ", ") + ` WHERE id = $1 AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, stmt, args...)
+	return err
+}
+
+func (s *AdminsStore) DeleteAdmin(ctx context.Context, id uuid.UUID) error {
+	stmt := `UPDATE admins SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL`
+	_, err := s.db.ExecContext(ctx, stmt, id)
+	return err
 }

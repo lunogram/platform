@@ -22,6 +22,9 @@ var ErrInternal = ErrorFunc(WithStatus(NewError("internal server error", "an int
 // ErrBadRequest is thrown whenever the client has sent a bad request.
 var ErrBadRequest = ErrorFunc(WithStatus(NewError("bad request", "the request could not be processed"), http.StatusBadRequest))
 
+// ErrForbidden is thrown whenever the user does not have permission to access a resource.
+var ErrForbidden = ErrorFunc(WithStatus(NewError("forbidden", "you do not have permission to access this resource"), http.StatusForbidden))
+
 // NewError creates a new error with the given title and description.
 func NewError(title, description string) error {
 	return &withDescription{
