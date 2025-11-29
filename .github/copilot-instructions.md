@@ -37,6 +37,26 @@ data:
 
 5. **Derive relationships**: Get type/state from parent resources rather than duplicating in request bodies
 6. **Clean up unused schemas**: Remove schemas that aren't referenced
+7. **Required vs nullable**: Use the `required` array to specify required fields instead of `nullable: true` for optional fields. Only use `nullable: true` when a field can explicitly be set to `null`
+
+```yaml
+# ✅ Good - use required array
+properties:
+  name:
+    type: string
+  description:
+    type: string
+required:
+  - name
+
+# ❌ Bad - don't use nullable for optional fields
+properties:
+  name:
+    type: string
+  description:
+    type: string
+    nullable: true
+```
 
 #### Testing
 
