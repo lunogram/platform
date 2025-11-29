@@ -172,3 +172,80 @@ func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaign
 	_, err := s.db.ExecContext(ctx, query, update.Name, update.ProviderID, projectID, campaignID)
 	return err
 }
+
+func (s *CampaignsStore) DeleteCampaign(ctx context.Context, projectID, campaignID uuid.UUID) error {
+	query := `
+	UPDATE campaigns
+	SET deleted_at = NOW()
+	WHERE project_id = $1
+	AND id = $2
+	AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, query, projectID, campaignID)
+	return err
+}
+
+type CampaignUsers []CampaignUser
+
+func (users CampaignUsers) OAPI() []oapi.CampaignUser {
+	result := make([]oapi.CampaignUser, len(users))
+	for index, user := range users {
+		result[index] = user.OAPI()
+	}
+	return result
+}
+
+type CampaignUser struct {
+	ID         uuid.UUID  `db:"id"`
+	CampaignID uuid.UUID  `db:"campaign_id"`
+	UserID     uuid.UUID  `db:"user_id"`
+	State      string     `db:"state"`
+	SendAt     *time.Time `db:"send_at"`
+	CreatedAt  time.Time  `db:"created_at"`
+	UpdatedAt  time.Time  `db:"updated_at"`
+}
+
+func (user CampaignUser) OAPI() oapi.CampaignUser {
+	return oapi.CampaignUser{
+		Id:         user.ID,
+		CampaignId: user.CampaignID,
+		UserId:     user.UserID,
+		Status:     oapi.CampaignUserStatus(user.State),
+		SentAt:     user.SendAt,
+		CreatedAt:  user.CreatedAt,
+		UpdatedAt:  user.UpdatedAt,
+	}
+}
+
+func (s *CampaignsStore) GetCampaignUsers(ctx context.Context, projectID, campaignID uuid.UUID, pagination Pagination) (CampaignUsers, int, error) {
+	query := `
+	SELECT cs.id, cs.campaign_id, cs.user_id, cs.state, cs.send_at, cs.created_at, cs.updated_at,
+		COUNT(*) OVER () AS total_count
+	FROM campaign_sends cs
+	JOIN campaigns c ON c.id = cs.campaign_id
+	WHERE c.project_id = $1
+	AND cs.campaign_id = $2
+	ORDER BY cs.created_at DESC
+	LIMIT $3 OFFSET $4`
+
+	var results []struct {
+		CampaignUser
+		TotalCount int `db:"total_count"`
+	}
+	err := s.db.SelectContext(ctx, &results, query, projectID, campaignID, pagination.Limit, pagination.Offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	users := make(CampaignUsers, len(results))
+	total := 0
+
+	for i, r := range results {
+		users[i] = r.CampaignUser
+		if i == 0 {
+			total = r.TotalCount
+		}
+	}
+
+	return users, total, nil
+}
