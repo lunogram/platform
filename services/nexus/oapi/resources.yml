@@ -256,6 +256,25 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/profile:
+    get:
+      summary: Get current admin profile
+      description: Retrieves the profile information for the authenticated admin user
+      operationId: getProfile
+      tags:
+        - Profile
+      security:
+        - HttpBearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Admin'
+        default:
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     Limit:
@@ -363,7 +382,6 @@ components:
         subscription_id:
           type: string
           format: uuid
-          nullable: true
 
     UpdateCampaign:
       type: object
@@ -413,7 +431,6 @@ components:
         subscription_id:
           type: string
           format: uuid
-          nullable: true
         provider:
           $ref: '#/components/schemas/Provider'
         templates:
@@ -473,7 +490,6 @@ components:
         sent_at:
           type: string
           format: date-time
-          nullable: true
           example: "2025-11-23T17:30:00.000Z"
         created_at:
           type: string
@@ -656,6 +672,53 @@ components:
     PushProviderData:
       type: object
       properties: {}
+
+    Admin:
+      type: object
+      required:
+        - id
+        - organization_id
+        - email
+        - role
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        organization_id:
+          type: string
+          format: uuid
+          example: "7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b"
+        external_id:
+          type: string
+          example: "user_2abc123def"
+        email:
+          type: string
+          format: email
+          example: "admin@example.com"
+        first_name:
+          type: string
+          example: "John"
+        last_name:
+          type: string
+          example: "Doe"
+        image_url:
+          type: string
+          example: "https://example.com/avatar.jpg"
+        role:
+          type: string
+          enum: [owner, admin, member]
+          example: "member"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
 
   securitySchemes:
     HttpBearerAuth:

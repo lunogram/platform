@@ -5,6 +5,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lunogram/platform/pkg/claim"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/http/auth"
 )
@@ -17,7 +18,7 @@ func HMAC(secret []byte) jwt.Keyfunc {
 
 // Auth is a middleware function that authenticates requests by verifying the
 // authorization header. It returns a AuthenticationFunc that checks the authorization
-// header and adds the authenticated context to the request context.
+// header and adds the authenticated session to the request context.
 func Auth(config config.Service) openapi3filter.AuthenticationFunc {
 	keyFunc := config.JWKS.Unwrap()
 	if config.JWTSecret != "" {
@@ -26,8 +27,24 @@ func Auth(config config.Service) openapi3filter.AuthenticationFunc {
 
 	return func(ctx context.Context, filter *openapi3filter.AuthenticationInput) error {
 		// TODO: support other auth strategies
-		token := auth.RetrieveAuthToken(filter.RequestValidationInput.Request)
-		_, err := jwt.Parse(token, keyFunc, jwt.WithValidMethods([]string{"RS256", "HS256"}))
-		return err
+		req := filter.RequestValidationInput.Request
+		tokenString := auth.RetrieveAuthToken(req)
+
+		claims := jwt.RegisteredClaims{}
+		token, err := jwt.ParseWithClaims(tokenString, &claims, keyFunc, jwt.WithValidMethods([]string{"RS256", "HS256"}))
+		if err != nil {
+			return err
+		}
+
+		if token.Valid {
+			session := claim.Session{
+				RegisteredClaims: claims,
+			}
+
+			ctx := claim.WithSession(req.Context(), session)
+			*req = *req.WithContext(ctx)
+		}
+
+		return nil
 	}
 }

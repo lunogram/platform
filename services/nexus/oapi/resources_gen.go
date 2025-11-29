@@ -23,6 +23,13 @@ const (
 	HttpBearerAuthScopes = "HttpBearerAuth.Scopes"
 )
 
+// Defines values for AdminRole.
+const (
+	AdminRoleAdmin  AdminRole = "admin"
+	AdminRoleMember AdminRole = "member"
+	AdminRoleOwner  AdminRole = "owner"
+)
+
 // Defines values for CampaignChannel.
 const (
 	CampaignChannelEmail CampaignChannel = "email"
@@ -69,6 +76,23 @@ const (
 	TemplateTypeSms   TemplateType = "sms"
 )
 
+// Admin defines model for Admin.
+type Admin struct {
+	CreatedAt      time.Time           `json:"created_at"`
+	Email          openapi_types.Email `json:"email"`
+	ExternalId     *string             `json:"external_id,omitempty"`
+	FirstName      *string             `json:"first_name,omitempty"`
+	Id             openapi_types.UUID  `json:"id"`
+	ImageUrl       *string             `json:"image_url,omitempty"`
+	LastName       *string             `json:"last_name,omitempty"`
+	OrganizationId openapi_types.UUID  `json:"organization_id"`
+	Role           AdminRole           `json:"role"`
+	UpdatedAt      time.Time           `json:"updated_at"`
+}
+
+// AdminRole defines model for Admin.Role.
+type AdminRole string
+
 // Campaign defines model for Campaign.
 type Campaign struct {
 	Channel        CampaignChannel     `json:"channel"`
@@ -78,7 +102,7 @@ type Campaign struct {
 	Name           string              `json:"name"`
 	ProjectId      openapi_types.UUID  `json:"project_id"`
 	Provider       *Provider           `json:"provider,omitempty"`
-	SubscriptionId *openapi_types.UUID `json:"subscription_id"`
+	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
 	Templates      []Template          `json:"templates"`
 	UpdatedAt      time.Time           `json:"updated_at"`
 }
@@ -91,7 +115,7 @@ type CampaignUser struct {
 	CampaignId openapi_types.UUID `json:"campaign_id"`
 	CreatedAt  time.Time          `json:"created_at"`
 	Id         openapi_types.UUID `json:"id"`
-	SentAt     *time.Time         `json:"sent_at"`
+	SentAt     *time.Time         `json:"sent_at,omitempty"`
 	Status     CampaignUserStatus `json:"status"`
 	UpdatedAt  time.Time          `json:"updated_at"`
 	UserId     openapi_types.UUID `json:"user_id"`
@@ -105,7 +129,7 @@ type CreateCampaign struct {
 	Channel        CreateCampaignChannel `json:"channel"`
 	Name           string                `json:"name"`
 	ProviderId     *openapi_types.UUID   `json:"provider_id,omitempty"`
-	SubscriptionId *openapi_types.UUID   `json:"subscription_id"`
+	SubscriptionId *openapi_types.UUID   `json:"subscription_id,omitempty"`
 }
 
 // CreateCampaignChannel defines model for CreateCampaign.Channel.
@@ -349,6 +373,9 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// GetProfile request
+	GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListCampaigns request
 	ListCampaigns(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -373,6 +400,18 @@ type ClientInterface interface {
 
 	// GetCampaignUsers request
 	GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProfileRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) ListCampaigns(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -481,6 +520,33 @@ func (c *Client) GetCampaignUsers(ctx context.Context, projectID openapi_types.U
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewGetProfileRequest generates requests for GetProfile
+func NewGetProfileRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/profile")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewListCampaignsRequest generates requests for ListCampaigns
@@ -901,6 +967,9 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// GetProfileWithResponse request
+	GetProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetProfileResponse, error)
+
 	// ListCampaignsWithResponse request
 	ListCampaignsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*ListCampaignsResponse, error)
 
@@ -925,6 +994,29 @@ type ClientWithResponsesInterface interface {
 
 	// GetCampaignUsersWithResponse request
 	GetCampaignUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*GetCampaignUsersResponse, error)
+}
+
+type GetProfileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Admin
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProfileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProfileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type ListCampaignsResponse struct {
@@ -1094,6 +1186,15 @@ func (r GetCampaignUsersResponse) StatusCode() int {
 	return 0
 }
 
+// GetProfileWithResponse request returning *GetProfileResponse
+func (c *ClientWithResponses) GetProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetProfileResponse, error) {
+	rsp, err := c.GetProfile(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProfileResponse(rsp)
+}
+
 // ListCampaignsWithResponse request returning *ListCampaignsResponse
 func (c *ClientWithResponses) ListCampaignsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*ListCampaignsResponse, error) {
 	rsp, err := c.ListCampaigns(ctx, projectID, params, reqEditors...)
@@ -1171,6 +1272,39 @@ func (c *ClientWithResponses) GetCampaignUsersWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetCampaignUsersResponse(rsp)
+}
+
+// ParseGetProfileResponse parses an HTTP response from a GetProfileWithResponse call
+func ParseGetProfileResponse(rsp *http.Response) (*GetProfileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProfileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Admin
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseListCampaignsResponse parses an HTTP response from a ListCampaignsWithResponse call
@@ -1406,6 +1540,9 @@ func ParseGetCampaignUsersResponse(rsp *http.Response) (*GetCampaignUsersRespons
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Get current admin profile
+	// (GET /api/admin/profile)
+	GetProfile(w http.ResponseWriter, r *http.Request)
 	// List campaigns
 	// (GET /api/admin/projects/{projectID}/campaigns)
 	ListCampaigns(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListCampaignsParams)
@@ -1432,6 +1569,12 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// Get current admin profile
+// (GET /api/admin/profile)
+func (_ Unimplemented) GetProfile(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // List campaigns
 // (GET /api/admin/projects/{projectID}/campaigns)
@@ -1483,6 +1626,26 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetProfile operation middleware
+func (siw *ServerInterfaceWrapper) GetProfile(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProfile(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ListCampaigns operation middleware
 func (siw *ServerInterfaceWrapper) ListCampaigns(w http.ResponseWriter, r *http.Request) {
@@ -1897,6 +2060,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/profile", wrapper.GetProfile)
+	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns", wrapper.ListCampaigns)
 	})
