@@ -139,14 +139,13 @@ paths:
                 $ref: '#/components/schemas/Campaign'
         default:
           $ref: '#/components/responses/Error'
-
-  /api/admin/projects/{projectID}/templates/{templateID}:
-    get:
-      summary: Get template by ID
-      description: Retrieves a specific template with its content and editor data
-      operationId: getTemplate
+    
+    delete:
+      summary: Delete campaign
+      description: Deletes a campaign and all its associated templates
+      operationId: deleteCampaign
       tags:
-        - Templates
+        - Campaigns
       security:
         - HttpBearerAuth: []
       parameters:
@@ -157,20 +156,103 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - name: templateID
+        - name: campaignID
           in: path
           required: true
           schema:
             type: string
             format: uuid
-          description: The template ID
+          description: The campaign ID
       responses:
-        '200':
-          description: Template retrieved successfully
+        '204':
+          description: Campaign deleted successfully
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/campaigns/{campaignID}/duplicate:
+    post:
+      summary: Duplicate campaign
+      description: Creates a copy of the campaign with all its templates
+      operationId: duplicateCampaign
+      tags:
+        - Campaigns
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID to duplicate
+      responses:
+        '201':
+          description: Campaign duplicated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Template'
+                $ref: '#/components/schemas/Campaign'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/campaigns/{campaignID}/users:
+    get:
+      summary: Get campaign users
+      description: Retrieves the list of users associated with a campaign
+      operationId: getCampaignUsers
+      tags:
+        - Campaigns
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Campaign users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - total
+                  - limit
+                  - offset
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CampaignUser'
+                  total:
+                    type: integer
+                    minimum: 0
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
         default:
           $ref: '#/components/responses/Error'
 
@@ -361,6 +443,46 @@ components:
         clicks:
           type: integer
           example: 0
+
+    CampaignUser:
+      type: object
+      required:
+        - id
+        - campaign_id
+        - user_id
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        campaign_id:
+          type: string
+          format: uuid
+          example: "52f3f921-1343-48af-b795-87c0fd3b44aa"
+        user_id:
+          type: string
+          format: uuid
+          example: "7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b"
+        status:
+          type: string
+          enum: [pending, throttled, sent, aborted, failed, opened]
+          example: "sent"
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-11-23T17:30:00.000Z"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.000Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:30:00.000Z"
 
     Provider:
       type: object

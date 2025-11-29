@@ -37,16 +37,22 @@ func TestCampaignCreation(t *testing.T) {
 
 	campaigns := NewCampaignsController(logger, db)
 
-	tests := map[string]oapi.CreateCampaignJSONRequestBody{
+	type test struct {
+		body oapi.CreateCampaignJSONRequestBody
+	}
+
+	tests := map[string]test{
 		"simple": {
-			Channel: oapi.CreateCampaignChannelEmail,
-			Name:    "Welcome to the program!",
+			body: oapi.CreateCampaignJSONRequestBody{
+				Channel: oapi.CreateCampaignChannelEmail,
+				Name:    "Welcome to the program!",
+			},
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			bb, err := json.Marshal(test)
+			bb, err := json.Marshal(test.body)
 			require.NoError(t, err)
 
 			res := httptest.NewRecorder()
@@ -96,37 +102,37 @@ func TestListCampaigns(t *testing.T) {
 	controller := NewCampaignsController(logger, db)
 
 	type test struct {
-		Limit  int
-		Offset int
-		Total  int
-		Result int
+		limit  int
+		offset int
+		total  int
+		result int
 	}
 
 	tests := map[string]test{
 		"default": {
-			Limit:  10,
-			Offset: 0,
-			Total:  3,
-			Result: 3,
+			limit:  10,
+			offset: 0,
+			total:  3,
+			result: 3,
 		},
 		"with limit": {
-			Limit:  2,
-			Offset: 0,
-			Total:  3,
-			Result: 2,
+			limit:  2,
+			offset: 0,
+			total:  3,
+			result: 2,
 		},
 		"with offset": {
-			Limit:  10,
-			Offset: 1,
-			Total:  3,
-			Result: 2,
+			limit:  10,
+			offset: 1,
+			total:  3,
+			result: 2,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			limit := oapi.Limit(test.Limit)
-			offset := oapi.Offset(test.Offset)
+			limit := oapi.Limit(test.limit)
+			offset := oapi.Offset(test.offset)
 
 			params := oapi.ListCampaignsParams{
 				Limit:  &limit,
@@ -143,8 +149,8 @@ func TestListCampaigns(t *testing.T) {
 			err := json.Unmarshal(res.Body.Bytes(), &response)
 			require.NoError(t, err)
 
-			require.Equal(t, test.Total, response.Total)
-			require.Len(t, response.Results, test.Result)
+			require.Equal(t, test.total, response.Total)
+			require.Len(t, response.Results, test.result)
 		})
 	}
 }
@@ -271,6 +277,220 @@ func TestUpdateCampaign(t *testing.T) {
 			controller.UpdateCampaign(res, req, projectID, test.id)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
+		})
+	}
+}
+
+func TestDeleteCampaign(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	ctx := graceful.NewContext(t.Context())
+	config := config.Service{
+		Store: store.Config{
+			URI: container.RunPostgreSQL(t),
+		},
+	}
+
+	err := store.Migrate(config.Store)
+	require.NoError(t, err)
+
+	db, err := store.Connect(ctx, config.Store)
+	require.NoError(t, err)
+
+	projects := store.NewProjectsStore(db)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	campaigns := store.NewCampaignsStore(db)
+	templates := store.NewTemplatesStore(db)
+
+	campaignID, err := campaigns.CreateCampaign(ctx, store.Campaign{
+		ProjectID: projectID,
+		Name:      "Test Campaign",
+		Channel:   "email",
+	})
+	require.NoError(t, err)
+
+	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
+	require.NoError(t, err)
+
+	controller := NewCampaignsController(logger, db)
+
+	tests := map[string]struct {
+		id   uuid.UUID
+		code int
+	}{
+		"success": {
+			id:   campaignID,
+			code: 204,
+		},
+		"not found": {
+			id:   uuid.Nil,
+			code: 404,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			res := httptest.NewRecorder()
+			req := httptest.NewRequest("DELETE", "/v1/campaigns/"+test.id.String(), nil)
+			controller.DeleteCampaign(res, req, projectID, test.id)
+
+			require.Equal(t, test.code, res.Code, res.Body.String())
+
+			if test.code == 204 {
+				// Verify campaign is soft deleted
+				campaign, err := campaigns.GetCampaign(ctx, projectID, test.id)
+				require.Error(t, err) // Should not be found after deletion
+				require.Nil(t, campaign)
+			}
+		})
+	}
+}
+
+func TestDuplicateCampaign(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	ctx := graceful.NewContext(t.Context())
+	config := config.Service{
+		Store: store.Config{
+			URI: container.RunPostgreSQL(t),
+		},
+	}
+
+	err := store.Migrate(config.Store)
+	require.NoError(t, err)
+
+	db, err := store.Connect(ctx, config.Store)
+	require.NoError(t, err)
+
+	projects := store.NewProjectsStore(db)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	campaigns := store.NewCampaignsStore(db)
+	templates := store.NewTemplatesStore(db)
+
+	campaignID, err := campaigns.CreateCampaign(ctx, store.Campaign{
+		ProjectID: projectID,
+		Name:      "Original Campaign",
+		Channel:   "email",
+	})
+	require.NoError(t, err)
+
+	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
+	require.NoError(t, err)
+
+	controller := NewCampaignsController(logger, db)
+
+	tests := map[string]struct {
+		id   uuid.UUID
+		code int
+	}{
+		"success": {
+			id:   campaignID,
+			code: 201,
+		},
+		"not found": {
+			id:   uuid.Nil,
+			code: 404,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			res := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/campaigns/"+test.id.String()+"/duplicate", nil)
+			controller.DuplicateCampaign(res, req, projectID, test.id)
+
+			require.Equal(t, test.code, res.Code, res.Body.String())
+
+			if test.code == 201 {
+				var response oapi.Campaign
+				err := json.Unmarshal(res.Body.Bytes(), &response)
+				require.NoError(t, err)
+
+				require.NotEqual(t, test.id, response.Id)
+				require.Equal(t, "Copy of Original Campaign", response.Name)
+				require.Equal(t, projectID, response.ProjectId)
+				require.Len(t, response.Templates, 1)
+			}
+		})
+	}
+}
+
+func TestGetCampaignUsers(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	ctx := graceful.NewContext(t.Context())
+	config := config.Service{
+		Store: store.Config{
+			URI: container.RunPostgreSQL(t),
+		},
+	}
+
+	err := store.Migrate(config.Store)
+	require.NoError(t, err)
+
+	db, err := store.Connect(ctx, config.Store)
+	require.NoError(t, err)
+
+	projects := store.NewProjectsStore(db)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	campaigns := store.NewCampaignsStore(db)
+	templates := store.NewTemplatesStore(db)
+
+	campaignID, err := campaigns.CreateCampaign(ctx, store.Campaign{
+		ProjectID: projectID,
+		Name:      "Test Campaign",
+		Channel:   "email",
+	})
+	require.NoError(t, err)
+
+	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
+	require.NoError(t, err)
+
+	controller := NewCampaignsController(logger, db)
+
+	tests := map[string]struct {
+		id   uuid.UUID
+		code int
+	}{
+		"success": {
+			id:   campaignID,
+			code: 200,
+		},
+		"not found": {
+			id:   uuid.Nil,
+			code: 404,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			limit := oapi.Limit(10)
+			offset := oapi.Offset(0)
+
+			params := oapi.GetCampaignUsersParams{
+				Limit:  &limit,
+				Offset: &offset,
+			}
+
+			res := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/v1/campaigns/"+test.id.String()+"/users", nil)
+			controller.GetCampaignUsers(res, req, projectID, test.id, params)
+
+			require.Equal(t, test.code, res.Code, res.Body.String())
+
+			if test.code == 200 {
+				var response map[string]interface{}
+				err := json.Unmarshal(res.Body.Bytes(), &response)
+				require.NoError(t, err)
+
+				require.Contains(t, response, "data")
+				require.Contains(t, response, "total")
+				require.Contains(t, response, "limit")
+				require.Contains(t, response, "offset")
+			}
 		})
 	}
 }

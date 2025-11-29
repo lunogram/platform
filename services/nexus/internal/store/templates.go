@@ -100,3 +100,15 @@ func (s *TemplatesStore) ListTemplates(ctx context.Context, projectID, campaignI
 
 	return templates, nil
 }
+
+func (s *TemplatesStore) DuplicateTemplate(ctx context.Context, projectID, templateID, newCampaignID uuid.UUID) error {
+	query := `
+	INSERT INTO templates (project_id, campaign_id, type, data, locale)
+	SELECT project_id, $1, type, data, locale
+	FROM templates
+	WHERE project_id = $2
+	AND id = $3`
+
+	_, err := s.db.ExecContext(ctx, query, newCampaignID, projectID, templateID)
+	return err
+}

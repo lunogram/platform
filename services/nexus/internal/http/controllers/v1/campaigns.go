@@ -218,3 +218,142 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 	logger.Info("campaign updated")
 	json.Write(w, http.StatusOK, campaign.OAPI())
 }
+
+func (srv *CampaignsController) DeleteCampaign(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID) {
+	ctx := r.Context()
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID))
+	logger.Info("deleting campaign")
+
+	_, err := srv.store.GetCampaign(ctx, projectID, campaignID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Error("campaign not found", zap.Stringer("campaign_id", campaignID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get campaign", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	err = srv.store.DeleteCampaign(ctx, projectID, campaignID)
+	if err != nil {
+		logger.Error("failed to delete campaign", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("campaign deleted")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *CampaignsController) DuplicateCampaign(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID) {
+	ctx := r.Context()
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID))
+	logger.Info("duplicating campaign")
+
+	campaign, err := srv.store.GetCampaign(ctx, projectID, campaignID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Error("campaign not found", zap.Stringer("campaign_id", campaignID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get campaign", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("unexpected error while attempting to start a transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+
+	campaigns := store.NewCampaignsStore(tx)
+	templates := store.NewTemplatesStore(tx)
+
+	newCampaignID, err := campaigns.CreateCampaign(ctx, store.Campaign{
+		ProjectID:      campaign.ProjectID,
+		Name:           "Copy of " + campaign.Name,
+		Channel:        campaign.Channel,
+		ProviderID:     campaign.ProviderID,
+		SubscriptionID: campaign.SubscriptionID,
+	})
+	if err != nil {
+		logger.Error("failed to create duplicated campaign", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// Get all templates from the original campaign
+	for _, template := range campaign.Templates {
+		err = templates.DuplicateTemplate(ctx, projectID, template.ID, newCampaignID)
+		if err != nil {
+			logger.Error("failed to duplicate template", zap.Error(err), zap.Stringer("template_id", template.ID))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("unexpected error while attempting to commit transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("campaign duplicated", zap.Stringer("new_campaign_id", newCampaignID))
+	duplicated, err := srv.store.GetCampaign(ctx, projectID, newCampaignID)
+	if err != nil {
+		logger.Error("failed to fetch duplicated campaign", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	json.Write(w, http.StatusCreated, duplicated.OAPI())
+}
+
+func (srv *CampaignsController) GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, params oapi.GetCampaignUsersParams) {
+	ctx := r.Context()
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID))
+	logger.Info("getting campaign users")
+
+	_, err := srv.store.GetCampaign(ctx, projectID, campaignID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Error("campaign not found", zap.Stringer("campaign_id", campaignID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get campaign", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	pagination := store.Pagination{
+		Limit:  params.Limit.ToInt(),
+		Offset: params.Offset.ToInt(),
+	}
+
+	users, total, err := srv.store.GetCampaignUsers(ctx, projectID, campaignID, pagination)
+	if err != nil {
+		logger.Error("failed to get campaign users", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("campaign users retrieved", zap.Int("count", len(users)))
+	json.Write(w, http.StatusOK, map[string]interface{}{
+		"data":   users.OAPI(),
+		"total":  total,
+		"limit":  pagination.Limit,
+		"offset": pagination.Offset,
+	})
+}
