@@ -289,3 +289,90 @@ func (s *UsersStore) DeleteUser(ctx context.Context, projectID, userID uuid.UUID
 	_, err := s.db.ExecContext(ctx, stmt, userID, projectID)
 	return err
 }
+
+type UserEvents []UserEvent
+
+func (e UserEvents) OAPI() []oapi.UserEvent {
+	results := make([]oapi.UserEvent, len(e))
+	for i, event := range e {
+		results[i] = event.OAPI()
+	}
+	return results
+}
+
+type UserEvent struct {
+	ID        uuid.UUID       `db:"id"`
+	ProjectID uuid.UUID       `db:"project_id"`
+	UserID    uuid.UUID       `db:"user_id"`
+	Name      string          `db:"name"`
+	Data      json.RawMessage `db:"data"`
+	CreatedAt time.Time       `db:"created_at"`
+	UpdatedAt time.Time       `db:"updated_at"`
+}
+
+func (e *UserEvent) OAPI() oapi.UserEvent {
+	return oapi.UserEvent{
+		Id:        e.ID,
+		ProjectId: e.ProjectID,
+		UserId:    e.UserID,
+		Name:      e.Name,
+		Data:      &e.Data,
+		CreatedAt: e.CreatedAt,
+		UpdatedAt: e.UpdatedAt,
+	}
+}
+
+func (s *UsersStore) ListUserEvents(ctx context.Context, projectID, userID uuid.UUID, pagination Pagination) (UserEvents, int, error) {
+	query := `
+	SELECT 
+		id, project_id, user_id, name, data, created_at, updated_at,
+		COUNT(*) OVER () AS total_count
+	FROM user_events
+	WHERE project_id = $1 AND user_id = $2
+	ORDER BY created_at DESC
+	LIMIT $3 OFFSET $4`
+
+	type result struct {
+		UserEvent
+		TotalCount int `db:"total_count"`
+	}
+
+	var results []result
+	err := s.db.SelectContext(ctx, &results, query, projectID, userID, pagination.Limit, pagination.Offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(results) == 0 {
+		return []UserEvent{}, 0, nil
+	}
+
+	total := results[0].TotalCount
+	events := make([]UserEvent, len(results))
+
+	for index, result := range results {
+		events[index] = result.UserEvent
+	}
+
+	return events, total, nil
+}
+
+func (s *UsersStore) CreateUserEvent(ctx context.Context, event UserEvent) (uuid.UUID, error) {
+	stmt := `
+	INSERT INTO user_events (project_id, user_id, name, data)
+	VALUES ($1, $2, $3, $4)
+	RETURNING id`
+
+	var id uuid.UUID
+	err := s.db.GetContext(ctx, &id, stmt,
+		event.ProjectID,
+		event.UserID,
+		event.Name,
+		event.Data,
+	)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
+}

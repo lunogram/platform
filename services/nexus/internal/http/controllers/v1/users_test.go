@@ -245,3 +245,281 @@ func TestVersionIncrementsOnUpdate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, initialVersion+1, updatedUser.Version, "version should auto-increment via trigger")
 }
+
+func TestGetUserEvents(t *testing.T) {
+	controller, projectID := setupUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.store.UsersStore
+	userID, err := usersStore.CreateUser(ctx, store.User{
+		ProjectID:   projectID,
+		AnonymousID: "anon_events",
+		Data:        json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	for i := 0; i < 3; i++ {
+		_, err := usersStore.CreateUserEvent(ctx, store.UserEvent{
+			ProjectID: projectID,
+			UserID:    userID,
+			Name:      "page_viewed",
+			Data:      json.RawMessage(`{"page":"/home"}`),
+		})
+		require.NoError(t, err)
+	}
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/events", nil)
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.GetUserEvents(res, req, projectID, userID, oapi.GetUserEventsParams{})
+
+	require.Equal(t, 200, res.Code)
+
+	var response oapi.UserEventList
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Equal(t, 3, response.Total)
+	require.Len(t, response.Results, 3)
+	require.Equal(t, "page_viewed", response.Results[0].Name)
+}
+
+func TestGetUserEventsNotFound(t *testing.T) {
+	controller, projectID := setupUsersController(t)
+
+	nonExistentUserID := uuid.New()
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+nonExistentUserID.String()+"/events", nil)
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.GetUserEvents(res, req, projectID, nonExistentUserID, oapi.GetUserEventsParams{})
+
+	require.Equal(t, 404, res.Code)
+}
+
+func TestGetUserSubscriptions(t *testing.T) {
+	controller, projectID := setupUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.store.UsersStore
+	userID, err := usersStore.CreateUser(ctx, store.User{
+		ProjectID:   projectID,
+		AnonymousID: "anon_subscriptions",
+		Data:        json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	subscriptionsStore := controller.store.SubscriptionsStore
+	subscriptionID1, err := subscriptionsStore.CreateSubscription(ctx, store.Subscription{
+		ProjectID: projectID,
+		Name:      "Newsletter",
+		Channel:   "email",
+		IsPublic:  true,
+	})
+	require.NoError(t, err)
+
+	_, err = subscriptionsStore.CreateSubscription(ctx, store.Subscription{
+		ProjectID: projectID,
+		Name:      "SMS Updates",
+		Channel:   "sms",
+		IsPublic:  true,
+	})
+	require.NoError(t, err)
+
+	err = subscriptionsStore.ToggleSubscription(ctx, userID, subscriptionID1, "unsubscribed")
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/subscriptions", nil)
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.GetUserSubscriptions(res, req, projectID, userID, oapi.GetUserSubscriptionsParams{})
+
+	require.Equal(t, 200, res.Code)
+
+	var response oapi.UserSubscriptionList
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Equal(t, 2, response.Total)
+	require.Len(t, response.Results, 2)
+
+	for _, sub := range response.Results {
+		if sub.SubscriptionId == subscriptionID1 {
+			require.Equal(t, "unsubscribed", string(sub.State))
+		} else {
+			require.Equal(t, "subscribed", string(sub.State))
+		}
+	}
+}
+
+func TestUpdateUserSubscriptions(t *testing.T) {
+	controller, projectID := setupUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.store.UsersStore
+	userID, err := usersStore.CreateUser(ctx, store.User{
+		ProjectID:   projectID,
+		AnonymousID: "anon_update_subs",
+		Data:        json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	subscriptionsStore := controller.store.SubscriptionsStore
+	subscriptionID, err := subscriptionsStore.CreateSubscription(ctx, store.Subscription{
+		ProjectID: projectID,
+		Name:      "Marketing",
+		Channel:   "email",
+		IsPublic:  true,
+	})
+	require.NoError(t, err)
+
+	updateBody := oapi.UpdateUserSubscriptions{
+		{
+			SubscriptionId: subscriptionID,
+			State:          "unsubscribed",
+		},
+	}
+
+	bodyBytes, err := json.Marshal(updateBody)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/subscriptions", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.UpdateUserSubscriptions(res, req, projectID, userID)
+
+	require.Equal(t, 200, res.Code)
+
+	// Verify the subscription state changed to unsubscribed
+	subs, _, err := subscriptionsStore.GetUserSubscriptions(ctx, projectID, userID, store.Pagination{Limit: 10, Offset: 0})
+	require.NoError(t, err)
+	require.Len(t, subs, 1)
+	require.Equal(t, "unsubscribed", subs[0].State)
+}
+
+func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
+	controller, projectID := setupUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.store.UsersStore
+	userID, err := usersStore.CreateUser(ctx, store.User{
+		ProjectID:   projectID,
+		AnonymousID: "anon_sub_not_found",
+		Data:        json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	nonExistentSubID := uuid.New()
+	updateBody := oapi.UpdateUserSubscriptions{
+		{
+			SubscriptionId: nonExistentSubID,
+			State:          "unsubscribed",
+		},
+	}
+
+	bodyBytes, err := json.Marshal(updateBody)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/subscriptions", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.UpdateUserSubscriptions(res, req, projectID, userID)
+
+	require.Equal(t, 404, res.Code)
+}
+
+func TestGetUserJourneys(t *testing.T) {
+	controller, projectID := setupUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.store.UsersStore
+	userID, err := usersStore.CreateUser(ctx, store.User{
+		ProjectID:   projectID,
+		AnonymousID: "anon_journeys",
+		Data:        json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	journeysStore := controller.store.JourneysStore
+	status := "active"
+	journeyID, err := journeysStore.CreateJourney(ctx, store.Journey{
+		ProjectID: projectID,
+		Name:      "Onboarding Flow",
+		Status:    &status,
+	})
+	require.NoError(t, err)
+
+	entranceID, err := journeysStore.CreateUserJourneyStep(ctx, userID, journeyID, "entrance")
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/journeys", nil)
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.GetUserJourneys(res, req, projectID, userID, oapi.GetUserJourneysParams{})
+
+	require.Equal(t, 200, res.Code)
+
+	var response oapi.UserJourneyList
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Equal(t, 1, response.Total)
+	require.Len(t, response.Results, 1)
+	require.Equal(t, entranceID, response.Results[0].Id)
+	require.NotNil(t, response.Results[0].Journey)
+	require.Equal(t, "Onboarding Flow", response.Results[0].Journey.Name)
+}
+
+func TestGetUserJourneysPagination(t *testing.T) {
+	controller, projectID := setupUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.store.UsersStore
+	userID, err := usersStore.CreateUser(ctx, store.User{
+		ProjectID:   projectID,
+		AnonymousID: "anon_journeys_page",
+		Data:        json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	journeysStore := controller.store.JourneysStore
+	status := "active"
+	journeyID, err := journeysStore.CreateJourney(ctx, store.Journey{
+		ProjectID: projectID,
+		Name:      "Test Journey",
+		Status:    &status,
+	})
+	require.NoError(t, err)
+
+	for i := 0; i < 5; i++ {
+		_, err = journeysStore.CreateUserJourneyStep(ctx, userID, journeyID, "entrance")
+		require.NoError(t, err)
+	}
+
+	limit := oapi.PaginationLimit(2)
+	offset := oapi.PaginationOffset(1)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/journeys", nil)
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.GetUserJourneys(res, req, projectID, userID, oapi.GetUserJourneysParams{
+		Limit:  &limit,
+		Offset: &offset,
+	})
+
+	require.Equal(t, 200, res.Code)
+
+	var response oapi.UserJourneyList
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Equal(t, 5, response.Total)
+	require.Len(t, response.Results, 2)
+	require.Equal(t, 2, response.Limit)
+	require.Equal(t, 1, response.Offset)
+}

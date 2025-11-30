@@ -5,44 +5,31 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/pkg/container"
 	"github.com/stretchr/testify/require"
 )
 
-func setupUsersTest(t *testing.T) (*UsersStore, uuid.UUID) {
+func SetupUsers(t *testing.T, db *Stores) uuid.UUID {
 	t.Helper()
 
-	ctx := graceful.NewContext(t.Context())
-	config := Config{
-		URI: container.RunPostgreSQL(t),
-	}
-
-	err := Migrate(config)
+	ctx := t.Context()
+	organization, err := db.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	db, err := Connect(ctx, config)
-	require.NoError(t, err)
-
-	orgsStore := NewOrganizationsStore(db)
-	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
-	require.NoError(t, err)
-
-	projectsStore := NewProjectsStore(db)
-	projectID, err := projectsStore.CreateProject(ctx, Project{
-		OrganizationID: &orgID,
+	project, err := db.CreateProject(ctx, Project{
+		OrganizationID: &organization,
 		Name:           "Test Project",
 		Timezone:       "UTC",
 		Locale:         "en-US",
 	})
 	require.NoError(t, err)
 
-	return NewUsersStore(db), projectID
+	return project
 }
 
 func TestCreateUser(t *testing.T) {
-	store, projectID := setupUsersTest(t)
+	db := NewContainerStore(t)
+	projectID := SetupUsers(t, db)
 	ctx := context.Background()
 
 	type test struct {
@@ -80,11 +67,11 @@ func TestCreateUser(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			userID, err := store.CreateUser(ctx, tt.user)
+			userID, err := db.CreateUser(ctx, tt.user)
 			require.NoError(t, err)
 			require.NotEqual(t, uuid.Nil, userID)
 
-			user, err := store.GetUser(ctx, projectID, userID)
+			user, err := db.GetUser(ctx, projectID, userID)
 			require.NoError(t, err)
 			require.Equal(t, tt.user.AnonymousID, user.AnonymousID)
 			require.Equal(t, tt.user.ExternalID, user.ExternalID)
@@ -97,11 +84,12 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestGetUserByExternalID(t *testing.T) {
-	store, projectID := setupUsersTest(t)
+	db := NewContainerStore(t)
+	projectID := SetupUsers(t, db)
 	ctx := context.Background()
 
 	externalID := "user_external_123"
-	userID, err := store.CreateUser(ctx, User{
+	userID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		Data:        json.RawMessage(`{}`),
 		AnonymousID: "anon_123",
@@ -110,35 +98,37 @@ func TestGetUserByExternalID(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	user, err := store.GetUserByExternalID(ctx, projectID, externalID)
+	user, err := db.GetUserByExternalID(ctx, projectID, externalID)
 	require.NoError(t, err)
 	require.Equal(t, userID, user.ID)
 	require.Equal(t, externalID, *user.ExternalID)
 }
 
 func TestGetUserByAnonymousID(t *testing.T) {
-	store, projectID := setupUsersTest(t)
+	db := NewContainerStore(t)
+	projectID := SetupUsers(t, db)
 	ctx := context.Background()
 
 	anonymousID := "anon_unique_123"
-	userID, err := store.CreateUser(ctx, User{
+	userID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		AnonymousID: anonymousID,
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
 
-	user, err := store.GetUserByAnonymousID(ctx, projectID, anonymousID)
+	user, err := db.GetUserByAnonymousID(ctx, projectID, anonymousID)
 	require.NoError(t, err)
 	require.Equal(t, userID, user.ID)
 	require.Equal(t, anonymousID, user.AnonymousID)
 }
 
 func TestListUsersWithSearch(t *testing.T) {
-	store, projectID := setupUsersTest(t)
+	db := NewContainerStore(t)
+	projectID := SetupUsers(t, db)
 	ctx := context.Background()
 
-	_, err := store.CreateUser(ctx, User{
+	_, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		Data:        json.RawMessage(`{}`),
 		AnonymousID: "anon_1",
@@ -147,7 +137,7 @@ func TestListUsersWithSearch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = store.CreateUser(ctx, User{
+	_, err = db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		Data:        json.RawMessage(`{}`),
 		AnonymousID: "anon_2",
@@ -156,7 +146,7 @@ func TestListUsersWithSearch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = store.CreateUser(ctx, User{
+	_, err = db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		Data:        json.RawMessage(`{}`),
 		AnonymousID: "anon_3",
@@ -200,7 +190,7 @@ func TestListUsersWithSearch(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			users, total, err := store.ListUsers(ctx, projectID, Pagination{Limit: 20, Offset: 0}, tt.search)
+			users, total, err := db.ListUsers(ctx, projectID, Pagination{Limit: 20, Offset: 0}, tt.search)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedCount, len(users), tt.description)
 			require.Equal(t, tt.expectedCount, total, "total count should match result count")
@@ -209,11 +199,12 @@ func TestListUsersWithSearch(t *testing.T) {
 }
 
 func TestListUsersWithPagination(t *testing.T) {
-	store, projectID := setupUsersTest(t)
+	db := NewContainerStore(t)
+	projectID := SetupUsers(t, db)
 	ctx := context.Background()
 
 	for i := 0; i < 5; i++ {
-		_, err := store.CreateUser(ctx, User{
+		_, err := db.CreateUser(ctx, User{
 			ProjectID:   projectID,
 			AnonymousID: uuid.New().String(),
 			Data:        json.RawMessage(`{}`),
@@ -252,7 +243,7 @@ func TestListUsersWithPagination(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			users, total, err := store.ListUsers(ctx, projectID, tt.pagination, "")
+			users, total, err := db.ListUsers(ctx, projectID, tt.pagination, "")
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedCount, len(users))
 			require.Equal(t, tt.expectedTotal, total)
@@ -261,7 +252,8 @@ func TestListUsersWithPagination(t *testing.T) {
 }
 
 func TestUpsertUser(t *testing.T) {
-	store, projectID := setupUsersTest(t)
+	db := NewContainerStore(t)
+	projectID := SetupUsers(t, db)
 	ctx := context.Background()
 
 	type test struct {
@@ -314,12 +306,12 @@ func TestUpsertUser(t *testing.T) {
 			var existingUserID uuid.UUID
 			if tt.setupUser != nil {
 				var err error
-				existingUserID, err = store.CreateUser(ctx, *tt.setupUser)
+				existingUserID, err = db.CreateUser(ctx, *tt.setupUser)
 				require.NoError(t, err)
 			}
 
 			anonID, extID, email, phone, tz, locale, data := tt.upsertData()
-			userID, err := store.UpsertUser(ctx, projectID, anonID, extID, email, phone, tz, locale, data)
+			userID, err := db.UpsertUser(ctx, projectID, anonID, extID, email, phone, tz, locale, data)
 			require.NoError(t, err)
 			require.NotEqual(t, uuid.Nil, userID)
 
@@ -327,7 +319,7 @@ func TestUpsertUser(t *testing.T) {
 				require.Equal(t, existingUserID, userID, "should return existing user ID on conflict")
 			}
 
-			user, err := store.GetUser(ctx, projectID, userID)
+			user, err := db.GetUser(ctx, projectID, userID)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedEmail, user.Email, tt.description)
 		})
@@ -335,11 +327,12 @@ func TestUpsertUser(t *testing.T) {
 }
 
 func TestUpdateUserWithDataMerge(t *testing.T) {
-	store, projectID := setupUsersTest(t)
+	db := NewContainerStore(t)
+	projectID := SetupUsers(t, db)
 	ctx := context.Background()
 
 	initialData := json.RawMessage(`{"first_name":"John","age":30,"nested":{"key":"value"}}`)
-	userID, err := store.CreateUser(ctx, User{
+	userID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		AnonymousID: "anon_merge",
 		Data:        initialData,
@@ -372,12 +365,12 @@ func TestUpdateUserWithDataMerge(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			err := store.UpdateUser(ctx, userID, UserUpdate{
+			err := db.UpdateUser(ctx, userID, UserUpdate{
 				Data: tt.updateData,
 			})
 			require.NoError(t, err)
 
-			user, err := store.GetUser(ctx, projectID, userID)
+			user, err := db.GetUser(ctx, projectID, userID)
 			require.NoError(t, err)
 
 			var userData map[string]interface{}
@@ -393,44 +386,46 @@ func TestUpdateUserWithDataMerge(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
-	store, projectID := setupUsersTest(t)
+	db := NewContainerStore(t)
+	projectID := SetupUsers(t, db)
 	ctx := context.Background()
 
-	userID, err := store.CreateUser(ctx, User{
+	userID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		Data:        json.RawMessage(`{}`),
 		AnonymousID: "anon_delete",
 	})
 	require.NoError(t, err)
 
-	err = store.DeleteUser(ctx, projectID, userID)
+	err = db.DeleteUser(ctx, projectID, userID)
 	require.NoError(t, err)
 
-	_, err = store.GetUser(ctx, projectID, userID)
+	_, err = db.GetUser(ctx, projectID, userID)
 	require.Error(t, err, "should return error when user is deleted")
 }
 
 func TestVersionAutoIncrement(t *testing.T) {
-	store, projectID := setupUsersTest(t)
+	db := NewContainerStore(t)
+	projectID := SetupUsers(t, db)
 	ctx := context.Background()
 
-	userID, err := store.CreateUser(ctx, User{
+	userID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		Data:        json.RawMessage(`{}`),
 		AnonymousID: "anon_version",
 	})
 	require.NoError(t, err)
 
-	user, err := store.GetUser(ctx, projectID, userID)
+	user, err := db.GetUser(ctx, projectID, userID)
 	require.NoError(t, err)
 	initialVersion := user.Version
 
-	err = store.UpdateUser(ctx, userID, UserUpdate{
+	err = db.UpdateUser(ctx, userID, UserUpdate{
 		Email: ptr("test@example.com"),
 	})
 	require.NoError(t, err)
 
-	user, err = store.GetUser(ctx, projectID, userID)
+	user, err = db.GetUser(ctx, projectID, userID)
 	require.NoError(t, err)
 	require.Equal(t, initialVersion+1, user.Version, "version should auto-increment on update")
 }
@@ -486,11 +481,12 @@ func TestUserOAPIConversionWithDevices(t *testing.T) {
 }
 
 func TestGetUserWithDevices(t *testing.T) {
-	store, projectID := setupUsersTest(t)
+	db := NewContainerStore(t)
+	projectID := SetupUsers(t, db)
 	ctx := context.Background()
 
 	// Create a user
-	userID, err := store.CreateUser(ctx, User{
+	userID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		AnonymousID: "anon_with_devices",
 		Data:        json.RawMessage(`{}`),
@@ -498,20 +494,24 @@ func TestGetUserWithDevices(t *testing.T) {
 	require.NoError(t, err)
 
 	// Initially user should not have push device
-	user, err := store.GetUser(ctx, projectID, userID)
+	user, err := db.GetUser(ctx, projectID, userID)
 	require.NoError(t, err)
 	require.False(t, user.HasPushDevice, "should not have push device initially")
 
 	// Insert a device with push token
 	token := "push_token_ios_123"
-	_, err = store.db.ExecContext(ctx, `
-		INSERT INTO devices (project_id, user_id, device_id, token, os, model)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, projectID, userID, "device_ios", token, "iOS", "iPhone 14")
+	_, err = db.CreateDevice(ctx, Device{
+		ProjectID: projectID,
+		UserID:    userID,
+		DeviceID:  "device_ios",
+		Token:     &token,
+		OS:        ptr("iOS"),
+		Model:     ptr("iPhone 14"),
+	})
 	require.NoError(t, err)
 
 	// Fetch the user again and verify has_push_device is true
-	user, err = store.GetUser(ctx, projectID, userID)
+	user, err = db.GetUser(ctx, projectID, userID)
 	require.NoError(t, err)
 	require.True(t, user.HasPushDevice, "should have push device after inserting device with token")
 
@@ -521,18 +521,19 @@ func TestGetUserWithDevices(t *testing.T) {
 }
 
 func TestListUsersWithDevices(t *testing.T) {
-	store, projectID := setupUsersTest(t)
+	db := NewContainerStore(t)
+	projectID := SetupUsers(t, db)
 	ctx := context.Background()
 
 	// Create two users
-	user1ID, err := store.CreateUser(ctx, User{
+	user1ID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		AnonymousID: "user1_with_device",
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
 
-	user2ID, err := store.CreateUser(ctx, User{
+	user2ID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		AnonymousID: "user2_no_device",
 		Data:        json.RawMessage(`{}`),
@@ -541,14 +542,16 @@ func TestListUsersWithDevices(t *testing.T) {
 
 	// Add device with push token to user1 only
 	token := "push_token_xyz"
-	_, err = store.db.ExecContext(ctx, `
-		INSERT INTO devices (project_id, user_id, device_id, token)
-		VALUES ($1, $2, $3, $4)
-	`, projectID, user1ID, "device1", token)
+	_, err = db.CreateDevice(ctx, Device{
+		ProjectID: projectID,
+		UserID:    user1ID,
+		DeviceID:  "device1",
+		Token:     &token,
+	})
 	require.NoError(t, err)
 
 	// List users
-	users, total, err := store.ListUsers(ctx, projectID, Pagination{Limit: 10, Offset: 0}, "")
+	users, total, err := db.ListUsers(ctx, projectID, Pagination{Limit: 10, Offset: 0}, "")
 	require.NoError(t, err)
 	require.Equal(t, 2, total)
 

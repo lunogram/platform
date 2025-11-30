@@ -90,6 +90,25 @@ const (
 	UpdateAdminRoleOwner  UpdateAdminRole = "owner"
 )
 
+// Defines values for UpdateUserSubscriptionsState.
+const (
+	UpdateUserSubscriptionsStateSubscribed   UpdateUserSubscriptionsState = "subscribed"
+	UpdateUserSubscriptionsStateUnsubscribed UpdateUserSubscriptionsState = "unsubscribed"
+)
+
+// Defines values for UserSubscriptionChannel.
+const (
+	Email UserSubscriptionChannel = "email"
+	Push  UserSubscriptionChannel = "push"
+	Sms   UserSubscriptionChannel = "sms"
+)
+
+// Defines values for UserSubscriptionState.
+const (
+	UserSubscriptionStateSubscribed   UserSubscriptionState = "subscribed"
+	UserSubscriptionStateUnsubscribed UserSubscriptionState = "unsubscribed"
+)
+
 // Admin defines model for Admin.
 type Admin struct {
 	CreatedAt      time.Time          `json:"created_at"`
@@ -223,6 +242,17 @@ type IdentifyUser0 = interface{}
 // IdentifyUser1 defines model for .
 type IdentifyUser1 = interface{}
 
+// Journey defines model for Journey.
+type Journey struct {
+	CreatedAt   time.Time          `json:"created_at"`
+	Description *string            `json:"description,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	ProjectId   openapi_types.UUID `json:"project_id"`
+	Status      string             `json:"status"`
+	UpdatedAt   time.Time          `json:"updated_at"`
+}
+
 // PaginatedResponse defines model for PaginatedResponse.
 type PaginatedResponse struct {
 	// Limit Maximum number of items returned
@@ -323,12 +353,23 @@ type UpdateCampaign struct {
 
 // UpdateUser defines model for UpdateUser.
 type UpdateUser struct {
-	Data     *json.RawMessage `json:"data,omitempty"`
-	Email    *string          `json:"email,omitempty"`
-	Locale   *string          `json:"locale,omitempty"`
-	Phone    *string          `json:"phone,omitempty"`
-	Timezone *string          `json:"timezone,omitempty"`
+	Data   *json.RawMessage `json:"data,omitempty"`
+	Email  *string          `json:"email,omitempty"`
+	Locale *string          `json:"locale,omitempty"`
+
+	// Phone E.164 format (e.g., +14155552671)
+	Phone    *string `json:"phone,omitempty"`
+	Timezone *string `json:"timezone,omitempty"`
 }
+
+// UpdateUserSubscriptions defines model for UpdateUserSubscriptions.
+type UpdateUserSubscriptions = []struct {
+	State          UpdateUserSubscriptionsState `json:"state"`
+	SubscriptionId openapi_types.UUID           `json:"subscription_id"`
+}
+
+// UpdateUserSubscriptionsState defines model for UpdateUserSubscriptions.State.
+type UpdateUserSubscriptionsState string
 
 // User defines model for User.
 type User struct {
@@ -347,6 +388,53 @@ type User struct {
 	Version       int32              `json:"version"`
 }
 
+// UserEvent defines model for UserEvent.
+type UserEvent struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Data      *json.RawMessage   `json:"data,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	UpdatedAt time.Time          `json:"updated_at"`
+	UserId    openapi_types.UUID `json:"user_id"`
+}
+
+// UserEventList defines model for UserEventList.
+type UserEventList struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int         `json:"offset"`
+	Results []UserEvent `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
+// UserJourneyEntrance defines model for UserJourneyEntrance.
+type UserJourneyEntrance struct {
+	CreatedAt  time.Time          `json:"created_at"`
+	EndedAt    *time.Time         `json:"ended_at,omitempty"`
+	EntranceId openapi_types.UUID `json:"entrance_id"`
+	Id         openapi_types.UUID `json:"id"`
+	Journey    *Journey           `json:"journey,omitempty"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+}
+
+// UserJourneyList defines model for UserJourneyList.
+type UserJourneyList struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int                   `json:"offset"`
+	Results []UserJourneyEntrance `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // UserList defines model for UserList.
 type UserList struct {
 	// Limit Maximum number of items returned
@@ -355,6 +443,33 @@ type UserList struct {
 	// Offset Number of items skipped
 	Offset  int    `json:"offset"`
 	Results []User `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
+// UserSubscription defines model for UserSubscription.
+type UserSubscription struct {
+	Channel        UserSubscriptionChannel `json:"channel"`
+	Name           string                  `json:"name"`
+	State          UserSubscriptionState   `json:"state"`
+	SubscriptionId openapi_types.UUID      `json:"subscription_id"`
+}
+
+// UserSubscriptionChannel defines model for UserSubscription.Channel.
+type UserSubscriptionChannel string
+
+// UserSubscriptionState defines model for UserSubscription.State.
+type UserSubscriptionState string
+
+// UserSubscriptionList defines model for UserSubscriptionList.
+type UserSubscriptionList struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int                `json:"offset"`
+	Results []UserSubscription `json:"results"`
 
 	// Total Total number of items matching the filters
 	Total int `json:"total"`
@@ -427,6 +542,33 @@ type ListUsersParams struct {
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// GetUserEventsParams defines parameters for GetUserEvents.
+type GetUserEventsParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetUserJourneysParams defines parameters for GetUserJourneys.
+type GetUserJourneysParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetUserSubscriptionsParams defines parameters for GetUserSubscriptions.
+type GetUserSubscriptionsParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // CreateAdminJSONRequestBody defines body for CreateAdmin for application/json ContentType.
 type CreateAdminJSONRequestBody = CreateAdmin
 
@@ -444,6 +586,9 @@ type IdentifyUserJSONRequestBody = IdentifyUser
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UpdateUser
+
+// UpdateUserSubscriptionsJSONRequestBody defines body for UpdateUserSubscriptions for application/json ContentType.
+type UpdateUserSubscriptionsJSONRequestBody = UpdateUserSubscriptions
 
 // AsIdentifyUser0 returns the union data inside the IdentifyUser as a IdentifyUser0
 func (t IdentifyUser) AsIdentifyUser0() (IdentifyUser0, error) {
@@ -763,6 +908,20 @@ type ClientInterface interface {
 	UpdateUserWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateUser(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserEvents request
+	GetUserEvents(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserJourneys request
+	GetUserJourneys(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserSubscriptions request
+	GetUserSubscriptions(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserSubscriptionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateUserSubscriptionsWithBody request with any body
+	UpdateUserSubscriptionsWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateUserSubscriptions(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserSubscriptionsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) ListAdmins(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1043,6 +1202,66 @@ func (c *Client) UpdateUserWithBody(ctx context.Context, projectID openapi_types
 
 func (c *Client) UpdateUser(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateUserRequest(c.Server, projectID, userID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUserEvents(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserEventsRequest(c.Server, projectID, userID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUserJourneys(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserJourneysRequest(c.Server, projectID, userID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUserSubscriptions(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserSubscriptionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserSubscriptionsRequest(c.Server, projectID, userID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateUserSubscriptionsWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateUserSubscriptionsRequestWithBody(c.Server, projectID, userID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateUserSubscriptions(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserSubscriptionsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateUserSubscriptionsRequest(c.Server, projectID, userID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1962,6 +2181,297 @@ func NewUpdateUserRequestWithBody(server string, projectID openapi_types.UUID, u
 	return req, nil
 }
 
+// NewGetUserEventsRequest generates requests for GetUserEvents
+func NewGetUserEventsRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserEventsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/users/%s/events", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetUserJourneysRequest generates requests for GetUserJourneys
+func NewGetUserJourneysRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/users/%s/journeys", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetUserSubscriptionsRequest generates requests for GetUserSubscriptions
+func NewGetUserSubscriptionsRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserSubscriptionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/users/%s/subscriptions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateUserSubscriptionsRequest calls the generic UpdateUserSubscriptions builder with application/json body
+func NewUpdateUserSubscriptionsRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserSubscriptionsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateUserSubscriptionsRequestWithBody(server, projectID, userID, "application/json", bodyReader)
+}
+
+// NewUpdateUserSubscriptionsRequestWithBody generates requests for UpdateUserSubscriptions with any type of body
+func NewUpdateUserSubscriptionsRequestWithBody(server string, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/users/%s/subscriptions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -2070,6 +2580,20 @@ type ClientWithResponsesInterface interface {
 	UpdateUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserResponse, error)
 
 	UpdateUserWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserResponse, error)
+
+	// GetUserEventsWithResponse request
+	GetUserEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserEventsParams, reqEditors ...RequestEditorFn) (*GetUserEventsResponse, error)
+
+	// GetUserJourneysWithResponse request
+	GetUserJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*GetUserJourneysResponse, error)
+
+	// GetUserSubscriptionsWithResponse request
+	GetUserSubscriptionsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserSubscriptionsParams, reqEditors ...RequestEditorFn) (*GetUserSubscriptionsResponse, error)
+
+	// UpdateUserSubscriptionsWithBodyWithResponse request with any body
+	UpdateUserSubscriptionsWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserSubscriptionsResponse, error)
+
+	UpdateUserSubscriptionsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserSubscriptionsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserSubscriptionsResponse, error)
 }
 
 type ListAdminsResponse struct {
@@ -2490,6 +3014,98 @@ func (r UpdateUserResponse) StatusCode() int {
 	return 0
 }
 
+type GetUserEventsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserEventList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserEventsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserEventsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetUserJourneysResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserJourneyList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserJourneysResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserJourneysResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetUserSubscriptionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserSubscriptionList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserSubscriptionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserSubscriptionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateUserSubscriptionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *User
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateUserSubscriptionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateUserSubscriptionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // ListAdminsWithResponse request returning *ListAdminsResponse
 func (c *ClientWithResponses) ListAdminsWithResponse(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*ListAdminsResponse, error) {
 	rsp, err := c.ListAdmins(ctx, params, reqEditors...)
@@ -2698,6 +3314,50 @@ func (c *ClientWithResponses) UpdateUserWithResponse(ctx context.Context, projec
 		return nil, err
 	}
 	return ParseUpdateUserResponse(rsp)
+}
+
+// GetUserEventsWithResponse request returning *GetUserEventsResponse
+func (c *ClientWithResponses) GetUserEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserEventsParams, reqEditors ...RequestEditorFn) (*GetUserEventsResponse, error) {
+	rsp, err := c.GetUserEvents(ctx, projectID, userID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserEventsResponse(rsp)
+}
+
+// GetUserJourneysWithResponse request returning *GetUserJourneysResponse
+func (c *ClientWithResponses) GetUserJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*GetUserJourneysResponse, error) {
+	rsp, err := c.GetUserJourneys(ctx, projectID, userID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserJourneysResponse(rsp)
+}
+
+// GetUserSubscriptionsWithResponse request returning *GetUserSubscriptionsResponse
+func (c *ClientWithResponses) GetUserSubscriptionsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserSubscriptionsParams, reqEditors ...RequestEditorFn) (*GetUserSubscriptionsResponse, error) {
+	rsp, err := c.GetUserSubscriptions(ctx, projectID, userID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserSubscriptionsResponse(rsp)
+}
+
+// UpdateUserSubscriptionsWithBodyWithResponse request with arbitrary body returning *UpdateUserSubscriptionsResponse
+func (c *ClientWithResponses) UpdateUserSubscriptionsWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserSubscriptionsResponse, error) {
+	rsp, err := c.UpdateUserSubscriptionsWithBody(ctx, projectID, userID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateUserSubscriptionsResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateUserSubscriptionsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserSubscriptionsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserSubscriptionsResponse, error) {
+	rsp, err := c.UpdateUserSubscriptions(ctx, projectID, userID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateUserSubscriptionsResponse(rsp)
 }
 
 // ParseListAdminsResponse parses an HTTP response from a ListAdminsWithResponse call
@@ -3280,6 +3940,138 @@ func ParseUpdateUserResponse(rsp *http.Response) (*UpdateUserResponse, error) {
 	return response, nil
 }
 
+// ParseGetUserEventsResponse parses an HTTP response from a GetUserEventsWithResponse call
+func ParseGetUserEventsResponse(rsp *http.Response) (*GetUserEventsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserEventsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserEventList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetUserJourneysResponse parses an HTTP response from a GetUserJourneysWithResponse call
+func ParseGetUserJourneysResponse(rsp *http.Response) (*GetUserJourneysResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserJourneysResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserJourneyList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetUserSubscriptionsResponse parses an HTTP response from a GetUserSubscriptionsWithResponse call
+func ParseGetUserSubscriptionsResponse(rsp *http.Response) (*GetUserSubscriptionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserSubscriptionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserSubscriptionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateUserSubscriptionsResponse parses an HTTP response from a UpdateUserSubscriptionsWithResponse call
+func ParseUpdateUserSubscriptionsResponse(rsp *http.Response) (*UpdateUserSubscriptionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateUserSubscriptionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest User
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// List organization admins
@@ -3336,6 +4128,18 @@ type ServerInterface interface {
 	// Update user
 	// (PATCH /api/admin/projects/{projectID}/users/{userID})
 	UpdateUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Get user events
+	// (GET /api/admin/projects/{projectID}/users/{userID}/events)
+	GetUserEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserEventsParams)
+	// Get user journeys
+	// (GET /api/admin/projects/{projectID}/users/{userID}/journeys)
+	GetUserJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserJourneysParams)
+	// Get user subscriptions
+	// (GET /api/admin/projects/{projectID}/users/{userID}/subscriptions)
+	GetUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserSubscriptionsParams)
+	// Update user subscriptions
+	// (PATCH /api/admin/projects/{projectID}/users/{userID}/subscriptions)
+	UpdateUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -3447,6 +4251,30 @@ func (_ Unimplemented) GetUser(w http.ResponseWriter, r *http.Request, projectID
 // Update user
 // (PATCH /api/admin/projects/{projectID}/users/{userID})
 func (_ Unimplemented) UpdateUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get user events
+// (GET /api/admin/projects/{projectID}/users/{userID}/events)
+func (_ Unimplemented) GetUserEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get user journeys
+// (GET /api/admin/projects/{projectID}/users/{userID}/journeys)
+func (_ Unimplemented) GetUserJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserJourneysParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get user subscriptions
+// (GET /api/admin/projects/{projectID}/users/{userID}/subscriptions)
+func (_ Unimplemented) GetUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserSubscriptionsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update user subscriptions
+// (PATCH /api/admin/projects/{projectID}/users/{userID}/subscriptions)
+func (_ Unimplemented) UpdateUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -4150,6 +4978,223 @@ func (siw *ServerInterfaceWrapper) UpdateUser(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetUserEvents operation middleware
+func (siw *ServerInterfaceWrapper) GetUserEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserEventsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserEvents(w, r, projectID, userID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUserJourneys operation middleware
+func (siw *ServerInterfaceWrapper) GetUserJourneys(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserJourneysParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserJourneys(w, r, projectID, userID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUserSubscriptions operation middleware
+func (siw *ServerInterfaceWrapper) GetUserSubscriptions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserSubscriptionsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserSubscriptions(w, r, projectID, userID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateUserSubscriptions operation middleware
+func (siw *ServerInterfaceWrapper) UpdateUserSubscriptions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateUserSubscriptions(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -4316,6 +5361,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/users/{userID}", wrapper.UpdateUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/users/{userID}/events", wrapper.GetUserEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/users/{userID}/journeys", wrapper.GetUserJourneys)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/users/{userID}/subscriptions", wrapper.GetUserSubscriptions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/users/{userID}/subscriptions", wrapper.UpdateUserSubscriptions)
 	})
 
 	return r

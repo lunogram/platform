@@ -28,7 +28,7 @@ export default function UserDetailSubscriptions() {
         if (!confirm(t('users_unsubscribe_all'))) return
         const subscriptions = search?.results.map(item => ({
             subscription_id: item.subscription_id,
-            state: 0 as SubscriptionState,
+            state: 'unsubscribed' as SubscriptionState,
         })) ?? []
         await updateSubscriptions(subscriptions)
     }
@@ -68,8 +68,8 @@ export default function UserDetailSubscriptions() {
                         return (
                             <SwitchField
                                 name="state"
-                                checked={state !== 0}
-                                onChange={async (checked) => await updateSubscription(subscription_id, checked ? 1 : 0)}
+                                checked={state === 'subscribed'}
+                                onChange={async (checked) => await updateSubscription(subscription_id, checked ? 'subscribed' : 'unsubscribed')}
                             />
                         )
                     },

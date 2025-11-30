@@ -262,3 +262,232 @@ func (srv *UsersController) DeleteUser(w http.ResponseWriter, r *http.Request, p
 	logger.Info("user deleted")
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserEventsParams) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	_, err := srv.store.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Error("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("user_id", userID.String()),
+	)
+
+	pagination := store.Pagination{
+		Limit:  params.Limit.ToInt(),
+		Offset: params.Offset.ToInt(),
+	}
+
+	logger.Info("listing user events", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
+
+	events, total, err := srv.store.ListUserEvents(ctx, projectID, userID, pagination)
+	if err != nil {
+		logger.Error("failed to list user events", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("user events listed", zap.Int("total", total), zap.Int("count", len(events)))
+
+	response := oapi.UserEventList{
+		Results: events.OAPI(),
+		Total:   total,
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+	}
+
+	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserSubscriptionsParams) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	_, err := srv.store.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Error("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("user_id", userID.String()),
+	)
+
+	pagination := store.Pagination{
+		Limit:  params.Limit.ToInt(),
+		Offset: params.Offset.ToInt(),
+	}
+
+	logger.Info("listing user subscriptions", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
+
+	subscriptions, total, err := srv.store.GetUserSubscriptions(ctx, projectID, userID, pagination)
+	if err != nil {
+		logger.Error("failed to list user subscriptions", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("user subscriptions listed", zap.Int("total", total), zap.Int("count", len(subscriptions)))
+
+	response := oapi.UserSubscriptionList{
+		Results: subscriptions.OAPI(),
+		Total:   total,
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+	}
+
+	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	_, err := srv.store.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Error("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var subscriptions oapi.UpdateUserSubscriptions
+	err = json.Decode(r.Body, &subscriptions)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("user_id", userID.String()),
+	)
+
+	logger.Info("updating user subscriptions", zap.Int("count", len(subscriptions)))
+
+	for _, sub := range subscriptions {
+		_, err := srv.store.GetSubscription(ctx, projectID, sub.SubscriptionId)
+		if errors.Is(err, sql.ErrNoRows) {
+			logger.Error("subscription not found", zap.String("subscription_id", sub.SubscriptionId.String()))
+			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("subscription not found")))
+			return
+		}
+
+		if err != nil {
+			logger.Error("failed to get subscription", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		err = srv.store.ToggleSubscription(ctx, userID, sub.SubscriptionId, string(sub.State))
+		if err != nil {
+			logger.Error("failed to toggle subscription", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	}
+
+	user, err := srv.store.GetUser(ctx, projectID, userID)
+	if err != nil {
+		logger.Error("failed to get updated user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("user subscriptions updated")
+	json.Write(w, http.StatusOK, user.OAPI())
+}
+
+func (srv *UsersController) GetUserJourneys(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserJourneysParams) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	_, err := srv.store.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Error("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("user_id", userID.String()),
+	)
+
+	pagination := store.Pagination{
+		Limit:  params.Limit.ToInt(),
+		Offset: params.Offset.ToInt(),
+	}
+
+	logger.Info("listing user journeys", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
+
+	journeys, total, err := srv.store.ListUserJourneyEntrances(ctx, projectID, userID, pagination)
+	if err != nil {
+		logger.Error("failed to list user journeys", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("user journeys listed", zap.Int("total", total), zap.Int("count", len(journeys)))
+
+	response := oapi.UserJourneyList{
+		Results: journeys.OAPI(),
+		Total:   total,
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+	}
+
+	json.Write(w, http.StatusOK, response)
+}

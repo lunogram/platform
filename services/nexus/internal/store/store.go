@@ -43,12 +43,16 @@ type DB interface {
 
 func NewStores(db DB) *Stores {
 	return &Stores{
-		AdminsStore:    NewAdminsStore(db),
-		ProjectsStore:  NewProjectsStore(db),
-		CampaignsStore: NewCampaignsStore(db),
-		ProvidersStore: NewProvidersStore(db),
-		TemplatesStore: NewTemplatesStore(db),
-		UsersStore:     NewUsersStore(db),
+		AdminsStore:        NewAdminsStore(db),
+		ProjectsStore:      NewProjectsStore(db),
+		CampaignsStore:     NewCampaignsStore(db),
+		ProvidersStore:     NewProvidersStore(db),
+		TemplatesStore:     NewTemplatesStore(db),
+		UsersStore:         NewUsersStore(db),
+		SubscriptionsStore: NewSubscriptionsStore(db),
+		JourneysStore:      NewJourneysStore(db),
+		OrganizationsStore: NewOrganizationsStore(db),
+		DevicesStore:       NewDevicesStore(db),
 	}
 }
 
@@ -59,6 +63,10 @@ type Stores struct {
 	*ProvidersStore
 	*TemplatesStore
 	*UsersStore
+	*SubscriptionsStore
+	*JourneysStore
+	*OrganizationsStore
+	*DevicesStore
 }
 
 type Pagination struct {

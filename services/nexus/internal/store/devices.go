@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"time"
@@ -55,4 +56,34 @@ type Device struct {
 // HasPushToken returns true if the device has a non-null token
 func (d *Device) HasPushToken() bool {
 	return d.Token != nil && *d.Token != ""
+}
+
+func NewDevicesStore(db DB) *DevicesStore {
+	return &DevicesStore{db: db}
+}
+
+type DevicesStore struct {
+	db DB
+}
+
+func (s *DevicesStore) CreateDevice(ctx context.Context, device Device) (uuid.UUID, error) {
+	stmt := `
+	INSERT INTO devices (project_id, user_id, device_id, token, os, model)
+	VALUES ($1, $2, $3, $4, $5, $6)
+	RETURNING id`
+
+	var id uuid.UUID
+	err := s.db.GetContext(ctx, &id, stmt,
+		device.ProjectID,
+		device.UserID,
+		device.DeviceID,
+		device.Token,
+		device.OS,
+		device.Model,
+	)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
 }
