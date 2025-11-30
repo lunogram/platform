@@ -63,6 +63,8 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 		}
 	}
 
+	// Static lists start in 'ready' state since they don't require rule configuration.
+	// Dynamic lists start in 'draft' state to allow rule setup before activation.
 	state := "ready"
 	if body.Type == oapi.CreateListTypeDynamic {
 		state = "draft"

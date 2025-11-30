@@ -197,6 +197,8 @@ func (s *ListsStore) DeleteList(ctx context.Context, projectID, listID uuid.UUID
 }
 
 func (s *ListsStore) DuplicateList(ctx context.Context, projectID, listID uuid.UUID, newName string) (uuid.UUID, error) {
+	// When duplicating a list, version and users_count are reset to 0 to initialize the new list.
+	// The duplicated list starts in 'draft' state regardless of the source list's state.
 	query := `
 	INSERT INTO lists (project_id, name, type, state, rule, rule_id, is_visible, version, users_count)
 	SELECT project_id, $1, type, 'draft', rule, rule_id, is_visible, 0, 0

@@ -102,16 +102,38 @@ func TestListLists(t *testing.T) {
 	listsStore := store.NewListsStore(db)
 
 	usersCount := 0
-	for i := 0; i < 3; i++ {
-		_, err := listsStore.CreateList(ctx, store.List{
+	testLists := []store.List{
+		{
 			ProjectID:  projectID,
-			Name:       "Test List",
+			Name:       "Test List 1",
 			Type:       "static",
 			State:      "ready",
 			IsVisible:  true,
 			UsersCount: &usersCount,
 			Version:    0,
-		})
+		},
+		{
+			ProjectID:  projectID,
+			Name:       "Test List 2",
+			Type:       "static",
+			State:      "ready",
+			IsVisible:  true,
+			UsersCount: &usersCount,
+			Version:    0,
+		},
+		{
+			ProjectID:  projectID,
+			Name:       "Test List 3",
+			Type:       "static",
+			State:      "ready",
+			IsVisible:  true,
+			UsersCount: &usersCount,
+			Version:    0,
+		},
+	}
+
+	for _, list := range testLists {
+		_, err := listsStore.CreateList(ctx, list)
 		require.NoError(t, err)
 	}
 
