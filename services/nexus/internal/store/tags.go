@@ -99,7 +99,8 @@ func (s *TagsStore) ListTags(ctx context.Context, projectID uuid.UUID, paginatio
 	return tags, total, nil
 }
 
-// escapeILIKEPattern escapes special ILIKE pattern characters to prevent SQL injection
+// escapeILIKEPattern escapes special ILIKE pattern characters (% and _) so that user input is treated as a literal in ILIKE queries.
+// This prevents unintended wildcard matching, not SQL injection. SQL injection is already prevented by using parameterized queries.
 func escapeILIKEPattern(s string) string {
 	// Escape backslash first, then % and _
 	s = strings.ReplaceAll(s, "\\", "\\\\")
@@ -130,7 +131,8 @@ func (s *TagsStore) UpdateTag(ctx context.Context, projectID, tagID uuid.UUID, n
 	UPDATE tags
 	SET name = $1
 	WHERE project_id = $2
-	AND id = $3`
+	AND id = $3
+	AND deleted_at IS NULL`
 
 	result, err := s.db.ExecContext(ctx, stmt, name, projectID, tagID)
 	if err != nil {
