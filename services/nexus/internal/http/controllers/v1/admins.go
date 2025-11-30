@@ -85,23 +85,23 @@ func (srv *AdminsController) ListAdmins(w http.ResponseWriter, r *http.Request, 
 		zap.String("admin_id", admin.ID.String()),
 	)
 
-	limit := 20
-	offset := 0
-	search := ""
+	pagination := store.Pagination{
+		Limit:  20,
+		Offset: 0,
+	}
 
 	if params.Limit != nil {
-		limit = int(*params.Limit)
+		pagination.Limit = params.Limit.ToInt()
 	}
 	if params.Offset != nil {
-		offset = int(*params.Offset)
-	}
-	if params.Search != nil {
-		search = *params.Search
+		pagination.Offset = params.Offset.ToInt()
 	}
 
-	logger.Info("listing admins", zap.Int("limit", limit), zap.Int("offset", offset))
+	search := params.Search.ToString()
 
-	admins, total, err := srv.store.ListAdmins(ctx, admin.OrganizationID, limit, offset, search)
+	logger.Info("listing admins", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
+
+	admins, total, err := srv.store.ListAdmins(ctx, admin.OrganizationID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list admins", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -114,12 +114,15 @@ func (srv *AdminsController) ListAdmins(w http.ResponseWriter, r *http.Request, 
 	}
 
 	logger.Info("admins listed", zap.Int("total", total), zap.Int("count", len(results)))
-	json.Write(w, http.StatusOK, map[string]interface{}{
-		"results": results,
-		"total":   total,
-		"limit":   limit,
-		"offset":  offset,
-	})
+
+	response := oapi.AdminList{
+		Results: results,
+		Total:   total,
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+	}
+
+	json.Write(w, http.StatusOK, response)
 }
 
 func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request) {
@@ -174,12 +177,19 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 
 	if existingAdmin != nil {
 		logger = logger.With(zap.String("admin_id", existingAdmin.ID.String()))
-		logger.Info("admin already exists, updating")
+		logger.Info("updating existing admin")
 
 		email := string(body.Email)
 		role := string(body.Role)
 
-		err = srv.store.UpdateAdmin(ctx, existingAdmin.ID, &email, body.FirstName, body.LastName, &role)
+		update := store.AdminUpdate{
+			Email:     &email,
+			FirstName: body.FirstName,
+			LastName:  body.LastName,
+			Role:      &role,
+		}
+
+		err = srv.store.UpdateAdmin(ctx, existingAdmin.ID, update)
 		if err != nil {
 			logger.Error("failed to update admin", zap.Error(err))
 			oapi.WriteProblem(w, err)
@@ -350,7 +360,14 @@ func (srv *AdminsController) UpdateAdmin(w http.ResponseWriter, r *http.Request,
 		role = &roleStr
 	}
 
-	err = srv.store.UpdateAdmin(ctx, adminID, email, body.FirstName, body.LastName, role)
+	update := store.AdminUpdate{
+		Email:     email,
+		FirstName: body.FirstName,
+		LastName:  body.LastName,
+		Role:      role,
+	}
+
+	err = srv.store.UpdateAdmin(ctx, adminID, update)
 	if err != nil {
 		logger.Error("failed to update admin", zap.Error(err))
 		oapi.WriteProblem(w, err)

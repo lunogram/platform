@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -126,7 +124,7 @@ func (s *AdminsStore) CreateAdmin(ctx context.Context, admin Admin) (uuid.UUID, 
 	return id, nil
 }
 
-func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, limit, offset int, search string) ([]Admin, int, error) {
+func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, pagination Pagination, search string) ([]Admin, int, error) {
 	var admins []Admin
 	var total int
 
@@ -136,29 +134,15 @@ func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, 
 		COUNT(*) OVER () AS total_count
 	FROM admins
 	WHERE organization_id = $1 
-	AND deleted_at IS NULL`
-
-	args := []interface{}{organizationID}
-	argCount := 1
-
-	if search != "" {
-		argCount++
-		query += ` AND (
-			first_name ILIKE $` + strconv.Itoa(argCount) + ` OR 
-			last_name ILIKE $` + strconv.Itoa(argCount) + ` OR 
-			email ILIKE $` + strconv.Itoa(argCount) + `
-		)`
-		searchPattern := "%" + search + "%"
-		args = append(args, searchPattern)
-	}
-
-	argCount++
-	query += ` ORDER BY created_at DESC LIMIT $` + strconv.Itoa(argCount)
-	args = append(args, limit)
-
-	argCount++
-	query += ` OFFSET $` + strconv.Itoa(argCount)
-	args = append(args, offset)
+	AND deleted_at IS NULL
+	AND (
+		$2 = '' OR
+		first_name ILIKE '%' || $2 || '%' OR 
+		last_name ILIKE '%' || $2 || '%' OR 
+		email ILIKE '%' || $2 || '%'
+	)
+	ORDER BY created_at DESC
+	LIMIT $3 OFFSET $4`
 
 	type result struct {
 		Admin
@@ -166,7 +150,7 @@ func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, 
 	}
 
 	var results []result
-	err := s.db.SelectContext(ctx, &results, query, args...)
+	err := s.db.SelectContext(ctx, &results, query, organizationID, search, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -200,47 +184,30 @@ func (s *AdminsStore) GetAdminByEmail(ctx context.Context, email string, organiz
 	return &admin, nil
 }
 
-func (s *AdminsStore) UpdateAdmin(ctx context.Context, id uuid.UUID, email *string, firstName, lastName *string, role *string) error {
-	updates := []string{}
-	args := []interface{}{id}
-	argCount := 1
+type AdminUpdate struct {
+	Email     *string
+	FirstName *string
+	LastName  *string
+	Role      *string
+}
 
-	if email != nil {
-		argCount++
-		updates = append(updates, "email = $"+strconv.Itoa(argCount))
-		args = append(args, *email)
-	}
+func (s *AdminsStore) UpdateAdmin(ctx context.Context, id uuid.UUID, update AdminUpdate) error {
+	stmt := `
+	UPDATE admins 
+	SET 
+		email = COALESCE($2, email),
+		first_name = COALESCE($3, first_name),
+		last_name = COALESCE($4, last_name),
+		role = COALESCE($5, role)
+	WHERE id = $1 
+	AND deleted_at IS NULL`
 
-	if firstName != nil {
-		argCount++
-		updates = append(updates, "first_name = $"+strconv.Itoa(argCount))
-		args = append(args, *firstName)
-	}
-
-	if lastName != nil {
-		argCount++
-		updates = append(updates, "last_name = $"+strconv.Itoa(argCount))
-		args = append(args, *lastName)
-	}
-
-	if role != nil {
-		argCount++
-		updates = append(updates, "role = $"+strconv.Itoa(argCount))
-		args = append(args, *role)
-	}
-
-	if len(updates) == 0 {
-		return nil
-	}
-
-	stmt := `UPDATE admins SET ` + strings.Join(updates, ", ") + ` WHERE id = $1 AND deleted_at IS NULL`
-
-	_, err := s.db.ExecContext(ctx, stmt, args...)
+	_, err := s.db.ExecContext(ctx, stmt, id, update.Email, update.FirstName, update.LastName, update.Role)
 	return err
 }
 
 func (s *AdminsStore) DeleteAdmin(ctx context.Context, id uuid.UUID) error {
-	stmt := `UPDATE admins SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL`
+	stmt := `UPDATE admins SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
 	_, err := s.db.ExecContext(ctx, stmt, id)
 	return err
 }
