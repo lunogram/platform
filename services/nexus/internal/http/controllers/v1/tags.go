@@ -137,20 +137,13 @@ func (srv *TagsController) UpdateTag(w http.ResponseWriter, r *http.Request, pro
 		return
 	}
 
-	_, err = srv.store.TagsStore.GetTag(ctx, projectID, tagID)
+	err = srv.store.TagsStore.UpdateTag(ctx, projectID, tagID, body.Name)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Error("tag not found", zap.Stringer("tag_id", tagID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("tag not found")))
 		return
 	}
 
-	if err != nil {
-		logger.Error("failed to get tag", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	err = srv.store.TagsStore.UpdateTag(ctx, projectID, tagID, body.Name)
 	if err != nil {
 		logger.Error("failed to update tag", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -173,20 +166,13 @@ func (srv *TagsController) DeleteTag(w http.ResponseWriter, r *http.Request, pro
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("tag_id", tagID))
 	logger.Info("deleting tag")
 
-	_, err := srv.store.TagsStore.GetTag(ctx, projectID, tagID)
+	err := srv.store.TagsStore.DeleteTag(ctx, projectID, tagID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Error("tag not found", zap.Stringer("tag_id", tagID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("tag not found")))
 		return
 	}
 
-	if err != nil {
-		logger.Error("failed to get tag", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	err = srv.store.TagsStore.DeleteTag(ctx, projectID, tagID)
 	if err != nil {
 		logger.Error("failed to delete tag", zap.Error(err))
 		oapi.WriteProblem(w, err)

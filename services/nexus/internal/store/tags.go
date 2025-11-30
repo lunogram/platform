@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -63,6 +64,9 @@ func (s *TagsStore) CreateTag(ctx context.Context, projectID uuid.UUID, name str
 }
 
 func (s *TagsStore) ListTags(ctx context.Context, projectID uuid.UUID, pagination Pagination, search string) (Tags, int, error) {
+	// Escape special ILIKE pattern characters to prevent SQL injection
+	search = escapeILIKEPattern(search)
+
 	query := `
 	SELECT id, project_id, name, created_at, updated_at,
 		COUNT(*) OVER () AS total_count
@@ -94,6 +98,15 @@ func (s *TagsStore) ListTags(ctx context.Context, projectID uuid.UUID, paginatio
 	return tags, total, nil
 }
 
+// escapeILIKEPattern escapes special ILIKE pattern characters to prevent SQL injection
+func escapeILIKEPattern(s string) string {
+	// Escape backslash first, then % and _
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "%", "\\%")
+	s = strings.ReplaceAll(s, "_", "\\_")
+	return s
+}
+
 func (s *TagsStore) GetTag(ctx context.Context, projectID, tagID uuid.UUID) (*Tag, error) {
 	query := `
 	SELECT id, project_id, name, created_at, updated_at
@@ -117,8 +130,21 @@ func (s *TagsStore) UpdateTag(ctx context.Context, projectID, tagID uuid.UUID, n
 	WHERE project_id = $2
 	AND id = $3`
 
-	_, err := s.db.ExecContext(ctx, stmt, name, projectID, tagID)
-	return err
+	result, err := s.db.ExecContext(ctx, stmt, name, projectID, tagID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrNoRows
+	}
+
+	return nil
 }
 
 func (s *TagsStore) DeleteTag(ctx context.Context, projectID, tagID uuid.UUID) error {
@@ -127,6 +153,19 @@ func (s *TagsStore) DeleteTag(ctx context.Context, projectID, tagID uuid.UUID) e
 	WHERE project_id = $1
 	AND id = $2`
 
-	_, err := s.db.ExecContext(ctx, stmt, projectID, tagID)
-	return err
+	result, err := s.db.ExecContext(ctx, stmt, projectID, tagID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrNoRows
+	}
+
+	return nil
 }
