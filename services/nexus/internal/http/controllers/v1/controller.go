@@ -16,6 +16,7 @@ func NewController(logger *zap.Logger, db *sqlx.DB) *Controller {
 		LocalesController:       NewLocalesController(logger, db),
 		JourneysController:      NewJourneysController(logger, db),
 		OrganizationsController: NewOrganizationsController(logger, db),
+		ListsController:         NewListsController(logger, db),
 	}
 }
 
@@ -29,4 +30,5 @@ type Controller struct {
 	*LocalesController
 	*JourneysController
 	*OrganizationsController
+	*ListsController
 }

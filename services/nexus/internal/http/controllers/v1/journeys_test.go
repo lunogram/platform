@@ -302,7 +302,7 @@ func TestUpdateJourney(t *testing.T) {
 
 	newName := "Updated Journey"
 	newDescription := "Updated description"
-	statusLive := oapi.UpdateJourneyStatusLive
+	statusLive := oapi.UpdateJourneyStatus("live")
 
 	tests := map[string]test{
 		"update_name": {
