@@ -363,7 +363,6 @@ type Journey struct {
 type List struct {
 	CreatedAt   time.Time           `json:"created_at"`
 	Id          openapi_types.UUID  `json:"id"`
-	IsVisible   bool                `json:"is_visible"`
 	Name        string              `json:"name"`
 	ProjectId   openapi_types.UUID  `json:"project_id"`
 	RefreshedAt *time.Time          `json:"refreshed_at,omitempty"`

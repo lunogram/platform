@@ -2389,9 +2389,6 @@ components:
           type: array
           items:
             type: string
-        is_visible:
-          type: boolean
-          example: true
         refreshed_at:
           type: string
           format: date-time
