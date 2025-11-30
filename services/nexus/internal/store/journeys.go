@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -209,7 +208,7 @@ func (s *JourneysStore) ListUserJourneyEntrances(ctx context.Context, projectID,
 
 		var journeys []Journey
 		err = s.db.SelectContext(ctx, &journeys, journeyQuery, journeyIDs, projectID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil {
 			return nil, 0, err
 		}
 

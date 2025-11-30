@@ -93,18 +93,12 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 	logger := srv.logger.With(zap.String("project_id", projectID.String()))
 	logger.Info("upserting user")
 
-	var emailStr *string
-	if body.Email != nil {
-		e := string(*body.Email)
-		emailStr = &e
-	}
-
 	userID, err := srv.store.UpsertUser(
 		ctx,
 		projectID,
 		body.AnonymousId,
 		body.ExternalId,
-		emailStr,
+		body.Email,
 		body.Phone,
 		body.Timezone,
 		body.Locale,

@@ -20,9 +20,9 @@ import (
 	"go.uber.org/zap"
 )
 
-func init() {
-	emailRegex := regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$")
+var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$")
 
+func init() {
 	openapi3.DefineStringFormatValidator("email", openapi3.NewCallbackValidator(func(value string) error {
 		if !emailRegex.MatchString(value) {
 			return fmt.Errorf("invalid email format")
