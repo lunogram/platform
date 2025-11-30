@@ -22,7 +22,7 @@ func (u Users) OAPI() []oapi.User {
 type User struct {
 	ID            uuid.UUID       `db:"id"`
 	ProjectID     uuid.UUID       `db:"project_id"`
-	AnonymousID   string          `db:"anonymous_id"`
+	AnonymousID   *string         `db:"anonymous_id"`
 	ExternalID    *string         `db:"external_id"`
 	Email         *string         `db:"email"`
 	Phone         *string         `db:"phone"`
@@ -36,10 +36,14 @@ type User struct {
 }
 
 func (u *User) OAPI() oapi.User {
+	anonID := ""
+	if u.AnonymousID != nil {
+		anonID = *u.AnonymousID
+	}
 	return oapi.User{
 		Id:            u.ID,
 		ProjectId:     u.ProjectID,
-		AnonymousId:   u.AnonymousID,
+		AnonymousId:   anonID,
 		ExternalId:    u.ExternalID,
 		Email:         u.Email,
 		Phone:         u.Phone,

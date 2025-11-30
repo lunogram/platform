@@ -40,7 +40,7 @@ func TestCreateUser(t *testing.T) {
 		"create user with all fields": {
 			user: User{
 				ProjectID:   projectID,
-				AnonymousID: "anon_123",
+				AnonymousID: ptr("anon_123"),
 				ExternalID:  ptr("user_123"),
 				Email:       ptr("test@example.com"),
 				Phone:       ptr("+1234567890"),
@@ -53,13 +53,13 @@ func TestCreateUser(t *testing.T) {
 			user: User{
 				ProjectID:   projectID,
 				Data:        json.RawMessage(`{}`),
-				AnonymousID: "anon_456",
+				AnonymousID: ptr("anon_456"),
 			},
 		},
 		"create user with JSONB data": {
 			user: User{
 				ProjectID:   projectID,
-				AnonymousID: "anon_789",
+				AnonymousID: ptr("anon_789"),
 				Data:        json.RawMessage(`{"custom_field":"value","nested":{"key":"value"}}`),
 			},
 		},
@@ -92,7 +92,7 @@ func TestGetUserByExternalID(t *testing.T) {
 	userID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		Data:        json.RawMessage(`{}`),
-		AnonymousID: "anon_123",
+		AnonymousID: ptr("anon_123"),
 		ExternalID:  &externalID,
 		Email:       ptr("external@example.com"),
 	})
@@ -112,7 +112,7 @@ func TestGetUserByAnonymousID(t *testing.T) {
 	anonymousID := "anon_unique_123"
 	userID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
-		AnonymousID: anonymousID,
+		AnonymousID: &anonymousID,
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
@@ -120,7 +120,7 @@ func TestGetUserByAnonymousID(t *testing.T) {
 	user, err := db.GetUserByAnonymousID(ctx, projectID, anonymousID)
 	require.NoError(t, err)
 	require.Equal(t, userID, user.ID)
-	require.Equal(t, anonymousID, user.AnonymousID)
+	require.Equal(t, &anonymousID, user.AnonymousID)
 }
 
 func TestListUsersWithSearch(t *testing.T) {
@@ -131,7 +131,7 @@ func TestListUsersWithSearch(t *testing.T) {
 	_, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		Data:        json.RawMessage(`{}`),
-		AnonymousID: "anon_1",
+		AnonymousID: ptr("anon_1"),
 		ExternalID:  ptr("user_john"),
 		Email:       ptr("john@example.com"),
 	})
@@ -140,7 +140,7 @@ func TestListUsersWithSearch(t *testing.T) {
 	_, err = db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		Data:        json.RawMessage(`{}`),
-		AnonymousID: "anon_2",
+		AnonymousID: ptr("anon_2"),
 		ExternalID:  ptr("user_jane"),
 		Email:       ptr("jane@example.com"),
 	})
@@ -149,7 +149,7 @@ func TestListUsersWithSearch(t *testing.T) {
 	_, err = db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		Data:        json.RawMessage(`{}`),
-		AnonymousID: "anon_3",
+		AnonymousID: ptr("anon_3"),
 		Phone:       ptr("+1234567890"),
 	})
 	require.NoError(t, err)
@@ -204,9 +204,10 @@ func TestListUsersWithPagination(t *testing.T) {
 	ctx := context.Background()
 
 	for i := 0; i < 5; i++ {
+		anonID := uuid.New().String()
 		_, err := db.CreateUser(ctx, User{
 			ProjectID:   projectID,
-			AnonymousID: uuid.New().String(),
+			AnonymousID: &anonID,
 			Data:        json.RawMessage(`{}`),
 		})
 		require.NoError(t, err)
@@ -274,7 +275,7 @@ func TestUpsertUser(t *testing.T) {
 		"update existing user by external_id": {
 			setupUser: &User{
 				ProjectID:   projectID,
-				AnonymousID: "anon_existing",
+				AnonymousID: ptr("anon_existing"),
 				ExternalID:  ptr("user_existing"),
 				Email:       ptr("old@example.com"),
 				Data:        json.RawMessage(`{}`),
@@ -288,7 +289,7 @@ func TestUpsertUser(t *testing.T) {
 		"upsert with JSONB data": {
 			setupUser: &User{
 				ProjectID:   projectID,
-				AnonymousID: "anon_json",
+				AnonymousID: ptr("anon_json"),
 				ExternalID:  ptr("user_json"),
 				Data:        json.RawMessage(`{"old":"value"}`),
 			},
@@ -334,7 +335,7 @@ func TestUpdateUserWithDataMerge(t *testing.T) {
 	initialData := json.RawMessage(`{"first_name":"John","age":30,"nested":{"key":"value"}}`)
 	userID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
-		AnonymousID: "anon_merge",
+		AnonymousID: ptr("anon_merge"),
 		Data:        initialData,
 	})
 	require.NoError(t, err)
@@ -393,7 +394,7 @@ func TestDeleteUser(t *testing.T) {
 	userID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		Data:        json.RawMessage(`{}`),
-		AnonymousID: "anon_delete",
+		AnonymousID: ptr("anon_delete"),
 	})
 	require.NoError(t, err)
 
@@ -412,7 +413,7 @@ func TestVersionAutoIncrement(t *testing.T) {
 	userID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
 		Data:        json.RawMessage(`{}`),
-		AnonymousID: "anon_version",
+		AnonymousID: ptr("anon_version"),
 	})
 	require.NoError(t, err)
 
@@ -434,7 +435,7 @@ func TestUserOAPIConversion(t *testing.T) {
 	user := User{
 		ID:            uuid.New(),
 		ProjectID:     uuid.New(),
-		AnonymousID:   "anon_123",
+		AnonymousID:   ptr("anon_123"),
 		ExternalID:    ptr("user_123"),
 		Email:         ptr("test@example.com"),
 		Phone:         ptr("+1234567890"),
@@ -448,7 +449,7 @@ func TestUserOAPIConversion(t *testing.T) {
 	oapiUser := user.OAPI()
 
 	require.Equal(t, user.ID, oapiUser.Id)
-	require.Equal(t, user.AnonymousID, oapiUser.AnonymousId)
+	require.Equal(t, *user.AnonymousID, oapiUser.AnonymousId)
 	require.Equal(t, user.ExternalID, oapiUser.ExternalId)
 	require.Equal(t, user.Version, oapiUser.Version)
 	require.False(t, oapiUser.HasPushDevice, "should be false when has_push_device is false")
@@ -459,7 +460,7 @@ func TestUserOAPIConversionWithDevices(t *testing.T) {
 		ID:            uuid.New(),
 		ProjectID:     uuid.New(),
 		Data:          json.RawMessage(`{}`),
-		AnonymousID:   "anon_123",
+		AnonymousID:   ptr("anon_123"),
 		HasPushDevice: true,
 		Version:       1,
 	}
@@ -471,7 +472,7 @@ func TestUserOAPIConversionWithDevices(t *testing.T) {
 		ID:            uuid.New(),
 		ProjectID:     uuid.New(),
 		Data:          json.RawMessage(`{}`),
-		AnonymousID:   "anon_456",
+		AnonymousID:   ptr("anon_456"),
 		HasPushDevice: false,
 		Version:       1,
 	}
@@ -488,7 +489,7 @@ func TestGetUserWithDevices(t *testing.T) {
 	// Create a user
 	userID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
-		AnonymousID: "anon_with_devices",
+		AnonymousID: ptr("anon_with_devices"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
@@ -528,14 +529,14 @@ func TestListUsersWithDevices(t *testing.T) {
 	// Create two users
 	user1ID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
-		AnonymousID: "user1_with_device",
+		AnonymousID: ptr("user1_with_device"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
 
 	user2ID, err := db.CreateUser(ctx, User{
 		ProjectID:   projectID,
-		AnonymousID: "user2_no_device",
+		AnonymousID: ptr("user2_no_device"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)

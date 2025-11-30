@@ -69,7 +69,7 @@ func TestListUsers(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		_, err := usersStore.CreateUser(ctx, store.User{
 			ProjectID:   projectID,
-			AnonymousID: uuid.New().String(),
+			AnonymousID: ptr(uuid.New().String()),
 			Data:        json.RawMessage(`{}`),
 		})
 		require.NoError(t, err)
@@ -124,7 +124,7 @@ func TestGetUser(t *testing.T) {
 	usersStore := controller.store.UsersStore
 	userID, err := usersStore.CreateUser(ctx, store.User{
 		ProjectID:   projectID,
-		AnonymousID: "anon_get",
+		AnonymousID: ptr("anon_get"),
 		Email:       ptr("get@example.com"),
 		Data:        json.RawMessage(`{}`),
 	})
@@ -152,7 +152,7 @@ func TestUpdateUser(t *testing.T) {
 	usersStore := controller.store.UsersStore
 	userID, err := usersStore.CreateUser(ctx, store.User{
 		ProjectID:   projectID,
-		AnonymousID: "anon_update",
+		AnonymousID: ptr("anon_update"),
 		Email:       ptr("old@example.com"),
 		Data:        json.RawMessage(`{"old":"value"}`),
 	})
@@ -194,7 +194,7 @@ func TestDeleteUser(t *testing.T) {
 	usersStore := controller.store.UsersStore
 	userID, err := usersStore.CreateUser(ctx, store.User{
 		ProjectID:   projectID,
-		AnonymousID: "anon_delete",
+		AnonymousID: ptr("anon_delete"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
@@ -218,7 +218,7 @@ func TestVersionIncrementsOnUpdate(t *testing.T) {
 	usersStore := controller.store.UsersStore
 	userID, err := usersStore.CreateUser(ctx, store.User{
 		ProjectID:   projectID,
-		AnonymousID: "anon_version",
+		AnonymousID: ptr("anon_version"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
@@ -253,7 +253,7 @@ func TestGetUserEvents(t *testing.T) {
 	usersStore := controller.store.UsersStore
 	userID, err := usersStore.CreateUser(ctx, store.User{
 		ProjectID:   projectID,
-		AnonymousID: "anon_events",
+		AnonymousID: ptr("anon_events"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
@@ -305,7 +305,7 @@ func TestGetUserSubscriptions(t *testing.T) {
 	usersStore := controller.store.UsersStore
 	userID, err := usersStore.CreateUser(ctx, store.User{
 		ProjectID:   projectID,
-		AnonymousID: "anon_subscriptions",
+		AnonymousID: ptr("anon_subscriptions"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
@@ -360,7 +360,7 @@ func TestUpdateUserSubscriptions(t *testing.T) {
 	usersStore := controller.store.UsersStore
 	userID, err := usersStore.CreateUser(ctx, store.User{
 		ProjectID:   projectID,
-		AnonymousID: "anon_update_subs",
+		AnonymousID: ptr("anon_update_subs"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
@@ -407,7 +407,7 @@ func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 	usersStore := controller.store.UsersStore
 	userID, err := usersStore.CreateUser(ctx, store.User{
 		ProjectID:   projectID,
-		AnonymousID: "anon_sub_not_found",
+		AnonymousID: ptr("anon_sub_not_found"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
@@ -440,7 +440,7 @@ func TestGetUserJourneys(t *testing.T) {
 	usersStore := controller.store.UsersStore
 	userID, err := usersStore.CreateUser(ctx, store.User{
 		ProjectID:   projectID,
-		AnonymousID: "anon_journeys",
+		AnonymousID: ptr("anon_journeys"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
@@ -482,7 +482,7 @@ func TestGetUserJourneysPagination(t *testing.T) {
 	usersStore := controller.store.UsersStore
 	userID, err := usersStore.CreateUser(ctx, store.User{
 		ProjectID:   projectID,
-		AnonymousID: "anon_journeys_page",
+		AnonymousID: ptr("anon_journeys_page"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
