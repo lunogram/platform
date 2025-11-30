@@ -395,6 +395,112 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/projects:
+    get:
+      summary: List projects
+      description: Retrieves a paginated list of projects accessible to the authenticated admin
+      operationId: listProjects
+      tags:
+        - Projects
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectList'
+        default:
+          $ref: '#/components/responses/Error'
+
+    post:
+      summary: Create project
+      description: Creates a new project
+      operationId: createProject
+      tags:
+        - Projects
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProject'
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}:
+    get:
+      summary: Get project by ID
+      description: Retrieves a specific project
+      operationId: getProject
+      tags:
+        - Projects
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        '200':
+          description: Project retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        default:
+          $ref: '#/components/responses/Error'
+
+    patch:
+      summary: Update project
+      description: Updates project properties
+      operationId: updateProject
+      tags:
+        - Projects
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProject'
+      responses:
+        '200':
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/admin/profile:
     get:
       summary: Get current admin profile
@@ -1422,6 +1528,151 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/Admin'
+
+    ProjectList:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          required:
+            - results
+          properties:
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/Project'
+
+    Project:
+      type: object
+      required:
+        - id
+        - name
+        - timezone
+        - locale
+        - role
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        organization_id:
+          type: string
+          format: uuid
+          example: "7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b"
+        name:
+          type: string
+          example: "My Project"
+        description:
+          type: string
+          example: "A project for managing customer communications"
+        timezone:
+          type: string
+          example: "America/New_York"
+        locale:
+          type: string
+          example: "en-US"
+        role:
+          type: string
+          example: "admin"
+        text_opt_out_message:
+          type: string
+          example: "Reply STOP to unsubscribe"
+        text_help_message:
+          type: string
+          example: "Reply HELP for assistance"
+        link_wrap_email:
+          type: boolean
+          example: false
+        link_wrap_push:
+          type: boolean
+          example: false
+        tools:
+          type: array
+          items:
+            type: string
+          example: ["analytics", "reporting"]
+        has_provider:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    CreateProject:
+      type: object
+      required:
+        - name
+        - timezone
+        - locale
+      properties:
+        name:
+          type: string
+          example: "My New Project"
+        description:
+          type: string
+          example: "A project for managing customer communications"
+        timezone:
+          type: string
+          example: "America/New_York"
+        locale:
+          type: string
+          example: "en-US"
+        text_opt_out_message:
+          type: string
+          example: "Reply STOP to unsubscribe"
+        text_help_message:
+          type: string
+          example: "Reply HELP for assistance"
+        link_wrap_email:
+          type: boolean
+          example: false
+        link_wrap_push:
+          type: boolean
+          example: false
+        tools:
+          type: array
+          items:
+            type: string
+          example: ["analytics"]
+
+    UpdateProject:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Updated Project Name"
+        description:
+          type: string
+          example: "Updated description"
+        timezone:
+          type: string
+          example: "America/Los_Angeles"
+        locale:
+          type: string
+          example: "es-ES"
+        text_opt_out_message:
+          type: string
+          example: "Reply STOP to unsubscribe"
+        text_help_message:
+          type: string
+          example: "Reply HELP for assistance"
+        link_wrap_email:
+          type: boolean
+          example: true
+        link_wrap_push:
+          type: boolean
+          example: true
+        tools:
+          type: array
+          items:
+            type: string
+          example: ["analytics", "reporting"]
 
     CreateCampaign:
       type: object
