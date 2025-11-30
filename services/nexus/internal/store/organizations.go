@@ -50,7 +50,7 @@ func (o *Organization) OAPI() oapi.Organization {
 }
 
 type OrganizationUpdate struct {
-	Username                  *string
+	Username                  string
 	Domain                    *string
 	TrackingDeeplinkMirrorURL *string
 }
@@ -98,7 +98,7 @@ func (s *OrganizationsStore) GetOrganization(ctx context.Context, id uuid.UUID) 
 func (s *OrganizationsStore) UpdateOrganization(ctx context.Context, id uuid.UUID, update OrganizationUpdate) error {
 	stmt := `
 	UPDATE organizations
-	SET username = COALESCE($2, username),
+	SET username = $2,
 		domain = COALESCE($3, domain),
 		tracking_deeplink_mirror_url = COALESCE($4, tracking_deeplink_mirror_url),
 		updated_at = CURRENT_TIMESTAMP

@@ -95,7 +95,7 @@ func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r 
 	logger.Info("updating organization")
 
 	update := store.OrganizationUpdate{
-		Username:                  &body.Username,
+		Username:                  body.Username,
 		Domain:                    body.Domain,
 		TrackingDeeplinkMirrorURL: body.TrackingDeeplinkMirrorUrl,
 	}
