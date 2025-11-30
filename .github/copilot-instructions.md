@@ -60,6 +60,14 @@ properties:
 
 #### Testing
 
+- Write tests in `_test.go` files alongside implementation
+- Use `testify` for assertions
+- Use unexported field names for test types (lowercase)
+- Use `testcontainers` for database integration tests
+- Follow table-driven test patterns
+- Include both success and error cases
+- Test status codes and response structure
+- Avoid obvious comments - code should be self-explanatory
 - **Always use named test types** instead of anonymous structs in test tables:
 
 ```go
@@ -89,13 +97,6 @@ tests := map[string]struct{
     },
 }
 ```
-
-- Use unexported field names for test types (lowercase)
-- Use `testcontainers` for database integration tests
-- Follow table-driven test patterns
-- Include both success and error cases
-- Test status codes and response structure
-- Avoid obvious comments - code should be self-explanatory
 
 #### Store Layer
 
