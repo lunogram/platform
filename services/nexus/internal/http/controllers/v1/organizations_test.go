@@ -105,57 +105,33 @@ func TestUpdateOrganization(t *testing.T) {
 	require.NoError(t, err)
 
 	admins := store.NewAdminsStore(db)
-	ownerID, err := admins.CreateAdmin(ctx, store.Admin{
+	adminID, err := admins.CreateAdmin(ctx, store.Admin{
 		OrganizationID: orgID,
-		Email:          "owner@example.com",
-		Role:           "owner",
+		Email:          "admin@example.com",
+		Role:           "admin",
 	})
 	require.NoError(t, err)
 
-	memberID, err := admins.CreateAdmin(ctx, store.Admin{
-		OrganizationID: orgID,
-		Email:          "member@example.com",
-		Role:           "member",
-	})
-	require.NoError(t, err)
-
-	owner, err := admins.GetAdmin(ctx, ownerID)
-	require.NoError(t, err)
-
-	member, err := admins.GetAdmin(ctx, memberID)
+	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
 	organizations := NewOrganizationsController(logger, db)
 
 	type test struct {
-		admin *store.Admin
-		body  oapi.UpdateOrganizationJSONRequestBody
-		code  int
+		body oapi.UpdateOrganizationJSONRequestBody
+		code int
 	}
 
 	tests := map[string]test{
-		"success with owner": {
-			admin: owner,
+		"success with tracking url": {
 			body: oapi.UpdateOrganizationJSONRequestBody{
-				Username:                  "testorg",
-				Domain:                    ptr("example.com"),
 				TrackingDeeplinkMirrorUrl: ptr("https://example.com/track"),
 			},
 			code: http.StatusOK,
 		},
-		"success with optional fields": {
-			admin: owner,
-			body: oapi.UpdateOrganizationJSONRequestBody{
-				Username: "testorg2",
-			},
+		"success with empty body": {
+			body: oapi.UpdateOrganizationJSONRequestBody{},
 			code: http.StatusOK,
-		},
-		"forbidden for non-owner": {
-			admin: member,
-			body: oapi.UpdateOrganizationJSONRequestBody{
-				Username: "testorg3",
-			},
-			code: http.StatusForbidden,
 		},
 	}
 
@@ -168,8 +144,8 @@ func TestUpdateOrganization(t *testing.T) {
 			req := httptest.NewRequest("PATCH", "/api/admin/organizations", bytes.NewReader(bb))
 
 			claimAdmin := &rbac.Admin{
-				ID:             test.admin.ID,
-				OrganizationID: test.admin.OrganizationID,
+				ID:             admin.ID,
+				OrganizationID: admin.OrganizationID,
 			}
 			req = req.WithContext(rbac.WithAdmin(req.Context(), claimAdmin))
 
@@ -182,13 +158,6 @@ func TestUpdateOrganization(t *testing.T) {
 				err := json.NewDecoder(res.Body).Decode(&org)
 				require.NoError(t, err)
 				require.Equal(t, orgID, org.Id)
-				require.NotNil(t, org.Username)
-				require.Equal(t, test.body.Username, *org.Username)
-
-				if test.body.Domain != nil {
-					require.NotNil(t, org.Domain)
-					require.Equal(t, *test.body.Domain, *org.Domain)
-				}
 
 				if test.body.TrackingDeeplinkMirrorUrl != nil {
 					require.NotNil(t, org.TrackingDeeplinkMirrorUrl)
@@ -219,41 +188,25 @@ func TestDeleteOrganization(t *testing.T) {
 	require.NoError(t, err)
 
 	admins := store.NewAdminsStore(db)
-	ownerID, err := admins.CreateAdmin(ctx, store.Admin{
+	adminID, err := admins.CreateAdmin(ctx, store.Admin{
 		OrganizationID: orgID,
-		Email:          "owner@example.com",
-		Role:           "owner",
+		Email:          "admin@example.com",
+		Role:           "admin",
 	})
 	require.NoError(t, err)
 
-	memberID, err := admins.CreateAdmin(ctx, store.Admin{
-		OrganizationID: orgID,
-		Email:          "member@example.com",
-		Role:           "member",
-	})
-	require.NoError(t, err)
-
-	owner, err := admins.GetAdmin(ctx, ownerID)
-	require.NoError(t, err)
-
-	member, err := admins.GetAdmin(ctx, memberID)
+	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
 	organizations := NewOrganizationsController(logger, db)
 
 	type test struct {
-		admin *store.Admin
-		code  int
+		code int
 	}
 
 	tests := map[string]test{
-		"forbidden for non-owner": {
-			admin: member,
-			code:  http.StatusForbidden,
-		},
-		"success with owner": {
-			admin: owner,
-			code:  http.StatusNoContent,
+		"success": {
+			code: http.StatusNoContent,
 		},
 	}
 
@@ -263,8 +216,8 @@ func TestDeleteOrganization(t *testing.T) {
 			req := httptest.NewRequest("DELETE", "/api/admin/organizations", nil)
 
 			claimAdmin := &rbac.Admin{
-				ID:             test.admin.ID,
-				OrganizationID: test.admin.OrganizationID,
+				ID:             admin.ID,
+				OrganizationID: admin.OrganizationID,
 			}
 			req = req.WithContext(rbac.WithAdmin(req.Context(), claimAdmin))
 

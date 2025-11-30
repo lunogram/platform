@@ -2368,12 +2368,6 @@ components:
         name:
           type: string
           example: "Acme Corporation"
-        username:
-          type: string
-          example: "acme"
-        domain:
-          type: string
-          example: "acme.com"
         tracking_deeplink_mirror_url:
           type: string
           example: "https://acme.com/track"
@@ -2391,15 +2385,7 @@ components:
 
     UpdateOrganization:
       type: object
-      required:
-        - username
       properties:
-        username:
-          type: string
-          example: "acme"
-        domain:
-          type: string
-          example: "acme.com"
         tracking_deeplink_mirror_url:
           type: string
           example: "https://acme.com/track"

@@ -70,23 +70,8 @@ func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r 
 
 	logger := srv.logger.With(zap.Stringer("organization_id", admin.OrganizationID))
 
-	// Fetch full admin to check role
-	fullAdmin, err := srv.store.GetAdmin(ctx, admin.ID)
-	if err != nil {
-		logger.Error("failed to get admin", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	// Check if admin has owner role
-	if fullAdmin.Role != "owner" {
-		logger.Error("admin does not have owner role", zap.String("role", fullAdmin.Role))
-		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("owner role required")))
-		return
-	}
-
 	body := oapi.UpdateOrganizationJSONRequestBody{}
-	err = json.Decode(r.Body, &body)
+	err := json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -95,8 +80,6 @@ func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r 
 	logger.Info("updating organization")
 
 	update := store.OrganizationUpdate{
-		Username:                  body.Username,
-		Domain:                    body.Domain,
 		TrackingDeeplinkMirrorURL: body.TrackingDeeplinkMirrorUrl,
 	}
 
@@ -129,25 +112,9 @@ func (srv *OrganizationsController) DeleteOrganization(w http.ResponseWriter, r 
 	}
 
 	logger := srv.logger.With(zap.Stringer("organization_id", admin.OrganizationID))
-
-	// Fetch full admin to check role
-	fullAdmin, err := srv.store.GetAdmin(ctx, admin.ID)
-	if err != nil {
-		logger.Error("failed to get admin", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	// Check if admin has owner role
-	if fullAdmin.Role != "owner" {
-		logger.Error("admin does not have owner role", zap.String("role", fullAdmin.Role))
-		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("owner role required")))
-		return
-	}
-
 	logger.Info("deleting organization")
 
-	err = srv.store.DeleteOrganization(ctx, admin.OrganizationID)
+	err := srv.store.DeleteOrganization(ctx, admin.OrganizationID)
 	if err != nil {
 		logger.Error("failed to delete organization", zap.Error(err))
 		oapi.WriteProblem(w, err)

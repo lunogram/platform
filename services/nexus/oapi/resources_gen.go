@@ -346,13 +346,11 @@ type Locale struct {
 // Organization defines model for Organization.
 type Organization struct {
 	CreatedAt                 time.Time           `json:"created_at"`
-	Domain                    *string             `json:"domain,omitempty"`
 	Id                        openapi_types.UUID  `json:"id"`
 	Name                      string              `json:"name"`
 	NotificationProviderId    *openapi_types.UUID `json:"notification_provider_id,omitempty"`
 	TrackingDeeplinkMirrorUrl *string             `json:"tracking_deeplink_mirror_url,omitempty"`
 	UpdatedAt                 time.Time           `json:"updated_at"`
-	Username                  *string             `json:"username,omitempty"`
 }
 
 // PaginatedResponse defines model for PaginatedResponse.
@@ -535,9 +533,7 @@ type UpdateJourneyStatus string
 
 // UpdateOrganization defines model for UpdateOrganization.
 type UpdateOrganization struct {
-	Domain                    *string `json:"domain,omitempty"`
 	TrackingDeeplinkMirrorUrl *string `json:"tracking_deeplink_mirror_url,omitempty"`
-	Username                  string  `json:"username"`
 }
 
 // UpdateProject defines model for UpdateProject.

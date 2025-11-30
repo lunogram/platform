@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,15 +10,12 @@ import (
 )
 
 type Organization struct {
-	ID                        uuid.UUID       `db:"id"`
-	Name                      string          `db:"name"`
-	Username                  sql.NullString  `db:"username"`
-	Domain                    sql.NullString  `db:"domain"`
-	Auth                      json.RawMessage `db:"auth"`
-	NotificationProviderID    *uuid.UUID      `db:"notification_provider_id"`
-	TrackingDeeplinkMirrorURL sql.NullString  `db:"tracking_deeplink_mirror_url"`
-	CreatedAt                 time.Time       `db:"created_at"`
-	UpdatedAt                 time.Time       `db:"updated_at"`
+	ID                        uuid.UUID      `db:"id"`
+	Name                      string         `db:"name"`
+	NotificationProviderID    *uuid.UUID     `db:"notification_provider_id"`
+	TrackingDeeplinkMirrorURL sql.NullString `db:"tracking_deeplink_mirror_url"`
+	CreatedAt                 time.Time      `db:"created_at"`
+	UpdatedAt                 time.Time      `db:"updated_at"`
 }
 
 func (o *Organization) OAPI() oapi.Organization {
@@ -28,14 +24,6 @@ func (o *Organization) OAPI() oapi.Organization {
 		Name:      o.Name,
 		CreatedAt: o.CreatedAt,
 		UpdatedAt: o.UpdatedAt,
-	}
-
-	if o.Username.Valid {
-		org.Username = &o.Username.String
-	}
-
-	if o.Domain.Valid {
-		org.Domain = &o.Domain.String
 	}
 
 	if o.TrackingDeeplinkMirrorURL.Valid {
@@ -50,8 +38,6 @@ func (o *Organization) OAPI() oapi.Organization {
 }
 
 type OrganizationUpdate struct {
-	Username                  string
-	Domain                    *string
 	TrackingDeeplinkMirrorURL *string
 }
 
@@ -80,7 +66,7 @@ func (s *OrganizationsStore) CreateOrganization(ctx context.Context, name string
 
 func (s *OrganizationsStore) GetOrganization(ctx context.Context, id uuid.UUID) (*Organization, error) {
 	stmt := `
-	SELECT id, name, username, domain, COALESCE(auth, '{}'::jsonb) as auth, notification_provider_id, 
+	SELECT id, name, notification_provider_id, 
 		   tracking_deeplink_mirror_url, created_at, updated_at
 	FROM organizations
 	WHERE id = $1
@@ -98,14 +84,11 @@ func (s *OrganizationsStore) GetOrganization(ctx context.Context, id uuid.UUID) 
 func (s *OrganizationsStore) UpdateOrganization(ctx context.Context, id uuid.UUID, update OrganizationUpdate) error {
 	stmt := `
 	UPDATE organizations
-	SET username = COALESCE(NULLIF($2, ''), username),
-		domain = COALESCE($3, domain),
-		tracking_deeplink_mirror_url = COALESCE($4, tracking_deeplink_mirror_url),
-		updated_at = CURRENT_TIMESTAMP
+	SET tracking_deeplink_mirror_url = COALESCE($2, tracking_deeplink_mirror_url)
 	WHERE id = $1
 	AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, stmt, id, update.Username, update.Domain, update.TrackingDeeplinkMirrorURL)
+	_, err := s.db.ExecContext(ctx, stmt, id, update.TrackingDeeplinkMirrorURL)
 	return err
 }
 
