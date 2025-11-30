@@ -64,14 +64,15 @@ func (s *TagsStore) CreateTag(ctx context.Context, projectID uuid.UUID, name str
 }
 
 func (s *TagsStore) ListTags(ctx context.Context, projectID uuid.UUID, pagination Pagination, search string) (Tags, int, error) {
-	// Escape special ILIKE pattern characters to prevent SQL injection
+	// Escape special ILIKE pattern characters to treat them as literals
 	search = escapeILIKEPattern(search)
 
 	query := `
-	SELECT id, project_id, name, created_at, updated_at,
+	SELECT id, project_id, name, created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM tags
 	WHERE project_id = $1
+	AND deleted_at IS NULL
 	AND ($2 = '' OR name ILIKE '%' || $2 || '%')
 	ORDER BY name ASC
 	LIMIT $3 OFFSET $4`
@@ -109,10 +110,11 @@ func escapeILIKEPattern(s string) string {
 
 func (s *TagsStore) GetTag(ctx context.Context, projectID, tagID uuid.UUID) (*Tag, error) {
 	query := `
-	SELECT id, project_id, name, created_at, updated_at
+	SELECT id, project_id, name, created_at, updated_at, deleted_at
 	FROM tags
 	WHERE project_id = $1
-	AND id = $2`
+	AND id = $2
+	AND deleted_at IS NULL`
 
 	var tag Tag
 	err := s.db.GetContext(ctx, &tag, query, projectID, tagID)
@@ -149,9 +151,11 @@ func (s *TagsStore) UpdateTag(ctx context.Context, projectID, tagID uuid.UUID, n
 
 func (s *TagsStore) DeleteTag(ctx context.Context, projectID, tagID uuid.UUID) error {
 	stmt := `
-	DELETE FROM tags
+	UPDATE tags
+	SET deleted_at = NOW()
 	WHERE project_id = $1
-	AND id = $2`
+	AND id = $2
+	AND deleted_at IS NULL`
 
 	result, err := s.db.ExecContext(ctx, stmt, projectID, tagID)
 	if err != nil {

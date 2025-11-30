@@ -39,20 +39,6 @@ func (srv *TagsController) CreateTag(w http.ResponseWriter, r *http.Request, pro
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("name", body.Name))
 	logger.Info("creating tag")
 
-	// Check if project exists
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
-	if errors.Is(err, store.ErrNoRows) {
-		logger.Error("project not found", zap.Stringer("project_id", projectID))
-		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
-		return
-	}
-
-	if err != nil {
-		logger.Error("failed to get project", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
 	tagID, err := srv.store.TagsStore.CreateTag(ctx, projectID, body.Name)
 	if err != nil {
 		logger.Error("failed to create tag", zap.Error(err))
