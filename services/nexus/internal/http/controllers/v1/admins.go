@@ -658,7 +658,7 @@ func (srv *AdminsController) UpdateProjectAdmin(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	err = srv.store.UpdateProjectAdminRole(ctx, projectID, adminID, string(body.Role))
+	err = srv.store.UpdateProjectAdminRole(ctx, projectID, adminID, body.Role)
 	if err != nil {
 		logger.Error("failed to update project admin role", zap.Error(err))
 		oapi.WriteProblem(w, err)
