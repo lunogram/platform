@@ -238,8 +238,7 @@ func (pa *ProjectAdmin) OAPI() oapi.ProjectAdmin {
 	}
 
 	if pa.Email != nil {
-		email := openapi_types.Email(*pa.Email)
-		result.Email = &email
+		result.Email = pa.Email
 	}
 	if pa.FirstName != nil {
 		result.FirstName = pa.FirstName

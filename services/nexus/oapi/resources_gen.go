@@ -135,7 +135,7 @@ const (
 
 // AddProjectAdmin defines model for AddProjectAdmin.
 type AddProjectAdmin struct {
-	Email openapi_types.Email `json:"email"`
+	Email string              `json:"email"`
 	Role  AddProjectAdminRole `json:"role"`
 }
 
@@ -346,15 +346,15 @@ type Problem struct {
 
 // ProjectAdmin defines model for ProjectAdmin.
 type ProjectAdmin struct {
-	AdminId   openapi_types.UUID   `json:"admin_id"`
-	CreatedAt time.Time            `json:"created_at"`
-	Email     *openapi_types.Email `json:"email,omitempty"`
-	FirstName *string              `json:"first_name,omitempty"`
-	Id        openapi_types.UUID   `json:"id"`
-	LastName  *string              `json:"last_name,omitempty"`
-	ProjectId openapi_types.UUID   `json:"project_id"`
-	Role      ProjectAdminRole     `json:"role"`
-	UpdatedAt time.Time            `json:"updated_at"`
+	AdminId   openapi_types.UUID `json:"admin_id"`
+	CreatedAt time.Time          `json:"created_at"`
+	Email     *string            `json:"email,omitempty"`
+	FirstName *string            `json:"first_name,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+	LastName  *string            `json:"last_name,omitempty"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	Role      ProjectAdminRole   `json:"role"`
+	UpdatedAt time.Time          `json:"updated_at"`
 }
 
 // ProjectAdminRole defines model for ProjectAdmin.Role.

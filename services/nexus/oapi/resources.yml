@@ -2356,6 +2356,7 @@ components:
         email:
           type: string
           format: email
+          x-go-type: string
           example: "admin@example.com"
         first_name:
           type: string
@@ -2381,6 +2382,7 @@ components:
         email:
           type: string
           format: email
+          x-go-type: string
           example: "admin@example.com"
         role:
           type: string
