@@ -146,7 +146,7 @@ func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, p
 	ORDER BY created_at DESC
 	LIMIT $2 OFFSET $3`
 
-	type result struct {
+	type journeyWithCount struct {
 		ID          uuid.UUID `db:"id"`
 		ProjectID   uuid.UUID `db:"project_id"`
 		Name        string    `db:"name"`
@@ -157,7 +157,7 @@ func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, p
 		TotalCount  int       `db:"total_count"`
 	}
 
-	var results []result
+	var results []journeyWithCount
 	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err

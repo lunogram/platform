@@ -153,7 +153,7 @@ func (srv *JourneysController) UpdateJourney(w http.ResponseWriter, r *http.Requ
 
 	logger.Info("updating journey")
 
-	journey, err := srv.store.GetJourney(ctx, projectID, journeyID)
+	_, err = srv.store.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Error("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -185,7 +185,7 @@ func (srv *JourneysController) UpdateJourney(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	journey, err = srv.store.GetJourney(ctx, projectID, journeyID)
+	journey, err := srv.store.GetJourney(ctx, projectID, journeyID)
 	if err != nil {
 		logger.Error("failed to get journey", zap.Error(err))
 		oapi.WriteProblem(w, err)
