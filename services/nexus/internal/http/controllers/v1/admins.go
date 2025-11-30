@@ -500,104 +500,16 @@ func (srv *AdminsController) ListProjectAdmins(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	results := make([]oapi.ProjectAdmin, len(projectAdmins))
-	for i, pa := range projectAdmins {
-		results[i] = pa.OAPI()
-	}
-
-	logger.Info("project admins listed", zap.Int("total", total), zap.Int("count", len(results)))
+	logger.Info("project admins listed", zap.Int("total", total), zap.Int("count", len(projectAdmins)))
 
 	response := oapi.ProjectAdminList{
-		Results: results,
+		Results: store.ProjectAdmins(projectAdmins).OAPI(),
 		Total:   total,
 		Limit:   pagination.Limit,
 		Offset:  pagination.Offset,
 	}
 
 	json.Write(w, http.StatusOK, response)
-}
-
-func (srv *AdminsController) AddProjectAdmin(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
-	ctx := r.Context()
-
-	var body oapi.AddProjectAdmin
-	if err := json.Decode(r.Body, &body); err != nil {
-		srv.logger.Error("failed to decode request body", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
-		return
-	}
-
-	logger := srv.logger.With(
-		zap.String("project_id", projectID.String()),
-		zap.String("email", body.Email),
-		zap.String("role", string(body.Role)),
-	)
-
-	logger.Info("adding admin to project")
-
-	project, err := srv.store.GetProject(ctx, projectID)
-	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("project not found")
-		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
-		return
-	}
-
-	if err != nil {
-		logger.Error("failed to get project", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	admin, err := srv.store.GetAdminByEmail(ctx, body.Email, *project.OrganizationID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		logger.Error("failed to check existing admin", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	if admin == nil {
-		newAdmin := store.Admin{
-			OrganizationID: *project.OrganizationID,
-			Email:          body.Email,
-			Role:           "member",
-		}
-
-		adminID, err := srv.store.CreateAdmin(ctx, newAdmin)
-		if err != nil {
-			logger.Error("failed to create admin", zap.Error(err))
-			oapi.WriteProblem(w, err)
-			return
-		}
-
-		admin, err = srv.store.GetAdmin(ctx, adminID)
-		if err != nil {
-			logger.Error("failed to get created admin", zap.Error(err))
-			oapi.WriteProblem(w, err)
-			return
-		}
-
-		logger = logger.With(zap.String("admin_id", admin.ID.String()))
-		logger.Info("created new admin")
-	} else {
-		logger = logger.With(zap.String("admin_id", admin.ID.String()))
-	}
-
-	err = srv.store.AddAdminToProject(ctx, projectID, admin.ID, string(body.Role))
-	if err != nil {
-		logger.Error("failed to add admin to project", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	projectAdmin, err := srv.store.GetProjectAdmin(ctx, projectID, admin.ID)
-	if err != nil {
-		logger.Error("failed to get project admin", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	logger.Info("admin added to project")
-	json.Write(w, http.StatusCreated, projectAdmin.OAPI())
 }
 
 func (srv *AdminsController) GetProjectAdmin(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, adminID uuid.UUID) {

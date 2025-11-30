@@ -250,6 +250,16 @@ func (pa *ProjectAdmin) OAPI() oapi.ProjectAdmin {
 	return result
 }
 
+type ProjectAdmins []ProjectAdmin
+
+func (pas ProjectAdmins) OAPI() []oapi.ProjectAdmin {
+	results := make([]oapi.ProjectAdmin, len(pas))
+	for i, pa := range pas {
+		results[i] = pa.OAPI()
+	}
+	return results
+}
+
 func (s *AdminsStore) ListProjectAdmins(ctx context.Context, projectID uuid.UUID, pagination Pagination, search string) ([]ProjectAdmin, int, error) {
 	var projectAdmins []ProjectAdmin
 	var total int
@@ -330,20 +340,11 @@ func (s *AdminsStore) GetProjectAdmin(ctx context.Context, projectID, adminID uu
 }
 
 func (s *AdminsStore) AddAdminToProject(ctx context.Context, projectID, adminID uuid.UUID, role string) error {
-	existing, err := s.GetProjectAdmin(ctx, projectID, adminID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return err
-	}
-
-	if existing != nil {
-		return s.UpdateProjectAdminRole(ctx, projectID, adminID, role)
-	}
-
 	query := `
 	INSERT INTO project_admins (project_id, admin_id, role)
 	VALUES ($1, $2, $3)`
 
-	_, err = s.db.ExecContext(ctx, query, projectID, adminID, role)
+	_, err := s.db.ExecContext(ctx, query, projectID, adminID, role)
 	return err
 }
 
