@@ -20,7 +20,6 @@ type Organization struct {
 	TrackingDeeplinkMirrorURL sql.NullString  `db:"tracking_deeplink_mirror_url"`
 	CreatedAt                 time.Time       `db:"created_at"`
 	UpdatedAt                 time.Time       `db:"updated_at"`
-	DeletedAt                 sql.NullTime    `db:"deleted_at"`
 }
 
 func (o *Organization) OAPI() oapi.Organization {
@@ -82,7 +81,7 @@ func (s *OrganizationsStore) CreateOrganization(ctx context.Context, name string
 func (s *OrganizationsStore) GetOrganization(ctx context.Context, id uuid.UUID) (*Organization, error) {
 	stmt := `
 	SELECT id, name, username, domain, COALESCE(auth, '{}'::jsonb) as auth, notification_provider_id, 
-		   tracking_deeplink_mirror_url, created_at, updated_at, deleted_at
+		   tracking_deeplink_mirror_url, created_at, updated_at
 	FROM organizations
 	WHERE id = $1
 	AND deleted_at IS NULL`
@@ -126,9 +125,10 @@ func (s *OrganizationsStore) GetOrganizationIntegrations(ctx context.Context, or
 	SELECT p.id, p.project_id, p.type, p.group, p.data, p.is_default, 
 		   p.rate_limit, p.rate_interval, p.name, p.created_at, p.updated_at
 	FROM providers p
-	LEFT JOIN projects pr ON pr.id = p.project_id
+	INNER JOIN projects pr ON pr.id = p.project_id
 	WHERE pr.organization_id = $1
-	AND p.deleted_at IS NULL`
+	AND p.deleted_at IS NULL
+	AND pr.deleted_at IS NULL`
 
 	var providers []Provider
 	err := s.db.SelectContext(ctx, &providers, stmt, orgID)
