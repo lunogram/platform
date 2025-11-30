@@ -222,6 +222,7 @@ type CreateCampaign struct {
 // CreateCampaignChannel defines model for CreateCampaign.Channel.
 type CreateCampaignChannel string
 
+<<<<<<< HEAD
 // CreateJourney defines model for CreateJourney.
 type CreateJourney struct {
 	Description *string              `json:"description,omitempty"`
@@ -241,6 +242,8 @@ type CreateLocale struct {
 	Label string `json:"label"`
 }
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 // CreateProject defines model for CreateProject.
 type CreateProject struct {
 	Description       *string   `json:"description,omitempty"`
@@ -254,6 +257,7 @@ type CreateProject struct {
 	Tools             *[]string `json:"tools,omitempty"`
 }
 
+<<<<<<< HEAD
 // CreateTag defines model for CreateTag.
 type CreateTag struct {
 	Name string `json:"name"`
@@ -268,6 +272,8 @@ type CreateTemplate struct {
 	Locale string `json:"locale"`
 }
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 // Delivery defines model for Delivery.
 type Delivery struct {
 	Clicks int `json:"clicks"`
@@ -383,6 +389,7 @@ type Project struct {
 	UpdatedAt         time.Time           `json:"updated_at"`
 }
 
+<<<<<<< HEAD
 // ProjectAdmin defines model for ProjectAdmin.
 type ProjectAdmin struct {
 	AdminId   openapi_types.UUID `json:"admin_id"`
@@ -412,6 +419,8 @@ type ProjectAdminList struct {
 	Total int `json:"total"`
 }
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 // ProjectList defines model for ProjectList.
 type ProjectList struct {
 	// Limit Maximum number of items returned
@@ -511,6 +520,7 @@ type UpdateCampaign struct {
 	ProviderId *openapi_types.UUID `json:"provider_id,omitempty"`
 }
 
+<<<<<<< HEAD
 // UpdateJourney defines model for UpdateJourney.
 type UpdateJourney struct {
 	Description *string              `json:"description,omitempty"`
@@ -521,6 +531,8 @@ type UpdateJourney struct {
 // UpdateJourneyStatus defines model for UpdateJourney.Status.
 type UpdateJourneyStatus string
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 // UpdateProject defines model for UpdateProject.
 type UpdateProject struct {
 	Description       *string   `json:"description,omitempty"`
@@ -534,6 +546,7 @@ type UpdateProject struct {
 	Tools             *[]string `json:"tools,omitempty"`
 }
 
+<<<<<<< HEAD
 // UpdateProjectAdmin defines model for UpdateProjectAdmin.
 type UpdateProjectAdmin struct {
 	Role UpdateProjectAdminRole `json:"role"`
@@ -553,6 +566,8 @@ type UpdateTemplate struct {
 	Data *json.RawMessage `json:"data"`
 }
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 // UpdateUser defines model for UpdateUser.
 type UpdateUser struct {
 	Data   *json.RawMessage `json:"data,omitempty"`
@@ -752,6 +767,7 @@ type ListProjectsParams struct {
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
+<<<<<<< HEAD
 // ListProjectAdminsParams defines parameters for ListProjectAdmins.
 type ListProjectAdminsParams struct {
 	// Limit Maximum number of items to return
@@ -764,6 +780,8 @@ type ListProjectAdminsParams struct {
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 // ListCampaignsParams defines parameters for ListCampaigns.
 type ListCampaignsParams struct {
 	// Limit Maximum number of items to return
@@ -863,9 +881,12 @@ type CreateProjectJSONRequestBody = CreateProject
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProject
 
+<<<<<<< HEAD
 // UpdateProjectAdminJSONRequestBody defines body for UpdateProjectAdmin for application/json ContentType.
 type UpdateProjectAdminJSONRequestBody = UpdateProjectAdmin
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 // CreateCampaignJSONRequestBody defines body for CreateCampaign for application/json ContentType.
 type CreateCampaignJSONRequestBody = CreateCampaign
 
@@ -1193,6 +1214,7 @@ type ClientInterface interface {
 
 	UpdateProject(ctx context.Context, projectID openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+<<<<<<< HEAD
 	// ListProjectAdmins request
 	ListProjectAdmins(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1207,6 +1229,8 @@ type ClientInterface interface {
 
 	UpdateProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 	// ListCampaigns request
 	ListCampaigns(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1499,6 +1523,7 @@ func (c *Client) UpdateProject(ctx context.Context, projectID openapi_types.UUID
 	return c.Client.Do(req)
 }
 
+<<<<<<< HEAD
 func (c *Client) ListProjectAdmins(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProjectAdminsRequest(c.Server, projectID, params)
 	if err != nil {
@@ -1559,6 +1584,8 @@ func (c *Client) UpdateProjectAdmin(ctx context.Context, projectID openapi_types
 	return c.Client.Do(req)
 }
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 func (c *Client) ListCampaigns(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListCampaignsRequest(c.Server, projectID, params)
 	if err != nil {
@@ -2564,6 +2591,7 @@ func NewUpdateProjectRequestWithBody(server string, projectID openapi_types.UUID
 	return req, nil
 }
 
+<<<<<<< HEAD
 // NewListProjectAdminsRequest generates requests for ListProjectAdmins
 func NewListProjectAdminsRequest(server string, projectID openapi_types.UUID, params *ListProjectAdminsParams) (*http.Request, error) {
 	var err error
@@ -2788,6 +2816,8 @@ func NewUpdateProjectAdminRequestWithBody(server string, projectID openapi_types
 	return req, nil
 }
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 // NewListCampaignsRequest generates requests for ListCampaigns
 func NewListCampaignsRequest(server string, projectID openapi_types.UUID, params *ListCampaignsParams) (*http.Request, error) {
 	var err error
@@ -4703,6 +4733,7 @@ type ClientWithResponsesInterface interface {
 
 	UpdateProjectWithResponse(ctx context.Context, projectID openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
 
+<<<<<<< HEAD
 	// ListProjectAdminsWithResponse request
 	ListProjectAdminsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*ListProjectAdminsResponse, error)
 
@@ -4717,6 +4748,8 @@ type ClientWithResponsesInterface interface {
 
 	UpdateProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectAdminResponse, error)
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 	// ListCampaignsWithResponse request
 	ListCampaignsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*ListCampaignsResponse, error)
 
@@ -5070,6 +5103,7 @@ func (r UpdateProjectResponse) StatusCode() int {
 	return 0
 }
 
+<<<<<<< HEAD
 type ListProjectAdminsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5161,6 +5195,8 @@ func (r UpdateProjectAdminResponse) StatusCode() int {
 	return 0
 }
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 type ListCampaignsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6060,6 +6096,7 @@ func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, pro
 	return ParseUpdateProjectResponse(rsp)
 }
 
+<<<<<<< HEAD
 // ListProjectAdminsWithResponse request returning *ListProjectAdminsResponse
 func (c *ClientWithResponses) ListProjectAdminsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*ListProjectAdminsResponse, error) {
 	rsp, err := c.ListProjectAdmins(ctx, projectID, params, reqEditors...)
@@ -6104,6 +6141,8 @@ func (c *ClientWithResponses) UpdateProjectAdminWithResponse(ctx context.Context
 	return ParseUpdateProjectAdminResponse(rsp)
 }
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 // ListCampaignsWithResponse request returning *ListCampaignsResponse
 func (c *ClientWithResponses) ListCampaignsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*ListCampaignsResponse, error) {
 	rsp, err := c.ListCampaigns(ctx, projectID, params, reqEditors...)
@@ -6820,6 +6859,7 @@ func ParseUpdateProjectResponse(rsp *http.Response) (*UpdateProjectResponse, err
 	return response, nil
 }
 
+<<<<<<< HEAD
 // ParseListProjectAdminsResponse parses an HTTP response from a ListProjectAdminsWithResponse call
 func ParseListProjectAdminsResponse(rsp *http.Response) (*ListProjectAdminsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -6945,6 +6985,8 @@ func ParseUpdateProjectAdminResponse(rsp *http.Response) (*UpdateProjectAdminRes
 	return response, nil
 }
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 // ParseListCampaignsResponse parses an HTTP response from a ListCampaignsWithResponse call
 func ParseListCampaignsResponse(rsp *http.Response) (*ListCampaignsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -8054,6 +8096,7 @@ type ServerInterface interface {
 	// Update project
 	// (PATCH /api/admin/projects/{projectID})
 	UpdateProject(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+<<<<<<< HEAD
 	// List project admins
 	// (GET /api/admin/projects/{projectID}/admins)
 	ListProjectAdmins(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListProjectAdminsParams)
@@ -8066,6 +8109,8 @@ type ServerInterface interface {
 	// Update project admin role
 	// (PATCH /api/admin/projects/{projectID}/admins/{adminID})
 	UpdateProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID)
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 	// List campaigns
 	// (GET /api/admin/projects/{projectID}/campaigns)
 	ListCampaigns(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListCampaignsParams)
@@ -8231,6 +8276,7 @@ func (_ Unimplemented) UpdateProject(w http.ResponseWriter, r *http.Request, pro
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+<<<<<<< HEAD
 // List project admins
 // (GET /api/admin/projects/{projectID}/admins)
 func (_ Unimplemented) ListProjectAdmins(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListProjectAdminsParams) {
@@ -8255,6 +8301,8 @@ func (_ Unimplemented) UpdateProjectAdmin(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 // List campaigns
 // (GET /api/admin/projects/{projectID}/campaigns)
 func (_ Unimplemented) ListCampaigns(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListCampaignsParams) {
@@ -8775,6 +8823,7 @@ func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+<<<<<<< HEAD
 // ListProjectAdmins operation middleware
 func (siw *ServerInterfaceWrapper) ListProjectAdmins(w http.ResponseWriter, r *http.Request) {
 
@@ -8953,6 +9002,8 @@ func (siw *ServerInterfaceWrapper) UpdateProjectAdmin(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 // ListCampaigns operation middleware
 func (siw *ServerInterfaceWrapper) ListCampaigns(w http.ResponseWriter, r *http.Request) {
 
@@ -10541,6 +10592,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}", wrapper.UpdateProject)
 	})
 	r.Group(func(r chi.Router) {
+<<<<<<< HEAD
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/admins", wrapper.ListProjectAdmins)
 	})
 	r.Group(func(r chi.Router) {
@@ -10553,6 +10605,8 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/admins/{adminID}", wrapper.UpdateProjectAdmin)
 	})
 	r.Group(func(r chi.Router) {
+=======
+>>>>>>> 5496abd (refactor: migrated project endpoints to nexus service and implemented initial RBAC implementation)
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns", wrapper.ListCampaigns)
 	})
 	r.Group(func(r chi.Router) {
