@@ -10,6 +10,7 @@ import (
 	"github.com/lunogram/platform/pkg/claim"
 	"github.com/lunogram/platform/pkg/http/problem"
 	"github.com/lunogram/platform/services/nexus/oapi"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 func NewAdminsStore(db DB) *AdminsStore {
@@ -208,5 +209,165 @@ func (s *AdminsStore) UpdateAdmin(ctx context.Context, id uuid.UUID, update Admi
 func (s *AdminsStore) DeleteAdmin(ctx context.Context, id uuid.UUID) error {
 	stmt := `UPDATE admins SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
 	_, err := s.db.ExecContext(ctx, stmt, id)
+	return err
+}
+
+// Project Admin methods
+
+type ProjectAdmin struct {
+	ID        uuid.UUID  `db:"id"`
+	ProjectID uuid.UUID  `db:"project_id"`
+	AdminID   uuid.UUID  `db:"admin_id"`
+	Role      string     `db:"role"`
+	CreatedAt time.Time  `db:"created_at"`
+	UpdatedAt time.Time  `db:"updated_at"`
+	DeletedAt *time.Time `db:"deleted_at"`
+	Email     *string    `db:"email"`
+	FirstName *string    `db:"first_name"`
+	LastName  *string    `db:"last_name"`
+}
+
+func (pa *ProjectAdmin) OAPI() oapi.ProjectAdmin {
+	result := oapi.ProjectAdmin{
+		Id:        pa.ID,
+		ProjectId: pa.ProjectID,
+		AdminId:   pa.AdminID,
+		Role:      oapi.ProjectAdminRole(pa.Role),
+		CreatedAt: pa.CreatedAt,
+		UpdatedAt: pa.UpdatedAt,
+	}
+
+	if pa.Email != nil {
+		email := openapi_types.Email(*pa.Email)
+		result.Email = &email
+	}
+	if pa.FirstName != nil {
+		result.FirstName = pa.FirstName
+	}
+	if pa.LastName != nil {
+		result.LastName = pa.LastName
+	}
+
+	return result
+}
+
+func (s *AdminsStore) ListProjectAdmins(ctx context.Context, projectID uuid.UUID, pagination Pagination, search string) ([]ProjectAdmin, int, error) {
+	var projectAdmins []ProjectAdmin
+	var total int
+
+	query := `
+	SELECT 
+		project_admins.id, 
+		project_admins.project_id, 
+		project_admins.admin_id, 
+		project_admins.role,
+		project_admins.created_at, 
+		project_admins.updated_at,
+		admins.email,
+		admins.first_name,
+		admins.last_name,
+		COUNT(*) OVER () AS total_count
+	FROM project_admins
+	JOIN admins ON project_admins.admin_id = admins.id
+	WHERE project_admins.project_id = $1 
+	AND project_admins.deleted_at IS NULL
+	AND (
+		$2 = '' OR
+		admins.first_name ILIKE '%' || $2 || '%' OR 
+		admins.last_name ILIKE '%' || $2 || '%' OR 
+		admins.email ILIKE '%' || $2 || '%'
+	)
+	ORDER BY project_admins.created_at DESC
+	LIMIT $3 OFFSET $4`
+
+	type result struct {
+		ProjectAdmin
+		TotalCount int `db:"total_count"`
+	}
+
+	var results []result
+	err := s.db.SelectContext(ctx, &results, query, projectID, search, pagination.Limit, pagination.Offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(results) == 0 {
+		return []ProjectAdmin{}, 0, nil
+	}
+
+	total = results[0].TotalCount
+	for _, r := range results {
+		projectAdmins = append(projectAdmins, r.ProjectAdmin)
+	}
+
+	return projectAdmins, total, nil
+}
+
+func (s *AdminsStore) GetProjectAdmin(ctx context.Context, projectID, adminID uuid.UUID) (*ProjectAdmin, error) {
+	query := `
+	SELECT 
+		project_admins.id, 
+		project_admins.project_id, 
+		project_admins.admin_id, 
+		project_admins.role,
+		project_admins.created_at, 
+		project_admins.updated_at,
+		admins.email,
+		admins.first_name,
+		admins.last_name
+	FROM project_admins
+	JOIN admins ON project_admins.admin_id = admins.id
+	WHERE project_admins.project_id = $1 
+	AND project_admins.admin_id = $2
+	AND project_admins.deleted_at IS NULL`
+
+	var projectAdmin ProjectAdmin
+	err := s.db.GetContext(ctx, &projectAdmin, query, projectID, adminID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &projectAdmin, nil
+}
+
+func (s *AdminsStore) AddAdminToProject(ctx context.Context, projectID, adminID uuid.UUID, role string) error {
+	existing, err := s.GetProjectAdmin(ctx, projectID, adminID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	if existing != nil {
+		return s.UpdateProjectAdminRole(ctx, projectID, adminID, role)
+	}
+
+	query := `
+	INSERT INTO project_admins (project_id, admin_id, role)
+	VALUES ($1, $2, $3)`
+
+	_, err = s.db.ExecContext(ctx, query, projectID, adminID, role)
+	return err
+}
+
+func (s *AdminsStore) UpdateProjectAdminRole(ctx context.Context, projectID, adminID uuid.UUID, role string) error {
+	query := `
+	UPDATE project_admins 
+	SET role = $1
+	WHERE project_id = $2 
+	AND admin_id = $3
+	AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, query, role, projectID, adminID)
+	return err
+}
+
+func (s *AdminsStore) DeleteProjectAdmin(ctx context.Context, projectID, adminID uuid.UUID) error {
+	query := `
+	UPDATE project_admins 
+	SET deleted_at = NOW() 
+	WHERE project_id = $1 
+	AND admin_id = $2
+	AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, query, projectID, adminID)
 	return err
 }

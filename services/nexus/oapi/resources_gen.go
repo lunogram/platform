@@ -23,6 +23,14 @@ const (
 	HttpBearerAuthScopes = "HttpBearerAuth.Scopes"
 )
 
+// Defines values for AddProjectAdminRole.
+const (
+	AddProjectAdminRoleAdmin     AddProjectAdminRole = "admin"
+	AddProjectAdminRoleEditor    AddProjectAdminRole = "editor"
+	AddProjectAdminRolePublisher AddProjectAdminRole = "publisher"
+	AddProjectAdminRoleSupport   AddProjectAdminRole = "support"
+)
+
 // Defines values for AdminRole.
 const (
 	AdminRoleAdmin  AdminRole = "admin"
@@ -61,6 +69,14 @@ const (
 	CreateCampaignChannelSms   CreateCampaignChannel = "sms"
 )
 
+// Defines values for ProjectAdminRole.
+const (
+	ProjectAdminRoleAdmin     ProjectAdminRole = "admin"
+	ProjectAdminRoleEditor    ProjectAdminRole = "editor"
+	ProjectAdminRolePublisher ProjectAdminRole = "publisher"
+	ProjectAdminRoleSupport   ProjectAdminRole = "support"
+)
+
 // Defines values for ProviderGroup.
 const (
 	ProviderGroupEmail ProviderGroup = "email"
@@ -90,6 +106,14 @@ const (
 	UpdateAdminRoleOwner  UpdateAdminRole = "owner"
 )
 
+// Defines values for UpdateProjectAdminRole.
+const (
+	UpdateProjectAdminRoleAdmin     UpdateProjectAdminRole = "admin"
+	UpdateProjectAdminRoleEditor    UpdateProjectAdminRole = "editor"
+	UpdateProjectAdminRolePublisher UpdateProjectAdminRole = "publisher"
+	UpdateProjectAdminRoleSupport   UpdateProjectAdminRole = "support"
+)
+
 // Defines values for UpdateUserSubscriptionsState.
 const (
 	UpdateUserSubscriptionsStateSubscribed   UpdateUserSubscriptionsState = "subscribed"
@@ -108,6 +132,15 @@ const (
 	UserSubscriptionStateSubscribed   UserSubscriptionState = "subscribed"
 	UserSubscriptionStateUnsubscribed UserSubscriptionState = "unsubscribed"
 )
+
+// AddProjectAdmin defines model for AddProjectAdmin.
+type AddProjectAdmin struct {
+	Email openapi_types.Email `json:"email"`
+	Role  AddProjectAdminRole `json:"role"`
+}
+
+// AddProjectAdminRole defines model for AddProjectAdmin.Role.
+type AddProjectAdminRole string
 
 // Admin defines model for Admin.
 type Admin struct {
@@ -311,6 +344,35 @@ type Problem struct {
 	Title string `json:"title"`
 }
 
+// ProjectAdmin defines model for ProjectAdmin.
+type ProjectAdmin struct {
+	AdminId   openapi_types.UUID   `json:"admin_id"`
+	CreatedAt time.Time            `json:"created_at"`
+	Email     *openapi_types.Email `json:"email,omitempty"`
+	FirstName *string              `json:"first_name,omitempty"`
+	Id        openapi_types.UUID   `json:"id"`
+	LastName  *string              `json:"last_name,omitempty"`
+	ProjectId openapi_types.UUID   `json:"project_id"`
+	Role      ProjectAdminRole     `json:"role"`
+	UpdatedAt time.Time            `json:"updated_at"`
+}
+
+// ProjectAdminRole defines model for ProjectAdmin.Role.
+type ProjectAdminRole string
+
+// ProjectAdminList defines model for ProjectAdminList.
+type ProjectAdminList struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int            `json:"offset"`
+	Results []ProjectAdmin `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // Provider defines model for Provider.
 type Provider struct {
 	CreatedAt    time.Time             `json:"created_at"`
@@ -396,6 +458,14 @@ type UpdateCampaign struct {
 	Name       *string             `json:"name,omitempty"`
 	ProviderId *openapi_types.UUID `json:"provider_id,omitempty"`
 }
+
+// UpdateProjectAdmin defines model for UpdateProjectAdmin.
+type UpdateProjectAdmin struct {
+	Role UpdateProjectAdminRole `json:"role"`
+}
+
+// UpdateProjectAdminRole defines model for UpdateProjectAdmin.Role.
+type UpdateProjectAdminRole string
 
 // UpdateTag defines model for UpdateTag.
 type UpdateTag struct {
@@ -582,6 +652,18 @@ type ListAdminsParams struct {
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// ListProjectAdminsParams defines parameters for ListProjectAdmins.
+type ListProjectAdminsParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
 // ListCampaignsParams defines parameters for ListCampaigns.
 type ListCampaignsParams struct {
 	// Limit Maximum number of items to return
@@ -665,6 +747,12 @@ type CreateAdminJSONRequestBody = CreateAdmin
 
 // UpdateAdminJSONRequestBody defines body for UpdateAdmin for application/json ContentType.
 type UpdateAdminJSONRequestBody = UpdateAdmin
+
+// AddProjectAdminJSONRequestBody defines body for AddProjectAdmin for application/json ContentType.
+type AddProjectAdminJSONRequestBody = AddProjectAdmin
+
+// UpdateProjectAdminJSONRequestBody defines body for UpdateProjectAdmin for application/json ContentType.
+type UpdateProjectAdminJSONRequestBody = UpdateProjectAdmin
 
 // CreateCampaignJSONRequestBody defines body for CreateCampaign for application/json ContentType.
 type CreateCampaignJSONRequestBody = CreateCampaign
@@ -971,6 +1059,25 @@ type ClientInterface interface {
 	// GetProfile request
 	GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListProjectAdmins request
+	ListProjectAdmins(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddProjectAdminWithBody request with any body
+	AddProjectAdminWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AddProjectAdmin(ctx context.Context, projectID openapi_types.UUID, body AddProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteProjectAdmin request
+	DeleteProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectAdmin request
+	GetProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProjectAdminWithBody request with any body
+	UpdateProjectAdminWithBody(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListCampaigns request
 	ListCampaigns(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1162,6 +1269,90 @@ func (c *Client) UpdateAdmin(ctx context.Context, adminID openapi_types.UUID, bo
 
 func (c *Client) GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProfileRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListProjectAdmins(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProjectAdminsRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddProjectAdminWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddProjectAdminRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddProjectAdmin(ctx context.Context, projectID openapi_types.UUID, body AddProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddProjectAdminRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProjectAdminRequest(c.Server, projectID, adminID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectAdminRequest(c.Server, projectID, adminID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateProjectAdminWithBody(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectAdminRequestWithBody(c.Server, projectID, adminID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectAdminRequest(c.Server, projectID, adminID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1887,6 +2078,277 @@ func NewGetProfileRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListProjectAdminsRequest generates requests for ListProjectAdmins
+func NewListProjectAdminsRequest(server string, projectID openapi_types.UUID, params *ListProjectAdminsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/admins", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAddProjectAdminRequest calls the generic AddProjectAdmin builder with application/json body
+func NewAddProjectAdminRequest(server string, projectID openapi_types.UUID, body AddProjectAdminJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddProjectAdminRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewAddProjectAdminRequestWithBody generates requests for AddProjectAdmin with any type of body
+func NewAddProjectAdminRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/admins", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteProjectAdminRequest generates requests for DeleteProjectAdmin
+func NewDeleteProjectAdminRequest(server string, projectID openapi_types.UUID, adminID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "adminID", runtime.ParamLocationPath, adminID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/admins/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetProjectAdminRequest generates requests for GetProjectAdmin
+func NewGetProjectAdminRequest(server string, projectID openapi_types.UUID, adminID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "adminID", runtime.ParamLocationPath, adminID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/admins/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateProjectAdminRequest calls the generic UpdateProjectAdmin builder with application/json body
+func NewUpdateProjectAdminRequest(server string, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateProjectAdminRequestWithBody(server, projectID, adminID, "application/json", bodyReader)
+}
+
+// NewUpdateProjectAdminRequestWithBody generates requests for UpdateProjectAdmin with any type of body
+func NewUpdateProjectAdminRequestWithBody(server string, projectID openapi_types.UUID, adminID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "adminID", runtime.ParamLocationPath, adminID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/admins/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -3535,6 +3997,25 @@ type ClientWithResponsesInterface interface {
 	// GetProfileWithResponse request
 	GetProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetProfileResponse, error)
 
+	// ListProjectAdminsWithResponse request
+	ListProjectAdminsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*ListProjectAdminsResponse, error)
+
+	// AddProjectAdminWithBodyWithResponse request with any body
+	AddProjectAdminWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddProjectAdminResponse, error)
+
+	AddProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, body AddProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*AddProjectAdminResponse, error)
+
+	// DeleteProjectAdminWithResponse request
+	DeleteProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProjectAdminResponse, error)
+
+	// GetProjectAdminWithResponse request
+	GetProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProjectAdminResponse, error)
+
+	// UpdateProjectAdminWithBodyWithResponse request with any body
+	UpdateProjectAdminWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectAdminResponse, error)
+
+	UpdateProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectAdminResponse, error)
+
 	// ListCampaignsWithResponse request
 	ListCampaignsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*ListCampaignsResponse, error)
 
@@ -3771,6 +4252,120 @@ func (r GetProfileResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetProfileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListProjectAdminsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectAdminList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProjectAdminsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProjectAdminsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AddProjectAdminResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ProjectAdmin
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AddProjectAdminResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddProjectAdminResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteProjectAdminResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProjectAdminResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProjectAdminResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetProjectAdminResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectAdmin
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectAdminResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectAdminResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateProjectAdminResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProjectAdmin
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateProjectAdminResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateProjectAdminResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -4510,6 +5105,67 @@ func (c *ClientWithResponses) GetProfileWithResponse(ctx context.Context, reqEdi
 	return ParseGetProfileResponse(rsp)
 }
 
+// ListProjectAdminsWithResponse request returning *ListProjectAdminsResponse
+func (c *ClientWithResponses) ListProjectAdminsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*ListProjectAdminsResponse, error) {
+	rsp, err := c.ListProjectAdmins(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProjectAdminsResponse(rsp)
+}
+
+// AddProjectAdminWithBodyWithResponse request with arbitrary body returning *AddProjectAdminResponse
+func (c *ClientWithResponses) AddProjectAdminWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddProjectAdminResponse, error) {
+	rsp, err := c.AddProjectAdminWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddProjectAdminResponse(rsp)
+}
+
+func (c *ClientWithResponses) AddProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, body AddProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*AddProjectAdminResponse, error) {
+	rsp, err := c.AddProjectAdmin(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddProjectAdminResponse(rsp)
+}
+
+// DeleteProjectAdminWithResponse request returning *DeleteProjectAdminResponse
+func (c *ClientWithResponses) DeleteProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProjectAdminResponse, error) {
+	rsp, err := c.DeleteProjectAdmin(ctx, projectID, adminID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProjectAdminResponse(rsp)
+}
+
+// GetProjectAdminWithResponse request returning *GetProjectAdminResponse
+func (c *ClientWithResponses) GetProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProjectAdminResponse, error) {
+	rsp, err := c.GetProjectAdmin(ctx, projectID, adminID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectAdminResponse(rsp)
+}
+
+// UpdateProjectAdminWithBodyWithResponse request with arbitrary body returning *UpdateProjectAdminResponse
+func (c *ClientWithResponses) UpdateProjectAdminWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectAdminResponse, error) {
+	rsp, err := c.UpdateProjectAdminWithBody(ctx, projectID, adminID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProjectAdminResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, body UpdateProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectAdminResponse, error) {
+	rsp, err := c.UpdateProjectAdmin(ctx, projectID, adminID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProjectAdminResponse(rsp)
+}
+
 // ListCampaignsWithResponse request returning *ListCampaignsResponse
 func (c *ClientWithResponses) ListCampaignsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListCampaignsParams, reqEditors ...RequestEditorFn) (*ListCampaignsResponse, error) {
 	rsp, err := c.ListCampaigns(ctx, projectID, params, reqEditors...)
@@ -5016,6 +5672,164 @@ func ParseGetProfileResponse(rsp *http.Response) (*GetProfileResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Admin
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProjectAdminsResponse parses an HTTP response from a ListProjectAdminsWithResponse call
+func ParseListProjectAdminsResponse(rsp *http.Response) (*ListProjectAdminsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProjectAdminsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectAdminList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddProjectAdminResponse parses an HTTP response from a AddProjectAdminWithResponse call
+func ParseAddProjectAdminResponse(rsp *http.Response) (*AddProjectAdminResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddProjectAdminResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ProjectAdmin
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProjectAdminResponse parses an HTTP response from a DeleteProjectAdminWithResponse call
+func ParseDeleteProjectAdminResponse(rsp *http.Response) (*DeleteProjectAdminResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProjectAdminResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectAdminResponse parses an HTTP response from a GetProjectAdminWithResponse call
+func ParseGetProjectAdminResponse(rsp *http.Response) (*GetProjectAdminResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectAdminResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectAdmin
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateProjectAdminResponse parses an HTTP response from a UpdateProjectAdminWithResponse call
+func ParseUpdateProjectAdminResponse(rsp *http.Response) (*UpdateProjectAdminResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateProjectAdminResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProjectAdmin
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -5972,6 +6786,21 @@ type ServerInterface interface {
 	// Get current admin profile
 	// (GET /api/admin/profile)
 	GetProfile(w http.ResponseWriter, r *http.Request)
+	// List project admins
+	// (GET /api/admin/projects/{projectID}/admins)
+	ListProjectAdmins(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListProjectAdminsParams)
+	// Add admin to project
+	// (POST /api/admin/projects/{projectID}/admins)
+	AddProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Remove admin from project
+	// (DELETE /api/admin/projects/{projectID}/admins/{adminID})
+	DeleteProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID)
+	// Get project admin
+	// (GET /api/admin/projects/{projectID}/admins/{adminID})
+	GetProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID)
+	// Update project admin role
+	// (PATCH /api/admin/projects/{projectID}/admins/{adminID})
+	UpdateProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID)
 	// List campaigns
 	// (GET /api/admin/projects/{projectID}/campaigns)
 	ListCampaigns(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListCampaignsParams)
@@ -6095,6 +6924,36 @@ func (_ Unimplemented) UpdateAdmin(w http.ResponseWriter, r *http.Request, admin
 // Get current admin profile
 // (GET /api/admin/profile)
 func (_ Unimplemented) GetProfile(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List project admins
+// (GET /api/admin/projects/{projectID}/admins)
+func (_ Unimplemented) ListProjectAdmins(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListProjectAdminsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Add admin to project
+// (POST /api/admin/projects/{projectID}/admins)
+func (_ Unimplemented) AddProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove admin from project
+// (DELETE /api/admin/projects/{projectID}/admins/{adminID})
+func (_ Unimplemented) DeleteProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get project admin
+// (GET /api/admin/projects/{projectID}/admins/{adminID})
+func (_ Unimplemented) GetProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update project admin role
+// (PATCH /api/admin/projects/{projectID}/admins/{adminID})
+func (_ Unimplemented) UpdateProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6448,6 +7307,215 @@ func (siw *ServerInterfaceWrapper) GetProfile(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetProfile(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListProjectAdmins operation middleware
+func (siw *ServerInterfaceWrapper) ListProjectAdmins(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProjectAdminsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjectAdmins(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddProjectAdmin operation middleware
+func (siw *ServerInterfaceWrapper) AddProjectAdmin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddProjectAdmin(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProjectAdmin operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProjectAdmin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "adminID" -------------
+	var adminID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "adminID", chi.URLParam(r, "adminID"), &adminID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adminID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProjectAdmin(w, r, projectID, adminID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProjectAdmin operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectAdmin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "adminID" -------------
+	var adminID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "adminID", chi.URLParam(r, "adminID"), &adminID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adminID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectAdmin(w, r, projectID, adminID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateProjectAdmin operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProjectAdmin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "adminID" -------------
+	var adminID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "adminID", chi.URLParam(r, "adminID"), &adminID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adminID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProjectAdmin(w, r, projectID, adminID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7830,6 +8898,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/profile", wrapper.GetProfile)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/admins", wrapper.ListProjectAdmins)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/admins", wrapper.AddProjectAdmin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/admins/{adminID}", wrapper.DeleteProjectAdmin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/admins/{adminID}", wrapper.GetProjectAdmin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/admins/{adminID}", wrapper.UpdateProjectAdmin)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns", wrapper.ListCampaigns)
