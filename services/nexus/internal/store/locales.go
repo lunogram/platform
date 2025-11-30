@@ -95,14 +95,31 @@ func (s *LocalesStore) ListLocales(ctx context.Context, projectID uuid.UUID, pag
 }
 
 func (s *LocalesStore) GetLocale(ctx context.Context, projectID uuid.UUID, localeID string) (*Locale, error) {
-	query := `
-	SELECT id, project_id, key, label, created_at, updated_at
-	FROM locales
-	WHERE project_id = $1
-	AND (id::text = $2 OR key = $2)`
+	// Try to parse as UUID first for more efficient lookup
+	id, err := uuid.Parse(localeID)
+	var query string
+	var args []interface{}
+	
+	if err == nil {
+		// localeID is a valid UUID, use direct comparison
+		query = `
+		SELECT id, project_id, key, label, created_at, updated_at
+		FROM locales
+		WHERE project_id = $1
+		AND id = $2`
+		args = []interface{}{projectID, id}
+	} else {
+		// localeID is not a UUID, search by key
+		query = `
+		SELECT id, project_id, key, label, created_at, updated_at
+		FROM locales
+		WHERE project_id = $1
+		AND key = $2`
+		args = []interface{}{projectID, localeID}
+	}
 
 	var locale Locale
-	err := s.db.GetContext(ctx, &locale, query, projectID, localeID)
+	err = s.db.GetContext(ctx, &locale, query, args...)
 	if err != nil {
 		return nil, err
 	}
