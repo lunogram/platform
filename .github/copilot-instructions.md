@@ -174,6 +174,20 @@ go test ./internal/http/controllers/v1/... -v
 go test ./internal/http/controllers/v1/... -v -run TestCampaignCreation
 ```
 
+### Verifying Compilation
+
+When verifying that code compiles after making changes, use the linter which checks compilation without creating build artifacts:
+
+```bash
+# ✅ Good - runs linters and verifies compilation
+make lint
+
+# ❌ Bad - leaves binary in directory
+go build
+```
+
+The linter will catch compilation errors and style issues without creating binary files that could be accidentally committed to git.
+
 ## Common Patterns
 
 ### Resource Nesting
