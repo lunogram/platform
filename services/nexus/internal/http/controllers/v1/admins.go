@@ -529,7 +529,7 @@ func (srv *AdminsController) AddProjectAdmin(w http.ResponseWriter, r *http.Requ
 
 	logger := srv.logger.With(
 		zap.String("project_id", projectID.String()),
-		zap.String("email", string(body.Email)),
+		zap.String("email", body.Email),
 		zap.String("role", string(body.Role)),
 	)
 
@@ -548,7 +548,7 @@ func (srv *AdminsController) AddProjectAdmin(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	admin, err := srv.store.GetAdminByEmail(ctx, string(body.Email), *project.OrganizationID)
+	admin, err := srv.store.GetAdminByEmail(ctx, body.Email, *project.OrganizationID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("failed to check existing admin", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -558,7 +558,7 @@ func (srv *AdminsController) AddProjectAdmin(w http.ResponseWriter, r *http.Requ
 	if admin == nil {
 		newAdmin := store.Admin{
 			OrganizationID: *project.OrganizationID,
-			Email:          string(body.Email),
+			Email:          body.Email,
 			Role:           "member",
 		}
 
