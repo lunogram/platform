@@ -147,14 +147,8 @@ func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, p
 	LIMIT $2 OFFSET $3`
 
 	type journeyWithCount struct {
-		ID          uuid.UUID `db:"id"`
-		ProjectID   uuid.UUID `db:"project_id"`
-		Name        string    `db:"name"`
-		Description *string   `db:"description"`
-		Status      *string   `db:"status"`
-		CreatedAt   time.Time `db:"created_at"`
-		UpdatedAt   time.Time `db:"updated_at"`
-		TotalCount  int       `db:"total_count"`
+		Journey
+		TotalCount int `db:"total_count"`
 	}
 
 	var results []journeyWithCount
@@ -171,15 +165,7 @@ func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, p
 
 	journeys := make([]Journey, len(results))
 	for i, r := range results {
-		journeys[i] = Journey{
-			ID:          r.ID,
-			ProjectID:   r.ProjectID,
-			Name:        r.Name,
-			Description: r.Description,
-			Status:      r.Status,
-			CreatedAt:   r.CreatedAt,
-			UpdatedAt:   r.UpdatedAt,
-		}
+		journeys[i] = r.Journey
 	}
 
 	return journeys, total, nil
