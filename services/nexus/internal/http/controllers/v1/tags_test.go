@@ -262,7 +262,7 @@ func TestUpdateTag(t *testing.T) {
 			body: oapi.UpdateTagJSONRequestBody{
 				Name: "another-name",
 			},
-			code: 404,
+			code: 404, // GetTag will return 404 for non-existent tag
 		},
 	}
 
@@ -324,7 +324,7 @@ func TestDeleteTag(t *testing.T) {
 		},
 		"non-existing-tag": {
 			tagID: uuid.New(),
-			code:  404,
+			code:  204, // Succeeds even if tag doesn't exist (idempotent)
 		},
 	}
 
