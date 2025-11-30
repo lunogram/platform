@@ -48,6 +48,7 @@ func NewStores(db DB) *Stores {
 		CampaignsStore: NewCampaignsStore(db),
 		ProvidersStore: NewProvidersStore(db),
 		TemplatesStore: NewTemplatesStore(db),
+		UsersStore:     NewUsersStore(db),
 	}
 }
 
@@ -57,6 +58,7 @@ type Stores struct {
 	*CampaignsStore
 	*ProvidersStore
 	*TemplatesStore
+	*UsersStore
 }
 
 type Pagination struct {

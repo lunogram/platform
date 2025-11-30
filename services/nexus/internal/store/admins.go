@@ -10,7 +10,6 @@ import (
 	"github.com/lunogram/platform/pkg/claim"
 	"github.com/lunogram/platform/pkg/http/problem"
 	"github.com/lunogram/platform/services/nexus/oapi"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 func NewAdminsStore(db DB) *AdminsStore {
@@ -39,7 +38,7 @@ func (admin *Admin) OAPI() oapi.Admin {
 		Id:             admin.ID,
 		OrganizationId: admin.OrganizationID,
 		ExternalId:     admin.ExternalID,
-		Email:          openapi_types.Email(admin.Email),
+		Email:          admin.Email,
 		FirstName:      admin.FirstName,
 		LastName:       admin.LastName,
 		ImageUrl:       admin.ImageURL,

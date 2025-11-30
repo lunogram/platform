@@ -287,28 +287,14 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Offset'
-        - name: search
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Search query to filter admins by name or email
+        - $ref: '#/components/parameters/Search'
       responses:
         '200':
           description: Admins retrieved successfully
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/PaginatedResponse'
-                  - type: object
-                    required:
-                      - results
-                    properties:
-                      results:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/Admin'
+                $ref: '#/components/schemas/AdminList'
         default:
           $ref: '#/components/responses/Error'
 
@@ -417,6 +403,170 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/projects/{projectID}/users:
+    get:
+      summary: List users
+      description: Retrieves a paginated list of users in a project
+      operationId: listUsers
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserList'
+        default:
+          $ref: '#/components/responses/Error'
+
+    post:
+      summary: Identify user
+      description: Creates or updates a user by anonymous_id or external_id
+      operationId: identifyUser
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdentifyUser'
+      responses:
+        '200':
+          description: User identified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/users/{userID}:
+    get:
+      summary: Get user by ID
+      description: Retrieves a specific user
+      operationId: getUser
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        default:
+          $ref: '#/components/responses/Error'
+
+    patch:
+      summary: Update user
+      description: Updates user properties
+      operationId: updateUser
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUser'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        default:
+          $ref: '#/components/responses/Error'
+
+    delete:
+      summary: Delete user
+      description: Deletes a user from the project
+      operationId: deleteUser
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        '204':
+          description: User deleted successfully
+        default:
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     Limit:
@@ -441,6 +591,15 @@ components:
         default: 0
         x-go-type: PaginationOffset
       description: Number of items to skip
+    
+    Search:
+      name: search
+      in: query
+      required: false
+      schema:
+        type: string
+        x-go-type: PaginationSearch
+      description: Search query string
 
   responses:
     Error:
@@ -503,6 +662,30 @@ components:
           type: integer
           description: Number of items skipped
           example: 0
+
+    UserList:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          required:
+            - results
+          properties:
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/User'
+
+    AdminList:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          required:
+            - results
+          properties:
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/Admin'
 
     CreateCampaign:
       type: object
@@ -840,6 +1023,7 @@ components:
           type: string
           format: email
           example: "admin@example.com"
+          x-go-type: string
         first_name:
           type: string
           example: "John"
@@ -872,6 +1056,7 @@ components:
           type: string
           format: email
           example: "newadmin@example.com"
+          x-go-type: string
         role:
           type: string
           enum: [owner, admin, member]
@@ -890,6 +1075,7 @@ components:
           type: string
           format: email
           example: "updated@example.com"
+          x-go-type: string
         role:
           type: string
           enum: [owner, admin, member]
@@ -900,6 +1086,130 @@ components:
         last_name:
           type: string
           example: "Smith"
+
+    User:
+      type: object
+      required:
+        - id
+        - project_id
+        - anonymous_id
+        - data
+        - has_push_device
+        - version
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        anonymous_id:
+          type: string
+          example: "anon_abc123xyz"
+        external_id:
+          type: string
+          example: "user_123"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+          x-go-type: string
+        phone:
+          type: string
+          example: "+1234567890"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          example:
+            first_name: "John"
+            last_name: "Doe"
+        timezone:
+          type: string
+          example: "America/New_York"
+        locale:
+          type: string
+          example: "en-US"
+        has_push_device:
+          type: boolean
+          example: false
+        version:
+          type: integer
+          example: 1
+          x-go-type: int32
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    IdentifyUser:
+      type: object
+      oneOf:
+        - required:
+            - anonymous_id
+        - required:
+            - external_id
+      properties:
+        anonymous_id:
+          type: string
+          example: "anon_abc123xyz"
+        external_id:
+          type: string
+          example: "user_123"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+          x-go-type: string
+        phone:
+          type: string
+          example: "+1234567890"
+        timezone:
+          type: string
+          example: "America/New_York"
+        locale:
+          type: string
+          example: "en-US"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          example:
+            first_name: "John"
+            last_name: "Doe"
+
+    UpdateUser:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: "updated@example.com"
+          x-go-type: string
+        phone:
+          type: string
+          example: "+1234567890"
+        timezone:
+          type: string
+          example: "America/New_York"
+        locale:
+          type: string
+          example: "en-US"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          example:
+            first_name: "Jane"
+            last_name: "Smith"
 
   securitySchemes:
     HttpBearerAuth:

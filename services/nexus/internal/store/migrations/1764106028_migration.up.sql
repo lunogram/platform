@@ -273,7 +273,7 @@ CREATE TABLE "users" (
     "external_id" varchar(255),
     "email" varchar(255),
     "phone" varchar(64),
-    "data" jsonb,
+    "data" jsonb NOT NULL DEFAULT '{}'::jsonb,
     "devices" jsonb,
     "timezone" varchar(50),
     "locale" varchar(255),
@@ -616,6 +616,7 @@ ALTER TABLE "users" ADD FOREIGN KEY ("project_id") REFERENCES "projects"("id") O
 -- Indices
 CREATE UNIQUE INDEX users_project_anonymous_uniq ON public.users USING btree (project_id, anonymous_id);
 CREATE UNIQUE INDEX users_project_external_uniq ON public.users USING btree (project_id, external_id);
+CREATE UNIQUE INDEX users_project_id_uniq ON public.users USING btree (project_id, id);
 CREATE INDEX users_email_idx ON public.users USING btree (email);
 CREATE INDEX users_phone_idx ON public.users USING btree (phone);
 CREATE INDEX users_external_id_idx ON public.users USING btree (external_id);

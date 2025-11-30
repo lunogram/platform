@@ -92,20 +92,33 @@ const (
 
 // Admin defines model for Admin.
 type Admin struct {
-	CreatedAt      time.Time           `json:"created_at"`
-	Email          openapi_types.Email `json:"email"`
-	ExternalId     *string             `json:"external_id,omitempty"`
-	FirstName      *string             `json:"first_name,omitempty"`
-	Id             openapi_types.UUID  `json:"id"`
-	ImageUrl       *string             `json:"image_url,omitempty"`
-	LastName       *string             `json:"last_name,omitempty"`
-	OrganizationId openapi_types.UUID  `json:"organization_id"`
-	Role           AdminRole           `json:"role"`
-	UpdatedAt      time.Time           `json:"updated_at"`
+	CreatedAt      time.Time          `json:"created_at"`
+	Email          string             `json:"email"`
+	ExternalId     *string            `json:"external_id,omitempty"`
+	FirstName      *string            `json:"first_name,omitempty"`
+	Id             openapi_types.UUID `json:"id"`
+	ImageUrl       *string            `json:"image_url,omitempty"`
+	LastName       *string            `json:"last_name,omitempty"`
+	OrganizationId openapi_types.UUID `json:"organization_id"`
+	Role           AdminRole          `json:"role"`
+	UpdatedAt      time.Time          `json:"updated_at"`
 }
 
 // AdminRole defines model for Admin.Role.
 type AdminRole string
+
+// AdminList defines model for AdminList.
+type AdminList struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int     `json:"offset"`
+	Results []Admin `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
 
 // Campaign defines model for Campaign.
 type Campaign struct {
@@ -140,10 +153,10 @@ type CampaignUserStatus string
 
 // CreateAdmin defines model for CreateAdmin.
 type CreateAdmin struct {
-	Email     openapi_types.Email `json:"email"`
-	FirstName *string             `json:"first_name,omitempty"`
-	LastName  *string             `json:"last_name,omitempty"`
-	Role      CreateAdminRole     `json:"role"`
+	Email     string          `json:"email"`
+	FirstName *string         `json:"first_name,omitempty"`
+	LastName  *string         `json:"last_name,omitempty"`
+	Role      CreateAdminRole `json:"role"`
 }
 
 // CreateAdminRole defines model for CreateAdmin.Role.
@@ -191,6 +204,24 @@ type EmailTemplateData struct {
 	Html    *string `json:"html,omitempty"`
 	Subject *string `json:"subject,omitempty"`
 }
+
+// IdentifyUser defines model for IdentifyUser.
+type IdentifyUser struct {
+	AnonymousId *string          `json:"anonymous_id,omitempty"`
+	Data        *json.RawMessage `json:"data,omitempty"`
+	Email       *string          `json:"email,omitempty"`
+	ExternalId  *string          `json:"external_id,omitempty"`
+	Locale      *string          `json:"locale,omitempty"`
+	Phone       *string          `json:"phone,omitempty"`
+	Timezone    *string          `json:"timezone,omitempty"`
+	union       json.RawMessage
+}
+
+// IdentifyUser0 defines model for .
+type IdentifyUser0 = interface{}
+
+// IdentifyUser1 defines model for .
+type IdentifyUser1 = interface{}
 
 // PaginatedResponse defines model for PaginatedResponse.
 type PaginatedResponse struct {
@@ -275,10 +306,10 @@ type TemplateType string
 
 // UpdateAdmin defines model for UpdateAdmin.
 type UpdateAdmin struct {
-	Email     *openapi_types.Email `json:"email,omitempty"`
-	FirstName *string              `json:"first_name,omitempty"`
-	LastName  *string              `json:"last_name,omitempty"`
-	Role      *UpdateAdminRole     `json:"role,omitempty"`
+	Email     *string          `json:"email,omitempty"`
+	FirstName *string          `json:"first_name,omitempty"`
+	LastName  *string          `json:"last_name,omitempty"`
+	Role      *UpdateAdminRole `json:"role,omitempty"`
 }
 
 // UpdateAdminRole defines model for UpdateAdmin.Role.
@@ -290,11 +321,53 @@ type UpdateCampaign struct {
 	ProviderId *openapi_types.UUID `json:"provider_id,omitempty"`
 }
 
+// UpdateUser defines model for UpdateUser.
+type UpdateUser struct {
+	Data     *json.RawMessage `json:"data,omitempty"`
+	Email    *string          `json:"email,omitempty"`
+	Locale   *string          `json:"locale,omitempty"`
+	Phone    *string          `json:"phone,omitempty"`
+	Timezone *string          `json:"timezone,omitempty"`
+}
+
+// User defines model for User.
+type User struct {
+	AnonymousId   string             `json:"anonymous_id"`
+	CreatedAt     time.Time          `json:"created_at"`
+	Data          json.RawMessage    `json:"data"`
+	Email         *string            `json:"email,omitempty"`
+	ExternalId    *string            `json:"external_id,omitempty"`
+	HasPushDevice bool               `json:"has_push_device"`
+	Id            openapi_types.UUID `json:"id"`
+	Locale        *string            `json:"locale,omitempty"`
+	Phone         *string            `json:"phone,omitempty"`
+	ProjectId     openapi_types.UUID `json:"project_id"`
+	Timezone      *string            `json:"timezone,omitempty"`
+	UpdatedAt     time.Time          `json:"updated_at"`
+	Version       int32              `json:"version"`
+}
+
+// UserList defines model for UserList.
+type UserList struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int    `json:"offset"`
+	Results []User `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // Limit defines model for Limit.
 type Limit = PaginationLimit
 
 // Offset defines model for Offset.
 type Offset = PaginationOffset
+
+// Search defines model for Search.
+type Search = PaginationSearch
 
 // CampaignListResponse defines model for CampaignListResponse.
 type CampaignListResponse struct {
@@ -320,8 +393,8 @@ type ListAdminsParams struct {
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 
-	// Search Search query to filter admins by name or email
-	Search *string `form:"search,omitempty" json:"search,omitempty"`
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // ListCampaignsParams defines parameters for ListCampaigns.
@@ -342,6 +415,18 @@ type GetCampaignUsersParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// ListUsersParams defines parameters for ListUsers.
+type ListUsersParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
 // CreateAdminJSONRequestBody defines body for CreateAdmin for application/json ContentType.
 type CreateAdminJSONRequestBody = CreateAdmin
 
@@ -353,6 +438,192 @@ type CreateCampaignJSONRequestBody = CreateCampaign
 
 // UpdateCampaignJSONRequestBody defines body for UpdateCampaign for application/json ContentType.
 type UpdateCampaignJSONRequestBody = UpdateCampaign
+
+// IdentifyUserJSONRequestBody defines body for IdentifyUser for application/json ContentType.
+type IdentifyUserJSONRequestBody = IdentifyUser
+
+// UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
+type UpdateUserJSONRequestBody = UpdateUser
+
+// AsIdentifyUser0 returns the union data inside the IdentifyUser as a IdentifyUser0
+func (t IdentifyUser) AsIdentifyUser0() (IdentifyUser0, error) {
+	var body IdentifyUser0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIdentifyUser0 overwrites any union data inside the IdentifyUser as the provided IdentifyUser0
+func (t *IdentifyUser) FromIdentifyUser0(v IdentifyUser0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIdentifyUser0 performs a merge with any union data inside the IdentifyUser, using the provided IdentifyUser0
+func (t *IdentifyUser) MergeIdentifyUser0(v IdentifyUser0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsIdentifyUser1 returns the union data inside the IdentifyUser as a IdentifyUser1
+func (t IdentifyUser) AsIdentifyUser1() (IdentifyUser1, error) {
+	var body IdentifyUser1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIdentifyUser1 overwrites any union data inside the IdentifyUser as the provided IdentifyUser1
+func (t *IdentifyUser) FromIdentifyUser1(v IdentifyUser1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIdentifyUser1 performs a merge with any union data inside the IdentifyUser, using the provided IdentifyUser1
+func (t *IdentifyUser) MergeIdentifyUser1(v IdentifyUser1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t IdentifyUser) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if t.AnonymousId != nil {
+		object["anonymous_id"], err = json.Marshal(t.AnonymousId)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'anonymous_id': %w", err)
+		}
+	}
+
+	if t.Data != nil {
+		object["data"], err = json.Marshal(t.Data)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'data': %w", err)
+		}
+	}
+
+	if t.Email != nil {
+		object["email"], err = json.Marshal(t.Email)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'email': %w", err)
+		}
+	}
+
+	if t.ExternalId != nil {
+		object["external_id"], err = json.Marshal(t.ExternalId)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'external_id': %w", err)
+		}
+	}
+
+	if t.Locale != nil {
+		object["locale"], err = json.Marshal(t.Locale)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'locale': %w", err)
+		}
+	}
+
+	if t.Phone != nil {
+		object["phone"], err = json.Marshal(t.Phone)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'phone': %w", err)
+		}
+	}
+
+	if t.Timezone != nil {
+		object["timezone"], err = json.Marshal(t.Timezone)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'timezone': %w", err)
+		}
+	}
+	b, err = json.Marshal(object)
+	return b, err
+}
+
+func (t *IdentifyUser) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["anonymous_id"]; found {
+		err = json.Unmarshal(raw, &t.AnonymousId)
+		if err != nil {
+			return fmt.Errorf("error reading 'anonymous_id': %w", err)
+		}
+	}
+
+	if raw, found := object["data"]; found {
+		err = json.Unmarshal(raw, &t.Data)
+		if err != nil {
+			return fmt.Errorf("error reading 'data': %w", err)
+		}
+	}
+
+	if raw, found := object["email"]; found {
+		err = json.Unmarshal(raw, &t.Email)
+		if err != nil {
+			return fmt.Errorf("error reading 'email': %w", err)
+		}
+	}
+
+	if raw, found := object["external_id"]; found {
+		err = json.Unmarshal(raw, &t.ExternalId)
+		if err != nil {
+			return fmt.Errorf("error reading 'external_id': %w", err)
+		}
+	}
+
+	if raw, found := object["locale"]; found {
+		err = json.Unmarshal(raw, &t.Locale)
+		if err != nil {
+			return fmt.Errorf("error reading 'locale': %w", err)
+		}
+	}
+
+	if raw, found := object["phone"]; found {
+		err = json.Unmarshal(raw, &t.Phone)
+		if err != nil {
+			return fmt.Errorf("error reading 'phone': %w", err)
+		}
+	}
+
+	if raw, found := object["timezone"]; found {
+		err = json.Unmarshal(raw, &t.Timezone)
+		if err != nil {
+			return fmt.Errorf("error reading 'timezone': %w", err)
+		}
+	}
+
+	return err
+}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -473,6 +744,25 @@ type ClientInterface interface {
 
 	// GetCampaignUsers request
 	GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListUsers request
+	ListUsers(ctx context.Context, projectID openapi_types.UUID, params *ListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// IdentifyUserWithBody request with any body
+	IdentifyUserWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	IdentifyUser(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteUser request
+	DeleteUser(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUser request
+	GetUser(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateUserWithBody request with any body
+	UpdateUserWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateUser(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) ListAdmins(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -669,6 +959,90 @@ func (c *Client) DuplicateCampaign(ctx context.Context, projectID openapi_types.
 
 func (c *Client) GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCampaignUsersRequest(c.Server, projectID, campaignID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListUsers(ctx context.Context, projectID openapi_types.UUID, params *ListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListUsersRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) IdentifyUserWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewIdentifyUserRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) IdentifyUser(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewIdentifyUserRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteUser(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserRequest(c.Server, projectID, userID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUser(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserRequest(c.Server, projectID, userID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateUserWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateUserRequestWithBody(c.Server, projectID, userID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateUser(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateUserRequest(c.Server, projectID, userID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1317,6 +1691,277 @@ func NewGetCampaignUsersRequest(server string, projectID openapi_types.UUID, cam
 	return req, nil
 }
 
+// NewListUsersRequest generates requests for ListUsers
+func NewListUsersRequest(server string, projectID openapi_types.UUID, params *ListUsersParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/users", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewIdentifyUserRequest calls the generic IdentifyUser builder with application/json body
+func NewIdentifyUserRequest(server string, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewIdentifyUserRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewIdentifyUserRequestWithBody generates requests for IdentifyUser with any type of body
+func NewIdentifyUserRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/users", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteUserRequest generates requests for DeleteUser
+func NewDeleteUserRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/users/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetUserRequest generates requests for GetUser
+func NewGetUserRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/users/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateUserRequest calls the generic UpdateUser builder with application/json body
+func NewUpdateUserRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateUserRequestWithBody(server, projectID, userID, "application/json", bodyReader)
+}
+
+// NewUpdateUserRequestWithBody generates requests for UpdateUser with any type of body
+func NewUpdateUserRequestWithBody(server string, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/users/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1406,23 +2051,32 @@ type ClientWithResponsesInterface interface {
 
 	// GetCampaignUsersWithResponse request
 	GetCampaignUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*GetCampaignUsersResponse, error)
+
+	// ListUsersWithResponse request
+	ListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListUsersParams, reqEditors ...RequestEditorFn) (*ListUsersResponse, error)
+
+	// IdentifyUserWithBodyWithResponse request with any body
+	IdentifyUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error)
+
+	IdentifyUserWithResponse(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error)
+
+	// DeleteUserWithResponse request
+	DeleteUserWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserResponse, error)
+
+	// GetUserWithResponse request
+	GetUserWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserResponse, error)
+
+	// UpdateUserWithBodyWithResponse request with any body
+	UpdateUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserResponse, error)
+
+	UpdateUserWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserResponse, error)
 }
 
 type ListAdminsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		// Limit Maximum number of items returned
-		Limit int `json:"limit"`
-
-		// Offset Number of items skipped
-		Offset  int     `json:"offset"`
-		Results []Admin `json:"results"`
-
-		// Total Total number of items matching the filters
-		Total int `json:"total"`
-	}
-	JSONDefault *Error
+	JSON200      *AdminList
+	JSONDefault  *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -1722,6 +2376,120 @@ func (r GetCampaignUsersResponse) StatusCode() int {
 	return 0
 }
 
+type ListUsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListUsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListUsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type IdentifyUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *User
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r IdentifyUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r IdentifyUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *User
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *User
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // ListAdminsWithResponse request returning *ListAdminsResponse
 func (c *ClientWithResponses) ListAdminsWithResponse(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*ListAdminsResponse, error) {
 	rsp, err := c.ListAdmins(ctx, params, reqEditors...)
@@ -1871,6 +2639,67 @@ func (c *ClientWithResponses) GetCampaignUsersWithResponse(ctx context.Context, 
 	return ParseGetCampaignUsersResponse(rsp)
 }
 
+// ListUsersWithResponse request returning *ListUsersResponse
+func (c *ClientWithResponses) ListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListUsersParams, reqEditors ...RequestEditorFn) (*ListUsersResponse, error) {
+	rsp, err := c.ListUsers(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListUsersResponse(rsp)
+}
+
+// IdentifyUserWithBodyWithResponse request with arbitrary body returning *IdentifyUserResponse
+func (c *ClientWithResponses) IdentifyUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error) {
+	rsp, err := c.IdentifyUserWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseIdentifyUserResponse(rsp)
+}
+
+func (c *ClientWithResponses) IdentifyUserWithResponse(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error) {
+	rsp, err := c.IdentifyUser(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseIdentifyUserResponse(rsp)
+}
+
+// DeleteUserWithResponse request returning *DeleteUserResponse
+func (c *ClientWithResponses) DeleteUserWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserResponse, error) {
+	rsp, err := c.DeleteUser(ctx, projectID, userID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteUserResponse(rsp)
+}
+
+// GetUserWithResponse request returning *GetUserResponse
+func (c *ClientWithResponses) GetUserWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserResponse, error) {
+	rsp, err := c.GetUser(ctx, projectID, userID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserResponse(rsp)
+}
+
+// UpdateUserWithBodyWithResponse request with arbitrary body returning *UpdateUserResponse
+func (c *ClientWithResponses) UpdateUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserResponse, error) {
+	rsp, err := c.UpdateUserWithBody(ctx, projectID, userID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateUserResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateUserWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserResponse, error) {
+	rsp, err := c.UpdateUser(ctx, projectID, userID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateUserResponse(rsp)
+}
+
 // ParseListAdminsResponse parses an HTTP response from a ListAdminsWithResponse call
 func ParseListAdminsResponse(rsp *http.Response) (*ListAdminsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -1886,17 +2715,7 @@ func ParseListAdminsResponse(rsp *http.Response) (*ListAdminsResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			// Limit Maximum number of items returned
-			Limit int `json:"limit"`
-
-			// Offset Number of items skipped
-			Offset  int     `json:"offset"`
-			Results []Admin `json:"results"`
-
-			// Total Total number of items matching the filters
-			Total int `json:"total"`
-		}
+		var dest AdminList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2303,6 +3122,164 @@ func ParseGetCampaignUsersResponse(rsp *http.Response) (*GetCampaignUsersRespons
 	return response, nil
 }
 
+// ParseListUsersResponse parses an HTTP response from a ListUsersWithResponse call
+func ParseListUsersResponse(rsp *http.Response) (*ListUsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListUsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseIdentifyUserResponse parses an HTTP response from a IdentifyUserWithResponse call
+func ParseIdentifyUserResponse(rsp *http.Response) (*IdentifyUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &IdentifyUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest User
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteUserResponse parses an HTTP response from a DeleteUserWithResponse call
+func ParseDeleteUserResponse(rsp *http.Response) (*DeleteUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetUserResponse parses an HTTP response from a GetUserWithResponse call
+func ParseGetUserResponse(rsp *http.Response) (*GetUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest User
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateUserResponse parses an HTTP response from a UpdateUserWithResponse call
+func ParseUpdateUserResponse(rsp *http.Response) (*UpdateUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest User
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// List organization admins
@@ -2344,6 +3321,21 @@ type ServerInterface interface {
 	// Get campaign users
 	// (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 	GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams)
+	// List users
+	// (GET /api/admin/projects/{projectID}/users)
+	ListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListUsersParams)
+	// Identify user
+	// (POST /api/admin/projects/{projectID}/users)
+	IdentifyUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete user
+	// (DELETE /api/admin/projects/{projectID}/users/{userID})
+	DeleteUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Get user by ID
+	// (GET /api/admin/projects/{projectID}/users/{userID})
+	GetUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Update user
+	// (PATCH /api/admin/projects/{projectID}/users/{userID})
+	UpdateUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -2425,6 +3417,36 @@ func (_ Unimplemented) DuplicateCampaign(w http.ResponseWriter, r *http.Request,
 // Get campaign users
 // (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 func (_ Unimplemented) GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List users
+// (GET /api/admin/projects/{projectID}/users)
+func (_ Unimplemented) ListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Identify user
+// (POST /api/admin/projects/{projectID}/users)
+func (_ Unimplemented) IdentifyUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete user
+// (DELETE /api/admin/projects/{projectID}/users/{userID})
+func (_ Unimplemented) DeleteUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get user by ID
+// (GET /api/admin/projects/{projectID}/users/{userID})
+func (_ Unimplemented) GetUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update user
+// (PATCH /api/admin/projects/{projectID}/users/{userID})
+func (_ Unimplemented) UpdateUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2919,6 +3941,215 @@ func (siw *ServerInterfaceWrapper) GetCampaignUsers(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// ListUsers operation middleware
+func (siw *ServerInterfaceWrapper) ListUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListUsersParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUsers(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// IdentifyUser operation middleware
+func (siw *ServerInterfaceWrapper) IdentifyUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.IdentifyUser(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteUser operation middleware
+func (siw *ServerInterfaceWrapper) DeleteUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteUser(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUser operation middleware
+func (siw *ServerInterfaceWrapper) GetUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUser(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateUser operation middleware
+func (siw *ServerInterfaceWrapper) UpdateUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateUser(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -3070,6 +4301,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/users", wrapper.GetCampaignUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/users", wrapper.ListUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/users", wrapper.IdentifyUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/users/{userID}", wrapper.DeleteUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/users/{userID}", wrapper.GetUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/users/{userID}", wrapper.UpdateUser)
 	})
 
 	return r
