@@ -166,23 +166,19 @@ func (srv *JourneysController) UpdateJourney(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	name := journey.Name
-	if body.Name != nil {
-		name = *body.Name
-	}
-
-	description := journey.Description
-	if body.Description != nil {
-		description = body.Description
-	}
-
-	status := journey.Status
+	var statusPtr *string
 	if body.Status != nil {
 		statusStr := string(*body.Status)
-		status = &statusStr
+		statusPtr = &statusStr
 	}
 
-	err = srv.store.UpdateJourney(ctx, projectID, journeyID, name, description, status)
+	updated := store.JourneyUpdate{
+		Name:        body.Name,
+		Description: body.Description,
+		Status:      statusPtr,
+	}
+
+	err = srv.store.UpdateJourney(ctx, projectID, journeyID, updated)
 	if err != nil {
 		logger.Error("failed to update journey", zap.Error(err))
 		oapi.WriteProblem(w, err)

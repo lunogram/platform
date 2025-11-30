@@ -185,13 +185,22 @@ func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, p
 	return journeys, total, nil
 }
 
-func (s *JourneysStore) UpdateJourney(ctx context.Context, projectID, journeyID uuid.UUID, name string, description *string, status *string) error {
+type JourneyUpdate struct {
+	Name        *string
+	Description *string
+	Status      *string
+}
+
+func (s *JourneysStore) UpdateJourney(ctx context.Context, projectID, journeyID uuid.UUID, update JourneyUpdate) error {
 	stmt := `
 	UPDATE journeys
-	SET name = $1, description = $2, status = $3
+	SET
+		name = COALESCE($1, name),
+		description = COALESCE($2, description),
+		status = COALESCE($3, status)
 	WHERE id = $4 AND project_id = $5 AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, stmt, name, description, status, journeyID, projectID)
+	_, err := s.db.ExecContext(ctx, stmt, update.Name, update.Description, update.Status, journeyID, projectID)
 	return err
 }
 
