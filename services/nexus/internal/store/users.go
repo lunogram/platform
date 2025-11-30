@@ -223,11 +223,6 @@ func (s *UsersStore) UpsertUser(ctx context.Context, projectID uuid.UUID, anonym
 	RETURNING id
 	`
 
-	var anonID string
-	if anonymousID != nil {
-		anonID = *anonymousID
-	}
-
 	var dataJSON json.RawMessage
 	if data != nil {
 		dataJSON = *data
@@ -238,7 +233,7 @@ func (s *UsersStore) UpsertUser(ctx context.Context, projectID uuid.UUID, anonym
 	var id uuid.UUID
 	err := s.db.GetContext(ctx, &id, stmt,
 		projectID,
-		&anonID,
+		anonymousID,
 		externalID,
 		email,
 		phone,
