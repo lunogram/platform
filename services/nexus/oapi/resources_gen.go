@@ -61,6 +61,13 @@ const (
 	CreateCampaignChannelSms   CreateCampaignChannel = "sms"
 )
 
+// Defines values for CreateJourneyStatus.
+const (
+	CreateJourneyStatusDraft CreateJourneyStatus = "draft"
+	CreateJourneyStatusLive  CreateJourneyStatus = "live"
+	CreateJourneyStatusOff   CreateJourneyStatus = "off"
+)
+
 // Defines values for ProjectAdminRole.
 const (
 	ProjectAdminRoleAdmin     ProjectAdminRole = "admin"
@@ -96,6 +103,13 @@ const (
 	UpdateAdminRoleAdmin  UpdateAdminRole = "admin"
 	UpdateAdminRoleMember UpdateAdminRole = "member"
 	UpdateAdminRoleOwner  UpdateAdminRole = "owner"
+)
+
+// Defines values for UpdateJourneyStatus.
+const (
+	UpdateJourneyStatusDraft UpdateJourneyStatus = "draft"
+	UpdateJourneyStatusLive  UpdateJourneyStatus = "live"
+	UpdateJourneyStatusOff   UpdateJourneyStatus = "off"
 )
 
 // Defines values for UpdateProjectAdminRole.
@@ -207,6 +221,16 @@ type CreateCampaign struct {
 
 // CreateCampaignChannel defines model for CreateCampaign.Channel.
 type CreateCampaignChannel string
+
+// CreateJourney defines model for CreateJourney.
+type CreateJourney struct {
+	Description *string              `json:"description,omitempty"`
+	Name        string               `json:"name"`
+	Status      *CreateJourneyStatus `json:"status,omitempty"`
+}
+
+// CreateJourneyStatus defines model for CreateJourney.Status.
+type CreateJourneyStatus string
 
 // CreateLocale defines model for CreateLocale.
 type CreateLocale struct {
@@ -487,6 +511,16 @@ type UpdateCampaign struct {
 	ProviderId *openapi_types.UUID `json:"provider_id,omitempty"`
 }
 
+// UpdateJourney defines model for UpdateJourney.
+type UpdateJourney struct {
+	Description *string              `json:"description,omitempty"`
+	Name        *string              `json:"name,omitempty"`
+	Status      *UpdateJourneyStatus `json:"status,omitempty"`
+}
+
+// UpdateJourneyStatus defines model for UpdateJourney.Status.
+type UpdateJourneyStatus string
+
 // UpdateProject defines model for UpdateProject.
 type UpdateProject struct {
 	Description       *string   `json:"description,omitempty"`
@@ -668,6 +702,19 @@ type CampaignListResponse struct {
 // Error defines model for Error.
 type Error = Problem
 
+// JourneyListResponse defines model for JourneyListResponse.
+type JourneyListResponse struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int       `json:"offset"`
+	Results []Journey `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // TagListResponse defines model for TagListResponse.
 type TagListResponse struct {
 	// Limit Maximum number of items returned
@@ -728,6 +775,15 @@ type ListCampaignsParams struct {
 
 // GetCampaignUsersParams defines parameters for GetCampaignUsers.
 type GetCampaignUsersParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListJourneysParams defines parameters for ListJourneys.
+type ListJourneysParams struct {
 	// Limit Maximum number of items to return
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -821,6 +877,12 @@ type CreateTemplateJSONRequestBody = CreateTemplate
 
 // UpdateTemplateJSONRequestBody defines body for UpdateTemplate for application/json ContentType.
 type UpdateTemplateJSONRequestBody = UpdateTemplate
+
+// CreateJourneyJSONRequestBody defines body for CreateJourney for application/json ContentType.
+type CreateJourneyJSONRequestBody = CreateJourney
+
+// UpdateJourneyJSONRequestBody defines body for UpdateJourney for application/json ContentType.
+type UpdateJourneyJSONRequestBody = UpdateJourney
 
 // CreateLocaleJSONRequestBody defines body for CreateLocale for application/json ContentType.
 type CreateLocaleJSONRequestBody = CreateLocale
@@ -1182,6 +1244,25 @@ type ClientInterface interface {
 
 	// GetCampaignUsers request
 	GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListJourneys request
+	ListJourneys(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateJourneyWithBody request with any body
+	CreateJourneyWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateJourney(ctx context.Context, projectID openapi_types.UUID, body CreateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteJourney request
+	DeleteJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetJourney request
+	GetJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateJourneyWithBody request with any body
+	UpdateJourneyWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body UpdateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLocales request
 	ListLocales(ctx context.Context, projectID openapi_types.UUID, params *ListLocalesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1636,6 +1717,90 @@ func (c *Client) UpdateTemplate(ctx context.Context, projectID openapi_types.UUI
 
 func (c *Client) GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCampaignUsersRequest(c.Server, projectID, campaignID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListJourneys(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListJourneysRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateJourneyWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateJourneyRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateJourney(ctx context.Context, projectID openapi_types.UUID, body CreateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateJourneyRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteJourneyRequest(c.Server, projectID, journeyID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetJourneyRequest(c.Server, projectID, journeyID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateJourneyWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateJourneyRequestWithBody(c.Server, projectID, journeyID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body UpdateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateJourneyRequest(c.Server, projectID, journeyID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3168,6 +3333,261 @@ func NewGetCampaignUsersRequest(server string, projectID openapi_types.UUID, cam
 	return req, nil
 }
 
+// NewListJourneysRequest generates requests for ListJourneys
+func NewListJourneysRequest(server string, projectID openapi_types.UUID, params *ListJourneysParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateJourneyRequest calls the generic CreateJourney builder with application/json body
+func NewCreateJourneyRequest(server string, projectID openapi_types.UUID, body CreateJourneyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateJourneyRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateJourneyRequestWithBody generates requests for CreateJourney with any type of body
+func NewCreateJourneyRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteJourneyRequest generates requests for DeleteJourney
+func NewDeleteJourneyRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "journeyID", runtime.ParamLocationPath, journeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetJourneyRequest generates requests for GetJourney
+func NewGetJourneyRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "journeyID", runtime.ParamLocationPath, journeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateJourneyRequest calls the generic UpdateJourney builder with application/json body
+func NewUpdateJourneyRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, body UpdateJourneyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateJourneyRequestWithBody(server, projectID, journeyID, "application/json", bodyReader)
+}
+
+// NewUpdateJourneyRequestWithBody generates requests for UpdateJourney with any type of body
+func NewUpdateJourneyRequestWithBody(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "journeyID", runtime.ParamLocationPath, journeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListLocalesRequest generates requests for ListLocales
 func NewListLocalesRequest(server string, projectID openapi_types.UUID, params *ListLocalesParams) (*http.Request, error) {
 	var err error
@@ -4335,6 +4755,25 @@ type ClientWithResponsesInterface interface {
 	// GetCampaignUsersWithResponse request
 	GetCampaignUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*GetCampaignUsersResponse, error)
 
+	// ListJourneysWithResponse request
+	ListJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*ListJourneysResponse, error)
+
+	// CreateJourneyWithBodyWithResponse request with any body
+	CreateJourneyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateJourneyResponse, error)
+
+	CreateJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateJourneyResponse, error)
+
+	// DeleteJourneyWithResponse request
+	DeleteJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteJourneyResponse, error)
+
+	// GetJourneyWithResponse request
+	GetJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetJourneyResponse, error)
+
+	// UpdateJourneyWithBodyWithResponse request with any body
+	UpdateJourneyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateJourneyResponse, error)
+
+	UpdateJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body UpdateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateJourneyResponse, error)
+
 	// ListLocalesWithResponse request
 	ListLocalesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListLocalesParams, reqEditors ...RequestEditorFn) (*ListLocalesResponse, error)
 
@@ -4954,6 +5393,120 @@ func (r GetCampaignUsersResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetCampaignUsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListJourneysResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *JourneyListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListJourneysResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListJourneysResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateJourneyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Journey
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateJourneyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateJourneyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteJourneyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteJourneyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteJourneyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetJourneyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Journey
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetJourneyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetJourneyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateJourneyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Journey
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateJourneyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateJourneyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5671,6 +6224,67 @@ func (c *ClientWithResponses) GetCampaignUsersWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetCampaignUsersResponse(rsp)
+}
+
+// ListJourneysWithResponse request returning *ListJourneysResponse
+func (c *ClientWithResponses) ListJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*ListJourneysResponse, error) {
+	rsp, err := c.ListJourneys(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListJourneysResponse(rsp)
+}
+
+// CreateJourneyWithBodyWithResponse request with arbitrary body returning *CreateJourneyResponse
+func (c *ClientWithResponses) CreateJourneyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateJourneyResponse, error) {
+	rsp, err := c.CreateJourneyWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateJourneyResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateJourneyResponse, error) {
+	rsp, err := c.CreateJourney(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateJourneyResponse(rsp)
+}
+
+// DeleteJourneyWithResponse request returning *DeleteJourneyResponse
+func (c *ClientWithResponses) DeleteJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteJourneyResponse, error) {
+	rsp, err := c.DeleteJourney(ctx, projectID, journeyID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteJourneyResponse(rsp)
+}
+
+// GetJourneyWithResponse request returning *GetJourneyResponse
+func (c *ClientWithResponses) GetJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetJourneyResponse, error) {
+	rsp, err := c.GetJourney(ctx, projectID, journeyID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetJourneyResponse(rsp)
+}
+
+// UpdateJourneyWithBodyWithResponse request with arbitrary body returning *UpdateJourneyResponse
+func (c *ClientWithResponses) UpdateJourneyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateJourneyResponse, error) {
+	rsp, err := c.UpdateJourneyWithBody(ctx, projectID, journeyID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateJourneyResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body UpdateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateJourneyResponse, error) {
+	rsp, err := c.UpdateJourney(ctx, projectID, journeyID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateJourneyResponse(rsp)
 }
 
 // ListLocalesWithResponse request returning *ListLocalesResponse
@@ -6663,6 +7277,164 @@ func ParseGetCampaignUsersResponse(rsp *http.Response) (*GetCampaignUsersRespons
 	return response, nil
 }
 
+// ParseListJourneysResponse parses an HTTP response from a ListJourneysWithResponse call
+func ParseListJourneysResponse(rsp *http.Response) (*ListJourneysResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListJourneysResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest JourneyListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateJourneyResponse parses an HTTP response from a CreateJourneyWithResponse call
+func ParseCreateJourneyResponse(rsp *http.Response) (*CreateJourneyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateJourneyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Journey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteJourneyResponse parses an HTTP response from a DeleteJourneyWithResponse call
+func ParseDeleteJourneyResponse(rsp *http.Response) (*DeleteJourneyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteJourneyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetJourneyResponse parses an HTTP response from a GetJourneyWithResponse call
+func ParseGetJourneyResponse(rsp *http.Response) (*GetJourneyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetJourneyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Journey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateJourneyResponse parses an HTTP response from a UpdateJourneyWithResponse call
+func ParseUpdateJourneyResponse(rsp *http.Response) (*UpdateJourneyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateJourneyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Journey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListLocalesResponse parses an HTTP response from a ListLocalesWithResponse call
 func ParseListLocalesResponse(rsp *http.Response) (*ListLocalesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -7324,6 +8096,21 @@ type ServerInterface interface {
 	// Get campaign users
 	// (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 	GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams)
+	// List journeys
+	// (GET /api/admin/projects/{projectID}/journeys)
+	ListJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListJourneysParams)
+	// Create journey
+	// (POST /api/admin/projects/{projectID}/journeys)
+	CreateJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete journey
+	// (DELETE /api/admin/projects/{projectID}/journeys/{journeyID})
+	DeleteJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
+	// Get journey by ID
+	// (GET /api/admin/projects/{projectID}/journeys/{journeyID})
+	GetJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
+	// Update journey
+	// (PATCH /api/admin/projects/{projectID}/journeys/{journeyID})
+	UpdateJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
 	// List locales
 	// (GET /api/admin/projects/{projectID}/locales)
 	ListLocales(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListLocalesParams)
@@ -7525,6 +8312,36 @@ func (_ Unimplemented) UpdateTemplate(w http.ResponseWriter, r *http.Request, pr
 // Get campaign users
 // (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 func (_ Unimplemented) GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List journeys
+// (GET /api/admin/projects/{projectID}/journeys)
+func (_ Unimplemented) ListJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListJourneysParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create journey
+// (POST /api/admin/projects/{projectID}/journeys)
+func (_ Unimplemented) CreateJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete journey
+// (DELETE /api/admin/projects/{projectID}/journeys/{journeyID})
+func (_ Unimplemented) DeleteJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get journey by ID
+// (GET /api/admin/projects/{projectID}/journeys/{journeyID})
+func (_ Unimplemented) GetJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update journey
+// (PATCH /api/admin/projects/{projectID}/journeys/{journeyID})
+func (_ Unimplemented) UpdateJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -8583,6 +9400,207 @@ func (siw *ServerInterfaceWrapper) GetCampaignUsers(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// ListJourneys operation middleware
+func (siw *ServerInterfaceWrapper) ListJourneys(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListJourneysParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListJourneys(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateJourney operation middleware
+func (siw *ServerInterfaceWrapper) CreateJourney(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateJourney(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteJourney operation middleware
+func (siw *ServerInterfaceWrapper) DeleteJourney(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteJourney(w, r, projectID, journeyID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetJourney operation middleware
+func (siw *ServerInterfaceWrapper) GetJourney(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetJourney(w, r, projectID, journeyID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateJourney operation middleware
+func (siw *ServerInterfaceWrapper) UpdateJourney(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateJourney(w, r, projectID, journeyID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListLocales operation middleware
 func (siw *ServerInterfaceWrapper) ListLocales(w http.ResponseWriter, r *http.Request) {
 
@@ -9563,6 +10581,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/users", wrapper.GetCampaignUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys", wrapper.ListJourneys)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys", wrapper.CreateJourney)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}", wrapper.DeleteJourney)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}", wrapper.GetJourney)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}", wrapper.UpdateJourney)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/locales", wrapper.ListLocales)
