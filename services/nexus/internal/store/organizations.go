@@ -100,8 +100,8 @@ func (s *OrganizationsStore) UpdateOrganization(ctx context.Context, id uuid.UUI
 	stmt := `
 	UPDATE organizations
 	SET username = COALESCE($2, username),
-		domain = $3,
-		tracking_deeplink_mirror_url = $4,
+		domain = COALESCE($3, domain),
+		tracking_deeplink_mirror_url = COALESCE($4, tracking_deeplink_mirror_url),
 		updated_at = CURRENT_TIMESTAMP
 	WHERE id = $1
 	AND deleted_at IS NULL`
