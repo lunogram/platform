@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
 
@@ -42,7 +41,7 @@ func (srv *TagsController) CreateTag(w http.ResponseWriter, r *http.Request, pro
 
 	// Check if project exists
 	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, store.ErrNoRows) {
 		logger.Error("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
 		return
@@ -109,7 +108,7 @@ func (srv *TagsController) GetTag(w http.ResponseWriter, r *http.Request, projec
 	logger.Info("getting tag")
 
 	tag, err := srv.store.TagsStore.GetTag(ctx, projectID, tagID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, store.ErrNoRows) {
 		logger.Error("tag not found", zap.Stringer("tag_id", tagID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("tag not found")))
 		return
@@ -138,7 +137,7 @@ func (srv *TagsController) UpdateTag(w http.ResponseWriter, r *http.Request, pro
 	}
 
 	err = srv.store.TagsStore.UpdateTag(ctx, projectID, tagID, body.Name)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, store.ErrNoRows) {
 		logger.Error("tag not found", zap.Stringer("tag_id", tagID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("tag not found")))
 		return
@@ -167,7 +166,7 @@ func (srv *TagsController) DeleteTag(w http.ResponseWriter, r *http.Request, pro
 	logger.Info("deleting tag")
 
 	err := srv.store.TagsStore.DeleteTag(ctx, projectID, tagID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, store.ErrNoRows) {
 		logger.Error("tag not found", zap.Stringer("tag_id", tagID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("tag not found")))
 		return
