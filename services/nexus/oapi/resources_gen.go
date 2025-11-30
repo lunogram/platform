@@ -253,11 +253,10 @@ type CreateJourneyStatus string
 
 // CreateList defines model for CreateList.
 type CreateList struct {
-	IsVisible *bool            `json:"is_visible,omitempty"`
-	Name      string           `json:"name"`
-	Rule      *json.RawMessage `json:"rule,omitempty"`
-	Tags      *[]string        `json:"tags,omitempty"`
-	Type      CreateListType   `json:"type"`
+	Name string           `json:"name"`
+	Rule *json.RawMessage `json:"rule,omitempty"`
+	Tags *[]string        `json:"tags,omitempty"`
+	Type CreateListType   `json:"type"`
 }
 
 // CreateListType defines model for CreateList.Type.
@@ -363,7 +362,6 @@ type Journey struct {
 // List defines model for List.
 type List struct {
 	CreatedAt   time.Time           `json:"created_at"`
-	DeletedAt   *time.Time          `json:"deleted_at,omitempty"`
 	Id          openapi_types.UUID  `json:"id"`
 	IsVisible   bool                `json:"is_visible"`
 	Name        string              `json:"name"`

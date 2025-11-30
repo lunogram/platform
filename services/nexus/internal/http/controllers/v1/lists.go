@@ -70,11 +70,6 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 		state = "draft"
 	}
 
-	isVisible := true
-	if body.IsVisible != nil {
-		isVisible = *body.IsVisible
-	}
-
 	usersCount := 0
 
 	listID, err := srv.store.CreateList(ctx, store.List{
@@ -83,7 +78,6 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 		Type:       string(body.Type),
 		State:      state,
 		Rule:       store.JSONB[store.RuleData]{Data: rule},
-		IsVisible:  isVisible,
 		UsersCount: &usersCount,
 		Version:    0,
 	})

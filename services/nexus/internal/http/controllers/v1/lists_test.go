@@ -108,7 +108,6 @@ func TestListLists(t *testing.T) {
 			Name:       "Test List 1",
 			Type:       "static",
 			State:      "ready",
-			IsVisible:  true,
 			UsersCount: &usersCount,
 			Version:    0,
 		},
@@ -117,7 +116,6 @@ func TestListLists(t *testing.T) {
 			Name:       "Test List 2",
 			Type:       "static",
 			State:      "ready",
-			IsVisible:  true,
 			UsersCount: &usersCount,
 			Version:    0,
 		},
@@ -126,7 +124,6 @@ func TestListLists(t *testing.T) {
 			Name:       "Test List 3",
 			Type:       "static",
 			State:      "ready",
-			IsVisible:  true,
 			UsersCount: &usersCount,
 			Version:    0,
 		},
@@ -218,7 +215,6 @@ func TestGetList(t *testing.T) {
 		Name:       "Test List",
 		Type:       "static",
 		State:      "ready",
-		IsVisible:  true,
 		UsersCount: &usersCount,
 		Version:    0,
 	})
@@ -265,7 +261,6 @@ func TestUpdateList(t *testing.T) {
 		Name:       "Test List",
 		Type:       "dynamic",
 		State:      "draft",
-		IsVisible:  true,
 		UsersCount: &usersCount,
 		Version:    0,
 	})
@@ -318,7 +313,6 @@ func TestDeleteList(t *testing.T) {
 		Name:       "Test List",
 		Type:       "static",
 		State:      "ready",
-		IsVisible:  true,
 		UsersCount: &usersCount,
 		Version:    0,
 	})
@@ -362,7 +356,6 @@ func TestDuplicateList(t *testing.T) {
 		Name:       "Original List",
 		Type:       "static",
 		State:      "ready",
-		IsVisible:  true,
 		UsersCount: &usersCount,
 		Version:    1,
 	})

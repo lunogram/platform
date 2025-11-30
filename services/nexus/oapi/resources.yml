@@ -2321,9 +2321,6 @@ components:
           type: array
           items:
             type: string
-        is_visible:
-          type: boolean
-          default: true
 
     UpdateList:
       type: object
@@ -2406,9 +2403,6 @@ components:
           type: string
           format: date-time
           example: "2025-11-23T17:20:00.021Z"
-        deleted_at:
-          type: string
-          format: date-time
 
     Provider:
       type: object
