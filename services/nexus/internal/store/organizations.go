@@ -98,7 +98,7 @@ func (s *OrganizationsStore) GetOrganization(ctx context.Context, id uuid.UUID) 
 func (s *OrganizationsStore) UpdateOrganization(ctx context.Context, id uuid.UUID, update OrganizationUpdate) error {
 	stmt := `
 	UPDATE organizations
-	SET username = $2,
+	SET username = COALESCE(NULLIF($2, ''), username),
 		domain = COALESCE($3, domain),
 		tracking_deeplink_mirror_url = COALESCE($4, tracking_deeplink_mirror_url),
 		updated_at = CURRENT_TIMESTAMP

@@ -323,11 +323,16 @@ func TestGetOrganizationIntegrations(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a provider for this project
+	providers := store.NewProvidersStore(db)
 	providerData := []byte(`{"api_key": "test"}`)
-	_, err = db.ExecContext(ctx, `
-		INSERT INTO providers (project_id, type, "group", data, name, is_default)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, projectID, "sendgrid", "email", providerData, "Test Provider", true)
+	_, err = providers.CreateProvider(ctx, store.Provider{
+		ProjectID: projectID,
+		Type:      "sendgrid",
+		Group:     "email",
+		Data:      providerData,
+		Name:      "Test Provider",
+		IsDefault: true,
+	})
 	require.NoError(t, err)
 
 	organizations := NewOrganizationsController(logger, db)

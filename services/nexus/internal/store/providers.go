@@ -109,3 +109,27 @@ func (s *ProvidersStore) HasProvider(ctx context.Context, projectID uuid.UUID) (
 
 	return exists, nil
 }
+
+func (s *ProvidersStore) CreateProvider(ctx context.Context, provider Provider) (uuid.UUID, error) {
+	stmt := `
+	INSERT INTO providers (project_id, type, "group", data, name, is_default, rate_limit, rate_interval)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	RETURNING id`
+
+	var id uuid.UUID
+	err := s.db.GetContext(ctx, &id, stmt,
+		provider.ProjectID,
+		provider.Type,
+		provider.Group,
+		provider.Data,
+		provider.Name,
+		provider.IsDefault,
+		provider.RateLimit,
+		provider.RateInterval,
+	)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
+}
