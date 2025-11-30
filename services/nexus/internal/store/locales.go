@@ -99,7 +99,7 @@ func (s *LocalesStore) GetLocale(ctx context.Context, projectID uuid.UUID, local
 	id, err := uuid.Parse(localeID)
 	var query string
 	var args []interface{}
-	
+
 	if err == nil {
 		// localeID is a valid UUID, use direct comparison
 		query = `
