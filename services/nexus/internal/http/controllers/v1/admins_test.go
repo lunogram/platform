@@ -343,8 +343,8 @@ func TestListProjectAdmins(t *testing.T) {
 
 	admins := store.NewAdminsStore(db)
 
-	for i := 0; i < 3; i++ {
-		email := "admin" + string(rune('0'+i)) + "@example.com"
+	emails := []string{"admin1@example.com", "admin2@example.com", "admin3@example.com"}
+	for _, email := range emails {
 		admin := store.Admin{
 			OrganizationID: orgID,
 			Email:          email,

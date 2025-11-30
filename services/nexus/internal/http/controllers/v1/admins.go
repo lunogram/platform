@@ -582,7 +582,7 @@ func (srv *AdminsController) AddProjectAdmin(w http.ResponseWriter, r *http.Requ
 		logger = logger.With(zap.String("admin_id", admin.ID.String()))
 	}
 
-	err = srv.store.AddAdminToProject(ctx, projectID, admin.ID, body.Role)
+	err = srv.store.AddAdminToProject(ctx, projectID, admin.ID, string(body.Role))
 	if err != nil {
 		logger.Error("failed to add admin to project", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -658,7 +658,7 @@ func (srv *AdminsController) UpdateProjectAdmin(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	err = srv.store.UpdateProjectAdminRole(ctx, projectID, adminID, body.Role)
+	err = srv.store.UpdateProjectAdminRole(ctx, projectID, adminID, string(body.Role))
 	if err != nil {
 		logger.Error("failed to update project admin role", zap.Error(err))
 		oapi.WriteProblem(w, err)
