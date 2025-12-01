@@ -1681,6 +1681,180 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/projects/{projectID}/documents:
+    get:
+      summary: List documents
+      description: Retrieves a paginated list of documents for a project
+      operationId: listDocuments
+      tags:
+        - Documents
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          $ref: '#/components/responses/DocumentListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+    post:
+      summary: Upload documents
+      description: Uploads one or more documents using multipart/form-data
+      operationId: uploadDocuments
+      tags:
+        - Documents
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - files
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: One or more document files to upload
+      responses:
+        '201':
+          description: Documents uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - documents
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      type: string
+                      format: uuid
+                    description: UUIDs of the uploaded documents
+                    example: ["6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899", "4a3145d4-9ae0-4a46-9cbe-5e47ec0b02d4"]
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/documents/{documentID}:
+    get:
+      summary: Retrieve a document
+      description: Retrieves a document file by ID
+      operationId: getDocument
+      tags:
+        - Documents
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: documentID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The document ID
+      responses:
+        '200':
+          description: Document retrieved successfully
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: '#/components/responses/Error'
+
+    delete:
+      summary: Delete document
+      description: Soft deletes a document
+      operationId: deleteDocument
+      tags:
+        - Documents
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: documentID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The document ID
+      responses:
+        '204':
+          description: Document deleted successfully
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/documents/{documentID}/metadata:
+    get:
+      summary: Get document metadata
+      description: Retrieves detailed metadata about a document without downloading the file
+      operationId: getDocumentMetadata
+      tags:
+        - Documents
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: documentID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The document ID
+      responses:
+        '200':
+          description: Document metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/admin/projects/{projectID}/admins:
     get:
       summary: List project admins
@@ -1902,6 +2076,22 @@ components:
                     type: array
                     items:
                       $ref: '#/components/schemas/Tag'
+
+    DocumentListResponse:
+      description: Documents retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedResponse'
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Document'
 
     ListListResponse:
       description: Lists retrieved successfully
@@ -3167,6 +3357,57 @@ components:
           type: string
           example: "English"
           description: Human-readable locale label
+
+    Document:
+      type: object
+      required:
+        - id
+        - project_id
+        - name
+        - filename
+        - key
+        - content_type
+        - size_bytes
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        name:
+          type: string
+          example: "Annual Report"
+          description: User-friendly name for the document
+        filename:
+          type: string
+          example: "annual-report-2025.pdf"
+          description: Original filename when uploaded
+        key:
+          type: string
+          example: "6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899.pdf"
+          description: Storage key/path for retrieving the file
+        content_type:
+          type: string
+          example: "application/pdf"
+          description: MIME type of the file
+        size_bytes:
+          type: integer
+          format: int64
+          example: 1048576
+          description: File size in bytes
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
 
     ProjectAdmin:
       type: object

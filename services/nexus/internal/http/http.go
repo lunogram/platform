@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/pkg/http"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	v1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1"
+	"github.com/lunogram/platform/services/nexus/internal/storage"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/lunogram/platform/services/nexus/oapi"
 	"github.com/nyaruka/phonenumbers"
@@ -51,7 +52,7 @@ func init() {
 
 // NewServer constructs a new HTTP server and it's routes. The returned server
 // could be used to listen and serve incoming requests on the given address.
-func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Service, db *sqlx.DB) (*http.Server, error) {
+func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Service, db *sqlx.DB, storage storage.Storage) (*http.Server, error) {
 	spec, err := oapi.Spec()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load OpenAPI spec: %w", err)
@@ -66,8 +67,10 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Service, 
 	router := chi.NewRouter()
 	router.Use(Logger(logger))
 
+	controller := v1.NewController(logger, db, config, storage)
+
 	router.Use(oapi.Scalar())
-	v1.Use(router, v1.NewController(logger, db), oapi.Validator(spec, options))
+	v1.Use(router, controller, oapi.Validator(spec, options))
 
 	platform, err := url.Parse(config.PlatformURL)
 	if err != nil {

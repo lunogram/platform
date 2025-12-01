@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/lunogram/platform/pkg/claim"
 	"github.com/lunogram/platform/pkg/http"
+	"github.com/lunogram/platform/services/nexus/internal/storage"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 )
 
@@ -13,4 +14,5 @@ type Service struct {
 	PlatformURL string     `env:"PLATFORM_URL" envDefault:"http://localhost:3001"`
 	HTTP        http.Config
 	Store       store.Config
+	Storage     storage.Config
 }
