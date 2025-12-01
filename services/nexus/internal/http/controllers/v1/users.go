@@ -93,17 +93,17 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 	logger := srv.logger.With(zap.String("project_id", projectID.String()))
 	logger.Info("upserting user")
 
-	userID, err := srv.store.UpsertUser(
-		ctx,
-		projectID,
-		body.AnonymousId,
-		body.ExternalId,
-		body.Email,
-		body.Phone,
-		body.Timezone,
-		body.Locale,
-		body.Data,
-	)
+	params := store.UpsertUserParams{
+		AnonymousID: body.AnonymousId,
+		ExternalID:  body.ExternalId,
+		Email:       body.Email,
+		Phone:       body.Phone,
+		Timezone:    body.Timezone,
+		Locale:      body.Locale,
+		Data:        body.Data,
+	}
+
+	userID, err := srv.store.UpsertUser(ctx, projectID, params)
 	if err != nil {
 		logger.Error("failed to upsert user", zap.Error(err))
 		oapi.WriteProblem(w, err)

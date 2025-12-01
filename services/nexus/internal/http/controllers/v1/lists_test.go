@@ -2,8 +2,12 @@ package v1
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
+	"fmt"
+	"mime/multipart"
 	"net/http/httptest"
+	"net/textproto"
 	"testing"
 
 	"github.com/cloudproud/graceful"
@@ -14,6 +18,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
+
+const testMaxUploadSize = 10485760 // 10MB
+
+//go:embed test/users/valid.csv
+var validUsersCSV string
+
+//go:embed test/users/no-external-id.csv
+var noExternalIDCSV string
+
+//go:embed test/users/out-of-order.csv
+var outOfOrderCSV string
 
 func TestListCreation(t *testing.T) {
 	logger := zaptest.NewLogger(t)
@@ -34,7 +49,7 @@ func TestListCreation(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	lists := NewListsController(logger, db)
+	lists := NewListsController(logger, db, testMaxUploadSize)
 
 	type test struct {
 		body oapi.CreateListJSONRequestBody
@@ -101,31 +116,24 @@ func TestListLists(t *testing.T) {
 
 	listsStore := store.NewListsStore(db)
 
-	usersCount := 0
 	testLists := []store.List{
 		{
-			ProjectID:  projectID,
-			Name:       "Test List 1",
-			Type:       "static",
-			State:      "ready",
-			UsersCount: &usersCount,
-			Version:    0,
+			ProjectID: projectID,
+			Name:      "Test List 1",
+			Type:      "static",
+			State:     "ready",
 		},
 		{
-			ProjectID:  projectID,
-			Name:       "Test List 2",
-			Type:       "static",
-			State:      "ready",
-			UsersCount: &usersCount,
-			Version:    0,
+			ProjectID: projectID,
+			Name:      "Test List 2",
+			Type:      "static",
+			State:     "ready",
 		},
 		{
-			ProjectID:  projectID,
-			Name:       "Test List 3",
-			Type:       "static",
-			State:      "ready",
-			UsersCount: &usersCount,
-			Version:    0,
+			ProjectID: projectID,
+			Name:      "Test List 3",
+			Type:      "static",
+			State:     "ready",
 		},
 	}
 
@@ -134,7 +142,7 @@ func TestListLists(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	controller := NewListsController(logger, db)
+	controller := NewListsController(logger, db, testMaxUploadSize)
 
 	type test struct {
 		limit  int
@@ -209,18 +217,15 @@ func TestGetList(t *testing.T) {
 	require.NoError(t, err)
 
 	listsStore := store.NewListsStore(db)
-	usersCount := 0
 	listID, err := listsStore.CreateList(ctx, store.List{
-		ProjectID:  projectID,
-		Name:       "Test List",
-		Type:       "static",
-		State:      "ready",
-		UsersCount: &usersCount,
-		Version:    0,
+		ProjectID: projectID,
+		Name:      "Test List",
+		Type:      "static",
+		State:     "ready",
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, db)
+	controller := NewListsController(logger, db, testMaxUploadSize)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/v1/lists/"+listID.String(), nil)
@@ -255,18 +260,15 @@ func TestUpdateList(t *testing.T) {
 	require.NoError(t, err)
 
 	listsStore := store.NewListsStore(db)
-	usersCount := 0
 	listID, err := listsStore.CreateList(ctx, store.List{
-		ProjectID:  projectID,
-		Name:       "Test List",
-		Type:       "dynamic",
-		State:      "draft",
-		UsersCount: &usersCount,
-		Version:    0,
+		ProjectID: projectID,
+		Name:      "Test List",
+		Type:      "dynamic",
+		State:     "draft",
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, db)
+	controller := NewListsController(logger, db, testMaxUploadSize)
 
 	body := oapi.UpdateListJSONRequestBody{
 		Name: "Updated List",
@@ -307,18 +309,15 @@ func TestDeleteList(t *testing.T) {
 	require.NoError(t, err)
 
 	listsStore := store.NewListsStore(db)
-	usersCount := 0
 	listID, err := listsStore.CreateList(ctx, store.List{
-		ProjectID:  projectID,
-		Name:       "Test List",
-		Type:       "static",
-		State:      "ready",
-		UsersCount: &usersCount,
-		Version:    0,
+		ProjectID: projectID,
+		Name:      "Test List",
+		Type:      "static",
+		State:     "ready",
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, db)
+	controller := NewListsController(logger, db, testMaxUploadSize)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/v1/lists/"+listID.String(), nil)
@@ -350,18 +349,15 @@ func TestDuplicateList(t *testing.T) {
 	require.NoError(t, err)
 
 	listsStore := store.NewListsStore(db)
-	usersCount := 0
 	listID, err := listsStore.CreateList(ctx, store.List{
-		ProjectID:  projectID,
-		Name:       "Original List",
-		Type:       "static",
-		State:      "ready",
-		UsersCount: &usersCount,
-		Version:    1,
+		ProjectID: projectID,
+		Name:      "Original List",
+		Type:      "static",
+		State:     "ready",
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, db)
+	controller := NewListsController(logger, db, testMaxUploadSize)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/v1/lists/"+listID.String()+"/duplicate", nil)
@@ -375,4 +371,96 @@ func TestDuplicateList(t *testing.T) {
 	require.Equal(t, "Copy of Original List", response.Name)
 	require.NotEqual(t, listID, response.Id)
 	require.Equal(t, 0, response.Version)
+}
+
+func TestImportListUsers(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	ctx := graceful.NewContext(t.Context())
+	config := config.Service{
+		Store: store.Config{
+			URI: container.RunPostgreSQL(t),
+		},
+	}
+
+	err := store.Migrate(config.Store)
+	require.NoError(t, err)
+
+	db, err := store.Connect(ctx, config.Store)
+	require.NoError(t, err)
+
+	projects := store.NewProjectsStore(db)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	usersStore := store.NewUsersStore(db)
+	listsStore := store.NewListsStore(db)
+
+	list := store.List{
+		ProjectID: projectID,
+		Name:      "Import Test List",
+		Type:      store.ListTypeStatic,
+		State:     store.ListStateReady,
+	}
+
+	listID, err := listsStore.CreateList(ctx, list)
+	require.NoError(t, err)
+
+	controller := NewListsController(logger, db, testMaxUploadSize)
+
+	type test struct {
+		csv   string
+		code  int
+		users int
+	}
+
+	tests := map[string]test{
+		"successful-import": {
+			csv:   validUsersCSV,
+			code:  204,
+			users: 2,
+		},
+		"missing-external-id-column": {
+			csv:   noExternalIDCSV,
+			code:  400,
+			users: 0,
+		},
+		"out-of-order-columns": {
+			csv:   outOfOrderCSV,
+			code:  204,
+			users: 2,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			body := &bytes.Buffer{}
+			writer := multipart.NewWriter(body)
+
+			header := textproto.MIMEHeader{}
+			header.Set("Content-Disposition", `form-data; name="file"; filename="users.csv"`)
+			header.Set("Content-Type", "text/csv")
+
+			part, err := writer.CreatePart(header)
+			require.NoError(t, err)
+
+			_, err = part.Write([]byte(test.csv))
+			require.NoError(t, err)
+
+			err = writer.Close()
+			require.NoError(t, err)
+
+			res := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", fmt.Sprintf("/v1/lists/%s/users", listID), body)
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+
+			controller.ImportListUsers(res, req, projectID, listID)
+
+			require.Equal(t, test.code, res.Code, res.Body.String())
+
+			users, total, err := usersStore.ListUsers(ctx, projectID, store.Pagination{Limit: 100, Offset: 0}, "")
+			require.NoError(t, err)
+			require.Equal(t, test.users, total, "expected %d users in total", test.users)
+			require.Len(t, users, test.users, "expected %d users to be returned", test.users)
+		})
+	}
 }

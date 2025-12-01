@@ -18,7 +18,7 @@ func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Service, storage 
 		LocalesController:       NewLocalesController(logger, db),
 		JourneysController:      NewJourneysController(logger, db),
 		OrganizationsController: NewOrganizationsController(logger, db),
-		ListsController:         NewListsController(logger, db),
+		ListsController:         NewListsController(logger, db, cfg.Storage.MaxUploadSize),
 		DocumentsController:     NewDocumentsController(logger, db, storage, cfg.Storage.MaxUploadSize),
 	}
 }

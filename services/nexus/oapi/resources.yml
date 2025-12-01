@@ -2549,6 +2549,7 @@ components:
         - name
         - type
         - state
+        - users_count
         - version
         - is_visible
         - created_at

@@ -335,7 +335,7 @@ type List struct {
 	Tags        *[]string           `json:"tags,omitempty"`
 	Type        ListType            `json:"type"`
 	UpdatedAt   time.Time           `json:"updated_at"`
-	UsersCount  *int                `json:"users_count,omitempty"`
+	UsersCount  int                 `json:"users_count"`
 	Version     int                 `json:"version"`
 }
 

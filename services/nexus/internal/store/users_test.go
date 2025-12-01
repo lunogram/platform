@@ -259,15 +259,18 @@ func TestUpsertUser(t *testing.T) {
 
 	type test struct {
 		setupUser     *User
-		upsertData    func() (anonymousID, externalID *string, email, phone, timezone, locale *string, data *json.RawMessage)
+		upsertData    UpsertUserParams
 		expectedEmail *string
 		description   string
 	}
 
 	tests := map[string]test{
 		"insert new user with external_id": {
-			upsertData: func() (*string, *string, *string, *string, *string, *string, *json.RawMessage) {
-				return ptr("anon_new"), ptr("user_new"), ptr("new@example.com"), nil, nil, nil, nil
+			upsertData: UpsertUserParams{
+				AnonymousID: ptr("anon_new"),
+				ExternalID:  ptr("user_new"),
+				Email:       ptr("new@example.com"),
+				Data:        ptr(json.RawMessage(`{}`)),
 			},
 			expectedEmail: ptr("new@example.com"),
 			description:   "should create new user",
@@ -280,8 +283,11 @@ func TestUpsertUser(t *testing.T) {
 				Email:       ptr("old@example.com"),
 				Data:        json.RawMessage(`{}`),
 			},
-			upsertData: func() (*string, *string, *string, *string, *string, *string, *json.RawMessage) {
-				return ptr("anon_different"), ptr("user_existing"), ptr("updated@example.com"), nil, nil, nil, nil
+			upsertData: UpsertUserParams{
+				AnonymousID: ptr("anon_different"),
+				ExternalID:  ptr("user_existing"),
+				Email:       ptr("updated@example.com"),
+				Data:        ptr(json.RawMessage(`{}`)),
 			},
 			expectedEmail: ptr("updated@example.com"),
 			description:   "should update email on conflict",
@@ -293,9 +299,10 @@ func TestUpsertUser(t *testing.T) {
 				ExternalID:  ptr("user_json"),
 				Data:        json.RawMessage(`{"old":"value"}`),
 			},
-			upsertData: func() (*string, *string, *string, *string, *string, *string, *json.RawMessage) {
-				newData := json.RawMessage(`{"new":"data"}`)
-				return ptr("anon_json"), ptr("user_json"), nil, nil, nil, nil, &newData
+			upsertData: UpsertUserParams{
+				AnonymousID: ptr("anon_json"),
+				ExternalID:  ptr("user_json"),
+				Data:        ptr(json.RawMessage(`{"new":"data"}`)),
 			},
 			expectedEmail: nil,
 			description:   "should update JSONB data",
@@ -311,8 +318,7 @@ func TestUpsertUser(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			anonID, extID, email, phone, tz, locale, data := tt.upsertData()
-			userID, err := db.UpsertUser(ctx, projectID, anonID, extID, email, phone, tz, locale, data)
+			userID, err := db.UpsertUser(ctx, projectID, tt.upsertData)
 			require.NoError(t, err)
 			require.NotEqual(t, uuid.Nil, userID)
 
