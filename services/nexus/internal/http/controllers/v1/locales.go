@@ -156,7 +156,9 @@ func (srv *LocalesController) GetLocale(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	json.Write(w, http.StatusOK, locale.OAPI())
+	json.Write(w, http.StatusOK, map[string]interface{}{
+		"data": locale.OAPI(),
+	})
 }
 
 func (srv *LocalesController) DeleteLocale(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, localeID uuid.UUID) {
