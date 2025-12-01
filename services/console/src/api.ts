@@ -157,7 +157,7 @@ const api = {
     projects: {
         ...createEntityPath<Project>('/admin/projects'),
         all: async () => await client
-            .get<Project[]>('/admin/projects/all')
+            .get<SearchResult<Project>>('/admin/projects')
             .then(r => r.data),
         pathSuggestions: async (projectId: UUID) => await client
             .get<VariableSuggestions>(`${projectUrl(projectId)}/data/paths`)
@@ -374,7 +374,7 @@ const api = {
             .put<string[]>(`${projectUrl(projectId)}/tags/assign`, { entity, entityId, tags })
             .then(r => r.data),
         all: async (projectId: UUID) => await client
-            .get<Tag[]>(`${projectUrl(projectId)}/tags/all`)
+            .get<Tag[]>(`${projectUrl(projectId)}/tags`)
             .then(r => r.data),
     },
 

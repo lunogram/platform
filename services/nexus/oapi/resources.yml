@@ -1697,7 +1697,7 @@ paths:
       description: Retrieves a list of admins for a project with optional filtering
       operationId: listProjectAdmins
       tags:
-        - Project Admins
+        - Admins
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1727,7 +1727,7 @@ paths:
       description: Retrieves a specific project admin by ID
       operationId: getProjectAdmin
       tags:
-        - Project Admins
+        - Admins
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1760,7 +1760,7 @@ paths:
       description: Updates the role of an admin in a project
       operationId: updateProjectAdmin
       tags:
-        - Project Admins
+        - Admins
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1799,7 +1799,7 @@ paths:
       description: Removes an admin from a project (soft delete)
       operationId: deleteProjectAdmin
       tags:
-        - Project Admins
+        - Admins
       security:
         - HttpBearerAuth: []
       parameters:
