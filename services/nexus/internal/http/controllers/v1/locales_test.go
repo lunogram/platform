@@ -229,11 +229,11 @@ func TestGetLocale(t *testing.T) {
 			require.Equal(t, test.code, res.Code, res.Body.String())
 
 			if test.code == 200 {
-				var response map[string]oapi.Locale
+				var response oapi.Locale
 				err = json.Unmarshal(res.Body.Bytes(), &response)
 				require.NoError(t, err)
-				require.Equal(t, "en", response["data"].Key)
-				require.Equal(t, "English", response["data"].Label)
+				require.Equal(t, "en", response.Key)
+				require.Equal(t, "English", response.Label)
 			}
 		})
 	}
