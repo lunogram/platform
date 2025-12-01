@@ -9,6 +9,16 @@ import (
 	"github.com/lunogram/platform/services/nexus/oapi"
 )
 
+type Providers []Provider
+
+func (p Providers) OAPI() []oapi.Provider {
+	result := make([]oapi.Provider, len(p))
+	for i, provider := range p {
+		result[i] = provider.OAPI()
+	}
+	return result
+}
+
 type Provider struct {
 	ID           uuid.UUID       `db:"id"`
 	ProjectID    uuid.UUID       `db:"project_id"`
@@ -23,11 +33,7 @@ type Provider struct {
 	UpdatedAt    time.Time       `db:"updated_at"`
 }
 
-func (provider *Provider) OAPI() *oapi.Provider {
-	if provider == nil {
-		return nil
-	}
-
+func (provider Provider) OAPI() oapi.Provider {
 	result := oapi.Provider{
 		Id:        provider.ID,
 		Data:      &provider.Data,
@@ -49,7 +55,7 @@ func (provider *Provider) OAPI() *oapi.Provider {
 		result.RateInterval = &interval
 	}
 
-	return &result
+	return result
 }
 
 func NewProvidersStore(db DB) *ProvidersStore {
@@ -108,4 +114,28 @@ func (s *ProvidersStore) HasProvider(ctx context.Context, projectID uuid.UUID) (
 	}
 
 	return exists, nil
+}
+
+func (s *ProvidersStore) CreateProvider(ctx context.Context, provider Provider) (uuid.UUID, error) {
+	stmt := `
+	INSERT INTO providers (project_id, type, "group", data, name, is_default, rate_limit, rate_interval)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	RETURNING id`
+
+	var id uuid.UUID
+	err := s.db.GetContext(ctx, &id, stmt,
+		provider.ProjectID,
+		provider.Type,
+		provider.Group,
+		provider.Data,
+		provider.Name,
+		provider.IsDefault,
+		provider.RateLimit,
+		provider.RateInterval,
+	)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
 }

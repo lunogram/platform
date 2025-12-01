@@ -343,6 +343,16 @@ type Locale struct {
 	UpdatedAt time.Time          `json:"updated_at"`
 }
 
+// Organization defines model for Organization.
+type Organization struct {
+	CreatedAt                 time.Time           `json:"created_at"`
+	Id                        openapi_types.UUID  `json:"id"`
+	Name                      string              `json:"name"`
+	NotificationProviderId    *openapi_types.UUID `json:"notification_provider_id,omitempty"`
+	TrackingDeeplinkMirrorUrl *string             `json:"tracking_deeplink_mirror_url,omitempty"`
+	UpdatedAt                 time.Time           `json:"updated_at"`
+}
+
 // PaginatedResponse defines model for PaginatedResponse.
 type PaginatedResponse struct {
 	// Limit Maximum number of items returned
@@ -520,6 +530,11 @@ type UpdateJourney struct {
 
 // UpdateJourneyStatus defines model for UpdateJourney.Status.
 type UpdateJourneyStatus string
+
+// UpdateOrganization defines model for UpdateOrganization.
+type UpdateOrganization struct {
+	TrackingDeeplinkMirrorUrl *string `json:"tracking_deeplink_mirror_url,omitempty"`
+}
 
 // UpdateProject defines model for UpdateProject.
 type UpdateProject struct {
@@ -851,6 +866,9 @@ type GetUserSubscriptionsParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// UpdateOrganizationJSONRequestBody defines body for UpdateOrganization for application/json ContentType.
+type UpdateOrganizationJSONRequestBody = UpdateOrganization
+
 // CreateAdminJSONRequestBody defines body for CreateAdmin for application/json ContentType.
 type CreateAdminJSONRequestBody = CreateAdmin
 
@@ -1155,6 +1173,17 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// DeleteOrganization request
+	DeleteOrganization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrganization request
+	GetOrganization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateOrganizationWithBody request with any body
+	UpdateOrganizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateOrganization(ctx context.Context, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListAdmins request
 	ListAdmins(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1173,6 +1202,9 @@ type ClientInterface interface {
 	UpdateAdminWithBody(ctx context.Context, adminID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateAdmin(ctx context.Context, adminID openapi_types.UUID, body UpdateAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrganizationIntegrations request
+	GetOrganizationIntegrations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProfile request
 	GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1331,6 +1363,54 @@ type ClientInterface interface {
 	UpdateUserSubscriptions(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserSubscriptionsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
+func (c *Client) DeleteOrganization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetOrganization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrganizationRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateOrganizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateOrganizationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateOrganization(ctx context.Context, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateOrganizationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListAdmins(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListAdminsRequest(c.Server, params)
 	if err != nil {
@@ -1405,6 +1485,18 @@ func (c *Client) UpdateAdminWithBody(ctx context.Context, adminID openapi_types.
 
 func (c *Client) UpdateAdmin(ctx context.Context, adminID openapi_types.UUID, body UpdateAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateAdminRequest(c.Server, adminID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetOrganizationIntegrations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrganizationIntegrationsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -2099,6 +2191,100 @@ func (c *Client) UpdateUserSubscriptions(ctx context.Context, projectID openapi_
 	return c.Client.Do(req)
 }
 
+// NewDeleteOrganizationRequest generates requests for DeleteOrganization
+func NewDeleteOrganizationRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/organizations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetOrganizationRequest generates requests for GetOrganization
+func NewGetOrganizationRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/organizations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateOrganizationRequest calls the generic UpdateOrganization builder with application/json body
+func NewUpdateOrganizationRequest(server string, body UpdateOrganizationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateOrganizationRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewUpdateOrganizationRequestWithBody generates requests for UpdateOrganization with any type of body
+func NewUpdateOrganizationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/organizations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListAdminsRequest generates requests for ListAdmins
 func NewListAdminsRequest(server string, params *ListAdminsParams) (*http.Request, error) {
 	var err error
@@ -2331,6 +2517,33 @@ func NewUpdateAdminRequestWithBody(server string, adminID openapi_types.UUID, co
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetOrganizationIntegrationsRequest generates requests for GetOrganizationIntegrations
+func NewGetOrganizationIntegrationsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/organizations/integrations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -4665,6 +4878,17 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// DeleteOrganizationWithResponse request
+	DeleteOrganizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error)
+
+	// GetOrganizationWithResponse request
+	GetOrganizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOrganizationResponse, error)
+
+	// UpdateOrganizationWithBodyWithResponse request with any body
+	UpdateOrganizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
+
+	UpdateOrganizationWithResponse(ctx context.Context, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
+
 	// ListAdminsWithResponse request
 	ListAdminsWithResponse(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*ListAdminsResponse, error)
 
@@ -4683,6 +4907,9 @@ type ClientWithResponsesInterface interface {
 	UpdateAdminWithBodyWithResponse(ctx context.Context, adminID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAdminResponse, error)
 
 	UpdateAdminWithResponse(ctx context.Context, adminID openapi_types.UUID, body UpdateAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAdminResponse, error)
+
+	// GetOrganizationIntegrationsWithResponse request
+	GetOrganizationIntegrationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOrganizationIntegrationsResponse, error)
 
 	// GetProfileWithResponse request
 	GetProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetProfileResponse, error)
@@ -4841,6 +5068,74 @@ type ClientWithResponsesInterface interface {
 	UpdateUserSubscriptionsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserSubscriptionsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserSubscriptionsResponse, error)
 }
 
+type DeleteOrganizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrganizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrganizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetOrganizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Organization
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrganizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrganizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateOrganizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Organization
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateOrganizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateOrganizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListAdminsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4949,6 +5244,29 @@ func (r UpdateAdminResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateAdminResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetOrganizationIntegrationsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Provider
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrganizationIntegrationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrganizationIntegrationsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5938,6 +6256,41 @@ func (r UpdateUserSubscriptionsResponse) StatusCode() int {
 	return 0
 }
 
+// DeleteOrganizationWithResponse request returning *DeleteOrganizationResponse
+func (c *ClientWithResponses) DeleteOrganizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error) {
+	rsp, err := c.DeleteOrganization(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrganizationResponse(rsp)
+}
+
+// GetOrganizationWithResponse request returning *GetOrganizationResponse
+func (c *ClientWithResponses) GetOrganizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOrganizationResponse, error) {
+	rsp, err := c.GetOrganization(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrganizationResponse(rsp)
+}
+
+// UpdateOrganizationWithBodyWithResponse request with arbitrary body returning *UpdateOrganizationResponse
+func (c *ClientWithResponses) UpdateOrganizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error) {
+	rsp, err := c.UpdateOrganizationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateOrganizationResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateOrganizationWithResponse(ctx context.Context, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error) {
+	rsp, err := c.UpdateOrganization(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateOrganizationResponse(rsp)
+}
+
 // ListAdminsWithResponse request returning *ListAdminsResponse
 func (c *ClientWithResponses) ListAdminsWithResponse(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*ListAdminsResponse, error) {
 	rsp, err := c.ListAdmins(ctx, params, reqEditors...)
@@ -5997,6 +6350,15 @@ func (c *ClientWithResponses) UpdateAdminWithResponse(ctx context.Context, admin
 		return nil, err
 	}
 	return ParseUpdateAdminResponse(rsp)
+}
+
+// GetOrganizationIntegrationsWithResponse request returning *GetOrganizationIntegrationsResponse
+func (c *ClientWithResponses) GetOrganizationIntegrationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOrganizationIntegrationsResponse, error) {
+	rsp, err := c.GetOrganizationIntegrations(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrganizationIntegrationsResponse(rsp)
 }
 
 // GetProfileWithResponse request returning *GetProfileResponse
@@ -6497,6 +6859,98 @@ func (c *ClientWithResponses) UpdateUserSubscriptionsWithResponse(ctx context.Co
 	return ParseUpdateUserSubscriptionsResponse(rsp)
 }
 
+// ParseDeleteOrganizationResponse parses an HTTP response from a DeleteOrganizationWithResponse call
+func ParseDeleteOrganizationResponse(rsp *http.Response) (*DeleteOrganizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrganizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrganizationResponse parses an HTTP response from a GetOrganizationWithResponse call
+func ParseGetOrganizationResponse(rsp *http.Response) (*GetOrganizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrganizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Organization
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateOrganizationResponse parses an HTTP response from a UpdateOrganizationWithResponse call
+func ParseUpdateOrganizationResponse(rsp *http.Response) (*UpdateOrganizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateOrganizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Organization
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListAdminsResponse parses an HTTP response from a ListAdminsWithResponse call
 func ParseListAdminsResponse(rsp *http.Response) (*ListAdminsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -6638,6 +7092,39 @@ func ParseUpdateAdminResponse(rsp *http.Response) (*UpdateAdminResponse, error) 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Admin
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrganizationIntegrationsResponse parses an HTTP response from a GetOrganizationIntegrationsWithResponse call
+func ParseGetOrganizationIntegrationsResponse(rsp *http.Response) (*GetOrganizationIntegrationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrganizationIntegrationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Provider
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -8024,6 +8511,15 @@ func ParseUpdateUserSubscriptionsResponse(rsp *http.Response) (*UpdateUserSubscr
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Delete organization
+	// (DELETE /api/admin/organizations)
+	DeleteOrganization(w http.ResponseWriter, r *http.Request)
+	// Get current organization
+	// (GET /api/admin/organizations)
+	GetOrganization(w http.ResponseWriter, r *http.Request)
+	// Update organization
+	// (PATCH /api/admin/organizations)
+	UpdateOrganization(w http.ResponseWriter, r *http.Request)
 	// List organization admins
 	// (GET /api/admin/organizations/admins)
 	ListAdmins(w http.ResponseWriter, r *http.Request, params ListAdminsParams)
@@ -8039,6 +8535,9 @@ type ServerInterface interface {
 	// Update admin
 	// (PATCH /api/admin/organizations/admins/{adminID})
 	UpdateAdmin(w http.ResponseWriter, r *http.Request, adminID openapi_types.UUID)
+	// Get organization integrations
+	// (GET /api/admin/organizations/integrations)
+	GetOrganizationIntegrations(w http.ResponseWriter, r *http.Request)
 	// Get current admin profile
 	// (GET /api/admin/profile)
 	GetProfile(w http.ResponseWriter, r *http.Request)
@@ -8171,6 +8670,24 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
+// Delete organization
+// (DELETE /api/admin/organizations)
+func (_ Unimplemented) DeleteOrganization(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get current organization
+// (GET /api/admin/organizations)
+func (_ Unimplemented) GetOrganization(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update organization
+// (PATCH /api/admin/organizations)
+func (_ Unimplemented) UpdateOrganization(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List organization admins
 // (GET /api/admin/organizations/admins)
 func (_ Unimplemented) ListAdmins(w http.ResponseWriter, r *http.Request, params ListAdminsParams) {
@@ -8198,6 +8715,12 @@ func (_ Unimplemented) GetAdmin(w http.ResponseWriter, r *http.Request, adminID 
 // Update admin
 // (PATCH /api/admin/organizations/admins/{adminID})
 func (_ Unimplemented) UpdateAdmin(w http.ResponseWriter, r *http.Request, adminID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get organization integrations
+// (GET /api/admin/organizations/integrations)
+func (_ Unimplemented) GetOrganizationIntegrations(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -8462,6 +8985,66 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
+// DeleteOrganization operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrganization(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrganization(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrganization operation middleware
+func (siw *ServerInterfaceWrapper) GetOrganization(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrganization(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateOrganization operation middleware
+func (siw *ServerInterfaceWrapper) UpdateOrganization(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateOrganization(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListAdmins operation middleware
 func (siw *ServerInterfaceWrapper) ListAdmins(w http.ResponseWriter, r *http.Request) {
 
@@ -8615,6 +9198,26 @@ func (siw *ServerInterfaceWrapper) UpdateAdmin(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateAdmin(w, r, adminID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrganizationIntegrations operation middleware
+func (siw *ServerInterfaceWrapper) GetOrganizationIntegrations(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrganizationIntegrations(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -10511,6 +11114,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/organizations", wrapper.DeleteOrganization)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/organizations", wrapper.GetOrganization)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/organizations", wrapper.UpdateOrganization)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/organizations/admins", wrapper.ListAdmins)
 	})
 	r.Group(func(r chi.Router) {
@@ -10524,6 +11136,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/admin/organizations/admins/{adminID}", wrapper.UpdateAdmin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/organizations/integrations", wrapper.GetOrganizationIntegrations)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/profile", wrapper.GetProfile)

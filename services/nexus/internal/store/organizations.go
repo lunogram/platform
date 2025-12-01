@@ -5,13 +5,31 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/services/nexus/oapi"
 )
 
 type Organization struct {
-	ID        uuid.UUID `db:"id"`
-	Name      string    `db:"name"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
+	ID                        uuid.UUID  `db:"id"`
+	Name                      string     `db:"name"`
+	NotificationProviderID    *uuid.UUID `db:"notification_provider_id"`
+	TrackingDeeplinkMirrorURL *string    `db:"tracking_deeplink_mirror_url"`
+	CreatedAt                 time.Time  `db:"created_at"`
+	UpdatedAt                 time.Time  `db:"updated_at"`
+}
+
+func (o *Organization) OAPI() oapi.Organization {
+	return oapi.Organization{
+		Id:                        o.ID,
+		Name:                      o.Name,
+		TrackingDeeplinkMirrorUrl: o.TrackingDeeplinkMirrorURL,
+		NotificationProviderId:    o.NotificationProviderID,
+		CreatedAt:                 o.CreatedAt,
+		UpdatedAt:                 o.UpdatedAt,
+	}
+}
+
+type OrganizationUpdate struct {
+	TrackingDeeplinkMirrorURL *string
 }
 
 func NewOrganizationsStore(db DB) *OrganizationsStore {
@@ -39,7 +57,8 @@ func (s *OrganizationsStore) CreateOrganization(ctx context.Context, name string
 
 func (s *OrganizationsStore) GetOrganization(ctx context.Context, id uuid.UUID) (*Organization, error) {
 	stmt := `
-	SELECT id, name, created_at, updated_at
+	SELECT id, name, notification_provider_id, 
+		   tracking_deeplink_mirror_url, created_at, updated_at
 	FROM organizations
 	WHERE id = $1
 	AND deleted_at IS NULL`
@@ -51,4 +70,45 @@ func (s *OrganizationsStore) GetOrganization(ctx context.Context, id uuid.UUID) 
 	}
 
 	return &org, nil
+}
+
+func (s *OrganizationsStore) UpdateOrganization(ctx context.Context, id uuid.UUID, update OrganizationUpdate) error {
+	stmt := `
+	UPDATE organizations
+	SET tracking_deeplink_mirror_url = COALESCE($2, tracking_deeplink_mirror_url)
+	WHERE id = $1
+	AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, stmt, id, update.TrackingDeeplinkMirrorURL)
+	return err
+}
+
+func (s *OrganizationsStore) DeleteOrganization(ctx context.Context, id uuid.UUID) error {
+	stmt := `
+	UPDATE organizations
+	SET deleted_at = NOW()
+	WHERE id = $1
+	AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, stmt, id)
+	return err
+}
+
+func (s *OrganizationsStore) GetOrganizationIntegrations(ctx context.Context, orgID uuid.UUID) (Providers, error) {
+	stmt := `
+	SELECT p.id, p.project_id, p.type, p.group, p.data, p.is_default, 
+		   p.rate_limit, p.rate_interval, p.name, p.created_at, p.updated_at
+	FROM providers p
+	INNER JOIN projects pr ON pr.id = p.project_id
+	WHERE pr.organization_id = $1
+	AND p.deleted_at IS NULL
+	AND pr.deleted_at IS NULL`
+
+	var providers []Provider
+	err := s.db.SelectContext(ctx, &providers, stmt, orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	return providers, nil
 }

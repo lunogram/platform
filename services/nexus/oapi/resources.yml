@@ -807,6 +807,84 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/organizations:
+    get:
+      summary: Get current organization
+      description: Retrieves the current organization for the authenticated admin
+      operationId: getOrganization
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      responses:
+        '200':
+          description: Organization retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        default:
+          $ref: '#/components/responses/Error'
+
+    patch:
+      summary: Update organization
+      description: Updates organization properties (requires owner role)
+      operationId: updateOrganization
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrganization'
+      responses:
+        '200':
+          description: Organization updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        default:
+          $ref: '#/components/responses/Error'
+
+    delete:
+      summary: Delete organization
+      description: Soft deletes the current organization (requires owner role)
+      operationId: deleteOrganization
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      responses:
+        '204':
+          description: Organization deleted successfully
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/organizations/integrations:
+    get:
+      summary: Get organization integrations
+      description: Retrieves all provider integrations for the organization
+      operationId: getOrganizationIntegrations
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      responses:
+        '200':
+          description: Integrations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Provider'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/admin/projects/{projectID}/users:
     get:
       summary: List users
@@ -2274,6 +2352,43 @@ components:
         last_name:
           type: string
           example: "Smith"
+
+    Organization:
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b"
+        name:
+          type: string
+          example: "Acme Corporation"
+        tracking_deeplink_mirror_url:
+          type: string
+          example: "https://acme.com/track"
+        notification_provider_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    UpdateOrganization:
+      type: object
+      properties:
+        tracking_deeplink_mirror_url:
+          type: string
+          example: "https://acme.com/track"
 
     User:
       type: object

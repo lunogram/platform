@@ -34,7 +34,7 @@ type Campaign struct {
 }
 
 func (campaign Campaign) OAPI() oapi.Campaign {
-	return oapi.Campaign{
+	result := oapi.Campaign{
 		Id:             campaign.ID,
 		ProjectId:      campaign.ProjectID,
 		Name:           campaign.Name,
@@ -42,10 +42,16 @@ func (campaign Campaign) OAPI() oapi.Campaign {
 		SubscriptionId: campaign.SubscriptionID,
 		Delivery:       campaign.Delivery.Data.OAPI(),
 		Templates:      campaign.Templates.OAPI(),
-		Provider:       campaign.Provider.OAPI(),
 		CreatedAt:      campaign.CreatedAt,
 		UpdatedAt:      campaign.UpdatedAt,
 	}
+
+	if campaign.Provider != nil {
+		provider := campaign.Provider.OAPI()
+		result.Provider = &provider
+	}
+
+	return result
 }
 
 type Delivery struct {
