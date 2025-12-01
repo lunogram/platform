@@ -2,10 +2,13 @@ package http
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 
 	"github.com/cloudproud/graceful"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
@@ -13,8 +16,37 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	v1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1"
 	"github.com/lunogram/platform/services/nexus/oapi"
+	"github.com/nyaruka/phonenumbers"
 	"go.uber.org/zap"
 )
+
+var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$")
+
+func init() {
+	openapi3.DefineStringFormatValidator("email", openapi3.NewCallbackValidator(func(value string) error {
+		if !emailRegex.MatchString(value) {
+			return fmt.Errorf("invalid email format")
+		}
+		return nil
+	}))
+
+	openapi3.DefineStringFormatValidator("phone", openapi3.NewCallbackValidator(func(value string) error {
+		num, err := phonenumbers.Parse(value, "")
+		if err != nil {
+			return err
+		}
+
+		if !phonenumbers.IsValidNumber(num) {
+			return errors.New("phone number must be in E.164 format (e.g., +14155552671)")
+		}
+
+		if phonenumbers.Format(num, phonenumbers.E164) != value {
+			return errors.New("phone number must be in E.164 format (e.g., +14155552671)")
+		}
+
+		return nil
+	}))
+}
 
 // NewServer constructs a new HTTP server and it's routes. The returned server
 // could be used to listen and serve incoming requests on the given address.

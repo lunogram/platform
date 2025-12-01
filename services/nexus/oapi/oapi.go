@@ -72,3 +72,13 @@ func (offset *PaginationOffset) ToInt() int {
 
 	return result
 }
+
+type PaginationSearch string
+
+func (search *PaginationSearch) ToString() string {
+	if search == nil {
+		return ""
+	}
+
+	return string(*search)
+}
