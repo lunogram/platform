@@ -203,7 +203,17 @@ func (s *UsersStore) CreateUser(ctx context.Context, user User) (uuid.UUID, erro
 	return id, nil
 }
 
-func (s *UsersStore) UpsertUser(ctx context.Context, projectID uuid.UUID, anonymousID, externalID *string, email, phone, timezone, locale *string, data *json.RawMessage) (uuid.UUID, error) {
+type UpsertUserParams struct {
+	AnonymousID *string
+	ExternalID  *string
+	Email       *string
+	Phone       *string
+	Timezone    *string
+	Locale      *string
+	Data        *json.RawMessage
+}
+
+func (s *UsersStore) UpsertUser(ctx context.Context, projectID uuid.UUID, params UpsertUserParams) (uuid.UUID, error) {
 	stmt := `
 	INSERT INTO users (project_id, anonymous_id, external_id, email, phone, data, timezone, locale)
 	VALUES (
@@ -227,23 +237,22 @@ func (s *UsersStore) UpsertUser(ctx context.Context, projectID uuid.UUID, anonym
 	RETURNING id
 	`
 
-	var dataJSON json.RawMessage
-	if data != nil {
-		dataJSON = *data
-	} else {
-		dataJSON = json.RawMessage(`{}`)
+	data := params.Data
+	if data == nil {
+		emptyJSON := json.RawMessage(`{}`)
+		data = &emptyJSON
 	}
 
 	var id uuid.UUID
 	err := s.db.GetContext(ctx, &id, stmt,
 		projectID,
-		anonymousID,
-		externalID,
-		email,
-		phone,
-		dataJSON,
-		timezone,
-		locale,
+		params.AnonymousID,
+		params.ExternalID,
+		params.Email,
+		params.Phone,
+		data,
+		params.Timezone,
+		params.Locale,
 	)
 	if err != nil {
 		return uuid.Nil, err

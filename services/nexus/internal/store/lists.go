@@ -9,6 +9,20 @@ import (
 	"github.com/lunogram/platform/services/nexus/oapi"
 )
 
+type ListType string
+
+const (
+	ListTypeStatic  = "static"
+	ListTypeDynamic = "dynamic"
+)
+
+type ListState string
+
+const (
+	ListStateDraft = "draft"
+	ListStateReady = "ready"
+)
+
 type Lists []List
 
 func (lists Lists) OAPI() []oapi.List {
@@ -23,12 +37,12 @@ type List struct {
 	ID          uuid.UUID       `db:"id"`
 	ProjectID   uuid.UUID       `db:"project_id"`
 	Name        string          `db:"name"`
-	Type        string          `db:"type"`
-	State       string          `db:"state"`
+	Type        ListType        `db:"type"`
+	State       ListState       `db:"state"`
 	Rule        JSONB[RuleData] `db:"rule"`
 	RuleID      *uuid.UUID      `db:"rule_id"`
 	Version     int             `db:"version"`
-	UsersCount  *int            `db:"users_count"`
+	UsersCount  int             `db:"users_count"`
 	RefreshedAt *time.Time      `db:"refreshed_at"`
 	CreatedAt   time.Time       `db:"created_at"`
 	UpdatedAt   time.Time       `db:"updated_at"`
@@ -43,14 +57,15 @@ func (list List) OAPI() oapi.List {
 	}
 
 	result := oapi.List{
-		Id:        list.ID,
-		ProjectId: list.ProjectID,
-		Name:      list.Name,
-		Type:      oapi.ListType(list.Type),
-		State:     oapi.ListState(list.State),
-		Version:   list.Version,
-		CreatedAt: list.CreatedAt,
-		UpdatedAt: list.UpdatedAt,
+		Id:         list.ID,
+		ProjectId:  list.ProjectID,
+		Name:       list.Name,
+		Type:       oapi.ListType(list.Type),
+		State:      oapi.ListState(list.State),
+		UsersCount: list.UsersCount,
+		Version:    list.Version,
+		CreatedAt:  list.CreatedAt,
+		UpdatedAt:  list.UpdatedAt,
 	}
 
 	if ruleRaw != nil {
@@ -60,11 +75,6 @@ func (list List) OAPI() oapi.List {
 	if list.RuleID != nil {
 		ruleID := *list.RuleID
 		result.RuleId = &ruleID
-	}
-
-	if list.UsersCount != nil {
-		usersCount := *list.UsersCount
-		result.UsersCount = &usersCount
 	}
 
 	if list.RefreshedAt != nil {
@@ -171,6 +181,16 @@ func (s *ListsStore) UpdateList(ctx context.Context, projectID, listID uuid.UUID
 	AND deleted_at IS NULL`
 
 	_, err := s.db.ExecContext(ctx, query, update.Name, update.Rule, update.Published, projectID, listID)
+	return err
+}
+
+func (s *ListsStore) AddUserToList(ctx context.Context, listID, userID uuid.UUID) error {
+	stmt := `
+	INSERT INTO user_list (user_id, list_id)
+	VALUES ($1, $2)
+	ON CONFLICT (user_id, list_id) DO NOTHING`
+
+	_, err := s.db.ExecContext(ctx, stmt, userID, listID)
 	return err
 }
 

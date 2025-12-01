@@ -1,32 +1,38 @@
 package v1
 
 import (
+	"context"
 	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	pkgjson "github.com/lunogram/platform/pkg/http/json"
 	"github.com/lunogram/platform/pkg/http/problem"
+	"github.com/lunogram/platform/services/nexus/internal/importer"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/lunogram/platform/services/nexus/oapi"
 	"go.uber.org/zap"
 )
 
-func NewListsController(logger *zap.Logger, db *sqlx.DB) *ListsController {
+func NewListsController(logger *zap.Logger, db *sqlx.DB, maxUploadSize int64) *ListsController {
 	return &ListsController{
-		logger: logger,
-		db:     db,
-		store:  store.NewStores(db),
+		logger:        logger,
+		db:            db,
+		store:         store.NewStores(db),
+		maxUploadSize: maxUploadSize,
 	}
 }
 
 type ListsController struct {
-	logger *zap.Logger
-	db     *sqlx.DB
-	store  *store.Stores
+	logger        *zap.Logger
+	db            *sqlx.DB
+	store         *store.Stores
+	maxUploadSize int64
 }
 
 func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
@@ -65,21 +71,17 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 
 	// Static lists start in 'ready' state since they don't require rule configuration.
 	// Dynamic lists start in 'draft' state to allow rule setup before activation.
-	state := "ready"
+	state := store.ListStateReady
 	if body.Type == oapi.CreateListTypeDynamic {
-		state = "draft"
+		state = store.ListStateDraft
 	}
 
-	usersCount := 0
-
 	listID, err := srv.store.CreateList(ctx, store.List{
-		ProjectID:  projectID,
-		Name:       body.Name,
-		Type:       string(body.Type),
-		State:      state,
-		Rule:       store.JSONB[store.RuleData]{Data: rule},
-		UsersCount: &usersCount,
-		Version:    0,
+		ProjectID: projectID,
+		Name:      body.Name,
+		Type:      store.ListType(body.Type),
+		State:     store.ListState(state),
+		Rule:      store.JSONB[store.RuleData]{Data: rule},
 	})
 	if err != nil {
 		logger.Error("failed to create list", zap.Error(err))
@@ -268,4 +270,109 @@ func (srv *ListsController) DuplicateList(w http.ResponseWriter, r *http.Request
 	}
 
 	pkgjson.Write(w, http.StatusCreated, duplicated.OAPI())
+}
+
+func (srv *ListsController) ImportListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
+	ctx := r.Context()
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
+	logger.Info("importing users to list")
+
+	list, err := srv.store.GetList(ctx, projectID, listID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Error("list not found", zap.Stringer("list_id", listID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get list", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if list.Type != store.ListTypeStatic {
+		logger.Error("list is not static", zap.String("type", string(list.Type)))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("only static lists support user imports")))
+		return
+	}
+
+	if err := r.ParseMultipartForm(srv.maxUploadSize); err != nil {
+		logger.Error("failed to parse multipart form", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("file too large or invalid form data")))
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		logger.Error("failed to get file from form", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("no file provided")))
+		return
+	}
+	defer file.Close()
+
+	logger = logger.With(zap.String("filename", header.Filename), zap.Int64("size", header.Size))
+
+	err = srv.processUserImport(ctx, logger, projectID, listID, file)
+	if err != nil {
+		logger.Error("failed to import users", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("users imported successfully")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.Logger, projectID uuid.UUID, listID uuid.UUID, file io.Reader) error {
+	reader := csv.NewReader(file)
+	headers, err := reader.Read()
+	if err != nil {
+		return problem.ErrBadRequest(problem.Describe("invalid CSV format"))
+	}
+
+	transformer := importer.NewUsers(headers)
+
+	imported := 0
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		return err
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+	stores := store.NewStores(tx)
+
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			logger.Warn("failed to read CSV row", zap.Error(err))
+			return err
+		}
+
+		user, err := transformer.MapRecord(record)
+		if err != nil {
+			logger.Warn("failed to map CSV row to user", zap.Error(err))
+			return err
+		}
+
+		id, err := stores.UpsertUser(ctx, projectID, user)
+		if err != nil {
+			logger.Warn("failed to upsert user", zap.Error(err))
+			return err
+		}
+
+		err = srv.store.AddUserToList(ctx, listID, id)
+		if err != nil {
+			logger.Warn("failed to add user to list", zap.Stringer("user_id", id), zap.Error(err))
+			return err
+		}
+
+		imported++
+	}
+
+	logger.Info("import completed", zap.Int("users_added", imported))
+	return tx.Commit()
 }
