@@ -112,14 +112,15 @@ func (s *JourneysStore) GetJourney(ctx context.Context, projectID, journeyID uui
 
 func (s *JourneysStore) CreateJourney(ctx context.Context, journey Journey) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO journeys (project_id, name, status)
-	VALUES ($1, $2, $3)
+	INSERT INTO journeys (project_id, name, description, status)
+	VALUES ($1, $2, $3, $4)
 	RETURNING id`
 
 	var id uuid.UUID
 	err := s.db.GetContext(ctx, &id, stmt,
 		journey.ProjectID,
 		journey.Name,
+		journey.Description,
 		journey.Status,
 	)
 	if err != nil {
@@ -127,6 +128,76 @@ func (s *JourneysStore) CreateJourney(ctx context.Context, journey Journey) (uui
 	}
 
 	return id, nil
+}
+
+func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, pagination Pagination) (Journeys, int, error) {
+	query := `
+	SELECT 
+		id, 
+		project_id, 
+		name, 
+		description, 
+		status, 
+		created_at, 
+		updated_at,
+		COUNT(*) OVER () AS total_count
+	FROM journeys
+	WHERE project_id = $1 AND deleted_at IS NULL
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`
+
+	type journeyWithCount struct {
+		Journey
+		TotalCount int `db:"total_count"`
+	}
+
+	var results []journeyWithCount
+	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(results) == 0 {
+		return []Journey{}, 0, nil
+	}
+
+	total := results[0].TotalCount
+
+	journeys := make([]Journey, len(results))
+	for i, r := range results {
+		journeys[i] = r.Journey
+	}
+
+	return journeys, total, nil
+}
+
+type JourneyUpdate struct {
+	Name        *string
+	Description *string
+	Status      *string
+}
+
+func (s *JourneysStore) UpdateJourney(ctx context.Context, projectID, journeyID uuid.UUID, update JourneyUpdate) error {
+	stmt := `
+	UPDATE journeys
+	SET
+		name = COALESCE($1, name),
+		description = COALESCE($2, description),
+		status = COALESCE($3, status)
+	WHERE id = $4 AND project_id = $5 AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, stmt, update.Name, update.Description, update.Status, journeyID, projectID)
+	return err
+}
+
+func (s *JourneysStore) DeleteJourney(ctx context.Context, projectID, journeyID uuid.UUID) error {
+	stmt := `
+	UPDATE journeys
+	SET deleted_at = CURRENT_TIMESTAMP
+	WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, stmt, journeyID, projectID)
+	return err
 }
 
 func (s *JourneysStore) CreateUserJourneyStep(ctx context.Context, userID, journeyID uuid.UUID, stepType string) (uuid.UUID, error) {
