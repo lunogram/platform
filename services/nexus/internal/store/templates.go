@@ -34,7 +34,7 @@ func (template Template) OAPI() oapi.Template {
 	return oapi.Template{
 		Id:         template.ID,
 		CampaignId: template.CampaignID,
-		Type:       oapi.TemplateType(template.Type),
+		Type:       oapi.Channel(template.Type),
 		Data:       template.Data,
 		Locale:     template.Locale,
 		ProjectId:  template.ProjectID,

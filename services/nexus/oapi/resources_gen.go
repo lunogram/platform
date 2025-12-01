@@ -23,20 +23,6 @@ const (
 	HttpBearerAuthScopes = "HttpBearerAuth.Scopes"
 )
 
-// Defines values for AdminRole.
-const (
-	AdminRoleAdmin  AdminRole = "admin"
-	AdminRoleMember AdminRole = "member"
-	AdminRoleOwner  AdminRole = "owner"
-)
-
-// Defines values for CampaignChannel.
-const (
-	CampaignChannelEmail CampaignChannel = "email"
-	CampaignChannelPush  CampaignChannel = "push"
-	CampaignChannelSms   CampaignChannel = "sms"
-)
-
 // Defines values for CampaignUserStatus.
 const (
 	Aborted   CampaignUserStatus = "aborted"
@@ -47,18 +33,11 @@ const (
 	Throttled CampaignUserStatus = "throttled"
 )
 
-// Defines values for CreateAdminRole.
+// Defines values for Channel.
 const (
-	CreateAdminRoleAdmin  CreateAdminRole = "admin"
-	CreateAdminRoleMember CreateAdminRole = "member"
-	CreateAdminRoleOwner  CreateAdminRole = "owner"
-)
-
-// Defines values for CreateCampaignChannel.
-const (
-	CreateCampaignChannelEmail CreateCampaignChannel = "email"
-	CreateCampaignChannelPush  CreateCampaignChannel = "push"
-	CreateCampaignChannelSms   CreateCampaignChannel = "sms"
+	Email Channel = "email"
+	Push  Channel = "push"
+	Text  Channel = "text"
 )
 
 // Defines values for CreateJourneyStatus.
@@ -87,19 +66,19 @@ const (
 	ListTypeStatic  ListType = "static"
 )
 
-// Defines values for ProjectAdminRole.
+// Defines values for OrganizationRole.
 const (
-	ProjectAdminRoleAdmin     ProjectAdminRole = "admin"
-	ProjectAdminRoleEditor    ProjectAdminRole = "editor"
-	ProjectAdminRolePublisher ProjectAdminRole = "publisher"
-	ProjectAdminRoleSupport   ProjectAdminRole = "support"
+	OrganizationRoleAdmin  OrganizationRole = "admin"
+	OrganizationRoleMember OrganizationRole = "member"
+	OrganizationRoleOwner  OrganizationRole = "owner"
 )
 
-// Defines values for ProviderGroup.
+// Defines values for ProjectRole.
 const (
-	ProviderGroupEmail ProviderGroup = "email"
-	ProviderGroupPush  ProviderGroup = "push"
-	ProviderGroupSms   ProviderGroup = "sms"
+	ProjectRoleAdmin     ProjectRole = "admin"
+	ProjectRoleEditor    ProjectRole = "editor"
+	ProjectRolePublisher ProjectRole = "publisher"
+	ProjectRoleSupport   ProjectRole = "support"
 )
 
 // Defines values for ProviderRateInterval.
@@ -110,18 +89,10 @@ const (
 	Second ProviderRateInterval = "second"
 )
 
-// Defines values for TemplateType.
+// Defines values for SubscriptionState.
 const (
-	TemplateTypeEmail TemplateType = "email"
-	TemplateTypePush  TemplateType = "push"
-	TemplateTypeSms   TemplateType = "sms"
-)
-
-// Defines values for UpdateAdminRole.
-const (
-	UpdateAdminRoleAdmin  UpdateAdminRole = "admin"
-	UpdateAdminRoleMember UpdateAdminRole = "member"
-	UpdateAdminRoleOwner  UpdateAdminRole = "owner"
+	Subscribed   SubscriptionState = "subscribed"
+	Unsubscribed SubscriptionState = "unsubscribed"
 )
 
 // Defines values for UpdateJourneyStatus.
@@ -129,33 +100,6 @@ const (
 	Draft UpdateJourneyStatus = "draft"
 	Live  UpdateJourneyStatus = "live"
 	Off   UpdateJourneyStatus = "off"
-)
-
-// Defines values for UpdateProjectAdminRole.
-const (
-	UpdateProjectAdminRoleAdmin     UpdateProjectAdminRole = "admin"
-	UpdateProjectAdminRoleEditor    UpdateProjectAdminRole = "editor"
-	UpdateProjectAdminRolePublisher UpdateProjectAdminRole = "publisher"
-	UpdateProjectAdminRoleSupport   UpdateProjectAdminRole = "support"
-)
-
-// Defines values for UpdateUserSubscriptionsState.
-const (
-	UpdateUserSubscriptionsStateSubscribed   UpdateUserSubscriptionsState = "subscribed"
-	UpdateUserSubscriptionsStateUnsubscribed UpdateUserSubscriptionsState = "unsubscribed"
-)
-
-// Defines values for UserSubscriptionChannel.
-const (
-	Email UserSubscriptionChannel = "email"
-	Push  UserSubscriptionChannel = "push"
-	Sms   UserSubscriptionChannel = "sms"
-)
-
-// Defines values for UserSubscriptionState.
-const (
-	UserSubscriptionStateSubscribed   UserSubscriptionState = "subscribed"
-	UserSubscriptionStateUnsubscribed UserSubscriptionState = "unsubscribed"
 )
 
 // Admin defines model for Admin.
@@ -168,12 +112,11 @@ type Admin struct {
 	ImageUrl       *string            `json:"image_url,omitempty"`
 	LastName       *string            `json:"last_name,omitempty"`
 	OrganizationId openapi_types.UUID `json:"organization_id"`
-	Role           AdminRole          `json:"role"`
-	UpdatedAt      time.Time          `json:"updated_at"`
-}
 
-// AdminRole defines model for Admin.Role.
-type AdminRole string
+	// Role Role within an organization
+	Role      OrganizationRole `json:"role"`
+	UpdatedAt time.Time        `json:"updated_at"`
+}
 
 // AdminList defines model for AdminList.
 type AdminList struct {
@@ -190,7 +133,8 @@ type AdminList struct {
 
 // Campaign defines model for Campaign.
 type Campaign struct {
-	Channel        CampaignChannel     `json:"channel"`
+	// Channel Communication channel type
+	Channel        Channel             `json:"channel"`
 	CreatedAt      time.Time           `json:"created_at"`
 	Delivery       Delivery            `json:"delivery"`
 	Id             openapi_types.UUID  `json:"id"`
@@ -201,9 +145,6 @@ type Campaign struct {
 	Templates      []Template          `json:"templates"`
 	UpdatedAt      time.Time           `json:"updated_at"`
 }
-
-// CampaignChannel defines model for Campaign.Channel.
-type CampaignChannel string
 
 // CampaignUser defines model for CampaignUser.
 type CampaignUser struct {
@@ -219,27 +160,27 @@ type CampaignUser struct {
 // CampaignUserStatus defines model for CampaignUser.Status.
 type CampaignUserStatus string
 
+// Channel Communication channel type
+type Channel string
+
 // CreateAdmin defines model for CreateAdmin.
 type CreateAdmin struct {
-	Email     string          `json:"email"`
-	FirstName *string         `json:"first_name,omitempty"`
-	LastName  *string         `json:"last_name,omitempty"`
-	Role      CreateAdminRole `json:"role"`
-}
+	Email     string  `json:"email"`
+	FirstName *string `json:"first_name,omitempty"`
+	LastName  *string `json:"last_name,omitempty"`
 
-// CreateAdminRole defines model for CreateAdmin.Role.
-type CreateAdminRole string
+	// Role Role within an organization
+	Role OrganizationRole `json:"role"`
+}
 
 // CreateCampaign defines model for CreateCampaign.
 type CreateCampaign struct {
-	Channel        CreateCampaignChannel `json:"channel"`
-	Name           string                `json:"name"`
-	ProviderId     *openapi_types.UUID   `json:"provider_id,omitempty"`
-	SubscriptionId *openapi_types.UUID   `json:"subscription_id,omitempty"`
+	// Channel Communication channel type
+	Channel        Channel             `json:"channel"`
+	Name           string              `json:"name"`
+	ProviderId     *openapi_types.UUID `json:"provider_id,omitempty"`
+	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
 }
-
-// CreateCampaignChannel defines model for CreateCampaign.Channel.
-type CreateCampaignChannel string
 
 // CreateJourney defines model for CreateJourney.
 type CreateJourney struct {
@@ -406,6 +347,9 @@ type Organization struct {
 	UpdatedAt                 time.Time           `json:"updated_at"`
 }
 
+// OrganizationRole Role within an organization
+type OrganizationRole string
+
 // PaginatedResponse defines model for PaginatedResponse.
 type PaginatedResponse struct {
 	// Limit Maximum number of items returned
@@ -455,12 +399,11 @@ type ProjectAdmin struct {
 	Id        openapi_types.UUID `json:"id"`
 	LastName  *string            `json:"last_name,omitempty"`
 	ProjectId openapi_types.UUID `json:"project_id"`
-	Role      ProjectAdminRole   `json:"role"`
-	UpdatedAt time.Time          `json:"updated_at"`
-}
 
-// ProjectAdminRole defines model for ProjectAdmin.Role.
-type ProjectAdminRole string
+	// Role Role within a project
+	Role      ProjectRole `json:"role"`
+	UpdatedAt time.Time   `json:"updated_at"`
+}
 
 // ProjectAdminList defines model for ProjectAdminList.
 type ProjectAdminList struct {
@@ -488,11 +431,16 @@ type ProjectList struct {
 	Total int `json:"total"`
 }
 
+// ProjectRole Role within a project
+type ProjectRole string
+
 // Provider defines model for Provider.
 type Provider struct {
-	CreatedAt    time.Time             `json:"created_at"`
-	Data         *json.RawMessage      `json:"data,omitempty"`
-	Group        ProviderGroup         `json:"group"`
+	CreatedAt time.Time        `json:"created_at"`
+	Data      *json.RawMessage `json:"data,omitempty"`
+
+	// Group Communication channel type
+	Group        Channel               `json:"group"`
 	Id           openapi_types.UUID    `json:"id"`
 	IsDefault    bool                  `json:"is_default"`
 	Name         string                `json:"name"`
@@ -502,9 +450,6 @@ type Provider struct {
 	Type         string                `json:"type"`
 	UpdatedAt    time.Time             `json:"updated_at"`
 }
-
-// ProviderGroup defines model for Provider.Group.
-type ProviderGroup string
 
 // ProviderRateInterval defines model for Provider.RateInterval.
 type ProviderRateInterval string
@@ -533,6 +478,9 @@ type SmsTemplateData struct {
 	Body *string `json:"body,omitempty"`
 }
 
+// SubscriptionState User subscription state
+type SubscriptionState string
+
 // Tag defines model for Tag.
 type Tag struct {
 	CreatedAt time.Time          `json:"created_at"`
@@ -550,23 +498,21 @@ type Template struct {
 	Id         openapi_types.UUID `json:"id"`
 	Locale     string             `json:"locale"`
 	ProjectId  openapi_types.UUID `json:"project_id"`
-	Type       TemplateType       `json:"type"`
-	UpdatedAt  time.Time          `json:"updated_at"`
-}
 
-// TemplateType defines model for Template.Type.
-type TemplateType string
+	// Type Communication channel type
+	Type      Channel   `json:"type"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
 
 // UpdateAdmin defines model for UpdateAdmin.
 type UpdateAdmin struct {
-	Email     *string          `json:"email,omitempty"`
-	FirstName *string          `json:"first_name,omitempty"`
-	LastName  *string          `json:"last_name,omitempty"`
-	Role      *UpdateAdminRole `json:"role,omitempty"`
-}
+	Email     *string `json:"email,omitempty"`
+	FirstName *string `json:"first_name,omitempty"`
+	LastName  *string `json:"last_name,omitempty"`
 
-// UpdateAdminRole defines model for UpdateAdmin.Role.
-type UpdateAdminRole string
+	// Role Role within an organization
+	Role *OrganizationRole `json:"role,omitempty"`
+}
 
 // UpdateCampaign defines model for UpdateCampaign.
 type UpdateCampaign struct {
@@ -612,11 +558,9 @@ type UpdateProject struct {
 
 // UpdateProjectAdmin defines model for UpdateProjectAdmin.
 type UpdateProjectAdmin struct {
-	Role UpdateProjectAdminRole `json:"role"`
+	// Role Role within a project
+	Role ProjectRole `json:"role"`
 }
-
-// UpdateProjectAdminRole defines model for UpdateProjectAdmin.Role.
-type UpdateProjectAdminRole string
 
 // UpdateTag defines model for UpdateTag.
 type UpdateTag struct {
@@ -642,12 +586,10 @@ type UpdateUser struct {
 
 // UpdateUserSubscriptions defines model for UpdateUserSubscriptions.
 type UpdateUserSubscriptions = []struct {
-	State          UpdateUserSubscriptionsState `json:"state"`
-	SubscriptionId openapi_types.UUID           `json:"subscription_id"`
+	// State User subscription state
+	State          SubscriptionState  `json:"state"`
+	SubscriptionId openapi_types.UUID `json:"subscription_id"`
 }
-
-// UpdateUserSubscriptionsState defines model for UpdateUserSubscriptions.State.
-type UpdateUserSubscriptionsState string
 
 // User defines model for User.
 type User struct {
@@ -728,17 +670,14 @@ type UserList struct {
 
 // UserSubscription defines model for UserSubscription.
 type UserSubscription struct {
-	Channel        UserSubscriptionChannel `json:"channel"`
-	Name           string                  `json:"name"`
-	State          UserSubscriptionState   `json:"state"`
-	SubscriptionId openapi_types.UUID      `json:"subscription_id"`
+	// Channel Communication channel type
+	Channel Channel `json:"channel"`
+	Name    string  `json:"name"`
+
+	// State User subscription state
+	State          SubscriptionState  `json:"state"`
+	SubscriptionId openapi_types.UUID `json:"subscription_id"`
 }
-
-// UserSubscriptionChannel defines model for UserSubscription.Channel.
-type UserSubscriptionChannel string
-
-// UserSubscriptionState defines model for UserSubscription.State.
-type UserSubscriptionState string
 
 // UserSubscriptionList defines model for UserSubscriptionList.
 type UserSubscriptionList struct {

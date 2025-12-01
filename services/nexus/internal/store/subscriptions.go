@@ -41,8 +41,8 @@ func (us *UserSubscription) OAPI() oapi.UserSubscription {
 	return oapi.UserSubscription{
 		SubscriptionId: us.SubscriptionID,
 		Name:           us.Name,
-		Channel:        oapi.UserSubscriptionChannel(us.Channel),
-		State:          oapi.UserSubscriptionState(us.State),
+		Channel:        oapi.Channel(us.Channel),
+		State:          oapi.SubscriptionState(us.State),
 	}
 }
 

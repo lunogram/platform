@@ -45,7 +45,7 @@ func TestCampaignCreation(t *testing.T) {
 	tests := map[string]test{
 		"simple": {
 			body: oapi.CreateCampaignJSONRequestBody{
-				Channel: oapi.CreateCampaignChannelEmail,
+				Channel: oapi.Email,
 				Name:    "Welcome to the program!",
 			},
 		},

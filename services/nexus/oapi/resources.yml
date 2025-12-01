@@ -1930,6 +1930,30 @@ components:
                       $ref: '#/components/schemas/List'
 
   schemas:
+    Channel:
+      type: string
+      enum: [email, text, push]
+      description: Communication channel type
+      example: email
+
+    OrganizationRole:
+      type: string
+      enum: [owner, admin, member]
+      description: Role within an organization
+      example: member
+
+    ProjectRole:
+      type: string
+      enum: [support, editor, publisher, admin]
+      description: Role within a project
+      example: admin
+
+    SubscriptionState:
+      type: string
+      enum: [subscribed, unsubscribed]
+      description: User subscription state
+      example: subscribed
+
     Problem:
       type: object
       required:
@@ -2146,9 +2170,7 @@ components:
           type: string
           example: "Welcome Campaign"
         channel:
-          type: string
-          enum: [email, sms, push]
-          example: "email"
+          $ref: '#/components/schemas/Channel'
         provider_id:
           type: string
           format: uuid
@@ -2225,9 +2247,7 @@ components:
           type: string
           example: "Welcome to the program!"
         channel:
-          type: string
-          enum: [email, sms, push]
-          example: "email"
+          $ref: '#/components/schemas/Channel'
         subscription_id:
           type: string
           format: uuid
@@ -2428,9 +2448,7 @@ components:
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
         group:
-          type: string
-          enum: [email, sms, push]
-          example: "email"
+          $ref: '#/components/schemas/Channel'
         data:
           oneOf:
             - $ref: '#/components/schemas/EmailProviderData'
@@ -2490,9 +2508,7 @@ components:
           format: uuid
           example: "52f3f921-1343-48af-b795-87c0fd3b44aa"
         type:
-          type: string
-          enum: [email, sms, push]
-          example: "email"
+          $ref: '#/components/schemas/Channel'
         data:
           oneOf:
             - $ref: '#/components/schemas/EmailTemplateData'
@@ -2610,9 +2626,7 @@ components:
           type: string
           example: "https://example.com/avatar.jpg"
         role:
-          type: string
-          enum: [owner, admin, member]
-          example: "member"
+          $ref: '#/components/schemas/OrganizationRole'
         created_at:
           type: string
           format: date-time
@@ -2634,9 +2648,7 @@ components:
           example: "newadmin@example.com"
           x-go-type: string
         role:
-          type: string
-          enum: [owner, admin, member]
-          example: "member"
+          $ref: '#/components/schemas/OrganizationRole'
         first_name:
           type: string
           example: "Jane"
@@ -2653,9 +2665,7 @@ components:
           example: "updated@example.com"
           x-go-type: string
         role:
-          type: string
-          enum: [owner, admin, member]
-          example: "admin"
+          $ref: '#/components/schemas/OrganizationRole'
         first_name:
           type: string
           example: "Jane"
@@ -2902,9 +2912,7 @@ components:
           type: string
           example: "Marketing Newsletter"
         channel:
-          type: string
-          enum: [email, sms, push]
-          example: "email"
+          $ref: '#/components/schemas/Channel'
         is_public:
           type: boolean
           example: true
@@ -2933,13 +2941,9 @@ components:
           type: string
           example: "Marketing Newsletter"
         channel:
-          type: string
-          enum: [email, sms, push]
-          example: "email"
+          $ref: '#/components/schemas/Channel'
         state:
-          type: string
-          enum: [subscribed, unsubscribed]
-          example: "subscribed"
+          $ref: '#/components/schemas/SubscriptionState'
 
     UserSubscriptionList:
       allOf:
@@ -2967,9 +2971,7 @@ components:
             format: uuid
             example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
           state:
-            type: string
-            enum: [subscribed, unsubscribed]
-            example: "unsubscribed"
+            $ref: '#/components/schemas/SubscriptionState'
 
     Journey:
       type: object
@@ -3199,9 +3201,7 @@ components:
           format: uuid
           example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
         role:
-          type: string
-          enum: [support, editor, publisher, admin]
-          example: "admin"
+          $ref: '#/components/schemas/ProjectRole'
         email:
           type: string
           format: email
@@ -3228,9 +3228,7 @@ components:
         - role
       properties:
         role:
-          type: string
-          enum: [support, editor, publisher, admin]
-          example: "admin"
+          $ref: '#/components/schemas/ProjectRole'
 
     ProjectAdminList:
       allOf:

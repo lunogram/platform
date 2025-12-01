@@ -463,13 +463,13 @@ func TestUpdateProjectAdmin(t *testing.T) {
 	tests := map[string]test{
 		"update to admin": {
 			body: oapi.UpdateProjectAdminJSONRequestBody{
-				Role: oapi.UpdateProjectAdminRoleAdmin,
+				Role: oapi.ProjectRoleAdmin,
 			},
 			code: 200,
 		},
 		"update to editor": {
 			body: oapi.UpdateProjectAdminJSONRequestBody{
-				Role: oapi.UpdateProjectAdminRoleEditor,
+				Role: oapi.ProjectRoleEditor,
 			},
 			code: 200,
 		},

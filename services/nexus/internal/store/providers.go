@@ -37,7 +37,7 @@ func (provider Provider) OAPI() oapi.Provider {
 	result := oapi.Provider{
 		Id:        provider.ID,
 		Data:      &provider.Data,
-		Group:     oapi.ProviderGroup(provider.Group),
+		Group:     oapi.Channel(provider.Group),
 		IsDefault: provider.IsDefault,
 		Name:      provider.Name,
 		ProjectId: provider.ProjectID,

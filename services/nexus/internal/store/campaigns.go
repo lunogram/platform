@@ -38,7 +38,7 @@ func (campaign Campaign) OAPI() oapi.Campaign {
 		Id:             campaign.ID,
 		ProjectId:      campaign.ProjectID,
 		Name:           campaign.Name,
-		Channel:        oapi.CampaignChannel(campaign.Channel),
+		Channel:        oapi.Channel(campaign.Channel),
 		SubscriptionId: campaign.SubscriptionID,
 		Delivery:       campaign.Delivery.Data.OAPI(),
 		Templates:      campaign.Templates.OAPI(),

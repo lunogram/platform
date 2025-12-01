@@ -42,7 +42,7 @@ func (admin *Admin) OAPI() oapi.Admin {
 		FirstName:      admin.FirstName,
 		LastName:       admin.LastName,
 		ImageUrl:       admin.ImageURL,
-		Role:           oapi.AdminRole(admin.Role),
+		Role:           oapi.OrganizationRole(admin.Role),
 		CreatedAt:      admin.CreatedAt,
 		UpdatedAt:      admin.UpdatedAt,
 	}
@@ -231,7 +231,7 @@ func (pa *ProjectAdmin) OAPI() oapi.ProjectAdmin {
 		Id:        pa.ID,
 		ProjectId: pa.ProjectID,
 		AdminId:   pa.AdminID,
-		Role:      oapi.ProjectAdminRole(pa.Role),
+		Role:      oapi.ProjectRole(pa.Role),
 		CreatedAt: pa.CreatedAt,
 		UpdatedAt: pa.UpdatedAt,
 	}
