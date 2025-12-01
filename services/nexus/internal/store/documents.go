@@ -56,36 +56,32 @@ type DocumentsStore struct {
 
 type CreateDocumentParams struct {
 	Name        string
+	Key         string
 	Filename    string
 	ContentType string
 	SizeBytes   int64
 }
 
-func (s *DocumentsStore) CreateDocument(ctx context.Context, projectID uuid.UUID, params CreateDocumentParams) (uuid.UUID, error) {
+func (s *DocumentsStore) CreateDocument(ctx context.Context, projectID uuid.UUID, id uuid.UUID, params CreateDocumentParams) error {
 	stmt := `
-	INSERT INTO documents (project_id, name, filename, content_type, size_bytes)
-	VALUES ($1, $2, $3, $4, $5)
-	RETURNING id`
+	INSERT INTO documents (id, project_id, name, key, filename, content_type, size_bytes)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
-	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt,
+	_, err := s.db.ExecContext(ctx, stmt,
+		id,
 		projectID,
 		params.Name,
+		params.Key,
 		params.Filename,
 		params.ContentType,
 		params.SizeBytes,
 	)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return id, nil
+	return err
 }
 
 func (s *DocumentsStore) ListDocuments(ctx context.Context, projectID uuid.UUID, pagination Pagination) (Documents, int, error) {
 	query := `
-	SELECT id, project_id, name, filename, key, content_type, size_bytes, 
-		created_at, updated_at,
+	SELECT id, project_id, name, filename, key, content_type, size_bytes, created_at, updated_at,
 		COUNT(*) OVER () AS total_count
 	FROM documents
 	WHERE project_id = $1
@@ -117,8 +113,7 @@ func (s *DocumentsStore) ListDocuments(ctx context.Context, projectID uuid.UUID,
 
 func (s *DocumentsStore) GetDocument(ctx context.Context, projectID, documentID uuid.UUID) (*Document, error) {
 	query := `
-	SELECT id, project_id, name, filename, key, content_type, size_bytes,
-		created_at, updated_at
+	SELECT id, project_id, name, filename, key, content_type, size_bytes, created_at, updated_at
 	FROM documents
 	WHERE project_id = $1
 	AND id = $2
@@ -131,16 +126,6 @@ func (s *DocumentsStore) GetDocument(ctx context.Context, projectID, documentID 
 	}
 
 	return &document, nil
-}
-
-func (s *DocumentsStore) UpdateDocumentKey(ctx context.Context, documentID uuid.UUID, key string) error {
-	stmt := `
-	UPDATE documents
-	SET key = $1, updated_at = NOW()
-	WHERE id = $2`
-
-	_, err := s.db.ExecContext(ctx, stmt, key, documentID)
-	return err
 }
 
 func (s *DocumentsStore) DeleteDocument(ctx context.Context, projectID, documentID uuid.UUID) error {

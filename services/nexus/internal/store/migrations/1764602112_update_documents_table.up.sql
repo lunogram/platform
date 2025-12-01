@@ -16,4 +16,4 @@ DROP INDEX IF EXISTS images_storage_type_idx;
 ALTER TABLE documents ADD COLUMN key VARCHAR(255) DEFAULT '';
 
 -- Create index on key for faster lookups
-CREATE INDEX documents_key_idx ON documents(key) WHERE key != '';
+CREATE INDEX documents_key_idx ON documents(key);
