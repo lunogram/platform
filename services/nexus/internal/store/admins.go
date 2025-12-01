@@ -10,7 +10,6 @@ import (
 	"github.com/lunogram/platform/pkg/claim"
 	"github.com/lunogram/platform/pkg/http/problem"
 	"github.com/lunogram/platform/services/nexus/oapi"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 func NewAdminsStore(db DB) *AdminsStore {
