@@ -467,3 +467,157 @@ func (srv *AdminsController) hasPermission(currentRole, targetRole string) bool 
 
 	return currentIndex >= targetIndex
 }
+
+// Project Admin methods
+
+func (srv *AdminsController) ListProjectAdmins(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListProjectAdminsParams) {
+	ctx := r.Context()
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+	)
+
+	pagination := store.Pagination{
+		Limit:  20,
+		Offset: 0,
+	}
+
+	if params.Limit != nil {
+		pagination.Limit = params.Limit.ToInt()
+	}
+	if params.Offset != nil {
+		pagination.Offset = params.Offset.ToInt()
+	}
+
+	search := params.Search.ToString()
+
+	logger.Info("listing project admins", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
+
+	projectAdmins, total, err := srv.store.ListProjectAdmins(ctx, projectID, pagination, search)
+	if err != nil {
+		logger.Error("failed to list project admins", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("project admins listed", zap.Int("total", total), zap.Int("count", len(projectAdmins)))
+
+	response := oapi.ProjectAdminList{
+		Results: store.ProjectAdmins(projectAdmins).OAPI(),
+		Total:   total,
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+	}
+
+	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *AdminsController) GetProjectAdmin(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, adminID uuid.UUID) {
+	ctx := r.Context()
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("admin_id", adminID.String()),
+	)
+
+	logger.Info("getting project admin")
+
+	projectAdmin, err := srv.store.GetProjectAdmin(ctx, projectID, adminID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Error("project admin not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project admin not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get project admin", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("project admin retrieved")
+	json.Write(w, http.StatusOK, projectAdmin.OAPI())
+}
+
+func (srv *AdminsController) UpdateProjectAdmin(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, adminID uuid.UUID) {
+	ctx := r.Context()
+
+	var body oapi.UpdateProjectAdmin
+	if err := json.Decode(r.Body, &body); err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("admin_id", adminID.String()),
+		zap.String("role", string(body.Role)),
+	)
+
+	logger.Info("updating project admin role")
+
+	_, err := srv.store.GetProjectAdmin(ctx, projectID, adminID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Error("project admin not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project admin not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get project admin", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	err = srv.store.UpdateProjectAdminRole(ctx, projectID, adminID, string(body.Role))
+	if err != nil {
+		logger.Error("failed to update project admin role", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	updatedProjectAdmin, err := srv.store.GetProjectAdmin(ctx, projectID, adminID)
+	if err != nil {
+		logger.Error("failed to get updated project admin", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("project admin role updated")
+	json.Write(w, http.StatusOK, updatedProjectAdmin.OAPI())
+}
+
+func (srv *AdminsController) DeleteProjectAdmin(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, adminID uuid.UUID) {
+	ctx := r.Context()
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("admin_id", adminID.String()),
+	)
+
+	logger.Info("deleting project admin")
+
+	_, err := srv.store.GetProjectAdmin(ctx, projectID, adminID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Error("project admin not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project admin not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get project admin", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	err = srv.store.DeleteProjectAdmin(ctx, projectID, adminID)
+	if err != nil {
+		logger.Error("failed to delete project admin", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("project admin deleted")
+	w.WriteHeader(http.StatusNoContent)
+}

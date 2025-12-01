@@ -1155,6 +1155,138 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/projects/{projectID}/admins:
+    get:
+      summary: List project admins
+      description: Retrieves a list of admins for a project with optional filtering
+      operationId: listProjectAdmins
+      tags:
+        - Project Admins
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Project admins retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectAdminList'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/admins/{adminID}:
+    get:
+      summary: Get project admin
+      description: Retrieves a specific project admin by ID
+      operationId: getProjectAdmin
+      tags:
+        - Project Admins
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: adminID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The admin ID
+      responses:
+        '200':
+          description: Project admin retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectAdmin'
+        default:
+          $ref: '#/components/responses/Error'
+
+    patch:
+      summary: Update project admin role
+      description: Updates the role of an admin in a project
+      operationId: updateProjectAdmin
+      tags:
+        - Project Admins
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: adminID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The admin ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectAdmin'
+      responses:
+        '200':
+          description: Project admin updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectAdmin'
+        default:
+          $ref: '#/components/responses/Error'
+
+    delete:
+      summary: Remove admin from project
+      description: Removes an admin from a project (soft delete)
+      operationId: deleteProjectAdmin
+      tags:
+        - Project Admins
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: adminID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The admin ID
+      responses:
+        '204':
+          description: Admin removed from project successfully
+        default:
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     Limit:
@@ -2162,6 +2294,74 @@ components:
           type: string
           example: "English"
           description: Human-readable locale label
+
+    ProjectAdmin:
+      type: object
+      required:
+        - id
+        - project_id
+        - admin_id
+        - role
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        admin_id:
+          type: string
+          format: uuid
+          example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
+        role:
+          type: string
+          enum: [support, editor, publisher, admin]
+          example: "admin"
+        email:
+          type: string
+          format: email
+          x-go-type: string
+          example: "admin@example.com"
+        first_name:
+          type: string
+          example: "John"
+        last_name:
+          type: string
+          example: "Doe"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    UpdateProjectAdmin:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          enum: [support, editor, publisher, admin]
+          example: "admin"
+
+    ProjectAdminList:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          required:
+            - results
+          properties:
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProjectAdmin'
 
   securitySchemes:
     HttpBearerAuth:
