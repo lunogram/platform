@@ -23,14 +23,6 @@ const (
 	HttpBearerAuthScopes = "HttpBearerAuth.Scopes"
 )
 
-// Defines values for AddProjectAdminRole.
-const (
-	AddProjectAdminRoleAdmin     AddProjectAdminRole = "admin"
-	AddProjectAdminRoleEditor    AddProjectAdminRole = "editor"
-	AddProjectAdminRolePublisher AddProjectAdminRole = "publisher"
-	AddProjectAdminRoleSupport   AddProjectAdminRole = "support"
-)
-
 // Defines values for AdminRole.
 const (
 	AdminRoleAdmin  AdminRole = "admin"
@@ -132,15 +124,6 @@ const (
 	UserSubscriptionStateSubscribed   UserSubscriptionState = "subscribed"
 	UserSubscriptionStateUnsubscribed UserSubscriptionState = "unsubscribed"
 )
-
-// AddProjectAdmin defines model for AddProjectAdmin.
-type AddProjectAdmin struct {
-	Email string              `json:"email"`
-	Role  AddProjectAdminRole `json:"role"`
-}
-
-// AddProjectAdminRole defines model for AddProjectAdmin.Role.
-type AddProjectAdminRole string
 
 // Admin defines model for Admin.
 type Admin struct {
@@ -748,9 +731,6 @@ type CreateAdminJSONRequestBody = CreateAdmin
 // UpdateAdminJSONRequestBody defines body for UpdateAdmin for application/json ContentType.
 type UpdateAdminJSONRequestBody = UpdateAdmin
 
-// AddProjectAdminJSONRequestBody defines body for AddProjectAdmin for application/json ContentType.
-type AddProjectAdminJSONRequestBody = AddProjectAdmin
-
 // UpdateProjectAdminJSONRequestBody defines body for UpdateProjectAdmin for application/json ContentType.
 type UpdateProjectAdminJSONRequestBody = UpdateProjectAdmin
 
@@ -1062,11 +1042,6 @@ type ClientInterface interface {
 	// ListProjectAdmins request
 	ListProjectAdmins(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AddProjectAdminWithBody request with any body
-	AddProjectAdminWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	AddProjectAdmin(ctx context.Context, projectID openapi_types.UUID, body AddProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// DeleteProjectAdmin request
 	DeleteProjectAdmin(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1281,30 +1256,6 @@ func (c *Client) GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) 
 
 func (c *Client) ListProjectAdmins(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProjectAdminsRequest(c.Server, projectID, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) AddProjectAdminWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAddProjectAdminRequestWithBody(c.Server, projectID, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) AddProjectAdmin(ctx context.Context, projectID openapi_types.UUID, body AddProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAddProjectAdminRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2166,53 +2117,6 @@ func NewListProjectAdminsRequest(server string, projectID openapi_types.UUID, pa
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewAddProjectAdminRequest calls the generic AddProjectAdmin builder with application/json body
-func NewAddProjectAdminRequest(server string, projectID openapi_types.UUID, body AddProjectAdminJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewAddProjectAdminRequestWithBody(server, projectID, "application/json", bodyReader)
-}
-
-// NewAddProjectAdminRequestWithBody generates requests for AddProjectAdmin with any type of body
-func NewAddProjectAdminRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/admins", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -4000,11 +3904,6 @@ type ClientWithResponsesInterface interface {
 	// ListProjectAdminsWithResponse request
 	ListProjectAdminsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*ListProjectAdminsResponse, error)
 
-	// AddProjectAdminWithBodyWithResponse request with any body
-	AddProjectAdminWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddProjectAdminResponse, error)
-
-	AddProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, body AddProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*AddProjectAdminResponse, error)
-
 	// DeleteProjectAdminWithResponse request
 	DeleteProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProjectAdminResponse, error)
 
@@ -4275,29 +4174,6 @@ func (r ListProjectAdminsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListProjectAdminsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type AddProjectAdminResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *ProjectAdmin
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r AddProjectAdminResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r AddProjectAdminResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5114,23 +4990,6 @@ func (c *ClientWithResponses) ListProjectAdminsWithResponse(ctx context.Context,
 	return ParseListProjectAdminsResponse(rsp)
 }
 
-// AddProjectAdminWithBodyWithResponse request with arbitrary body returning *AddProjectAdminResponse
-func (c *ClientWithResponses) AddProjectAdminWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddProjectAdminResponse, error) {
-	rsp, err := c.AddProjectAdminWithBody(ctx, projectID, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseAddProjectAdminResponse(rsp)
-}
-
-func (c *ClientWithResponses) AddProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, body AddProjectAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*AddProjectAdminResponse, error) {
-	rsp, err := c.AddProjectAdmin(ctx, projectID, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseAddProjectAdminResponse(rsp)
-}
-
 // DeleteProjectAdminWithResponse request returning *DeleteProjectAdminResponse
 func (c *ClientWithResponses) DeleteProjectAdminWithResponse(ctx context.Context, projectID openapi_types.UUID, adminID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProjectAdminResponse, error) {
 	rsp, err := c.DeleteProjectAdmin(ctx, projectID, adminID, reqEditors...)
@@ -5709,39 +5568,6 @@ func ParseListProjectAdminsResponse(rsp *http.Response) (*ListProjectAdminsRespo
 			return nil, err
 		}
 		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseAddProjectAdminResponse parses an HTTP response from a AddProjectAdminWithResponse call
-func ParseAddProjectAdminResponse(rsp *http.Response) (*AddProjectAdminResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &AddProjectAdminResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest ProjectAdmin
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
@@ -6789,9 +6615,6 @@ type ServerInterface interface {
 	// List project admins
 	// (GET /api/admin/projects/{projectID}/admins)
 	ListProjectAdmins(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListProjectAdminsParams)
-	// Add admin to project
-	// (POST /api/admin/projects/{projectID}/admins)
-	AddProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// Remove admin from project
 	// (DELETE /api/admin/projects/{projectID}/admins/{adminID})
 	DeleteProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, adminID openapi_types.UUID)
@@ -6930,12 +6753,6 @@ func (_ Unimplemented) GetProfile(w http.ResponseWriter, r *http.Request) {
 // List project admins
 // (GET /api/admin/projects/{projectID}/admins)
 func (_ Unimplemented) ListProjectAdmins(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListProjectAdminsParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Add admin to project
-// (POST /api/admin/projects/{projectID}/admins)
-func (_ Unimplemented) AddProjectAdmin(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -7365,37 +7182,6 @@ func (siw *ServerInterfaceWrapper) ListProjectAdmins(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListProjectAdmins(w, r, projectID, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// AddProjectAdmin operation middleware
-func (siw *ServerInterfaceWrapper) AddProjectAdmin(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AddProjectAdmin(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8901,9 +8687,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/admins", wrapper.ListProjectAdmins)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/admins", wrapper.AddProjectAdmin)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/admins/{adminID}", wrapper.DeleteProjectAdmin)
