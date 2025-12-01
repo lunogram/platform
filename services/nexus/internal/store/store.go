@@ -43,6 +43,7 @@ type DB interface {
 
 func NewStores(db DB) *Stores {
 	return &Stores{
+		AdminsStore:    NewAdminsStore(db),
 		ProjectsStore:  NewProjectsStore(db),
 		CampaignsStore: NewCampaignsStore(db),
 		ProvidersStore: NewProvidersStore(db),
@@ -51,6 +52,7 @@ func NewStores(db DB) *Stores {
 }
 
 type Stores struct {
+	*AdminsStore
 	*ProjectsStore
 	*CampaignsStore
 	*ProvidersStore
