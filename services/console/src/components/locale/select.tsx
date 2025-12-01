@@ -56,12 +56,12 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
         const fetchFilteredLocales = async () => {
             setIsLoading(true);
 
-            const result = await api.locales.search(project.id, {
+            const { results } = await api.locales.search(project.id, {
                 q: searchQuery,
-                limit: 100 // Higher limit for search results
+                limit: 5
             });
 
-            setLocales(result.results);
+            setLocales(results);
             setIsLoading(false);
         };
 

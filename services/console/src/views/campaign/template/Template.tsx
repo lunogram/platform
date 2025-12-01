@@ -158,7 +158,7 @@ export default function Template() {
 
             setPageLoading(true)
 
-            const allLocalesResult = await api.locales.search(project.id, { limit: 100 })
+            const allLocalesResult = await api.locales.search(project.id, { limit: 5 })
             if (currentTemplate) {
                 const selectedLocale = await api.locales.getByKey(project.id, currentTemplate.locale)
                 setLocaleSelection({

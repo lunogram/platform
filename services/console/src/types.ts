@@ -635,7 +635,6 @@ export interface Tag {
 export interface LocaleOption {
     key: string
     label: string
-    shortLabel?: string
 }
 
 export interface Locale extends LocaleOption {

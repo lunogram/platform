@@ -1615,12 +1615,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - data
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Locale'
+                $ref: '#/components/schemas/Locale'
         default:
           $ref: '#/components/responses/Error'
 
@@ -1653,12 +1648,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - data
-                properties:
-                  data:
-                    $ref: '#/components/schemas/Locale'
+                $ref: '#/components/schemas/Locale'
         default:
           $ref: '#/components/responses/Error'
 

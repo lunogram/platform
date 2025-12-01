@@ -6468,10 +6468,8 @@ func (r ListLocalesResponse) StatusCode() int {
 type CreateLocaleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *struct {
-		Data Locale `json:"data"`
-	}
-	JSONDefault *Error
+	JSON201      *Locale
+	JSONDefault  *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -6515,10 +6513,8 @@ func (r DeleteLocaleResponse) StatusCode() int {
 type GetLocaleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		Data Locale `json:"data"`
-	}
-	JSONDefault *Error
+	JSON200      *Locale
+	JSONDefault  *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -8842,9 +8838,7 @@ func ParseCreateLocaleResponse(rsp *http.Response) (*CreateLocaleResponse, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest struct {
-			Data Locale `json:"data"`
-		}
+		var dest Locale
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -8903,9 +8897,7 @@ func ParseGetLocaleResponse(rsp *http.Response) (*GetLocaleResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Data Locale `json:"data"`
-		}
+		var dest Locale
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
