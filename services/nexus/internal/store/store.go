@@ -56,6 +56,7 @@ func NewStores(db DB) *Stores {
 		TagsStore:          NewTagsStore(db),
 		LocalesStore:       NewLocalesStore(db),
 		ListsStore:         NewListsStore(db),
+		DocumentsStore:     NewDocumentsStore(db),
 	}
 }
 
@@ -73,6 +74,7 @@ type Stores struct {
 	*TagsStore
 	*LocalesStore
 	*ListsStore
+	*DocumentsStore
 }
 
 type Pagination struct {

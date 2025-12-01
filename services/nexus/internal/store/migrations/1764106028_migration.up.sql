@@ -119,12 +119,15 @@ CREATE TABLE "images" (
     "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
     "project_id" uuid NOT NULL,
     "name" varchar(255) DEFAULT ''::character varying,
-    "original_name" varchar(255),
-    "extension" varchar(255),
-    "alt" varchar(255),
-    "file_size" int4,
+    "original_filename" varchar(255) NOT NULL,
+    "content_type" varchar(100) NOT NULL,
+    "size_bytes" int8 NOT NULL,
+    "storage_type" varchar(50) NOT NULL DEFAULT 'local',
+    "storage_path" text NOT NULL,
+    "storage_url" text,
     "created_at" timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" timestamptz,
     PRIMARY KEY ("id")
 );
 
@@ -536,7 +539,9 @@ ALTER TABLE "images" ADD FOREIGN KEY ("project_id") REFERENCES "projects"("id") 
 
 -- Indices
 CREATE INDEX images_project_id_idx ON public.images USING btree (project_id);
-CREATE UNIQUE INDEX images_project_uuid_uniq ON public.images USING btree (project_id, id);
+CREATE INDEX images_deleted_at_idx ON public.images USING btree (deleted_at) WHERE (deleted_at IS NULL);
+CREATE INDEX images_storage_type_idx ON public.images USING btree (storage_type);
+CREATE INDEX images_created_at_idx ON public.images USING btree (created_at);
 ALTER TABLE "journey_steps" ADD FOREIGN KEY ("child_id") REFERENCES "journey_steps"("id") ON DELETE SET NULL;
 ALTER TABLE "journey_steps" ADD FOREIGN KEY ("journey_id") REFERENCES "journeys"("id") ON DELETE CASCADE;
 

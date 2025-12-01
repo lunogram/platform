@@ -10,6 +10,7 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/http"
+	"github.com/lunogram/platform/services/nexus/internal/storage"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
 )
@@ -56,9 +57,16 @@ func run() error {
 		return err
 	}
 
+	logger.Info("initializing storage")
+
+	storageBackend, err := storage.New(conf.Storage)
+	if err != nil {
+		return err
+	}
+
 	logger.Info("starting http server")
 
-	srv, err := http.NewServer(ctx, logger, conf, db)
+	srv, err := http.NewServer(ctx, logger, conf, db, storageBackend)
 	if err != nil {
 		return err
 	}

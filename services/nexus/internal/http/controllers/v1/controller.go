@@ -2,10 +2,12 @@ package v1
 
 import (
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/services/nexus/internal/config"
+	"github.com/lunogram/platform/services/nexus/internal/storage"
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, db *sqlx.DB) *Controller {
+func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Service, storage storage.Storage) *Controller {
 	return &Controller{
 		ProjectsController:      NewProjectsController(logger, db),
 		CampaignsController:     NewCampaignsController(logger, db),
@@ -17,6 +19,7 @@ func NewController(logger *zap.Logger, db *sqlx.DB) *Controller {
 		JourneysController:      NewJourneysController(logger, db),
 		OrganizationsController: NewOrganizationsController(logger, db),
 		ListsController:         NewListsController(logger, db),
+		DocumentsController:     NewDocumentsController(logger, db, storage, cfg.Storage.MaxUploadSize),
 	}
 }
 
@@ -31,4 +34,5 @@ type Controller struct {
 	*JourneysController
 	*OrganizationsController
 	*ListsController
+	*DocumentsController
 }
