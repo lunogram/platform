@@ -103,7 +103,7 @@ func (s *OrganizationsStore) DeleteOrganization(ctx context.Context, id uuid.UUI
 	return err
 }
 
-func (s *OrganizationsStore) GetOrganizationIntegrations(ctx context.Context, orgID uuid.UUID) ([]Provider, error) {
+func (s *OrganizationsStore) GetOrganizationIntegrations(ctx context.Context, orgID uuid.UUID) (Providers, error) {
 	stmt := `
 	SELECT p.id, p.project_id, p.type, p.group, p.data, p.is_default, 
 		   p.rate_limit, p.rate_interval, p.name, p.created_at, p.updated_at

@@ -145,11 +145,6 @@ func (srv *OrganizationsController) GetOrganizationIntegrations(w http.ResponseW
 		return
 	}
 
-	results := make([]oapi.Provider, len(providers))
-	for i, p := range providers {
-		results[i] = *p.OAPI()
-	}
-
-	logger.Info("organization integrations retrieved", zap.Int("count", len(results)))
-	json.Write(w, http.StatusOK, results)
+	logger.Info("organization integrations retrieved", zap.Int("count", len(providers)))
+	json.Write(w, http.StatusOK, providers.OAPI())
 }

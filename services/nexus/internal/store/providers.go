@@ -9,6 +9,16 @@ import (
 	"github.com/lunogram/platform/services/nexus/oapi"
 )
 
+type Providers []Provider
+
+func (p Providers) OAPI() []oapi.Provider {
+	result := make([]oapi.Provider, len(p))
+	for i, provider := range p {
+		result[i] = provider.OAPI()
+	}
+	return result
+}
+
 type Provider struct {
 	ID           uuid.UUID       `db:"id"`
 	ProjectID    uuid.UUID       `db:"project_id"`
@@ -23,11 +33,7 @@ type Provider struct {
 	UpdatedAt    time.Time       `db:"updated_at"`
 }
 
-func (provider *Provider) OAPI() *oapi.Provider {
-	if provider == nil {
-		return nil
-	}
-
+func (provider Provider) OAPI() oapi.Provider {
 	result := oapi.Provider{
 		Id:        provider.ID,
 		Data:      &provider.Data,
@@ -49,7 +55,7 @@ func (provider *Provider) OAPI() *oapi.Provider {
 		result.RateInterval = &interval
 	}
 
-	return &result
+	return result
 }
 
 func NewProvidersStore(db DB) *ProvidersStore {
