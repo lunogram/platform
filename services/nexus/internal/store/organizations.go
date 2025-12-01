@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,31 +9,23 @@ import (
 )
 
 type Organization struct {
-	ID                        uuid.UUID      `db:"id"`
-	Name                      string         `db:"name"`
-	NotificationProviderID    *uuid.UUID     `db:"notification_provider_id"`
-	TrackingDeeplinkMirrorURL sql.NullString `db:"tracking_deeplink_mirror_url"`
-	CreatedAt                 time.Time      `db:"created_at"`
-	UpdatedAt                 time.Time      `db:"updated_at"`
+	ID                        uuid.UUID  `db:"id"`
+	Name                      string     `db:"name"`
+	NotificationProviderID    *uuid.UUID `db:"notification_provider_id"`
+	TrackingDeeplinkMirrorURL *string    `db:"tracking_deeplink_mirror_url"`
+	CreatedAt                 time.Time  `db:"created_at"`
+	UpdatedAt                 time.Time  `db:"updated_at"`
 }
 
 func (o *Organization) OAPI() oapi.Organization {
-	org := oapi.Organization{
-		Id:        o.ID,
-		Name:      o.Name,
-		CreatedAt: o.CreatedAt,
-		UpdatedAt: o.UpdatedAt,
+	return oapi.Organization{
+		Id:                        o.ID,
+		Name:                      o.Name,
+		TrackingDeeplinkMirrorUrl: o.TrackingDeeplinkMirrorURL,
+		NotificationProviderId:    o.NotificationProviderID,
+		CreatedAt:                 o.CreatedAt,
+		UpdatedAt:                 o.UpdatedAt,
 	}
-
-	if o.TrackingDeeplinkMirrorURL.Valid {
-		org.TrackingDeeplinkMirrorUrl = &o.TrackingDeeplinkMirrorURL.String
-	}
-
-	if o.NotificationProviderID != nil {
-		org.NotificationProviderId = o.NotificationProviderID
-	}
-
-	return org
 }
 
 type OrganizationUpdate struct {
@@ -95,7 +86,7 @@ func (s *OrganizationsStore) UpdateOrganization(ctx context.Context, id uuid.UUI
 func (s *OrganizationsStore) DeleteOrganization(ctx context.Context, id uuid.UUID) error {
 	stmt := `
 	UPDATE organizations
-	SET deleted_at = CURRENT_TIMESTAMP
+	SET deleted_at = NOW()
 	WHERE id = $1
 	AND deleted_at IS NULL`
 
