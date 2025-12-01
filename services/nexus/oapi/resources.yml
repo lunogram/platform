@@ -853,6 +853,166 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/projects/{projectID}/tags:
+    get:
+      summary: List tags
+      description: Retrieves a list of tags with optional search filtering
+      operationId: listTags
+      tags:
+        - Tags
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          $ref: '#/components/responses/TagListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+    post:
+      summary: Create tag
+      description: Creates a new tag
+      operationId: createTag
+      tags:
+        - Tags
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTag'
+      responses:
+        '201':
+          description: Tag created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/tags/{tagID}:
+    get:
+      summary: Get tag by ID
+      description: Retrieves a specific tag
+      operationId: getTag
+      tags:
+        - Tags
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: tagID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The tag ID
+      responses:
+        '200':
+          description: Tag retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+        default:
+          $ref: '#/components/responses/Error'
+
+    patch:
+      summary: Update tag
+      description: Updates a specific tag
+      operationId: updateTag
+      tags:
+        - Tags
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: tagID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The tag ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTag'
+      responses:
+        '200':
+          description: Tag updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+        default:
+          $ref: '#/components/responses/Error'
+
+    delete:
+      summary: Delete tag
+      description: Deletes a specific tag
+      operationId: deleteTag
+      tags:
+        - Tags
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: tagID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The tag ID
+      responses:
+        '204':
+          description: Tag deleted successfully
+        default:
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     Limit:
@@ -910,6 +1070,22 @@ components:
                     type: array
                     items:
                       $ref: '#/components/schemas/Campaign'
+
+    TagListResponse:
+      description: Tags retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/PaginatedResponse'
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tag'
 
   schemas:
     Problem:
@@ -1748,6 +1924,53 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/UserJourneyEntrance'
+
+    Tag:
+      type: object
+      required:
+        - id
+        - project_id
+        - name
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        name:
+          type: string
+          example: "important"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    CreateTag:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "important"
+
+    UpdateTag:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "updated-tag-name"
 
   securitySchemes:
     HttpBearerAuth:

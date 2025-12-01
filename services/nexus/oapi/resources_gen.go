@@ -192,6 +192,11 @@ type CreateCampaign struct {
 // CreateCampaignChannel defines model for CreateCampaign.Channel.
 type CreateCampaignChannel string
 
+// CreateTag defines model for CreateTag.
+type CreateTag struct {
+	Name string `json:"name"`
+}
+
 // CreateTemplate defines model for CreateTemplate.
 type CreateTemplate struct {
 	// Data Template-specific data based on type. Structure varies by template type.
@@ -328,6 +333,15 @@ type SmsTemplateData struct {
 	Body *string `json:"body,omitempty"`
 }
 
+// Tag defines model for Tag.
+type Tag struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	UpdatedAt time.Time          `json:"updated_at"`
+}
+
 // Template defines model for Template.
 type Template struct {
 	CampaignId openapi_types.UUID `json:"campaign_id"`
@@ -358,6 +372,11 @@ type UpdateAdminRole string
 type UpdateCampaign struct {
 	Name       *string             `json:"name,omitempty"`
 	ProviderId *openapi_types.UUID `json:"provider_id,omitempty"`
+}
+
+// UpdateTag defines model for UpdateTag.
+type UpdateTag struct {
+	Name string `json:"name"`
 }
 
 // UpdateTemplate defines model for UpdateTemplate.
@@ -515,6 +534,19 @@ type CampaignListResponse struct {
 // Error defines model for Error.
 type Error = Problem
 
+// TagListResponse defines model for TagListResponse.
+type TagListResponse struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int   `json:"offset"`
+	Results []Tag `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // ListAdminsParams defines parameters for ListAdmins.
 type ListAdminsParams struct {
 	// Limit Maximum number of items to return
@@ -543,6 +575,18 @@ type GetCampaignUsersParams struct {
 
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListTagsParams defines parameters for ListTags.
+type ListTagsParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // ListUsersParams defines parameters for ListUsers.
@@ -601,6 +645,12 @@ type CreateTemplateJSONRequestBody = CreateTemplate
 
 // UpdateTemplateJSONRequestBody defines body for UpdateTemplate for application/json ContentType.
 type UpdateTemplateJSONRequestBody = UpdateTemplate
+
+// CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
+type CreateTagJSONRequestBody = CreateTag
+
+// UpdateTagJSONRequestBody defines body for UpdateTag for application/json ContentType.
+type UpdateTagJSONRequestBody = UpdateTag
 
 // IdentifyUserJSONRequestBody defines body for IdentifyUser for application/json ContentType.
 type IdentifyUserJSONRequestBody = IdentifyUser
@@ -924,6 +974,25 @@ type ClientInterface interface {
 	// GetCampaignUsers request
 	GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListTags request
+	ListTags(ctx context.Context, projectID openapi_types.UUID, params *ListTagsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTagWithBody request with any body
+	CreateTagWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateTag(ctx context.Context, projectID openapi_types.UUID, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteTag request
+	DeleteTag(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTag request
+	GetTag(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateTagWithBody request with any body
+	UpdateTagWithBody(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateTag(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, body UpdateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListUsers request
 	ListUsers(ctx context.Context, projectID openapi_types.UUID, params *ListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1212,6 +1281,90 @@ func (c *Client) UpdateTemplate(ctx context.Context, projectID openapi_types.UUI
 
 func (c *Client) GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCampaignUsersRequest(c.Server, projectID, campaignID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListTags(ctx context.Context, projectID openapi_types.UUID, params *ListTagsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTagsRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateTagWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTagRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateTag(ctx context.Context, projectID openapi_types.UUID, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTagRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteTag(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteTagRequest(c.Server, projectID, tagID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetTag(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTagRequest(c.Server, projectID, tagID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateTagWithBody(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateTagRequestWithBody(c.Server, projectID, tagID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateTag(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, body UpdateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateTagRequest(c.Server, projectID, tagID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2174,6 +2327,277 @@ func NewGetCampaignUsersRequest(server string, projectID openapi_types.UUID, cam
 	return req, nil
 }
 
+// NewListTagsRequest generates requests for ListTags
+func NewListTagsRequest(server string, projectID openapi_types.UUID, params *ListTagsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/tags", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateTagRequest calls the generic CreateTag builder with application/json body
+func NewCreateTagRequest(server string, projectID openapi_types.UUID, body CreateTagJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTagRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateTagRequestWithBody generates requests for CreateTag with any type of body
+func NewCreateTagRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/tags", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteTagRequest generates requests for DeleteTag
+func NewDeleteTagRequest(server string, projectID openapi_types.UUID, tagID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tagID", runtime.ParamLocationPath, tagID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/tags/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetTagRequest generates requests for GetTag
+func NewGetTagRequest(server string, projectID openapi_types.UUID, tagID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tagID", runtime.ParamLocationPath, tagID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/tags/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateTagRequest calls the generic UpdateTag builder with application/json body
+func NewUpdateTagRequest(server string, projectID openapi_types.UUID, tagID openapi_types.UUID, body UpdateTagJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateTagRequestWithBody(server, projectID, tagID, "application/json", bodyReader)
+}
+
+// NewUpdateTagRequestWithBody generates requests for UpdateTag with any type of body
+func NewUpdateTagRequestWithBody(server string, projectID openapi_types.UUID, tagID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "tagID", runtime.ParamLocationPath, tagID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/tags/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListUsersRequest generates requests for ListUsers
 func NewListUsersRequest(server string, projectID openapi_types.UUID, params *ListUsersParams) (*http.Request, error) {
 	var err error
@@ -2839,6 +3263,25 @@ type ClientWithResponsesInterface interface {
 	// GetCampaignUsersWithResponse request
 	GetCampaignUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*GetCampaignUsersResponse, error)
 
+	// ListTagsWithResponse request
+	ListTagsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListTagsParams, reqEditors ...RequestEditorFn) (*ListTagsResponse, error)
+
+	// CreateTagWithBodyWithResponse request with any body
+	CreateTagWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTagResponse, error)
+
+	CreateTagWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTagResponse, error)
+
+	// DeleteTagWithResponse request
+	DeleteTagWithResponse(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteTagResponse, error)
+
+	// GetTagWithResponse request
+	GetTagWithResponse(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetTagResponse, error)
+
+	// UpdateTagWithBodyWithResponse request with any body
+	UpdateTagWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateTagResponse, error)
+
+	UpdateTagWithResponse(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, body UpdateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTagResponse, error)
+
 	// ListUsersWithResponse request
 	ListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListUsersParams, reqEditors ...RequestEditorFn) (*ListUsersResponse, error)
 
@@ -3248,6 +3691,120 @@ func (r GetCampaignUsersResponse) StatusCode() int {
 	return 0
 }
 
+type ListTagsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *TagListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListTagsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListTagsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateTagResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Tag
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateTagResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateTagResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteTagResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteTagResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteTagResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetTagResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Tag
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTagResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTagResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateTagResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Tag
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateTagResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateTagResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListUsersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3644,6 +4201,67 @@ func (c *ClientWithResponses) GetCampaignUsersWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetCampaignUsersResponse(rsp)
+}
+
+// ListTagsWithResponse request returning *ListTagsResponse
+func (c *ClientWithResponses) ListTagsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListTagsParams, reqEditors ...RequestEditorFn) (*ListTagsResponse, error) {
+	rsp, err := c.ListTags(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListTagsResponse(rsp)
+}
+
+// CreateTagWithBodyWithResponse request with arbitrary body returning *CreateTagResponse
+func (c *ClientWithResponses) CreateTagWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTagResponse, error) {
+	rsp, err := c.CreateTagWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTagResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateTagWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTagResponse, error) {
+	rsp, err := c.CreateTag(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTagResponse(rsp)
+}
+
+// DeleteTagWithResponse request returning *DeleteTagResponse
+func (c *ClientWithResponses) DeleteTagWithResponse(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteTagResponse, error) {
+	rsp, err := c.DeleteTag(ctx, projectID, tagID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteTagResponse(rsp)
+}
+
+// GetTagWithResponse request returning *GetTagResponse
+func (c *ClientWithResponses) GetTagWithResponse(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetTagResponse, error) {
+	rsp, err := c.GetTag(ctx, projectID, tagID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTagResponse(rsp)
+}
+
+// UpdateTagWithBodyWithResponse request with arbitrary body returning *UpdateTagResponse
+func (c *ClientWithResponses) UpdateTagWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateTagResponse, error) {
+	rsp, err := c.UpdateTagWithBody(ctx, projectID, tagID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateTagResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateTagWithResponse(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, body UpdateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTagResponse, error) {
+	rsp, err := c.UpdateTag(ctx, projectID, tagID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateTagResponse(rsp)
 }
 
 // ListUsersWithResponse request returning *ListUsersResponse
@@ -4274,6 +4892,164 @@ func ParseGetCampaignUsersResponse(rsp *http.Response) (*GetCampaignUsersRespons
 	return response, nil
 }
 
+// ParseListTagsResponse parses an HTTP response from a ListTagsWithResponse call
+func ParseListTagsResponse(rsp *http.Response) (*ListTagsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListTagsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TagListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateTagResponse parses an HTTP response from a CreateTagWithResponse call
+func ParseCreateTagResponse(rsp *http.Response) (*CreateTagResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateTagResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Tag
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteTagResponse parses an HTTP response from a DeleteTagWithResponse call
+func ParseDeleteTagResponse(rsp *http.Response) (*DeleteTagResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteTagResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetTagResponse parses an HTTP response from a GetTagWithResponse call
+func ParseGetTagResponse(rsp *http.Response) (*GetTagResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTagResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Tag
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateTagResponse parses an HTTP response from a UpdateTagWithResponse call
+func ParseUpdateTagResponse(rsp *http.Response) (*UpdateTagResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateTagResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Tag
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListUsersResponse parses an HTTP response from a ListUsersWithResponse call
 func ParseListUsersResponse(rsp *http.Response) (*ListUsersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -4614,6 +5390,21 @@ type ServerInterface interface {
 	// Get campaign users
 	// (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 	GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams)
+	// List tags
+	// (GET /api/admin/projects/{projectID}/tags)
+	ListTags(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListTagsParams)
+	// Create tag
+	// (POST /api/admin/projects/{projectID}/tags)
+	CreateTag(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete tag
+	// (DELETE /api/admin/projects/{projectID}/tags/{tagID})
+	DeleteTag(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tagID openapi_types.UUID)
+	// Get tag by ID
+	// (GET /api/admin/projects/{projectID}/tags/{tagID})
+	GetTag(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tagID openapi_types.UUID)
+	// Update tag
+	// (PATCH /api/admin/projects/{projectID}/tags/{tagID})
+	UpdateTag(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tagID openapi_types.UUID)
 	// List users
 	// (GET /api/admin/projects/{projectID}/users)
 	ListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListUsersParams)
@@ -4740,6 +5531,36 @@ func (_ Unimplemented) UpdateTemplate(w http.ResponseWriter, r *http.Request, pr
 // Get campaign users
 // (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 func (_ Unimplemented) GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List tags
+// (GET /api/admin/projects/{projectID}/tags)
+func (_ Unimplemented) ListTags(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListTagsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create tag
+// (POST /api/admin/projects/{projectID}/tags)
+func (_ Unimplemented) CreateTag(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete tag
+// (DELETE /api/admin/projects/{projectID}/tags/{tagID})
+func (_ Unimplemented) DeleteTag(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tagID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get tag by ID
+// (GET /api/admin/projects/{projectID}/tags/{tagID})
+func (_ Unimplemented) GetTag(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tagID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update tag
+// (PATCH /api/admin/projects/{projectID}/tags/{tagID})
+func (_ Unimplemented) UpdateTag(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tagID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5435,6 +6256,215 @@ func (siw *ServerInterfaceWrapper) GetCampaignUsers(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// ListTags operation middleware
+func (siw *ServerInterfaceWrapper) ListTags(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTagsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTags(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTag operation middleware
+func (siw *ServerInterfaceWrapper) CreateTag(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTag(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteTag operation middleware
+func (siw *ServerInterfaceWrapper) DeleteTag(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tagID" -------------
+	var tagID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tagID", chi.URLParam(r, "tagID"), &tagID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tagID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteTag(w, r, projectID, tagID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTag operation middleware
+func (siw *ServerInterfaceWrapper) GetTag(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tagID" -------------
+	var tagID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tagID", chi.URLParam(r, "tagID"), &tagID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tagID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTag(w, r, projectID, tagID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateTag operation middleware
+func (siw *ServerInterfaceWrapper) UpdateTag(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tagID" -------------
+	var tagID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tagID", chi.URLParam(r, "tagID"), &tagID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tagID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateTag(w, r, projectID, tagID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListUsers operation middleware
 func (siw *ServerInterfaceWrapper) ListUsers(w http.ResponseWriter, r *http.Request) {
 
@@ -6021,6 +7051,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/users", wrapper.GetCampaignUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/tags", wrapper.ListTags)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/tags", wrapper.CreateTag)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/tags/{tagID}", wrapper.DeleteTag)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/tags/{tagID}", wrapper.GetTag)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/tags/{tagID}", wrapper.UpdateTag)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/users", wrapper.ListUsers)
