@@ -68,6 +68,25 @@ const (
 	CreateJourneyStatusOff   CreateJourneyStatus = "off"
 )
 
+// Defines values for CreateListType.
+const (
+	CreateListTypeDynamic CreateListType = "dynamic"
+	CreateListTypeStatic  CreateListType = "static"
+)
+
+// Defines values for ListState.
+const (
+	ListStateDraft   ListState = "draft"
+	ListStateLoading ListState = "loading"
+	ListStateReady   ListState = "ready"
+)
+
+// Defines values for ListType.
+const (
+	ListTypeDynamic ListType = "dynamic"
+	ListTypeStatic  ListType = "static"
+)
+
 // Defines values for ProjectAdminRole.
 const (
 	ProjectAdminRoleAdmin     ProjectAdminRole = "admin"
@@ -107,9 +126,9 @@ const (
 
 // Defines values for UpdateJourneyStatus.
 const (
-	UpdateJourneyStatusDraft UpdateJourneyStatus = "draft"
-	UpdateJourneyStatusLive  UpdateJourneyStatus = "live"
-	UpdateJourneyStatusOff   UpdateJourneyStatus = "off"
+	Draft UpdateJourneyStatus = "draft"
+	Live  UpdateJourneyStatus = "live"
+	Off   UpdateJourneyStatus = "off"
 )
 
 // Defines values for UpdateProjectAdminRole.
@@ -232,6 +251,17 @@ type CreateJourney struct {
 // CreateJourneyStatus defines model for CreateJourney.Status.
 type CreateJourneyStatus string
 
+// CreateList defines model for CreateList.
+type CreateList struct {
+	Name string           `json:"name"`
+	Rule *json.RawMessage `json:"rule,omitempty"`
+	Tags *[]string        `json:"tags,omitempty"`
+	Type CreateListType   `json:"type"`
+}
+
+// CreateListType defines model for CreateList.Type.
+type CreateListType string
+
 // CreateLocale defines model for CreateLocale.
 type CreateLocale struct {
 	// Key Locale key (e.g., language code)
@@ -328,6 +358,29 @@ type Journey struct {
 	Status      string             `json:"status"`
 	UpdatedAt   time.Time          `json:"updated_at"`
 }
+
+// List defines model for List.
+type List struct {
+	CreatedAt   time.Time           `json:"created_at"`
+	Id          openapi_types.UUID  `json:"id"`
+	Name        string              `json:"name"`
+	ProjectId   openapi_types.UUID  `json:"project_id"`
+	RefreshedAt *time.Time          `json:"refreshed_at,omitempty"`
+	Rule        *json.RawMessage    `json:"rule,omitempty"`
+	RuleId      *openapi_types.UUID `json:"rule_id,omitempty"`
+	State       ListState           `json:"state"`
+	Tags        *[]string           `json:"tags,omitempty"`
+	Type        ListType            `json:"type"`
+	UpdatedAt   time.Time           `json:"updated_at"`
+	UsersCount  *int                `json:"users_count,omitempty"`
+	Version     int                 `json:"version"`
+}
+
+// ListState defines model for List.State.
+type ListState string
+
+// ListType defines model for List.Type.
+type ListType string
 
 // Locale defines model for Locale.
 type Locale struct {
@@ -531,6 +584,14 @@ type UpdateJourney struct {
 // UpdateJourneyStatus defines model for UpdateJourney.Status.
 type UpdateJourneyStatus string
 
+// UpdateList defines model for UpdateList.
+type UpdateList struct {
+	Name      string           `json:"name"`
+	Published *bool            `json:"published,omitempty"`
+	Rule      *json.RawMessage `json:"rule,omitempty"`
+	Tags      *[]string        `json:"tags,omitempty"`
+}
+
 // UpdateOrganization defines model for UpdateOrganization.
 type UpdateOrganization struct {
 	TrackingDeeplinkMirrorUrl *string `json:"tracking_deeplink_mirror_url,omitempty"`
@@ -730,6 +791,19 @@ type JourneyListResponse struct {
 	Total int `json:"total"`
 }
 
+// ListListResponse defines model for ListListResponse.
+type ListListResponse struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int    `json:"offset"`
+	Results []List `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // TagListResponse defines model for TagListResponse.
 type TagListResponse struct {
 	// Limit Maximum number of items returned
@@ -799,6 +873,15 @@ type GetCampaignUsersParams struct {
 
 // ListJourneysParams defines parameters for ListJourneys.
 type ListJourneysParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListListsParams defines parameters for ListLists.
+type ListListsParams struct {
 	// Limit Maximum number of items to return
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -901,6 +984,12 @@ type CreateJourneyJSONRequestBody = CreateJourney
 
 // UpdateJourneyJSONRequestBody defines body for UpdateJourney for application/json ContentType.
 type UpdateJourneyJSONRequestBody = UpdateJourney
+
+// CreateListJSONRequestBody defines body for CreateList for application/json ContentType.
+type CreateListJSONRequestBody = CreateList
+
+// UpdateListJSONRequestBody defines body for UpdateList for application/json ContentType.
+type UpdateListJSONRequestBody = UpdateList
 
 // CreateLocaleJSONRequestBody defines body for CreateLocale for application/json ContentType.
 type CreateLocaleJSONRequestBody = CreateLocale
@@ -1295,6 +1384,28 @@ type ClientInterface interface {
 	UpdateJourneyWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body UpdateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListLists request
+	ListLists(ctx context.Context, projectID openapi_types.UUID, params *ListListsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateListWithBody request with any body
+	CreateListWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateList(ctx context.Context, projectID openapi_types.UUID, body CreateListJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteList request
+	DeleteList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetList request
+	GetList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateListWithBody request with any body
+	UpdateListWithBody(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, body UpdateListJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DuplicateList request
+	DuplicateList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLocales request
 	ListLocales(ctx context.Context, projectID openapi_types.UUID, params *ListLocalesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1893,6 +2004,102 @@ func (c *Client) UpdateJourneyWithBody(ctx context.Context, projectID openapi_ty
 
 func (c *Client) UpdateJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body UpdateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateJourneyRequest(c.Server, projectID, journeyID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLists(ctx context.Context, projectID openapi_types.UUID, params *ListListsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListListsRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateListWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateListRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateList(ctx context.Context, projectID openapi_types.UUID, body CreateListJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateListRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteListRequest(c.Server, projectID, listID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetListRequest(c.Server, projectID, listID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateListWithBody(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateListRequestWithBody(c.Server, projectID, listID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, body UpdateListJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateListRequest(c.Server, projectID, listID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DuplicateList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDuplicateListRequest(c.Server, projectID, listID)
 	if err != nil {
 		return nil, err
 	}
@@ -3801,6 +4008,302 @@ func NewUpdateJourneyRequestWithBody(server string, projectID openapi_types.UUID
 	return req, nil
 }
 
+// NewListListsRequest generates requests for ListLists
+func NewListListsRequest(server string, projectID openapi_types.UUID, params *ListListsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateListRequest calls the generic CreateList builder with application/json body
+func NewCreateListRequest(server string, projectID openapi_types.UUID, body CreateListJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateListRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateListRequestWithBody generates requests for CreateList with any type of body
+func NewCreateListRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteListRequest generates requests for DeleteList
+func NewDeleteListRequest(server string, projectID openapi_types.UUID, listID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "listID", runtime.ParamLocationPath, listID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetListRequest generates requests for GetList
+func NewGetListRequest(server string, projectID openapi_types.UUID, listID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "listID", runtime.ParamLocationPath, listID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateListRequest calls the generic UpdateList builder with application/json body
+func NewUpdateListRequest(server string, projectID openapi_types.UUID, listID openapi_types.UUID, body UpdateListJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateListRequestWithBody(server, projectID, listID, "application/json", bodyReader)
+}
+
+// NewUpdateListRequestWithBody generates requests for UpdateList with any type of body
+func NewUpdateListRequestWithBody(server string, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "listID", runtime.ParamLocationPath, listID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDuplicateListRequest generates requests for DuplicateList
+func NewDuplicateListRequest(server string, projectID openapi_types.UUID, listID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "listID", runtime.ParamLocationPath, listID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s/duplicate", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListLocalesRequest generates requests for ListLocales
 func NewListLocalesRequest(server string, projectID openapi_types.UUID, params *ListLocalesParams) (*http.Request, error) {
 	var err error
@@ -5001,6 +5504,28 @@ type ClientWithResponsesInterface interface {
 
 	UpdateJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body UpdateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateJourneyResponse, error)
 
+	// ListListsWithResponse request
+	ListListsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListListsParams, reqEditors ...RequestEditorFn) (*ListListsResponse, error)
+
+	// CreateListWithBodyWithResponse request with any body
+	CreateListWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateListResponse, error)
+
+	CreateListWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateListJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateListResponse, error)
+
+	// DeleteListWithResponse request
+	DeleteListWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteListResponse, error)
+
+	// GetListWithResponse request
+	GetListWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetListResponse, error)
+
+	// UpdateListWithBodyWithResponse request with any body
+	UpdateListWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateListResponse, error)
+
+	UpdateListWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, body UpdateListJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateListResponse, error)
+
+	// DuplicateListWithResponse request
+	DuplicateListWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DuplicateListResponse, error)
+
 	// ListLocalesWithResponse request
 	ListLocalesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListLocalesParams, reqEditors ...RequestEditorFn) (*ListLocalesResponse, error)
 
@@ -5831,6 +6356,143 @@ func (r UpdateJourneyResponse) StatusCode() int {
 	return 0
 }
 
+type ListListsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListListsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListListsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateListResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *List
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateListResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateListResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteListResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteListResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteListResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetListResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *List
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetListResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetListResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateListResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *List
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateListResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateListResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DuplicateListResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *List
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DuplicateListResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DuplicateListResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListLocalesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6647,6 +7309,76 @@ func (c *ClientWithResponses) UpdateJourneyWithResponse(ctx context.Context, pro
 		return nil, err
 	}
 	return ParseUpdateJourneyResponse(rsp)
+}
+
+// ListListsWithResponse request returning *ListListsResponse
+func (c *ClientWithResponses) ListListsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListListsParams, reqEditors ...RequestEditorFn) (*ListListsResponse, error) {
+	rsp, err := c.ListLists(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListListsResponse(rsp)
+}
+
+// CreateListWithBodyWithResponse request with arbitrary body returning *CreateListResponse
+func (c *ClientWithResponses) CreateListWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateListResponse, error) {
+	rsp, err := c.CreateListWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateListResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateListWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateListJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateListResponse, error) {
+	rsp, err := c.CreateList(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateListResponse(rsp)
+}
+
+// DeleteListWithResponse request returning *DeleteListResponse
+func (c *ClientWithResponses) DeleteListWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteListResponse, error) {
+	rsp, err := c.DeleteList(ctx, projectID, listID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteListResponse(rsp)
+}
+
+// GetListWithResponse request returning *GetListResponse
+func (c *ClientWithResponses) GetListWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetListResponse, error) {
+	rsp, err := c.GetList(ctx, projectID, listID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetListResponse(rsp)
+}
+
+// UpdateListWithBodyWithResponse request with arbitrary body returning *UpdateListResponse
+func (c *ClientWithResponses) UpdateListWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateListResponse, error) {
+	rsp, err := c.UpdateListWithBody(ctx, projectID, listID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateListResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateListWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, body UpdateListJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateListResponse, error) {
+	rsp, err := c.UpdateList(ctx, projectID, listID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateListResponse(rsp)
+}
+
+// DuplicateListWithResponse request returning *DuplicateListResponse
+func (c *ClientWithResponses) DuplicateListWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DuplicateListResponse, error) {
+	rsp, err := c.DuplicateList(ctx, projectID, listID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDuplicateListResponse(rsp)
 }
 
 // ListLocalesWithResponse request returning *ListLocalesResponse
@@ -7922,6 +8654,197 @@ func ParseUpdateJourneyResponse(rsp *http.Response) (*UpdateJourneyResponse, err
 	return response, nil
 }
 
+// ParseListListsResponse parses an HTTP response from a ListListsWithResponse call
+func ParseListListsResponse(rsp *http.Response) (*ListListsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListListsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateListResponse parses an HTTP response from a CreateListWithResponse call
+func ParseCreateListResponse(rsp *http.Response) (*CreateListResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateListResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest List
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteListResponse parses an HTTP response from a DeleteListWithResponse call
+func ParseDeleteListResponse(rsp *http.Response) (*DeleteListResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteListResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetListResponse parses an HTTP response from a GetListWithResponse call
+func ParseGetListResponse(rsp *http.Response) (*GetListResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetListResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest List
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateListResponse parses an HTTP response from a UpdateListWithResponse call
+func ParseUpdateListResponse(rsp *http.Response) (*UpdateListResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateListResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest List
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDuplicateListResponse parses an HTTP response from a DuplicateListWithResponse call
+func ParseDuplicateListResponse(rsp *http.Response) (*DuplicateListResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DuplicateListResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest List
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListLocalesResponse parses an HTTP response from a ListLocalesWithResponse call
 func ParseListLocalesResponse(rsp *http.Response) (*ListLocalesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -8610,6 +9533,24 @@ type ServerInterface interface {
 	// Update journey
 	// (PATCH /api/admin/projects/{projectID}/journeys/{journeyID})
 	UpdateJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
+	// List lists
+	// (GET /api/admin/projects/{projectID}/lists)
+	ListLists(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListListsParams)
+	// Create list
+	// (POST /api/admin/projects/{projectID}/lists)
+	CreateList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete list
+	// (DELETE /api/admin/projects/{projectID}/lists/{listID})
+	DeleteList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID)
+	// Get list by ID
+	// (GET /api/admin/projects/{projectID}/lists/{listID})
+	GetList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID)
+	// Update list
+	// (PATCH /api/admin/projects/{projectID}/lists/{listID})
+	UpdateList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID)
+	// Duplicate list
+	// (POST /api/admin/projects/{projectID}/lists/{listID}/duplicate)
+	DuplicateList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID)
 	// List locales
 	// (GET /api/admin/projects/{projectID}/locales)
 	ListLocales(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListLocalesParams)
@@ -8865,6 +9806,42 @@ func (_ Unimplemented) GetJourney(w http.ResponseWriter, r *http.Request, projec
 // Update journey
 // (PATCH /api/admin/projects/{projectID}/journeys/{journeyID})
 func (_ Unimplemented) UpdateJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List lists
+// (GET /api/admin/projects/{projectID}/lists)
+func (_ Unimplemented) ListLists(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListListsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create list
+// (POST /api/admin/projects/{projectID}/lists)
+func (_ Unimplemented) CreateList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete list
+// (DELETE /api/admin/projects/{projectID}/lists/{listID})
+func (_ Unimplemented) DeleteList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get list by ID
+// (GET /api/admin/projects/{projectID}/lists/{listID})
+func (_ Unimplemented) GetList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update list
+// (PATCH /api/admin/projects/{projectID}/lists/{listID})
+func (_ Unimplemented) UpdateList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Duplicate list
+// (POST /api/admin/projects/{projectID}/lists/{listID}/duplicate)
+func (_ Unimplemented) DuplicateList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10204,6 +11181,247 @@ func (siw *ServerInterfaceWrapper) UpdateJourney(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// ListLists operation middleware
+func (siw *ServerInterfaceWrapper) ListLists(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListListsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListLists(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateList operation middleware
+func (siw *ServerInterfaceWrapper) CreateList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateList(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteList operation middleware
+func (siw *ServerInterfaceWrapper) DeleteList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "listID" -------------
+	var listID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listID", chi.URLParam(r, "listID"), &listID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteList(w, r, projectID, listID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetList operation middleware
+func (siw *ServerInterfaceWrapper) GetList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "listID" -------------
+	var listID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listID", chi.URLParam(r, "listID"), &listID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetList(w, r, projectID, listID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateList operation middleware
+func (siw *ServerInterfaceWrapper) UpdateList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "listID" -------------
+	var listID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listID", chi.URLParam(r, "listID"), &listID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateList(w, r, projectID, listID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DuplicateList operation middleware
+func (siw *ServerInterfaceWrapper) DuplicateList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "listID" -------------
+	var listID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listID", chi.URLParam(r, "listID"), &listID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DuplicateList(w, r, projectID, listID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListLocales operation middleware
 func (siw *ServerInterfaceWrapper) ListLocales(w http.ResponseWriter, r *http.Request) {
 
@@ -11211,6 +12429,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}", wrapper.UpdateJourney)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/lists", wrapper.ListLists)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/lists", wrapper.CreateList)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}", wrapper.DeleteList)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}", wrapper.GetList)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}", wrapper.UpdateList)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/duplicate", wrapper.DuplicateList)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/locales", wrapper.ListLocales)
