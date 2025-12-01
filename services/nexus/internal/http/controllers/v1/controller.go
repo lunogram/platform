@@ -7,6 +7,7 @@ import (
 
 func NewController(logger *zap.Logger, db *sqlx.DB) *Controller {
 	return &Controller{
+		ProjectsController:  NewProjectsController(logger, db),
 		CampaignsController: NewCampaignsController(logger, db),
 		TemplatesController: NewTemplatesController(logger, db),
 		AdminsController:    NewAdminsController(logger, db),
@@ -17,6 +18,7 @@ func NewController(logger *zap.Logger, db *sqlx.DB) *Controller {
 }
 
 type Controller struct {
+	*ProjectsController
 	*CampaignsController
 	*TemplatesController
 	*AdminsController

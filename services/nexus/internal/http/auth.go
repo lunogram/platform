@@ -2,12 +2,16 @@ package http
 
 import (
 	"context"
+	"errors"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lunogram/platform/pkg/claim"
+	"github.com/lunogram/platform/pkg/claim/rbac"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/http/auth"
+	"github.com/lunogram/platform/services/nexus/internal/store"
+	"go.uber.org/zap"
 )
 
 func HMAC(secret []byte) jwt.Keyfunc {
@@ -19,7 +23,7 @@ func HMAC(secret []byte) jwt.Keyfunc {
 // Auth is a middleware function that authenticates requests by verifying the
 // authorization header. It returns a AuthenticationFunc that checks the authorization
 // header and adds the authenticated session to the request context.
-func Auth(config config.Service) openapi3filter.AuthenticationFunc {
+func Auth(config config.Service, logger *zap.Logger, stores *store.Stores) openapi3filter.AuthenticationFunc {
 	keyFunc := config.JWKS.Unwrap()
 	if config.JWTSecret != "" {
 		keyFunc = HMAC([]byte(config.JWTSecret))
@@ -42,6 +46,19 @@ func Auth(config config.Service) openapi3filter.AuthenticationFunc {
 			}
 
 			ctx := claim.WithSession(req.Context(), session)
+
+			// Load admin from database
+			admin, err := stores.GetAdminBySubject(ctx, session)
+			if err != nil {
+				logger.Error("failed to get admin", zap.Error(err))
+				return errors.New("unauthorized")
+			}
+
+			ctx = rbac.WithAdmin(ctx, &rbac.Admin{
+				ID:             admin.ID,
+				OrganizationID: admin.OrganizationID,
+			})
+
 			*req = *req.WithContext(ctx)
 		}
 

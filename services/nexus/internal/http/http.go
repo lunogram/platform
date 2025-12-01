@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/pkg/http"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	v1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1"
+	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/lunogram/platform/services/nexus/oapi"
 	"github.com/nyaruka/phonenumbers"
 	"go.uber.org/zap"
@@ -56,8 +57,10 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Service, 
 		return nil, fmt.Errorf("failed to load OpenAPI spec: %w", err)
 	}
 
+	stores := store.NewStores(db)
+
 	options := openapi3filter.Options{
-		AuthenticationFunc: Auth(config),
+		AuthenticationFunc: Auth(config, logger, stores),
 	}
 
 	router := chi.NewRouter()

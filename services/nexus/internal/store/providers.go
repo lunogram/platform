@@ -92,3 +92,20 @@ func (s *ProvidersStore) GetDefaultProviderChannel(ctx context.Context, projectI
 
 	return &provider, nil
 }
+
+func (s *ProvidersStore) HasProvider(ctx context.Context, projectID uuid.UUID) (bool, error) {
+	query := `
+	SELECT EXISTS(
+		SELECT 1 FROM providers
+		WHERE project_id = $1
+		  AND deleted_at IS NULL
+	)`
+
+	var exists bool
+	err := s.db.GetContext(ctx, &exists, query, projectID)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}
