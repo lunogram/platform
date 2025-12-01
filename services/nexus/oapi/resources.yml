@@ -588,6 +588,49 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/projects/{projectID}/lists/{listID}/users:
+    post:
+      summary: Import users to list
+      description: Imports users from a CSV file to a static list
+      operationId: importListUsers
+      tags:
+        - Lists
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: listID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The list ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV file containing user data
+      responses:
+        '204':
+          description: Users imported successfully
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/admin/projects:
     get:
       summary: List projects

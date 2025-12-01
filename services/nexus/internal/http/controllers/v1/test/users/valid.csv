@@ -1,0 +1,4 @@
+external_id,first_name,last_name,email,phone,timezone,locale,created_at
+user-1,User,One,user1@example.com,+1234567890,UTC,en-US,2024-01-01
+user-2,User,Two,user2@example.com,+1234567891,UTC,en-US,2024-01-02
+user-3,User,Three,user3@example.com,+1234567892,UTC,en-US,2024-01-03

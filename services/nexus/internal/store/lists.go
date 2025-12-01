@@ -9,6 +9,18 @@ import (
 	"github.com/lunogram/platform/services/nexus/oapi"
 )
 
+// List types
+const (
+	ListTypeStatic  = "static"
+	ListTypeDynamic = "dynamic"
+)
+
+// List states
+const (
+	ListStateDraft = "draft"
+	ListStateReady = "ready"
+)
+
 type Lists []List
 
 func (lists Lists) OAPI() []oapi.List {
@@ -87,12 +99,12 @@ type ListsStore struct {
 
 func (s *ListsStore) CreateList(ctx context.Context, list List) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO lists (project_id, name, type, state, rule, users_count, version)
-	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	INSERT INTO lists (project_id, name, type, state, rule, version)
+	VALUES ($1, $2, $3, $4, $5, $6)
 	RETURNING id`
 
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, list.ProjectID, list.Name, list.Type, list.State, list.Rule, list.UsersCount, list.Version)
+	err := s.db.GetContext(ctx, &id, stmt, list.ProjectID, list.Name, list.Type, list.State, list.Rule, list.Version)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -100,6 +112,15 @@ func (s *ListsStore) CreateList(ctx context.Context, list List) (uuid.UUID, erro
 	return id, nil
 }
 
+func (s *ListsStore) AddUserToList(ctx context.Context, listID, userID uuid.UUID) error {
+	stmt := `
+	INSERT INTO user_list (user_id, list_id)
+	VALUES ($1, $2)
+	ON CONFLICT (user_id, list_id) DO NOTHING`
+
+	_, err := s.db.ExecContext(ctx, stmt, userID, listID)
+	return err
+}
 func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, pagination Pagination) (Lists, int, error) {
 	query := `
 	SELECT id, project_id, name, type, state, rule, rule_id, version, users_count, refreshed_at, created_at, updated_at,

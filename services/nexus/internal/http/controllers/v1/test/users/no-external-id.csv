@@ -1,0 +1,2 @@
+first_name,last_name,email,phone,timezone,locale,created_at
+User,One,user1@example.com,+1234567890,UTC,en-US,2024-01-01
