@@ -75,16 +75,13 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 		state = store.ListStateDraft
 	}
 
-	usersCount := 0
-
 	listID, err := srv.store.CreateList(ctx, store.List{
-		ProjectID:  projectID,
-		Name:       body.Name,
-		Type:       string(body.Type),
-		State:      state,
-		Rule:       store.JSONB[store.RuleData]{Data: rule},
-		UsersCount: &usersCount,
-		Version:    0,
+		ProjectID: projectID,
+		Name:      body.Name,
+		Type:      string(body.Type),
+		State:     state,
+		Rule:      store.JSONB[store.RuleData]{Data: rule},
+		Version:   0,
 	})
 	if err != nil {
 		logger.Error("failed to create list", zap.Error(err))

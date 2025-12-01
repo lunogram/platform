@@ -113,31 +113,24 @@ func TestListLists(t *testing.T) {
 
 	listsStore := store.NewListsStore(db)
 
-	usersCount := 0
 	testLists := []store.List{
 		{
-			ProjectID:  projectID,
-			Name:       "Test List 1",
-			Type:       store.ListTypeStatic,
-			State:      store.ListStateReady,
-			UsersCount: &usersCount,
-			Version:    0,
+			ProjectID: projectID,
+			Name:      "Test List 1",
+			Type:      store.ListTypeStatic,
+			State:     store.ListStateReady,
 		},
 		{
-			ProjectID:  projectID,
-			Name:       "Test List 2",
-			Type:       store.ListTypeStatic,
-			State:      store.ListStateReady,
-			UsersCount: &usersCount,
-			Version:    0,
+			ProjectID: projectID,
+			Name:      "Test List 2",
+			Type:      store.ListTypeStatic,
+			State:     store.ListStateReady,
 		},
 		{
-			ProjectID:  projectID,
-			Name:       "Test List 3",
-			Type:       store.ListTypeStatic,
-			State:      store.ListStateReady,
-			UsersCount: &usersCount,
-			Version:    0,
+			ProjectID: projectID,
+			Name:      "Test List 3",
+			Type:      store.ListTypeStatic,
+			State:     store.ListStateReady,
 		},
 	}
 
@@ -221,14 +214,11 @@ func TestGetList(t *testing.T) {
 	require.NoError(t, err)
 
 	listsStore := store.NewListsStore(db)
-	usersCount := 0
 	listID, err := listsStore.CreateList(ctx, store.List{
-		ProjectID:  projectID,
-		Name:       "Test List",
-		Type:       "static",
-		State:      "ready",
-		UsersCount: &usersCount,
-		Version:    0,
+		ProjectID: projectID,
+		Name:      "Test List",
+		Type:      "static",
+		State:     "ready",
 	})
 	require.NoError(t, err)
 
@@ -267,14 +257,11 @@ func TestUpdateList(t *testing.T) {
 	require.NoError(t, err)
 
 	listsStore := store.NewListsStore(db)
-	usersCount := 0
 	listID, err := listsStore.CreateList(ctx, store.List{
-		ProjectID:  projectID,
-		Name:       "Test List",
-		Type:       store.ListTypeDynamic,
-		State:      store.ListStateDraft,
-		UsersCount: &usersCount,
-		Version:    0,
+		ProjectID: projectID,
+		Name:      "Test List",
+		Type:      store.ListTypeDynamic,
+		State:     store.ListStateDraft,
 	})
 	require.NoError(t, err)
 
@@ -319,14 +306,11 @@ func TestDeleteList(t *testing.T) {
 	require.NoError(t, err)
 
 	listsStore := store.NewListsStore(db)
-	usersCount := 0
 	listID, err := listsStore.CreateList(ctx, store.List{
-		ProjectID:  projectID,
-		Name:       "Test List",
-		Type:       store.ListTypeStatic,
-		State:      store.ListStateReady,
-		UsersCount: &usersCount,
-		Version:    0,
+		ProjectID: projectID,
+		Name:      "Test List",
+		Type:      store.ListTypeStatic,
+		State:     store.ListStateReady,
 	})
 	require.NoError(t, err)
 
@@ -362,14 +346,11 @@ func TestDuplicateList(t *testing.T) {
 	require.NoError(t, err)
 
 	listsStore := store.NewListsStore(db)
-	usersCount := 0
 	listID, err := listsStore.CreateList(ctx, store.List{
-		ProjectID:  projectID,
-		Name:       "Original List",
-		Type:       store.ListTypeStatic,
-		State:      store.ListStateReady,
-		UsersCount: &usersCount,
-		Version:    1,
+		ProjectID: projectID,
+		Name:      "Original List",
+		Type:      store.ListTypeStatic,
+		State:     store.ListStateReady,
 	})
 	require.NoError(t, err)
 

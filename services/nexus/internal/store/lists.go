@@ -40,7 +40,7 @@ type List struct {
 	Rule        JSONB[RuleData] `db:"rule"`
 	RuleID      *uuid.UUID      `db:"rule_id"`
 	Version     int             `db:"version"`
-	UsersCount  *int            `db:"users_count"`
+	UsersCount  int             `db:"users_count"`
 	RefreshedAt *time.Time      `db:"refreshed_at"`
 	CreatedAt   time.Time       `db:"created_at"`
 	UpdatedAt   time.Time       `db:"updated_at"`
@@ -55,14 +55,15 @@ func (list List) OAPI() oapi.List {
 	}
 
 	result := oapi.List{
-		Id:        list.ID,
-		ProjectId: list.ProjectID,
-		Name:      list.Name,
-		Type:      oapi.ListType(list.Type),
-		State:     oapi.ListState(list.State),
-		Version:   list.Version,
-		CreatedAt: list.CreatedAt,
-		UpdatedAt: list.UpdatedAt,
+		Id:         list.ID,
+		ProjectId:  list.ProjectID,
+		Name:       list.Name,
+		Type:       oapi.ListType(list.Type),
+		State:      oapi.ListState(list.State),
+		UsersCount: list.UsersCount,
+		Version:    list.Version,
+		CreatedAt:  list.CreatedAt,
+		UpdatedAt:  list.UpdatedAt,
 	}
 
 	if ruleRaw != nil {
@@ -72,11 +73,6 @@ func (list List) OAPI() oapi.List {
 	if list.RuleID != nil {
 		ruleID := *list.RuleID
 		result.RuleId = &ruleID
-	}
-
-	if list.UsersCount != nil {
-		usersCount := *list.UsersCount
-		result.UsersCount = &usersCount
 	}
 
 	if list.RefreshedAt != nil {
@@ -99,12 +95,12 @@ type ListsStore struct {
 
 func (s *ListsStore) CreateList(ctx context.Context, list List) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO lists (project_id, name, type, state, rule, version)
-	VALUES ($1, $2, $3, $4, $5, $6)
+	INSERT INTO lists (project_id, name, type, state, rule)
+	VALUES ($1, $2, $3, $4, $5)
 	RETURNING id`
 
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, list.ProjectID, list.Name, list.Type, list.State, list.Rule, list.Version)
+	err := s.db.GetContext(ctx, &id, stmt, list.ProjectID, list.Name, list.Type, list.State, list.Rule)
 	if err != nil {
 		return uuid.Nil, err
 	}
