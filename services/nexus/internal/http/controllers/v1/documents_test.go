@@ -155,8 +155,10 @@ func TestListDocuments(t *testing.T) {
 	documentsStore := store.NewDocumentsStore(db)
 
 	for i := 0; i < 3; i++ {
-		_, err := documentsStore.CreateDocument(ctx, projectID, store.CreateDocumentParams{
+		documentID := uuid.New()
+		err := documentsStore.CreateDocument(ctx, projectID, documentID, store.CreateDocumentParams{
 			Name:        fmt.Sprintf("test-document-%d.jpg", i),
+			Key:         fmt.Sprintf("%s.jpg", documentID),
 			Filename:    fmt.Sprintf("test-%d.jpg", i),
 			ContentType: "image/jpeg",
 			SizeBytes:   1024,
@@ -188,6 +190,27 @@ func TestListDocuments(t *testing.T) {
 				Offset: ptr(oapi.PaginationOffset(0)),
 			},
 			expected: 2,
+		},
+		"offset-beyond-total": {
+			params: oapi.ListDocumentsParams{
+				Limit:  ptr(oapi.PaginationLimit(10)),
+				Offset: ptr(oapi.PaginationOffset(100)),
+			},
+			expected: 0,
+		},
+		"limit-exceeds-available": {
+			params: oapi.ListDocumentsParams{
+				Limit:  ptr(oapi.PaginationLimit(100)),
+				Offset: ptr(oapi.PaginationOffset(0)),
+			},
+			expected: 3,
+		},
+		"offset-at-boundary": {
+			params: oapi.ListDocumentsParams{
+				Limit:  ptr(oapi.PaginationLimit(10)),
+				Offset: ptr(oapi.PaginationOffset(2)),
+			},
+			expected: 1,
 		},
 	}
 
@@ -236,8 +259,10 @@ func TestGetDocumentMetadata(t *testing.T) {
 	require.NoError(t, err)
 
 	documentsStore := store.NewDocumentsStore(db)
-	documentID, err := documentsStore.CreateDocument(ctx, projectID, store.CreateDocumentParams{
+	documentID := uuid.New()
+	err = documentsStore.CreateDocument(ctx, projectID, documentID, store.CreateDocumentParams{
 		Name:        "test-document.jpg",
+		Key:         fmt.Sprintf("%s.jpg", documentID),
 		Filename:    "test.jpg",
 		ContentType: "image/jpeg",
 		SizeBytes:   1024,
@@ -322,17 +347,15 @@ func TestGetDocument(t *testing.T) {
 	testContent := []byte("fake document content")
 
 	documentsStore := store.NewDocumentsStore(db)
-	documentID, err := documentsStore.CreateDocument(ctx, projectID, store.CreateDocumentParams{
+	documentID := uuid.New()
+	key := fmt.Sprintf("%s.jpg", documentID)
+	err = documentsStore.CreateDocument(ctx, projectID, documentID, store.CreateDocumentParams{
 		Name:        "test-document.jpg",
+		Key:         key,
 		Filename:    "test.jpg",
 		ContentType: "image/jpeg",
 		SizeBytes:   int64(len(testContent)),
 	})
-	require.NoError(t, err)
-
-	// Set the storage key
-	key := fmt.Sprintf("%s.jpg", documentID)
-	err = documentsStore.UpdateDocumentKey(ctx, documentID, key)
 	require.NoError(t, err)
 
 	err = os.WriteFile(fmt.Sprintf("%s/%s", uploadDir, key), testContent, 0644)
@@ -405,17 +428,15 @@ func TestDeleteDocument(t *testing.T) {
 	documents := NewDocumentsController(logger, db, storageBackend, cfg.Storage.MaxUploadSize)
 
 	documentsStore := store.NewDocumentsStore(db)
-	documentID, err := documentsStore.CreateDocument(ctx, projectID, store.CreateDocumentParams{
+	documentID := uuid.New()
+	key := fmt.Sprintf("%s.jpg", documentID)
+	err = documentsStore.CreateDocument(ctx, projectID, documentID, store.CreateDocumentParams{
 		Name:        "to-delete.jpg",
+		Key:         key,
 		Filename:    "delete.jpg",
 		ContentType: "image/jpeg",
 		SizeBytes:   1024,
 	})
-	require.NoError(t, err)
-
-	// Set the storage key
-	key := fmt.Sprintf("%s.jpg", documentID)
-	err = documentsStore.UpdateDocumentKey(ctx, documentID, key)
 	require.NoError(t, err)
 
 	testFile := fmt.Sprintf("%s/%s", uploadDir, key)
