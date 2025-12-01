@@ -140,12 +140,13 @@ paths:
         default:
           $ref: '#/components/responses/Error'
     
-    delete:
-      summary: Delete campaign
-      description: Deletes a campaign and all its associated templates
-      operationId: deleteCampaign
+  /api/admin/projects/{projectID}/campaigns/{campaignID}/templates:
+    post:
+      summary: Create template
+      description: Creates a new template for a campaign
+      operationId: createTemplate
       tags:
-        - Campaigns
+        - Templates
       security:
         - HttpBearerAuth: []
       parameters:
@@ -163,9 +164,147 @@ paths:
             type: string
             format: uuid
           description: The campaign ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTemplate'
+      responses:
+        '201':
+          description: Template created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}:
+    get:
+      summary: Get template by ID
+      description: Retrieves a specific template with its content and editor data
+      operationId: getTemplate
+      tags:
+        - Templates
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID
+        - name: templateID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The template ID
+      responses:
+        '200':
+          description: Template retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Template'
+        default:
+          $ref: '#/components/responses/Error'
+
+    patch:
+      summary: Update template
+      description: Updates template properties and content
+      operationId: updateTemplate
+      tags:
+        - Templates
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID
+        - name: templateID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The template ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTemplate'
+      responses:
+        '200':
+          description: Template updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        default:
+          $ref: '#/components/responses/Error'
+
+    delete:
+      summary: Delete template
+      description: Deletes a template
+      operationId: deleteTemplate
+      tags:
+        - Templates
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID
+        - name: templateID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The template ID
       responses:
         '204':
-          description: Campaign deleted successfully
+          description: Template deleted successfully
         default:
           $ref: '#/components/responses/Error'
 
@@ -865,6 +1004,32 @@ components:
           type: string
           format: uuid
           example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
+
+    CreateTemplate:
+      type: object
+      required:
+        - locale
+      properties:
+        locale:
+          type: string
+          example: "en"
+          description: The locale/language code for the template
+        data:
+          type: object
+          nullable: true
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          description: Template-specific data based on type. Structure varies by template type.
+
+    UpdateTemplate:
+      type: object
+      properties:
+        data:
+          type: object
+          nullable: true
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          description: Template-specific data based on type. Structure varies by template type.
 
     Campaign:
       type: object
