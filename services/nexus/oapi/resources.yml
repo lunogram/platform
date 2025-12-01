@@ -1013,6 +1013,148 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/projects/{projectID}/locales:
+    get:
+      summary: List locales
+      description: Retrieves a paginated list of locales for a project
+      operationId: listLocales
+      tags:
+        - Locales
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Locales retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    required:
+                      - results
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Locale'
+        default:
+          $ref: '#/components/responses/Error'
+
+    post:
+      summary: Create locale
+      description: Creates a new locale for a project
+      operationId: createLocale
+      tags:
+        - Locales
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLocale'
+      responses:
+        '201':
+          description: Locale created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Locale'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/locales/{localeID}:
+    get:
+      summary: Get locale by ID
+      description: Retrieves a specific locale
+      operationId: getLocale
+      tags:
+        - Locales
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: localeID
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The locale ID (can be UUID or key)
+      responses:
+        '200':
+          description: Locale retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Locale'
+        default:
+          $ref: '#/components/responses/Error'
+
+    delete:
+      summary: Delete locale
+      description: Deletes a locale from a project
+      operationId: deleteLocale
+      tags:
+        - Locales
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: localeID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The locale ID
+      responses:
+        '204':
+          description: Locale deleted successfully
+        default:
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     Limit:
@@ -1971,6 +2113,55 @@ components:
         name:
           type: string
           example: "updated-tag-name"
+
+    Locale:
+      type: object
+      required:
+        - id
+        - project_id
+        - key
+        - label
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "52f3f921-1343-48af-b795-87c0fd3b44aa"
+        project_id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          example: "en"
+          description: Locale key (e.g., language code)
+        label:
+          type: string
+          example: "English"
+          description: Human-readable locale label
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    CreateLocale:
+      type: object
+      required:
+        - key
+        - label
+      properties:
+        key:
+          type: string
+          example: "en"
+          description: Locale key (e.g., language code)
+        label:
+          type: string
+          example: "English"
+          description: Human-readable locale label
 
   securitySchemes:
     HttpBearerAuth:

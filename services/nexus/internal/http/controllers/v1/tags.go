@@ -130,7 +130,7 @@ func (srv *TagsController) UpdateTag(w http.ResponseWriter, r *http.Request, pro
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("tag not found")))
 		return
 	}
-	
+
 	if err != nil {
 		logger.Error("failed to fetch updated tag", zap.Error(err))
 		oapi.WriteProblem(w, err)

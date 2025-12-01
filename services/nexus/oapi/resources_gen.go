@@ -192,6 +192,15 @@ type CreateCampaign struct {
 // CreateCampaignChannel defines model for CreateCampaign.Channel.
 type CreateCampaignChannel string
 
+// CreateLocale defines model for CreateLocale.
+type CreateLocale struct {
+	// Key Locale key (e.g., language code)
+	Key string `json:"key"`
+
+	// Label Human-readable locale label
+	Label string `json:"label"`
+}
+
 // CreateTag defines model for CreateTag.
 type CreateTag struct {
 	Name string `json:"name"`
@@ -265,6 +274,20 @@ type Journey struct {
 	ProjectId   openapi_types.UUID `json:"project_id"`
 	Status      string             `json:"status"`
 	UpdatedAt   time.Time          `json:"updated_at"`
+}
+
+// Locale defines model for Locale.
+type Locale struct {
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Key Locale key (e.g., language code)
+	Key string `json:"key"`
+
+	// Label Human-readable locale label
+	Label     string             `json:"label"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	UpdatedAt time.Time          `json:"updated_at"`
 }
 
 // PaginatedResponse defines model for PaginatedResponse.
@@ -577,6 +600,15 @@ type GetCampaignUsersParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// ListLocalesParams defines parameters for ListLocales.
+type ListLocalesParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // ListTagsParams defines parameters for ListTags.
 type ListTagsParams struct {
 	// Limit Maximum number of items to return
@@ -645,6 +677,9 @@ type CreateTemplateJSONRequestBody = CreateTemplate
 
 // UpdateTemplateJSONRequestBody defines body for UpdateTemplate for application/json ContentType.
 type UpdateTemplateJSONRequestBody = UpdateTemplate
+
+// CreateLocaleJSONRequestBody defines body for CreateLocale for application/json ContentType.
+type CreateLocaleJSONRequestBody = CreateLocale
 
 // CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
 type CreateTagJSONRequestBody = CreateTag
@@ -974,6 +1009,20 @@ type ClientInterface interface {
 	// GetCampaignUsers request
 	GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListLocales request
+	ListLocales(ctx context.Context, projectID openapi_types.UUID, params *ListLocalesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLocaleWithBody request with any body
+	CreateLocaleWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateLocale(ctx context.Context, projectID openapi_types.UUID, body CreateLocaleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteLocale request
+	DeleteLocale(ctx context.Context, projectID openapi_types.UUID, localeID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLocale request
+	GetLocale(ctx context.Context, projectID openapi_types.UUID, localeID string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListTags request
 	ListTags(ctx context.Context, projectID openapi_types.UUID, params *ListTagsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1281,6 +1330,66 @@ func (c *Client) UpdateTemplate(ctx context.Context, projectID openapi_types.UUI
 
 func (c *Client) GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCampaignUsersRequest(c.Server, projectID, campaignID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListLocales(ctx context.Context, projectID openapi_types.UUID, params *ListLocalesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLocalesRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLocaleWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLocaleRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateLocale(ctx context.Context, projectID openapi_types.UUID, body CreateLocaleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLocaleRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteLocale(ctx context.Context, projectID openapi_types.UUID, localeID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteLocaleRequest(c.Server, projectID, localeID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLocale(ctx context.Context, projectID openapi_types.UUID, localeID string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLocaleRequest(c.Server, projectID, localeID)
 	if err != nil {
 		return nil, err
 	}
@@ -2327,6 +2436,207 @@ func NewGetCampaignUsersRequest(server string, projectID openapi_types.UUID, cam
 	return req, nil
 }
 
+// NewListLocalesRequest generates requests for ListLocales
+func NewListLocalesRequest(server string, projectID openapi_types.UUID, params *ListLocalesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/locales", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateLocaleRequest calls the generic CreateLocale builder with application/json body
+func NewCreateLocaleRequest(server string, projectID openapi_types.UUID, body CreateLocaleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateLocaleRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateLocaleRequestWithBody generates requests for CreateLocale with any type of body
+func NewCreateLocaleRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/locales", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteLocaleRequest generates requests for DeleteLocale
+func NewDeleteLocaleRequest(server string, projectID openapi_types.UUID, localeID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "localeID", runtime.ParamLocationPath, localeID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/locales/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLocaleRequest generates requests for GetLocale
+func NewGetLocaleRequest(server string, projectID openapi_types.UUID, localeID string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "localeID", runtime.ParamLocationPath, localeID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/locales/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListTagsRequest generates requests for ListTags
 func NewListTagsRequest(server string, projectID openapi_types.UUID, params *ListTagsParams) (*http.Request, error) {
 	var err error
@@ -3263,6 +3573,20 @@ type ClientWithResponsesInterface interface {
 	// GetCampaignUsersWithResponse request
 	GetCampaignUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*GetCampaignUsersResponse, error)
 
+	// ListLocalesWithResponse request
+	ListLocalesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListLocalesParams, reqEditors ...RequestEditorFn) (*ListLocalesResponse, error)
+
+	// CreateLocaleWithBodyWithResponse request with any body
+	CreateLocaleWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLocaleResponse, error)
+
+	CreateLocaleWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateLocaleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLocaleResponse, error)
+
+	// DeleteLocaleWithResponse request
+	DeleteLocaleWithResponse(ctx context.Context, projectID openapi_types.UUID, localeID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteLocaleResponse, error)
+
+	// GetLocaleWithResponse request
+	GetLocaleWithResponse(ctx context.Context, projectID openapi_types.UUID, localeID string, reqEditors ...RequestEditorFn) (*GetLocaleResponse, error)
+
 	// ListTagsWithResponse request
 	ListTagsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListTagsParams, reqEditors ...RequestEditorFn) (*ListTagsResponse, error)
 
@@ -3685,6 +4009,111 @@ func (r GetCampaignUsersResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetCampaignUsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListLocalesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		// Limit Maximum number of items returned
+		Limit int `json:"limit"`
+
+		// Offset Number of items skipped
+		Offset  int      `json:"offset"`
+		Results []Locale `json:"results"`
+
+		// Total Total number of items matching the filters
+		Total int `json:"total"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLocalesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLocalesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateLocaleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *struct {
+		Data Locale `json:"data"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateLocaleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateLocaleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteLocaleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteLocaleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteLocaleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetLocaleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Data Locale `json:"data"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLocaleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLocaleResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -4201,6 +4630,50 @@ func (c *ClientWithResponses) GetCampaignUsersWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetCampaignUsersResponse(rsp)
+}
+
+// ListLocalesWithResponse request returning *ListLocalesResponse
+func (c *ClientWithResponses) ListLocalesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListLocalesParams, reqEditors ...RequestEditorFn) (*ListLocalesResponse, error) {
+	rsp, err := c.ListLocales(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLocalesResponse(rsp)
+}
+
+// CreateLocaleWithBodyWithResponse request with arbitrary body returning *CreateLocaleResponse
+func (c *ClientWithResponses) CreateLocaleWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLocaleResponse, error) {
+	rsp, err := c.CreateLocaleWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLocaleResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateLocaleWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateLocaleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLocaleResponse, error) {
+	rsp, err := c.CreateLocale(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLocaleResponse(rsp)
+}
+
+// DeleteLocaleWithResponse request returning *DeleteLocaleResponse
+func (c *ClientWithResponses) DeleteLocaleWithResponse(ctx context.Context, projectID openapi_types.UUID, localeID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteLocaleResponse, error) {
+	rsp, err := c.DeleteLocale(ctx, projectID, localeID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteLocaleResponse(rsp)
+}
+
+// GetLocaleWithResponse request returning *GetLocaleResponse
+func (c *ClientWithResponses) GetLocaleWithResponse(ctx context.Context, projectID openapi_types.UUID, localeID string, reqEditors ...RequestEditorFn) (*GetLocaleResponse, error) {
+	rsp, err := c.GetLocale(ctx, projectID, localeID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLocaleResponse(rsp)
 }
 
 // ListTagsWithResponse request returning *ListTagsResponse
@@ -4892,6 +5365,145 @@ func ParseGetCampaignUsersResponse(rsp *http.Response) (*GetCampaignUsersRespons
 	return response, nil
 }
 
+// ParseListLocalesResponse parses an HTTP response from a ListLocalesWithResponse call
+func ParseListLocalesResponse(rsp *http.Response) (*ListLocalesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLocalesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Limit Maximum number of items returned
+			Limit int `json:"limit"`
+
+			// Offset Number of items skipped
+			Offset  int      `json:"offset"`
+			Results []Locale `json:"results"`
+
+			// Total Total number of items matching the filters
+			Total int `json:"total"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateLocaleResponse parses an HTTP response from a CreateLocaleWithResponse call
+func ParseCreateLocaleResponse(rsp *http.Response) (*CreateLocaleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateLocaleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data Locale `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteLocaleResponse parses an HTTP response from a DeleteLocaleWithResponse call
+func ParseDeleteLocaleResponse(rsp *http.Response) (*DeleteLocaleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteLocaleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetLocaleResponse parses an HTTP response from a GetLocaleWithResponse call
+func ParseGetLocaleResponse(rsp *http.Response) (*GetLocaleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLocaleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Locale `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListTagsResponse parses an HTTP response from a ListTagsWithResponse call
 func ParseListTagsResponse(rsp *http.Response) (*ListTagsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -5390,6 +6002,18 @@ type ServerInterface interface {
 	// Get campaign users
 	// (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 	GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams)
+	// List locales
+	// (GET /api/admin/projects/{projectID}/locales)
+	ListLocales(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListLocalesParams)
+	// Create locale
+	// (POST /api/admin/projects/{projectID}/locales)
+	CreateLocale(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete locale
+	// (DELETE /api/admin/projects/{projectID}/locales/{localeID})
+	DeleteLocale(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, localeID openapi_types.UUID)
+	// Get locale by ID
+	// (GET /api/admin/projects/{projectID}/locales/{localeID})
+	GetLocale(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, localeID string)
 	// List tags
 	// (GET /api/admin/projects/{projectID}/tags)
 	ListTags(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListTagsParams)
@@ -5531,6 +6155,30 @@ func (_ Unimplemented) UpdateTemplate(w http.ResponseWriter, r *http.Request, pr
 // Get campaign users
 // (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 func (_ Unimplemented) GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List locales
+// (GET /api/admin/projects/{projectID}/locales)
+func (_ Unimplemented) ListLocales(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListLocalesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create locale
+// (POST /api/admin/projects/{projectID}/locales)
+func (_ Unimplemented) CreateLocale(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete locale
+// (DELETE /api/admin/projects/{projectID}/locales/{localeID})
+func (_ Unimplemented) DeleteLocale(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, localeID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get locale by ID
+// (GET /api/admin/projects/{projectID}/locales/{localeID})
+func (_ Unimplemented) GetLocale(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, localeID string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6247,6 +6895,167 @@ func (siw *ServerInterfaceWrapper) GetCampaignUsers(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCampaignUsers(w, r, projectID, campaignID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListLocales operation middleware
+func (siw *ServerInterfaceWrapper) ListLocales(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListLocalesParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListLocales(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateLocale operation middleware
+func (siw *ServerInterfaceWrapper) CreateLocale(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateLocale(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteLocale operation middleware
+func (siw *ServerInterfaceWrapper) DeleteLocale(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "localeID" -------------
+	var localeID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "localeID", chi.URLParam(r, "localeID"), &localeID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "localeID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteLocale(w, r, projectID, localeID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLocale operation middleware
+func (siw *ServerInterfaceWrapper) GetLocale(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "localeID" -------------
+	var localeID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "localeID", chi.URLParam(r, "localeID"), &localeID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "localeID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLocale(w, r, projectID, localeID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7051,6 +7860,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/users", wrapper.GetCampaignUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/locales", wrapper.ListLocales)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/locales", wrapper.CreateLocale)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/locales/{localeID}", wrapper.DeleteLocale)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/locales/{localeID}", wrapper.GetLocale)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/tags", wrapper.ListTags)
