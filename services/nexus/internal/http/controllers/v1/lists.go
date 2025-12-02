@@ -4,14 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/csv"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	pkgjson "github.com/lunogram/platform/pkg/http/json"
+	"github.com/lunogram/platform/pkg/http/json"
 	"github.com/lunogram/platform/pkg/http/problem"
 	"github.com/lunogram/platform/services/nexus/internal/importer"
 	"github.com/lunogram/platform/services/nexus/internal/store"
@@ -38,7 +37,7 @@ type ListsController struct {
 func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 	body := oapi.CreateListJSONRequestBody{}
-	err := pkgjson.Decode(r.Body, &body)
+	err := json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -97,7 +96,7 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
-	pkgjson.Write(w, http.StatusCreated, list.OAPI())
+	json.Write(w, http.StatusCreated, list.OAPI())
 }
 
 func (srv *ListsController) ListLists(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListListsParams) {
@@ -118,7 +117,7 @@ func (srv *ListsController) ListLists(w http.ResponseWriter, r *http.Request, pr
 	}
 
 	logger.Info("listed lists", zap.Int("count", len(result)))
-	pkgjson.Write(w, http.StatusOK, oapi.ListListResponse{
+	json.Write(w, http.StatusOK, oapi.ListListResponse{
 		Total:   total,
 		Limit:   pagination.Limit,
 		Offset:  pagination.Offset,
@@ -145,7 +144,7 @@ func (srv *ListsController) GetList(w http.ResponseWriter, r *http.Request, proj
 	}
 
 	logger.Info("list retrieved")
-	pkgjson.Write(w, http.StatusOK, list.OAPI())
+	json.Write(w, http.StatusOK, list.OAPI())
 }
 
 func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
@@ -154,7 +153,7 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 
 	ctx := r.Context()
 	body := oapi.UpdateListJSONRequestBody{}
-	err := pkgjson.Decode(r.Body, &body)
+	err := json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -203,7 +202,7 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 	}
 
 	logger.Info("list updated")
-	pkgjson.Write(w, http.StatusOK, list.OAPI())
+	json.Write(w, http.StatusOK, list.OAPI())
 }
 
 func (srv *ListsController) DeleteList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
@@ -269,7 +268,7 @@ func (srv *ListsController) DuplicateList(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	pkgjson.Write(w, http.StatusCreated, duplicated.OAPI())
+	json.Write(w, http.StatusCreated, duplicated.OAPI())
 }
 
 func (srv *ListsController) ImportListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
@@ -381,4 +380,43 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 
 	logger.Info("import completed", zap.Int("users_added", imported))
 	return tx.Commit()
+}
+
+func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID, params oapi.GetListUsersParams) {
+	ctx := r.Context()
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
+	logger.Info("getting list users")
+
+	_, err := srv.store.GetList(ctx, projectID, listID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Error("list not found", zap.Stringer("list_id", listID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get list", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	pagination := store.Pagination{
+		Limit:  params.Limit.ToInt(),
+		Offset: params.Offset.ToInt(),
+	}
+
+	users, total, err := srv.store.ListListUsers(ctx, projectID, listID, pagination)
+	if err != nil {
+		logger.Error("failed to list list users", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("list users retrieved", zap.Int("count", len(users)))
+	json.Write(w, http.StatusOK, oapi.UserList{
+		Total:   total,
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+		Results: users.OAPI(),
+	})
 }

@@ -878,6 +878,21 @@ type ListListsParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// GetListUsersParams defines parameters for GetListUsers.
+type GetListUsersParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ImportListUsersMultipartBody defines parameters for ImportListUsers.
+type ImportListUsersMultipartBody struct {
+	// File CSV file containing user data. Must include external_id column.
+	File openapi_types.File `json:"file"`
+}
+
 // ListLocalesParams defines parameters for ListLocales.
 type ListLocalesParams struct {
 	// Limit Maximum number of items to return
@@ -982,6 +997,9 @@ type CreateListJSONRequestBody = CreateList
 
 // UpdateListJSONRequestBody defines body for UpdateList for application/json ContentType.
 type UpdateListJSONRequestBody = UpdateList
+
+// ImportListUsersMultipartRequestBody defines body for ImportListUsers for multipart/form-data ContentType.
+type ImportListUsersMultipartRequestBody ImportListUsersMultipartBody
 
 // CreateLocaleJSONRequestBody defines body for CreateLocale for application/json ContentType.
 type CreateLocaleJSONRequestBody = CreateLocale
@@ -1413,6 +1431,12 @@ type ClientInterface interface {
 
 	// DuplicateList request
 	DuplicateList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetListUsers request
+	GetListUsers(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ImportListUsersWithBody request with any body
+	ImportListUsersWithBody(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLocales request
 	ListLocales(ctx context.Context, projectID openapi_types.UUID, params *ListLocalesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2167,6 +2191,30 @@ func (c *Client) UpdateList(ctx context.Context, projectID openapi_types.UUID, l
 
 func (c *Client) DuplicateList(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDuplicateListRequest(c.Server, projectID, listID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetListUsers(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetListUsersRequest(c.Server, projectID, listID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ImportListUsersWithBody(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportListUsersRequestWithBody(c.Server, projectID, listID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4602,6 +4650,128 @@ func NewDuplicateListRequest(server string, projectID openapi_types.UUID, listID
 	return req, nil
 }
 
+// NewGetListUsersRequest generates requests for GetListUsers
+func NewGetListUsersRequest(server string, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "listID", runtime.ParamLocationPath, listID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s/users", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewImportListUsersRequestWithBody generates requests for ImportListUsers with any type of body
+func NewImportListUsersRequestWithBody(server string, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "listID", runtime.ParamLocationPath, listID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s/users", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListLocalesRequest generates requests for ListLocales
 func NewListLocalesRequest(server string, projectID openapi_types.UUID, params *ListLocalesParams) (*http.Request, error) {
 	var err error
@@ -5839,6 +6009,12 @@ type ClientWithResponsesInterface interface {
 	// DuplicateListWithResponse request
 	DuplicateListWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DuplicateListResponse, error)
 
+	// GetListUsersWithResponse request
+	GetListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams, reqEditors ...RequestEditorFn) (*GetListUsersResponse, error)
+
+	// ImportListUsersWithBodyWithResponse request with any body
+	ImportListUsersWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportListUsersResponse, error)
+
 	// ListLocalesWithResponse request
 	ListLocalesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListLocalesParams, reqEditors ...RequestEditorFn) (*ListLocalesResponse, error)
 
@@ -6922,6 +7098,51 @@ func (r DuplicateListResponse) StatusCode() int {
 	return 0
 }
 
+type GetListUsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetListUsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetListUsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ImportListUsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ImportListUsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ImportListUsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListLocalesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7849,6 +8070,24 @@ func (c *ClientWithResponses) DuplicateListWithResponse(ctx context.Context, pro
 		return nil, err
 	}
 	return ParseDuplicateListResponse(rsp)
+}
+
+// GetListUsersWithResponse request returning *GetListUsersResponse
+func (c *ClientWithResponses) GetListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams, reqEditors ...RequestEditorFn) (*GetListUsersResponse, error) {
+	rsp, err := c.GetListUsers(ctx, projectID, listID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetListUsersResponse(rsp)
+}
+
+// ImportListUsersWithBodyWithResponse request with arbitrary body returning *ImportListUsersResponse
+func (c *ClientWithResponses) ImportListUsersWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportListUsersResponse, error) {
+	rsp, err := c.ImportListUsersWithBody(ctx, projectID, listID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportListUsersResponse(rsp)
 }
 
 // ListLocalesWithResponse request returning *ListLocalesResponse
@@ -9469,6 +9708,65 @@ func ParseDuplicateListResponse(rsp *http.Response) (*DuplicateListResponse, err
 	return response, nil
 }
 
+// ParseGetListUsersResponse parses an HTTP response from a GetListUsersWithResponse call
+func ParseGetListUsersResponse(rsp *http.Response) (*GetListUsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetListUsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseImportListUsersResponse parses an HTTP response from a ImportListUsersWithResponse call
+func ParseImportListUsersResponse(rsp *http.Response) (*ImportListUsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ImportListUsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListLocalesResponse parses an HTTP response from a ListLocalesWithResponse call
 func ParseListLocalesResponse(rsp *http.Response) (*ListLocalesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10186,6 +10484,12 @@ type ServerInterface interface {
 	// Duplicate list
 	// (POST /api/admin/projects/{projectID}/lists/{listID}/duplicate)
 	DuplicateList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID)
+	// Get list users
+	// (GET /api/admin/projects/{projectID}/lists/{listID}/users)
+	GetListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID, params GetListUsersParams)
+	// Import list users
+	// (POST /api/admin/projects/{projectID}/lists/{listID}/users)
+	ImportListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID)
 	// List locales
 	// (GET /api/admin/projects/{projectID}/locales)
 	ListLocales(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListLocalesParams)
@@ -10507,6 +10811,18 @@ func (_ Unimplemented) UpdateList(w http.ResponseWriter, r *http.Request, projec
 // Duplicate list
 // (POST /api/admin/projects/{projectID}/lists/{listID}/duplicate)
 func (_ Unimplemented) DuplicateList(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get list users
+// (GET /api/admin/projects/{projectID}/lists/{listID}/users)
+func (_ Unimplemented) GetListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID, params GetListUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Import list users
+// (POST /api/admin/projects/{projectID}/lists/{listID}/users)
+func (_ Unimplemented) ImportListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -12288,6 +12604,105 @@ func (siw *ServerInterfaceWrapper) DuplicateList(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// GetListUsers operation middleware
+func (siw *ServerInterfaceWrapper) GetListUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "listID" -------------
+	var listID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listID", chi.URLParam(r, "listID"), &listID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetListUsersParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetListUsers(w, r, projectID, listID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ImportListUsers operation middleware
+func (siw *ServerInterfaceWrapper) ImportListUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "listID" -------------
+	var listID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listID", chi.URLParam(r, "listID"), &listID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ImportListUsers(w, r, projectID, listID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListLocales operation middleware
 func (siw *ServerInterfaceWrapper) ListLocales(w http.ResponseWriter, r *http.Request) {
 
@@ -13328,6 +13743,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/duplicate", wrapper.DuplicateList)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/users", wrapper.GetListUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/users", wrapper.ImportListUsers)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/locales", wrapper.ListLocales)

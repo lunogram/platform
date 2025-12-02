@@ -226,3 +226,48 @@ func (s *ListsStore) DuplicateList(ctx context.Context, projectID, listID uuid.U
 
 	return id, nil
 }
+
+func (s *ListsStore) ListListUsers(ctx context.Context, projectID, listID uuid.UUID, pagination Pagination) (Users, int, error) {
+	query := `
+	SELECT 
+		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
+		EXISTS(
+			SELECT 1 FROM devices d 
+			WHERE d.user_id = u.id
+			AND d.token IS NOT NULL 
+			AND d.token != ''
+		) as has_push_device,
+		COUNT(*) OVER () AS total_count
+	FROM users u
+	INNER JOIN user_list ul ON u.id = ul.user_id
+	INNER JOIN lists l ON ul.list_id = l.id
+	WHERE l.project_id = $1
+	AND l.id = $2
+	AND ul.deleted_at IS NULL
+	ORDER BY ul.created_at DESC
+	LIMIT $3 OFFSET $4`
+
+	type result struct {
+		User
+		TotalCount int `db:"total_count"`
+	}
+
+	var results []result
+	err := s.db.SelectContext(ctx, &results, query, projectID, listID, pagination.Limit, pagination.Offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(results) == 0 {
+		return []User{}, 0, nil
+	}
+
+	total := results[0].TotalCount
+	users := make([]User, len(results))
+
+	for index, result := range results {
+		users[index] = result.User
+	}
+
+	return users, total, nil
+}
