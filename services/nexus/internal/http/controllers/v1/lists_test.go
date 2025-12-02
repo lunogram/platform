@@ -376,36 +376,6 @@ func TestDuplicateList(t *testing.T) {
 func TestImportListUsers(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
-	}
-
-	err := store.Migrate(config.Store)
-	require.NoError(t, err)
-
-	db, err := store.Connect(ctx, config.Store)
-	require.NoError(t, err)
-
-	projects := store.NewProjectsStore(db)
-	projectID, err := projects.CreateProject(ctx, DefaultProject)
-	require.NoError(t, err)
-
-	usersStore := store.NewUsersStore(db)
-	listsStore := store.NewListsStore(db)
-
-	list := store.List{
-		ProjectID: projectID,
-		Name:      "Import Test List",
-		Type:      store.ListTypeStatic,
-		State:     store.ListStateReady,
-	}
-
-	listID, err := listsStore.CreateList(ctx, list)
-	require.NoError(t, err)
-
-	controller := NewListsController(logger, db, testMaxUploadSize)
 
 	type test struct {
 		csv   string
@@ -417,7 +387,7 @@ func TestImportListUsers(t *testing.T) {
 		"successful-import": {
 			csv:   validUsersCSV,
 			code:  204,
-			users: 2,
+			users: 3,
 		},
 		"missing-external-id-column": {
 			csv:   noExternalIDCSV,
@@ -427,12 +397,43 @@ func TestImportListUsers(t *testing.T) {
 		"out-of-order-columns": {
 			csv:   outOfOrderCSV,
 			code:  204,
-			users: 2,
+			users: 3,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
+			config := config.Service{
+				Store: store.Config{
+					URI: container.RunPostgreSQL(t),
+				},
+			}
+
+			err := store.Migrate(config.Store)
+			require.NoError(t, err)
+
+			db, err := store.Connect(ctx, config.Store)
+			require.NoError(t, err)
+
+			projects := store.NewProjectsStore(db)
+			projectID, err := projects.CreateProject(ctx, DefaultProject)
+			require.NoError(t, err)
+
+			usersStore := store.NewUsersStore(db)
+			listsStore := store.NewListsStore(db)
+
+			list := store.List{
+				ProjectID: projectID,
+				Name:      "Import Test List",
+				Type:      store.ListTypeStatic,
+				State:     store.ListStateReady,
+			}
+
+			listID, err := listsStore.CreateList(ctx, list)
+			require.NoError(t, err)
+
+			controller := NewListsController(logger, db, testMaxUploadSize)
+
 			body := &bytes.Buffer{}
 			writer := multipart.NewWriter(body)
 

@@ -330,7 +330,13 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 		return problem.ErrBadRequest(problem.Describe("invalid CSV format"))
 	}
 
-	transformer := importer.NewUsers(headers)
+	transformer, err := importer.NewUsers(headers)
+	if err != nil {
+		if errors.Is(err, importer.ErrMissingExternalID) {
+			return problem.ErrBadRequest(problem.Describe("external_id column is required"))
+		}
+		return err
+	}
 
 	imported := 0
 	tx, err := srv.db.BeginTxx(ctx, nil)
@@ -364,7 +370,7 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 			return err
 		}
 
-		err = srv.store.AddUserToList(ctx, listID, id)
+		err = stores.AddUserToList(ctx, listID, id)
 		if err != nil {
 			logger.Warn("failed to add user to list", zap.Stringer("user_id", id), zap.Error(err))
 			return err
