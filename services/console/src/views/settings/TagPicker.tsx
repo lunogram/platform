@@ -6,8 +6,9 @@ import api from '../../api'
 import { ProjectContext } from '../../contexts'
 import { useResolver } from '../../hooks'
 import type { ControlledInputProps, FieldBindingsProps } from '../../types'
-import { MultiSelect } from '../../ui/form/MultiSelect'
+import { MultiSelect } from '@/components/ui/multi-select'
 import { snakeToTitle } from '../../utils'
+import { Label } from '@/components/ui/label'
 
 export interface TagPickerProps extends ControlledInputProps<string[]> {
     entity?: 'journeys' | 'campaigns' | 'users' | 'lists'
@@ -17,7 +18,14 @@ export interface TagPickerProps extends ControlledInputProps<string[]> {
 export function TagPicker({
     entity,
     value,
-    ...rest
+    label,
+    error,
+    required,
+    placeholder,
+    onChange,
+    disabled,
+    hideLabel,
+    subtitle,
 }: TagPickerProps) {
     const [project] = useContext(ProjectContext)
     const [tags] = useResolver(useCallback(async () => {
@@ -27,19 +35,40 @@ export function TagPicker({
         return await api.tags.all(project.id)
     }, [project, entity]))
 
-    value = useMemo(() => value ?? [], [value])
+    const selectedValue = useMemo(() => value ?? [], [value])
+    
+    const options = useMemo(() => 
+        tags?.map(tag => ({
+            value: tag.name,
+            label: tag.count !== undefined ? `${tag.name} (${tag.count})` : tag.name
+        })) ?? [],
+        [tags]
+    )
 
     if (!tags?.length) return null
 
     return (
-        <MultiSelect
-            {...rest}
-            value={value}
-            options={tags}
-            toValue={t => t.name}
-            getOptionDisplay={({ name, count }) => name + (count !== undefined ? ` (${count})` : '')}
-            getSelectedOptionDisplay={({ name }) => name}
-        />
+        <div className="ui-select">
+            {label && (
+                <Label style={hideLabel ? { display: 'none' } : { lineHeight: '20px' }}>
+                    <span>
+                        {label}
+                        {required && <span style={{ color: 'red' }}>&nbsp;*</span>}
+                    </span>
+                </Label>
+            )}
+            {subtitle && <span className="label-subtitle">{subtitle}</span>}
+            <MultiSelect
+                value={selectedValue}
+                options={options}
+                onChange={onChange}
+                disabled={disabled}
+                placeholder={typeof placeholder === 'string' ? placeholder : 'Select tags...'}
+            />
+            {error && !hideLabel && (
+                <span className="field-error">{error}</span>
+            )}
+        </div>
     )
 }
 
