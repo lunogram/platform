@@ -21,6 +21,7 @@ import (
 )
 
 func TestGetProfileWithInternalAdmin(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -81,6 +82,7 @@ func TestGetProfileWithInternalAdmin(t *testing.T) {
 }
 
 func TestGetProfileWithExternalAdmin(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -153,6 +155,7 @@ func TestGetProfileWithExternalAdmin(t *testing.T) {
 }
 
 func TestGetProfileErrors(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -232,6 +235,7 @@ func TestGetProfileErrors(t *testing.T) {
 }
 
 func TestListProjectAdmins(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -335,6 +339,7 @@ func TestListProjectAdmins(t *testing.T) {
 }
 
 func TestGetProjectAdmin(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -413,6 +418,7 @@ func TestGetProjectAdmin(t *testing.T) {
 }
 
 func TestUpdateProjectAdmin(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -497,6 +503,7 @@ func TestUpdateProjectAdmin(t *testing.T) {
 }
 
 func TestDeleteProjectAdmin(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{

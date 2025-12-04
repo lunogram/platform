@@ -18,6 +18,7 @@ import (
 )
 
 func TestTagCreation(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -82,6 +83,7 @@ func TestTagCreation(t *testing.T) {
 }
 
 func TestListTags(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -159,6 +161,7 @@ func TestListTags(t *testing.T) {
 }
 
 func TestGetTag(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -219,6 +222,7 @@ func TestGetTag(t *testing.T) {
 }
 
 func TestUpdateTag(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -288,6 +292,7 @@ func TestUpdateTag(t *testing.T) {
 }
 
 func TestDeleteTag(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{

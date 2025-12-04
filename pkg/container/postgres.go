@@ -23,11 +23,14 @@ func RunPostgreSQL(t *testing.T) (uri string) {
 
 	container, err := postgres.Run(ctx,
 		"postgres:18.1-alpine",
-		postgres.WithDatabase("postgres"), // Use default postgres db
+		postgres.WithDatabase("postgres"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("password"),
 		postgres.BasicWaitStrategies(),
 		testcontainers.WithReuseByName("postgresql"),
+		// NOTE: increase max_connections to support parallel test execution
+		// Default is 100, we increase to 500 for parallel tests
+		testcontainers.WithCmdArgs("-c", "max_connections=500"),
 	)
 	require.NoError(t, err)
 
