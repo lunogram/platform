@@ -7,28 +7,36 @@ jobs:
   lint:
     runs-on: ubuntu-latest      
     steps:
-    - uses: actions/checkout@v5
-    - uses: pnpm/action-setup@v4
-      with:
-        version: ${{ vars.PNPM_VERSION }}
-    - name: Set-up Node
-      uses: actions/setup-node@v5
-      with:
-        node-version: ${{ vars.NODEJS_VERSION }}
-        cache: 'pnpm'
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ vars.GO_VERSION }}
-    - name: Install Dependencies
-      run: pnpm install
-    - name: Lint
-      run: |
-        make lint
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@f974e0c5942f8f37973c4cc395704165fbe629ba # v2
+        with:
+          comment_on_pr: false
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ vars.PNPM_VERSION }}
+      - name: Set-up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ vars.NODEJS_VERSION }}
+          cache: 'pnpm'
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ vars.GO_VERSION }}
+      - name: Install Dependencies
+        run: pnpm install
+      - name: Lint
+        run: |
+          make lint
   
   tests:
     runs-on: ubuntu-latest
     steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@f974e0c5942f8f37973c4cc395704165fbe629ba # v2
+        with:
+          comment_on_pr: false
       - uses: actions/checkout@v5
       - name: Reconfigure Docker
         uses: ./.github/actions/reconfigure-docker
@@ -79,20 +87,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ vars.GO_VERSION }}
-
       - name: Tool bins
         uses: actions/cache@v4
         with:
           path: bin
           key: ${{ runner.os }}-bin-${{ hashFiles('**/go.sum') }}
-
       - name: Auto generate files
         run: make generate
-
       - name: Check for file changes
         run: git diff --exit-code
