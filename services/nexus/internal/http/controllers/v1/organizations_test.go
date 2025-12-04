@@ -19,6 +19,7 @@ import (
 
 func TestGetOrganization(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -88,6 +89,7 @@ func TestGetOrganization(t *testing.T) {
 
 func TestUpdateOrganization(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -172,6 +174,7 @@ func TestUpdateOrganization(t *testing.T) {
 
 func TestDeleteOrganization(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -240,6 +243,7 @@ func TestDeleteOrganization(t *testing.T) {
 
 func TestGetOrganizationIntegrations(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{

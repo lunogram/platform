@@ -20,6 +20,7 @@ import (
 
 func TestCreateProject(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -118,6 +119,7 @@ func TestCreateProject(t *testing.T) {
 
 func TestListProjects(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -192,6 +194,7 @@ func TestListProjects(t *testing.T) {
 
 func TestGetProject(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -257,6 +260,7 @@ func TestGetProject(t *testing.T) {
 
 func TestUpdateProject(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
