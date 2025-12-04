@@ -23,7 +23,11 @@ func (qb *QueryBuilder) buildEventRule(rule *rules.Rule) (string, error) {
 	// Child conditions (event attributes)
 	if rule.HasChildren() {
 		for _, child := range rule.Children {
-			column := qb.buildColumnPath("e", child.Path, child.Type)
+			column, err := qb.buildColumnPath("e", child.Path, child.Type)
+			if err != nil {
+				return "", err
+			}
+
 			condition, err := qb.buildComparison(column, child.Operator, child.Value, child.Type)
 			if err != nil {
 				return "", err
@@ -66,7 +70,11 @@ func (qb *QueryBuilder) buildFrequencyRule(rule *rules.Rule) (string, error) {
 	// Child conditions (event attributes)
 	if rule.HasChildren() {
 		for _, child := range rule.Children {
-			column := qb.buildColumnPath("e", child.Path, child.Type)
+			column, err := qb.buildColumnPath("e", child.Path, child.Type)
+			if err != nil {
+				return "", err
+			}
+
 			condition, err := qb.buildComparison(column, child.Operator, child.Value, child.Type)
 			if err != nil {
 				return "", err

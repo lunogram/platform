@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -8,11 +9,14 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/rules"
 )
 
-// pathSegmentRegex matches path segments in both dot and bracket notation
-// Group 1: dot notation identifier (.field)
-// Group 2: bracket notation with single quotes (['field'])
-// Group 3: bracket notation with double quotes (["field"])
+// pathSegmentRegex matches path segments:
+// .field          - dot notation
+// ['field']       - bracket with single quotes
+// ["field"]       - bracket with double quotes
 var pathSegmentRegex = regexp.MustCompile(`\.([a-zA-Z_][a-zA-Z0-9_]*)|\.?\['([^']+)'\]|\.?\["([^"]+)"\]`)
+
+// validKeyPattern ensures JSONB keys contain only allowed characters
+var validKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_. -]+$`)
 
 // buildRule recursively builds SQL conditions from a rule
 func (qb *QueryBuilder) buildRule(rule *rules.Rule) (string, error) {
@@ -62,7 +66,11 @@ func (qb *QueryBuilder) buildWrapper(rule *rules.Rule) (string, error) {
 
 // buildUserRule builds SQL for user attribute rules
 func (qb *QueryBuilder) buildUserRule(rule *rules.Rule) (string, error) {
-	column := qb.buildColumnPath("u", rule.Path, rule.Type)
+	column, err := qb.buildColumnPath("u", rule.Path, rule.Type)
+	if err != nil {
+		return "", err
+	}
+
 	return qb.buildComparison(column, rule.Operator, rule.Value, rule.Type)
 }
 
@@ -73,30 +81,36 @@ func (qb *QueryBuilder) buildUserRule(rule *rules.Rule) (string, error) {
 //   - Bracket notation: ".data['purchase agreement'].value" -> "(u.data->'purchase agreement'->>'value')::text"
 //   - Mixed notation: ".data['user info'].name" -> "(u.data->'user info'->>'name')::text"
 //   - Type casting: RuleTypeNumber -> "(u.data->>'count')::numeric"
-func (qb *QueryBuilder) buildColumnPath(tableAlias, path string, ruleType rules.RuleType) string {
+func (qb *QueryBuilder) buildColumnPath(tableAlias, path string, ruleType rules.RuleType) (string, error) {
 	matches := pathSegmentRegex.FindAllStringSubmatch(path, -1)
 	if len(matches) == 0 {
-		return tableAlias + "." + strings.TrimPrefix(path, ".")
+		return tableAlias + "." + strings.TrimPrefix(path, "."), nil
 	}
 
 	result := tableAlias + "." + qb.extractKey(matches[0])
 
-	// Build JSONB path accessors
-	// Use -> for intermediate keys and ->> for the final key (text extraction)
+	// NOTE: build JSONB path accessors Use -> for intermediate keys and ->> for
+	// the final key (text extraction)
 	for i := 1; i < len(matches); i++ {
 		operator := "->"
 		if i == len(matches)-1 {
 			operator = "->>"
 		}
-		result += operator + qb.quoteJSONBKey(qb.extractKey(matches[i]))
+
+		key, err := qb.quoteJSONBKey(qb.extractKey(matches[i]))
+		if err != nil {
+			return "", err
+		}
+
+		result += operator + key
 	}
 
-	// Apply type cast for JSONB paths (when we have nested access)
+	// NOTE: apply type cast for JSONB paths (when we have nested access)
 	if len(matches) > 1 {
 		result = qb.wrapWithTypeCast(result, ruleType)
 	}
 
-	return result
+	return result, nil
 }
 
 // extractKey extracts the key from a regex match (whichever group matched)
@@ -109,11 +123,18 @@ func (qb *QueryBuilder) extractKey(match []string) string {
 	return ""
 }
 
-// quoteJSONBKey wraps a JSONB key in single quotes, escaping any single quotes within
-func (qb *QueryBuilder) quoteJSONBKey(key string) string {
-	// Escape single quotes by doubling them
-	escaped := strings.ReplaceAll(key, "'", "''")
-	return "'" + escaped + "'"
+// quoteJSONBKey safely quotes a JSONB key for use in PostgreSQL JSONB operators
+// Only alphanumeric characters, underscores, hyphens, and dots are allowed.
+func (qb *QueryBuilder) quoteJSONBKey(key string) (string, error) {
+	if len(key) == 0 {
+		return "", errors.New("JSONB key cannot be empty")
+	}
+
+	if !validKeyPattern.MatchString(key) {
+		return "", fmt.Errorf("JSONB key contains invalid characters: %q (only alphanumeric, underscore, hyphen, and dot allowed)", key)
+	}
+
+	return fmt.Sprintf("'%s'", key), nil
 }
 
 // wrapWithTypeCast wraps a JSONB text extraction with the appropriate PostgreSQL type cast
