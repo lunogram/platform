@@ -28,6 +28,8 @@ func SetupUsers(t *testing.T, db *Stores) uuid.UUID {
 }
 
 func TestCreateUser(t *testing.T) {
+	t.Parallel()
+
 	db := NewContainerStore(t)
 	projectID := SetupUsers(t, db)
 	ctx := context.Background()
@@ -84,6 +86,8 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestGetUserByExternalID(t *testing.T) {
+	t.Parallel()
+
 	db := NewContainerStore(t)
 	projectID := SetupUsers(t, db)
 	ctx := context.Background()
@@ -105,6 +109,8 @@ func TestGetUserByExternalID(t *testing.T) {
 }
 
 func TestGetUserByAnonymousID(t *testing.T) {
+	t.Parallel()
+
 	db := NewContainerStore(t)
 	projectID := SetupUsers(t, db)
 	ctx := context.Background()
@@ -124,6 +130,8 @@ func TestGetUserByAnonymousID(t *testing.T) {
 }
 
 func TestListUsersWithSearch(t *testing.T) {
+	t.Parallel()
+
 	db := NewContainerStore(t)
 	projectID := SetupUsers(t, db)
 	ctx := context.Background()
@@ -199,6 +207,8 @@ func TestListUsersWithSearch(t *testing.T) {
 }
 
 func TestListUsersWithPagination(t *testing.T) {
+	t.Parallel()
+
 	db := NewContainerStore(t)
 	projectID := SetupUsers(t, db)
 	ctx := context.Background()
@@ -253,6 +263,8 @@ func TestListUsersWithPagination(t *testing.T) {
 }
 
 func TestUpsertUser(t *testing.T) {
+	t.Parallel()
+
 	db := NewContainerStore(t)
 	projectID := SetupUsers(t, db)
 	ctx := context.Background()
@@ -334,6 +346,8 @@ func TestUpsertUser(t *testing.T) {
 }
 
 func TestUpdateUserWithDataMerge(t *testing.T) {
+	t.Parallel()
+
 	db := NewContainerStore(t)
 	projectID := SetupUsers(t, db)
 	ctx := context.Background()
@@ -393,6 +407,8 @@ func TestUpdateUserWithDataMerge(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
+	t.Parallel()
+
 	db := NewContainerStore(t)
 	projectID := SetupUsers(t, db)
 	ctx := context.Background()
@@ -412,6 +428,8 @@ func TestDeleteUser(t *testing.T) {
 }
 
 func TestVersionAutoIncrement(t *testing.T) {
+	t.Parallel()
+
 	db := NewContainerStore(t)
 	projectID := SetupUsers(t, db)
 	ctx := context.Background()
@@ -438,6 +456,8 @@ func TestVersionAutoIncrement(t *testing.T) {
 }
 
 func TestUserOAPIConversion(t *testing.T) {
+	t.Parallel()
+
 	user := User{
 		ID:            uuid.New(),
 		ProjectID:     uuid.New(),
@@ -462,6 +482,8 @@ func TestUserOAPIConversion(t *testing.T) {
 }
 
 func TestUserOAPIConversionWithDevices(t *testing.T) {
+	t.Parallel()
+
 	user := User{
 		ID:            uuid.New(),
 		ProjectID:     uuid.New(),
@@ -488,6 +510,8 @@ func TestUserOAPIConversionWithDevices(t *testing.T) {
 }
 
 func TestGetUserWithDevices(t *testing.T) {
+	t.Parallel()
+
 	db := NewContainerStore(t)
 	projectID := SetupUsers(t, db)
 	ctx := context.Background()
@@ -528,6 +552,8 @@ func TestGetUserWithDevices(t *testing.T) {
 }
 
 func TestListUsersWithDevices(t *testing.T) {
+	t.Parallel()
+
 	db := NewContainerStore(t)
 	projectID := SetupUsers(t, db)
 	ctx := context.Background()
