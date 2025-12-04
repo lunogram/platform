@@ -31,6 +31,7 @@ var noExternalIDCSV string
 var outOfOrderCSV string
 
 func TestListCreation(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -96,6 +97,7 @@ func TestListCreation(t *testing.T) {
 }
 
 func TestListLists(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -198,6 +200,7 @@ func TestListLists(t *testing.T) {
 }
 
 func TestGetList(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -241,6 +244,7 @@ func TestGetList(t *testing.T) {
 }
 
 func TestUpdateList(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -290,6 +294,7 @@ func TestUpdateList(t *testing.T) {
 }
 
 func TestDeleteList(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -330,6 +335,7 @@ func TestDeleteList(t *testing.T) {
 }
 
 func TestDuplicateList(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -374,6 +380,7 @@ func TestDuplicateList(t *testing.T) {
 }
 
 func TestImportListUsers(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 

@@ -18,6 +18,7 @@ import (
 )
 
 func TestCreateLocale(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	cfg := config.Service{
@@ -84,6 +85,7 @@ func TestCreateLocale(t *testing.T) {
 }
 
 func TestListLocales(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	cfg := config.Service{
@@ -172,6 +174,7 @@ func TestListLocales(t *testing.T) {
 }
 
 func TestGetLocale(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	cfg := config.Service{
@@ -240,6 +243,7 @@ func TestGetLocale(t *testing.T) {
 }
 
 func TestDeleteLocale(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	cfg := config.Service{
@@ -280,6 +284,7 @@ func TestDeleteLocale(t *testing.T) {
 }
 
 func TestLocaleProjectNotFound(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	cfg := config.Service{

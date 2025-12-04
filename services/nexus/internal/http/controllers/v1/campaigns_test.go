@@ -18,6 +18,7 @@ import (
 )
 
 func TestCampaignCreation(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -66,6 +67,7 @@ func TestCampaignCreation(t *testing.T) {
 }
 
 func TestListCampaigns(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -157,6 +159,7 @@ func TestListCampaigns(t *testing.T) {
 }
 
 func TestGetCampaign(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -218,6 +221,7 @@ func TestGetCampaign(t *testing.T) {
 }
 
 func TestUpdateCampaign(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -283,6 +287,7 @@ func TestUpdateCampaign(t *testing.T) {
 }
 
 func TestDeleteCampaign(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -349,6 +354,7 @@ func TestDeleteCampaign(t *testing.T) {
 }
 
 func TestDuplicateCampaign(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -419,6 +425,7 @@ func TestDuplicateCampaign(t *testing.T) {
 }
 
 func TestGetCampaignUsers(t *testing.T) {
+	t.Parallel()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{

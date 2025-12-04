@@ -62,6 +62,7 @@ func validSession() claim.Session {
 }
 
 func TestListUsers(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
@@ -91,6 +92,7 @@ func TestListUsers(t *testing.T) {
 }
 
 func TestIdentifyUser(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 
 	body := oapi.IdentifyUser{
@@ -118,6 +120,7 @@ func TestIdentifyUser(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
@@ -146,6 +149,7 @@ func TestGetUser(t *testing.T) {
 }
 
 func TestUpdateUser(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
@@ -188,6 +192,7 @@ func TestUpdateUser(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
@@ -212,6 +217,7 @@ func TestDeleteUser(t *testing.T) {
 }
 
 func TestVersionIncrementsOnUpdate(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
@@ -247,6 +253,7 @@ func TestVersionIncrementsOnUpdate(t *testing.T) {
 }
 
 func TestGetUserEvents(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
@@ -285,6 +292,7 @@ func TestGetUserEvents(t *testing.T) {
 }
 
 func TestGetUserEventsNotFound(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 
 	nonExistentUserID := uuid.New()
@@ -299,6 +307,7 @@ func TestGetUserEventsNotFound(t *testing.T) {
 }
 
 func TestGetUserSubscriptions(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
@@ -354,6 +363,7 @@ func TestGetUserSubscriptions(t *testing.T) {
 }
 
 func TestUpdateUserSubscriptions(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
@@ -401,6 +411,7 @@ func TestUpdateUserSubscriptions(t *testing.T) {
 }
 
 func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
@@ -434,6 +445,7 @@ func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 }
 
 func TestGetUserJourneys(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
@@ -476,6 +488,7 @@ func TestGetUserJourneys(t *testing.T) {
 }
 
 func TestGetUserJourneysPagination(t *testing.T) {
+	t.Parallel()
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
