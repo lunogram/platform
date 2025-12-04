@@ -62,18 +62,10 @@ func (qb *QueryBuilder) buildComparison(column string, operator rules.Operator, 
 
 	// Array operators
 	case rules.OperatorAny:
-		if ruleType == rules.RuleTypeArray {
-			return fmt.Sprintf("%s = ANY(%s)", column, qb.arg(value)), nil
-		}
-
-		return fmt.Sprintf("%s = %s", column, qb.arg(value)), nil
+		return fmt.Sprintf("%s = ANY(%s)", column, qb.arg(value)), nil
 
 	case rules.OperatorNone:
-		if ruleType == rules.RuleTypeArray {
-			return fmt.Sprintf("%s != ALL(%s)", column, qb.arg(value)), nil
-		}
-
-		return fmt.Sprintf("%s != %s", column, qb.arg(value)), nil
+		return fmt.Sprintf("%s != ALL(%s)", column, qb.arg(value)), nil
 
 	case rules.OperatorIsSameDay:
 		return fmt.Sprintf("DATE(%s) = DATE(%s)", column, qb.arg(value)), nil
