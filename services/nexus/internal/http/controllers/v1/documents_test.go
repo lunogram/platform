@@ -24,6 +24,7 @@ import (
 
 func TestDocumentUpload(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
@@ -128,6 +129,7 @@ func TestDocumentUpload(t *testing.T) {
 
 func TestListDocuments(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
@@ -235,6 +237,7 @@ func TestListDocuments(t *testing.T) {
 
 func TestGetDocumentMetadata(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
@@ -317,6 +320,7 @@ func TestGetDocumentMetadata(t *testing.T) {
 
 func TestGetDocument(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
@@ -401,6 +405,7 @@ func TestGetDocument(t *testing.T) {
 
 func TestDeleteDocument(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()

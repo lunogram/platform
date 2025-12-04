@@ -18,6 +18,7 @@ import (
 
 func TestGetTemplate(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -80,6 +81,7 @@ func TestGetTemplate(t *testing.T) {
 
 func TestCreateTemplate(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -150,6 +152,7 @@ func TestCreateTemplate(t *testing.T) {
 
 func TestUpdateTemplate(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -222,6 +225,7 @@ func TestUpdateTemplate(t *testing.T) {
 
 func TestDeleteTemplate(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{

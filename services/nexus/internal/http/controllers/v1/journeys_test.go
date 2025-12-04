@@ -18,6 +18,7 @@ import (
 
 func TestCreateJourney(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -105,6 +106,7 @@ func TestCreateJourney(t *testing.T) {
 
 func TestListJourneys(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -199,6 +201,7 @@ func TestListJourneys(t *testing.T) {
 
 func TestGetJourney(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -270,6 +273,7 @@ func TestGetJourney(t *testing.T) {
 
 func TestUpdateJourney(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
@@ -371,6 +375,7 @@ func TestUpdateJourney(t *testing.T) {
 
 func TestDeleteJourney(t *testing.T) {
 	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	config := config.Service{
