@@ -1,28 +1,28 @@
-import * as React from "react"
-import { Check, ChevronsUpDown, GalleryVerticalEnd } from "lucide-react"
-import { useNavigate } from "react-router"
-import type { Project } from "@/types"
+import * as React from "react";
+import { Check, ChevronsUpDown, GalleryVerticalEnd } from "lucide-react";
+import { useNavigate } from "react-router";
+import type { Project } from "@/types";
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 export function ProjectSwitcher({
   projects,
   currentProject,
 }: {
-  projects: Project[]
-  currentProject: Project
+  projects: Project[];
+  currentProject: Project;
 }) {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   return (
     <SidebarMenu>
@@ -38,7 +38,9 @@ export function ProjectSwitcher({
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
                 <span className="font-semibold">Projects</span>
-                <span className="">{currentProject?.name || 'Select Project'}</span>
+                <span className="">
+                  {currentProject?.name || "Select Project"}
+                </span>
               </div>
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
@@ -55,12 +57,14 @@ export function ProjectSwitcher({
                 onSelect={() => navigate(`/projects/${project.id}`)}
               >
                 {project.name}
-                {project.id === currentProject.id && <Check className="ml-auto" />}
+                {project.id === currentProject.id && (
+                  <Check className="ml-auto" />
+                )}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }

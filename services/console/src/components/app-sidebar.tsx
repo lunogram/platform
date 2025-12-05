@@ -4,6 +4,7 @@ import { ProjectSwitcher } from "@/components/project-switcher";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -13,15 +14,13 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import {
-  Link,
-  useLocation,
-} from "react-router";
+import { Link, useLocation } from "react-router";
 import type { SidebarLink } from "@/types/sidebar";
 import { useContext } from "react";
-import { ProjectContext } from "@/contexts";
+import { AdminContext, ProjectContext } from "@/contexts";
 import { useResolver } from "@/hooks";
 import api from "@/api";
+import { UserDropdown } from "./user-dropdown";
 
 interface AppSidebarProps {
   links?: SidebarLink[];
@@ -32,6 +31,7 @@ export function AppSidebar({
   ...props
 }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const [project] = useContext(ProjectContext);
+  const profile = useContext(AdminContext);
   const location = useLocation();
 
   const [allProjects] = useResolver(
@@ -39,7 +39,7 @@ export function AppSidebar({
       try {
         return await api.projects.all();
       } catch (error) {
-        console.error('Failed to fetch projects:', error);
+        console.error("Failed to fetch projects:", error);
         return [];
       }
     }, [])
@@ -49,10 +49,7 @@ export function AppSidebar({
     <Sidebar {...props}>
       <SidebarHeader>
         {allProjects && allProjects.length > 0 && project && (
-          <ProjectSwitcher
-            projects={allProjects}
-            currentProject={project}
-          />
+          <ProjectSwitcher projects={allProjects} currentProject={project} />
         )}
       </SidebarHeader>
       <SidebarContent>
@@ -83,6 +80,14 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <UserDropdown
+          user={{
+            name: profile?.first_name || "User",
+            email: profile?.email || "user@example.com",
+          }}
+        />
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );
