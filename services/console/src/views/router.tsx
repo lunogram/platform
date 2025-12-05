@@ -3,7 +3,6 @@ import { createBrowserRouter, Outlet, redirect, useNavigate, useParams } from 'r
 import api from '../api'
 
 import ErrorPage from './ErrorPage'
-import type { SidebarLink } from '../ui/Sidebar'
 import { LoaderContextProvider, StatefulLoaderContextProvider } from './LoaderContextProvider'
 import { AdminContext, CampaignContext, TemplateContext, JourneyContext, ListContext, ProjectContext, UserContext } from '../contexts'
 import ApiKeys from './settings/ApiKeys'
@@ -44,17 +43,15 @@ import ProjectOnboarding from './project/ProjectOnboarding'
 import ProjectOnboardingGettingStarted from './project/ProjectOnboardingGettingStarted'
 import ProjectOnboardingUsers from './project/ProjectOnboardingUsers'
 import ProjectOnboardingTools from './project/ProjectOnboardingTools'
-import Admins from './organization/Admins'
-import OrganizationSettings from './organization/Settings'
 import Locales from './settings/Locales'
 import JourneyUserEntrances from './journey/JourneyUserEntrances'
 import UserDetailJourneys from './users/UserDetailJourneys'
 import EntranceDetails from './journey/EntranceDetails'
 import { Translation } from 'react-i18next'
-import Organization from './organization/Organization'
 import DataSchema from './settings/DataSchema'
 import type { UUID } from '@/types/common'
 import type { Project } from '../types'
+import type { SidebarLink } from '@/types/sidebar'
 
 export const useRoute = (includeProject = true) => {
     const { projectId = '' } = useParams()
@@ -74,13 +71,11 @@ export const useRoute = (includeProject = true) => {
 export interface RouterProps {
     routes?: (routes: RouteObject[]) => RouteObject[]
     projectSidebarLinks?: <T extends SidebarLink>(links: T[]) => T[]
-    orgSidebarLinks?: <T extends SidebarLink>(links: T[]) => T[]
 }
 
 export const createRouter = ({
     routes = routes => routes,
-    projectSidebarLinks = links => links,
-    orgSidebarLinks = links => links,
+    projectSidebarLinks = links => links
 }: RouterProps) => createBrowserRouter(routes([
     {
         path: '/login',
@@ -107,7 +102,7 @@ export const createRouter = ({
                     if (recents.length) {
                         return redirect(`projects/${recents[0].id}`)
                     }
-                    return redirect('organization')
+                    return redirect('projects')
                 },
                 element: <Projects />,
             },
@@ -118,31 +113,6 @@ export const createRouter = ({
                     {
                         path: 'project',
                         element: <OnboardingProject />,
-                    },
-                ],
-            },
-            {
-                path: 'organization',
-                loader: async () => await api.organizations.get(),
-                element: <Organization filter={orgSidebarLinks} />,
-                children: [
-                    {
-                        index: true,
-                        loader: async () => {
-                            return redirect('projects')
-                        },
-                    },
-                    {
-                        path: 'projects',
-                        element: <Projects />,
-                    },
-                    {
-                        path: 'admins',
-                        element: <Admins />,
-                    },
-                    {
-                        path: 'settings',
-                        element: <OrganizationSettings />,
                     },
                 ],
             },
@@ -197,6 +167,7 @@ export const createRouter = ({
                                             return !completedGettingStarted(project)
                                         },
                                         minRole: 'editor',
+                                        
                                     },
                                     {
                                         key: 'campaigns',
