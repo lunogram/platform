@@ -119,7 +119,7 @@ export function MultiSelect<T = string>({
               <span className="text-muted-foreground select-button-label">{placeholder}</span>
             )}
           </div>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 select-button-icon" />
+          <ChevronsUpDown className="h-[16px] w-4 shrink-0 opacity-50 select-button-icon" />
         </button>
       </PopoverTrigger>
       <PopoverContent 
