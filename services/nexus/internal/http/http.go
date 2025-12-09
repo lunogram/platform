@@ -4,22 +4,10 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
-	"net/url"
 	"regexp"
 
-	"github.com/cloudproud/graceful"
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/getkin/kin-openapi/openapi3filter"
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/pkg/http"
-	"github.com/lunogram/platform/services/nexus/internal/config"
-	v1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1"
-	"github.com/lunogram/platform/services/nexus/internal/storage"
-	"github.com/lunogram/platform/services/nexus/internal/store"
-	"github.com/lunogram/platform/services/nexus/oapi"
 	"github.com/nyaruka/phonenumbers"
-	"go.uber.org/zap"
 )
 
 var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$")
@@ -48,37 +36,4 @@ func init() {
 
 		return nil
 	}))
-}
-
-// NewServer constructs a new HTTP server and it's routes. The returned server
-// could be used to listen and serve incoming requests on the given address.
-func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Service, db *sqlx.DB, storage storage.Storage) (*http.Server, error) {
-	spec, err := oapi.Spec()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load OpenAPI spec: %w", err)
-	}
-
-	stores := store.NewStores(db)
-
-	options := openapi3filter.Options{
-		AuthenticationFunc: Auth(config, logger, stores),
-	}
-
-	router := chi.NewRouter()
-	router.Use(Logger(logger))
-
-	controller := v1.NewController(logger, db, config, storage)
-
-	router.Use(oapi.Scalar())
-	v1.Use(router, controller, oapi.Validator(spec, options))
-
-	platform, err := url.Parse(config.PlatformURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid platform URL: %w", err)
-	}
-
-	// NOTE: during the migration we proxy all unknown requests to the platform service.
-	router.Handle("/*", http.ReverseProxy(platform))
-
-	return http.NewServer(logger, router, config.HTTP), nil
 }

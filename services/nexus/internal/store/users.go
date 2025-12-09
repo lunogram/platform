@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/services/nexus/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/rules"
 )
 
 type Users []User
@@ -210,10 +211,15 @@ type UpsertUserParams struct {
 	Phone       *string
 	Timezone    *string
 	Locale      *string
-	Data        *json.RawMessage
+	Data        map[string]any
 }
 
 func (s *UsersStore) UpsertUser(ctx context.Context, projectID uuid.UUID, params UpsertUserParams) (uuid.UUID, error) {
+	data := params.Data
+	if data == nil {
+		data = make(map[string]any)
+	}
+
 	stmt := `
 	INSERT INTO users (project_id, anonymous_id, external_id, email, phone, data, timezone, locale)
 	VALUES (
@@ -237,12 +243,6 @@ func (s *UsersStore) UpsertUser(ctx context.Context, projectID uuid.UUID, params
 	RETURNING id
 	`
 
-	data := params.Data
-	if data == nil {
-		emptyJSON := json.RawMessage(`{}`)
-		data = &emptyJSON
-	}
-
 	var id uuid.UUID
 	err := s.db.GetContext(ctx, &id, stmt,
 		projectID,
@@ -259,6 +259,28 @@ func (s *UsersStore) UpsertUser(ctx context.Context, projectID uuid.UUID, params
 	}
 
 	return id, nil
+}
+
+func (s *UsersStore) IdentifyAndGetUser(ctx context.Context, projectID uuid.UUID, params UpsertUserParams, updateSchema bool) (*User, error) {
+	userID, err := s.UpsertUser(ctx, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+
+	if updateSchema && params.Data != nil {
+		paths := rules.ParsePaths(params.Data)
+		err = s.UpsertUserSchema(ctx, projectID, paths)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	user, err := s.GetUser(ctx, projectID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 type UserUpdate struct {
@@ -383,4 +405,26 @@ func (s *UsersStore) CreateUserEvent(ctx context.Context, event UserEvent) (uuid
 	}
 
 	return id, nil
+}
+
+func (s *UsersStore) UpsertUserSchema(ctx context.Context, projectID uuid.UUID, paths rules.Paths) error {
+	if len(paths) == 0 {
+		return nil
+	}
+
+	stmt := `
+	INSERT INTO user_schemas (project_id, path, data_type)
+	VALUES ($1, $2, $3)
+	ON CONFLICT (project_id, path, data_type) DO NOTHING
+	`
+
+	// TODO: optimize with batch insert
+	for _, path := range paths {
+		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/pkg/claim"
 	"github.com/lunogram/platform/pkg/http/problem"
-	"github.com/lunogram/platform/services/nexus/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
 )
 
 func NewAdminsStore(db DB) *AdminsStore {

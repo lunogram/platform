@@ -1,7 +1,6 @@
 package importer
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/lunogram/platform/services/nexus/internal/store"
@@ -108,12 +107,8 @@ func TestUserMapperMapRecord(t *testing.T) {
 				require.NotNil(t, user.Email)
 				require.Equal(t, "admin@example.com", *user.Email)
 				require.NotNil(t, user.Data)
-
-				var data map[string]string
-				err := json.Unmarshal(*user.Data, &data)
-				require.NoError(t, err)
-				require.Equal(t, "Acme Inc", data["company"])
-				require.Equal(t, "Admin", data["role"])
+				require.Equal(t, "Acme Inc", user.Data["company"])
+				require.Equal(t, "Admin", user.Data["role"])
 			},
 		},
 		"only custom fields": {
@@ -123,12 +118,8 @@ func TestUserMapperMapRecord(t *testing.T) {
 				require.NotNil(t, user.ExternalID)
 				require.Equal(t, "user-999", *user.ExternalID)
 				require.NotNil(t, user.Data)
-
-				var data map[string]string
-				err := json.Unmarshal(*user.Data, &data)
-				require.NoError(t, err)
-				require.Equal(t, "Engineering", data["department"])
-				require.Equal(t, "EMP-001", data["employee_id"])
+				require.Equal(t, "Engineering", user.Data["department"])
+				require.Equal(t, "EMP-001", user.Data["employee_id"])
 			},
 		},
 		"with whitespace": {
@@ -179,12 +170,8 @@ func TestUserMapperMapRecord(t *testing.T) {
 				require.NotNil(t, user.Phone)
 				require.Equal(t, "+1234567890", *user.Phone)
 				require.NotNil(t, user.Data)
-
-				var data map[string]string
-				err := json.Unmarshal(*user.Data, &data)
-				require.NoError(t, err)
-				require.Equal(t, "premium", data["subscription_tier"])
-				require.Equal(t, "2025-01-01", data["join_date"])
+				require.Equal(t, "premium", user.Data["subscription_tier"])
+				require.Equal(t, "2025-01-01", user.Data["join_date"])
 			},
 		},
 	}

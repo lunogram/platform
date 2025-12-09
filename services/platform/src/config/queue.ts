@@ -17,7 +17,6 @@ import CampaignGenerateListJob from '../campaigns/CampaignGenerateListJob'
 import CampaignInteractJob from '../campaigns/CampaignInteractJob'
 import PushJob from '../providers/push/PushJob'
 import UserAliasJob from '../users/UserAliasJob'
-import UserSchemaSyncJob from '../schema/UserSchemaSyncJob'
 import UserDeviceJob from '../users/UserDeviceJob'
 import JourneyStatsJob from '../journey/JourneyStatsJob'
 import UpdateJourneysJob from '../journey/UpdateJourneysJob'
@@ -50,7 +49,7 @@ export const jobs = [
     UserDeleteJob,
     UserDeviceJob,
     UserPatchJob,
-    UserSchemaSyncJob,
+    // UserSchemaSyncJob,
     WebhookJob,
 ]
 

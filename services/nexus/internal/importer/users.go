@@ -1,7 +1,6 @@
 package importer
 
 import (
-	"encoding/json"
 	"errors"
 	"strings"
 
@@ -57,7 +56,7 @@ type UserMapper struct {
 
 func (users *UserMapper) MapRecord(record []string) (store.UpsertUserParams, error) {
 	user := store.UpsertUserParams{}
-	data := make(map[string]string)
+	user.Data = make(map[string]any)
 
 	for index, value := range record {
 		value = strings.TrimSpace(value)
@@ -67,16 +66,7 @@ func (users *UserMapper) MapRecord(record []string) (store.UpsertUserParams, err
 			continue
 		}
 
-		data[users.Data[index]] = value
-	}
-
-	if len(data) > 0 {
-		b, err := json.Marshal(data)
-		if err != nil {
-			return user, err
-		}
-		raw := json.RawMessage(b)
-		user.Data = &raw
+		user.Data[users.Data[index]] = value
 	}
 
 	return user, nil

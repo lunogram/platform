@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/lunogram/platform/services/nexus/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
 )
 
 type Project struct {
@@ -109,7 +109,7 @@ func (s *ProjectsStore) GetProject(ctx context.Context, id uuid.UUID) (*Project,
 	return &project, nil
 }
 
-func (s *ProjectsStore) ListProjects(ctx context.Context, adminID, organizationID uuid.UUID, pagination Pagination, search string) ([]Project, int, error) {
+func (s *ProjectsStore) ListProjects(ctx context.Context, organizationID uuid.UUID, pagination Pagination, search string) ([]Project, int, error) {
 	query := `
 	SELECT DISTINCT p.id, p.organization_id, p.name, p.description, p.timezone, p.text_opt_out_message, 
 	       p.link_wrap_email, p.text_help_message, p.link_wrap_push, p.tools, p.locale, 
@@ -121,12 +121,11 @@ func (s *ProjectsStore) ListProjects(ctx context.Context, adminID, organizationI
 	       ) AS has_provider,
 	       COUNT(*) OVER() AS total_count
 	FROM projects p
-	LEFT JOIN project_admins pa ON pa.project_id = p.id
 	WHERE p.deleted_at IS NULL
-	  AND (p.organization_id = $1 OR pa.admin_id = $2)
-	  AND ($3 = '' OR p.name ILIKE '%' || $3 || '%')
+	  AND p.organization_id = $1
+	  AND ($2 = '' OR p.name ILIKE '%' || $2 || '%')
 	ORDER BY p.created_at DESC
-	LIMIT $4 OFFSET $5`
+	LIMIT $3 OFFSET $4`
 
 	type result struct {
 		Project
@@ -134,7 +133,7 @@ func (s *ProjectsStore) ListProjects(ctx context.Context, adminID, organizationI
 	}
 
 	var results []result
-	err := s.db.SelectContext(ctx, &results, query, organizationID, adminID, search, pagination.Limit, pagination.Offset)
+	err := s.db.SelectContext(ctx, &results, query, organizationID, search, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}

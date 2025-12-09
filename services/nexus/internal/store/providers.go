@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/services/nexus/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
 )
 
 type Providers []Provider

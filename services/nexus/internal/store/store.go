@@ -57,6 +57,8 @@ func NewStores(db DB) *Stores {
 		LocalesStore:       NewLocalesStore(db),
 		ListsStore:         NewListsStore(db),
 		DocumentsStore:     NewDocumentsStore(db),
+		EventsStore:        NewEventsStore(db),
+		AuthStore:          NewAuthStore(db),
 	}
 }
 
@@ -75,6 +77,8 @@ type Stores struct {
 	*LocalesStore
 	*ListsStore
 	*DocumentsStore
+	*EventsStore
+	*AuthStore
 }
 
 type Pagination struct {
@@ -104,3 +108,13 @@ func (j *JSONB[T]) Scan(value interface{}) error {
 func (j JSONB[T]) Value() (driver.Value, error) {
 	return json.Marshal(j.Data)
 }
+
+type DataType string
+
+const (
+	DataTypeString DataType = "string"
+	DataTypeNumber DataType = "number"
+	DataTypeBool   DataType = "bool"
+	DataTypeObject DataType = "object"
+	DataTypeArray  DataType = "array"
+)

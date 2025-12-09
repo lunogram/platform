@@ -9,7 +9,8 @@ import (
 	"github.com/caarlos0/env/v10"
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/services/nexus/internal/config"
-	"github.com/lunogram/platform/services/nexus/internal/http"
+	managementv1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management"
+	publicv1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/public"
 	"github.com/lunogram/platform/services/nexus/internal/storage"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
@@ -66,13 +67,21 @@ func run() error {
 
 	logger.Info("starting http server")
 
-	srv, err := http.NewServer(ctx, logger, conf, db, storageBackend)
+	mgmt, err := managementv1.NewServer(ctx, logger, conf, db, storageBackend)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("serving http server")
-	go srv.Serve(ctx, conf.Address)
+	logger.Info("serving management http server")
+	go mgmt.Serve(ctx, conf.ManagementServiceAddress)
+
+	public, err := publicv1.NewServer(ctx, logger, conf, db, storageBackend)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("serving public http server")
+	go public.Serve(ctx, conf.PublicServiceAddress)
 
 	logger.Info("service up and running!")
 	ctx.AwaitKillSignal()
