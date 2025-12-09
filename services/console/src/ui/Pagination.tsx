@@ -21,7 +21,7 @@ export default function CursorPagination({
 }: PaginationProps) {
     if (!prevCursor && !nextCursor) return <></>
     return (
-        <Pagination className='mt-4'>
+        <Pagination className="mt-4">
             <PaginationContent>
                 <PaginationItem>
                     <PaginationPrevious

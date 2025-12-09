@@ -149,7 +149,7 @@ export function SearchTable<T extends Record<string, any>>({
     const filters = []
     if (enableSearch) {
         filters.push(
-            <div key="search" className='w-30'>
+            <div key="search" className="w-30">
                 <TextInput
                     name="search"
                     value={search}

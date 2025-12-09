@@ -109,7 +109,6 @@ export default function WrapperRuleEdit({
                     })}
                 >
                     <PlusIcon />
-               
                     {
                         rule.group === 'event'
                             ? t('rule_add_condition')

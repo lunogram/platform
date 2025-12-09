@@ -1,4 +1,3 @@
-import clsx from "clsx";
 import type { Ref, ReactNode } from "react";
 import type { FieldPath, FieldValues } from "react-hook-form";
 import { useController } from "react-hook-form";
@@ -86,7 +85,7 @@ export default function TextInput<X extends TextInputValue>({
   return (
     <label
       ref={labelRef}
-      className={clsx("ui-text-input", { "hide-label": hideLabel })}
+      className={cn("ui-text-input", { "hide-label": hideLabel })}
     >
       {!hideLabel && (
         <span>
@@ -96,14 +95,14 @@ export default function TextInput<X extends TextInputValue>({
       )}
       {subtitle && <span className="label-subtitle">{subtitle}</span>}
       <div
-        className={clsx(
+        className={cn(
           icon && "ui-text-input-icon-wrapper",
           suffix && "ui-text-input-suffix-wrapper",
           prefix && "ui-text-input-prefix-wrapper"
         )}
       >
         {prefix && (
-          <div className={clsx("ui-text-input-prefix", size)}>{prefix}</div>
+          <div className={cn("ui-text-input-prefix", size)}>{prefix}</div>
         )}
         {textarea ? (
           <Textarea
@@ -143,7 +142,7 @@ export default function TextInput<X extends TextInputValue>({
         )}
         {icon && <span className="ui-text-input-icon">{icon}</span>}
         {suffix && (
-          <div className={clsx("ui-text-input-suffix", size)}>{suffix}</div>
+          <div className={cn("ui-text-input-suffix", size)}>{suffix}</div>
         )}
       </div>
     </label>

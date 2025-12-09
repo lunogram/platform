@@ -125,7 +125,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     actions={
                         <Link to={`/projects/${project.id}/settings/integrations`}>
                             <Button>{t('setup_integration')}</Button>
-                        </Link>                        
+                        </Link>
                     }
                 >{t('setup_integration_description')}</Alert>
             )}>
@@ -232,7 +232,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                 },
                             })}
                             toValue={(value) => value.key}
-                            className='[&_svg]:h-2 [&_select-button]:px-1'
+                            className="[&_svg]:h-2 [&_select-button]:px-1"
                         />,
                     ]}
                 />

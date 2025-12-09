@@ -58,7 +58,7 @@ export default function ProjectOnboarding() {
             <div className="flex gap-2 mt-4">
                  <Link to={`/projects/${projectId}/getting-started`}>
                     <Button variant="secondary">{t('skip')}</Button>
-                </Link>   
+                </Link>
             </div>
         </div>
     )
