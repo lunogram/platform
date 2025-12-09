@@ -1,5 +1,10 @@
-import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons'
-import './Pagination.css'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationPrevious,
+    PaginationNext,
+} from '@/components/ui/pagination'
 
 interface PaginationProps {
     prevCursor: string | undefined
@@ -16,19 +21,29 @@ export default function CursorPagination({
 }: PaginationProps) {
     if (!prevCursor && !nextCursor) return <></>
     return (
-        <div className="ui-pagination">
-            <button className="pagination-button prev"
-                disabled={prevCursor === undefined}
-                onClick={() => onPrev(prevCursor)}>
-                <ChevronLeftIcon />
-                Previous
-            </button>
-            <button className="pagination-button next"
-                disabled={nextCursor === undefined}
-                onClick={() => onNext(nextCursor)}>
-                Next
-                <ChevronRightIcon />
-            </button>
-        </div>
+        <Pagination className='mt-4'>
+            <PaginationContent>
+                <PaginationItem>
+                    <PaginationPrevious
+                        onClick={(e) => {
+                            e.preventDefault()
+                            onPrev(prevCursor)
+                        }}
+                        aria-disabled={prevCursor === undefined}
+                        className={prevCursor === undefined ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                </PaginationItem>
+                <PaginationItem>
+                    <PaginationNext
+                        onClick={(e) => {
+                            e.preventDefault()
+                            onNext(nextCursor)
+                        }}
+                        aria-disabled={nextCursor === undefined}
+                        className={nextCursor === undefined ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                </PaginationItem>
+            </PaginationContent>
+        </Pagination>
     )
 }
