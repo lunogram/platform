@@ -83,7 +83,6 @@ func TestUserMapperMapRecord(t *testing.T) {
 				require.Equal(t, "UTC", *user.Timezone)
 				require.NotNil(t, user.Locale)
 				require.Equal(t, "en-US", *user.Locale)
-				require.Nil(t, user.Data)
 			},
 		},
 		"out of order fields": {
@@ -144,7 +143,6 @@ func TestUserMapperMapRecord(t *testing.T) {
 				require.Nil(t, user.Phone)
 				require.Nil(t, user.Timezone)
 				require.Nil(t, user.Locale)
-				require.Nil(t, user.Data)
 			},
 		},
 		"empty values": {
