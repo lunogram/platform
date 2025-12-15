@@ -166,17 +166,17 @@ export function SearchTable<T extends Record<string, any>>({
         filters.push(...additionalFilters)
     }
 
-    if (tagEntity) {
-        filters.push(
-            <TagPicker
-                key="tags"
-                entity={tagEntity}
-                value={params.tag ?? []}
-                onChange={tag => setParams({ ...params, tag })}
-                placeholder={t('filter')}
-            />,
-        )
-    }
+    // if (tagEntity) {
+    //     filters.push(
+    //         <TagPicker
+    //             key="tags"
+    //             entity={tagEntity}
+    //             value={params.tag ?? []}
+    //             onChange={tag => setParams({ ...params, tag })}
+    //             placeholder={t('filter')}
+    //         />,
+    //     )
+    // }
 
     return (
         <>

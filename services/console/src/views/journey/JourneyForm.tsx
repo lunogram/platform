@@ -66,11 +66,11 @@ export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
                             name="template_id"
                             label={t('template')}
                         />}
-                        <TagPicker.Field
+                        {/* <TagPicker.Field
                             form={form}
                             name="tags"
                             label={t('tags')}
-                        />
+                        /> */}
                         {isCreated && <RadioInput.Field
                             form={form}
                             name="status"

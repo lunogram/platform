@@ -54,11 +54,11 @@ export function ListCreateForm({ onCreated }: ListCreateFormProps) {
                             { key: 'static', label: t('static') },
                         ]}
                     />
-                    <TagPicker.Field
+                    {/* <TagPicker.Field
                         form={form}
                         name="tags"
                         label={t('tags')}
-                    />
+                    /> */}
                 </>
             )}
         </FormWrapper>

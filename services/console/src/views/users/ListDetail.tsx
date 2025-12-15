@@ -194,11 +194,11 @@ export default function ListDetail() {
                                 label={t('list_name')}
                                 required
                             />
-                            <TagPicker.Field
+                            {/* <TagPicker.Field
                                 form={form}
                                 name="tags"
                                 label={t('tags')}
-                            />
+                            /> */}
                         </>
                     )}
                 </FormWrapper>
