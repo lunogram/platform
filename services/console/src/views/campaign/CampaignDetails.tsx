@@ -33,7 +33,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
         resolver: zodResolver(campaignSchema),
         defaultValues: {
             name: campaign.name || "",
-            provider_id: campaign.provider_id,
+            provider_id: campaign.provider?.id,
         },
     });
 

@@ -17,7 +17,9 @@ export function Projects() {
     const navigate = useNavigate()
     const { t } = useTranslation()
     const [preferences] = useContext(PreferencesContext)
-    const [projects] = useResolver(api.projects.all)
+    const [response] = useResolver(api.projects.all)
+    const projects = response?.results
+
     const recents = useMemo(() => {
         const recents = getRecentProjects()
         if (!projects?.length || !recents.length) return []

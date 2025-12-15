@@ -1,0 +1,89 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+
+	"github.com/caarlos0/env/v10"
+	"github.com/cloudproud/graceful"
+	"github.com/lunogram/platform/services/nexus/internal/config"
+	managementv1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management"
+	publicv1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/public"
+	"github.com/lunogram/platform/services/nexus/internal/storage"
+	"github.com/lunogram/platform/services/nexus/internal/store"
+	"go.uber.org/zap"
+)
+
+var migrate bool
+
+func init() {
+	flag.BoolVar(&migrate, "migrate", false, "flag indicating whether the service should run migrations and exit")
+}
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	flag.Parse()
+	ctx := graceful.NewContext(context.Background())
+
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		return err
+	}
+	defer logger.Sync() //nolint:errcheck
+
+	conf := config.Service{}
+	err = env.Parse(&conf)
+	if err != nil {
+		return err
+	}
+
+	if migrate {
+		logger.Info("running database migrations...")
+		return store.Migrate(conf.Store)
+	}
+
+	logger.Info("starting service...")
+	logger.Info("connecting to database")
+
+	db, err := store.Connect(ctx, conf.Store)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("initializing storage")
+
+	storageBackend, err := storage.New(conf.Storage)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("starting http server")
+
+	mgmt, err := managementv1.NewServer(ctx, logger, conf, db, storageBackend)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("serving management http server")
+	go mgmt.Serve(ctx, conf.ManagementServiceAddress)
+
+	public, err := publicv1.NewServer(ctx, logger, conf, db, storageBackend)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("serving public http server")
+	go public.Serve(ctx, conf.PublicServiceAddress)
+
+	logger.Info("service up and running!")
+	ctx.AwaitKillSignal()
+	return nil
+}

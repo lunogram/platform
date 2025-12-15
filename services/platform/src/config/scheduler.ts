@@ -1,12 +1,11 @@
 import { cleanupExpiredRevokedTokens } from '../auth/TokenRepository'
-import { subDays, subHours } from 'date-fns'
+import { subDays } from 'date-fns'
 import nodeScheduler from 'node-schedule'
 import App from '../app'
 import ProcessCampaignsJob from '../campaigns/ProcessCampaignsJob'
 import JourneyDelayJob from '../journey/JourneyDelayJob'
 import ProcessListsJob from '../lists/ProcessListsJob'
 import CampaignStateJob from '../campaigns/CampaignStateJob'
-import UserSchemaSyncJob from '../schema/UserSchemaSyncJob'
 import UpdateJourneysJob from '../journey/UpdateJourneysJob'
 import ScheduledEntranceOrchestratorJob from '../journey/ScheduledEntranceOrchestratorJob'
 import { acquireLock } from '../core/Lock'
@@ -27,9 +26,9 @@ export default (app: App) => {
         rule: '0 * * * *',
         callback: () => {
             cleanupExpiredRevokedTokens(subDays(new Date(), 1))
-            app.queue.enqueue(UserSchemaSyncJob.from({
-                delta: subHours(new Date(), 1),
-            }))
+            // app.queue.enqueue(UserSchemaSyncJob.from({
+            //     delta: subHours(new Date(), 1),
+            // }))
             app.queue.enqueue(UpdateJourneysJob.from())
         },
     })

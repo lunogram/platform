@@ -525,8 +525,8 @@ export type Template = {
         }
     )
 
-export type TemplateCreateParams = Pick<Template, | 'type' | 'data' | 'campaign_id' | 'locale'>
-export type TemplateUpdateParams = Pick<Template, | 'data'>
+export type TemplateCreateParams = Pick<Template, 'data' | 'locale'>
+export type TemplateUpdateParams = Pick<Template, 'data'>
 export type VariantUpdateParams = { id?: UUID }
 
 export interface TemplatePreviewParams {
@@ -540,13 +540,7 @@ export interface TemplateProofParams {
     recipient: string
 }
 
-export const SubscriptionState = {
-    unsubscribed: 0,
-    subscribed: 1,
-    optedIn: 2,
-} as const
-
-export type SubscriptionState = typeof SubscriptionState[keyof typeof SubscriptionState]
+export type SubscriptionState = 'subscribed' | 'unsubscribed'
 
 export interface UserSubscription {
     id: UUID
@@ -580,7 +574,7 @@ export interface Provider {
     name: string
     type: string
     group: string
-     
+
     data: any
     is_default: boolean
     rate_limit: number
@@ -598,7 +592,7 @@ export interface ProviderMeta {
     icon?: string
     type: string
     group: string
-     
+
     schema: any
     paths?: Record<string, string>
 }
@@ -641,7 +635,6 @@ export interface Tag {
 export interface LocaleOption {
     key: string
     label: string
-    shortLabel?: string
 }
 
 export interface Locale extends LocaleOption {
