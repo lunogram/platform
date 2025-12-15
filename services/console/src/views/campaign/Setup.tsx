@@ -13,7 +13,7 @@ import { CampaignWorkflowContext } from "./contexts";
 
 const schema = z.object({
     name: z.string().min(1, "Name is required"),
-    provider_id: z.string("Provider is required"),
+    provider_id: z.string().min(1, "Provider is required"),
 });
 
 type FormData = z.infer<typeof schema>;

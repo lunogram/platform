@@ -190,6 +190,7 @@ TextInput.Field = function TextInputField<
       }}
       required={required}
       error={fieldState.error?.message}
+      value={value ?? field.value}
     />
   );
 };
