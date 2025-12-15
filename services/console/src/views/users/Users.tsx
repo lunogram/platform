@@ -5,7 +5,8 @@ import PageContent from '../../ui/PageContent'
 import { SearchTable, useSearchTableQueryState } from '../../ui/SearchTable'
 import { useRoute } from '../router'
 import { useTranslation } from 'react-i18next'
-import { Button, Modal } from '../../ui'
+import { Modal } from '../../ui'
+import { Button } from '@/components/ui/button'
 import FormWrapper from '../../ui/form/FormWrapper'
 import UploadField from '../../ui/form/UploadField'
 import TextInput from '../../ui/form/TextInput'
@@ -84,12 +85,12 @@ export default function UserTabs() {
         title={t('users')}
         actions={
             <>
-                <Button icon={<TrashIcon />}
+                <Button
                     onClick={() => setIsBulkRemovalOpen(true)}
-                    variant="destructive">{t('delete_users')}
+                    variant="destructive"><TrashIcon />{t('delete_users')}
                 </Button>
-                <Button icon={<PlusIcon />}
-                    onClick={() => setIsCreateUserOpen(true)}>{t('create_user')}
+                <Button
+                    onClick={() => setIsCreateUserOpen(true)}><PlusIcon />{t('create_user')}
                 </Button>
             </>
         }>

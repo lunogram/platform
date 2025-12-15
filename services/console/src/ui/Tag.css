@@ -1,15 +1,18 @@
+/* Override shadcn badge defaults */
 .ui-tag {
-    padding: 5px 8px;
-    font-size: 15px;
-    line-height: 20px;
-    border-radius: var(--border-radius);
-    display: inline-flex;
+    padding: 5px 8px !important;
+    font-size: 15px !important;
+    line-height: 20px !important;
+    border-radius: var(--border-radius) !important;
+    display: inline-flex !important;
     gap: 5px;
     align-items: center;
-    background: var(--color-grey-soft);
-    color: var(--color-primary);
-    font-weight: 500;
+    background: var(--color-grey-soft) !important;
+    color: var(--color-primary) !important;
+    font-weight: 500 !important;
     overflow-wrap: break-word;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 .ui-tag svg {
@@ -18,23 +21,23 @@
 }
 
 .ui-tag.info {
-    background: var(--color-blue-soft);
-    color: var(--color-blue-hard);
+    background: var(--color-blue-soft) !important;
+    color: var(--color-blue-hard) !important;
 }
 
 .ui-tag.success {
-    background: var(--color-green-soft);
-    color: var(--color-green-hard);
+    background: var(--color-green-soft) !important;
+    color: var(--color-green-hard) !important;
 }
 
 .ui-tag.error {
-    background: var(--color-red-soft);
-    color: var(--color-red-hard);
+    background: var(--color-red-soft) !important;
+    color: var(--color-red-hard) !important;
 }
 
 .ui-tag.warn {
-    background: var(--color-yellow-soft);
-    color: var(--color-yellow-hard);
+    background: var(--color-yellow-soft) !important;
+    color: var(--color-yellow-hard) !important;
 }
 
 .ui-tag-group {

@@ -1,168 +1,164 @@
-import { Listbox } from '@headlessui/react'
-import type { ReactNode } from 'react'
-import { CheckIcon, ChevronUpDownIcon } from '../../components/icons'
-import type { FieldPath, FieldValues } from 'react-hook-form'
-import { useController } from 'react-hook-form'
-import './Select.css'
-import { defaultGetOptionDisplay, defaultGetValueKey, defaultToValue, usePopperSelectDropdown } from '../utils'
-import type { ControlledInputProps, FieldBindingsProps, OptionsProps } from '../../types'
-import clsx from 'clsx'
+import type { ReactNode } from "react";
+import type { FieldPath, FieldValues } from "react-hook-form";
+import { useController } from "react-hook-form";
+import {
+  defaultGetOptionDisplay,
+  defaultGetValueKey,
+  defaultToValue,
+} from "../utils";
+import type {
+  ControlledInputProps,
+  FieldBindingsProps,
+  OptionsProps,
+} from "../../types";
+import { cn } from "@/utils";
+import "./Select.css";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import * as SelectPrimitive from "@radix-ui/react-select";
+import { ChevronDown } from "lucide-react";
 
-export interface SingleSelectProps<T, O = T> extends ControlledInputProps<T>, OptionsProps<O, T> {
-    className?: string
-    buttonClassName?: string
-    getSelectedOptionDisplay?: (option: O) => ReactNode
-    onBlur?: () => void
-    optionsFooter?: ReactNode
-    size?: 'small' | 'regular'
-    variant?: 'plain' | 'minimal'
-    prefix?: ReactNode
+export interface SingleSelectProps<T, O = T>
+  extends ControlledInputProps<T>,
+    OptionsProps<O, T> {
+  className?: string;
+  buttonClassName?: string;
+  getSelectedOptionDisplay?: (option: O) => ReactNode;
+  onBlur?: () => void;
+  optionsFooter?: ReactNode;
+  size?: "small" | "regular";
+  variant?: "plain" | "minimal";
+  prefix?: ReactNode;
 }
 
 export function SingleSelect<T, U = T>({
-    buttonClassName,
-    className,
-    disabled,
-    error,
-    getOptionDisplay = defaultGetOptionDisplay,
-    getSelectedOptionDisplay = getOptionDisplay,
-    hideLabel,
-    label,
-    options,
-    optionsFooter,
-    onBlur,
-    onChange,
-    required,
-    size,
-    subtitle,
-    toValue = defaultToValue,
-    getValueKey = defaultGetValueKey,
-    value,
-    variant,
-    prefix,
+  buttonClassName,
+  className,
+  disabled,
+  error,
+  getOptionDisplay = defaultGetOptionDisplay,
+  getSelectedOptionDisplay = getOptionDisplay,
+  hideLabel,
+  label,
+  options,
+  optionsFooter,
+  onBlur,
+  onChange,
+  required,
+  size,
+  subtitle,
+  toValue = defaultToValue,
+  getValueKey = defaultGetValueKey,
+  value,
+  variant = "plain",
+  prefix,
 }: SingleSelectProps<T, U>) {
+  const selectedOption = options.find((o) =>
+    Object.is(getValueKey(toValue(o)), getValueKey(value))
+  );
 
-    const {
-        setReferenceElement,
-        setPopperElement,
-        attributes,
-        styles,
-    } = usePopperSelectDropdown()
+  // Convert value to string for shadcn Select
+  const stringValue = value != null ? String(getValueKey(value)) : undefined;
 
-    const selectedOption = options.find(o => Object.is(getValueKey(toValue(o)), getValueKey(value)))
+  // Handle value change by finding the original option
+  const handleValueChange = (stringVal: string) => {
+    const option = options.find(
+      (o) => String(getValueKey(toValue(o))) === stringVal
+    );
+    if (option) {
+      onChange(toValue(option));
+    }
+  };
 
-    return (
-        <Listbox
-            as="div"
-            className={clsx(
-                'ui-select',
-                className,
-                variant ?? 'plain',
-                prefix && 'ui-select-prefix-wrapper',
-            )}
-            by={(left: T, right: T) => Object.is(getValueKey(left), getValueKey(right))}
-            disabled={disabled}
-            value={value}
-            onChange={onChange}
-            onBlur={onBlur}
+  return (
+    <div
+      className={cn(
+        "ui-select",
+        variant,
+        className,
+        prefix && "ui-select-prefix-wrapper"
+      )}
+    >
+      {label && (
+        <label style={hideLabel ? { display: "none" } : undefined}>
+          <span>
+            {label}
+            {required && <span style={{ color: "red" }}>&nbsp;*</span>}
+          </span>
+        </label>
+      )}
+      {subtitle && <span className="label-subtitle">{subtitle}</span>}
+      {prefix && <span className="ui-select-prefix">{prefix}</span>}
+      <Select
+        value={stringValue}
+        onValueChange={handleValueChange}
+        disabled={disabled}
+      >
+        <SelectTrigger
+          className={cn("select-button", size, buttonClassName)}
+          onBlur={onBlur}
         >
-            {
-                label && (
-                    <Listbox.Label style={hideLabel ? { display: 'none' } : undefined}>
-                        <span>
-                            {label}
-                            {
-                                required && (
-                                    <span style={{ color: 'red' }}>&nbsp;*</span>
-                                )
-                            }
-                        </span>
-                    </Listbox.Label>
-                )
-            }
-            {
-                subtitle && (
-                    <span className="label-subtitle">
-                        {subtitle}
-                    </span>
-                )
-            }
-            {
-                prefix && (
-                    <span className="ui-select-prefix">
-                        {prefix}
-                    </span>
-                )
-            }
-            <Listbox.Button className={clsx('select-button', size, buttonClassName)} ref={setReferenceElement}>
-                <span className="select-button-label">
-                    {
-                        selectedOption === undefined
-                            ? ''
-                            : getSelectedOptionDisplay(selectedOption)
-                    }
-                </span>
-                <span className="select-button-icon">
-                    <ChevronUpDownIcon aria-hidden="true" />
-                </span>
-            </Listbox.Button>
-            {
-                (error && !hideLabel) && (
-                    <span className="field-error">
-                        {error}
-                    </span>
-                )
-            }
-            <Listbox.Options className="select-options nowheel"
-                ref={setPopperElement}
-                style={styles.popper}
-                {...attributes.popper}>
-                {options.map((option) => {
-                    const value = toValue(option)
-                    return (
-                        <Listbox.Option
-                            key={getValueKey(value)}
-                            value={value}
-                            className={({ active, selected }) => clsx(
-                                'select-option',
-                                active && 'active',
-                                selected && 'selected',
-                            )}
-                        >
-                            <span>{getOptionDisplay(option)}</span>
-                            <span className="option-icon">
-                                <CheckIcon aria-hidden="true" />
-                            </span>
-                        </Listbox.Option>
-                    )
-                })}
-                {optionsFooter}
-            </Listbox.Options>
-        </Listbox>
-    )
+          <SelectValue asChild>
+            <span className="select-button-label">
+              {selectedOption ? getSelectedOptionDisplay(selectedOption) : ""}
+            </span>
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent className="select-options transition-enter transition-leave">
+          {options.map((option) => {
+            const val = toValue(option);
+            const key = getValueKey(val);
+            return (
+              <SelectItem
+                key={key}
+                value={String(key)}
+                className="select-option"
+              >
+                <span>{getOptionDisplay(option)}</span>
+              </SelectItem>
+            );
+          })}
+          {optionsFooter}
+        </SelectContent>
+      </Select>
+      {error && !hideLabel && <span className="field-error">{error}</span>}
+    </div>
+  );
 }
 
-SingleSelect.Field = function SingleSelectField<T, O, X extends FieldValues, P extends FieldPath<X>>({
-    form,
-    name,
-    required,
-    ...rest
+SingleSelect.Field = function SingleSelectField<
+  T,
+  O,
+  X extends FieldValues,
+  P extends FieldPath<X>,
+>({
+  form,
+  name,
+  required,
+  ...rest
 }: FieldBindingsProps<SingleSelectProps<T, O>, T, X, P>) {
+  const {
+    field: { ...field },
+    fieldState,
+  } = useController({
+    control: form.control,
+    name,
+    rules: {
+      required,
+    },
+  });
 
-    const { field: { ...field }, fieldState } = useController({
-        control: form.control,
-        name,
-        rules: {
-            required,
-        },
-    })
-
-    return (
-        <SingleSelect
-            {...rest}
-            {...field}
-            required={required}
-            error={fieldState.error?.message}
-        />
-    )
-}
+  return (
+    <SingleSelect
+      {...rest}
+      {...field}
+      required={required}
+      error={fieldState.error?.message}
+    />
+  );
+};

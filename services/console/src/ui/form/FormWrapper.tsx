@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import type { NavigateFunction} from 'react-router';
 import { useNavigate } from 'react-router'
 import Alert from '../Alert'
-import Button from '../Button'
+import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 
 interface FormWrapperProps<T extends FieldValues> {

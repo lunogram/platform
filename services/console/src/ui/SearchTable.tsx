@@ -149,15 +149,16 @@ export function SearchTable<T extends Record<string, any>>({
     const filters = []
     if (enableSearch) {
         filters.push(
-            <TextInput
-                key="search"
-                name="search"
-                value={search}
-                placeholder={searchPlaceholder ?? t('search')}
-                onChange={setSearch}
-                hideLabel={true}
-                icon={<SearchIcon />}
-            />,
+            <div key="search" className="w-30">
+                <TextInput
+                    name="search"
+                    value={search}
+                    placeholder={searchPlaceholder ?? t('search')}
+                    onChange={setSearch}
+                    hideLabel={true}
+                    icon={<SearchIcon />}
+                />
+            </div>,
         )
     }
 

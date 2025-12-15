@@ -1,7 +1,7 @@
 import { Dialog, Transition } from '@headlessui/react'
 import type { PropsWithChildren, ReactNode } from 'react';
 import { Fragment } from 'react'
-import Button from './Button'
+import { Button } from '@/components/ui/button'
 import { CloseIcon } from '../components/icons'
 import { useTranslation } from 'react-i18next'
 import './Modal.css'
@@ -66,8 +66,8 @@ export default function Modal({
                                         <Button
                                             variant="secondary"
                                             onClick={() => onClose(false)}
-                                            icon={<CloseIcon />}
                                         >
+                                            <CloseIcon />
                                             {t('exit')}
                                         </Button>
                                     )
@@ -102,11 +102,12 @@ export default function Modal({
                                 size !== 'fullscreen' && (
                                     <Button
                                         className="modal-close"
-                                        size="tiny"
-                                        variant="plain"
-                                        icon={<CloseIcon />}
+                                        size="sm"
+                                        variant="ghost"
                                         onClick={() => onClose(false)}
-                                    />
+                                    >
+                                        <CloseIcon />
+                                    </Button>
                                 )
                             }
                         </Dialog.Panel>

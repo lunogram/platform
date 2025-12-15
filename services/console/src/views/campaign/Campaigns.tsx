@@ -1,8 +1,8 @@
 import { useCallback, useContext } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import api from '../../api'
 
-import { LinkButton } from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import { ArchiveIcon, DuplicateIcon, EditIcon } from '../../components/icons'
 import Menu, { MenuItem } from '../../ui/Menu'
 import PageContent from '../../ui/PageContent'
@@ -15,12 +15,12 @@ import { Alert } from '../../ui'
 import { ProjectContext } from '../../contexts'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import { Translation, useTranslation } from 'react-i18next'
-import { SingleSelect } from '../../ui/form/SingleSelect'
 
 import { CreateCampaign } from './CreateCampaign'
 
 import type { Campaign, CampaignDelivery, CampaignState } from '@/types'
 import type { UUID } from '@/types/common'
+import { SingleSelect } from '../../ui/form/SingleSelect'
 
 export const CampaignTag = ({ state, progress, send_at }: Pick<Campaign, 'state' | 'progress' | 'send_at'>) => {
     const variant: Record<CampaignState, TagVariant> = {
@@ -74,7 +74,7 @@ export const ClickRate = ({ delivery }: { delivery: CampaignDelivery }) => {
 }
 
 const campaignTypes = [
-    { key: '', label: 'All' },
+    { key: 'all', label: 'All' },
     { key: 'blast', label: 'Blast' },
     { key: 'trigger', label: 'Journey' },
 ]
@@ -123,7 +123,9 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     variant="plain"
                     title={t('setup')}
                     actions={
-                        <LinkButton to={`/projects/${project.id}/settings/integrations`}>{t('setup_integration')}</LinkButton>
+                        <Link to={`/projects/${project.id}/settings/integrations`}>
+                            <Button>{t('setup_integration')}</Button>
+                        </Link>
                     }
                 >{t('setup_integration_description')}</Alert>
             )}>
@@ -199,7 +201,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                             key: 'options',
                             title: t('options'),
                             cell: ({ item: { id } }) => (
-                                <Menu size="small">
+                                <Menu size="min">
                                     <MenuItem onClick={async () => await handleEditCampaign(id)}>
                                         <EditIcon />{t('edit')}
                                     </MenuItem>
@@ -221,15 +223,16 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                             key="type"
                             options={campaignTypes}
                             prefix={t('type')}
-                            value={state.params.filter?.type}
+                            value={state.params.filter?.type || 'all'}
                             onChange={value => state.setParams({
                                 ...state.params,
                                 filter: {
                                     ...state.params.filter,
-                                    type: value,
+                                    type: value === 'all' ? '' : value,
                                 },
                             })}
                             toValue={(value) => value.key}
+                            className="[&_svg]:h-2 [&_select-button]:px-1"
                         />,
                     ]}
                 />

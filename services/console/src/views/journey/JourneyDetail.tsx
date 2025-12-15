@@ -1,6 +1,6 @@
 import { useState, useContext } from 'react'
 import { JourneyContext } from '../../contexts'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import PageContent from '../../ui/PageContent'
 import JourneyEditor from './JourneyEditor'
 import { useTranslation } from 'react-i18next'

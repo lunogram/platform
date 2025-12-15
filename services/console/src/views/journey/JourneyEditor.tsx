@@ -39,7 +39,7 @@ import clsx from 'clsx'
 import api from '../../api'
 import type { JourneyStep, JourneyStepMap, JourneyStepType } from '../../types'
 
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import Alert from '../../ui/Alert'
 import Modal from '../../ui/Modal'
 import { toast } from 'react-hot-toast/headless'
@@ -674,7 +674,7 @@ export default function JourneyEditor() {
                                 )
                             }
                         </div>
-                        <Menu size="small">
+                        <Menu size="min">
                             <MenuItem onClick={() => handleSetNodes(nds => nds.filter(item => item.id !== editNode.id))
                             }>{t('delete_step')}</MenuItem>
                         </Menu>
@@ -760,7 +760,7 @@ export default function JourneyEditor() {
                             <Button
                                 onClick={saveSteps}
                                 isLoading={saving}
-                                variant="primary"
+                                variant="default"
                             >
                                 {t('journey_draft_save')}
                             </Button>
@@ -781,14 +781,14 @@ export default function JourneyEditor() {
                                 ? <Button
                                     onClick={() => editDraft(draftId)}
                                     isLoading={publishing}
-                                    variant="primary"
+                                    variant="default"
                                 >
                                     {t('journey_draft_edit')}
                                 </Button>
                                 : <Button
                                     onClick={createDraft}
                                     isLoading={saving}
-                                    variant="primary"
+                                    variant="default"
                                 >
                                     {t('journey_draft_create')}
                                 </Button>

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import api from '../../api'
 import { useResolver } from '../../hooks'
 import type { Project } from '../../types'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import PageContent from '../../ui/PageContent'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import Tile, { TileGrid } from '../../ui/Tile'
@@ -53,10 +53,10 @@ export function Projects() {
             desc={t('projects_description')}
             actions={
                 <Button
-                    variant="primary"
-                    icon={<PlusIcon />}
+                    variant="default"
                     onClick={() => setOpen(true)}
                 >
+                    <PlusIcon />
                     {t('create_project')}
                 </Button>
             }

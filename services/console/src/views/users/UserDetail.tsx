@@ -4,7 +4,7 @@ import PageContent from '../../ui/PageContent'
 import { NavigationTabs } from '../../ui/Tabs'
 import { Outlet, useNavigate } from 'react-router'
 import { InfoTable } from '../../ui/InfoTable'
-import { Button } from '../../ui'
+import { Button } from '@/components/ui/button'
 import { TrashIcon } from '../../components/icons'
 import api from '../../api'
 import { useTranslation } from 'react-i18next'
@@ -34,9 +34,12 @@ export default function UserDetail() {
                 }} direction="horizontal" />
             }
             actions={
-                <Button icon={<TrashIcon />}
+                <Button
                     onClick={deleteUser}
-                    variant="destructive">{t('delete_user')}</Button>
+                    variant="destructive">
+                        <TrashIcon />
+                        {t('delete_user')}
+                </Button>
             }
         >
             <NavigationTabs tabs={[

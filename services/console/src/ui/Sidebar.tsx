@@ -5,7 +5,7 @@ import type { NavLinkProps } from 'react-router';
 import { Link, useNavigate } from 'react-router'
 import type { PropsWithChildren, ReactNode } from 'react';
 import { useContext, useState } from 'react'
-import Button from './Button'
+import { Button } from '@/components/ui/button'
 import { ChevronDownIcon, MenuIcon } from '../components/icons'
 import clsx from 'clsx'
 import Menu, { MenuItem } from './Menu'
@@ -42,7 +42,9 @@ export default function Sidebar({ children, links, prepend, append }: PropsWithC
     return (
         <>
             <header className="header">
-                <Button onClick={() => setIsOpen(!isOpen)} icon={<MenuIcon />} aria-label="Menu" variant="secondary" size="small" />
+                <Button onClick={() => setIsOpen(!isOpen)} aria-label="Menu" variant="secondary" size="sm">
+                    <MenuIcon />
+                </Button>
                 <Link className="logo" to="/">
                     {/* <Logo /> */}
                 </Link>

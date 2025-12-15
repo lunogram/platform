@@ -7,7 +7,7 @@ import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
 import type { Subscription } from '../../types'
 import TextInput from '../../ui/form/TextInput'
 import { SingleSelect } from '../../ui/form/SingleSelect'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import { PlusIcon } from '../../components/icons'
 import { snakeToTitle } from '../../utils'
 import { useTranslation } from 'react-i18next'
@@ -42,11 +42,12 @@ export default function Subscriptions() {
                 actions={
                     <>
                         <Button
-                            variant="primary"
-                            icon={<PlusIcon />}
-                            size="small"
+                            size="sm"
                             onClick={() => setEditing({ channel: 'email' })}
-                        >{t('create_subscription')}</Button>
+                        >
+                            <PlusIcon />
+                            {t('create_subscription')}
+                        </Button>
                     </>
                 }
             />
