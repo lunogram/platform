@@ -4,7 +4,7 @@ import Heading from '../../ui/Heading'
 import { toast } from 'react-hot-toast/headless'
 import ProjectForm from '../project/ProjectForm'
 import { useTranslation } from 'react-i18next'
-import { Button } from '../../ui'
+import { Button } from '@/components/ui/button'
 import api from '../../api'
 
 export default function ProjectSettings() {

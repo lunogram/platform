@@ -7,11 +7,11 @@ export interface GroupedRule extends Omit<Rule, 'value'> {
     value?: string | string[]
 }
 
-export const trimPathDisplay = (path: string = '') => path.startsWith('$.') ? path.substring(2) : path
+export const trimPathDisplay = (path: string = '') => path.startsWith('.') ? path.substring(2) : path
 
 export const isEventWrapper = (rule: Rule): rule is EventRule => {
     return rule.group === 'event'
-        && (rule.path === '$.name' || rule.path === 'name')
+        && (rule.path === '.name' || rule.path === 'name')
 }
 
 export const isWrapper = (rule: Rule | GroupedRule): rule is WrapperRule => {
@@ -21,7 +21,7 @@ export const isWrapper = (rule: Rule | GroupedRule): rule is WrapperRule => {
 
 export const createWrapperRule = (): WrapperRule => ({
     uuid: createUuid(),
-    path: '$',
+    path: '',
     type: 'wrapper',
     group: 'parent',
     operator: 'and',
@@ -31,7 +31,7 @@ export const createWrapperRule = (): WrapperRule => ({
 export const createEventRule = (parent?: Rule, value = ''): EventRule => {
     const base: EventRule = {
         uuid: createUuid(),
-        path: '$.name',
+        path: '.name',
         type: 'wrapper',
         group: 'event',
         value,
@@ -72,12 +72,12 @@ export const ruleTypes: Array<{
     key: RuleType
     label: string
 }> = [
-    { key: 'string', label: 'String' },
-    { key: 'number', label: 'Number' },
-    { key: 'boolean', label: 'Boolean' },
-    { key: 'date', label: 'Date' },
-    { key: 'array', label: 'Array' },
-]
+        { key: 'string', label: 'String' },
+        { key: 'number', label: 'Number' },
+        { key: 'boolean', label: 'Boolean' },
+        { key: 'date', label: 'Date' },
+        { key: 'array', label: 'Array' },
+    ]
 
 const baseOperators: OperatorOption[] = [
     { key: '=', label: 'equals' },

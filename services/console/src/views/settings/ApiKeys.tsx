@@ -4,7 +4,7 @@ import api from '../../api'
 import { ProjectContext } from '../../contexts'
 import type { ProjectApiKey } from '../../types';
 import { projectRoles } from '../../types'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import RadioInput from '../../ui/form/RadioInput'
 import TextInput from '../../ui/form/TextInput'
 import FormWrapper from '../../ui/form/FormWrapper'
@@ -64,7 +64,9 @@ export default function ProjectApiKeys() {
                         cell: ({ item }) => (
                             <div className="cell-content">
                                 {item.value}
-                                <Button icon={<CopyIcon />} size="small" variant="plain" onClick={async (e) => await handleCopy(e, item.value)} />
+                                <Button size="icon" variant="ghost" onClick={async (e) => await handleCopy(e, item.value)}>
+                                    <CopyIcon />
+                                </Button>
                             </div>
                         ),
                     },
@@ -76,7 +78,7 @@ export default function ProjectApiKeys() {
                         key: 'options',
                         title: t('options'),
                         cell: ({ item: { id } }) => (
-                            <Menu size="small">
+                            <Menu size="min">
                                 <MenuItem onClick={async () => await handleArchive(id)}>
                                     <ArchiveIcon />{t('archive')}
                                 </MenuItem>
@@ -89,10 +91,10 @@ export default function ProjectApiKeys() {
                 title={t('api_keys')}
                 actions={
                     <Button
-                        icon={<PlusIcon />}
-                        size="small"
+                        size="sm"
                         onClick={() => setEditing({ scope: 'public', role: 'support' })}
                     >
+                        <PlusIcon />
                         {t('create_key')}
                     </Button>
                 }

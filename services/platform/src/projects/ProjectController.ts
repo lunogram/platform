@@ -1,6 +1,5 @@
 import Router from '@koa/router'
 import { ParameterizedContext } from 'koa'
-import App from '../app'
 import { AuthState, ProjectState } from '../auth/AuthMiddleware'
 import { RequestError } from '../core/errors'
 import { searchParamsSchema } from '../core/searchParams'
@@ -8,7 +7,6 @@ import { JSONSchemaType, validate } from '../core/validate'
 import { requireOrganizationRole } from '../organizations/OrganizationService'
 import { hasProvider } from '../providers/ProviderService'
 import { RulePathVisibility } from '../rules/ProjectRulePath'
-import UserSchemaSyncJob from '../schema/UserSchemaSyncJob'
 import { extractQueryParams } from '../utilities'
 import { ProjectParams } from './Project'
 import { getProjectAdmin } from './ProjectAdminRepository'
@@ -221,12 +219,12 @@ subrouter.put('/data/paths/users/:pathId', async ctx => {
     ctx.body = await updateRulePath(ctx.params.pathId as UUID, ctx.request.body.visibility)
 })
 
-subrouter.post('/data/paths/sync', async ctx => {
-    App.main.queue.enqueue(UserSchemaSyncJob.from({
-        project_id: ctx.state.project.id,
-        // no delta, rebuild the whole thing
-    }))
-    ctx.status = 204
-})
+// subrouter.post('/data/paths/sync', async ctx => {
+//     App.main.queue.enqueue(UserSchemaSyncJob.from({
+//         project_id: ctx.state.project.id,
+//         // no delta, rebuild the whole thing
+//     }))
+//     ctx.status = 204
+// })
 
 export { subrouter as ProjectSubrouter }

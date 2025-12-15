@@ -1,8 +1,15 @@
 import { useCallback, useContext, useState } from 'react'
 import { useNavigate } from 'react-router'
 import api from '../../api'
-import Button from '../../ui/Button'
-import Modal from '../../ui/Modal'
+import { Button } from '@/components/ui/button'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog'
 import PageContent from '../../ui/PageContent'
 import { SearchTable, useSearchTableQueryState } from '../../ui/SearchTable'
 import { ArchiveIcon, DuplicateIcon, EditIcon, PlusIcon } from '../../components/icons'
@@ -45,7 +52,25 @@ export default function Journeys() {
         <PageContent
             title={t('journeys')}
             actions={
-                <Button icon={<PlusIcon />} onClick={() => setOpen('create')}>{t('create_journey')}</Button>
+                <Dialog open={!!open} onOpenChange={(isOpen) => setOpen(isOpen ? 'create' : null)}>
+                    <DialogTrigger asChild>
+                        <Button size="lg">
+                            <PlusIcon />
+                            {t('create_journey')}
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>{t('create_journey')}</DialogTitle>
+                        </DialogHeader>
+                        <JourneyForm
+                            onSaved={async journey => {
+                                setOpen(null)
+                                await navigate(journey.id.toString())
+                            }}
+                        />
+                    </DialogContent>
+                </Dialog>
             }
         >
             <SearchTable
@@ -73,7 +98,7 @@ export default function Journeys() {
                         key: 'options',
                         title: t('options'),
                         cell: ({ item: { id } }) => (
-                            <Menu size="small">
+                            <Menu size="min">
                                 <MenuItem onClick={async () => await handleEditJourney(id)}>
                                     <EditIcon />{t('edit')}
                                 </MenuItem>
@@ -91,18 +116,6 @@ export default function Journeys() {
                 enableSearch
                 tagEntity="journeys"
             />
-            <Modal
-                onClose={() => setOpen(null)}
-                open={!!open}
-                title={t('create_journey')}
-            >
-                <JourneyForm
-                    onSaved={async journey => {
-                        setOpen(null)
-                        await navigate(journey.id.toString())
-                    }}
-                />
-            </Modal>
         </PageContent>
     )
 }

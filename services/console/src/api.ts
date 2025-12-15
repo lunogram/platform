@@ -157,7 +157,7 @@ const api = {
     projects: {
         ...createEntityPath<Project>('/admin/projects'),
         all: async () => await client
-            .get<Project[]>('/admin/projects/all')
+            .get<SearchResult<Project>>('/admin/projects')
             .then(r => r.data),
         pathSuggestions: async (projectId: UUID) => await client
             .get<VariableSuggestions>(`${projectUrl(projectId)}/data/paths`)
@@ -188,6 +188,23 @@ const api = {
         duplicate: async (projectId: UUID, campaignId: UUID) => await client
             .post<Campaign>(`${projectUrl(projectId)}/campaigns/${campaignId}/duplicate`)
             .then(r => r.data),
+        templates: {
+            search: async (projectId: UUID, campaignId: UUID, params: SearchParams) => await client
+                .get<SearchResult<Template>>(`${projectUrl(projectId)}/campaigns/${campaignId}/templates`, { params })
+                .then(r => r.data),
+            create: async (projectId: UUID, campaignId: UUID, params: TemplateCreateParams) => await client
+                .post<Template>(`${projectUrl(projectId)}/campaigns/${campaignId}/templates`, params)
+                .then(r => r.data),
+            get: async (projectId: UUID, campaignId: UUID, templateId: UUID) => await client
+                .get<Template>(`${projectUrl(projectId)}/campaigns/${campaignId}/templates/${templateId}`)
+                .then(r => r.data),
+            update: async (projectId: UUID, campaignId: UUID, templateId: UUID, params: TemplateUpdateParams) => await client
+                .patch<Template>(`${projectUrl(projectId)}/campaigns/${campaignId}/templates/${templateId}`, params)
+                .then(r => r.data),
+            delete: async (projectId: UUID, campaignId: UUID, templateId: UUID) => await client
+                .delete<number>(`${projectUrl(projectId)}/campaigns/${campaignId}/templates/${templateId}`)
+                .then(r => r.data),
+        },
     },
 
     journeys: {
@@ -231,12 +248,6 @@ const api = {
                 .delete<number>(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/step/${stepId}`)
                 .then(r => r.data),
         },
-    },
-
-    templates: {
-        ...createProjectEntityPath<Template, TemplateCreateParams, TemplateUpdateParams>('templates'),
-        preview: async (projectId: UUID, templateId: UUID, params: TemplatePreviewParams) => await client.post(`${projectUrl(projectId)}/templates/${templateId}/preview`, params),
-        proof: async (projectId: UUID, templateId: UUID, params: TemplateProofParams) => await client.post(`${projectUrl(projectId)}/templates/${templateId}/proof`, params),
     },
 
     users: {
@@ -363,7 +374,7 @@ const api = {
             .put<string[]>(`${projectUrl(projectId)}/tags/assign`, { entity, entityId, tags })
             .then(r => r.data),
         all: async (projectId: UUID) => await client
-            .get<Tag[]>(`${projectUrl(projectId)}/tags/all`)
+            .get<Tag[]>(`${projectUrl(projectId)}/tags`)
             .then(r => r.data),
     },
 

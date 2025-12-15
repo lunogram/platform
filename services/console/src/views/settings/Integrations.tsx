@@ -2,7 +2,7 @@ import { useCallback, useContext, useState } from 'react'
 import api from '../../api'
 import { ProjectContext } from '../../contexts'
 import type { Provider } from '../../types'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import Heading from '../../ui/Heading'
 import { ArchiveIcon, PlusIcon } from '../../components/icons'
 import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
@@ -26,10 +26,13 @@ export default function Integrations() {
     return (
         <>
             <Heading size="h3" title={t('integrations')} actions={
-                <Button icon={<PlusIcon />} size="small" onClick={() => {
+                <Button size="sm" onClick={() => {
                     setProvider(undefined)
                     setIsModalOpen(true)
-                }}>{t('add_integration')}</Button>
+                }}>
+                    <PlusIcon />
+                    {t('add_integration')}
+                </Button>
             } />
             <SearchTable
                 {...state}
@@ -42,7 +45,7 @@ export default function Integrations() {
                         key: 'options',
                         title: t('options'),
                         cell: ({ item: { id } }) => (
-                            <Menu size="small">
+                            <Menu size="min">
                                 <MenuItem onClick={async () => await handleArchive(id)}>
                                     <ArchiveIcon />{t('archive')}
                                 </MenuItem>

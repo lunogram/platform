@@ -137,10 +137,8 @@ export default function Template() {
         }
 
         setPageLoading(true);
-        const template = await api.templates.create(project.id, {
-            campaign_id: campaign.id,
+        const template = await api.campaigns.templates.create(project.id, campaign.id, {
             locale: localeKey,
-            type: campaign.channel,
             data: {}
         });
 
@@ -160,7 +158,7 @@ export default function Template() {
 
             setPageLoading(true)
 
-            const allLocalesResult = await api.locales.search(project.id, { limit: 100 })
+            const allLocalesResult = await api.locales.search(project.id, { limit: 5 })
             if (currentTemplate) {
                 const selectedLocale = await api.locales.getByKey(project.id, currentTemplate.locale)
                 setLocaleSelection({

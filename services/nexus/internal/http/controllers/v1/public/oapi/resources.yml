@@ -1,0 +1,232 @@
+openapi: 3.0.3
+info:
+  title: Lunogram Public API
+  description: API for ingesting data such as user profiles and events.
+  version: 1.0.0
+
+paths:
+  /api/client/identify:
+    post:
+      summary: Identify user
+      description: Used by client libraries to create or update a user profile
+      operationId: identifyUser
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdentifyRequest'
+      responses:
+        '200':
+          description: User identified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/client/events:
+    post:
+      summary: Post events
+      description: Used by client libraries to trigger events that can be used to execute a step in a journey or update a virtual list
+      operationId: postEvents
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostEventsRequest'
+      responses:
+        '204':
+          description: Events processed successfully
+        default:
+          $ref: '#/components/responses/Error'
+
+components:
+  responses:
+    Error:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    Problem:
+      type: object
+      required:
+        - title
+        - detail
+      properties:
+        title:
+          type: string
+          description: |
+            A short summary of the problem type. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
+          example: some title for the error situation
+        detail:
+          type: string
+          description: |
+            A human readable explanation specific to this occurrence of the problem that is helpful to locate the problem and give advice on how to proceed. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
+          example: some description for the error situation
+          
+    User:
+      type: object
+      required:
+        - id
+        - project_id
+        - anonymous_id
+        - data
+        - has_push_device
+        - version
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        anonymous_id:
+          type: string
+          example: "anon_abc123xyz"
+        external_id:
+          type: string
+          example: "user_123"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+          x-go-type: string
+        phone:
+          type: string
+          example: "+1234567890"
+          description: E.164 formatted phone number
+          x-go-type: string
+          format: phone
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: map[string]any
+          example:
+            first_name: "John"
+            last_name: "Doe"
+        timezone:
+          type: string
+          example: "America/New_York"
+        locale:
+          type: string
+          example: "en-US"
+        has_push_device:
+          type: boolean
+          example: false
+        version:
+          type: integer
+          example: 1
+          x-go-type: int32
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    IdentifyRequest:
+      type: object
+      properties:
+        external_id:
+          type: string
+          nullable: true
+          example: "user_12345"
+          description: External identifier for the user from your system
+        anonymous_id:
+          type: string
+          nullable: true
+          example: "anon_abc123"
+          description: Anonymous identifier for the user
+        email:
+          type: string
+          nullable: true
+          format: email
+          example: "user@example.com"
+          x-go-type: string
+        phone:
+          type: string
+          nullable: true
+          example: "+1234567890"
+          description: E.164 formatted phone number
+          x-go-type: string
+          format: phone
+        timezone:
+          type: string
+          nullable: true
+          example: "America/Chicago"
+        locale:
+          type: string
+          nullable: true
+          example: "en"
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          example:
+            first_name: "John"
+            last_name: "Smith"
+            has_completed_onboarding: true
+          description: User-specific attributes
+
+    PostEventsRequest:
+      type: array
+      minItems: 1
+      items:
+        $ref: '#/components/schemas/Event'
+
+    Event:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "purchase_completed"
+          description: The name of the event
+        anonymous_id:
+          type: string
+          nullable: true
+          example: "anon_abc123"
+          description: Anonymous identifier for the user
+        external_id:
+          type: string
+          nullable: true
+          example: "user_12345"
+          description: External identifier for the user from your system
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          example:
+            product_id: "prod_789"
+            amount: 99.99
+          description: Event-specific data
+
+  securitySchemes:
+    HttpBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for API authentication

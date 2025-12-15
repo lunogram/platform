@@ -32,7 +32,7 @@ export function JourneyStepUsers({ open, onClose, stepType, stepId }: StepUsersP
             cell: ({ item: { id, user, type } }) => {
                 if (user && type !== 'completed') {
                     return (
-                        <Menu size="small">
+                        <Menu size="min">
                             <MenuItem onClick={async () => await handleSkipDelay(id, user)}>
                                 <EditIcon />{t('skip_delay')}
                             </MenuItem>

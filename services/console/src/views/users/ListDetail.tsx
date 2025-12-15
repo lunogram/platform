@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useState } from 'react'
 import api from '../../api'
 import { ListContext, ProjectContext } from '../../contexts'
 import type { DynamicList, ListUpdateParams, Rule, WrapperRule } from '../../types'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import Heading from '../../ui/Heading'
 import PageContent from '../../ui/PageContent'
 import RuleBuilder from './rules/RuleBuilder'
@@ -38,7 +38,7 @@ const RuleSection = ({ list, isSaving, onRuleSave, onChange }: RuleSectionProps)
     return <>
         <Heading size="h3" title={t('rules')} actions={
             <Button
-                size="small"
+                size="sm"
                 onClick={() => onRuleSave(rule)}
                 isLoading={isSaving}
             >{t('rules_save')}</Button>
@@ -140,15 +140,13 @@ export default function ListDetail() {
             actions={
                 <>
                     {list.state === 'draft' && <Button
-                        icon={<SendIcon />}
-                        onClick={async () => await saveList({ name: list.name, published: true })}>{t('publish')}</Button>}
+                        onClick={async () => await saveList({ name: list.name, published: true })}><SendIcon />{t('publish')}</Button>}
                     {list.type === 'static' && <Button
                         variant="secondary"
-                        icon={<UploadIcon />}
                         onClick={() => setIsUploadOpen(true)}
-                    >{t('upload_list')}</Button>}
-                    <Button icon={<EditIcon />} onClick={() => setIsEditListOpen(true)}>{t('edit_list')}</Button>
-                    <Menu size="regular">
+                    ><UploadIcon />{t('upload_list')}</Button>}
+                    <Button onClick={() => setIsEditListOpen(true)}><EditIcon />{t('edit_list')}</Button>
+                    <Menu size="default">
                         <MenuItem onClick={async () => await handleRecountList()}>
                             <RestartIcon />{t('recount')}
                         </MenuItem>
@@ -195,11 +193,6 @@ export default function ListDetail() {
                                 name="name"
                                 label={t('list_name')}
                                 required
-                            />
-                            <TagPicker.Field
-                                form={form}
-                                name="tags"
-                                label={t('tags')}
                             />
                         </>
                     )}

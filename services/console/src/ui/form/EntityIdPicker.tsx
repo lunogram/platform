@@ -9,7 +9,7 @@ import { usePopperSelectDropdown } from '../utils'
 import type { FieldProps } from './Field'
 import { useController } from 'react-hook-form'
 import type { FieldPath, FieldValues } from 'react-hook-form'
-import Button from '../Button'
+import { Button } from '@/components/ui/button'
 import Modal from '../Modal'
 import type { ModalProps } from '../Modal'
 import type { UUID } from 'crypto'
@@ -19,7 +19,7 @@ interface EntityIdPickerProps<T extends { id: UUID }> extends ControlledInputPro
     search: (q: string) => Promise<SearchResult<T>>
     displayValue?: (entity: T) => string
     optionEnabled?: (entity: T) => boolean
-    size?: 'small' | 'regular'
+    size?: 'sm' | 'default'
     onBlur?: (event: any) => void
     inputRef?: RefCallback<HTMLInputElement>
     createModalSize?: ModalProps['size']
@@ -91,11 +91,12 @@ export function EntityIdPicker<T extends { id: UUID }>({
                 {
                     !!(value && !required) && (
                         <Button
-                            icon={<CloseIcon />}
                             variant="secondary"
                             size={size}
                             onClick={() => onChange(undefined)} // set to undefined to clear
-                        />
+                        >
+                            <CloseIcon />
+                        </Button>
                     )
                 }
                 <Combobox.Button className={clsx('ui-button', 'secondary', size ?? 'regular')}>
@@ -104,12 +105,13 @@ export function EntityIdPicker<T extends { id: UUID }>({
                 {
                     !!(onEditLink && entity) && (
                         <Button
-                            icon={<EditIcon />}
                             variant="secondary"
                             size={size}
                             disabled={!entity}
                             onClick={() => onEditLink(entity)}
-                        />
+                        >
+                            <EditIcon />
+                        </Button>
                     )
                 }
                 {
@@ -119,8 +121,9 @@ export function EntityIdPicker<T extends { id: UUID }>({
                                 variant="secondary"
                                 size={size}
                                 onClick={() => setOpen(true)}
-                                icon={<PlusIcon />}
-                            />
+                            >
+                                <PlusIcon />
+                            </Button>
                             <Modal
                                 open={open}
                                 onClose={setOpen}

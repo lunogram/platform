@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import api from '../../api'
 import type { UUID } from '@/types/common'
 import { useContext, useEffect, useState } from 'react'

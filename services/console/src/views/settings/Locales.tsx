@@ -7,7 +7,7 @@ import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
 import type { Locale, LocaleOption, FieldProps } from '../../types'
 import TextInput, { type TextInputProps } from '../../ui/form/TextInput'
 import type { FieldPath, FieldValues } from 'react-hook-form'
-import Button from '../../ui/Button'
+import { Button } from '@/components/ui/button'
 import { PlusIcon } from '../../components/icons'
 import { languageName } from '../../utils'
 import { useTranslation } from 'react-i18next'
@@ -49,7 +49,7 @@ export default function Locales() {
                         title: t('options'),
                         cell: ({ item }) => (
                             <Button
-                                size="small"
+                                size="sm"
                                 variant="destructive"
                                 onClick={async () => await handleDeleteLocale(item)}>
                                 {t('delete')}
@@ -62,11 +62,12 @@ export default function Locales() {
                 actions={
                     <>
                         <Button
-                            variant="primary"
-                            icon={<PlusIcon />}
-                            size="small"
+                            size="sm"
                             onClick={() => setOpen(true)}
-                        >{t('create_locale')}</Button>
+                        >
+                            <PlusIcon />
+                            {t('create_locale')}
+                        </Button>
                     </>
                 }
             />
