@@ -167,7 +167,6 @@ export const createRouter = ({
                                             return !completedGettingStarted(project)
                                         },
                                         minRole: 'editor',
-                                        
                                     },
                                     {
                                         key: 'campaigns',
