@@ -37,7 +37,7 @@ export function AppSidebar({
   const [allProjects] = useResolver(
     React.useCallback(async () => {
       try {
-        return await api.projects.all();
+        return (await api.projects.all()).results;
       } catch (error) {
         console.error("Failed to fetch projects:", error);
         return [];
