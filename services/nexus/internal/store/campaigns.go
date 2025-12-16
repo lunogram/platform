@@ -160,6 +160,22 @@ func (s *CampaignsStore) GetCampaign(ctx context.Context, projectID, campaignID 
 	return &campaign, nil
 }
 
+func (s *CampaignsStore) GetCampaignByID(ctx context.Context, campaignID uuid.UUID) (*Campaign, error) {
+	query := `
+	SELECT id, project_id, name, channel, provider_id, subscription_id, delivery, created_at, updated_at, deleted_at
+	FROM campaigns
+	WHERE id = $1
+	AND deleted_at IS NULL`
+
+	var campaign Campaign
+	err := s.db.GetContext(ctx, &campaign, query, campaignID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &campaign, nil
+}
+
 type CampaignUpdate struct {
 	Name       *string
 	ProviderID *uuid.UUID

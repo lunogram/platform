@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="{{.Locale}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Strings.Title}}</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body class="bg-gray-50 min-h-screen py-8">
+    <div class="max-w-2xl mx-auto px-4">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">{{.Strings.Title}}</h1>
+            <p class="text-gray-600 mb-6">{{.Strings.Description}}</p>
+
+            {{if .ShowUpdatedMessage}}
+            <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                </svg>
+                <span>{{.Strings.SuccessMessage}}</span>
+            </div>
+            {{end}}
+
+            {{if .Subscriptions}}
+            <form method="POST" action="/preferences/{{.UserID}}">
+                <div class="space-y-4 mb-6">
+                    {{range .Subscriptions}}
+                    <label class="flex items-start p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                        <input 
+                            type="checkbox" 
+                            name="subscription_ids" 
+                            value="{{.SubscriptionId}}"
+                            {{if eq .State "subscribed"}}checked{{end}}
+                            class="mt-1 h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+                        />
+                        <div class="ml-3">
+                            <span class="block font-medium text-gray-900">{{.Name}}</span>
+                            <span class="block text-sm text-gray-500 capitalize">{{.Channel}}</span>
+                        </div>
+                    </label>
+                    {{end}}
+                </div>
+
+                <button 
+                    type="submit"
+                    class="w-full bg-primary text-white font-medium py-3 px-6 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
+                >
+                    {{.Strings.Save}}
+                </button>
+            </form>
+            {{else}}
+            <div class="text-center py-8">
+                <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                </svg>
+                <p class="text-gray-600">{{.Strings.NoSubscriptions}}</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</body>
+</html>

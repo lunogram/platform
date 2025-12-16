@@ -3,6 +3,7 @@ package v1
 import (
 	_ "embed"
 	"fmt"
+	nethttp "net/http"
 	"net/url"
 
 	"github.com/cloudproud/graceful"
@@ -39,12 +40,26 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Service, 
 		AuthenticationFunc: auth.Middleware(auth.WithJWT(config, stores), auth.WithKey(stores)),
 	}
 
+	controller := NewController(logger, db, platformProxy)
+
 	router := chi.NewRouter()
 	router.Use(http.Logger(logger))
 
 	router.Use(oapi.Scalar())
 
-	oapi.HandlerWithOptions(NewController(logger, db, platformProxy), oapi.ChiServerOptions{
+	// Add subscription preference routes (these are not in OpenAPI spec as they return HTML)
+	router.Get("/unsubscribe/email", controller.UnsubscribeEmail)
+	router.Get("/preferences/{userID}", func(w nethttp.ResponseWriter, r *nethttp.Request) {
+		userID := chi.URLParam(r, "userID")
+		controller.GetPreferences(w, r, userID)
+	})
+	router.Post("/preferences/{userID}", func(w nethttp.ResponseWriter, r *nethttp.Request) {
+		userID := chi.URLParam(r, "userID")
+		controller.UpdatePreferences(w, r, userID)
+	})
+	router.Get("/static/*", controller.ServeStaticFiles)
+
+	oapi.HandlerWithOptions(controller, oapi.ChiServerOptions{
 		BaseRouter:  router,
 		Middlewares: []oapi.MiddlewareFunc{oapi.Validator(spec, options)},
 	})
