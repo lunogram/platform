@@ -28,7 +28,7 @@ type SubscriptionsController struct {
 }
 
 // UnsubscribeEmail handles the email unsubscribe link
-// It expects query parameters: user_id, campaign_id, and signature
+// It expects query parameters: user_id and campaign_id
 func (srv *SubscriptionsController) UnsubscribeEmail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -80,7 +80,7 @@ func (srv *SubscriptionsController) UnsubscribeEmail(w http.ResponseWriter, r *h
 		return
 	}
 
-	// Get user to determine locale
+	// Get user to determine locale and verify they belong to the same project
 	user, err := srv.store.GetUser(ctx, campaign.ProjectID, userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -93,6 +93,7 @@ func (srv *SubscriptionsController) UnsubscribeEmail(w http.ResponseWriter, r *h
 		return
 	}
 
+	// Multi-tenant isolation: User has been verified to belong to the campaign's project
 	// Unsubscribe the user
 	err = srv.store.ToggleSubscription(ctx, userID, *campaign.SubscriptionID, "unsubscribed")
 	if err != nil {
@@ -131,17 +132,7 @@ func (srv *SubscriptionsController) GetPreferences(w http.ResponseWriter, r *htt
 
 	logger := srv.logger.With(zap.String("user_id", userID.String()))
 
-	// Get user to determine project and locale
-	// We need to get the user's project somehow - for now we'll get it from the first subscription
-	// This is a limitation since we don't have project_id in the URL
-	// In a real scenario, you might want to add project_id to the URL or use a different approach
-
-	// For now, let's get all subscriptions across projects (not ideal but works for single project setups)
-	// We'll need to modify this to get the user first with their project_id
-
-	// Actually, we need the project_id. Let's get the user by ID across all projects
-	// This requires a different store method. For now, let's require project_id in query params
-
+	// Get project_id from query parameters
 	projectIDStr := r.URL.Query().Get("project_id")
 	if projectIDStr == "" {
 		srv.logger.Error("missing project_id parameter")

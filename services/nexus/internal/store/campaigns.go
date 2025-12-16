@@ -160,6 +160,11 @@ func (s *CampaignsStore) GetCampaign(ctx context.Context, projectID, campaignID 
 	return &campaign, nil
 }
 
+// GetCampaignByID retrieves a campaign by ID without requiring project_id.
+// This is used in public endpoints (e.g., unsubscribe links) where we need to fetch the campaign
+// to determine its project_id, then verify the user belongs to that project.
+// Callers MUST verify multi-tenant isolation by checking the returned campaign.ProjectID
+// matches the user's project before performing any operations.
 func (s *CampaignsStore) GetCampaignByID(ctx context.Context, campaignID uuid.UUID) (*Campaign, error) {
 	query := `
 	SELECT id, project_id, name, channel, provider_id, subscription_id, delivery, created_at, updated_at, deleted_at
