@@ -109,7 +109,7 @@
 
 /* Input size variants */
 .ui-text-input input.tiny {
-  height: 28px !important;
+  height: 32px !important;
   padding: 4px 8px !important;
   font-size: 12px !important;
 }

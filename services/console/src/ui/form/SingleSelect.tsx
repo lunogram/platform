@@ -98,7 +98,7 @@ export function SingleSelect<T, U = T>({
         disabled={disabled}
       >
         <SelectTrigger
-          className={cn("select-button", size, buttonClassName)}
+          className={cn("select-button gap-x-1", size, buttonClassName)}
           onBlur={onBlur}
         >
           <SelectValue asChild>

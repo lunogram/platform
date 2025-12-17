@@ -96,7 +96,7 @@ export default function FilterRuleEdit({
           options={dummyPathSuggestions}
           placeholder="Path"
           required
-          inputClassName="rounded-none"
+          inputClassName="rounded-none border-l-0"
           buttonClassName="rounded-none"
           renderOption={(option, search) => (
             <span
