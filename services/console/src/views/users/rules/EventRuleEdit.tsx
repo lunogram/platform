@@ -94,7 +94,7 @@ export default function EventRuleEdit({
                 toValue={x => x.key}
             />
             <TextInput
-                size="tiny"
+                size="small"
                 type="text"
                 name="value"
                 placeholder="Count"
@@ -116,7 +116,7 @@ export default function EventRuleEdit({
             {' in last'}
             <ButtonGroup className="ui-select frequency-period">
                 <TextInput
-                    size="tiny"
+                    size="small"
                     type="text"
                     name="value"
                     placeholder="Value"

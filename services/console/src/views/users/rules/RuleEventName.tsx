@@ -1,65 +1,61 @@
-import { Combobox } from '@headlessui/react'
-import type { Rule } from '../../../types'
-import { highlightSearch, usePopperSelectDropdown } from '../../../ui/utils'
-import { useContext } from 'react'
-import { VariablesContext } from './RuleHelpers'
-import { ButtonGroup } from '../../../ui'
-import { ChevronUpDownIcon } from '../../../components/icons'
-import clsx from 'clsx'
+import { Combobox } from "../../../components/ui/combobox";
+import type { Rule, RulePath } from "../../../types";
+import { highlightSearch, usePopperSelectDropdown } from "../../../ui/utils";
+import { useContext } from "react";
+import { VariablesContext } from "./RuleHelpers";
 
-export default function RuleEventName<T extends Rule>({ rule, setRule }: {
-    rule: T
-    setRule: (rule: T) => void
+export default function RuleEventName<T extends Rule>({
+  rule,
+  setRule,
+}: {
+  rule: T;
+  setRule: (rule: T) => void;
 }) {
-    const {
-        setReferenceElement,
-        setPopperElement,
-        attributes,
-        styles,
-    } = usePopperSelectDropdown()
+  usePopperSelectDropdown();
 
-    const { suggestions } = useContext(VariablesContext)
-    return (
-        <Combobox onChange={(value: string) => setRule({ ...rule, value })}>
-            <ButtonGroup>
-                <span className="ui-text-input">
-                    <Combobox.Input
-                        value={rule.value ?? ''}
-                        onChange={e => setRule({ ...rule, value: e.target.value })}
-                        required
-                        className="small"
-                        ref={setReferenceElement}
-                    />
-                </span>
-                <Combobox.Button className="ui-button secondary small">
-                    <ChevronUpDownIcon />
-                </Combobox.Button>
-            </ButtonGroup>
-            <Combobox.Options
-                className="select-options nowheel"
-                ref={setPopperElement}
-                style={styles.popper}
-                {...attributes.popper}
-            >
-                {
-                    Object.keys(suggestions.eventPaths)
-                        .sort()
-                        .filter(eventName => !rule.value || eventName.toLowerCase().startsWith(rule.value.toLowerCase()))
-                        .map(eventName => (
-                            <Combobox.Option
-                                key={eventName}
-                                value={eventName}
-                                className={({ active, selected }) => clsx('select-option', active && 'active', selected && 'selected')}
-                            >
-                                <span
-                                    dangerouslySetInnerHTML={{
-                                        __html: highlightSearch(eventName, rule.value ?? ''),
-                                    }}
-                                />
-                            </Combobox.Option>
-                        ))
-                }
-            </Combobox.Options>
-        </Combobox>
-    )
+  const { suggestions } = useContext(VariablesContext);
+  const dummySuggestions: RulePath[] = [
+    {
+      id: "1",
+      path: "user.signup",
+      name: "User Signup",
+      type: "event",
+      data_type: "string",
+      visibility: "public",
+    },
+    {
+      id: "2",
+      path: "user.login",
+      name: "User Login",
+      type: "event",
+      data_type: "string",
+      visibility: "public",
+    },
+    {
+      id: "3",
+      path: "purchase.completed",
+      name: "Purchase Completed",
+      type: "event",
+      data_type: "string",
+      visibility: "public",
+    },
+  ];
+  return (
+    <Combobox
+      value={rule.value ?? ''}
+      onValueChange={(selectedPath: string) => {
+        setRule({ ...rule, value: selectedPath });
+      }}
+      options={dummySuggestions}
+      placeholder="Event name"
+      required
+      renderOption={(option, search) => (
+        <span
+          dangerouslySetInnerHTML={{
+            __html: highlightSearch(option.path, search),
+          }}
+        />
+      )}
+    />
+  );
 }

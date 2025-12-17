@@ -77,7 +77,8 @@ export default function WrapperRuleEdit({
                             controls={
                                 <Button
                                     size="sm"
-                                    variant="secondary"
+                                    variant="outline"
+                                    className="rounded-l-none shadow-none border-l-0"
                                     onClick={() => setRule({
                                         ...rule,
                                         children: arr.filter((_, i) => i !== index),
@@ -93,7 +94,7 @@ export default function WrapperRuleEdit({
             <div className="rule-set-actions">
                 <Button
                     size="sm"
-                    variant="secondary"
+                    variant="outline"
                     onClick={() => setRule({
                         ...rule,
                         children: [...rule.children ?? [], {
@@ -119,7 +120,7 @@ export default function WrapperRuleEdit({
                     (depth === 0 && (rule.group === 'user' || rule.group === 'parent')) && (
                         <Button
                             size="sm"
-                            variant="secondary"
+                            variant="outline"
                             onClick={() => handleAddEventWrapper()}
                         >
                             <PlusIcon />
