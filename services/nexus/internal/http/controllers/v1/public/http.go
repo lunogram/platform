@@ -57,7 +57,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Service, 
 		userID := chi.URLParam(r, "userID")
 		controller.UpdatePreferences(w, r, userID)
 	})
-	router.Get("/static/*", controller.ServeStaticFiles)
+	router.Handle("/static/*", controller.StaticFileHandler())
 
 	oapi.HandlerWithOptions(controller, oapi.ChiServerOptions{
 		BaseRouter:  router,

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -271,28 +270,7 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
-// ServeStaticFiles serves the static CSS files
-func (srv *SubscriptionsController) ServeStaticFiles(w http.ResponseWriter, r *http.Request) {
-	// Remove "/static/" prefix from path
-	path := strings.TrimPrefix(r.URL.Path, "/static/")
-	if path == "" || path == "/" {
-		http.NotFound(w, r)
-		return
-	}
-
-	// Read file from embedded FS
-	content, err := templates.StaticFiles().ReadFile("static/" + path)
-	if err != nil {
-		srv.logger.Error("failed to read static file", zap.String("path", path), zap.Error(err))
-		http.NotFound(w, r)
-		return
-	}
-
-	// Set appropriate content type
-	if strings.HasSuffix(path, ".css") {
-		w.Header().Set("Content-Type", "text/css; charset=utf-8")
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(content)
+// StaticFileHandler returns an http.Handler for serving static files from the embedded filesystem
+func (srv *SubscriptionsController) StaticFileHandler() http.Handler {
+	return http.StripPrefix("/static/", http.FileServer(http.FS(templates.StaticFiles())))
 }

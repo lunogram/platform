@@ -40,8 +40,13 @@ GOLANGCI_LINT = $(BIN)/golangci-lint
 STRINGER = $(BIN)/stringer
 MINIMOCK = $(BIN)/minimock
 OAPI_CODEGEN = $(BIN)/oapi-codegen
+TAILWINDCSS = $(BIN)/tailwindcss
 
-TOOLCHAIN = $(STRINGER) $(MINIMOCK) $(OAPI_CODEGEN)
+$(TAILWINDCSS): | $(BIN) ; $(info $(M) installing tailwindcss…)
+	$Q curl -sL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 -o $@
+	$Q chmod +x $@
+
+TOOLCHAIN = $(STRINGER) $(MINIMOCK) $(OAPI_CODEGEN) $(TAILWINDCSS)
 
 # Targets
 .PHONY: lint

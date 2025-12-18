@@ -2,31 +2,15 @@
 
 This directory contains the server-side rendered HTML templates for subscription preferences management.
 
-## Structure
-
-- `unsubscribe.html` - Email unsubscribe confirmation page
-- `preferences.html` - Subscription preferences management page
-- `input.css` - Tailwind CSS input file
-- `tailwind.config.js` - Tailwind configuration
-- `templates.go` - Go template package with embedded files
-- `generate.go` - Go generate directives for building CSS
-- `static/styles.css` - Generated CSS file (auto-generated, not committed)
-
 ## Building
 
-The templates use Tailwind CSS for styling. To build the CSS:
+The templates use Tailwind CSS for styling. To build:
 
 ```bash
-# Generate CSS using go generate
-cd services/nexus
-go generate ./internal/http/controllers/v1/public/templates
-
-# Or manually with tailwindcss CLI
-cd services/nexus/internal/http/controllers/v1/public/templates
-tailwindcss -i ./input.css -o ./static/styles.css --minify
+make generate
 ```
 
-The generated `static/styles.css` file is embedded in the Go binary at compile time using `//go:embed`.
+This will regenerate the CSS and run all go:generate directives. The generated `static/styles.css` file is embedded in the Go binary at compile time using `//go:embed`.
 
 ## Templates
 
@@ -53,15 +37,7 @@ Shows a form where users can manage their subscription preferences across all pu
 
 ## Localization
 
-The templates support multiple languages:
-- English (en)
-- Spanish (es)
-- French (fr)
-- German (de)
-- Portuguese (pt)
-- Italian (it)
-
-Strings are provided by the `GetStrings()` function in `templates.go` based on the user's locale.
+The templates support multiple languages. Strings are provided by the `GetStrings()` function in `templates.go` based on the user's locale.
 
 ## Development
 
@@ -69,7 +45,7 @@ When modifying templates:
 
 1. Edit the HTML files (`unsubscribe.html`, `preferences.html`)
 2. Update Tailwind classes as needed
-3. Regenerate CSS: `go generate ./internal/http/controllers/v1/public/templates`
+3. Run `make generate` to regenerate CSS and templates
 4. Rebuild the Go binary to embed the new templates
 
 The CSS is automatically minified during the build process.

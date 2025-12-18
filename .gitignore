@@ -107,6 +107,3 @@ dist
 
 bin/
 build/
-
-# Generated CSS from Tailwind
-services/nexus/internal/http/controllers/v1/public/templates/static/styles.css

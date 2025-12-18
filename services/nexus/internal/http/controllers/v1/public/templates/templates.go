@@ -40,6 +40,63 @@ type Strings struct {
 	UnsubscribedMessage string
 }
 
+var localizedStrings = map[string]Strings{
+	"en": {
+		Title:               "Communication Preferences",
+		Description:         "Choose which methods of communication you would like to continue to receive:",
+		SuccessMessage:      "Your preferences have been updated!",
+		NoSubscriptions:     "You are not subscribed to any notifications.",
+		Save:                "Save Preferences",
+		Unsubscribed:        "You have been unsubscribed!",
+		UnsubscribedMessage: "You have been removed from this communication list.",
+	},
+	"es": {
+		Title:               "Preferencias de Comunicación",
+		Description:         "Elige qué métodos de comunicación deseas seguir recibiendo:",
+		SuccessMessage:      "¡Tus preferencias han sido actualizadas!",
+		NoSubscriptions:     "No estás suscrito a ninguna notificación.",
+		Save:                "Guardar Preferencias",
+		Unsubscribed:        "¡Te has dado de baja!",
+		UnsubscribedMessage: "Has sido eliminado de esta lista de comunicaciones.",
+	},
+	"fr": {
+		Title:               "Préférences de communication",
+		Description:         "Choisissez les méthodes de communication que vous souhaitez continuer à recevoir :",
+		SuccessMessage:      "Vos préférences ont été mises à jour !",
+		NoSubscriptions:     "Vous n'êtes abonné à aucune notification.",
+		Save:                "Enregistrer les Préférences",
+		Unsubscribed:        "Vous avez été désabonné !",
+		UnsubscribedMessage: "Vous avez été retiré de cette liste de communications.",
+	},
+	"de": {
+		Title:               "Kommunikationspräferenzen",
+		Description:         "Wählen Sie, welche Kommunikationsmethoden Sie weiterhin erhalten möchten:",
+		SuccessMessage:      "Ihre Einstellungen wurden aktualisiert!",
+		NoSubscriptions:     "Sie sind für keine Benachrichtigungen angemeldet.",
+		Save:                "Einstellungen speichern",
+		Unsubscribed:        "Sie wurden abgemeldet!",
+		UnsubscribedMessage: "Sie wurden von dieser Kommunikationsliste entfernt.",
+	},
+	"pt": {
+		Title:               "Preferências de comunicação",
+		Description:         "Escolha quais métodos de comunicação você gostaria de continuar recebendo:",
+		SuccessMessage:      "Suas preferências foram atualizadas!",
+		NoSubscriptions:     "Você não está inscrito em nenhuma notificação.",
+		Save:                "Salvar Preferências",
+		Unsubscribed:        "Você foi cancelado!",
+		UnsubscribedMessage: "Você foi removido desta lista de comunicações.",
+	},
+	"it": {
+		Title:               "Preferenze di Iscrizione",
+		Description:         "Scegli quali metodi di comunicazione desideri continuare a ricevere:",
+		SuccessMessage:      "Le tue preferenze sono state aggiornate!",
+		NoSubscriptions:     "Non sei iscritto a nessuna notifica.",
+		Save:                "Salva Preferenze",
+		Unsubscribed:        "Sei stato disiscritto!",
+		UnsubscribedMessage: "Sei stato rimosso da questa lista di comunicazioni.",
+	},
+}
+
 // GetStrings returns localized strings based on locale
 func GetStrings(locale string) Strings {
 	// Extract base locale (e.g., "en" from "en-US")
@@ -48,68 +105,12 @@ func GetStrings(locale string) Strings {
 		baseLocale = locale[:2]
 	}
 
-	switch baseLocale {
-	case "es":
-		return Strings{
-			Title:               "Preferencias de Comunicación",
-			Description:         "Elige qué métodos de comunicación deseas seguir recibiendo:",
-			SuccessMessage:      "¡Tus preferencias han sido actualizadas!",
-			NoSubscriptions:     "No estás suscrito a ninguna notificación.",
-			Save:                "Guardar Preferencias",
-			Unsubscribed:        "¡Te has dado de baja!",
-			UnsubscribedMessage: "Has sido eliminado de esta lista de comunicaciones.",
-		}
-	case "fr":
-		return Strings{
-			Title:               "Préférences de communication",
-			Description:         "Choisissez les méthodes de communication que vous souhaitez continuer à recevoir :",
-			SuccessMessage:      "Vos préférences ont été mises à jour !",
-			NoSubscriptions:     "Vous n'êtes abonné à aucune notification.",
-			Save:                "Enregistrer les Préférences",
-			Unsubscribed:        "Vous avez été désabonné !",
-			UnsubscribedMessage: "Vous avez été retiré de cette liste de communications.",
-		}
-	case "de":
-		return Strings{
-			Title:               "Kommunikationspräferenzen",
-			Description:         "Wählen Sie, welche Kommunikationsmethoden Sie weiterhin erhalten möchten:",
-			SuccessMessage:      "Ihre Einstellungen wurden aktualisiert!",
-			NoSubscriptions:     "Sie sind für keine Benachrichtigungen angemeldet.",
-			Save:                "Einstellungen speichern",
-			Unsubscribed:        "Sie wurden abgemeldet!",
-			UnsubscribedMessage: "Sie wurden von dieser Kommunikationsliste entfernt.",
-		}
-	case "pt":
-		return Strings{
-			Title:               "Preferências de comunicação",
-			Description:         "Escolha quais métodos de comunicação você gostaria de continuar recebendo:",
-			SuccessMessage:      "Suas preferências foram atualizadas!",
-			NoSubscriptions:     "Você não está inscrito em nenhuma notificação.",
-			Save:                "Salvar Preferências",
-			Unsubscribed:        "Você foi cancelado!",
-			UnsubscribedMessage: "Você foi removido desta lista de comunicações.",
-		}
-	case "it":
-		return Strings{
-			Title:               "Preferenze di Iscrizione",
-			Description:         "Scegli quali metodi di comunicazione desideri continuare a ricevere:",
-			SuccessMessage:      "Le tue preferenze sono state aggiornate!",
-			NoSubscriptions:     "Non sei iscritto a nessuna notifica.",
-			Save:                "Salva Preferenze",
-			Unsubscribed:        "Sei stato disiscritto!",
-			UnsubscribedMessage: "Sei stato rimosso da questa lista di comunicazioni.",
-		}
-	default: // English
-		return Strings{
-			Title:               "Communication Preferences",
-			Description:         "Choose which methods of communication you would like to continue to receive:",
-			SuccessMessage:      "Your preferences have been updated!",
-			NoSubscriptions:     "You are not subscribed to any notifications.",
-			Save:                "Save Preferences",
-			Unsubscribed:        "You have been unsubscribed!",
-			UnsubscribedMessage: "You have been removed from this communication list.",
-		}
+	if strings, ok := localizedStrings[baseLocale]; ok {
+		return strings
 	}
+
+	// Default to English
+	return localizedStrings["en"]
 }
 
 // UnsubscribeData holds data for the unsubscribe template
