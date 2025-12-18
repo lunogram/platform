@@ -115,21 +115,32 @@ func TestListEvents(t *testing.T) {
 
 	require.NotNil(t, purchaseEvent)
 	require.Equal(t, eventID1, purchaseEvent.Id)
-	require.Len(t, purchaseEvent.Paths, 3)
-	require.Contains(t, purchaseEvent.Paths, ".product_id")
-	require.Contains(t, purchaseEvent.Paths, ".amount")
-	require.Contains(t, purchaseEvent.Paths, ".currency")
-	require.Len(t, purchaseEvent.Types, 3)
+	require.Len(t, purchaseEvent.Schema, 3)
+
+	pathMap := make(map[string][]string)
+	for _, s := range purchaseEvent.Schema {
+		pathMap[s.Path] = s.Types
+	}
+	require.Contains(t, pathMap, ".product_id")
+	require.Contains(t, pathMap, ".amount")
+	require.Contains(t, pathMap, ".currency")
+	require.Contains(t, pathMap[".product_id"], "string")
+	require.Contains(t, pathMap[".amount"], "number")
+	require.Contains(t, pathMap[".currency"], "string")
 
 	require.NotNil(t, pageEvent)
 	require.Equal(t, eventID2, pageEvent.Id)
-	require.Len(t, pageEvent.Paths, 2)
-	require.Contains(t, pageEvent.Paths, ".page")
-	require.Contains(t, pageEvent.Paths, ".referrer")
+	require.Len(t, pageEvent.Schema, 2)
+
+	pagePathMap := make(map[string][]string)
+	for _, s := range pageEvent.Schema {
+		pagePathMap[s.Path] = s.Types
+	}
+	require.Contains(t, pagePathMap, ".page")
+	require.Contains(t, pagePathMap, ".referrer")
 
 	require.NotNil(t, logoutEvent)
-	require.Empty(t, logoutEvent.Paths)
-	require.Empty(t, logoutEvent.Types)
+	require.Empty(t, logoutEvent.Schema)
 }
 
 func TestListEventsEmpty(t *testing.T) {
@@ -164,4 +175,69 @@ func TestListEventsUnauthorized(t *testing.T) {
 	controller.ListEvents(res, req, projectID)
 
 	require.Equal(t, 401, res.Code)
+}
+
+func TestListEventsWithMultipleTypes(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID := setupEventsController(t)
+	ctx := context.Background()
+
+	eventsStore := controller.store.EventsStore
+
+	eventID, err := eventsStore.UpsertEvent(ctx, projectID, "user_action")
+	require.NoError(t, err)
+
+	// Insert the same path with different types to simulate real-world scenarios
+	// where a field might be sent as different types across different events
+	paths := rules.Paths{
+		{Path: ".user_id", Type: rules.TypeString},
+		{Path: ".user_id", Type: rules.TypeNumber},
+		{Path: ".metadata", Type: rules.TypeObject},
+		{Path: ".metadata", Type: rules.TypeString},
+		{Path: ".tags", Type: rules.TypeArray},
+	}
+	err = eventsStore.UpsertEventSchema(ctx, projectID, eventID, paths)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events", nil)
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.ListEvents(res, req, projectID)
+
+	require.Equal(t, 200, res.Code)
+
+	var response struct {
+		Results []oapi.EventWithSchema `json:"results"`
+	}
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Len(t, response.Results, 1)
+
+	event := response.Results[0]
+	require.Equal(t, "user_action", event.Name)
+	require.Len(t, event.Schema, 3)
+
+	pathMap := make(map[string][]string)
+	for _, s := range event.Schema {
+		pathMap[s.Path] = s.Types
+	}
+
+	// Verify .user_id has both string and number types
+	require.Contains(t, pathMap, ".user_id")
+	require.Len(t, pathMap[".user_id"], 2)
+	require.Contains(t, pathMap[".user_id"], "number")
+	require.Contains(t, pathMap[".user_id"], "string")
+
+	// Verify .metadata has both object and string types
+	require.Contains(t, pathMap, ".metadata")
+	require.Len(t, pathMap[".metadata"], 2)
+	require.Contains(t, pathMap[".metadata"], "object")
+	require.Contains(t, pathMap[".metadata"], "string")
+
+	// Verify .tags has only array type
+	require.Contains(t, pathMap, ".tags")
+	require.Len(t, pathMap[".tags"], 1)
+	require.Contains(t, pathMap[".tags"], "array")
 }

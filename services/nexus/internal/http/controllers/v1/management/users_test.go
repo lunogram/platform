@@ -584,16 +584,16 @@ func TestListUserSchemas(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, response.Results, 5)
 
-	pathMap := make(map[string]string)
+	pathMap := make(map[string][]string)
 	for _, schema := range response.Results {
-		pathMap[schema.Path] = schema.DataType
+		pathMap[schema.Path] = schema.Types
 	}
 
-	require.Equal(t, "string", pathMap[".email"])
-	require.Equal(t, "number", pathMap[".age"])
-	require.Equal(t, "string", pathMap[".plan"])
-	require.Equal(t, "object", pathMap[".preferences"])
-	require.Equal(t, "boolean", pathMap[".preferences.notifications"])
+	require.Contains(t, pathMap[".email"], "string")
+	require.Contains(t, pathMap[".age"], "number")
+	require.Contains(t, pathMap[".plan"], "string")
+	require.Contains(t, pathMap[".preferences"], "object")
+	require.Contains(t, pathMap[".preferences.notifications"], "boolean")
 }
 
 func TestListUserSchemasEmpty(t *testing.T) {
@@ -628,4 +628,76 @@ func TestListUserSchemasUnauthorized(t *testing.T) {
 	controller.ListUserSchemas(res, req, projectID)
 
 	require.Equal(t, 401, res.Code)
+}
+
+func TestListUserSchemasWithMultipleTypes(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID := setupUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.store.UsersStore
+
+	// Insert the same path with different types to simulate real-world scenarios
+	// where user data fields might be sent with different types across different users
+	paths := rules.Paths{
+		{Path: ".age", Type: "number"},
+		{Path: ".age", Type: "string"}, // age sent as "25" or 25
+		{Path: ".is_active", Type: "boolean"},
+		{Path: ".is_active", Type: "string"}, // boolean sent as "true" or true
+		{Path: ".tags", Type: "array"},
+		{Path: ".tags", Type: "string"}, // tags sent as ["a","b"] or "a,b"
+		{Path: ".metadata", Type: "object"},
+		{Path: ".name", Type: "string"},
+	}
+	err := usersStore.UpsertUserSchema(ctx, projectID, paths)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.ListUserSchemas(res, req, projectID)
+
+	require.Equal(t, 200, res.Code)
+
+	var response struct {
+		Results []oapi.SchemaPath `json:"results"`
+	}
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Len(t, response.Results, 5)
+
+	pathMap := make(map[string][]string)
+	for _, schema := range response.Results {
+		pathMap[schema.Path] = schema.Types
+	}
+
+	// Verify .age has both number and string types
+	require.Contains(t, pathMap, ".age")
+	require.Len(t, pathMap[".age"], 2)
+	require.Contains(t, pathMap[".age"], "number")
+	require.Contains(t, pathMap[".age"], "string")
+
+	// Verify .is_active has both boolean and string types
+	require.Contains(t, pathMap, ".is_active")
+	require.Len(t, pathMap[".is_active"], 2)
+	require.Contains(t, pathMap[".is_active"], "boolean")
+	require.Contains(t, pathMap[".is_active"], "string")
+
+	// Verify .tags has both array and string types
+	require.Contains(t, pathMap, ".tags")
+	require.Len(t, pathMap[".tags"], 2)
+	require.Contains(t, pathMap[".tags"], "array")
+	require.Contains(t, pathMap[".tags"], "string")
+
+	// Verify .metadata has only object type
+	require.Contains(t, pathMap, ".metadata")
+	require.Len(t, pathMap[".metadata"], 1)
+	require.Contains(t, pathMap[".metadata"], "object")
+
+	// Verify .name has only string type
+	require.Contains(t, pathMap, ".name")
+	require.Len(t, pathMap[".name"], 1)
+	require.Contains(t, pathMap[".name"], "string")
 }

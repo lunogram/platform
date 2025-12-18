@@ -3660,8 +3660,7 @@ components:
       required:
         - id
         - name
-        - paths
-        - types
+        - schema
       properties:
         id:
           type: string
@@ -3670,29 +3669,25 @@ components:
         name:
           type: string
           example: "purchase_completed"
-        paths:
+        schema:
           type: array
           items:
-            type: string
-          example: [".product_id", ".amount", ".currency"]
-        types:
-          type: array
-          items:
-            type: string
-          example: ["string", "number", "string"]
+            $ref: '#/components/schemas/SchemaPath'
 
     SchemaPath:
       type: object
       required:
         - path
-        - data_type
+        - types
       properties:
         path:
           type: string
           example: ".email"
-        data_type:
-          type: string
-          example: "string"
+        types:
+          type: array
+          items:
+            type: string
+          example: ["string"]
 
   securitySchemes:
     HttpBearerAuth:

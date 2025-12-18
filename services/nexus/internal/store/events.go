@@ -51,11 +51,15 @@ func (s *EventsStore) UpsertEventSchema(ctx context.Context, projectID, eventID 
 	return nil
 }
 
-type Event struct {
-	ID    uuid.UUID      `db:"id"`
-	Name  string         `db:"name"`
-	Paths pq.StringArray `db:"paths"`
+type EventSchemaPath struct {
+	Path  string         `db:"path"`
 	Types pq.StringArray `db:"types"`
+}
+
+type Event struct {
+	ID     uuid.UUID `db:"id"`
+	Name   string    `db:"name"`
+	Schema []EventSchemaPath
 }
 
 func (s *EventsStore) ListEvents(ctx context.Context, projectID uuid.UUID) ([]Event, error) {
@@ -63,18 +67,53 @@ func (s *EventsStore) ListEvents(ctx context.Context, projectID uuid.UUID) ([]Ev
 	SELECT 
 		e.id,
 		e.name,
-		COALESCE(array_agg(es.path ORDER BY es.path) FILTER (WHERE es.path IS NOT NULL), '{}') as paths,
-		COALESCE(array_agg(es.data_type ORDER BY es.path) FILTER (WHERE es.data_type IS NOT NULL), '{}') as types
+		es.path,
+		COALESCE(array_agg(DISTINCT es.data_type ORDER BY es.data_type) FILTER (WHERE es.data_type IS NOT NULL), '{}') as types
 	FROM events e
 	LEFT JOIN event_schemas es ON e.id = es.event_id
 	WHERE e.project_id = $1
-	GROUP BY e.id, e.name
-	ORDER BY e.name`
+	GROUP BY e.id, e.name, es.path
+	ORDER BY e.name, es.path`
 
-	var events []Event
-	err := s.db.SelectContext(ctx, &events, stmt, projectID)
+	type row struct {
+		ID    uuid.UUID      `db:"id"`
+		Name  string         `db:"name"`
+		Path  *string        `db:"path"`
+		Types pq.StringArray `db:"types"`
+	}
+
+	var rows []row
+	err := s.db.SelectContext(ctx, &rows, stmt, projectID)
 	if err != nil {
 		return nil, err
+	}
+
+	eventsMap := make(map[uuid.UUID]*Event)
+	var eventOrder []uuid.UUID
+
+	for _, r := range rows {
+		event, exists := eventsMap[r.ID]
+		if !exists {
+			event = &Event{
+				ID:     r.ID,
+				Name:   r.Name,
+				Schema: []EventSchemaPath{},
+			}
+			eventsMap[r.ID] = event
+			eventOrder = append(eventOrder, r.ID)
+		}
+
+		if r.Path != nil {
+			event.Schema = append(event.Schema, EventSchemaPath{
+				Path:  *r.Path,
+				Types: r.Types,
+			})
+		}
+	}
+
+	events := make([]Event, 0, len(eventOrder))
+	for _, id := range eventOrder {
+		events = append(events, *eventsMap[id])
 	}
 
 	return events, nil
