@@ -8,6 +8,10 @@ import (
 
 	"github.com/caarlos0/env/v10"
 	"github.com/cloudproud/graceful"
+	"github.com/lunogram/platform/services/nexus/internal/cluster"
+	"github.com/lunogram/platform/services/nexus/internal/cluster/consensus"
+	"github.com/lunogram/platform/services/nexus/internal/cluster/leader"
+	"github.com/lunogram/platform/services/nexus/internal/cluster/scheduler"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	managementv1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management"
 	publicv1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/public"
@@ -39,7 +43,7 @@ func run() error {
 	}
 	defer logger.Sync() //nolint:errcheck
 
-	conf := config.Service{}
+	conf := config.Node{}
 	err = env.Parse(&conf)
 	if err != nil {
 		return err
@@ -51,23 +55,37 @@ func run() error {
 	}
 
 	logger.Info("starting service...")
-	logger.Info("connecting to database")
+	logger.Info("initializing database")
 
-	db, err := store.Connect(ctx, conf.Store)
+	db, err := store.New(ctx, logger, conf.Store)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("initializing storage")
+	logger.Info("initializing block storage")
 
-	storageBackend, err := storage.New(conf.Storage)
+	bucket, err := storage.New(conf.Storage)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("starting http server")
+	logger.Info("initializing cluster")
 
-	mgmt, err := managementv1.NewServer(ctx, logger, conf, db, storageBackend)
+	scheduler := scheduler.NewController(ctx, logger, conf)
+	leader := leader.NewHandler(scheduler)
+	consensus, err := consensus.NewCluster(ctx, logger, conf)
+	if err != nil {
+		return err
+	}
+
+	_, err = cluster.NewNode(ctx, logger, conf, consensus, leader)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("starting http servers")
+
+	mgmt, err := managementv1.NewServer(ctx, logger, conf, db, bucket)
 	if err != nil {
 		return err
 	}
@@ -75,7 +93,7 @@ func run() error {
 	logger.Info("serving management http server")
 	go mgmt.Serve(ctx, conf.ManagementServiceAddress)
 
-	public, err := publicv1.NewServer(ctx, logger, conf, db, storageBackend)
+	public, err := publicv1.NewServer(ctx, logger, conf, db, bucket)
 	if err != nil {
 		return err
 	}

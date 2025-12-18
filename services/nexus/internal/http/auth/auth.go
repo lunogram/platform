@@ -49,7 +49,7 @@ func Middleware(middleware ...Handler) openapi3filter.AuthenticationFunc {
 	}
 }
 
-func WithJWT(config config.Service, stores *store.Stores) Handler {
+func WithJWT(config config.Auth, stores *store.Stores) Handler {
 	keyFunc := config.JWKS.Unwrap()
 	if config.JWTSecret != "" {
 		keyFunc = HMAC([]byte(config.JWTSecret))

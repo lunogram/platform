@@ -11,6 +11,7 @@ import (
 	"github.com/cloudproud/graceful"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
 )
 
 var ErrNoRows = sql.ErrNoRows
@@ -19,11 +20,22 @@ type Config struct {
 	URI string `env:"POSTGRES_URI" envDefault:"postgres://postgres:password@postgres:5432/postgres?sslmode=disable"`
 }
 
-func Connect(ctx graceful.Context, conf Config) (*sqlx.DB, error) {
-	db, err := sqlx.Connect("pgx", conf.URI)
+func New(ctx graceful.Context, logger *zap.Logger, service Config) (*sqlx.DB, error) {
+	logger.Info("connecting to PostgreSQL database")
+
+	db, err := sqlx.Connect("pgx", service.URI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
+
+	ctx.Closer(func() {
+		logger.Info("received close signal, closing store client")
+
+		err := db.Close()
+		if err != nil {
+			logger.Error("failed to close database connection", zap.Error(err))
+		}
+	})
 
 	return db, nil
 }
