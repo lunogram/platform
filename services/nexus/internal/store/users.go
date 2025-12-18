@@ -428,3 +428,24 @@ func (s *UsersStore) UpsertUserSchema(ctx context.Context, projectID uuid.UUID, 
 
 	return nil
 }
+
+type UserSchema struct {
+	Path string `db:"path"`
+	Type string `db:"data_type"`
+}
+
+func (s *UsersStore) ListUserSchemas(ctx context.Context, projectID uuid.UUID) ([]UserSchema, error) {
+	stmt := `
+	SELECT path, data_type
+	FROM user_schemas
+	WHERE project_id = $1
+	ORDER BY path`
+
+	var schemas []UserSchema
+	err := s.db.SelectContext(ctx, &schemas, stmt, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return schemas, nil
+}

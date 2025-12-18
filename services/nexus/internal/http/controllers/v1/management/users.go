@@ -483,3 +483,41 @@ func (srv *UsersController) GetUserJourneys(w http.ResponseWriter, r *http.Reque
 
 	json.Write(w, http.StatusOK, response)
 }
+
+func (srv *UsersController) ListUserSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	logger := srv.logger.With(zap.String("project_id", projectID.String()))
+	logger.Info("listing user schemas")
+
+	schemas, err := srv.store.ListUserSchemas(ctx, projectID)
+	if err != nil {
+		logger.Error("failed to list user schemas", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("user schemas listed", zap.Int("count", len(schemas)))
+
+	results := make([]oapi.SchemaPath, len(schemas))
+	for i, schema := range schemas {
+		results[i] = oapi.SchemaPath{
+			Path:     schema.Path,
+			DataType: schema.Type,
+		}
+	}
+
+	response := struct {
+		Results []oapi.SchemaPath `json:"results"`
+	}{
+		Results: results,
+	}
+
+	json.Write(w, http.StatusOK, response)
+}

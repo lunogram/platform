@@ -293,6 +293,14 @@ type EmailTemplateData struct {
 	Subject *string `json:"subject,omitempty"`
 }
 
+// EventWithSchema defines model for EventWithSchema.
+type EventWithSchema struct {
+	Id    openapi_types.UUID `json:"id"`
+	Name  string             `json:"name"`
+	Paths []string           `json:"paths"`
+	Types []string           `json:"types"`
+}
+
 // IdentifyUser defines model for IdentifyUser.
 type IdentifyUser struct {
 	AnonymousId *string         `json:"anonymous_id,omitempty"`
@@ -491,6 +499,12 @@ type PushTemplateData struct {
 
 	// Title Push notification title
 	Title *string `json:"title,omitempty"`
+}
+
+// SchemaPath defines model for SchemaPath.
+type SchemaPath struct {
+	DataType string `json:"data_type"`
+	Path     string `json:"path"`
 }
 
 // SmsProviderData defines model for SmsProviderData.
@@ -1395,6 +1409,9 @@ type ClientInterface interface {
 	// GetDocumentMetadata request
 	GetDocumentMetadata(ctx context.Context, projectID openapi_types.UUID, documentID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListEvents request
+	ListEvents(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListJourneys request
 	ListJourneys(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1482,6 +1499,9 @@ type ClientInterface interface {
 	IdentifyUserWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	IdentifyUser(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListUserSchemas request
+	ListUserSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteUser request
 	DeleteUser(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2025,6 +2045,18 @@ func (c *Client) GetDocumentMetadata(ctx context.Context, projectID openapi_type
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListEvents(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListEventsRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListJourneys(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListJourneysRequest(c.Server, projectID, params)
 	if err != nil {
@@ -2399,6 +2431,18 @@ func (c *Client) IdentifyUserWithBody(ctx context.Context, projectID openapi_typ
 
 func (c *Client) IdentifyUser(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewIdentifyUserRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListUserSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListUserSchemasRequest(c.Server, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -4103,6 +4147,40 @@ func NewGetDocumentMetadataRequest(server string, projectID openapi_types.UUID, 
 	return req, nil
 }
 
+// NewListEventsRequest generates requests for ListEvents
+func NewListEventsRequest(server string, projectID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/events", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListJourneysRequest generates requests for ListJourneys
 func NewListJourneysRequest(server string, projectID openapi_types.UUID, params *ListJourneysParams) (*http.Request, error) {
 	var err error
@@ -5383,6 +5461,40 @@ func NewIdentifyUserRequestWithBody(server string, projectID openapi_types.UUID,
 	return req, nil
 }
 
+// NewListUserSchemasRequest generates requests for ListUserSchemas
+func NewListUserSchemasRequest(server string, projectID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/users/schema", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteUserRequest generates requests for DeleteUser
 func NewDeleteUserRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -5972,6 +6084,9 @@ type ClientWithResponsesInterface interface {
 	// GetDocumentMetadataWithResponse request
 	GetDocumentMetadataWithResponse(ctx context.Context, projectID openapi_types.UUID, documentID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetDocumentMetadataResponse, error)
 
+	// ListEventsWithResponse request
+	ListEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListEventsResponse, error)
+
 	// ListJourneysWithResponse request
 	ListJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*ListJourneysResponse, error)
 
@@ -6059,6 +6174,9 @@ type ClientWithResponsesInterface interface {
 	IdentifyUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error)
 
 	IdentifyUserWithResponse(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error)
+
+	// ListUserSchemasWithResponse request
+	ListUserSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListUserSchemasResponse, error)
 
 	// DeleteUserWithResponse request
 	DeleteUserWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserResponse, error)
@@ -6851,6 +6969,31 @@ func (r GetDocumentMetadataResponse) StatusCode() int {
 	return 0
 }
 
+type ListEventsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Results []EventWithSchema `json:"results"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListEventsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListEventsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListJourneysResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7408,6 +7551,31 @@ func (r IdentifyUserResponse) StatusCode() int {
 	return 0
 }
 
+type ListUserSchemasResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Results []SchemaPath `json:"results"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListUserSchemasResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListUserSchemasResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7945,6 +8113,15 @@ func (c *ClientWithResponses) GetDocumentMetadataWithResponse(ctx context.Contex
 	return ParseGetDocumentMetadataResponse(rsp)
 }
 
+// ListEventsWithResponse request returning *ListEventsResponse
+func (c *ClientWithResponses) ListEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListEventsResponse, error) {
+	rsp, err := c.ListEvents(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListEventsResponse(rsp)
+}
+
 // ListJourneysWithResponse request returning *ListJourneysResponse
 func (c *ClientWithResponses) ListJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*ListJourneysResponse, error) {
 	rsp, err := c.ListJourneys(ctx, projectID, params, reqEditors...)
@@ -8223,6 +8400,15 @@ func (c *ClientWithResponses) IdentifyUserWithResponse(ctx context.Context, proj
 		return nil, err
 	}
 	return ParseIdentifyUserResponse(rsp)
+}
+
+// ListUserSchemasWithResponse request returning *ListUserSchemasResponse
+func (c *ClientWithResponses) ListUserSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListUserSchemasResponse, error) {
+	rsp, err := c.ListUserSchemas(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListUserSchemasResponse(rsp)
 }
 
 // DeleteUserWithResponse request returning *DeleteUserResponse
@@ -9363,6 +9549,41 @@ func ParseGetDocumentMetadataResponse(rsp *http.Response) (*GetDocumentMetadataR
 	return response, nil
 }
 
+// ParseListEventsResponse parses an HTTP response from a ListEventsWithResponse call
+func ParseListEventsResponse(rsp *http.Response) (*ListEventsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListEventsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Results []EventWithSchema `json:"results"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListJourneysResponse parses an HTTP response from a ListJourneysWithResponse call
 func ParseListJourneysResponse(rsp *http.Response) (*ListJourneysResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10130,6 +10351,41 @@ func ParseIdentifyUserResponse(rsp *http.Response) (*IdentifyUserResponse, error
 	return response, nil
 }
 
+// ParseListUserSchemasResponse parses an HTTP response from a ListUserSchemasWithResponse call
+func ParseListUserSchemasResponse(rsp *http.Response) (*ListUserSchemasResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListUserSchemasResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Results []SchemaPath `json:"results"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteUserResponse parses an HTTP response from a DeleteUserWithResponse call
 func ParseDeleteUserResponse(rsp *http.Response) (*DeleteUserResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10455,6 +10711,9 @@ type ServerInterface interface {
 	// Get document metadata
 	// (GET /api/admin/projects/{projectID}/documents/{documentID}/metadata)
 	GetDocumentMetadata(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, documentID openapi_types.UUID)
+	// List events with schemas
+	// (GET /api/admin/projects/{projectID}/events)
+	ListEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// List journeys
 	// (GET /api/admin/projects/{projectID}/journeys)
 	ListJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListJourneysParams)
@@ -10527,6 +10786,9 @@ type ServerInterface interface {
 	// Identify user
 	// (POST /api/admin/projects/{projectID}/users)
 	IdentifyUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// List user schemas
+	// (GET /api/admin/projects/{projectID}/users/schema)
+	ListUserSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// Delete user
 	// (DELETE /api/admin/projects/{projectID}/users/{userID})
 	DeleteUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
@@ -10752,6 +11014,12 @@ func (_ Unimplemented) GetDocumentMetadata(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List events with schemas
+// (GET /api/admin/projects/{projectID}/events)
+func (_ Unimplemented) ListEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List journeys
 // (GET /api/admin/projects/{projectID}/journeys)
 func (_ Unimplemented) ListJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListJourneysParams) {
@@ -10893,6 +11161,12 @@ func (_ Unimplemented) ListUsers(w http.ResponseWriter, r *http.Request, project
 // Identify user
 // (POST /api/admin/projects/{projectID}/users)
 func (_ Unimplemented) IdentifyUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List user schemas
+// (GET /api/admin/projects/{projectID}/users/schema)
+func (_ Unimplemented) ListUserSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -12166,6 +12440,37 @@ func (siw *ServerInterfaceWrapper) GetDocumentMetadata(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// ListEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListEvents(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListJourneys operation middleware
 func (siw *ServerInterfaceWrapper) ListJourneys(w http.ResponseWriter, r *http.Request) {
 
@@ -13166,6 +13471,37 @@ func (siw *ServerInterfaceWrapper) IdentifyUser(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// ListUserSchemas operation middleware
+func (siw *ServerInterfaceWrapper) ListUserSchemas(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUserSchemas(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteUser operation middleware
 func (siw *ServerInterfaceWrapper) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
@@ -13716,6 +14052,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/documents/{documentID}/metadata", wrapper.GetDocumentMetadata)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/events", wrapper.ListEvents)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys", wrapper.ListJourneys)
 	})
 	r.Group(func(r chi.Router) {
@@ -13786,6 +14125,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/users", wrapper.IdentifyUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/users/schema", wrapper.ListUserSchemas)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/users/{userID}", wrapper.DeleteUser)
