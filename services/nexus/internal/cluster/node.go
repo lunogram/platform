@@ -195,8 +195,7 @@ func (node *Node) heartbeat(ctx graceful.Context) {
 		logger := node.logger.With(zap.String("id", node.ID()))
 		logger.Info("received close signal, releasing node resources")
 
-		ctx := context.Background()
-		err := node.cluster.ReleaseNode(ctx, node.ID())
+		err := node.cluster.ReleaseNode(context.Background(), node.ID())
 		if err != nil {
 			logger.Error("failed to release node", zap.Error(err))
 		}
