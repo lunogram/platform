@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TNewCluster(t *testing.T) (*Cluster, graceful.Context) {
+func newCluster(t *testing.T) (*Cluster, graceful.Context) {
 	t.Helper()
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(context.Background())
@@ -76,7 +76,7 @@ func TestNewCluster(t *testing.T) {
 
 func TestClusterRegisterLeader(t *testing.T) {
 	t.Parallel()
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	err := cluster.RegisterLeader(ctx, "test-leader-1")
 	require.NoError(t, err)
@@ -93,14 +93,14 @@ func TestClusterRegisterLeader(t *testing.T) {
 
 func TestClusterMarkLeaderReconciled(t *testing.T) {
 	t.Parallel()
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	err := cluster.MarkLeaderReconciled(ctx)
 	require.NoError(t, err)
 
-	result, err := cluster.redis.Get(ctx, cluster.key(LeaderKeyReconciled)).Result()
+	result, err := cluster.redis.Get(ctx, cluster.key(LeaderKeyReconciled)).Bool()
 	require.NoError(t, err)
-	require.Equal(t, "1", result)
+	require.Equal(t, true, result)
 
 	ttl, err := cluster.redis.TTL(ctx, cluster.key(LeaderKeyReconciled)).Result()
 	require.NoError(t, err)
@@ -109,7 +109,7 @@ func TestClusterMarkLeaderReconciled(t *testing.T) {
 
 func TestClusterReleaseLeader(t *testing.T) {
 	t.Parallel()
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	err := cluster.RegisterLeader(ctx, "test-leader")
 	require.NoError(t, err)
@@ -129,7 +129,7 @@ func TestClusterReleaseLeader(t *testing.T) {
 
 func TestClusterRegisterNode(t *testing.T) {
 	t.Parallel()
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	type test struct {
 		nodeID        string
@@ -183,7 +183,7 @@ func TestClusterRegisterNode(t *testing.T) {
 
 func TestClusterReleaseNode(t *testing.T) {
 	t.Parallel()
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	err := cluster.RegisterNode(ctx, "test-node", "127.0.0.1:8080")
 	require.NoError(t, err)
@@ -201,7 +201,7 @@ func TestClusterReleaseNode(t *testing.T) {
 
 func TestClusterGetNodes(t *testing.T) {
 	t.Parallel()
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	// Test no nodes
 	nodes, err := cluster.GetNodes(ctx)
@@ -233,7 +233,7 @@ func TestClusterGetNodes(t *testing.T) {
 
 func TestClusterWatchNodes(t *testing.T) {
 	t.Parallel()
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	nodesChan := cluster.WatchNodes(ctx)
 
@@ -273,7 +273,7 @@ func TestClusterWatchNodes(t *testing.T) {
 
 func TestClusterLock(t *testing.T) {
 	t.Parallel()
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	until := cluster.Lock(ctx)
 	require.False(t, until.IsZero())
@@ -286,7 +286,7 @@ func TestClusterLock(t *testing.T) {
 
 func TestClusterExtend(t *testing.T) {
 	t.Parallel()
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	until := cluster.Lock(ctx)
 	require.False(t, until.IsZero())
@@ -300,7 +300,7 @@ func TestClusterExtend(t *testing.T) {
 
 func TestClusterUnlock(t *testing.T) {
 	t.Parallel()
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	until := cluster.Lock(ctx)
 	require.False(t, until.IsZero())
@@ -351,7 +351,7 @@ func TestClusterLeaderMutex(t *testing.T) {
 
 func TestClusterNodeTTL(t *testing.T) {
 	t.Parallel()
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	err := cluster.RegisterNode(ctx, "ttl-node", "127.0.0.1:8080")
 	require.NoError(t, err)
@@ -369,7 +369,7 @@ func TestClusterNodeTTL(t *testing.T) {
 
 func TestClusterLeaderTTL(t *testing.T) {
 	t.Parallel()
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	err := cluster.RegisterLeader(ctx, "ttl-leader")
 	require.NoError(t, err)

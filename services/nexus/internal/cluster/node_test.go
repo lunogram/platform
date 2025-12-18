@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TNewCluster(t *testing.T) (*consensus.Cluster, graceful.Context) {
+func newCluster(t *testing.T) (*consensus.Cluster, graceful.Context) {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -82,7 +82,7 @@ func TestNewNode(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			logger := zaptest.NewLogger(t)
-			cluster, ctx := TNewCluster(t)
+			cluster, ctx := newCluster(t)
 
 			handler := func(ctx context.Context) error {
 				<-ctx.Done()
@@ -116,7 +116,7 @@ func TestNodeID(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	conf := config.Node{
 		NodeID: "custom-node-id",
@@ -145,7 +145,7 @@ func TestNodeIsLeader(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	conf := config.Node{
 		NodeID: "test-leader-node",
@@ -178,7 +178,7 @@ func TestNodeHeartbeat(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	conf := config.Node{
 		NodeID: "heartbeat-test-node",
@@ -211,7 +211,7 @@ func TestNodeLeaderHandlerExecution(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	conf := config.Node{
 		NodeID: "handler-test-node",
@@ -246,7 +246,7 @@ func TestNodeLeaderHandlerExecution(t *testing.T) {
 
 func TestMultipleNodesLeaderElection(t *testing.T) {
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	conf1 := config.Node{
 		NodeID: "node-1",
@@ -295,7 +295,7 @@ func TestNodeWatchCluster(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	conf := config.Node{
 		NodeID: "watch-test-node",
@@ -331,7 +331,7 @@ func TestNodeCleanupOnShutdown(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	conf := config.Node{
 		NodeID: "cleanup-test-node",
@@ -364,7 +364,7 @@ func TestNodeLeaderExtension(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := TNewCluster(t)
+	cluster, ctx := newCluster(t)
 
 	conf := config.Node{
 		NodeID: "extend-leader-node",
