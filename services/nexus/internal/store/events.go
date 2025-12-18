@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/lunogram/platform/services/nexus/internal/rules"
 )
 
@@ -48,4 +49,33 @@ func (s *EventsStore) UpsertEventSchema(ctx context.Context, projectID, eventID 
 	}
 
 	return nil
+}
+
+type Event struct {
+	ID    uuid.UUID      `db:"id"`
+	Name  string         `db:"name"`
+	Paths pq.StringArray `db:"paths"`
+	Types pq.StringArray `db:"types"`
+}
+
+func (s *EventsStore) ListEvents(ctx context.Context, projectID uuid.UUID) ([]Event, error) {
+	stmt := `
+	SELECT 
+		e.id,
+		e.name,
+		COALESCE(array_agg(es.path ORDER BY es.path) FILTER (WHERE es.path IS NOT NULL), '{}') as paths,
+		COALESCE(array_agg(es.data_type ORDER BY es.path) FILTER (WHERE es.data_type IS NOT NULL), '{}') as types
+	FROM events e
+	LEFT JOIN event_schemas es ON e.id = es.event_id
+	WHERE e.project_id = $1
+	GROUP BY e.id, e.name
+	ORDER BY e.name`
+
+	var events []Event
+	err := s.db.SelectContext(ctx, &events, stmt, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return events, nil
 }

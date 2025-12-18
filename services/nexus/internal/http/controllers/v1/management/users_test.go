@@ -14,6 +14,7 @@ import (
 	"github.com/lunogram/platform/pkg/container"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/rules"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -548,4 +549,83 @@ func TestGetUserJourneysPagination(t *testing.T) {
 	require.Len(t, response.Results, 2)
 	require.Equal(t, 2, response.Limit)
 	require.Equal(t, 1, response.Offset)
+}
+
+func TestListUserSchemas(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID := setupUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.store.UsersStore
+
+	paths := rules.Paths{
+		{Path: ".email", Type: "string"},
+		{Path: ".age", Type: "number"},
+		{Path: ".plan", Type: "string"},
+		{Path: ".preferences", Type: "object"},
+		{Path: ".preferences.notifications", Type: "boolean"},
+	}
+	err := usersStore.UpsertUserSchema(ctx, projectID, paths)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/user-schemas", nil)
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.ListUserSchemas(res, req, projectID)
+
+	require.Equal(t, 200, res.Code)
+
+	var response struct {
+		Results []oapi.SchemaPath `json:"results"`
+	}
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Len(t, response.Results, 5)
+
+	pathMap := make(map[string]string)
+	for _, schema := range response.Results {
+		pathMap[schema.Path] = schema.DataType
+	}
+
+	require.Equal(t, "string", pathMap[".email"])
+	require.Equal(t, "number", pathMap[".age"])
+	require.Equal(t, "string", pathMap[".plan"])
+	require.Equal(t, "object", pathMap[".preferences"])
+	require.Equal(t, "boolean", pathMap[".preferences.notifications"])
+}
+
+func TestListUserSchemasEmpty(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID := setupUsersController(t)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.ListUserSchemas(res, req, projectID)
+
+	require.Equal(t, 200, res.Code)
+
+	var response struct {
+		Results []oapi.SchemaPath `json:"results"`
+	}
+	err := json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Empty(t, response.Results)
+}
+
+func TestListUserSchemasUnauthorized(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID := setupUsersController(t)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
+
+	controller.ListUserSchemas(res, req, projectID)
+
+	require.Equal(t, 401, res.Code)
 }

@@ -1467,6 +1467,74 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/projects/{projectID}/events:
+    get:
+      summary: List events with schemas
+      description: Retrieves all events and their schema paths for a project
+      operationId: listEvents
+      tags:
+        - Events
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        '200':
+          description: Events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventWithSchema'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/users/schema:
+    get:
+      summary: List user schemas
+      description: Retrieves all user data schema paths for a project
+      operationId: listUserSchemas
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        '200':
+          description: User schemas retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SchemaPath'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/admin/projects/{projectID}/tags:
     get:
       summary: List tags
@@ -3586,6 +3654,45 @@ components:
             plan: "premium"
             signup_date: "2025-01-15"
           description: User-specific attributes
+
+    EventWithSchema:
+      type: object
+      required:
+        - id
+        - name
+        - paths
+        - types
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "5c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        name:
+          type: string
+          example: "purchase_completed"
+        paths:
+          type: array
+          items:
+            type: string
+          example: [".product_id", ".amount", ".currency"]
+        types:
+          type: array
+          items:
+            type: string
+          example: ["string", "number", "string"]
+
+    SchemaPath:
+      type: object
+      required:
+        - path
+        - data_type
+      properties:
+        path:
+          type: string
+          example: ".email"
+        data_type:
+          type: string
+          example: "string"
 
   securitySchemes:
     HttpBearerAuth:
