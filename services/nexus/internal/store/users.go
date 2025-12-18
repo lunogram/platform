@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/services/nexus/internal/rules"
 )
@@ -430,15 +431,18 @@ func (s *UsersStore) UpsertUserSchema(ctx context.Context, projectID uuid.UUID, 
 }
 
 type UserSchema struct {
-	Path string `db:"path"`
-	Type string `db:"data_type"`
+	Path  string         `db:"path"`
+	Types pq.StringArray `db:"types"`
 }
 
 func (s *UsersStore) ListUserSchemas(ctx context.Context, projectID uuid.UUID) ([]UserSchema, error) {
 	stmt := `
-	SELECT path, data_type
+	SELECT 
+		path,
+		array_agg(DISTINCT data_type ORDER BY data_type) as types
 	FROM user_schemas
 	WHERE project_id = $1
+	GROUP BY path
 	ORDER BY path`
 
 	var schemas []UserSchema

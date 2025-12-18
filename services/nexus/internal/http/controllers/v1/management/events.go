@@ -50,11 +50,18 @@ func (srv *EventsController) ListEvents(w http.ResponseWriter, r *http.Request, 
 
 	results := make([]oapi.EventWithSchema, len(events))
 	for i, event := range events {
+		schema := make([]oapi.SchemaPath, len(event.Schema))
+		for j, s := range event.Schema {
+			schema[j] = oapi.SchemaPath{
+				Path:  s.Path,
+				Types: []string(s.Types),
+			}
+		}
+
 		results[i] = oapi.EventWithSchema{
-			Id:    event.ID,
-			Name:  event.Name,
-			Paths: []string(event.Paths),
-			Types: []string(event.Types),
+			Id:     event.ID,
+			Name:   event.Name,
+			Schema: schema,
 		}
 	}
 

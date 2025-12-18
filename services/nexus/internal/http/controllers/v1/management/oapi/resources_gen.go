@@ -295,10 +295,9 @@ type EmailTemplateData struct {
 
 // EventWithSchema defines model for EventWithSchema.
 type EventWithSchema struct {
-	Id    openapi_types.UUID `json:"id"`
-	Name  string             `json:"name"`
-	Paths []string           `json:"paths"`
-	Types []string           `json:"types"`
+	Id     openapi_types.UUID `json:"id"`
+	Name   string             `json:"name"`
+	Schema []SchemaPath       `json:"schema"`
 }
 
 // IdentifyUser defines model for IdentifyUser.
@@ -503,8 +502,8 @@ type PushTemplateData struct {
 
 // SchemaPath defines model for SchemaPath.
 type SchemaPath struct {
-	DataType string `json:"data_type"`
-	Path     string `json:"path"`
+	Path  string   `json:"path"`
+	Types []string `json:"types"`
 }
 
 // SmsProviderData defines model for SmsProviderData.

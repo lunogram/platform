@@ -508,8 +508,8 @@ func (srv *UsersController) ListUserSchemas(w http.ResponseWriter, r *http.Reque
 	results := make([]oapi.SchemaPath, len(schemas))
 	for i, schema := range schemas {
 		results[i] = oapi.SchemaPath{
-			Path:     schema.Path,
-			DataType: schema.Type,
+			Path:  schema.Path,
+			Types: []string(schema.Types),
 		}
 	}
 
