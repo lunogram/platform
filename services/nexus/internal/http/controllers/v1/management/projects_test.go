@@ -23,7 +23,7 @@ func TestCreateProject(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
+	config := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -32,7 +32,7 @@ func TestCreateProject(t *testing.T) {
 	err := store.Migrate(config.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, config.Store)
+	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
 	orgs := store.NewOrganizationsStore(db)
@@ -121,7 +121,7 @@ func TestListProjects(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
+	config := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -130,7 +130,7 @@ func TestListProjects(t *testing.T) {
 	err := store.Migrate(config.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, config.Store)
+	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
 	orgs := store.NewOrganizationsStore(db)
@@ -195,7 +195,7 @@ func TestGetProject(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
+	config := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -204,7 +204,7 @@ func TestGetProject(t *testing.T) {
 	err := store.Migrate(config.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, config.Store)
+	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
 	orgs := store.NewOrganizationsStore(db)
@@ -260,7 +260,7 @@ func TestUpdateProject(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
+	config := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -269,7 +269,7 @@ func TestUpdateProject(t *testing.T) {
 	err := store.Migrate(config.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, config.Store)
+	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
 	orgs := store.NewOrganizationsStore(db)

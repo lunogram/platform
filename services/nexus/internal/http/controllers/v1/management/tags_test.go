@@ -22,7 +22,7 @@ func TestTagCreation(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
+	config := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -31,7 +31,7 @@ func TestTagCreation(t *testing.T) {
 	err := store.Migrate(config.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, config.Store)
+	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
 	projects := store.NewProjectsStore(db)
@@ -88,7 +88,7 @@ func TestListTags(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
+	config := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -97,7 +97,7 @@ func TestListTags(t *testing.T) {
 	err := store.Migrate(config.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, config.Store)
+	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
 	projects := store.NewProjectsStore(db)
@@ -167,7 +167,7 @@ func TestGetTag(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
+	config := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -176,7 +176,7 @@ func TestGetTag(t *testing.T) {
 	err := store.Migrate(config.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, config.Store)
+	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
 	projects := store.NewProjectsStore(db)
@@ -229,7 +229,7 @@ func TestUpdateTag(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
+	config := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -238,7 +238,7 @@ func TestUpdateTag(t *testing.T) {
 	err := store.Migrate(config.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, config.Store)
+	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
 	projects := store.NewProjectsStore(db)
@@ -300,7 +300,7 @@ func TestDeleteTag(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
+	config := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -309,7 +309,7 @@ func TestDeleteTag(t *testing.T) {
 	err := store.Migrate(config.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, config.Store)
+	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
 	projects := store.NewProjectsStore(db)

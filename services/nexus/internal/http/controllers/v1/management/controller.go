@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Service, storage storage.Storage, platformProxy http.Handler) *Controller {
+func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage storage.Storage, platformProxy http.Handler) *Controller {
 	return &Controller{
 		ProjectsController:      NewProjectsController(logger, db),
 		CampaignsController:     NewCampaignsController(logger, db),

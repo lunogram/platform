@@ -28,7 +28,7 @@ func TestDocumentUpload(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
-	cfg := config.Service{
+	cfg := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -44,7 +44,7 @@ func TestDocumentUpload(t *testing.T) {
 	err := store.Migrate(cfg.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, cfg.Store)
+	db, err := store.New(ctx, logger, cfg.Store)
 	require.NoError(t, err)
 
 	projects := store.NewProjectsStore(db)
@@ -133,7 +133,7 @@ func TestListDocuments(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
-	cfg := config.Service{
+	cfg := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -149,7 +149,7 @@ func TestListDocuments(t *testing.T) {
 	err := store.Migrate(cfg.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, cfg.Store)
+	db, err := store.New(ctx, logger, cfg.Store)
 	require.NoError(t, err)
 
 	projects := store.NewProjectsStore(db)
@@ -241,7 +241,7 @@ func TestGetDocumentMetadata(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
-	cfg := config.Service{
+	cfg := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -257,7 +257,7 @@ func TestGetDocumentMetadata(t *testing.T) {
 	err := store.Migrate(cfg.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, cfg.Store)
+	db, err := store.New(ctx, logger, cfg.Store)
 	require.NoError(t, err)
 
 	projects := store.NewProjectsStore(db)
@@ -324,7 +324,7 @@ func TestGetDocument(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
-	cfg := config.Service{
+	cfg := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -340,7 +340,7 @@ func TestGetDocument(t *testing.T) {
 	err := store.Migrate(cfg.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, cfg.Store)
+	db, err := store.New(ctx, logger, cfg.Store)
 	require.NoError(t, err)
 
 	projects := store.NewProjectsStore(db)
@@ -409,7 +409,7 @@ func TestDeleteDocument(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
-	cfg := config.Service{
+	cfg := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -425,7 +425,7 @@ func TestDeleteDocument(t *testing.T) {
 	err := store.Migrate(cfg.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, cfg.Store)
+	db, err := store.New(ctx, logger, cfg.Store)
 	require.NoError(t, err)
 
 	projects := store.NewProjectsStore(db)

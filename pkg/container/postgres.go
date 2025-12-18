@@ -27,7 +27,7 @@ func RunPostgreSQL(t *testing.T) (uri string) {
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("password"),
 		postgres.BasicWaitStrategies(),
-		testcontainers.WithReuseByName("postgresql"),
+		testcontainers.WithReuseByName("testcontainer-postgresql"),
 		// NOTE: increase max_connections to support parallel test execution
 		// Default is 100, we increase to 500 for parallel tests
 		testcontainers.WithCmdArgs("-c", "max_connections=500"),

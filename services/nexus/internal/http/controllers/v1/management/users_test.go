@@ -24,7 +24,7 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
+	config := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -33,7 +33,7 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	err := store.Migrate(config.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, config.Store)
+	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
 	orgsStore := store.NewOrganizationsStore(db)

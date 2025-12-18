@@ -20,7 +20,7 @@ import (
 
 // NewServer constructs a new HTTP server and it's routes. The returned server
 // could be used to listen and serve incoming requests on the given address.
-func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Service, db *sqlx.DB, storage storage.Storage) (*http.Server, error) {
+func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db *sqlx.DB, storage storage.Storage) (*http.Server, error) {
 	spec, err := oapi.Spec()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load OpenAPI spec: %w", err)
@@ -36,7 +36,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Service, 
 	stores := store.NewStores(db)
 
 	options := openapi3filter.Options{
-		AuthenticationFunc: auth.Middleware(auth.WithJWT(config, stores), auth.WithKey(stores)),
+		AuthenticationFunc: auth.Middleware(auth.WithJWT(config.Auth, stores), auth.WithKey(stores)),
 	}
 
 	router := chi.NewRouter()

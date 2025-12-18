@@ -6,10 +6,13 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/pkg/container"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func NewContainerStore(t *testing.T) *Stores {
 	t.Helper()
+
+	logger := zaptest.NewLogger(t)
 
 	ctx := graceful.NewContext(t.Context())
 	config := Config{
@@ -19,7 +22,7 @@ func NewContainerStore(t *testing.T) *Stores {
 	err := Migrate(config)
 	require.NoError(t, err)
 
-	db, err := Connect(ctx, config)
+	db, err := New(ctx, logger, config)
 	require.NoError(t, err)
 
 	return NewStores(db)
