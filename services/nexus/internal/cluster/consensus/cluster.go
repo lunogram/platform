@@ -56,23 +56,23 @@ func NewCluster(ctx graceful.Context, logger *zap.Logger, service config.Node) (
 		return nil, err
 	}
 
-	redis := redis.NewClient(options)
+	rclient := redis.NewClient(options)
 	ctx.Closer(func() {
 		logger.Info("received close signal, closing redis client")
-		err := redis.Close()
-		if err != nil {
+		err := rclient.Close()
+		if err != nil && !errors.Is(err, redis.ErrClosed) {
 			logger.Error("failed to close redis client", zap.Error(err))
 		}
 	})
 
-	pool := goredis.NewPool(redis)
+	pool := goredis.NewPool(rclient)
 	rs := redsync.New(pool)
 
 	// Use prefix from service config, default to empty string
 	prefix := service.Redis.KeyPrefix
 
 	cluster := &Cluster{
-		redis:  redis,
+		redis:  rclient,
 		prefix: prefix,
 		mu: rs.NewMutex(prefix+LeaderClusterMutex,
 			redsync.WithExpiry(DefaultLeaderTTL),
