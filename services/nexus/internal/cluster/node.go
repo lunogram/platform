@@ -39,9 +39,14 @@ func NewNode(ctx graceful.Context, logger *zap.Logger, conf config.Node, cluster
 		leaderHandler: handler,
 	}
 
+	node.wg.Add(3)
 	go node.campaign(ctx)
 	go node.heartbeat(ctx)
 	go node.watchCluster(ctx)
+
+	ctx.Closer(func() {
+		node.wg.Wait()
+	})
 
 	return node, nil
 }
@@ -54,6 +59,7 @@ type Node struct {
 	leaderUntil   time.Time
 	leaderHandler LeaderHandler
 	mu            sync.Mutex
+	wg            sync.WaitGroup
 }
 
 func (node *Node) ID() string {
@@ -68,17 +74,16 @@ func (node *Node) IsLeader() bool {
 
 // go-campaign! starts campaigning for leadership in the cluster.
 func (node *Node) campaign(ctx graceful.Context) {
+	defer node.wg.Done()
+	defer func() {
+		if node.IsLeader() {
+			node.cluster.ReleaseLeader(context.Background())
+		}
+	}()
+
 	var err error
 	leaderCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	ctx.Closer(func() {
-		if !node.IsLeader() {
-			return
-		}
-
-		node.cluster.ReleaseLeader(context.Background())
-	})
 
 	for {
 		select {
@@ -153,6 +158,8 @@ func (node *Node) campaign(ctx graceful.Context) {
 // internal state accordingly. It listens for node updates and reconciles the
 // cluster state periodically.
 func (node *Node) watchCluster(ctx graceful.Context) {
+	defer node.wg.Done()
+
 	pubsub := node.cluster.WatchNodes(ctx)
 	reconciliation := time.NewTicker(node.config.Cluster.ReconciliationInterval)
 	defer reconciliation.Stop()
@@ -160,7 +167,7 @@ func (node *Node) watchCluster(ctx graceful.Context) {
 	err := node.cluster.MarkLeaderReconciled(ctx)
 	if err != nil {
 		node.logger.Error("failed to mark leader as reconciled", zap.Error(err))
-		ctx.Shutdown()
+		go ctx.Shutdown()
 		return
 	}
 
@@ -173,8 +180,8 @@ func (node *Node) watchCluster(ctx graceful.Context) {
 		case <-reconciliation.C:
 			nodes, err = node.cluster.GetNodes(ctx)
 			if err != nil {
-				node.logger.Error("failed to fetch nodes, shutting down node", zap.Error(err))
-				ctx.Shutdown()
+				node.logger.Error("failed to fetch nodes", zap.Error(err))
+				go ctx.Shutdown()
 				return
 			}
 		case nodes = <-pubsub:
@@ -185,10 +192,8 @@ func (node *Node) watchCluster(ctx graceful.Context) {
 }
 
 func (node *Node) heartbeat(ctx graceful.Context) {
-	heartbeat := time.NewTicker(node.config.Cluster.HeartbeatInterval)
-	defer heartbeat.Stop()
-
-	ctx.Closer(func() {
+	defer node.wg.Done()
+	defer func() {
 		node.mu.Lock()
 		defer node.mu.Unlock()
 
@@ -201,7 +206,10 @@ func (node *Node) heartbeat(ctx graceful.Context) {
 		}
 
 		logger.Info("node resources released")
-	})
+	}()
+
+	heartbeat := time.NewTicker(node.config.Cluster.HeartbeatInterval)
+	defer heartbeat.Stop()
 
 	for {
 		select {

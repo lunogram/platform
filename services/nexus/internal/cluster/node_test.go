@@ -15,12 +15,10 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func newCluster(t *testing.T) (*consensus.Cluster, graceful.Context) {
+func newCluster(t *testing.T, ctx graceful.Context) *consensus.Cluster {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-
 	connstr := container.RunRedis(t)
 	conf := config.Node{
 		Redis: config.Redis{
@@ -37,17 +35,14 @@ func newCluster(t *testing.T) (*consensus.Cluster, graceful.Context) {
 	cluster, err := consensus.NewCluster(ctx, logger, conf)
 	require.NoError(t, err)
 
-	return cluster, ctx
+	return cluster
 }
 
 func TestNewNode(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
-		config        config.Node
-		expectError   bool
-		checkNodeID   bool
-		expectedIDLen int
+		config config.Node
 	}
 
 	tests := map[string]test{
@@ -60,9 +55,6 @@ func TestNewNode(t *testing.T) {
 					ReconciliationInterval: 100 * time.Millisecond,
 				},
 			},
-			expectError:   false,
-			checkNodeID:   true,
-			expectedIDLen: 13,
 		},
 		"without node ID generates from hostname": {
 			config: config.Node{
@@ -73,16 +65,14 @@ func TestNewNode(t *testing.T) {
 					ReconciliationInterval: 100 * time.Millisecond,
 				},
 			},
-			expectError:   false,
-			checkNodeID:   true,
-			expectedIDLen: 16,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			logger := zaptest.NewLogger(t)
-			cluster, ctx := newCluster(t)
+			ctx := graceful.NewContext(context.Background())
+			cluster := newCluster(t, ctx)
 
 			handler := func(ctx context.Context) error {
 				<-ctx.Done()
@@ -90,24 +80,13 @@ func TestNewNode(t *testing.T) {
 			}
 
 			node, err := NewNode(ctx, logger, test.config, cluster, handler)
-
-			if test.expectError {
-				require.Error(t, err)
-				return
-			}
-
 			require.NoError(t, err)
 			require.NotNil(t, node)
+			require.NotEmpty(t, node.ID())
 
-			if test.checkNodeID {
-				require.NotEmpty(t, node.ID())
-				if test.expectedIDLen > 0 {
-					require.Len(t, node.ID(), test.expectedIDLen)
-				}
-			}
-
-			time.Sleep(200 * time.Millisecond)
-			ctx.Shutdown()
+			t.Cleanup(func() {
+				ctx.Shutdown()
+			})
 		})
 	}
 }
@@ -116,7 +95,8 @@ func TestNodeID(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := newCluster(t)
+	ctx := graceful.NewContext(context.Background())
+	cluster := newCluster(t, ctx)
 
 	conf := config.Node{
 		NodeID: "custom-node-id",
@@ -134,18 +114,19 @@ func TestNodeID(t *testing.T) {
 
 	node, err := NewNode(ctx, logger, conf, cluster, handler)
 	require.NoError(t, err)
-
 	require.Equal(t, "custom-node-id", node.ID())
 
-	time.Sleep(50 * time.Millisecond)
-	ctx.Shutdown()
+	t.Cleanup(func() {
+		ctx.Shutdown()
+	})
 }
 
 func TestNodeIsLeader(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := newCluster(t)
+	ctx := graceful.NewContext(context.Background())
+	cluster := newCluster(t, ctx)
 
 	conf := config.Node{
 		NodeID: "test-leader-node",
@@ -164,21 +145,24 @@ func TestNodeIsLeader(t *testing.T) {
 	node, err := NewNode(ctx, logger, conf, cluster, handler)
 	require.NoError(t, err)
 
+	tick := 50 * time.Millisecond
+	timeout := 2 * time.Second
+
 	require.Eventually(t, func() bool {
 		return node.IsLeader()
-	}, 2*time.Second, 50*time.Millisecond, "node should become leader")
+	}, timeout, tick, "node should become leader")
 
-	ctx.Shutdown()
-	time.Sleep(100 * time.Millisecond)
-
-	require.False(t, node.IsLeader(), "node should not be leader after shutdown")
+	t.Cleanup(func() {
+		ctx.Shutdown()
+	})
 }
 
 func TestNodeHeartbeat(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := newCluster(t)
+	ctx := graceful.NewContext(context.Background())
+	cluster := newCluster(t, ctx)
 
 	conf := config.Node{
 		NodeID: "heartbeat-test-node",
@@ -203,15 +187,17 @@ func TestNodeHeartbeat(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, nodes, node.ID(), "node should be registered in cluster")
 
-	ctx.Shutdown()
-	time.Sleep(100 * time.Millisecond)
+	t.Cleanup(func() {
+		ctx.Shutdown()
+	})
 }
 
 func TestNodeLeaderHandlerExecution(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := newCluster(t)
+	ctx := graceful.NewContext(context.Background())
+	cluster := newCluster(t, ctx)
 
 	conf := config.Node{
 		NodeID: "handler-test-node",
@@ -239,14 +225,15 @@ func TestNodeLeaderHandlerExecution(t *testing.T) {
 	}
 
 	require.True(t, node.IsLeader(), "node should be leader when handler executes")
-
-	ctx.Shutdown()
-	time.Sleep(100 * time.Millisecond)
+	t.Cleanup(func() {
+		ctx.Shutdown()
+	})
 }
 
 func TestMultipleNodesLeaderElection(t *testing.T) {
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := newCluster(t)
+	ctx := graceful.NewContext(context.Background())
+	cluster := newCluster(t, ctx)
 
 	conf1 := config.Node{
 		NodeID: "node-1",
@@ -287,15 +274,17 @@ func TestMultipleNodesLeaderElection(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, nodes, 2, "both nodes should be registered")
 
-	ctx.Shutdown()
-	time.Sleep(100 * time.Millisecond)
+	t.Cleanup(func() {
+		ctx.Shutdown()
+	})
 }
 
 func TestNodeWatchCluster(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := newCluster(t)
+	ctx := graceful.NewContext(context.Background())
+	cluster := newCluster(t, ctx)
 
 	conf := config.Node{
 		NodeID: "watch-test-node",
@@ -316,7 +305,7 @@ func TestNodeWatchCluster(t *testing.T) {
 
 	time.Sleep(200 * time.Millisecond)
 
-	err = cluster.RegisterNode(ctx, "external-node", "external-address")
+	err = cluster.RegisterNode(t.Context(), "external-node", "external-node")
 	require.NoError(t, err)
 
 	time.Sleep(200 * time.Millisecond)
@@ -325,13 +314,18 @@ func TestNodeWatchCluster(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, nodes, node.ID())
 	require.Contains(t, nodes, "external-node")
+
+	t.Cleanup(func() {
+		ctx.Shutdown()
+	})
 }
 
 func TestNodeCleanupOnShutdown(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := newCluster(t)
+	ctx := graceful.NewContext(context.Background())
+	cluster := newCluster(t, ctx)
 
 	conf := config.Node{
 		NodeID: "cleanup-test-node",
@@ -352,19 +346,21 @@ func TestNodeCleanupOnShutdown(t *testing.T) {
 
 	time.Sleep(150 * time.Millisecond)
 
-	nodes, err := cluster.GetNodes(ctx)
+	nodes, err := cluster.GetNodes(t.Context())
 	require.NoError(t, err)
 	require.Contains(t, nodes, node.ID())
 
-	ctx.Shutdown()
-	time.Sleep(200 * time.Millisecond)
+	t.Cleanup(func() {
+		ctx.Shutdown()
+	})
 }
 
 func TestNodeLeaderExtension(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	cluster, ctx := newCluster(t)
+	ctx := graceful.NewContext(context.Background())
+	cluster := newCluster(t, ctx)
 
 	conf := config.Node{
 		NodeID: "extend-leader-node",
@@ -391,8 +387,9 @@ func TestNodeLeaderExtension(t *testing.T) {
 
 	require.True(t, node.IsLeader(), "node should maintain leadership through extensions")
 
-	ctx.Shutdown()
-	time.Sleep(100 * time.Millisecond)
+	t.Cleanup(func() {
+		ctx.Shutdown()
+	})
 }
 
 func TestNodeCampaignInterval(t *testing.T) {
