@@ -1078,6 +1078,25 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/organizations/whoami:
+    get:
+      summary: Get current admin
+      description: Retrieves the currently authenticated admin's information
+      operationId: whoami
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      responses:
+        '200':
+          description: Current admin retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Admin'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/admin/organizations:
     get:
       summary: Get current organization
@@ -1215,6 +1234,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/users/import:
+    post:
+      summary: Bulk import users
+      description: Imports multiple users from a CSV file
+      operationId: importUsers
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV file with user data (must include external_id column)
+      responses:
+        '204':
+          description: Users imported successfully
         default:
           $ref: '#/components/responses/Error'
 
@@ -2404,9 +2459,21 @@ components:
           items:
             type: string
           example: ["analytics", "reporting"]
-        has_provider:
-          type: boolean
-          example: true
+        integrations_count:
+          type: integer
+          example: 3
+        campaigns_count:
+          type: integer
+          example: 12
+        journeys_count:
+          type: integer
+          example: 5
+        users_count:
+          type: integer
+          example: 1523
+        lists_count:
+          type: integer
+          example: 8
         created_at:
           type: string
           format: date-time

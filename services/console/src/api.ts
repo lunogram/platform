@@ -150,7 +150,7 @@ const api = {
     admins: {
         ...createEntityPath<Admin>('/admin/organizations/admins'),
         whoami: async () => await client
-            .get<Admin>('/admin/organizations/admins/whoami')
+            .get<Admin>('/admin/organizations/whoami')
             .then(r => r.data),
     },
 
@@ -267,7 +267,7 @@ const api = {
         addImport: async (projectId: UUID, file: File) => {
             const formData = new FormData()
             formData.append('file', file)
-            await client.post(`${projectUrl(projectId)}/users/bulk/add`, formData)
+            await client.post(`${projectUrl(projectId)}/users/import`, formData)
         },
         deleteImport: async (projectId: UUID, file: File) => {
             const formData = new FormData()

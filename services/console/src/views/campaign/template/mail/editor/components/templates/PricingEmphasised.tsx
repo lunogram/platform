@@ -254,6 +254,29 @@ export const PricingEmphasised: ComponentConfig<PricingEmphasisedProps> = {
                                         props: {
                                             value: "Get started today",
                                             href: "#",
+                                            layout: {
+                                                xl: {
+                                                    width: '100%',
+                                                }
+                                            },
+                                            typography: {
+                                                xl: {
+                                                    textAlign: 'center',
+                                                    fontSize: '16',
+                                                    fontWeight: 'semibold',
+                                                    color: '#ffffff',
+                                                }
+                                            },
+                                            spacing: {},
+                                            decoration: {
+                                                xl: {
+                                                    borderTopLeftRadius: '8',
+                                                    borderTopRightRadius: '8',
+                                                    borderBottomLeftRadius: '8',
+                                                    borderBottomRightRadius: '8',
+                                                    backgroundColor: '#4f46e5',
+                                                }
+                                            },
                                         }
                                     }
                                 ]
@@ -394,6 +417,29 @@ export const PricingEmphasised: ComponentConfig<PricingEmphasisedProps> = {
                                         props: {
                                             value: "Get started today",
                                             href: "#",
+                                            layout: {
+                                                xl: {
+                                                    width: '100%',
+                                                }
+                                            },
+                                            typography: {
+                                                xl: {
+                                                    textAlign: 'center',
+                                                    fontSize: '16',
+                                                    fontWeight: 'semibold',
+                                                    color: '#ffffff',
+                                                }
+                                            },
+                                            spacing: {},
+                                            decoration: {
+                                                xl: {
+                                                    borderTopLeftRadius: '8',
+                                                    borderTopRightRadius: '8',
+                                                    borderBottomLeftRadius: '8',
+                                                    borderBottomRightRadius: '8',
+                                                    backgroundColor: '#4f46e5',
+                                                }
+                                            },
                                         }
                                     }
                                 ]
@@ -406,11 +452,25 @@ export const PricingEmphasised: ComponentConfig<PricingEmphasisedProps> = {
             {
                 type: "Divider",
                 props: {
+                    layout: {
+                        xl: {
+                            width: '100%',
+                        }
+                    },
                     spacing: {
                         xl: {
                             marginTop: '0',
+                            marginBottom: '16',
                         }
-                    }
+                    },
+                    decoration: {
+                        xl: {
+                            borderTopWidth: '1',
+                            borderWidthLinked: false,
+                            borderColor: '#d1d5db',
+                            borderStyle: 'solid',
+                        }
+                    },
                 }
             },
             // Footer

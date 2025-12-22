@@ -404,12 +404,15 @@ type Problem struct {
 
 // Project defines model for Project.
 type Project struct {
+	CampaignsCount    *int                `json:"campaigns_count,omitempty"`
 	CreatedAt         time.Time           `json:"created_at"`
 	Description       *string             `json:"description,omitempty"`
-	HasProvider       *bool               `json:"has_provider,omitempty"`
 	Id                openapi_types.UUID  `json:"id"`
+	IntegrationsCount *int                `json:"integrations_count,omitempty"`
+	JourneysCount     *int                `json:"journeys_count,omitempty"`
 	LinkWrapEmail     *bool               `json:"link_wrap_email,omitempty"`
 	LinkWrapPush      *bool               `json:"link_wrap_push,omitempty"`
+	ListsCount        *int                `json:"lists_count,omitempty"`
 	Locale            string              `json:"locale"`
 	Name              string              `json:"name"`
 	OrganizationId    *openapi_types.UUID `json:"organization_id,omitempty"`
@@ -419,6 +422,7 @@ type Project struct {
 	Timezone          string              `json:"timezone"`
 	Tools             *[]string           `json:"tools,omitempty"`
 	UpdatedAt         time.Time           `json:"updated_at"`
+	UsersCount        *int                `json:"users_count,omitempty"`
 }
 
 // ProjectAdmin defines model for ProjectAdmin.
@@ -943,6 +947,12 @@ type ListUsersParams struct {
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// ImportUsersMultipartBody defines parameters for ImportUsers.
+type ImportUsersMultipartBody struct {
+	// File CSV file with user data (must include external_id column)
+	File openapi_types.File `json:"file"`
+}
+
 // GetUserEventsParams defines parameters for GetUserEvents.
 type GetUserEventsParams struct {
 	// Limit Maximum number of items to return
@@ -1029,6 +1039,9 @@ type UpdateTagJSONRequestBody = UpdateTag
 
 // IdentifyUserJSONRequestBody defines body for IdentifyUser for application/json ContentType.
 type IdentifyUserJSONRequestBody = IdentifyUser
+
+// ImportUsersMultipartRequestBody defines body for ImportUsers for multipart/form-data ContentType.
+type ImportUsersMultipartRequestBody ImportUsersMultipartBody
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody = UpdateUser
@@ -1322,6 +1335,9 @@ type ClientInterface interface {
 	// GetOrganizationIntegrations request
 	GetOrganizationIntegrations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// Whoami request
+	Whoami(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetProfile request
 	GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1499,6 +1515,9 @@ type ClientInterface interface {
 
 	IdentifyUser(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ImportUsersWithBody request with any body
+	ImportUsersWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListUserSchemas request
 	ListUserSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1662,6 +1681,18 @@ func (c *Client) UpdateAdmin(ctx context.Context, adminID openapi_types.UUID, bo
 
 func (c *Client) GetOrganizationIntegrations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetOrganizationIntegrationsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) Whoami(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWhoamiRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -2440,6 +2471,18 @@ func (c *Client) IdentifyUser(ctx context.Context, projectID openapi_types.UUID,
 	return c.Client.Do(req)
 }
 
+func (c *Client) ImportUsersWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportUsersRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListUserSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListUserSchemasRequest(c.Server, projectID)
 	if err != nil {
@@ -2900,6 +2943,33 @@ func NewGetOrganizationIntegrationsRequest(server string) (*http.Request, error)
 	}
 
 	operationPath := fmt.Sprintf("/api/admin/organizations/integrations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewWhoamiRequest generates requests for Whoami
+func NewWhoamiRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/organizations/whoami")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -5460,6 +5530,42 @@ func NewIdentifyUserRequestWithBody(server string, projectID openapi_types.UUID,
 	return req, nil
 }
 
+// NewImportUsersRequestWithBody generates requests for ImportUsers with any type of body
+func NewImportUsersRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/users/import", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListUserSchemasRequest generates requests for ListUserSchemas
 func NewListUserSchemasRequest(server string, projectID openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -5997,6 +6103,9 @@ type ClientWithResponsesInterface interface {
 	// GetOrganizationIntegrationsWithResponse request
 	GetOrganizationIntegrationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOrganizationIntegrationsResponse, error)
 
+	// WhoamiWithResponse request
+	WhoamiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*WhoamiResponse, error)
+
 	// GetProfileWithResponse request
 	GetProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetProfileResponse, error)
 
@@ -6173,6 +6282,9 @@ type ClientWithResponsesInterface interface {
 	IdentifyUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error)
 
 	IdentifyUserWithResponse(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error)
+
+	// ImportUsersWithBodyWithResponse request with any body
+	ImportUsersWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportUsersResponse, error)
 
 	// ListUserSchemasWithResponse request
 	ListUserSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListUserSchemasResponse, error)
@@ -6402,6 +6514,29 @@ func (r GetOrganizationIntegrationsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetOrganizationIntegrationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type WhoamiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Admin
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r WhoamiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r WhoamiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7550,6 +7685,28 @@ func (r IdentifyUserResponse) StatusCode() int {
 	return 0
 }
 
+type ImportUsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ImportUsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ImportUsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListUserSchemasResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7838,6 +7995,15 @@ func (c *ClientWithResponses) GetOrganizationIntegrationsWithResponse(ctx contex
 		return nil, err
 	}
 	return ParseGetOrganizationIntegrationsResponse(rsp)
+}
+
+// WhoamiWithResponse request returning *WhoamiResponse
+func (c *ClientWithResponses) WhoamiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*WhoamiResponse, error) {
+	rsp, err := c.Whoami(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWhoamiResponse(rsp)
 }
 
 // GetProfileWithResponse request returning *GetProfileResponse
@@ -8401,6 +8567,15 @@ func (c *ClientWithResponses) IdentifyUserWithResponse(ctx context.Context, proj
 	return ParseIdentifyUserResponse(rsp)
 }
 
+// ImportUsersWithBodyWithResponse request with arbitrary body returning *ImportUsersResponse
+func (c *ClientWithResponses) ImportUsersWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportUsersResponse, error) {
+	rsp, err := c.ImportUsersWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportUsersResponse(rsp)
+}
+
 // ListUserSchemasWithResponse request returning *ListUserSchemasResponse
 func (c *ClientWithResponses) ListUserSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListUserSchemasResponse, error) {
 	rsp, err := c.ListUserSchemas(ctx, projectID, reqEditors...)
@@ -8755,6 +8930,39 @@ func ParseGetOrganizationIntegrationsResponse(rsp *http.Response) (*GetOrganizat
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest []Provider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseWhoamiResponse parses an HTTP response from a WhoamiWithResponse call
+func ParseWhoamiResponse(rsp *http.Response) (*WhoamiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &WhoamiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Admin
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -10350,6 +10558,32 @@ func ParseIdentifyUserResponse(rsp *http.Response) (*IdentifyUserResponse, error
 	return response, nil
 }
 
+// ParseImportUsersResponse parses an HTTP response from a ImportUsersWithResponse call
+func ParseImportUsersResponse(rsp *http.Response) (*ImportUsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ImportUsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListUserSchemasResponse parses an HTTP response from a ListUserSchemasWithResponse call
 func ParseListUserSchemasResponse(rsp *http.Response) (*ListUserSchemasResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10638,6 +10872,9 @@ type ServerInterface interface {
 	// Get organization integrations
 	// (GET /api/admin/organizations/integrations)
 	GetOrganizationIntegrations(w http.ResponseWriter, r *http.Request)
+	// Get current admin
+	// (GET /api/admin/organizations/whoami)
+	Whoami(w http.ResponseWriter, r *http.Request)
 	// Get current admin profile
 	// (GET /api/admin/profile)
 	GetProfile(w http.ResponseWriter, r *http.Request)
@@ -10785,6 +11022,9 @@ type ServerInterface interface {
 	// Identify user
 	// (POST /api/admin/projects/{projectID}/users)
 	IdentifyUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Bulk import users
+	// (POST /api/admin/projects/{projectID}/users/import)
+	ImportUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// List user schemas
 	// (GET /api/admin/projects/{projectID}/users/schema)
 	ListUserSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
@@ -10866,6 +11106,12 @@ func (_ Unimplemented) UpdateAdmin(w http.ResponseWriter, r *http.Request, admin
 // Get organization integrations
 // (GET /api/admin/organizations/integrations)
 func (_ Unimplemented) GetOrganizationIntegrations(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get current admin
+// (GET /api/admin/organizations/whoami)
+func (_ Unimplemented) Whoami(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -11163,6 +11409,12 @@ func (_ Unimplemented) IdentifyUser(w http.ResponseWriter, r *http.Request, proj
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Bulk import users
+// (POST /api/admin/projects/{projectID}/users/import)
+func (_ Unimplemented) ImportUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List user schemas
 // (GET /api/admin/projects/{projectID}/users/schema)
 func (_ Unimplemented) ListUserSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
@@ -11453,6 +11705,26 @@ func (siw *ServerInterfaceWrapper) GetOrganizationIntegrations(w http.ResponseWr
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOrganizationIntegrations(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Whoami operation middleware
+func (siw *ServerInterfaceWrapper) Whoami(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Whoami(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -13470,6 +13742,37 @@ func (siw *ServerInterfaceWrapper) IdentifyUser(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// ImportUsers operation middleware
+func (siw *ServerInterfaceWrapper) ImportUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ImportUsers(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListUserSchemas operation middleware
 func (siw *ServerInterfaceWrapper) ListUserSchemas(w http.ResponseWriter, r *http.Request) {
 
@@ -13979,6 +14282,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/organizations/integrations", wrapper.GetOrganizationIntegrations)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/organizations/whoami", wrapper.Whoami)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/profile", wrapper.GetProfile)
 	})
 	r.Group(func(r chi.Router) {
@@ -14124,6 +14430,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/users", wrapper.IdentifyUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/users/import", wrapper.ImportUsers)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/users/schema", wrapper.ListUserSchemas)

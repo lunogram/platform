@@ -4,7 +4,6 @@ import { useSearchParams } from 'react-router'
 import { useDebounceControl, useResolver } from '../hooks'
 import type { SearchParams, SearchResult } from '../types'
 import { prune } from '../utils'
-import { TagPicker } from '../views/settings/TagPicker'
 import type { DataTableProps } from './DataTable';
 import { DataTable } from './DataTable'
 import TextInput from './form/TextInput'
