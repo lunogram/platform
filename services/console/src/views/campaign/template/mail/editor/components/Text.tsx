@@ -52,9 +52,7 @@ export const Text: ComponentConfig<TextProps> = {
         )
 
         return (
-            <p className={classes}>
-                <Content />
-            </p>
+            <Content as="p" className={classes} />
         );
     },
 }

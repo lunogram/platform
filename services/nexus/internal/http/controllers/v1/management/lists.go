@@ -295,7 +295,8 @@ func (srv *ListsController) ImportListUsers(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := r.ParseMultipartForm(srv.maxUploadSize); err != nil {
+	err = r.ParseMultipartForm(srv.maxUploadSize)
+	if err != nil {
 		logger.Error("failed to parse multipart form", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("file too large or invalid form data")))
 		return

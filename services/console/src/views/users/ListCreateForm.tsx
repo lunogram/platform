@@ -5,7 +5,6 @@ import type { List, ListCreateParams } from '../../types'
 import FormWrapper from '../../ui/form/FormWrapper'
 import RadioInput from '../../ui/form/RadioInput'
 import TextInput from '../../ui/form/TextInput'
-import { TagPicker } from '../settings/TagPicker'
 import { useTranslation } from 'react-i18next'
 import { createWrapperRule } from './rules/RuleHelpers'
 

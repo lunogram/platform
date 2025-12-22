@@ -58,6 +58,35 @@ func (srv *AdminsController) GetProfile(w http.ResponseWriter, r *http.Request) 
 	json.Write(w, http.StatusOK, admin.OAPI())
 }
 
+func (srv *AdminsController) Whoami(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	session, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	logger := srv.logger.With(zap.String("subject", session.Subject))
+	logger.Info("getting current admin")
+
+	admin, err := srv.store.GetAdminBySubject(ctx, session)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Error("admin not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get admin", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("current admin retrieved")
+	json.Write(w, http.StatusOK, admin.OAPI())
+}
+
 func (srv *AdminsController) ListAdmins(w http.ResponseWriter, r *http.Request, params oapi.ListAdminsParams) {
 	ctx := r.Context()
 	session, ok := claim.FromContext(ctx)

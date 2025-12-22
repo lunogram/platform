@@ -3,8 +3,12 @@ package v1
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
+	"fmt"
+	"mime/multipart"
 	"net/http/httptest"
+	"net/textproto"
 	"testing"
 
 	"github.com/cloudproud/graceful"
@@ -19,6 +23,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
+
+//go:embed test/users/valid.csv
+var validImportUsersCSV string
+
+//go:embed test/users/no-external-id.csv
+var noExternalIDImportUsersCSV string
+
+//go:embed test/users/out-of-order.csv
+var outOfOrderImportUsersCSV string
 
 func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	t.Helper()
@@ -50,7 +63,7 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	})
 	require.NoError(t, err)
 
-	controller := NewUsersController(logger, db)
+	controller := NewUsersController(logger, db, 32<<20) // 32 MB max
 	return controller, projectID
 }
 
@@ -700,4 +713,97 @@ func TestListUserSchemasWithMultipleTypes(t *testing.T) {
 	require.Contains(t, pathMap, ".name")
 	require.Len(t, pathMap[".name"], 1)
 	require.Contains(t, pathMap[".name"], "string")
+}
+
+func TestImportUsers(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := graceful.NewContext(t.Context())
+
+	type test struct {
+		csv   string
+		code  int
+		users int
+	}
+
+	tests := map[string]test{
+		"successful-import": {
+			csv:   validImportUsersCSV,
+			code:  204,
+			users: 3,
+		},
+		"missing-external-id-column": {
+			csv:   noExternalIDImportUsersCSV,
+			code:  400,
+			users: 0,
+		},
+		"out-of-order-columns": {
+			csv:   outOfOrderImportUsersCSV,
+			code:  204,
+			users: 3,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			config := config.Node{
+				Store: store.Config{
+					URI: container.RunPostgreSQL(t),
+				},
+			}
+
+			err := store.Migrate(config.Store)
+			require.NoError(t, err)
+
+			db, err := store.New(ctx, logger, config.Store)
+			require.NoError(t, err)
+
+			orgsStore := store.NewOrganizationsStore(db)
+			orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
+			require.NoError(t, err)
+
+			projectsStore := store.NewProjectsStore(db)
+			projectID, err := projectsStore.CreateProject(ctx, store.Project{
+				OrganizationID: &orgID,
+				Name:           DefaultProject.Name,
+				Timezone:       DefaultProject.Timezone,
+				Locale:         DefaultProject.Locale,
+			})
+			require.NoError(t, err)
+
+			usersStore := store.NewUsersStore(db)
+			controller := NewUsersController(logger, db, 32<<20) // 32 MB max
+
+			body := &bytes.Buffer{}
+			writer := multipart.NewWriter(body)
+
+			header := textproto.MIMEHeader{}
+			header.Set("Content-Disposition", `form-data; name="file"; filename="users.csv"`)
+			header.Set("Content-Type", "text/csv")
+
+			part, err := writer.CreatePart(header)
+			require.NoError(t, err)
+
+			_, err = part.Write([]byte(test.csv))
+			require.NoError(t, err)
+
+			err = writer.Close()
+			require.NoError(t, err)
+
+			res := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", fmt.Sprintf("/api/admin/projects/%s/users/import", projectID), body)
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+			req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+			controller.ImportUsers(res, req, projectID)
+
+			require.Equal(t, test.code, res.Code, res.Body.String())
+
+			users, total, err := usersStore.ListUsers(ctx, projectID, store.Pagination{Limit: 100, Offset: 0}, "")
+			require.NoError(t, err)
+			require.Equal(t, test.users, total, "expected %d users in total", test.users)
+			require.Len(t, users, test.users, "expected %d users to be returned", test.users)
+		})
+	}
 }

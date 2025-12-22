@@ -48,7 +48,7 @@ export function AppSidebar({
   return (
     <Sidebar {...props}>
       <SidebarHeader>
-        {allProjects && allProjects.length > 0 && project && (
+        {allProjects && project && (
           <ProjectSwitcher projects={allProjects} currentProject={project} />
         )}
       </SidebarHeader>

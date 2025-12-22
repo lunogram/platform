@@ -42,11 +42,11 @@ export function PreferencesProvider({ children }: PropsWithChildren<{}>) {
         }
     }, [])
 
-    useEffect(() => {
-        document.body.setAttribute('data-theme', preferences.mode === 'dark' ? 'dark' : 'light')
-        localStorageSetJson(PREFERENCES, preferences)
-        i18n.changeLanguage(preferences.lang).catch(() => { })
-    }, [preferences, i18n])
+    // useEffect(() => {
+    //     document.body.setAttribute('data-theme', preferences.mode === 'dark' ? 'dark' : 'light')
+    //     localStorageSetJson(PREFERENCES, preferences)
+    //     i18n.changeLanguage(preferences.lang).catch(() => { })
+    // }, [preferences, i18n])
 
     return (
         <PreferencesContext.Provider value={useMemo(() => [preferences, setPreferences] as const, [preferences])}>
