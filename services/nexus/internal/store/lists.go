@@ -176,30 +176,16 @@ type ListUpdate struct {
 }
 
 func (s *ListsStore) UpdateList(ctx context.Context, projectID, listID uuid.UUID, update ListUpdate) error {
-	if update.Name == nil && update.RuleID == nil {
-		return nil
-	}
+	stmt := `
+	UPDATE lists
+	SET
+		name    = COALESCE($3, name),
+		rule_id = COALESCE($4, rule_id)
+	WHERE project_id = $1
+		AND id = $2
+		AND deleted_at IS NULL`
 
-	query := `UPDATE lists SET updated_at = NOW()`
-	args := []interface{}{}
-	argIndex := 1
-
-	if update.Name != nil {
-		query += fmt.Sprintf(`, name = $%d`, argIndex)
-		args = append(args, *update.Name)
-		argIndex++
-	}
-
-	if update.RuleID != nil {
-		query += fmt.Sprintf(`, rule_id = $%d`, argIndex)
-		args = append(args, *update.RuleID)
-		argIndex++
-	}
-
-	query += fmt.Sprintf(` WHERE project_id = $%d AND id = $%d AND deleted_at IS NULL`, argIndex, argIndex+1)
-	args = append(args, projectID, listID)
-
-	_, err := s.db.ExecContext(ctx, query, args...)
+	_, err := s.db.ExecContext(ctx, stmt, projectID, listID, update.Name, update.RuleID)
 	return err
 }
 
