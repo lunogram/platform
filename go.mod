@@ -9,7 +9,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.2
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.92.1
 	github.com/caarlos0/env/v10 v10.0.0
-	github.com/cloudevents/sdk-go/v2 v2.16.2
 	github.com/cloudproud/graceful v1.1.2
 	github.com/docker/go-connections v0.6.0
 	github.com/getkin/kin-openapi v0.133.0
@@ -36,6 +35,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
 	go.opentelemetry.io/otel v1.38.0
 	go.uber.org/zap v1.27.0
+	golang.org/x/sync v0.18.0
 )
 
 require (
@@ -296,7 +296,6 @@ require (
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/exp/typeparams v0.0.0-20250210185358-939b2ce775ac // indirect
 	golang.org/x/mod v0.28.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
