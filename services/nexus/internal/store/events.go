@@ -8,6 +8,17 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/rules"
 )
 
+type EventSchemaPath struct {
+	Path  string         `db:"path"`
+	Types pq.StringArray `db:"types"`
+}
+
+type Event struct {
+	ID     uuid.UUID `db:"id"`
+	Name   string    `db:"name"`
+	Schema []EventSchemaPath
+}
+
 func NewEventsStore(db DB) *EventsStore {
 	return &EventsStore{db: db}
 }
@@ -21,8 +32,8 @@ func (s *EventsStore) UpsertEvent(ctx context.Context, projectID uuid.UUID, name
 	stmt := `
 	INSERT INTO events (project_id, name)
 	VALUES ($1, $2)
-	ON CONFLICT (project_id, name) 
-	DO UPDATE SET name = EXCLUDED.name
+	ON CONFLICT (project_id, name)
+	DO UPDATE SET name = EXCLUDED.name, deleted_at = NULL
 	RETURNING id`
 
 	var eventID uuid.UUID
@@ -51,15 +62,38 @@ func (s *EventsStore) UpsertEventSchema(ctx context.Context, projectID, eventID 
 	return nil
 }
 
-type EventSchemaPath struct {
+type eventSchemaRow struct {
+	ID    uuid.UUID      `db:"id"`
+	Name  string         `db:"name"`
 	Path  string         `db:"path"`
 	Types pq.StringArray `db:"types"`
 }
 
-type Event struct {
-	ID     uuid.UUID `db:"id"`
-	Name   string    `db:"name"`
-	Schema []EventSchemaPath
+type eventSchemaRows []eventSchemaRow
+
+func (rows eventSchemaRows) ToEvents() []Event {
+	lookup := make(map[uuid.UUID]int)
+	results := make([]Event, 0)
+
+	for _, row := range rows {
+		index, has := lookup[row.ID]
+		if !has {
+			lookup[row.ID] = len(results)
+			results = append(results, Event{
+				ID:     row.ID,
+				Name:   row.Name,
+				Schema: []EventSchemaPath{},
+			})
+			index = lookup[row.ID]
+		}
+
+		results[index].Schema = append(results[index].Schema, EventSchemaPath{
+			Path:  row.Path,
+			Types: row.Types,
+		})
+	}
+
+	return results
 }
 
 func (s *EventsStore) ListEvents(ctx context.Context, projectID uuid.UUID) ([]Event, error) {
@@ -75,46 +109,28 @@ func (s *EventsStore) ListEvents(ctx context.Context, projectID uuid.UUID) ([]Ev
 	GROUP BY e.id, e.name, es.path
 	ORDER BY e.name, es.path`
 
-	type row struct {
-		ID    uuid.UUID      `db:"id"`
-		Name  string         `db:"name"`
-		Path  *string        `db:"path"`
-		Types pq.StringArray `db:"types"`
-	}
-
-	var rows []row
+	var rows eventSchemaRows
 	err := s.db.SelectContext(ctx, &rows, stmt, projectID)
 	if err != nil {
 		return nil, err
 	}
 
-	eventsMap := make(map[uuid.UUID]*Event)
-	var eventOrder []uuid.UUID
+	return rows.ToEvents(), nil
+}
 
-	for _, r := range rows {
-		event, exists := eventsMap[r.ID]
-		if !exists {
-			event = &Event{
-				ID:     r.ID,
-				Name:   r.Name,
-				Schema: []EventSchemaPath{},
-			}
-			eventsMap[r.ID] = event
-			eventOrder = append(eventOrder, r.ID)
-		}
+func (s *EventsStore) ListEventListDependencies(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	stmt := `
+	SELECT l.id AS list_id
+	FROM rules_events re
+	JOIN lists l ON l.rule_id = re.rule_id
+	WHERE re.event_id = $1
+	AND l.deleted_at IS NULL`
 
-		if r.Path != nil {
-			event.Schema = append(event.Schema, EventSchemaPath{
-				Path:  *r.Path,
-				Types: r.Types,
-			})
-		}
+	var ids []uuid.UUID
+	err := s.db.SelectContext(ctx, &ids, stmt, id)
+	if err != nil {
+		return nil, err
 	}
 
-	events := make([]Event, 0, len(eventOrder))
-	for _, id := range eventOrder {
-		events = append(events, *eventsMap[id])
-	}
-
-	return events, nil
+	return ids, nil
 }

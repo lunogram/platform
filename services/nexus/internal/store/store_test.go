@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func NewContainerStore(t *testing.T) *Stores {
+func NewContainerStore(t *testing.T) *State {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -25,7 +25,7 @@ func NewContainerStore(t *testing.T) *Stores {
 	db, err := New(ctx, logger, config)
 	require.NoError(t, err)
 
-	return NewStores(db)
+	return NewState(db)
 }
 
 func ptr[T any](v T) *T {
