@@ -156,14 +156,56 @@ type Rule struct {
 	ParentUUID *uuid.UUID `json:"parent_uuid,omitempty"`
 }
 
+func (r Rule) IsWrapper() bool {
+	return r.Type == RuleTypeWrapper
+}
+
+func (r Rule) Events() (result []string) {
+	if r.Group == RuleGroupEvent && r.Type == RuleTypeWrapper {
+		result = append(result, r.Value.(string))
+	}
+
+	for _, child := range r.Children {
+		events := child.Events()
+		if len(events) > 0 {
+			result = append(result, events...)
+		}
+	}
+
+	return result
+}
+
+func (r Rule) DependsOnEvents() bool {
+	if r.Group == RuleGroupEvent {
+		return true
+	}
+
+	for _, child := range r.Children {
+		if child.DependsOnEvents() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r Rule) DependsOnUsers() bool {
+	if r.Group == RuleGroupUser {
+		return true
+	}
+
+	for _, child := range r.Children {
+		if child.DependsOnUsers() {
+			return true
+		}
+	}
+
+	return false
+}
+
 // RuleSet represents the complete rule configuration
 type RuleSet struct {
 	Rule
-}
-
-// IsWrapper returns true if the rule is a wrapper (container) node
-func (r *Rule) IsWrapper() bool {
-	return r.Type == RuleTypeWrapper
 }
 
 // HasChildren returns true if the rule has child rules
