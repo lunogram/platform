@@ -7,7 +7,7 @@ const (
 	TypeArray  JSONType = "array"
 	TypeString JSONType = "string"
 	TypeNumber JSONType = "number"
-	TypeBool   JSONType = "bool"
+	TypeBool   JSONType = "boolean"
 	TypeNull   JSONType = "null"
 )
 

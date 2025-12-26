@@ -19,7 +19,12 @@ var pathSegmentRegex = regexp.MustCompile(`\.([a-zA-Z_][a-zA-Z0-9_]*)|\.?\['([^'
 var validKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_. -]+$`)
 
 // buildRule recursively builds SQL conditions from a rule
-func (qb *QueryBuilder) buildRule(rule *rules.Rule) (string, error) {
+func (qb *QueryBuilder) buildRule(rule rules.Rule) (string, error) {
+	// Check if this is an event wrapper with frequency - treat it as an event rule
+	if rule.IsWrapper() && rule.Group == rules.RuleGroupEvent && rule.Frequency != nil {
+		return qb.buildEventRule(rule)
+	}
+
 	if rule.IsWrapper() {
 		return qb.buildWrapper(rule)
 	}
@@ -35,7 +40,7 @@ func (qb *QueryBuilder) buildRule(rule *rules.Rule) (string, error) {
 }
 
 // buildWrapper builds SQL for wrapper nodes with logical operators
-func (qb *QueryBuilder) buildWrapper(rule *rules.Rule) (string, error) {
+func (qb *QueryBuilder) buildWrapper(rule rules.Rule) (string, error) {
 	if !rule.HasChildren() {
 		return "", nil
 	}
@@ -43,7 +48,7 @@ func (qb *QueryBuilder) buildWrapper(rule *rules.Rule) (string, error) {
 	conditions := make([]string, 0, len(rule.Children))
 
 	for _, child := range rule.Children {
-		condition, err := qb.buildRule(&child)
+		condition, err := qb.buildRule(child)
 		if err != nil {
 			return "", err
 		}
@@ -65,7 +70,7 @@ func (qb *QueryBuilder) buildWrapper(rule *rules.Rule) (string, error) {
 }
 
 // buildUserRule builds SQL for user attribute rules
-func (qb *QueryBuilder) buildUserRule(rule *rules.Rule) (string, error) {
+func (qb *QueryBuilder) buildUserRule(rule rules.Rule) (string, error) {
 	column, err := qb.buildColumnPath("u", rule.Path, rule.Type)
 	if err != nil {
 		return "", err

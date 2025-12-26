@@ -1,0 +1,568 @@
+package rules
+
+import (
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestRule_Events(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		rule     Rule
+		expected []string
+	}
+
+	tests := map[string]test{
+		"single event rule": {
+			rule: Rule{
+				Type:  RuleTypeWrapper,
+				Group: RuleGroupEvent,
+				Value: "user.created",
+			},
+			expected: []string{"user.created"},
+		},
+		"multiple event rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "user.created",
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "user.updated",
+					},
+				},
+			},
+			expected: []string{"user.created", "user.updated"},
+		},
+		"nested event rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "order.created",
+					},
+					{
+						Type:     RuleTypeWrapper,
+						Group:    RuleGroupParent,
+						Operator: OperatorOr,
+						Children: []Rule{
+							{
+								Type:  RuleTypeWrapper,
+								Group: RuleGroupEvent,
+								Value: "payment.completed",
+							},
+							{
+								Type:  RuleTypeWrapper,
+								Group: RuleGroupEvent,
+								Value: "payment.failed",
+							},
+						},
+					},
+				},
+			},
+			expected: []string{"order.created", "payment.completed", "payment.failed"},
+		},
+		"no events": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "example.com",
+					},
+				},
+			},
+			expected: nil,
+		},
+		"mixed event and user rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "purchase.completed",
+					},
+					{
+						Type:     RuleTypeNumber,
+						Group:    RuleGroupUser,
+						Path:     "data.age",
+						Operator: OperatorGreaterThan,
+						Value:    18,
+					},
+				},
+			},
+			expected: []string{"purchase.completed"},
+		},
+		"empty rule": {
+			rule:     Rule{},
+			expected: nil,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			events := test.rule.Events()
+			assert.Equal(t, test.expected, events)
+		})
+	}
+}
+
+func TestRule_DependsOnEvents(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		rule     Rule
+		expected bool
+	}
+
+	tests := map[string]test{
+		"single event rule": {
+			rule: Rule{
+				Type:  RuleTypeWrapper,
+				Group: RuleGroupEvent,
+				Value: "user.login",
+			},
+			expected: true,
+		},
+		"nested with event": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "test",
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "email.sent",
+					},
+				},
+			},
+			expected: true,
+		},
+		"deeply nested with event": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "name",
+						Operator: OperatorEquals,
+						Value:    "John",
+					},
+					{
+						Type:     RuleTypeWrapper,
+						Group:    RuleGroupParent,
+						Operator: OperatorOr,
+						Children: []Rule{
+							{
+								Type:     RuleTypeNumber,
+								Group:    RuleGroupUser,
+								Path:     "age",
+								Operator: OperatorLessThan,
+								Value:    30,
+							},
+							{
+								Type:  RuleTypeWrapper,
+								Group: RuleGroupEvent,
+								Value: "subscription.renewed",
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		"only user rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupUser,
+						Path:     "email",
+						Operator: OperatorContains,
+						Value:    "example.com",
+					},
+					{
+						Type:     RuleTypeBoolean,
+						Group:    RuleGroupUser,
+						Path:     "data.verified",
+						Operator: OperatorEquals,
+						Value:    true,
+					},
+				},
+			},
+			expected: false,
+		},
+		"empty rule": {
+			rule:     Rule{},
+			expected: false,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.rule.DependsOnEvents()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestRule_DependsOnUsers(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		rule     Rule
+		expected bool
+	}
+
+	tests := map[string]test{
+		"single user rule": {
+			rule: Rule{
+				Type:     RuleTypeString,
+				Group:    RuleGroupUser,
+				Path:     "email",
+				Operator: OperatorContains,
+				Value:    "@example.com",
+			},
+			expected: true,
+		},
+		"nested with user rule": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "page.viewed",
+					},
+					{
+						Type:     RuleTypeNumber,
+						Group:    RuleGroupUser,
+						Path:     "data.visits",
+						Operator: OperatorGreaterEqual,
+						Value:    10,
+					},
+				},
+			},
+			expected: true,
+		},
+		"deeply nested with user rule": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorOr,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "cart.abandoned",
+					},
+					{
+						Type:     RuleTypeWrapper,
+						Group:    RuleGroupParent,
+						Operator: OperatorAnd,
+						Children: []Rule{
+							{
+								Type:     RuleTypeString,
+								Group:    RuleGroupUser,
+								Path:     "locale",
+								Operator: OperatorEquals,
+								Value:    "en-US",
+							},
+							{
+								Type:     RuleTypeBoolean,
+								Group:    RuleGroupUser,
+								Path:     "data.subscribed",
+								Operator: OperatorEquals,
+								Value:    true,
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		"only event rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "order.placed",
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "payment.received",
+					},
+				},
+			},
+			expected: false,
+		},
+		"empty rule": {
+			rule:     Rule{},
+			expected: false,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.rule.DependsOnUsers()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestRule_HasChildren(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		rule     Rule
+		expected bool
+	}
+
+	tests := map[string]test{
+		"with children": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeString,
+						Group: RuleGroupUser,
+						Path:  "name",
+					},
+				},
+			},
+			expected: true,
+		},
+		"without children": {
+			rule: Rule{
+				Type:  RuleTypeString,
+				Group: RuleGroupUser,
+				Path:  "email",
+			},
+			expected: false,
+		},
+		"empty children slice": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Children: []Rule{},
+			},
+			expected: false,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.rule.HasChildren()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestRule_IsRoot(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		rule     Rule
+		expected bool
+	}
+
+	parentUUID := uuid.New()
+
+	tests := map[string]test{
+		"root rule (nil parent)": {
+			rule: Rule{
+				UUID:       uuid.New(),
+				ParentUUID: nil,
+			},
+			expected: true,
+		},
+		"child rule (has parent)": {
+			rule: Rule{
+				UUID:       uuid.New(),
+				ParentUUID: &parentUUID,
+			},
+			expected: false,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.rule.IsRoot()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestRuleType_SQL(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		ruleType RuleType
+		expected string
+	}
+
+	tests := map[string]test{
+		"number": {
+			ruleType: RuleTypeNumber,
+			expected: "numeric",
+		},
+		"boolean": {
+			ruleType: RuleTypeBoolean,
+			expected: "boolean",
+		},
+		"date": {
+			ruleType: RuleTypeDate,
+			expected: "timestamp",
+		},
+		"string": {
+			ruleType: RuleTypeString,
+			expected: "text",
+		},
+		"array": {
+			ruleType: RuleTypeArray,
+			expected: "text",
+		},
+		"wrapper": {
+			ruleType: RuleTypeWrapper,
+			expected: "text",
+		},
+		"unknown": {
+			ruleType: RuleType("unknown"),
+			expected: "text",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.ruleType.SQL()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestOperator_SQL(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		operator Operator
+		expected string
+	}
+
+	tests := map[string]test{
+		"and": {
+			operator: OperatorAnd,
+			expected: "AND",
+		},
+		"or": {
+			operator: OperatorOr,
+			expected: "OR",
+		},
+		"equals (default)": {
+			operator: OperatorEquals,
+			expected: "AND",
+		},
+		"unknown (default)": {
+			operator: Operator("unknown"),
+			expected: "AND",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.operator.SQL()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestPeriodUnit_SQL(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		unit     PeriodUnit
+		expected string
+	}
+
+	tests := map[string]test{
+		"minute": {
+			unit:     PeriodUnitMinute,
+			expected: "minutes",
+		},
+		"hour": {
+			unit:     PeriodUnitHour,
+			expected: "hours",
+		},
+		"day": {
+			unit:     PeriodUnitDay,
+			expected: "days",
+		},
+		"week": {
+			unit:     PeriodUnitWeek,
+			expected: "weeks",
+		},
+		"month": {
+			unit:     PeriodUnitMonth,
+			expected: "months",
+		},
+		"year": {
+			unit:     PeriodUnitYear,
+			expected: "years",
+		},
+		"unknown (default)": {
+			unit:     PeriodUnit("unknown"),
+			expected: "days",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := test.unit.SQL()
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
