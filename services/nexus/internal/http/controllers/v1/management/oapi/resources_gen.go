@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/lunogram/platform/services/nexus/internal/rules"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
@@ -194,10 +195,10 @@ type CreateJourneyStatus string
 
 // CreateList defines model for CreateList.
 type CreateList struct {
-	Name string           `json:"name"`
-	Rule *json.RawMessage `json:"rule,omitempty"`
-	Tags *[]string        `json:"tags,omitempty"`
-	Type CreateListType   `json:"type"`
+	Name string         `json:"name"`
+	Rule *rules.RuleSet `json:"rule,omitempty"`
+	Tags *[]string      `json:"tags,omitempty"`
+	Type CreateListType `json:"type"`
 }
 
 // CreateListType defines model for CreateList.Type.
@@ -338,7 +339,7 @@ type List struct {
 	Name        string              `json:"name"`
 	ProjectId   openapi_types.UUID  `json:"project_id"`
 	RefreshedAt *time.Time          `json:"refreshed_at,omitempty"`
-	Rule        *json.RawMessage    `json:"rule,omitempty"`
+	Rule        *rules.RuleSet      `json:"rule,omitempty"`
 	RuleId      *openapi_types.UUID `json:"rule_id,omitempty"`
 	State       ListState           `json:"state"`
 	Tags        *[]string           `json:"tags,omitempty"`
@@ -573,10 +574,10 @@ type UpdateJourneyStatus string
 
 // UpdateList defines model for UpdateList.
 type UpdateList struct {
-	Name      string           `json:"name"`
-	Published *bool            `json:"published,omitempty"`
-	Rule      *json.RawMessage `json:"rule,omitempty"`
-	Tags      *[]string        `json:"tags,omitempty"`
+	Name      string         `json:"name"`
+	Published *bool          `json:"published,omitempty"`
+	Rule      *rules.RuleSet `json:"rule,omitempty"`
+	Tags      *[]string      `json:"tags,omitempty"`
 }
 
 // UpdateOrganization defines model for UpdateOrganization.
@@ -772,6 +773,11 @@ type DocumentListResponse struct {
 
 // Error defines model for Error.
 type Error = Problem
+
+// EventListResponse defines model for EventListResponse.
+type EventListResponse struct {
+	Results []EventWithSchema `json:"results"`
+}
 
 // JourneyListResponse defines model for JourneyListResponse.
 type JourneyListResponse struct {
@@ -7106,10 +7112,8 @@ func (r GetDocumentMetadataResponse) StatusCode() int {
 type ListEventsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		Results []EventWithSchema `json:"results"`
-	}
-	JSONDefault *Error
+	JSON200      *EventListResponse
+	JSONDefault  *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9771,9 +9775,7 @@ func ParseListEventsResponse(rsp *http.Response) (*ListEventsResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Results []EventWithSchema `json:"results"`
-		}
+		var dest EventListResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

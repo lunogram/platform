@@ -17,6 +17,7 @@ type Node struct {
 	Redis                    Redis   `envPrefix:"REDIS_"`
 	Cluster                  Cluster `envPrefix:"CLUSTER_"`
 	Auth                     Auth    `envPrefix:"AUTH_"`
+	Nats                     Nats    `envPrefix:"NATS_"`
 	HTTP                     http.Config
 	Store                    store.Config
 	Storage                  storage.Config
@@ -30,6 +31,10 @@ type Auth struct {
 type Redis struct {
 	Address   string `env:"ADDRESS" envDefault:"redis://127.0.0.1:6379"`
 	KeyPrefix string `env:"KEY_PREFIX" envDefault:""`
+}
+
+type Nats struct {
+	URL string `env:"URL" envDefault:"nats://127.0.0.1:4222"`
 }
 
 type Cluster struct {

@@ -1,37 +1,36 @@
 package v1
 
 import (
-	"bytes"
-	"io"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/pkg/claim/rbac"
 	"github.com/lunogram/platform/pkg/http/json"
 	"github.com/lunogram/platform/pkg/http/problem"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/public/oapi"
-	"github.com/lunogram/platform/services/nexus/internal/rules"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
 )
 
-func NewClientController(logger *zap.Logger, db *sqlx.DB, platformProxy http.Handler) *ClientController {
+func NewClientController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) *ClientController {
 	return &ClientController{
-		logger:        logger,
-		db:            db,
-		store:         store.NewStores(db),
-		platformProxy: platformProxy,
+		logger: logger,
+		db:     db,
+		store:  store.NewState(db),
+		pubsub: pub,
 	}
 }
 
 type ClientController struct {
-	logger        *zap.Logger
-	db            *sqlx.DB
-	store         *store.Stores
-	platformProxy http.Handler
+	logger *zap.Logger
+	db     *sqlx.DB
+	store  *store.State
+	pubsub pubsub.Publisher
 }
 
-func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request) {
+func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 
 	scope := rbac.FromContext(ctx)
@@ -41,82 +40,44 @@ func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if scope.ProjectID == nil {
-		srv.logger.Error("project ID not found in rbac scope")
+	if projectID == uuid.Nil {
+		srv.logger.Error("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
 
-	projectID := *scope.ProjectID
-
-	logger := srv.logger.With(zap.String("path", r.URL.Path), zap.Stringer("project_id", projectID))
-	logger.Info("posting events")
-
-	// TODO: remove after migration has been completed
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		logger.Error("failed to read request body", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("failed to read request body")))
-		return
-	}
-	r.Body.Close()
-
 	var events oapi.PostEventsRequest
-	err = json.Unmarshal(bodyBytes, &events)
+	err := json.Decode(r.Body, &events)
 	if err != nil {
-		logger.Error("failed to decode request body", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
 		return
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
-	if err != nil {
-		logger.Error("failed to begin transaction", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal())
-		return
-	}
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Int("events", len(events)))
+	logger.Info("posting events")
 
-	defer tx.Rollback() //nolint:errcheck
-
-	eventsStore := store.NewEventsStore(tx)
-
-	logger.Info("events received", zap.Int("count", len(events)))
 	for _, event := range events {
-		var data map[string]any
-		if event.Data != nil {
-			data = *event.Data
+		msg := pubsub.Event{
+			ProjectID:   projectID,
+			Name:        event.Name,
+			AnonymousId: event.AnonymousId,
+			Data:        event.Data,
+			ExternalId:  event.ExternalId,
 		}
 
-		eventID, err := eventsStore.UpsertEvent(ctx, projectID, event.Name)
+		err = srv.pubsub.Publish(ctx, pubsub.EventsProjectSubject(projectID), msg)
 		if err != nil {
-			logger.Error("failed to upsert event", zap.Error(err))
-			oapi.WriteProblem(w, err)
-			return
-		}
-
-		paths := rules.ParsePaths(data)
-		err = eventsStore.UpsertEventSchema(ctx, projectID, eventID, paths)
-		if err != nil {
-			logger.Error("failed to upsert event schema", zap.Error(err))
-			oapi.WriteProblem(w, err)
+			logger.Error("failed to publish event", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
 			return
 		}
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		logger.Error("failed to commit transaction", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal())
-		return
-	}
-
-	// TODO: remove after migration has been completed
 	logger.Info("events processed successfully")
-	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-	srv.platformProxy.ServeHTTP(w, r)
+	w.WriteHeader(http.StatusAccepted)
 }
 
-func (srv *ClientController) IdentifyUser(w http.ResponseWriter, r *http.Request) {
+func (srv *ClientController) IdentifyUser(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 
 	scope := rbac.FromContext(ctx)
@@ -126,13 +87,11 @@ func (srv *ClientController) IdentifyUser(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if scope.ProjectID == nil {
-		srv.logger.Error("project ID not found in rbac scope")
+	if projectID == uuid.Nil {
+		srv.logger.Error("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
-
-	projectID := *scope.ProjectID
 
 	logger := srv.logger.With(zap.String("path", r.URL.Path), zap.Stringer("project_id", projectID))
 	logger.Info("identifying user")
@@ -151,6 +110,16 @@ func (srv *ClientController) IdentifyUser(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+	users := store.NewUsersStore(tx)
+
 	var data map[string]any
 	if req.Data != nil {
 		data = *req.Data
@@ -166,9 +135,36 @@ func (srv *ClientController) IdentifyUser(w http.ResponseWriter, r *http.Request
 		Data:        data,
 	}
 
-	user, err := srv.store.UsersStore.IdentifyAndGetUser(ctx, projectID, params, false)
+	user, err := users.IdentifyAndGetUser(ctx, projectID, params, false)
 	if err != nil {
 		logger.Error("failed to identify user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	msg := pubsub.User{
+		ProjectID:   projectID,
+		ID:          user.ID,
+		AnonymousID: user.AnonymousID,
+		ExternalID:  user.ExternalID,
+		Email:       user.Email,
+		Phone:       user.Phone,
+		Timezone:    user.Timezone,
+		Locale:      user.Locale,
+		Data:        data,
+		Version:     user.Version,
+	}
+
+	err = srv.pubsub.Publish(ctx, pubsub.UsersProjectSubject(projectID), msg)
+	if err != nil {
+		logger.Error("failed to publish user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}

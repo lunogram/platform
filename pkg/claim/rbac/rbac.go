@@ -13,7 +13,6 @@ const scopeKey contextKey = "admin"
 // Scope represents an authenticated admin user in the context
 type Scope struct {
 	OrganizationID uuid.UUID
-	ProjectID      *uuid.UUID
 }
 
 // WithScope stores the admin object in the context

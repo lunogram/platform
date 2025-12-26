@@ -1541,18 +1541,7 @@ paths:
           description: The project ID
       responses:
         '200':
-          description: Events retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - results
-                properties:
-                  results:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/EventWithSchema'
+          $ref: '#/components/responses/EventListResponse'
         default:
           $ref: '#/components/responses/Error'
 
@@ -2310,6 +2299,20 @@ components:
                     items:
                       $ref: '#/components/schemas/List'
 
+    EventListResponse:
+      description: Events retrieved successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - results
+            properties:
+              results:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventWithSchema'
+
   schemas:
     Channel:
       type: string
@@ -2729,7 +2732,7 @@ components:
         rule:
           type: object
           additionalProperties: true
-          x-go-type: json.RawMessage
+          x-go-type: rules.RuleSet
         tags:
           type: array
           items:
@@ -2746,7 +2749,7 @@ components:
         rule:
           type: object
           additionalProperties: true
-          x-go-type: json.RawMessage
+          x-go-type: rules.RuleSet
         tags:
           type: array
           items:
@@ -2792,7 +2795,7 @@ components:
         rule:
           type: object
           additionalProperties: true
-          x-go-type: json.RawMessage
+          x-go-type: rules.RuleSet
         version:
           type: integer
           example: 1

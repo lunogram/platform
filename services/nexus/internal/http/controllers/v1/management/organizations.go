@@ -18,14 +18,14 @@ func NewOrganizationsController(logger *zap.Logger, db *sqlx.DB) *OrganizationsC
 	return &OrganizationsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewStores(db),
+		store:  store.NewState(db),
 	}
 }
 
 type OrganizationsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.Stores
+	store  *store.State
 }
 
 func (srv *OrganizationsController) GetOrganization(w http.ResponseWriter, r *http.Request) {
