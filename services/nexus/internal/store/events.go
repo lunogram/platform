@@ -65,7 +65,7 @@ func (s *EventsStore) UpsertEventSchema(ctx context.Context, projectID, eventID 
 type eventSchemaRow struct {
 	ID    uuid.UUID      `db:"id"`
 	Name  string         `db:"name"`
-	Path  string         `db:"path"`
+	Path  *string        `db:"path"`
 	Types pq.StringArray `db:"types"`
 }
 
@@ -87,10 +87,12 @@ func (rows eventSchemaRows) ToEvents() []Event {
 			index = lookup[row.ID]
 		}
 
-		results[index].Schema = append(results[index].Schema, EventSchemaPath{
-			Path:  row.Path,
-			Types: row.Types,
-		})
+		if row.Path != nil {
+			results[index].Schema = append(results[index].Schema, EventSchemaPath{
+				Path:  *row.Path,
+				Types: row.Types,
+			})
+		}
 	}
 
 	return results

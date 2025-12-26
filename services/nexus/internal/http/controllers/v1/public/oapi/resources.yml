@@ -67,7 +67,7 @@ paths:
               $ref: '#/components/schemas/PostEventsRequest'
       responses:
         '202':
-          description: Events processed successfully
+          description: Events accepted for asynchronous processing
         default:
           $ref: '#/components/responses/Error'
 
@@ -219,6 +219,7 @@ components:
       type: object
       required:
         - name
+        - data
       properties:
         name:
           type: string
@@ -237,7 +238,6 @@ components:
         data:
           type: object
           additionalProperties: true
-          nullable: true
           x-go-type: map[string]any
           example:
             product_id: "prod_789"

@@ -116,13 +116,12 @@ func TestUser_Event(t *testing.T) {
 	assert.Equal(t, &externalID, event.ExternalId)
 	require.NotNil(t, event.Data)
 
-	data := *event.Data
-	assert.Equal(t, userID, data["id"])
-	assert.Equal(t, &email, data["email"])
-	assert.Equal(t, &phone, data["phone"])
-	assert.Equal(t, &timezone, data["timezone"])
-	assert.Equal(t, &locale, data["locale"])
-	assert.Equal(t, int32(5), data["version"])
+	assert.Equal(t, userID, event.Data["id"])
+	assert.Equal(t, &email, event.Data["email"])
+	assert.Equal(t, &phone, event.Data["phone"])
+	assert.Equal(t, &timezone, event.Data["timezone"])
+	assert.Equal(t, &locale, event.Data["locale"])
+	assert.Equal(t, int32(5), event.Data["version"])
 }
 
 func TestUsersHandler_Success(t *testing.T) {

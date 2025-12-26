@@ -257,25 +257,27 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
-	list, err = srv.store.GetList(ctx, projectID, listID)
+	list, err = lists.GetList(ctx, projectID, listID)
 	if err != nil {
 		logger.Error("failed to fetch updated list", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	recomputed, err := lists.RecomputeList(ctx, projectID, list.ID, list.Rule.Data)
-	if err != nil {
-		logger.Error("failed to recompute list", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
+	if list.Rule != nil {
+		recomputed, err := lists.RecomputeList(ctx, projectID, list.ID, list.Rule.Data)
+		if err != nil {
+			logger.Error("failed to recompute list", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
 
-	err = pubsub.PublishListRecomputeEvents(ctx, logger, srv.pub, projectID, listID, recomputed)
-	if err != nil {
-		logger.Error("failed to publish list recompute events", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
+		err = pubsub.PublishListRecomputeEvents(ctx, logger, srv.pub, projectID, listID, recomputed)
+		if err != nil {
+			logger.Error("failed to publish list recompute events", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
 	}
 
 	err = tx.Commit()

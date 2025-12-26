@@ -29,7 +29,7 @@ type Event struct {
 	AnonymousId *string `json:"anonymous_id"`
 
 	// Data Event-specific data
-	Data *map[string]any `json:"data"`
+	Data map[string]any `json:"data"`
 
 	// ExternalId External identifier for the user from your system
 	ExternalId *string `json:"external_id"`

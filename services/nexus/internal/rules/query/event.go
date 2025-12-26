@@ -8,7 +8,7 @@ import (
 )
 
 // buildEventRule builds SQL for event rules with optional frequency
-func (qb *QueryBuilder) buildEventRule(rule rules.Rule) (string, error) {
+func (qb *QueryBuilder) buildEventRule(rule *rules.Rule) (string, error) {
 	if rule.Frequency != nil {
 		return qb.buildFrequencyRule(rule)
 	}
@@ -22,7 +22,8 @@ func (qb *QueryBuilder) buildEventRule(rule rules.Rule) (string, error) {
 
 	// Child conditions (event attributes)
 	if rule.HasChildren() {
-		for _, child := range rule.Children {
+		for i := range rule.Children {
+			child := &rule.Children[i]
 			column, err := qb.buildColumnPath("e", child.Path, child.Type)
 			if err != nil {
 				return "", err
@@ -54,7 +55,7 @@ func (qb *QueryBuilder) buildEventRule(rule rules.Rule) (string, error) {
 }
 
 // buildFrequencyRule builds SQL for frequency-based event rules
-func (qb *QueryBuilder) buildFrequencyRule(rule rules.Rule) (string, error) {
+func (qb *QueryBuilder) buildFrequencyRule(rule *rules.Rule) (string, error) {
 	freq := rule.Frequency
 
 	// Build time period condition
@@ -74,7 +75,8 @@ func (qb *QueryBuilder) buildFrequencyRule(rule rules.Rule) (string, error) {
 
 	// Child conditions (event attributes)
 	if rule.HasChildren() {
-		for _, child := range rule.Children {
+		for i := range rule.Children {
+			child := &rule.Children[i]
 			column, err := qb.buildColumnPath("e", child.Path, child.Type)
 			if err != nil {
 				return "", err
