@@ -17,14 +17,14 @@ func NewEventsController(logger *zap.Logger, db *sqlx.DB) *EventsController {
 	return &EventsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewStores(db),
+		store:  store.NewState(db),
 	}
 }
 
 type EventsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.Stores
+	store  *store.State
 }
 
 func (srv *EventsController) ListEvents(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
@@ -65,11 +65,7 @@ func (srv *EventsController) ListEvents(w http.ResponseWriter, r *http.Request, 
 		}
 	}
 
-	response := struct {
-		Results []oapi.EventWithSchema `json:"results"`
-	}{
+	json.Write(w, http.StatusOK, oapi.EventListResponse{
 		Results: results,
-	}
-
-	json.Write(w, http.StatusOK, response)
+	})
 }

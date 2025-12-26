@@ -23,7 +23,7 @@ func NewUsersController(logger *zap.Logger, db *sqlx.DB, maxUploadSize int64) *U
 	return &UsersController{
 		logger:        logger,
 		db:            db,
-		store:         store.NewStores(db),
+		store:         store.NewState(db),
 		maxUploadSize: maxUploadSize,
 	}
 }
@@ -31,7 +31,7 @@ func NewUsersController(logger *zap.Logger, db *sqlx.DB, maxUploadSize int64) *U
 type UsersController struct {
 	logger        *zap.Logger
 	db            *sqlx.DB
-	store         *store.Stores
+	store         *store.State
 	maxUploadSize int64
 }
 
@@ -591,7 +591,7 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	stores := store.NewStores(tx)
+	stores := store.NewState(tx)
 
 	for {
 		record, err := reader.Read()

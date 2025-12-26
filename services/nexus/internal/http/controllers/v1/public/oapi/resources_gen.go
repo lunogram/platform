@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -169,18 +170,18 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 	// PostEventsWithBody request with any body
-	PostEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostEventsWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostEvents(ctx context.Context, body PostEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostEvents(ctx context.Context, projectID openapi_types.UUID, body PostEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// IdentifyUserWithBody request with any body
-	IdentifyUserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	IdentifyUserWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	IdentifyUser(ctx context.Context, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	IdentifyUser(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) PostEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostEventsRequestWithBody(c.Server, contentType, body)
+func (c *Client) PostEventsWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostEventsRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -191,8 +192,8 @@ func (c *Client) PostEventsWithBody(ctx context.Context, contentType string, bod
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostEvents(ctx context.Context, body PostEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostEventsRequest(c.Server, body)
+func (c *Client) PostEvents(ctx context.Context, projectID openapi_types.UUID, body PostEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostEventsRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -203,8 +204,8 @@ func (c *Client) PostEvents(ctx context.Context, body PostEventsJSONRequestBody,
 	return c.Client.Do(req)
 }
 
-func (c *Client) IdentifyUserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewIdentifyUserRequestWithBody(c.Server, contentType, body)
+func (c *Client) IdentifyUserWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewIdentifyUserRequestWithBody(c.Server, projectID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -215,8 +216,8 @@ func (c *Client) IdentifyUserWithBody(ctx context.Context, contentType string, b
 	return c.Client.Do(req)
 }
 
-func (c *Client) IdentifyUser(ctx context.Context, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewIdentifyUserRequest(c.Server, body)
+func (c *Client) IdentifyUser(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewIdentifyUserRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -228,26 +229,33 @@ func (c *Client) IdentifyUser(ctx context.Context, body IdentifyUserJSONRequestB
 }
 
 // NewPostEventsRequest calls the generic PostEvents builder with application/json body
-func NewPostEventsRequest(server string, body PostEventsJSONRequestBody) (*http.Request, error) {
+func NewPostEventsRequest(server string, projectID openapi_types.UUID, body PostEventsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPostEventsRequestWithBody(server, "application/json", bodyReader)
+	return NewPostEventsRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewPostEventsRequestWithBody generates requests for PostEvents with any type of body
-func NewPostEventsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPostEventsRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/events")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/events", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -268,26 +276,33 @@ func NewPostEventsRequestWithBody(server string, contentType string, body io.Rea
 }
 
 // NewIdentifyUserRequest calls the generic IdentifyUser builder with application/json body
-func NewIdentifyUserRequest(server string, body IdentifyUserJSONRequestBody) (*http.Request, error) {
+func NewIdentifyUserRequest(server string, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewIdentifyUserRequestWithBody(server, "application/json", bodyReader)
+	return NewIdentifyUserRequestWithBody(server, projectID, "application/json", bodyReader)
 }
 
 // NewIdentifyUserRequestWithBody generates requests for IdentifyUser with any type of body
-func NewIdentifyUserRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewIdentifyUserRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/client/identify")
+	operationPath := fmt.Sprintf("/api/client/projects/%s/identify", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -351,14 +366,14 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 	// PostEventsWithBodyWithResponse request with any body
-	PostEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostEventsResponse, error)
+	PostEventsWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostEventsResponse, error)
 
-	PostEventsWithResponse(ctx context.Context, body PostEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostEventsResponse, error)
+	PostEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, body PostEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostEventsResponse, error)
 
 	// IdentifyUserWithBodyWithResponse request with any body
-	IdentifyUserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error)
+	IdentifyUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error)
 
-	IdentifyUserWithResponse(ctx context.Context, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error)
+	IdentifyUserWithResponse(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error)
 }
 
 type PostEventsResponse struct {
@@ -407,16 +422,16 @@ func (r IdentifyUserResponse) StatusCode() int {
 }
 
 // PostEventsWithBodyWithResponse request with arbitrary body returning *PostEventsResponse
-func (c *ClientWithResponses) PostEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostEventsResponse, error) {
-	rsp, err := c.PostEventsWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PostEventsWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostEventsResponse, error) {
+	rsp, err := c.PostEventsWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePostEventsResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostEventsWithResponse(ctx context.Context, body PostEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostEventsResponse, error) {
-	rsp, err := c.PostEvents(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PostEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, body PostEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostEventsResponse, error) {
+	rsp, err := c.PostEvents(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -424,16 +439,16 @@ func (c *ClientWithResponses) PostEventsWithResponse(ctx context.Context, body P
 }
 
 // IdentifyUserWithBodyWithResponse request with arbitrary body returning *IdentifyUserResponse
-func (c *ClientWithResponses) IdentifyUserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error) {
-	rsp, err := c.IdentifyUserWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) IdentifyUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error) {
+	rsp, err := c.IdentifyUserWithBody(ctx, projectID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseIdentifyUserResponse(rsp)
 }
 
-func (c *ClientWithResponses) IdentifyUserWithResponse(ctx context.Context, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error) {
-	rsp, err := c.IdentifyUser(ctx, body, reqEditors...)
+func (c *ClientWithResponses) IdentifyUserWithResponse(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error) {
+	rsp, err := c.IdentifyUser(ctx, projectID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -502,11 +517,11 @@ func ParseIdentifyUserResponse(rsp *http.Response) (*IdentifyUserResponse, error
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Post events
-	// (POST /api/client/events)
-	PostEvents(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/events)
+	PostEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// Identify user
-	// (POST /api/client/identify)
-	IdentifyUser(w http.ResponseWriter, r *http.Request)
+	// (POST /api/client/projects/{projectID}/identify)
+	IdentifyUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -514,14 +529,14 @@ type ServerInterface interface {
 type Unimplemented struct{}
 
 // Post events
-// (POST /api/client/events)
-func (_ Unimplemented) PostEvents(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/events)
+func (_ Unimplemented) PostEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Identify user
-// (POST /api/client/identify)
-func (_ Unimplemented) IdentifyUser(w http.ResponseWriter, r *http.Request) {
+// (POST /api/client/projects/{projectID}/identify)
+func (_ Unimplemented) IdentifyUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -537,6 +552,17 @@ type MiddlewareFunc func(http.Handler) http.Handler
 // PostEvents operation middleware
 func (siw *ServerInterfaceWrapper) PostEvents(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -544,7 +570,7 @@ func (siw *ServerInterfaceWrapper) PostEvents(w http.ResponseWriter, r *http.Req
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostEvents(w, r)
+		siw.Handler.PostEvents(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -557,6 +583,17 @@ func (siw *ServerInterfaceWrapper) PostEvents(w http.ResponseWriter, r *http.Req
 // IdentifyUser operation middleware
 func (siw *ServerInterfaceWrapper) IdentifyUser(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -564,7 +601,7 @@ func (siw *ServerInterfaceWrapper) IdentifyUser(w http.ResponseWriter, r *http.R
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.IdentifyUser(w, r)
+		siw.Handler.IdentifyUser(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -688,10 +725,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/events", wrapper.PostEvents)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/events", wrapper.PostEvents)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/identify", wrapper.IdentifyUser)
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/identify", wrapper.IdentifyUser)
 	})
 
 	return r

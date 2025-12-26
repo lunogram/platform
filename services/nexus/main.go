@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	managementv1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management"
 	publicv1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/public"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
 	"github.com/lunogram/platform/services/nexus/internal/storage"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
@@ -69,6 +70,21 @@ func run() error {
 		return err
 	}
 
+	logger.Info("initializing pubsub...")
+
+	jet, err := pubsub.New(ctx, conf)
+	if err != nil {
+		return err
+	}
+
+	err = pubsub.Bootstrap(ctx, logger, jet)
+	if err != nil {
+		return err
+	}
+
+	pub := pubsub.NewPublisher(jet)
+	pubsub.Serve(ctx, jet, logger, db)
+
 	logger.Info("initializing cluster")
 
 	scheduler := scheduler.NewController(ctx, logger, conf)
@@ -85,7 +101,7 @@ func run() error {
 
 	logger.Info("starting http servers")
 
-	mgmt, err := managementv1.NewServer(ctx, logger, conf, db, bucket)
+	mgmt, err := managementv1.NewServer(ctx, logger, conf, db, bucket, pub)
 	if err != nil {
 		return err
 	}
@@ -93,7 +109,7 @@ func run() error {
 	logger.Info("serving management http server")
 	go mgmt.Serve(ctx, conf.ManagementServiceAddress)
 
-	public, err := publicv1.NewServer(ctx, logger, conf, db, bucket)
+	public, err := publicv1.NewServer(ctx, logger, conf, db, bucket, pub)
 	if err != nil {
 		return err
 	}

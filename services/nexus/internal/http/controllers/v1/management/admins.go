@@ -19,14 +19,14 @@ func NewAdminsController(logger *zap.Logger, db *sqlx.DB) *AdminsController {
 	return &AdminsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewStores(db),
+		store:  store.NewState(db),
 	}
 }
 
 type AdminsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.Stores
+	store  *store.State
 }
 
 func (srv *AdminsController) GetProfile(w http.ResponseWriter, r *http.Request) {

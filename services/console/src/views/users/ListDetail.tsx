@@ -129,7 +129,6 @@ export default function ListDetail() {
             title={list.name}
             desc={
                 <InfoTable rows={{
-                    [t('state')]: <ListTag state={list.state} progress={list.progress} />,
                     [t('type')]: snakeToTitle(list.type),
                     [t('users_count')]: list.state === 'loading'
                         ? <>&#8211;</>
