@@ -62,3 +62,5 @@ CREATE INDEX idx_list_users_list_id ON list_users(list_id);
 CREATE INDEX idx_list_users_user_id ON list_users(user_id);
 CREATE INDEX idx_list_users_list_user ON list_users(list_id, user_id);
 CREATE UNIQUE INDEX idx_list_users_unique_active ON list_users(list_id, user_id);
+
+CREATE INDEX idx_user_events_data ON user_events USING GIN (data);
