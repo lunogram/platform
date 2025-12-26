@@ -53,8 +53,8 @@ type DB interface {
 	NamedExecContext(ctx context.Context, query string, arg interface{}) (sql.Result, error)
 }
 
-func NewStores(db DB) *Stores {
-	return &Stores{
+func NewState(db DB) *State {
+	return &State{
 		AdminsStore:        NewAdminsStore(db),
 		ProjectsStore:      NewProjectsStore(db),
 		CampaignsStore:     NewCampaignsStore(db),
@@ -71,10 +71,11 @@ func NewStores(db DB) *Stores {
 		DocumentsStore:     NewDocumentsStore(db),
 		EventsStore:        NewEventsStore(db),
 		AuthStore:          NewAuthStore(db),
+		RulesStore:         NewRulesStore(db),
 	}
 }
 
-type Stores struct {
+type State struct {
 	*AdminsStore
 	*ProjectsStore
 	*CampaignsStore
@@ -91,6 +92,7 @@ type Stores struct {
 	*DocumentsStore
 	*EventsStore
 	*AuthStore
+	*RulesStore
 }
 
 type Pagination struct {
@@ -103,7 +105,7 @@ type JSONB[T any] struct {
 }
 
 // Scan implements sql.Scanner for reading from database
-func (j *JSONB[T]) Scan(value interface{}) error {
+func (j *JSONB[T]) Scan(value any) error {
 	if value == nil {
 		return nil
 	}
@@ -124,9 +126,9 @@ func (j JSONB[T]) Value() (driver.Value, error) {
 type DataType string
 
 const (
-	DataTypeString DataType = "string"
-	DataTypeNumber DataType = "number"
-	DataTypeBool   DataType = "bool"
-	DataTypeObject DataType = "object"
-	DataTypeArray  DataType = "array"
+	DataTypeString  DataType = "string"
+	DataTypeNumber  DataType = "number"
+	DataTypeBoolean DataType = "boolean"
+	DataTypeObject  DataType = "object"
+	DataTypeArray   DataType = "array"
 )

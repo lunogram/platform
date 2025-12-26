@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func SetupUsers(t *testing.T, db *Stores) uuid.UUID {
+func SetupUsers(t *testing.T, db *State) uuid.UUID {
 	t.Helper()
 
 	ctx := t.Context()
