@@ -83,7 +83,7 @@ func TestPublisher_Publish(t *testing.T) {
 				ID:        uuid.New(),
 				Name:      "event_with_data",
 				ProjectID: uuid.New(),
-				Data: &map[string]any{
+				Data: map[string]any{
 					"key": "value",
 				},
 			},
@@ -137,7 +137,7 @@ func TestPublisher_PublishAndReceive(t *testing.T) {
 		ID:        uuid.New(),
 		Name:      "test_event",
 		ProjectID: uuid.New(),
-		Data: &map[string]any{
+		Data: map[string]any{
 			"key": "value",
 		},
 	}

@@ -84,7 +84,7 @@ func TestEventsProjectHandler_Success(t *testing.T) {
 		Name:      "test_event",
 		ProjectID: projectID,
 		UserID:    userID,
-		Data: &map[string]any{
+		Data: map[string]any{
 			"key": "value",
 		},
 	}
@@ -194,7 +194,7 @@ func TestEventsProjectHandler_WithIdentifiers(t *testing.T) {
 		ProjectID:   projectID,
 		ExternalId:  &externalID,
 		AnonymousId: &anonymousID,
-		Data: &map[string]any{
+		Data: map[string]any{
 			"action": "click",
 		},
 	}
@@ -232,7 +232,7 @@ func TestEventsSchemaHandler_Success(t *testing.T) {
 		ID:        eventID,
 		Name:      "test_event",
 		ProjectID: projectID,
-		Data: &map[string]any{
+		Data: map[string]any{
 			"user": map[string]any{
 				"name":  "John",
 				"email": "john@example.com",
@@ -277,7 +277,7 @@ func TestEventsSchemaHandler_ComplexNestedData(t *testing.T) {
 		ID:        eventID,
 		Name:      "complex_event",
 		ProjectID: projectID,
-		Data: &map[string]any{
+		Data: map[string]any{
 			"product": map[string]any{
 				"id":    "prod_123",
 				"name":  "Widget",

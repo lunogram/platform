@@ -32,7 +32,7 @@ func (u User) Event(name string) Event {
 		ProjectID:   u.ProjectID,
 		AnonymousId: u.AnonymousID,
 		ExternalId:  u.ExternalID,
-		Data: &map[string]any{
+		Data: map[string]any{
 			"id":       u.ID,
 			"email":    u.Email,
 			"phone":    u.Phone,

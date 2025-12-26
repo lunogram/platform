@@ -47,7 +47,7 @@ func (qb *QueryBuilder) nextJoinAlias() string {
 // Query generates a complete SELECT query with JOINs from a RuleSet
 func (qb *QueryBuilder) Query(ruleSet rules.RuleSet) (QueryResult, error) {
 	// Build the rule which may populate joins
-	condition, err := qb.buildRule(ruleSet.Rule)
+	condition, err := qb.buildRule(&ruleSet.Rule)
 	if err != nil {
 		return QueryResult{}, err
 	}

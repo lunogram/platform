@@ -154,7 +154,7 @@ func (s *UsersStore) GetUserByAnonymousID(ctx context.Context, projectID uuid.UU
 	return &user, nil
 }
 
-func (s *UsersStore) InsertUserEvent(ctx context.Context, userID uuid.UUID, eventID uuid.UUID, data *map[string]any) (uuid.UUID, error) {
+func (s *UsersStore) InsertUserEvent(ctx context.Context, userID uuid.UUID, eventID uuid.UUID, data map[string]any) (uuid.UUID, error) {
 	stmt := `
 	INSERT INTO user_events ( user_id, event_id, data)
 	VALUES ($1, $2, $3)
@@ -371,10 +371,10 @@ type UserEvent struct {
 	ID        uuid.UUID       `db:"id"`
 	ProjectID uuid.UUID       `db:"project_id"`
 	UserID    uuid.UUID       `db:"user_id"`
+	EventID   uuid.UUID       `db:"event_id"`
 	Name      string          `db:"name"`
 	Data      json.RawMessage `db:"data"`
 	CreatedAt time.Time       `db:"created_at"`
-	UpdatedAt time.Time       `db:"updated_at"`
 }
 
 func (e *UserEvent) OAPI() oapi.UserEvent {
@@ -385,18 +385,19 @@ func (e *UserEvent) OAPI() oapi.UserEvent {
 		Name:      e.Name,
 		Data:      &e.Data,
 		CreatedAt: e.CreatedAt,
-		UpdatedAt: e.UpdatedAt,
 	}
 }
 
 func (s *UsersStore) ListUserEvents(ctx context.Context, projectID, userID uuid.UUID, pagination Pagination) (UserEvents, int, error) {
 	query := `
 	SELECT 
-		id, project_id, user_id, name, data, created_at, updated_at,
+		ue.id, u.project_id, ue.user_id, ue.event_id, e.name, ue.data, ue.created_at,
 		COUNT(*) OVER () AS total_count
-	FROM user_events
-	WHERE project_id = $1 AND user_id = $2
-	ORDER BY created_at DESC
+	FROM user_events ue
+	INNER JOIN users u ON ue.user_id = u.id
+	INNER JOIN events e ON ue.event_id = e.id
+	WHERE u.project_id = $1 AND ue.user_id = $2
+	ORDER BY ue.created_at DESC
 	LIMIT $3 OFFSET $4`
 
 	type result struct {
@@ -425,16 +426,22 @@ func (s *UsersStore) ListUserEvents(ctx context.Context, projectID, userID uuid.
 }
 
 func (s *UsersStore) CreateUserEvent(ctx context.Context, event UserEvent) (uuid.UUID, error) {
+	// First, get the event_id for this event name
+	eventsStore := NewEventsStore(s.db)
+	eventID, err := eventsStore.UpsertEvent(ctx, event.ProjectID, event.Name)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
 	stmt := `
-	INSERT INTO user_events (project_id, user_id, name, data)
-	VALUES ($1, $2, $3, $4)
+	INSERT INTO user_events (user_id, event_id, data)
+	VALUES ($1, $2, $3)
 	RETURNING id`
 
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt,
-		event.ProjectID,
+	err = s.db.GetContext(ctx, &id, stmt,
 		event.UserID,
-		event.Name,
+		eventID,
 		event.Data,
 	)
 	if err != nil {

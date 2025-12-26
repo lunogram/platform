@@ -23,13 +23,13 @@ const (
 
 // Event represents a tracked event with associated user and project information.
 type Event struct {
-	ID          uuid.UUID       `json:"id"`
-	Name        string          `json:"name"`
-	ProjectID   uuid.UUID       `json:"project_id"`
-	UserID      uuid.UUID       `json:"user_id"`
-	AnonymousId *string         `json:"anonymous_id"`
-	ExternalId  *string         `json:"external_id"`
-	Data        *map[string]any `json:"data"`
+	ID          uuid.UUID      `json:"id"`
+	Name        string         `json:"name"`
+	ProjectID   uuid.UUID      `json:"project_id"`
+	UserID      uuid.UUID      `json:"user_id"`
+	AnonymousId *string        `json:"anonymous_id"`
+	ExternalId  *string        `json:"external_id"`
+	Data        map[string]any `json:"data"`
 }
 
 // EventsProjectSubject returns the NATS subject for project-specific events.
@@ -162,12 +162,8 @@ func EventSchemasHandler(logger *zap.Logger, db *sqlx.DB) HandlerFunc {
 		}
 
 		logger.Info("incoming event schema", zap.Stringer("event_id", event.ID), zap.Stringer("project_id", event.ProjectID))
-		var data map[string]any
-		if event.Data != nil {
-			data = *event.Data
-		}
 
-		paths := rules.ParsePaths(data)
+		paths := rules.ParsePaths(event.Data)
 		err = events.UpsertEventSchema(ctx, event.ProjectID, event.ID, paths)
 		if err != nil {
 			logger.Error("failed to upsert event schema", zap.Error(err))

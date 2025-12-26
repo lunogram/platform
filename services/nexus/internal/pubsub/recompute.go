@@ -98,7 +98,7 @@ func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub Pub
 				Name:      EventListUserAdded,
 				UserID:    applied.UserID,
 				ProjectID: projectID,
-				Data: &map[string]any{
+				Data: map[string]any{
 					"list_id": listID,
 				},
 			}
@@ -113,7 +113,7 @@ func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub Pub
 				Name:      EventListUserRemoved,
 				UserID:    applied.UserID,
 				ProjectID: projectID,
-				Data: &map[string]any{
+				Data: map[string]any{
 					"list_id": listID,
 				},
 			}
