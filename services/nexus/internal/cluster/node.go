@@ -16,6 +16,10 @@ import (
 	"go.uber.org/zap"
 )
 
+// CleanupTimeout defines the maximum duration for cleanup operations
+// when a node is shutting down.
+const CleanupTimeout = 5 * time.Second
+
 type LeaderHandler func(ctx context.Context) error
 
 func NewNode(ctx graceful.Context, logger *zap.Logger, conf config.Node, cluster *consensus.Cluster, handler LeaderHandler) (*Node, error) {
@@ -77,7 +81,10 @@ func (node *Node) campaign(ctx graceful.Context) {
 	defer node.wg.Done()
 	defer func() {
 		if node.IsLeader() {
-			node.cluster.ReleaseLeader(context.Background())
+			ctx, cancel := context.WithTimeout(context.Background(), CleanupTimeout)
+			defer cancel()
+
+			node.cluster.ReleaseLeader(ctx)
 		}
 	}()
 
@@ -146,7 +153,10 @@ func (node *Node) campaign(ctx graceful.Context) {
 
 			node.mu.Lock()
 			node.logger.Info("releasing leader lock", zap.String("node", node.id))
-			node.leaderUntil = node.cluster.ReleaseLeader(context.Background())
+			ctx, cancel := context.WithTimeout(context.Background(), CleanupTimeout)
+			defer cancel()
+
+			node.leaderUntil = node.cluster.ReleaseLeader(ctx)
 			node.mu.Unlock()
 		}()
 
@@ -200,7 +210,9 @@ func (node *Node) heartbeat(ctx graceful.Context) {
 		logger := node.logger.With(zap.String("id", node.ID()))
 		logger.Info("received close signal, releasing node resources")
 
-		err := node.cluster.ReleaseNode(context.Background(), node.ID())
+		ctx, cancel := context.WithTimeout(context.Background(), CleanupTimeout)
+		defer cancel()
+		err := node.cluster.ReleaseNode(ctx, node.ID())
 		if err != nil {
 			logger.Error("failed to release node", zap.Error(err))
 		}
