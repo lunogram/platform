@@ -75,7 +75,6 @@ func TestBootstrap_CreatesRecomputeStream(t *testing.T) {
 	info, err := stream.Info(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, StreamRecompute, info.Config.Name)
-	assert.Contains(t, info.Config.Subjects, "recompute.journeys.>")
 	assert.Contains(t, info.Config.Subjects, "recompute.lists.>")
 }
 
@@ -98,7 +97,7 @@ func TestBootstrap_CreatesAllConsumers(t *testing.T) {
 	consumers := []consumer{
 		{StreamEvents, ConsumerEvents, "events.projects.>"},
 		{StreamEvents, ConsumerEventSchemas, "events.schemas.>"},
-		{StreamRecompute, ConsumerRecomputeJourneys, "recompute.journeys.>"},
+		{StreamJourney, ConsumerJourneysState, "state.journeys.>"},
 		{StreamRecompute, ConsumerRecomputeLists, "recompute.lists.>"},
 	}
 

@@ -200,11 +200,11 @@ func TestJourneysStore_SetJourneySteps(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, stepIDs, 2)
 
-		steps, err := db.GetJourneySteps(ctx, versionID)
+		steps, err := db.GetJourneyVersionSteps(ctx, versionID)
 		require.NoError(t, err)
 		assert.Len(t, steps, 2)
 
-		children, err := db.GetJourneyStepChildren(ctx, versionID)
+		children, err := db.GetJourneyVersionStepsChildren(ctx, versionID)
 		require.NoError(t, err)
 		assert.Len(t, children, 1)
 		assert.Equal(t, "step-1", children[0].ParentExternalID)
@@ -230,7 +230,7 @@ func TestJourneysStore_SetJourneySteps(t *testing.T) {
 		_, err := db.SetJourneySteps(ctx, versionID, stepMap)
 		require.NoError(t, err)
 
-		steps, err := db.GetJourneySteps(ctx, versionID)
+		steps, err := db.GetJourneyVersionSteps(ctx, versionID)
 		require.NoError(t, err)
 		assert.Len(t, steps, 2)
 
@@ -261,7 +261,7 @@ func TestJourneysStore_SetJourneySteps(t *testing.T) {
 		_, err := db.SetJourneySteps(ctx, versionID, stepMap)
 		require.NoError(t, err)
 
-		steps, err := db.GetJourneySteps(ctx, versionID)
+		steps, err := db.GetJourneyVersionSteps(ctx, versionID)
 		require.NoError(t, err)
 		assert.Len(t, steps, 1)
 		assert.Equal(t, "step-1", steps[0].ExternalID)
@@ -331,7 +331,7 @@ func TestJourneysStore_DuplicateJourney(t *testing.T) {
 		assert.NotNil(t, newJourney.VersionID)
 
 		// Check steps were copied
-		steps, err := db.GetJourneySteps(ctx, *newJourney.VersionID)
+		steps, err := db.GetJourneyVersionSteps(ctx, *newJourney.VersionID)
 		require.NoError(t, err)
 		assert.Len(t, steps, 2)
 	})
@@ -347,7 +347,7 @@ func TestJourneysStore_DuplicateJourney(t *testing.T) {
 		assert.Equal(t, 2, draftVersion.VersionNumber)
 
 		// Check steps were copied
-		steps, err := db.GetJourneySteps(ctx, draftVersion.ID)
+		steps, err := db.GetJourneyVersionSteps(ctx, draftVersion.ID)
 		require.NoError(t, err)
 		assert.Len(t, steps, 2)
 	})
@@ -473,34 +473,22 @@ func TestJourneysStore_UserJourneyState(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("creates user journey state", func(t *testing.T) {
+		journeyEntryID := uuid.New()
 		stateID, err := db.CreateUserJourneyState(ctx, JourneyUserState{
-			JourneyID:  journeyID,
-			UserID:     userID,
-			ExternalID: ptr("entrance-1"),
-			Type:       ptr("entrance"),
-			Status:     "active",
+			JourneyID:      journeyID,
+			JourneyEntryID: journeyEntryID,
+			UserID:         userID,
+			ExternalStepID: "entrance-1",
 		})
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, stateID)
 
-		state, err := db.GetUserJourneyState(ctx, journeyID, userID)
+		state, err := db.GetUserJourneyState(ctx, journeyEntryID, "entrance-1")
 		require.NoError(t, err)
 		assert.Equal(t, journeyID, state.JourneyID)
 		assert.Equal(t, userID, state.UserID)
-		assert.Equal(t, "entrance-1", *state.ExternalID)
-		assert.Equal(t, "active", state.Status)
+		assert.Equal(t, "entrance-1", state.ExternalStepID)
 		assert.Nil(t, state.PinnedVersionID)
-	})
-
-	t.Run("gets next step for user", func(t *testing.T) {
-		state, err := db.GetUserJourneyState(ctx, journeyID, userID)
-		require.NoError(t, err)
-
-		nextStep, err := db.GetNextStep(ctx, state.ID)
-		require.NoError(t, err)
-		assert.NotNil(t, nextStep)
-		assert.Equal(t, "step-2", nextStep.ChildExternalID)
-		assert.Equal(t, "action", nextStep.Type)
 	})
 }
 
@@ -557,13 +545,13 @@ func TestJourneysStore_VersionPinning(t *testing.T) {
 	require.NoError(t, err)
 
 	// User enters journey on version 1 with pinning
-	stateID, err := db.CreateUserJourneyState(ctx, JourneyUserState{
+	journeyEntryID := uuid.New()
+	_, err = db.CreateUserJourneyState(ctx, JourneyUserState{
 		JourneyID:       journeyID,
+		JourneyEntryID:  journeyEntryID,
 		UserID:          userID,
+		ExternalStepID:  "step-1",
 		PinnedVersionID: &version1ID,
-		ExternalID:      ptr("step-1"),
-		Type:            ptr("entrance"),
-		Status:          "active",
 	})
 	require.NoError(t, err)
 
@@ -593,33 +581,32 @@ func TestJourneysStore_VersionPinning(t *testing.T) {
 	err = db.PublishVersion(ctx, journeyID, version2ID)
 	require.NoError(t, err)
 
-	t.Run("pinned user uses old version", func(t *testing.T) {
-		nextStep, err := db.GetNextStep(ctx, stateID)
+	t.Run("pinned user stays on version 1", func(t *testing.T) {
+		state, err := db.GetUserJourneyState(ctx, journeyEntryID, "step-1")
 		require.NoError(t, err)
-		assert.NotNil(t, nextStep)
-		assert.Equal(t, "step-2", nextStep.ChildExternalID) // From version 1
+		assert.NotNil(t, state.PinnedVersionID)
+		assert.Equal(t, version1ID, *state.PinnedVersionID)
 	})
 
-	t.Run("non-pinned user auto-upgrades", func(t *testing.T) {
+	t.Run("non-pinned user uses latest version", func(t *testing.T) {
 		user2ID := uuid.New()
 		_, err := db.db.ExecContext(ctx, `INSERT INTO users (id, project_id, external_id) VALUES ($1, $2, $3)`,
 			user2ID, projectID, "user-456")
 		require.NoError(t, err)
 
-		state2ID, err := db.CreateUserJourneyState(ctx, JourneyUserState{
+		journeyEntry2ID := uuid.New()
+		_, err = db.CreateUserJourneyState(ctx, JourneyUserState{
 			JourneyID:       journeyID,
+			JourneyEntryID:  journeyEntry2ID,
 			UserID:          user2ID,
+			ExternalStepID:  "step-1",
 			PinnedVersionID: nil, // No pinning
-			ExternalID:      ptr("step-1"),
-			Type:            ptr("entrance"),
-			Status:          "active",
 		})
 		require.NoError(t, err)
 
-		nextStep, err := db.GetNextStep(ctx, state2ID)
+		state2, err := db.GetUserJourneyState(ctx, journeyEntry2ID, "step-1")
 		require.NoError(t, err)
-		assert.NotNil(t, nextStep)
-		assert.Equal(t, "step-3", nextStep.ChildExternalID) // From version 2
+		assert.Nil(t, state2.PinnedVersionID)
 	})
 }
 
@@ -669,12 +656,12 @@ func TestJourneysStore_EnsureDraftVersionCopiesSteps(t *testing.T) {
 	assert.NotEqual(t, versionID, newDraftID, "should create a new draft version")
 
 	// Verify the new draft has the copied steps
-	draftSteps, err := db.GetJourneySteps(ctx, newDraftID)
+	draftSteps, err := db.GetJourneyVersionSteps(ctx, newDraftID)
 	require.NoError(t, err)
 	assert.Len(t, draftSteps, 2, "new draft should have copied steps from published version")
 
 	// Verify children were copied
-	draftChildren, err := db.GetJourneyStepChildren(ctx, newDraftID)
+	draftChildren, err := db.GetJourneyVersionStepsChildren(ctx, newDraftID)
 	require.NoError(t, err)
 	assert.Len(t, draftChildren, 1, "connections should be copied to new draft")
 }

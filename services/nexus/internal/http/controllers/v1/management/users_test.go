@@ -496,11 +496,24 @@ func TestGetUserJourneys(t *testing.T) {
 	err = journeysStore.UpdateJourney(ctx, projectID, journeyID, store.JourneyUpdate{VersionID: &versionID})
 	require.NoError(t, err)
 
+	// Create a step so we have a step ID
+	stepMap := oapi.JourneyStepMap{
+		"entrance-1": {
+			Type: "entrance",
+			X:    100,
+			Y:    200,
+		},
+	}
+	_, err = journeysStore.SetJourneySteps(ctx, versionID, stepMap)
+	require.NoError(t, err)
+
 	// Create user state
+	journeyEntryID := uuid.New()
 	_, err = journeysStore.CreateUserJourneyState(ctx, store.JourneyUserState{
-		UserID:    userID,
-		JourneyID: journeyID,
-		Status:    "active",
+		JourneyID:      journeyID,
+		JourneyEntryID: journeyEntryID,
+		UserID:         userID,
+		ExternalStepID: "entrance-1",
 	})
 	require.NoError(t, err)
 
@@ -549,11 +562,24 @@ func TestGetUserJourneysPagination(t *testing.T) {
 	err = journeysStore.UpdateJourney(ctx, projectID, journeyID, store.JourneyUpdate{VersionID: &versionID})
 	require.NoError(t, err)
 
+	// Create a step so we have a step ID
+	stepMap := oapi.JourneyStepMap{
+		"entrance-1": {
+			Type: "entrance",
+			X:    100,
+			Y:    200,
+		},
+	}
+	_, err = journeysStore.SetJourneySteps(ctx, versionID, stepMap)
+	require.NoError(t, err)
+
 	// Create user state
+	journeyEntryID := uuid.New()
 	_, err = journeysStore.CreateUserJourneyState(ctx, store.JourneyUserState{
-		UserID:    userID,
-		JourneyID: journeyID,
-		Status:    "active",
+		JourneyID:      journeyID,
+		JourneyEntryID: journeyEntryID,
+		UserID:         userID,
+		ExternalStepID: "entrance-1",
 	})
 	require.NoError(t, err)
 

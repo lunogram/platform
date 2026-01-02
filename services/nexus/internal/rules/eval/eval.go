@@ -8,12 +8,6 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/rules"
 )
 
-// Data represents the data context for rule evaluation
-type Data struct {
-	User  map[string]any
-	Event map[string]any
-}
-
 // Evaluator evaluates rules against in-memory data
 type Evaluator struct{}
 
@@ -22,42 +16,34 @@ func NewEvaluator() *Evaluator {
 	return &Evaluator{}
 }
 
-// Evaluate evaluates a RuleSet against the provided data
-// This only works for rules without frequency definitions
-func (e *Evaluator) Evaluate(ruleSet rules.RuleSet, data Data) (bool, error) {
+// Evaluate evaluates a RuleSet against the provided data from journey steps
+func (e *Evaluator) Evaluate(ruleSet rules.RuleSet, data map[string]any) (bool, error) {
 	return e.evaluateRule(&ruleSet.Rule, data)
 }
 
 // evaluateRule recursively evaluates a rule node
-func (e *Evaluator) evaluateRule(rule *rules.Rule, data Data) (bool, error) {
+func (e *Evaluator) evaluateRule(rule *rules.Rule, data map[string]any) (bool, error) {
 	// Frequency-based rules cannot be evaluated in memory
 	if rule.Frequency != nil {
 		return false, fmt.Errorf("cannot evaluate frequency-based rules in memory")
 	}
 
-	// Handle wrapper nodes based on group
+	// Handle wrapper nodes with logical operators
 	if rule.IsWrapper() {
-		// Event wrappers are special - they're for event rules
-		if rule.Group == rules.RuleGroupEvent {
-			return e.evaluateEventRule(rule, data.Event)
-		}
-		// Parent wrappers use logical operators
 		return e.evaluateWrapper(rule, data)
 	}
 
-	// Handle leaf nodes based on group
-	switch rule.Group {
-	case rules.RuleGroupUser:
-		return e.evaluateUserRule(rule, data.User)
-	case rules.RuleGroupEvent:
-		return e.evaluateEventRule(rule, data.Event)
-	default:
-		return false, fmt.Errorf("unsupported rule group: %s", rule.Group)
+	// Handle leaf nodes - all rules now use the same data context
+	value, err := e.extractValue(data, rule.Path)
+	if err != nil {
+		return false, err
 	}
+
+	return e.evaluateComparison(value, rule.Operator, rule.Value, rule.Type)
 }
 
 // evaluateWrapper evaluates wrapper nodes with AND/OR logic
-func (e *Evaluator) evaluateWrapper(rule *rules.Rule, data Data) (bool, error) {
+func (e *Evaluator) evaluateWrapper(rule *rules.Rule, data map[string]any) (bool, error) {
 	if !rule.HasChildren() {
 		return true, nil
 	}
@@ -92,51 +78,6 @@ func (e *Evaluator) evaluateWrapper(rule *rules.Rule, data Data) (bool, error) {
 	default:
 		return false, fmt.Errorf("unsupported logical operator: %s", rule.Operator)
 	}
-}
-
-// evaluateUserRule evaluates a user attribute rule
-func (e *Evaluator) evaluateUserRule(rule *rules.Rule, userData map[string]any) (bool, error) {
-	value, err := e.extractValue(userData, rule.Path)
-	if err != nil {
-		return false, err
-	}
-
-	return e.evaluateComparison(value, rule.Operator, rule.Value, rule.Type)
-}
-
-// evaluateEventRule evaluates an event rule
-func (e *Evaluator) evaluateEventRule(rule *rules.Rule, eventData map[string]any) (bool, error) {
-	// Check event name if specified
-	if rule.Value != nil {
-		eventName, ok := eventData["name"]
-		if !ok {
-			return false, nil
-		}
-		if eventName != rule.Value {
-			return false, nil
-		}
-	}
-
-	// If there are child rules, evaluate them against event attributes
-	if rule.HasChildren() {
-		for i := range rule.Children {
-			child := &rule.Children[i]
-			value, err := e.extractValue(eventData, child.Path)
-			if err != nil {
-				return false, err
-			}
-
-			result, err := e.evaluateComparison(value, child.Operator, child.Value, child.Type)
-			if err != nil {
-				return false, err
-			}
-			if !result {
-				return false, nil
-			}
-		}
-	}
-
-	return true, nil
 }
 
 // extractValue extracts a value from data using a path (supports dot notation and bracket notation)

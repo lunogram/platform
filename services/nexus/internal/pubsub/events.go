@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/services/nexus/internal/rules"
+	"github.com/lunogram/platform/services/nexus/internal/rules/eval"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
@@ -97,8 +100,8 @@ func EventsHandler(logger *zap.Logger, db *sqlx.DB, pub Publisher) HandlerFunc {
 
 		wg, ctx := errgroup.WithContext(ctx)
 		wg.Go(PublishEventSchema(ctx, logger, pub, event))
-		wg.Go(PublishEventListDependencies(ctx, logger, state.EventsStore, pub, event))
-		wg.Go(PublishEventJourneyDependencies(ctx, logger, state.EventsStore, pub, event))
+		wg.Go(PublishEventListDependencies(ctx, logger, state, pub, event))
+		wg.Go(PublishEventJourneyDependencies(ctx, logger, state, pub, event))
 
 		err = wg.Wait()
 		if err != nil {
@@ -129,9 +132,9 @@ func PublishEventSchema(ctx context.Context, logger *zap.Logger, pub Publisher, 
 
 // PublishEventListDependencies returns a function that publishes recompute messages for all lists
 // that depend on the given event through rule conditions.
-func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, events *store.EventsStore, pub Publisher, event Event) func() error {
+func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, state *store.State, pub Publisher, event Event) func() error {
 	return func() error {
-		lists, err := events.ListEventListDependencies(ctx, event.ID)
+		lists, err := state.ListEventListDependencies(ctx, event.ID)
 		if err != nil {
 			logger.Error("failed to list rule event dependencies", zap.Error(err))
 			return err
@@ -156,16 +159,84 @@ func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, event
 
 // PublishEventJourneyDependencies returns a function that triggers journey entrance steps
 // for all journeys configured with event-based entrance conditions matching the given event.
-func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, events *store.EventsStore, pub Publisher, event Event) func() error {
+func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, state *store.State, pub Publisher, event Event) func() error {
+	evaluator := eval.NewEvaluator()
+
 	return func() error {
-		lists, err := events.ListEventJourneyDependencies(ctx, event.ID)
+		deps, err := state.ListEventJourneyDependencies(ctx, event.ID)
 		if err != nil {
 			logger.Error("failed to list rule event dependencies", zap.Error(err))
 			return err
 		}
 
-		for _, id := range lists {
-			fmt.Println("----------", id)
+		for _, dep := range deps {
+			entrance := oapi.EntranceStepData{}
+			if dep.Data != nil {
+				err := json.Unmarshal(*dep.Data, &entrance)
+				if err != nil {
+					return err
+				}
+			}
+
+			if entrance.Rule != nil {
+				match, err := evaluator.Evaluate(*entrance.Rule, event.Data)
+				if err != nil {
+					logger.Error("failed to evaluate journey entrance rule", zap.Error(err))
+					return err
+				}
+
+				if !match {
+					continue
+				}
+			}
+
+			logger.Info("triggering journey entrance step", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("step_id", dep.StepID))
+
+			entry, err := uuid.NewRandom()
+			if err != nil {
+				logger.Error("failed to generate journey entry ID", zap.Error(err))
+				return err
+			}
+
+			data, err := json.Marshal(event.Data)
+			if err != nil {
+				logger.Error("failed to marshal journey entry data", zap.Error(err))
+				return err
+			}
+
+			// TODO: include support to pin to specific journey version
+			now := time.Now()
+			rawData := json.RawMessage(data)
+			result := store.JourneyUserState{
+				JourneyID:      dep.JourneyID,
+				JourneyEntryID: entry,
+				UserID:         event.UserID,
+				ExternalStepID: dep.ExternalID,
+				Data:           &rawData,
+				CompletedAt:    &now,
+			}
+
+			_, err = state.CreateUserJourneyState(ctx, result)
+			if err != nil {
+				logger.Error("failed to create journey user state", zap.Error(err))
+				return err
+			}
+
+			for _, child := range dep.Children {
+				step := JourneyStep{
+					JourneyID:      dep.JourneyID,
+					JourneyEntryID: entry,
+					ExternalStepID: child.ChildExternalID,
+					UserID:         event.UserID,
+				}
+
+				err = pub.Publish(ctx, JourneyStepSubject(event.ProjectID), step)
+				if err != nil {
+					logger.Error("failed to publish journey state to project subject", zap.Error(err))
+					return err
+				}
+			}
+
 		}
 
 		return nil

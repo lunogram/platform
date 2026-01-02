@@ -14,7 +14,7 @@ import RRuleEditor from '../../../ui/RRuleEditor'
 import CodeExample from '../../../ui/CodeExample'
 import { env } from '../../../config/env'
 import { useTranslation, Trans } from 'react-i18next'
-import { createEventRule, isEventWrapper } from '../../users/rules/RuleHelpers'
+import { createEventRule, createSimpleEventRule, isEventWrapper } from '../../users/rules/RuleHelpers'
 import { ruleDescription } from '../../users/rules/RuleDescriptions'
 import { Tag } from '../../../ui'
 import { Link } from 'react-router'
@@ -181,19 +181,23 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                                 label={t('event_name')}
                                 required
                                 value={value.event_name ?? ''}
-                                onChange={event_name => onChange({
-                                    ...value,
-                                    event_name,
-                                    rule: {
-                                        ...value.rule ?? createEventRule(),
-                                        value: event_name,
-                                    },
-                                })}
+                                onChange={event_name => {
+                                    const currentRule = value.rule
+                                    // Keep the existing rule structure, just update the value
+                                    const updatedRule = currentRule
+                                        ? { ...currentRule, value: event_name }
+                                        : createSimpleEventRule(event_name)
+                                    onChange({
+                                        ...value,
+                                        event_name,
+                                        rule: updatedRule,
+                                    })
+                                }}
                             />
                             {
                                 value.event_name && (
                                     <RuleBuilder
-                                        rule={value.rule ?? createEventRule()}
+                                        rule={value.rule ?? createSimpleEventRule(value.event_name)}
                                         setRule={rule => onChange({
                                             ...value,
                                             rule: {

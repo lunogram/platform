@@ -515,7 +515,7 @@ type JourneyStep struct {
 // JourneyStepChild defines model for JourneyStepChild.
 type JourneyStepChild struct {
 	// Data Child-specific configuration data (structure varies by parent step type)
-	Data *json.RawMessage `json:"data,omitempty"`
+	Data *json.RawMessage `json:"data"`
 
 	// ExternalId External ID of the child step
 	ExternalId string `json:"external_id"`

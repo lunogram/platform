@@ -19,37 +19,6 @@ export default function EventRuleEdit({
 }: EventRuleEditProps) {
     const { t } = useTranslation()
 
-    const frequency = rule.frequency ?? {
-        period: {
-            type: 'rolling',
-            unit: 'day',
-            value: 30,
-        },
-        operator: '>=',
-        count: 1,
-    }
-
-    rule = {
-        frequency: {
-            period: {
-                type: 'rolling',
-                unit: 'day',
-                value: 30,
-            },
-            operator: '>=',
-            count: 1,
-        },
-        ...rule,
-    }
-
-    // If missing frequency, set default values
-    if (!rule.frequency) {
-        setRule({
-            ...rule,
-            frequency,
-        })
-    }
-
     if (eventName) {
         if (rule.children?.length) {
             return <>
@@ -67,6 +36,24 @@ export default function EventRuleEdit({
             </>
         }
         return <></>
+    }
+
+    const frequency = rule.frequency ?? {
+        period: {
+            type: 'rolling',
+            unit: 'day',
+            value: 30,
+        },
+        operator: '>=',
+        count: 1,
+    }
+
+    // If missing frequency, set default values
+    if (!rule.frequency) {
+        setRule({
+            ...rule,
+            frequency,
+        })
     }
 
     return <>

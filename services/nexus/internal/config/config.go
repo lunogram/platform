@@ -38,7 +38,6 @@ type Nats struct {
 }
 
 type Cluster struct {
-	SchedulerInterval      time.Duration `env:"SCHEDULER_INTERVAL" envDefault:"1m"`
 	ReconciliationInterval time.Duration `env:"RECONCILIATION_INTERVAL" envDefault:"1m"`
 	LeaderCampaignInterval time.Duration `env:"LEADER_CAMPAIGN_INTERVAL" envDefault:"5s"`
 	HeartbeatInterval      time.Duration `env:"HEARTBEAT_INTERVAL" envDefault:"4s"`

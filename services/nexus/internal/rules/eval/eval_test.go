@@ -17,7 +17,7 @@ func TestEvaluator_SimpleUserRules(t *testing.T) {
 
 	type test struct {
 		ruleSet rules.RuleSet
-		data    Data
+		data    map[string]any
 		want    bool
 		wantErr bool
 	}
@@ -33,10 +33,8 @@ func TestEvaluator_SimpleUserRules(t *testing.T) {
 					Value:    "user@example.com",
 				},
 			},
-			data: Data{
-				User: map[string]any{
-					"email": "user@example.com",
-				},
+			data: map[string]any{
+				"email": "user@example.com",
 			},
 			want:    true,
 			wantErr: false,
@@ -51,10 +49,8 @@ func TestEvaluator_SimpleUserRules(t *testing.T) {
 					Value:    "john",
 				},
 			},
-			data: Data{
-				User: map[string]any{
-					"name": "John Doe",
-				},
+			data: map[string]any{
+				"name": "John Doe",
 			},
 			want:    true,
 			wantErr: false,
@@ -69,10 +65,8 @@ func TestEvaluator_SimpleUserRules(t *testing.T) {
 					Value:    18,
 				},
 			},
-			data: Data{
-				User: map[string]any{
-					"age": 25,
-				},
+			data: map[string]any{
+				"age": 25,
 			},
 			want:    true,
 			wantErr: false,
@@ -107,12 +101,10 @@ func TestEvaluator_NestedPaths(t *testing.T) {
 		},
 	}
 
-	data := Data{
-		User: map[string]any{
-			"data": map[string]any{
-				"subscription": map[string]any{
-					"tier": "premium",
-				},
+	data := map[string]any{
+		"data": map[string]any{
+			"subscription": map[string]any{
+				"tier": "premium",
 			},
 		},
 	}
@@ -151,11 +143,9 @@ func TestEvaluator_LogicalOperators(t *testing.T) {
 		},
 	}
 
-	data := Data{
-		User: map[string]any{
-			"age":     25,
-			"country": "US",
-		},
+	data := map[string]any{
+		"age":     25,
+		"country": "US",
 	}
 
 	got, err := evaluator.Evaluate(ruleSet, data)
@@ -170,10 +160,17 @@ func TestEvaluator_EventRules(t *testing.T) {
 
 	ruleSet := rules.RuleSet{
 		Rule: rules.Rule{
-			Type:  rules.RuleTypeWrapper,
-			Group: rules.RuleGroupEvent,
-			Value: "order.created",
+			Type:     rules.RuleTypeWrapper,
+			Group:    rules.RuleGroupParent,
+			Operator: rules.OperatorAnd,
 			Children: []rules.Rule{
+				{
+					Type:     rules.RuleTypeString,
+					Group:    rules.RuleGroupEvent,
+					Path:     ".name",
+					Operator: rules.OperatorEquals,
+					Value:    "order.created",
+				},
 				{
 					Type:     rules.RuleTypeNumber,
 					Group:    rules.RuleGroupEvent,
@@ -185,12 +182,10 @@ func TestEvaluator_EventRules(t *testing.T) {
 		},
 	}
 
-	data := Data{
-		Event: map[string]any{
-			"name": "order.created",
-			"data": map[string]any{
-				"amount": 150,
-			},
+	data := map[string]any{
+		"name": "order.created",
+		"data": map[string]any{
+			"amount": 150,
 		},
 	}
 
@@ -216,10 +211,8 @@ func TestEvaluator_DateOperators(t *testing.T) {
 		},
 	}
 
-	data := Data{
-		User: map[string]any{
-			"created_at": now,
-		},
+	data := map[string]any{
+		"created_at": now,
 	}
 
 	got, err := evaluator.Evaluate(ruleSet, data)
@@ -249,10 +242,8 @@ func TestEvaluator_FrequencyReturnsError(t *testing.T) {
 		},
 	}
 
-	data := Data{
-		Event: map[string]any{
-			"name": "purchase.completed",
-		},
+	data := map[string]any{
+		"name": "purchase.completed",
 	}
 
 	_, err := evaluator.Evaluate(ruleSet, data)
@@ -274,10 +265,8 @@ func BenchmarkEvaluator_SimpleRule(b *testing.B) {
 		},
 	}
 
-	data := Data{
-		User: map[string]any{
-			"email": "user@example.com",
-		},
+	data := map[string]any{
+		"email": "user@example.com",
 	}
 
 	b.ResetTimer()

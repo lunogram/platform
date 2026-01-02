@@ -332,22 +332,15 @@ func (srv *JourneysController) GetJourneySteps(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	steps, err := srv.store.GetJourneySteps(ctx, versionID)
+	steps, err := srv.store.GetJourneyVersionSteps(ctx, versionID)
 	if err != nil {
-		logger.Error("failed to get journey steps", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	children, err := srv.store.GetJourneyStepChildren(ctx, versionID)
-	if err != nil {
-		logger.Error("failed to get journey step children", zap.Error(err))
+		logger.Error("failed to get journey steps with children", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	logger.Info("journey steps retrieved")
-	json.Write(w, http.StatusOK, steps.OAPI(children))
+	json.Write(w, http.StatusOK, steps.OAPI())
 }
 
 func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {

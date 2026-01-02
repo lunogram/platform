@@ -22,7 +22,7 @@ graph TB
 
     %% Recompute triggers from events
     EventHandler -->|Affected Lists| ListSubject[["recompute.lists.{project_id}.{list_id}"]]
-    EventHandler -->|Affected Journeys| JourneySubject[["recompute.journeys.{project_id}.{journey_id}"]]
+    EventHandler -->|Affected Journeys| JourneySubject[["state.journeys.step.{project_id}"]]
 
     %% Recompute triggers from users
     UserHandler -->|Affected Lists| ListSubject
@@ -33,13 +33,11 @@ graph TB
     UserSchemaSubject -->|Consume| UserSchemaHandler["User Schema Handler"]
 
     ListSubject -->|Consume| ListRecompute["List Recomputation"]
-    JourneySubject -->|Consume| JourneyRecompute["Journey Recomputation"]
+    JourneySubject -->|Consume| JourneyState["Journey State"]
 
     ListRecompute -->|Publish Jobs| ListJobSubject[["jobs.lists.{project_id}.{list_id}"]]
-    ListRecompute -->|List Membership Change| JourneyJobSubject[["jobs.journeys.{project_id}.{journey_id}"]]
-
-    JourneyRecompute -->|Publish Jobs| JourneyJobSubject
+    ListRecompute -->|List Membership Change| JourneySubject
 
     ListJobSubject -->|Consume| ListJobHandler["List Job Handler"]
-    JourneyJobSubject -->|Consume| JourneyJobHandler["Journey Job Handler"]
+    JourneyState["Journey State Handler"]
 ```

@@ -67,7 +67,6 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Name:        StreamRecompute,
 		Description: "Recompute triggers for derived data",
 		Subjects: []string{
-			"recompute.journeys.>",
 			"recompute.lists.>",
 		},
 		Discard:  jetstream.DiscardOld,
@@ -76,18 +75,29 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 	})
 
 	bootstrap.EnsureConsumer(ctx, StreamRecompute, jetstream.ConsumerConfig{
-		Name:          ConsumerRecomputeJourneys,
-		Description:   "Processes recompute journey requests",
-		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: "recompute.journeys.>",
-		MaxDeliver:    5,
-	})
-
-	bootstrap.EnsureConsumer(ctx, StreamRecompute, jetstream.ConsumerConfig{
 		Name:          ConsumerRecomputeLists,
 		Description:   "Processes recompute list requests",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: "recompute.lists.>",
+		MaxDeliver:    5,
+	})
+
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        StreamJourney,
+		Description: "Advance a journey state based on incoming events",
+		Subjects: []string{
+			"state.journeys.>",
+		},
+		Discard:  jetstream.DiscardOld,
+		MaxAge:   24 * time.Hour,
+		Replicas: 1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, StreamJourney, jetstream.ConsumerConfig{
+		Name:          ConsumerJourneysState,
+		Description:   "Processes journey state requests",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: "state.journeys.>",
 		MaxDeliver:    5,
 	})
 

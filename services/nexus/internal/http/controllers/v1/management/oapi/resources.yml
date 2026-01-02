@@ -3939,6 +3939,7 @@ components:
             - $ref: '#/components/schemas/ExperimentChildData'
             - $ref: '#/components/schemas/GateChildData'
           x-go-type: json.RawMessage
+          nullable: true
           description: Child-specific configuration data (structure varies by parent step type)
 
     Tag:

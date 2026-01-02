@@ -87,7 +87,7 @@ func run() error {
 
 	logger.Info("initializing cluster")
 
-	scheduler := scheduler.NewController(ctx, logger, conf)
+	scheduler := scheduler.NewController(ctx, logger, conf, db, pub)
 	leader := leader.NewHandler(scheduler)
 	consensus, err := consensus.NewCluster(ctx, logger, conf)
 	if err != nil {

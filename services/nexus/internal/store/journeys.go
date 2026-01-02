@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -76,74 +77,101 @@ type JourneyVersion struct {
 	PublishedAt   *time.Time `db:"published_at"`
 }
 
-type JourneyVersionStep struct {
-	ID         uuid.UUID   `db:"id"`
-	VersionID  uuid.UUID   `db:"version_id"`
-	ExternalID string      `db:"external_id"`
-	Type       string      `db:"type"`
-	Name       *string     `db:"name"`
-	Data       *JSONB[any] `db:"data"`
-	DataKey    *string     `db:"data_key"`
-	X          float64     `db:"x"`
-	Y          float64     `db:"y"`
-	CreatedAt  time.Time   `db:"created_at"`
-}
-
 type JourneyVersionSteps []JourneyVersionStep
 
-type JourneyVersionStepChild struct {
-	VersionID        uuid.UUID   `db:"version_id"`
-	ParentExternalID string      `db:"parent_external_id"`
-	ChildExternalID  string      `db:"child_external_id"`
-	Path             *string     `db:"path"`
-	Data             *JSONB[any] `db:"data"`
-}
-
-type JourneyVersionStepChildren []JourneyVersionStepChild
-
-func (steps JourneyVersionSteps) OAPI(children JourneyVersionStepChildren) oapi.JourneyStepMap {
+func (steps JourneyVersionSteps) OAPI() oapi.JourneyStepMap {
 	result := make(oapi.JourneyStepMap)
-
 	for _, step := range steps {
-		stepChildren := make([]oapi.JourneyStepChild, 0)
-		for _, child := range children {
-			if child.ParentExternalID == step.ExternalID {
-				childData := oapi.JourneyStepChild{
-					ExternalId: child.ChildExternalID,
-					Path:       child.Path,
-					Data:       child.Data.MarshalRaw(),
-				}
-				stepChildren = append(stepChildren, childData)
-			}
-		}
-
-		result[step.ExternalID] = oapi.JourneyStep{
-			Type:     oapi.JourneyStepType(step.Type),
-			X:        float32(step.X),
-			Y:        float32(step.Y),
-			Name:     step.Name,
-			Data:     step.Data.MarshalRaw(),
-			DataKey:  step.DataKey,
-			Children: stepChildren,
-		}
+		result[step.ExternalID] = step.OAPI()
 	}
 
 	return result
 }
 
+type JourneyVersionStep struct {
+	ID         uuid.UUID                  `db:"id"`
+	VersionID  uuid.UUID                  `db:"version_id"`
+	ExternalID string                     `db:"external_id"`
+	Type       string                     `db:"type"`
+	Name       *string                    `db:"name"`
+	Data       *json.RawMessage           `db:"data"`
+	DataKey    *string                    `db:"data_key"`
+	X          float64                    `db:"x"`
+	Y          float64                    `db:"y"`
+	CreatedAt  time.Time                  `db:"created_at"`
+	Children   JourneyVersionStepChildren `db:"children"`
+}
+
+func (step JourneyVersionStep) OAPI() oapi.JourneyStep {
+	var data *json.RawMessage
+	if step.Data != nil {
+		data = step.Data
+	}
+
+	return oapi.JourneyStep{
+		Type:     oapi.JourneyStepType(step.Type),
+		X:        float32(step.X),
+		Y:        float32(step.Y),
+		Name:     step.Name,
+		Data:     data,
+		DataKey:  step.DataKey,
+		Children: step.Children.OAPI(),
+	}
+}
+
+type JourneyVersionStepChildren []JourneyVersionStepChild
+
+func (steps *JourneyVersionStepChildren) Scan(value any) error {
+	if value == nil {
+		return nil
+	}
+	var buf []byte
+	switch v := value.(type) {
+	case []byte:
+		buf = v
+	case string:
+		buf = []byte(v)
+	}
+	return json.Unmarshal(buf, steps)
+}
+
+func (steps JourneyVersionStepChildren) OAPI() []oapi.JourneyStepChild {
+	results := make([]oapi.JourneyStepChild, len(steps))
+	for i, child := range steps {
+		results[i] = child.OAPI()
+	}
+	return results
+}
+
+type JourneyVersionStepChild struct {
+	VersionID        uuid.UUID        `db:"version_id" json:"version_id"`
+	ParentExternalID string           `db:"parent_external_id" json:"parent_external_id"`
+	ChildExternalID  string           `db:"child_external_id" json:"child_external_id"`
+	Path             *string          `db:"path" json:"path,omitempty"`
+	Data             *json.RawMessage `db:"data" json:"data,omitempty"`
+}
+
+func (child JourneyVersionStepChild) OAPI() oapi.JourneyStepChild {
+	return oapi.JourneyStepChild{
+		ExternalId: child.ChildExternalID,
+		Path:       child.Path,
+		Data:       child.Data,
+	}
+}
+
 type JourneyUserState struct {
-	ID              uuid.UUID   `db:"id"`
-	JourneyID       uuid.UUID   `db:"journey_id"`
-	UserID          uuid.UUID   `db:"user_id"`
-	PinnedVersionID *uuid.UUID  `db:"pinned_version_id"`
-	ExternalID      *string     `db:"external_id"`
-	Type            *string     `db:"type"`
-	EnteredAt       time.Time   `db:"entered_at"`
-	ResumeAt        *time.Time  `db:"resume_at"`
-	CompletedAt     *time.Time  `db:"completed_at"`
-	Data            *JSONB[any] `db:"data"`
-	Status          string      `db:"status"`
-	UpdatedAt       time.Time   `db:"updated_at"`
+	ID              uuid.UUID        `db:"id"`
+	ProjectID       uuid.UUID        `db:"project_id"`
+	JourneyID       uuid.UUID        `db:"journey_id"`
+	JourneyEntryID  uuid.UUID        `db:"journey_entry_id"`
+	UserID          uuid.UUID        `db:"user_id"`
+	ExternalStepID  string           `db:"external_step_id"`
+	PinnedVersionID *uuid.UUID       `db:"pinned_version_id"`
+	EnteredAt       time.Time        `db:"entered_at"`
+	ResumeAt        *time.Time       `db:"resume_at"`
+	CompletedAt     *time.Time       `db:"completed_at"`
+	Data            *json.RawMessage `db:"data"`
+	UpdatedAt       time.Time        `db:"updated_at"`
 }
 
 func NewJourneysStore(db DB) *JourneysStore {
@@ -559,23 +587,7 @@ func (s *JourneysStore) PublishVersion(ctx context.Context, journeyID, versionID
 	return err
 }
 
-func (s *JourneysStore) GetJourneySteps(ctx context.Context, versionID uuid.UUID) (JourneyVersionSteps, error) {
-	query := `
-	SELECT id, version_id, external_id, type, name, data, data_key, x, y, created_at
-	FROM journey_version_steps
-	WHERE version_id = $1
-	ORDER BY created_at ASC`
-
-	var steps JourneyVersionSteps
-	err := s.db.SelectContext(ctx, &steps, query, versionID)
-	if err != nil {
-		return nil, err
-	}
-
-	return steps, nil
-}
-
-func (s *JourneysStore) GetJourneyStepChildren(ctx context.Context, versionID uuid.UUID) (JourneyVersionStepChildren, error) {
+func (s *JourneysStore) GetJourneyVersionStepsChildren(ctx context.Context, versionID uuid.UUID) (JourneyVersionStepChildren, error) {
 	query := `
 	SELECT version_id, parent_external_id, child_external_id, path, data
 	FROM journey_version_step_children
@@ -588,6 +600,76 @@ func (s *JourneysStore) GetJourneyStepChildren(ctx context.Context, versionID uu
 	}
 
 	return children, nil
+}
+
+func (s *JourneysStore) GetJourneyStep(ctx context.Context, journeyID uuid.UUID, externalID string, versionID *uuid.UUID) (JourneyVersionStep, error) {
+	query := `
+	WITH target_version AS (
+		SELECT COALESCE($3, j.version_id) AS version_id
+		FROM journeys j
+		WHERE j.id = $1
+	)
+	SELECT 
+		s.id, 
+		s.version_id, 
+		s.external_id, 
+		s.type, 
+		s.name, 
+		s.data, 
+		s.data_key, 
+		s.x, 
+		s.y, 
+		s.created_at,
+		COALESCE(
+			json_agg(row_to_json(c)) FILTER (WHERE c.version_id IS NOT NULL),
+			'[]'
+		) AS children
+	FROM target_version v
+	JOIN journey_version_steps s ON s.version_id = v.version_id
+	LEFT JOIN journey_version_step_children c ON s.version_id = v.version_id AND s.external_id = c.parent_external_id
+	WHERE s.external_id = $2
+	GROUP BY s.id
+	ORDER BY s.created_at ASC`
+
+	var step JourneyVersionStep
+	err := s.db.GetContext(ctx, &step, query, journeyID, externalID, versionID)
+	if err != nil {
+		return JourneyVersionStep{}, err
+	}
+
+	return step, nil
+}
+
+func (s *JourneysStore) GetJourneyVersionSteps(ctx context.Context, versionID uuid.UUID) (JourneyVersionSteps, error) {
+	query := `
+	SELECT 
+		s.id, 
+		s.version_id, 
+		s.external_id, 
+		s.type, 
+		s.name, 
+		s.data, 
+		s.data_key, 
+		s.x, 
+		s.y, 
+		s.created_at,
+		COALESCE(
+			json_agg(row_to_json(c)) FILTER (WHERE c.version_id IS NOT NULL),
+			'[]'
+		) AS children
+	FROM journey_version_steps s
+	LEFT JOIN journey_version_step_children c ON s.version_id = c.version_id AND s.external_id = c.parent_external_id
+	WHERE s.version_id = $1
+	GROUP BY s.id
+	ORDER BY s.created_at ASC`
+
+	var steps JourneyVersionSteps
+	err := s.db.SelectContext(ctx, &steps, query, versionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return steps, nil
 }
 
 func (s *JourneysStore) SetJourneySteps(ctx context.Context, versionID uuid.UUID, steps oapi.JourneyStepMap) (map[string]uuid.UUID, error) {
@@ -790,97 +872,26 @@ func (s *JourneysStore) CopyVersionContent(ctx context.Context, sourceVersionID,
 	return err
 }
 
-func (s *JourneysStore) GetNextStep(ctx context.Context, userStateID uuid.UUID) (*struct {
-	ChildExternalID string
-	Path            *string
-	Data            *JSONB[any]
-	StepID          uuid.UUID
-	Type            string
-	StepData        *JSONB[any]
-}, error) {
-	query := `
-	WITH user_state AS (
-		SELECT
-			jus.id,
-			jus.journey_id,
-			jus.user_id,
-			jus.external_id,
-			COALESCE(jus.pinned_version_id, j.version_id) AS effective_version_id
-		FROM journey_user_state jus
-		JOIN journeys j ON j.id = jus.journey_id
-		WHERE jus.id = $1
-	),
-	next_step AS (
-		SELECT
-			c.child_external_id,
-			c.path,
-			c.data,
-			jvs.id AS step_id,
-			jvs.type,
-			jvs.data AS step_data
-		FROM user_state u
-		JOIN journey_version_step_children c
-			ON c.version_id = u.effective_version_id
-			AND c.parent_external_id = u.external_id
-		JOIN journey_version_steps jvs
-			ON jvs.version_id = u.effective_version_id
-			AND jvs.external_id = c.child_external_id
-		LIMIT 1
-	)
-	SELECT child_external_id, path, data, step_id, type, step_data
-	FROM next_step`
-
-	type result struct {
-		ChildExternalID string      `db:"child_external_id"`
-		Path            *string     `db:"path"`
-		Data            *JSONB[any] `db:"data"`
-		StepID          uuid.UUID   `db:"step_id"`
-		Type            string      `db:"type"`
-		StepData        *JSONB[any] `db:"step_data"`
-	}
-
-	var res result
-	err := s.db.GetContext(ctx, &res, query, userStateID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &struct {
-		ChildExternalID string
-		Path            *string
-		Data            *JSONB[any]
-		StepID          uuid.UUID
-		Type            string
-		StepData        *JSONB[any]
-	}{
-		ChildExternalID: res.ChildExternalID,
-		Path:            res.Path,
-		Data:            res.Data,
-		StepID:          res.StepID,
-		Type:            res.Type,
-		StepData:        res.StepData,
-	}, nil
-}
-
 func (s *JourneysStore) CreateUserJourneyState(ctx context.Context, state JourneyUserState) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO journey_user_state (journey_id, user_id, pinned_version_id, external_id, type, entered_at, data, status)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	INSERT INTO journey_user_state (journey_id, journey_entry_id, user_id, external_step_id, pinned_version_id, data, completed_at, resume_at)
+	VALUES ($1, $2, $3, $4, $5, COALESCE($6, '{}'::jsonb), $7, $8)
+	ON CONFLICT (journey_entry_id, external_step_id) DO UPDATE
+	SET completed_at = EXCLUDED.completed_at,
+		resume_at = EXCLUDED.resume_at,
+		data = EXCLUDED.data
 	RETURNING id`
 
 	var id uuid.UUID
 	err := s.db.GetContext(ctx, &id, stmt,
 		state.JourneyID,
+		state.JourneyEntryID,
 		state.UserID,
+		state.ExternalStepID,
 		state.PinnedVersionID,
-		state.ExternalID,
-		state.Type,
-		state.EnteredAt,
 		state.Data,
-		state.Status,
+		state.CompletedAt,
+		state.ResumeAt,
 	)
 	if err != nil {
 		return uuid.Nil, err
@@ -889,14 +900,33 @@ func (s *JourneysStore) CreateUserJourneyState(ctx context.Context, state Journe
 	return id, nil
 }
 
-func (s *JourneysStore) GetUserJourneyState(ctx context.Context, journeyID, userID uuid.UUID) (*JourneyUserState, error) {
-	stmt := `
-	SELECT id, journey_id, user_id, pinned_version_id, external_id, type, entered_at, resume_at, completed_at, data, status, updated_at
-	FROM journey_user_state
-	WHERE journey_id = $1 AND user_id = $2`
+func (s *JourneysStore) ListResumeableUserJourneys(ctx context.Context) ([]JourneyUserState, error) {
+	query := `
+	SELECT jus.id, j.project_id, jus.journey_id, jus.user_id, jus.pinned_version_id, jus.entered_at, jus.resume_at, jus.completed_at, COALESCE(jus.data, '{}'::jsonb) AS data, jus.updated_at, jus.journey_entry_id, jus.external_step_id
+	FROM journey_user_state jus
+	JOIN journeys j ON j.id = jus.journey_id
+	WHERE jus.completed_at IS NULL
+	AND jus.resume_at <= NOW()`
+
+	var states []JourneyUserState
+	err := s.db.SelectContext(ctx, &states, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return states, nil
+}
+
+func (s *JourneysStore) GetUserJourneyState(ctx context.Context, journeyEntryID uuid.UUID, externalStepID string) (*JourneyUserState, error) {
+	query := `
+	SELECT jus.id, j.project_id, jus.journey_id, jus.user_id, jus.pinned_version_id, jus.entered_at, jus.resume_at, jus.completed_at, COALESCE(jus.data, '{}'::jsonb) AS data, jus.updated_at, jus.journey_entry_id, jus.external_step_id
+	FROM journey_user_state jus
+	JOIN journeys j ON j.id = jus.journey_id
+	WHERE jus.journey_entry_id = $1
+	AND jus.external_step_id = $2`
 
 	var state JourneyUserState
-	err := s.db.GetContext(ctx, &state, stmt, journeyID, userID)
+	err := s.db.GetContext(ctx, &state, query, journeyEntryID, externalStepID)
 	if err != nil {
 		return nil, err
 	}
@@ -904,27 +934,61 @@ func (s *JourneysStore) GetUserJourneyState(ctx context.Context, journeyID, user
 	return &state, nil
 }
 
-func (s *JourneysStore) UpdateUserJourneyState(ctx context.Context, stateID uuid.UUID, update map[string]interface{}) error {
-	query := "UPDATE journey_user_state SET"
-	args := []interface{}{}
-	argCount := 1
-	first := true
+func (s *JourneysStore) GetJourneyEntryData(ctx context.Context, journeyEntryID, userID uuid.UUID) (map[string]any, error) {
+	query := `
+	WITH user_json AS (
+		SELECT to_jsonb(u) AS user_data
+		FROM users AS u
+		WHERE u.id = $2
+	),
 
-	for k, v := range update {
-		if !first {
-			query += ","
-		}
-		query += fmt.Sprintf(" %s = $%d", k, argCount)
-		args = append(args, v)
-		argCount++
-		first = false
+	journey_state AS (
+		SELECT jus.data AS state_data
+		FROM journey_user_state AS jus
+		WHERE jus.journey_entry_id = $1
+	),
+
+	journey_step_keys AS (
+		SELECT step.data_key
+		FROM journey_user_state AS jus
+		JOIN journeys AS j ON j.id = jus.journey_id
+		JOIN journey_version_steps AS step ON step.external_id = jus.external_step_id AND step.version_id = COALESCE(jus.pinned_version_id, j.version_id)
+		WHERE jus.journey_entry_id = $1
+		AND step.data_key IS NOT NULL
+	)
+
+	SELECT jsonb_build_object(
+		'user', uj.user_data,
+		'journey', COALESCE(
+			(
+				SELECT jsonb_object_agg(
+				k.data_key,
+				js.state_data -> k.data_key
+				)
+				FROM journey_step_keys AS k
+				CROSS JOIN journey_state AS js
+			),
+			'{}'::jsonb
+		)
+	)
+	FROM user_json AS uj`
+
+	var rawResult json.RawMessage
+	err := s.db.GetContext(ctx, &rawResult, query, journeyEntryID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
 
-	query += fmt.Sprintf(" WHERE id = $%d", argCount)
-	args = append(args, stateID)
+	if err != nil {
+		return nil, err
+	}
 
-	_, err := s.db.ExecContext(ctx, query, args...)
-	return err
+	var result map[string]any
+	if err := json.Unmarshal(rawResult, &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 type UserJourneyEntrances []UserJourneyEntrance
