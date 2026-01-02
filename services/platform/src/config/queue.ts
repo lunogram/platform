@@ -6,8 +6,9 @@ import UserDeleteJob from '../users/UserDeleteJob'
 import UserPatchJob from '../users/UserPatchJob'
 import WebhookJob from '../providers/webhook/WebhookJob'
 import { QueueConfig } from '../queue/Queue'
-import JourneyDelayJob from '../journey/JourneyDelayJob'
-import JourneyProcessJob from '../journey/JourneyProcessJob'
+// Journey jobs disabled - journeys migrated to Nexus service
+// import JourneyDelayJob from '../journey/JourneyDelayJob'
+// import JourneyProcessJob from '../journey/JourneyProcessJob'
 import ListStatsJob from '../lists/ListStatsJob'
 import ProcessListsJob from '../lists/ProcessListsJob'
 import ProcessCampaignsJob from '../campaigns/ProcessCampaignsJob'
@@ -18,10 +19,10 @@ import CampaignInteractJob from '../campaigns/CampaignInteractJob'
 import PushJob from '../providers/push/PushJob'
 import UserAliasJob from '../users/UserAliasJob'
 import UserDeviceJob from '../users/UserDeviceJob'
-import JourneyStatsJob from '../journey/JourneyStatsJob'
-import UpdateJourneysJob from '../journey/UpdateJourneysJob'
-import ScheduledEntranceJob from '../journey/ScheduledEntranceJob'
-import ScheduledEntranceOrchestratorJob from '../journey/ScheduledEntranceOrchestratorJob'
+// import JourneyStatsJob from '../journey/JourneyStatsJob'
+// import UpdateJourneysJob from '../journey/UpdateJourneysJob'
+// import ScheduledEntranceJob from '../journey/ScheduledEntranceJob'
+// import ScheduledEntranceOrchestratorJob from '../journey/ScheduledEntranceOrchestratorJob'
 import CampaignAbortJob from '../campaigns/CampaignAbortJob'
 import UnsubscribeJob from '../subscriptions/UnsubscribeJob'
 
@@ -33,18 +34,19 @@ export const jobs = [
     CampaignStateJob,
     EmailJob,
     EventPostJob,
-    JourneyDelayJob,
-    JourneyProcessJob,
-    JourneyStatsJob,
+    // Journey jobs disabled - journeys migrated to Nexus service
+    // JourneyDelayJob,
+    // JourneyProcessJob,
+    // JourneyStatsJob,
     ListStatsJob,
     ProcessListsJob,
     ProcessCampaignsJob,
     PushJob,
-    ScheduledEntranceJob,
-    ScheduledEntranceOrchestratorJob,
+    // ScheduledEntranceJob,
+    // ScheduledEntranceOrchestratorJob,
     TextJob,
     UnsubscribeJob,
-    UpdateJourneysJob,
+    // UpdateJourneysJob,
     UserAliasJob,
     UserDeleteJob,
     UserDeviceJob,

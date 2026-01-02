@@ -42,7 +42,7 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 
 	project, err := srv.store.ProjectsStore.GetProject(ctx, projectID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("project not found", zap.Stringer("project_id", projectID))
+		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
 		return
 	}
@@ -156,7 +156,7 @@ func (srv *CampaignsController) GetCampaign(w http.ResponseWriter, r *http.Reque
 
 	campaign, err := srv.store.GetCampaign(ctx, projectID, campaignID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("campaign not found", zap.Stringer("campaign_id", campaignID))
+		logger.Info("campaign not found", zap.Stringer("campaign_id", campaignID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
 		return
 	}
@@ -185,7 +185,7 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 
 	_, err = srv.store.GetCampaign(ctx, projectID, campaignID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("campaign not found", zap.Stringer("campaign_id", campaignID))
+		logger.Info("campaign not found", zap.Stringer("campaign_id", campaignID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
 		return
 	}
@@ -226,7 +226,7 @@ func (srv *CampaignsController) DeleteCampaign(w http.ResponseWriter, r *http.Re
 
 	_, err := srv.store.GetCampaign(ctx, projectID, campaignID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("campaign not found", zap.Stringer("campaign_id", campaignID))
+		logger.Info("campaign not found", zap.Stringer("campaign_id", campaignID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
 		return
 	}
@@ -255,7 +255,7 @@ func (srv *CampaignsController) DuplicateCampaign(w http.ResponseWriter, r *http
 
 	campaign, err := srv.store.GetCampaign(ctx, projectID, campaignID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("campaign not found", zap.Stringer("campaign_id", campaignID))
+		logger.Info("campaign not found", zap.Stringer("campaign_id", campaignID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
 		return
 	}
@@ -326,7 +326,7 @@ func (srv *CampaignsController) GetCampaignUsers(w http.ResponseWriter, r *http.
 
 	_, err := srv.store.GetCampaign(ctx, projectID, campaignID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("campaign not found", zap.Stringer("campaign_id", campaignID))
+		logger.Info("campaign not found", zap.Stringer("campaign_id", campaignID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
 		return
 	}

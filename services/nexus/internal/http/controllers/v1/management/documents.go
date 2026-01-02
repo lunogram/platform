@@ -160,7 +160,7 @@ func (srv *DocumentsController) GetDocument(w http.ResponseWriter, r *http.Reque
 	documentsStore := store.NewDocumentsStore(srv.db)
 	document, err := documentsStore.GetDocument(ctx, projectID, documentID)
 	if errors.Is(err, store.ErrNoRows) {
-		logger.Error("document not found", zap.Stringer("document_id", documentID))
+		logger.Info("document not found", zap.Stringer("document_id", documentID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("document not found")))
 		return
 	}
@@ -198,7 +198,7 @@ func (srv *DocumentsController) GetDocumentMetadata(w http.ResponseWriter, r *ht
 	documentsStore := store.NewDocumentsStore(srv.db)
 	document, err := documentsStore.GetDocument(ctx, projectID, documentID)
 	if errors.Is(err, store.ErrNoRows) {
-		logger.Error("document not found", zap.Stringer("document_id", documentID))
+		logger.Info("document not found", zap.Stringer("document_id", documentID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("document not found")))
 		return
 	}
@@ -221,7 +221,7 @@ func (srv *DocumentsController) DeleteDocument(w http.ResponseWriter, r *http.Re
 	documentsStore := store.NewDocumentsStore(srv.db)
 	document, err := documentsStore.GetDocument(ctx, projectID, documentID)
 	if errors.Is(err, store.ErrNoRows) {
-		logger.Error("document not found", zap.Stringer("document_id", documentID))
+		logger.Info("document not found", zap.Stringer("document_id", documentID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("document not found")))
 		return
 	}

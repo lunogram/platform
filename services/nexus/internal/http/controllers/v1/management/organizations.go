@@ -43,7 +43,7 @@ func (srv *OrganizationsController) GetOrganization(w http.ResponseWriter, r *ht
 
 	organization, err := srv.store.GetOrganization(ctx, scope.OrganizationID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("organization not found", zap.Stringer("organization_id", scope.OrganizationID))
+		logger.Info("organization not found", zap.Stringer("organization_id", scope.OrganizationID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
 		return
 	}

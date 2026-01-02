@@ -313,7 +313,7 @@ export type DynamicList = List & { type: 'dynamic' }
 export type ListCreateParams = Pick<List, 'name' | 'rule' | 'type' | 'tags' | 'is_visible'>
 export type ListUpdateParams = Pick<List, 'name' | 'rule' | 'tags'> & { published?: boolean }
 
-type JourneyStatus = 'draft' | 'live' | 'off'
+type JourneyStatus = 'draft' | 'published' | 'archived'
 
 export interface Journey {
     id: UUID
@@ -323,6 +323,9 @@ export interface Journey {
     description?: string
     template_id?: string
     status: JourneyStatus
+    version_number?: number
+    draft_version_id?: UUID
+    published_version_id?: UUID
     tags?: string[]
     created_at: string
     updated_at: string

@@ -43,7 +43,7 @@ func (srv *AdminsController) GetProfile(w http.ResponseWriter, r *http.Request) 
 
 	admin, err := srv.store.GetAdminBySubject(ctx, session)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("admin not found")
+		logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -72,7 +72,7 @@ func (srv *AdminsController) Whoami(w http.ResponseWriter, r *http.Request) {
 
 	admin, err := srv.store.GetAdminBySubject(ctx, session)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("admin not found")
+		logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -98,7 +98,7 @@ func (srv *AdminsController) ListAdmins(w http.ResponseWriter, r *http.Request, 
 
 	admin, err := srv.store.GetAdminBySubject(ctx, session)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("admin not found")
+		srv.logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -165,7 +165,7 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 
 	currentAdmin, err := srv.store.GetAdminBySubject(ctx, session)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("admin not found")
+		srv.logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -274,7 +274,7 @@ func (srv *AdminsController) GetAdmin(w http.ResponseWriter, r *http.Request, ad
 
 	currentAdmin, err := srv.store.GetAdminBySubject(ctx, session)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("admin not found")
+		srv.logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -294,7 +294,7 @@ func (srv *AdminsController) GetAdmin(w http.ResponseWriter, r *http.Request, ad
 
 	admin, err := srv.store.GetAdmin(ctx, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("admin not found")
+		logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -306,7 +306,7 @@ func (srv *AdminsController) GetAdmin(w http.ResponseWriter, r *http.Request, ad
 	}
 
 	if admin.OrganizationID != currentAdmin.OrganizationID {
-		logger.Error("admin not in organization")
+		logger.Info("admin not in organization")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -326,7 +326,7 @@ func (srv *AdminsController) UpdateAdmin(w http.ResponseWriter, r *http.Request,
 
 	currentAdmin, err := srv.store.GetAdminBySubject(ctx, session)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("admin not found")
+		srv.logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -339,7 +339,7 @@ func (srv *AdminsController) UpdateAdmin(w http.ResponseWriter, r *http.Request,
 
 	admin, err := srv.store.GetAdmin(ctx, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("admin not found")
+		srv.logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -351,7 +351,7 @@ func (srv *AdminsController) UpdateAdmin(w http.ResponseWriter, r *http.Request,
 	}
 
 	if admin.OrganizationID != currentAdmin.OrganizationID {
-		srv.logger.Error("admin not in organization")
+		srv.logger.Info("admin not in organization")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -425,7 +425,7 @@ func (srv *AdminsController) DeleteAdmin(w http.ResponseWriter, r *http.Request,
 
 	currentAdmin, err := srv.store.GetAdminBySubject(ctx, session)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("admin not found")
+		srv.logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -438,7 +438,7 @@ func (srv *AdminsController) DeleteAdmin(w http.ResponseWriter, r *http.Request,
 
 	admin, err := srv.store.GetAdmin(ctx, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("admin not found")
+		srv.logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -450,7 +450,7 @@ func (srv *AdminsController) DeleteAdmin(w http.ResponseWriter, r *http.Request,
 	}
 
 	if admin.OrganizationID != currentAdmin.OrganizationID {
-		srv.logger.Error("admin not in organization")
+		srv.logger.Info("admin not in organization")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
@@ -553,7 +553,7 @@ func (srv *AdminsController) GetProjectAdmin(w http.ResponseWriter, r *http.Requ
 
 	projectAdmin, err := srv.store.GetProjectAdmin(ctx, projectID, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("project admin not found")
+		logger.Info("project admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project admin not found")))
 		return
 	}
@@ -588,7 +588,7 @@ func (srv *AdminsController) UpdateProjectAdmin(w http.ResponseWriter, r *http.R
 
 	_, err := srv.store.GetProjectAdmin(ctx, projectID, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("project admin not found")
+		logger.Info("project admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project admin not found")))
 		return
 	}
@@ -629,7 +629,7 @@ func (srv *AdminsController) DeleteProjectAdmin(w http.ResponseWriter, r *http.R
 
 	_, err := srv.store.GetProjectAdmin(ctx, projectID, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("project admin not found")
+		logger.Info("project admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project admin not found")))
 		return
 	}

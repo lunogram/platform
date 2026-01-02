@@ -143,7 +143,7 @@ func (srv *UsersController) GetUser(w http.ResponseWriter, r *http.Request, proj
 
 	user, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("user not found")
+		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -169,7 +169,7 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("user not found")
+		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -232,7 +232,7 @@ func (srv *UsersController) DeleteUser(w http.ResponseWriter, r *http.Request, p
 
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("user not found")
+		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -272,7 +272,7 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("user not found")
+		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -325,7 +325,7 @@ func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.
 
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("user not found")
+		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -378,7 +378,7 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("user not found")
+		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -407,7 +407,7 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 	for _, sub := range subscriptions {
 		_, err := srv.store.GetSubscription(ctx, projectID, sub.SubscriptionId)
 		if errors.Is(err, sql.ErrNoRows) {
-			logger.Error("subscription not found", zap.String("subscription_id", sub.SubscriptionId.String()))
+			logger.Info("subscription not found", zap.String("subscription_id", sub.SubscriptionId.String()))
 			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("subscription not found")))
 			return
 		}
@@ -448,7 +448,7 @@ func (srv *UsersController) GetUserJourneys(w http.ResponseWriter, r *http.Reque
 
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("user not found")
+		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}

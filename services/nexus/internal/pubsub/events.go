@@ -97,7 +97,8 @@ func EventsHandler(logger *zap.Logger, db *sqlx.DB, pub Publisher) HandlerFunc {
 
 		wg, ctx := errgroup.WithContext(ctx)
 		wg.Go(PublishEventSchema(ctx, logger, pub, event))
-		wg.Go(PublishRecomputeEventLists(ctx, logger, state.EventsStore, pub, event))
+		wg.Go(PublishEventListDependencies(ctx, logger, state.EventsStore, pub, event))
+		wg.Go(PublishEventJourneyDependencies(ctx, logger, state.EventsStore, pub, event))
 
 		err = wg.Wait()
 		if err != nil {
@@ -110,6 +111,8 @@ func EventsHandler(logger *zap.Logger, db *sqlx.DB, pub Publisher) HandlerFunc {
 	}
 }
 
+// PublishEventSchema returns a function that publishes the event schema to the schema subject
+// if the event contains data properties.
 func PublishEventSchema(ctx context.Context, logger *zap.Logger, pub Publisher, event Event) func() error {
 	return func() error {
 		if event.Data != nil {
@@ -124,7 +127,9 @@ func PublishEventSchema(ctx context.Context, logger *zap.Logger, pub Publisher, 
 	}
 }
 
-func PublishRecomputeEventLists(ctx context.Context, logger *zap.Logger, events *store.EventsStore, pub Publisher, event Event) func() error {
+// PublishEventListDependencies returns a function that publishes recompute messages for all lists
+// that depend on the given event through rule conditions.
+func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, events *store.EventsStore, pub Publisher, event Event) func() error {
 	return func() error {
 		lists, err := events.ListEventListDependencies(ctx, event.ID)
 		if err != nil {
@@ -143,6 +148,24 @@ func PublishRecomputeEventLists(ctx context.Context, logger *zap.Logger, events 
 				logger.Error("failed to publish rule to project subject", zap.Error(err))
 				return err
 			}
+		}
+
+		return nil
+	}
+}
+
+// PublishEventJourneyDependencies returns a function that triggers journey entrance steps
+// for all journeys configured with event-based entrance conditions matching the given event.
+func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, events *store.EventsStore, pub Publisher, event Event) func() error {
+	return func() error {
+		lists, err := events.ListEventJourneyDependencies(ctx, event.ID)
+		if err != nil {
+			logger.Error("failed to list rule event dependencies", zap.Error(err))
+			return err
+		}
+
+		for _, id := range lists {
+			fmt.Println("----------", id)
 		}
 
 		return nil

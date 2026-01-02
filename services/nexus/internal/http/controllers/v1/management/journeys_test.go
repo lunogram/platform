@@ -44,8 +44,6 @@ func TestCreateJourney(t *testing.T) {
 		code int
 	}
 
-	statusDraft := oapi.CreateJourneyStatusDraft
-	statusLive := oapi.CreateJourneyStatusLive
 	description := "A test journey description"
 
 	tests := map[string]test{
@@ -59,20 +57,6 @@ func TestCreateJourney(t *testing.T) {
 			body: oapi.CreateJourneyJSONRequestBody{
 				Name:        "Onboarding Journey",
 				Description: &description,
-			},
-			code: 201,
-		},
-		"with_status_draft": {
-			body: oapi.CreateJourneyJSONRequestBody{
-				Name:   "Draft Journey",
-				Status: &statusDraft,
-			},
-			code: 201,
-		},
-		"with_status_live": {
-			body: oapi.CreateJourneyJSONRequestBody{
-				Name:   "Live Journey",
-				Status: &statusLive,
 			},
 			code: 201,
 		},
@@ -128,11 +112,9 @@ func TestListJourneys(t *testing.T) {
 	journeysStore := store.NewJourneysStore(db)
 
 	for i := 0; i < 5; i++ {
-		status := "draft"
 		_, err := journeysStore.CreateJourney(ctx, store.Journey{
 			ProjectID: projectID,
 			Name:      "Test Journey",
-			Status:    &status,
 		})
 		require.NoError(t, err)
 	}
@@ -221,13 +203,11 @@ func TestGetJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	journeysStore := store.NewJourneysStore(db)
-	status := "live"
 	description := "Test Description"
 	journeyID, err := journeysStore.CreateJourney(ctx, store.Journey{
 		ProjectID:   projectID,
 		Name:        "Test Journey",
 		Description: &description,
-		Status:      &status,
 	})
 	require.NoError(t, err)
 
@@ -263,7 +243,6 @@ func TestGetJourney(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, test.journeyID, journey.Id)
 				require.Equal(t, "Test Journey", journey.Name)
-				require.Equal(t, "live", journey.Status)
 				require.NotNil(t, journey.Description)
 				require.Equal(t, description, *journey.Description)
 			}
@@ -293,11 +272,9 @@ func TestUpdateJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	journeysStore := store.NewJourneysStore(db)
-	status := "draft"
 	journeyID, err := journeysStore.CreateJourney(ctx, store.Journey{
 		ProjectID: projectID,
 		Name:      "Original Journey",
-		Status:    &status,
 	})
 	require.NoError(t, err)
 
@@ -310,7 +287,6 @@ func TestUpdateJourney(t *testing.T) {
 
 	newName := "Updated Journey"
 	newDescription := "Updated description"
-	statusLive := oapi.UpdateJourneyStatus("live")
 
 	tests := map[string]test{
 		"update_name": {
@@ -325,17 +301,10 @@ func TestUpdateJourney(t *testing.T) {
 			},
 			code: 200,
 		},
-		"update_status": {
-			body: oapi.UpdateJourneyJSONRequestBody{
-				Status: &statusLive,
-			},
-			code: 200,
-		},
 		"update_all": {
 			body: oapi.UpdateJourneyJSONRequestBody{
 				Name:        &newName,
 				Description: &newDescription,
-				Status:      &statusLive,
 			},
 			code: 200,
 		},
@@ -365,9 +334,6 @@ func TestUpdateJourney(t *testing.T) {
 					require.NotNil(t, journey.Description)
 					require.Equal(t, *test.body.Description, *journey.Description)
 				}
-				if test.body.Status != nil {
-					require.Equal(t, string(*test.body.Status), journey.Status)
-				}
 			}
 		})
 	}
@@ -395,11 +361,9 @@ func TestDeleteJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	journeysStore := store.NewJourneysStore(db)
-	status := "draft"
 	journeyID, err := journeysStore.CreateJourney(ctx, store.Journey{
 		ProjectID: projectID,
 		Name:      "Journey to Delete",
-		Status:    &status,
 	})
 	require.NoError(t, err)
 

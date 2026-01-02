@@ -123,6 +123,19 @@ func (j JSONB[T]) Value() (driver.Value, error) {
 	return json.Marshal(j.Data)
 }
 
+func (j *JSONB[T]) MarshalRaw() *json.RawMessage {
+	if j == nil {
+		return nil
+	}
+
+	bytes, err := json.Marshal(j.Data)
+	if err != nil {
+		return nil
+	}
+
+	return (*json.RawMessage)(&bytes)
+}
+
 type DataType string
 
 const (

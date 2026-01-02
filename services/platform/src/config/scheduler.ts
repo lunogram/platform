@@ -3,11 +3,11 @@ import { subDays } from 'date-fns'
 import nodeScheduler from 'node-schedule'
 import App from '../app'
 import ProcessCampaignsJob from '../campaigns/ProcessCampaignsJob'
-import JourneyDelayJob from '../journey/JourneyDelayJob'
+// import JourneyDelayJob from '../journey/JourneyDelayJob'
 import ProcessListsJob from '../lists/ProcessListsJob'
 import CampaignStateJob from '../campaigns/CampaignStateJob'
-import UpdateJourneysJob from '../journey/UpdateJourneysJob'
-import ScheduledEntranceOrchestratorJob from '../journey/ScheduledEntranceOrchestratorJob'
+// import UpdateJourneysJob from '../journey/UpdateJourneysJob'
+// import ScheduledEntranceOrchestratorJob from '../journey/ScheduledEntranceOrchestratorJob'
 import { acquireLock } from '../core/Lock'
 
 export default (app: App) => {
@@ -15,10 +15,11 @@ export default (app: App) => {
     scheduler.schedule({
         rule: '* * * * *',
         callback: () => {
-            JourneyDelayJob.enqueueActive(app)
+            // Journey jobs disabled - journeys migrated to Nexus service
+            // JourneyDelayJob.enqueueActive(app)
             app.queue.enqueue(ProcessCampaignsJob.from())
             app.queue.enqueue(CampaignStateJob.from())
-            app.queue.enqueue(ScheduledEntranceOrchestratorJob.from())
+            // app.queue.enqueue(ScheduledEntranceOrchestratorJob.from())
         },
         lockLength: 120,
     })
@@ -29,7 +30,8 @@ export default (app: App) => {
             // app.queue.enqueue(UserSchemaSyncJob.from({
             //     delta: subHours(new Date(), 1),
             // }))
-            app.queue.enqueue(UpdateJourneysJob.from())
+            // Journey jobs disabled - journeys migrated to Nexus service
+            // app.queue.enqueue(UpdateJourneysJob.from())
         },
     })
     scheduler.schedule({

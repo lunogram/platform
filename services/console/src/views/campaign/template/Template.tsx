@@ -160,11 +160,20 @@ export default function Template() {
 
             const allLocalesResult = await api.locales.search(project.id, { limit: 5 })
             if (currentTemplate) {
-                const selectedLocale = await api.locales.getByKey(project.id, currentTemplate.locale)
-                setLocaleSelection({
-                    currentLocale: selectedLocale,
-                    allLocales: allLocalesResult.results,
-                })
+                try {
+                    const selectedLocale = await api.locales.getByKey(project.id, currentTemplate.locale)
+                    setLocaleSelection({
+                        currentLocale: selectedLocale,
+                        allLocales: allLocalesResult.results,
+                    })
+                } catch (error) {
+                    // Locale not found, use default or first available locale
+                    console.warn(`Locale ${currentTemplate.locale} not found, using default`)
+                    setLocaleSelection({
+                        currentLocale: allLocalesResult.results[0],
+                        allLocales: allLocalesResult.results,
+                    })
+                }
             } else {
                 setLocaleSelection({
                     currentLocale: undefined,

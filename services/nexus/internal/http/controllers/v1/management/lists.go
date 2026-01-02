@@ -51,7 +51,7 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 
 	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("project not found", zap.Stringer("project_id", projectID))
+		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
 		return
 	}
@@ -166,7 +166,7 @@ func (srv *ListsController) GetList(w http.ResponseWriter, r *http.Request, proj
 
 	list, err := srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("list not found", zap.Stringer("list_id", listID))
+		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
 		return
 	}
@@ -195,7 +195,7 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 
 	list, err := srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("list not found", zap.Stringer("list_id", listID))
+		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
 		return
 	}
@@ -298,7 +298,7 @@ func (srv *ListsController) DeleteList(w http.ResponseWriter, r *http.Request, p
 
 	_, err := srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("list not found", zap.Stringer("list_id", listID))
+		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
 		return
 	}
@@ -327,7 +327,7 @@ func (srv *ListsController) DuplicateList(w http.ResponseWriter, r *http.Request
 
 	list, err := srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("list not found", zap.Stringer("list_id", listID))
+		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
 		return
 	}
@@ -364,7 +364,7 @@ func (srv *ListsController) ImportListUsers(w http.ResponseWriter, r *http.Reque
 
 	list, err := srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("list not found", zap.Stringer("list_id", listID))
+		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
 		return
 	}
@@ -476,7 +476,7 @@ func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request,
 
 	_, err := srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("list not found", zap.Stringer("list_id", listID))
+		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
 		return
 	}
