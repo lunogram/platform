@@ -246,7 +246,7 @@ func TestQueryBuilderBasicQueries(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			qb := NewQueryBuilder(testProjectID)
+			qb := NewQueryBuilder(testProjectID, nil)
 			result, err := qb.Query(tc.ruleSet)
 
 			if tc.wantErr {
@@ -412,7 +412,7 @@ func TestQueryBuilderBuildWrapper(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			qb := NewQueryBuilder(testProjectID)
+			qb := NewQueryBuilder(testProjectID, nil)
 			result, err := qb.Query(tc.ruleSet)
 
 			if tc.wantErr {
@@ -677,7 +677,7 @@ func TestQueryBuilderNestedJSONBPaths(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			qb := NewQueryBuilder(testProjectID)
+			qb := NewQueryBuilder(testProjectID, nil)
 			result, err := qb.Query(tc.ruleSet)
 
 			if tc.wantErr {
@@ -752,7 +752,7 @@ func TestQueryBuilderErrorCases(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			qb := NewQueryBuilder(testProjectID)
+			qb := NewQueryBuilder(testProjectID, nil)
 			_, err := qb.Query(tc.ruleSet)
 
 			if tc.wantErr {
@@ -1134,7 +1134,7 @@ func TestQueryBuilderBuildQuery(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			qb := NewQueryBuilder(testProjectID)
+			qb := NewQueryBuilder(testProjectID, nil)
 			result, err := qb.Query(tc.ruleSet)
 
 			if tc.wantErr {

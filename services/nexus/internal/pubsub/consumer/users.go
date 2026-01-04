@@ -1,65 +1,24 @@
-package pubsub
+package consumer
 
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/schemas"
 	"github.com/lunogram/platform/services/nexus/internal/rules"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
-type User struct {
-	ID          uuid.UUID      `json:"id"`
-	ProjectID   uuid.UUID      `json:"project_id"`
-	AnonymousID *string        `json:"anonymous_id"`
-	ExternalID  *string        `json:"external_id"`
-	Email       *string        `json:"email"`
-	Phone       *string        `json:"phone"`
-	Timezone    *string        `json:"timezone"`
-	Locale      *string        `json:"locale"`
-	Data        map[string]any `json:"data"`
-	Version     int32          `json:"version"`
-}
-
-func (u User) Event(name string) Event {
-	return Event{
-		Name:        name,
-		ProjectID:   u.ProjectID,
-		AnonymousId: u.AnonymousID,
-		ExternalId:  u.ExternalID,
-		Data: map[string]any{
-			"id":       u.ID,
-			"email":    u.Email,
-			"phone":    u.Phone,
-			"timezone": u.Timezone,
-			"locale":   u.Locale,
-			"data":     u.Data,
-			"version":  u.Version,
-		},
-	}
-}
-
-// UsersProjectSubject returns the NATS subject for project-specific users.
-func UsersProjectSubject(projectID uuid.UUID) Subject {
-	return Subject(fmt.Sprintf("users.projects.%s", projectID))
-}
-
-// UsersSchemaSubject returns the NATS subject for user schema updates.
-func UsersSchemaSubject(projectID uuid.UUID) Subject {
-	return Subject(fmt.Sprintf("users.schemas.%s", projectID))
-}
-
 // UsersHandler creates a handler that processes incoming users and stores them in the database.
-func UsersHandler(logger *zap.Logger, db *sqlx.DB, pub Publisher) HandlerFunc {
+func UsersHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) HandlerFunc {
 	lists := store.NewListsStore(db)
 
 	return func(ctx context.Context, msg jetstream.Msg) error {
-		user := User{}
+		user := schemas.User{}
 		err := json.Unmarshal(msg.Data(), &user)
 		if err != nil {
 			logger.Error("failed to unmarshal user message", zap.Error(err))
@@ -75,7 +34,7 @@ func UsersHandler(logger *zap.Logger, db *sqlx.DB, pub Publisher) HandlerFunc {
 		}
 
 		if user.Data != nil {
-			err = pub.Publish(ctx, UsersSchemaSubject(user.ProjectID), user)
+			err = pub.Publish(ctx, schemas.UsersSchemaSubject(user.ProjectID), user)
 			if err != nil {
 				logger.Error("failed to publish user to project subject", zap.Error(err))
 				return err
@@ -93,7 +52,7 @@ func UsersHandler(logger *zap.Logger, db *sqlx.DB, pub Publisher) HandlerFunc {
 	}
 }
 
-func PublishUserRecomputeLists(ctx context.Context, logger *zap.Logger, lists *store.ListsStore, pub Publisher, user User) error {
+func PublishUserRecomputeLists(ctx context.Context, logger *zap.Logger, lists *store.ListsStore, pub pubsub.Publisher, user schemas.User) error {
 	result, err := lists.SelectListUsersDependency(ctx, user.ProjectID)
 	if err != nil {
 		logger.Error("failed to list rule user dependencies", zap.Error(err))
@@ -106,7 +65,7 @@ func PublishUserRecomputeLists(ctx context.Context, logger *zap.Logger, lists *s
 			ProjectID: user.ProjectID,
 		}
 
-		err = pub.Publish(ctx, RecomputeListSubject(user.ProjectID, list.ID), list)
+		err = pub.Publish(ctx, schemas.RecomputeListSubject(user.ProjectID, list.ID), list)
 		if err != nil {
 			logger.Error("failed to publish rule to project subject", zap.Error(err))
 			return err
@@ -116,10 +75,10 @@ func PublishUserRecomputeLists(ctx context.Context, logger *zap.Logger, lists *s
 	return nil
 }
 
-func PublishUserEvents(ctx context.Context, logger *zap.Logger, pub Publisher, user User) (err error) {
+func PublishUserEvents(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, user schemas.User) (err error) {
 	// NOTE: the user is created, let's publish a different event
 	if user.Version == 0 {
-		err = pub.Publish(ctx, EventsProjectSubject(user.ProjectID), user.Event(EventUserCreated))
+		err = pub.Publish(ctx, schemas.EventsProjectSubject(user.ProjectID), user.Event(schemas.EventUserCreated))
 		if err != nil {
 			logger.Error("failed to publish user created event", zap.Error(err))
 			return err
@@ -128,7 +87,7 @@ func PublishUserEvents(ctx context.Context, logger *zap.Logger, pub Publisher, u
 		return nil
 	}
 
-	err = pub.Publish(ctx, EventsProjectSubject(user.ProjectID), user.Event(EventUserUpdated))
+	err = pub.Publish(ctx, schemas.EventsProjectSubject(user.ProjectID), user.Event(schemas.EventUserUpdated))
 	if err != nil {
 		logger.Error("failed to publish user updated event", zap.Error(err))
 		return err
@@ -142,7 +101,7 @@ func UserSchemasHandler(logger *zap.Logger, db *sqlx.DB) HandlerFunc {
 	users := store.NewUsersStore(db)
 
 	return func(ctx context.Context, msg jetstream.Msg) error {
-		user := User{}
+		user := schemas.User{}
 		err := json.Unmarshal(msg.Data(), &user)
 		if err != nil {
 			logger.Error("failed to unmarshal user message", zap.Error(err))

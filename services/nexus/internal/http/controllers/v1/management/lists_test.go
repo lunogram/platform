@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/consumer"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -54,7 +55,7 @@ func TestListCreation(t *testing.T) {
 	jet, err := pubsub.New(ctx, config)
 	require.NoError(t, err)
 
-	err = pubsub.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
@@ -132,7 +133,7 @@ func TestListLists(t *testing.T) {
 	jet, err := pubsub.New(ctx, config)
 	require.NoError(t, err)
 
-	err = pubsub.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
@@ -244,7 +245,7 @@ func TestGetList(t *testing.T) {
 	jet, err := pubsub.New(ctx, config)
 	require.NoError(t, err)
 
-	err = pubsub.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
@@ -299,7 +300,7 @@ func TestUpdateList(t *testing.T) {
 	jet, err := pubsub.New(ctx, config)
 	require.NoError(t, err)
 
-	err = pubsub.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
@@ -360,7 +361,7 @@ func TestDeleteList(t *testing.T) {
 	jet, err := pubsub.New(ctx, config)
 	require.NoError(t, err)
 
-	err = pubsub.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
@@ -412,7 +413,7 @@ func TestDuplicateList(t *testing.T) {
 	jet, err := pubsub.New(ctx, config)
 	require.NoError(t, err)
 
-	err = pubsub.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
@@ -495,7 +496,7 @@ func TestImportListUsers(t *testing.T) {
 			jet, err := pubsub.New(ctx, config)
 			require.NoError(t, err)
 
-			err = pubsub.Bootstrap(ctx, logger, jet)
+			err = consumer.Bootstrap(ctx, logger, jet)
 			require.NoError(t, err)
 
 			pub := pubsub.NewPublisher(jet)

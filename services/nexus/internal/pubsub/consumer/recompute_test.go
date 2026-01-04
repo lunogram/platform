@@ -1,4 +1,4 @@
-package pubsub
+package consumer
 
 import (
 	"encoding/json"
@@ -10,6 +10,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/pkg/container"
 	"github.com/lunogram/platform/services/nexus/internal/config"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/schemas"
 	"github.com/lunogram/platform/services/nexus/internal/rules"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/nats-io/nats.go/jetstream"
@@ -42,7 +44,7 @@ func setupRecomputeTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream)
 	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
-	jet, err := New(ctx, config)
+	jet, err := pubsub.New(ctx, config)
 	require.NoError(t, err)
 
 	st := store.NewState(db)
@@ -67,8 +69,8 @@ func TestRecomputeListSubject(t *testing.T) {
 	projectID := uuid.New()
 	listID := uuid.New()
 
-	subject := RecomputeListSubject(projectID, listID)
-	expected := Subject("recompute.lists." + projectID.String() + "." + listID.String())
+	subject := schemas.RecomputeListSubject(projectID, listID)
+	expected := schemas.Subject("recompute.lists." + projectID.String() + "." + listID.String())
 
 	assert.Equal(t, expected, subject)
 }
@@ -122,7 +124,7 @@ func TestRecomputeListHandler_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	handler := RecomputeListHandler(logger, db, pub)
 
 	recompute := RecomputeList{
@@ -130,7 +132,7 @@ func TestRecomputeListHandler_Success(t *testing.T) {
 		ProjectID: projectID,
 	}
 
-	err = pub.Publish(ctx, RecomputeListSubject(projectID, listID), recompute)
+	err = pub.Publish(ctx, schemas.RecomputeListSubject(projectID, listID), recompute)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamRecompute, ConsumerRecomputeLists)
@@ -172,7 +174,7 @@ func TestRecomputeListHandler_NoRule(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	handler := RecomputeListHandler(logger, db, pub)
 
 	recompute := RecomputeList{
@@ -180,7 +182,7 @@ func TestRecomputeListHandler_NoRule(t *testing.T) {
 		ProjectID: projectID,
 	}
 
-	err = pub.Publish(ctx, RecomputeListSubject(projectID, listID), recompute)
+	err = pub.Publish(ctx, schemas.RecomputeListSubject(projectID, listID), recompute)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamRecompute, ConsumerRecomputeLists)
@@ -242,7 +244,7 @@ func TestRecomputeListHandler_WithUserAddedEvent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	handler := RecomputeListHandler(logger, db, pub)
 
 	recompute := RecomputeList{
@@ -250,7 +252,7 @@ func TestRecomputeListHandler_WithUserAddedEvent(t *testing.T) {
 		ProjectID: projectID,
 	}
 
-	err = pub.Publish(ctx, RecomputeListSubject(projectID, listID), recompute)
+	err = pub.Publish(ctx, schemas.RecomputeListSubject(projectID, listID), recompute)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamRecompute, ConsumerRecomputeLists)
@@ -271,10 +273,10 @@ func TestRecomputeListHandler_WithUserAddedEvent(t *testing.T) {
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
 	require.NoError(t, err)
 
-	var receivedEvent Event
+	var receivedEvent schemas.Event
 	err = json.Unmarshal(eventMsg.Data(), &receivedEvent)
 	require.NoError(t, err)
-	assert.Equal(t, EventListUserAdded, receivedEvent.Name)
+	assert.Equal(t, schemas.EventListUserAdded, receivedEvent.Name)
 	assert.Equal(t, userID, receivedEvent.UserID)
 	assert.Equal(t, projectID, receivedEvent.ProjectID)
 }
@@ -292,7 +294,7 @@ func TestPublishListRecomputeEvents_Inserted(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	projectID := uuid.New()
 	listID := uuid.New()
 	userID := uuid.New()
@@ -321,7 +323,7 @@ func TestPublishListRecomputeEvents_Deleted(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	projectID := uuid.New()
 	listID := uuid.New()
 	userID := uuid.New()
@@ -350,7 +352,7 @@ func TestPublishListRecomputeEvents_Mixed(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	projectID := uuid.New()
 	listID := uuid.New()
 

@@ -647,12 +647,8 @@ func journeyEntranceEventDependencies(steps oapi.JourneyStepMap) (map[string]str
 			continue
 		}
 
-		if step.Data == nil {
-			continue
-		}
-
 		var data oapi.EntranceStepData
-		err := json.Unmarshal(*step.Data, &data)
+		err := json.Unmarshal(step.Data, &data)
 		if err != nil {
 			return nil, err
 		}

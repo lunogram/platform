@@ -8,6 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/schemas"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
 )
@@ -36,15 +37,17 @@ func (controller *Controller) ReconcileJourneyResumptions(ctx context.Context) {
 	}
 
 	for _, state := range states {
-		step := pubsub.JourneyStep{
+		step := schemas.JourneyStep{
+			ProjectID:      state.ProjectID,
 			JourneyID:      state.JourneyID,
 			JourneyEntryID: state.JourneyEntryID,
 			VersionID:      state.PinnedVersionID,
 			UserID:         state.UserID,
 			ExternalStepID: state.ExternalStepID,
+			StateID:        &state.ID,
 		}
 
-		err = controller.pub.Publish(ctx, pubsub.JourneyStepSubject(state.ProjectID), step)
+		err = controller.pub.Publish(ctx, schemas.JourneyStepSubject(state.ProjectID, state.JourneyID), step)
 		if err != nil {
 			controller.logger.Error("failed to publish journey step", zap.Error(err), zap.Stringer("journey_id", state.JourneyID), zap.Stringer("journey_entry_id", state.JourneyEntryID))
 		}

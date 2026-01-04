@@ -1,4 +1,4 @@
-package pubsub
+package consumer
 
 import (
 	"encoding/json"
@@ -10,6 +10,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/pkg/container"
 	"github.com/lunogram/platform/services/nexus/internal/config"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/schemas"
 	"github.com/lunogram/platform/services/nexus/internal/rules"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/nats-io/nats.go/jetstream"
@@ -42,7 +44,7 @@ func setupUsersTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream) {
 	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
-	jet, err := New(ctx, config)
+	jet, err := pubsub.New(ctx, config)
 	require.NoError(t, err)
 
 	st := store.NewState(db)
@@ -65,8 +67,8 @@ func TestUsersProjectSubject(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
-	subject := UsersProjectSubject(projectID)
-	expected := Subject("users.projects." + projectID.String())
+	subject := schemas.UsersProjectSubject(projectID)
+	expected := schemas.Subject("users.projects." + projectID.String())
 
 	assert.Equal(t, expected, subject)
 }
@@ -75,8 +77,8 @@ func TestUsersSchemaSubject(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
-	subject := UsersSchemaSubject(projectID)
-	expected := Subject("users.schemas." + projectID.String())
+	subject := schemas.UsersSchemaSubject(projectID)
+	expected := schemas.Subject("users.schemas." + projectID.String())
 
 	assert.Equal(t, expected, subject)
 }
@@ -93,7 +95,7 @@ func TestUser_Event(t *testing.T) {
 	timezone := "America/New_York"
 	locale := "en-US"
 
-	user := User{
+	user := schemas.User{
 		ID:          userID,
 		ProjectID:   projectID,
 		AnonymousID: &anonID,
@@ -134,11 +136,11 @@ func TestUsersHandler_Success(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	handler := UsersHandler(logger, db, pub)
 
 	email := "test@example.com"
-	user := User{
+	user := schemas.User{
 		ID:        uuid.New(),
 		ProjectID: projectID,
 		Email:     &email,
@@ -148,7 +150,7 @@ func TestUsersHandler_Success(t *testing.T) {
 		Version: 0,
 	}
 
-	err = pub.Publish(ctx, UsersProjectSubject(projectID), user)
+	err = pub.Publish(ctx, schemas.UsersProjectSubject(projectID), user)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsers)
@@ -174,11 +176,11 @@ func TestUsersHandler_PublishesUserCreatedEvent(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	handler := UsersHandler(logger, db, pub)
 
 	email := "new@example.com"
-	user := User{
+	user := schemas.User{
 		ID:        uuid.New(),
 		ProjectID: projectID,
 		Email:     &email,
@@ -188,7 +190,7 @@ func TestUsersHandler_PublishesUserCreatedEvent(t *testing.T) {
 		Version: 0,
 	}
 
-	err = pub.Publish(ctx, UsersProjectSubject(projectID), user)
+	err = pub.Publish(ctx, schemas.UsersProjectSubject(projectID), user)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsers)
@@ -206,10 +208,10 @@ func TestUsersHandler_PublishesUserCreatedEvent(t *testing.T) {
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
 	require.NoError(t, err)
 
-	var receivedEvent Event
+	var receivedEvent schemas.Event
 	err = json.Unmarshal(eventMsg.Data(), &receivedEvent)
 	require.NoError(t, err)
-	assert.Equal(t, EventUserCreated, receivedEvent.Name)
+	assert.Equal(t, schemas.EventUserCreated, receivedEvent.Name)
 	assert.Equal(t, projectID, receivedEvent.ProjectID)
 }
 
@@ -223,11 +225,11 @@ func TestUsersHandler_PublishesUserUpdatedEvent(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	handler := UsersHandler(logger, db, pub)
 
 	email := "existing@example.com"
-	user := User{
+	user := schemas.User{
 		ID:        uuid.New(),
 		ProjectID: projectID,
 		Email:     &email,
@@ -237,7 +239,7 @@ func TestUsersHandler_PublishesUserUpdatedEvent(t *testing.T) {
 		Version: 5,
 	}
 
-	err = pub.Publish(ctx, UsersProjectSubject(projectID), user)
+	err = pub.Publish(ctx, schemas.UsersProjectSubject(projectID), user)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsers)
@@ -255,10 +257,10 @@ func TestUsersHandler_PublishesUserUpdatedEvent(t *testing.T) {
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
 	require.NoError(t, err)
 
-	var receivedEvent Event
+	var receivedEvent schemas.Event
 	err = json.Unmarshal(eventMsg.Data(), &receivedEvent)
 	require.NoError(t, err)
-	assert.Equal(t, EventUserUpdated, receivedEvent.Name)
+	assert.Equal(t, schemas.EventUserUpdated, receivedEvent.Name)
 	assert.Equal(t, projectID, receivedEvent.ProjectID)
 }
 
@@ -302,11 +304,11 @@ func TestUsersHandler_WithListDependencies(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	handler := UsersHandler(logger, db, pub)
 
 	email := "test@example.com"
-	user := User{
+	user := schemas.User{
 		ID:        uuid.New(),
 		ProjectID: projectID,
 		Email:     &email,
@@ -316,7 +318,7 @@ func TestUsersHandler_WithListDependencies(t *testing.T) {
 		Version: 0,
 	}
 
-	err = pub.Publish(ctx, UsersProjectSubject(projectID), user)
+	err = pub.Publish(ctx, schemas.UsersProjectSubject(projectID), user)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsers)
@@ -350,11 +352,11 @@ func TestUsersHandler_WithUserData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	handler := UsersHandler(logger, db, pub)
 
 	email := "test@example.com"
-	user := User{
+	user := schemas.User{
 		ID:        uuid.New(),
 		ProjectID: projectID,
 		Email:     &email,
@@ -365,7 +367,7 @@ func TestUsersHandler_WithUserData(t *testing.T) {
 		Version: 0,
 	}
 
-	err = pub.Publish(ctx, UsersProjectSubject(projectID), user)
+	err = pub.Publish(ctx, schemas.UsersProjectSubject(projectID), user)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsers)
@@ -383,7 +385,7 @@ func TestUsersHandler_WithUserData(t *testing.T) {
 	schemaMsg, err := schemaConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
 	require.NoError(t, err)
 
-	var receivedUser User
+	var receivedUser schemas.User
 	err = json.Unmarshal(schemaMsg.Data(), &receivedUser)
 	require.NoError(t, err)
 	assert.Equal(t, user.ID, receivedUser.ID)
@@ -400,11 +402,11 @@ func TestUsersHandler_WithoutData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	handler := UsersHandler(logger, db, pub)
 
 	email := "test@example.com"
-	user := User{
+	user := schemas.User{
 		ID:        uuid.New(),
 		ProjectID: projectID,
 		Email:     &email,
@@ -412,7 +414,7 @@ func TestUsersHandler_WithoutData(t *testing.T) {
 		Version:   0,
 	}
 
-	err = pub.Publish(ctx, UsersProjectSubject(projectID), user)
+	err = pub.Publish(ctx, schemas.UsersProjectSubject(projectID), user)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsers)
@@ -474,10 +476,10 @@ func TestPublishUserRecomputeLists_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 
 	email := "test@example.com"
-	user := User{
+	user := schemas.User{
 		ID:        uuid.New(),
 		ProjectID: projectID,
 		Email:     &email,
@@ -516,10 +518,10 @@ func TestPublishUserRecomputeLists_NoLists(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 
 	email := "test@example.com"
-	user := User{
+	user := schemas.User{
 		ID:        uuid.New(),
 		ProjectID: projectID,
 		Email:     &email,
@@ -547,11 +549,11 @@ func TestPublishUserEvents_UserCreated(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	projectID := uuid.New()
 
 	email := "new@example.com"
-	user := User{
+	user := schemas.User{
 		ID:        uuid.New(),
 		ProjectID: projectID,
 		Email:     &email,
@@ -578,11 +580,11 @@ func TestPublishUserEvents_UserUpdated(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	projectID := uuid.New()
 
 	email := "existing@example.com"
-	user := User{
+	user := schemas.User{
 		ID:        uuid.New(),
 		ProjectID: projectID,
 		Email:     &email,
@@ -609,7 +611,7 @@ func TestUserSchemasHandler_Success(t *testing.T) {
 	handler := UserSchemasHandler(logger, db)
 
 	email := "test@example.com"
-	user := User{
+	user := schemas.User{
 		ID:        uuid.New(),
 		ProjectID: projectID,
 		Email:     &email,
@@ -626,7 +628,7 @@ func TestUserSchemasHandler_Success(t *testing.T) {
 		Version: 0,
 	}
 
-	err = NewPublisher(jet).Publish(ctx, UsersSchemaSubject(projectID), user)
+	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.UsersSchemaSubject(projectID), user)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUserSchemas)
@@ -655,7 +657,7 @@ func TestUserSchemasHandler_ComplexData(t *testing.T) {
 	handler := UserSchemasHandler(logger, db)
 
 	email := "test@example.com"
-	user := User{
+	user := schemas.User{
 		ID:        uuid.New(),
 		ProjectID: projectID,
 		Email:     &email,
@@ -682,7 +684,7 @@ func TestUserSchemasHandler_ComplexData(t *testing.T) {
 		Version: 0,
 	}
 
-	err = NewPublisher(jet).Publish(ctx, UsersSchemaSubject(projectID), user)
+	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.UsersSchemaSubject(projectID), user)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUserSchemas)

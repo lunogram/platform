@@ -16,6 +16,7 @@ import (
 	managementv1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management"
 	publicv1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/public"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/consumer"
 	"github.com/lunogram/platform/services/nexus/internal/storage"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
@@ -77,13 +78,13 @@ func run() error {
 		return err
 	}
 
-	err = pubsub.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet)
 	if err != nil {
 		return err
 	}
 
 	pub := pubsub.NewPublisher(jet)
-	pubsub.Serve(ctx, jet, logger, db)
+	consumer.Serve(ctx, jet, logger, db)
 
 	logger.Info("initializing cluster")
 

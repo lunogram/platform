@@ -1,10 +1,18 @@
-package pubsub
+package consumer
 
 import (
+	"context"
+
 	"github.com/cloudproud/graceful"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
+
+// HandlerFunc processes incoming messages from a JetStream consumer.
+// If the handler returns an error, the message is negatively acknowledged (NAK)
+// and will be redelivered. If the handler returns nil, the message is acknowledged (ACK)
+// and removed from the stream.
+type HandlerFunc func(ctx context.Context, msg jetstream.Msg) error
 
 // NewRouter creates a new Router for registering JetStream consumer handlers.
 func NewRouter(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger) *Router {

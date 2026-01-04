@@ -1,4 +1,4 @@
-package pubsub
+package consumer
 
 import (
 	"testing"
@@ -7,6 +7,7 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/pkg/container"
 	"github.com/lunogram/platform/services/nexus/internal/config"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,7 @@ func setupBootstrapTest(t *testing.T) jetstream.JetStream {
 	natsURL := container.RunNATS(t)
 	ctx := graceful.NewContext(t.Context())
 
-	jet, err := New(ctx, config.Node{
+	jet, err := pubsub.New(ctx, config.Node{
 		Nats: config.Nats{
 			URL: natsURL,
 		},
@@ -97,7 +98,7 @@ func TestBootstrap_CreatesAllConsumers(t *testing.T) {
 	consumers := []consumer{
 		{StreamEvents, ConsumerEvents, "events.projects.>"},
 		{StreamEvents, ConsumerEventSchemas, "events.schemas.>"},
-		{StreamJourney, ConsumerJourneysState, "state.journeys.>"},
+		{StreamJourney, ConsumerJourneysState, "journeys.state.>"},
 		{StreamRecompute, ConsumerRecomputeLists, "recompute.lists.>"},
 	}
 

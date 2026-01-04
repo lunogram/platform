@@ -665,3 +665,109 @@ func TestJourneysStore_EnsureDraftVersionCopiesSteps(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, draftChildren, 1, "connections should be copied to new draft")
 }
+
+func TestJourneysStore_MultiExecutionSteps(t *testing.T) {
+	db := newTestStore(t)
+	ctx := context.Background()
+
+	orgID, err := db.CreateOrganization(ctx, "Test Org")
+	require.NoError(t, err)
+
+	projectID, err := db.CreateProject(ctx, Project{
+		OrganizationID: &orgID,
+		Name:           "Test Project",
+		Timezone:       "UTC",
+		Locale:         "en-US",
+	})
+	require.NoError(t, err)
+
+	userID := uuid.New()
+	_, err = db.db.ExecContext(ctx, `INSERT INTO users (id, project_id, external_id) VALUES ($1, $2, $3)`,
+		userID, projectID, "user-123")
+	require.NoError(t, err)
+
+	journeyID, err := db.CreateJourney(ctx, Journey{
+		ProjectID: projectID,
+		Name:      "Test Journey",
+	})
+	require.NoError(t, err)
+
+	journeyEntryID := uuid.New()
+
+	t.Run("creates multiple executions of same step", func(t *testing.T) {
+		// First execution
+		id1, err := db.CreateUserJourneyState(ctx, JourneyUserState{
+			JourneyID:      journeyID,
+			JourneyEntryID: journeyEntryID,
+			UserID:         userID,
+			ExternalStepID: "gate-1",
+		})
+		require.NoError(t, err)
+		assert.NotEqual(t, uuid.Nil, id1)
+
+		// Second execution of the same step
+		id2, err := db.CreateUserJourneyState(ctx, JourneyUserState{
+			JourneyID:      journeyID,
+			JourneyEntryID: journeyEntryID,
+			UserID:         userID,
+			ExternalStepID: "gate-1",
+		})
+		require.NoError(t, err)
+		assert.NotEqual(t, uuid.Nil, id2)
+
+		// IDs should be different (different execution instances)
+		assert.NotEqual(t, id1, id2)
+	})
+
+	t.Run("gets latest execution when no state_id specified", func(t *testing.T) {
+		// Get latest execution
+		latest, err := db.GetUserJourneyState(ctx, journeyEntryID, "gate-1")
+		require.NoError(t, err)
+		assert.Equal(t, "gate-1", latest.ExternalStepID)
+		assert.Equal(t, 2, latest.Occurrence) // Should be the second execution
+	})
+
+	t.Run("gets specific execution by state_id", func(t *testing.T) {
+		// Create third execution
+		id3, err := db.CreateUserJourneyState(ctx, JourneyUserState{
+			JourneyID:      journeyID,
+			JourneyEntryID: journeyEntryID,
+			UserID:         userID,
+			ExternalStepID: "gate-1",
+		})
+		require.NoError(t, err)
+
+		// Get specific execution by ID
+		state, err := db.GetJourneyStateByID(ctx, id3)
+		require.NoError(t, err)
+		assert.Equal(t, id3, state.ID)
+		assert.Equal(t, 3, state.Occurrence)
+	})
+
+	t.Run("updates existing state with ON CONFLICT", func(t *testing.T) {
+		// Create execution
+		id4, err := db.CreateUserJourneyState(ctx, JourneyUserState{
+			JourneyID:      journeyID,
+			JourneyEntryID: journeyEntryID,
+			UserID:         userID,
+			ExternalStepID: "delay-1",
+		})
+		require.NoError(t, err)
+
+		// Load state and update it (simulating delay resume)
+		state, err := db.GetJourneyStateByID(ctx, id4)
+		require.NoError(t, err)
+		assert.Equal(t, id4, state.ID)
+
+		// Update by passing the same ID with new data
+		state.Data = []byte(`{"updated": true}`)
+		updatedID, err := db.CreateUserJourneyState(ctx, *state)
+		require.NoError(t, err)
+		assert.Equal(t, id4, updatedID)
+
+		// Verify state was updated, not duplicated
+		reloaded, err := db.GetJourneyStateByID(ctx, id4)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"updated": true}`, string(reloaded.Data))
+	})
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/lunogram/platform/pkg/http/problem"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/public/oapi"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/schemas"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
 )
@@ -57,7 +58,7 @@ func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request, 
 	logger.Info("posting events")
 
 	for _, event := range events {
-		msg := pubsub.Event{
+		msg := schemas.Event{
 			ProjectID:   projectID,
 			Name:        event.Name,
 			AnonymousId: event.AnonymousId,
@@ -65,7 +66,7 @@ func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request, 
 			ExternalId:  event.ExternalId,
 		}
 
-		err = srv.pubsub.Publish(ctx, pubsub.EventsProjectSubject(projectID), msg)
+		err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.EventsProjectSubject(projectID)), msg)
 		if err != nil {
 			logger.Error("failed to publish event", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal())
@@ -142,7 +143,7 @@ func (srv *ClientController) IdentifyUser(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	msg := pubsub.User{
+	msg := schemas.User{
 		ProjectID:   projectID,
 		ID:          user.ID,
 		AnonymousID: user.AnonymousID,
@@ -155,7 +156,7 @@ func (srv *ClientController) IdentifyUser(w http.ResponseWriter, r *http.Request
 		Version:     user.Version,
 	}
 
-	err = srv.pubsub.Publish(ctx, pubsub.UsersProjectSubject(projectID), msg)
+	err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UsersProjectSubject(projectID)), msg)
 	if err != nil {
 		logger.Error("failed to publish user", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())

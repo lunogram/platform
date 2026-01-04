@@ -2551,7 +2551,6 @@ components:
     ExitStepData:
       type: object
       description: Data for exit step - exits user from journey
-      additionalProperties: false
       required:
         - entrance_uuid
       properties:
@@ -2563,7 +2562,6 @@ components:
     DelayStepData:
       type: object
       description: Data for delay step - wait before proceeding
-      additionalProperties: false
       required:
         - format
       properties:
@@ -2603,7 +2601,6 @@ components:
     ActionStepData:
       type: object
       description: Data for action step - send campaign
-      additionalProperties: false
       required:
         - campaign_id
       properties:
@@ -2616,7 +2613,6 @@ components:
     GateStepData:
       type: object
       description: Data for gate step - conditional branching
-      additionalProperties: false
       required:
         - rule
       properties:
@@ -2629,9 +2625,6 @@ components:
     ExperimentStepData:
       type: object
       description: Data for experiment step - A/B testing
-      additionalProperties: false
-      required:
-        - name
       properties:
         name:
           type: string
@@ -2641,7 +2634,6 @@ components:
     LinkStepData:
       type: object
       description: Data for link step - add user to another journey
-      additionalProperties: false
       required:
         - target_id
       properties:
@@ -2659,12 +2651,10 @@ components:
       type: object
       description: Data for sticky step - placeholder for sticky logic
       properties: {}
-      additionalProperties: false
 
     BalancerStepData:
       type: object
       description: Data for balancer step - rate-limited distribution
-      additionalProperties: false
       required:
         - rate_limit
         - interval
@@ -2682,7 +2672,6 @@ components:
     UpdateStepData:
       type: object
       description: Data for update step - update user data
-      additionalProperties: false
       required:
         - template
       properties:
@@ -2694,7 +2683,6 @@ components:
     EventStepData:
       type: object
       description: Data for event step - trigger custom event
-      additionalProperties: false
       required:
         - event_name
       properties:
@@ -3879,6 +3867,7 @@ components:
         - x
         - y
         - children
+        - data
       properties:
         type:
           $ref: '#/components/schemas/JourneyStepType'
@@ -3887,20 +3876,13 @@ components:
           description: Display name for the step
           example: "Welcome Email"
         data:
-          oneOf:
-            - $ref: '#/components/schemas/EntranceStepData'
-            - $ref: '#/components/schemas/ExitStepData'
-            - $ref: '#/components/schemas/DelayStepData'
-            - $ref: '#/components/schemas/ActionStepData'
-            - $ref: '#/components/schemas/GateStepData'
-            - $ref: '#/components/schemas/ExperimentStepData'
-            - $ref: '#/components/schemas/LinkStepData'
-            - $ref: '#/components/schemas/StickyStepData'
-            - $ref: '#/components/schemas/BalancerStepData'
-            - $ref: '#/components/schemas/UpdateStepData'
-            - $ref: '#/components/schemas/EventStepData'
+          type: object
+          additionalProperties: true
           x-go-type: json.RawMessage
-          description: Step-specific configuration data (structure varies by step type)
+          description: |
+            Step-specific configuration data (structure varies by step type).
+            The step 'type' field determines which data structure to expect.
+            See StepData types in Go code for specific structures.
         data_key:
           type: string
           description: Key for storing step data in user journey context

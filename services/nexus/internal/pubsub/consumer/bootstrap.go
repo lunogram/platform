@@ -1,4 +1,4 @@
-package pubsub
+package consumer
 
 import (
 	"context"
@@ -86,7 +86,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Name:        StreamJourney,
 		Description: "Advance a journey state based on incoming events",
 		Subjects: []string{
-			"state.journeys.>",
+			"journeys.state.>",
 		},
 		Discard:  jetstream.DiscardOld,
 		MaxAge:   24 * time.Hour,
@@ -97,7 +97,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Name:          ConsumerJourneysState,
 		Description:   "Processes journey state requests",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: "state.journeys.>",
+		FilterSubject: "journeys.state.>",
 		MaxDeliver:    5,
 	})
 

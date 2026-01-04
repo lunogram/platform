@@ -1,4 +1,4 @@
-package pubsub
+package consumer
 
 import (
 	"encoding/json"
@@ -10,6 +10,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/pkg/container"
 	"github.com/lunogram/platform/services/nexus/internal/config"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/schemas"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
@@ -41,7 +43,7 @@ func setupEventsTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream) {
 	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
-	jet, err := New(ctx, config)
+	jet, err := pubsub.New(ctx, config)
 	require.NoError(t, err)
 
 	st := store.NewState(db)
@@ -77,10 +79,10 @@ func TestEventsProjectHandler_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	handler := EventsHandler(logger, db, pub)
 
-	event := Event{
+	event := schemas.Event{
 		Name:      "test_event",
 		ProjectID: projectID,
 		UserID:    userID,
@@ -89,7 +91,7 @@ func TestEventsProjectHandler_Success(t *testing.T) {
 		},
 	}
 
-	err = pub.Publish(ctx, EventsProjectSubject(projectID), event)
+	err = pub.Publish(ctx, schemas.Subject(schemas.EventsProjectSubject(projectID)), event)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEvents)
@@ -110,7 +112,7 @@ func TestEventsProjectHandler_Success(t *testing.T) {
 	schemaMsg, err := schemaConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
 	require.NoError(t, err)
 
-	var receivedEvent Event
+	var receivedEvent schemas.Event
 	err = json.Unmarshal(schemaMsg.Data(), &receivedEvent)
 	require.NoError(t, err)
 	assert.NotEqual(t, uuid.Nil, receivedEvent.ID)
@@ -134,17 +136,17 @@ func TestEventsProjectHandler_WithoutData(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	handler := EventsHandler(logger, db, pub)
 
-	event := Event{
+	event := schemas.Event{
 		Name:      "test_event_no_data",
 		ProjectID: projectID,
 		UserID:    userID,
 		Data:      nil,
 	}
 
-	err = pub.Publish(ctx, EventsProjectSubject(projectID), event)
+	err = pub.Publish(ctx, schemas.Subject(schemas.EventsProjectSubject(projectID)), event)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEvents)
@@ -186,10 +188,10 @@ func TestEventsProjectHandler_WithIdentifiers(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet)
 	handler := EventsHandler(logger, db, pub)
 
-	event := Event{
+	event := schemas.Event{
 		Name:        "user_action",
 		ProjectID:   projectID,
 		ExternalId:  &externalID,
@@ -199,7 +201,7 @@ func TestEventsProjectHandler_WithIdentifiers(t *testing.T) {
 		},
 	}
 
-	err = pub.Publish(ctx, EventsProjectSubject(projectID), event)
+	err = pub.Publish(ctx, schemas.Subject(schemas.EventsProjectSubject(projectID)), event)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEvents)
@@ -228,7 +230,7 @@ func TestEventsSchemaHandler_Success(t *testing.T) {
 
 	handler := EventSchemasHandler(logger, db)
 
-	event := Event{
+	event := schemas.Event{
 		ID:        eventID,
 		Name:      "test_event",
 		ProjectID: projectID,
@@ -241,7 +243,7 @@ func TestEventsSchemaHandler_Success(t *testing.T) {
 		},
 	}
 
-	err = NewPublisher(jet).Publish(ctx, EventsSchemaSubject(projectID), event)
+	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.Subject(schemas.EventsSchemaSubject(projectID)), event)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventSchemas)
@@ -273,7 +275,7 @@ func TestEventsSchemaHandler_ComplexNestedData(t *testing.T) {
 
 	handler := EventSchemasHandler(logger, db)
 
-	event := Event{
+	event := schemas.Event{
 		ID:        eventID,
 		Name:      "complex_event",
 		ProjectID: projectID,
@@ -292,7 +294,7 @@ func TestEventsSchemaHandler_ComplexNestedData(t *testing.T) {
 		},
 	}
 
-	err = NewPublisher(jet).Publish(ctx, EventsSchemaSubject(projectID), event)
+	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.Subject(schemas.EventsSchemaSubject(projectID)), event)
 	require.NoError(t, err)
 
 	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventSchemas)

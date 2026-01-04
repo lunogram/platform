@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/pkg/container"
 	"github.com/lunogram/platform/services/nexus/internal/config"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/schemas"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -55,14 +56,14 @@ func TestPublisher_Publish(t *testing.T) {
 	pub := NewPublisher(jet)
 
 	type test struct {
-		subject Subject
+		subject schemas.Subject
 		data    any
 	}
 
 	tests := map[string]test{
 		"publish event": {
 			subject: "events.projects.123",
-			data: Event{
+			data: schemas.Event{
 				ID:        uuid.New(),
 				Name:      "test_event",
 				ProjectID: uuid.New(),
@@ -70,7 +71,7 @@ func TestPublisher_Publish(t *testing.T) {
 		},
 		"publish with nil data": {
 			subject: "events.projects.456",
-			data: Event{
+			data: schemas.Event{
 				ID:          uuid.New(),
 				Name:        "another_event",
 				ProjectID:   uuid.New(),
@@ -79,7 +80,7 @@ func TestPublisher_Publish(t *testing.T) {
 		},
 		"publish with event data": {
 			subject: "events.projects.789",
-			data: Event{
+			data: schemas.Event{
 				ID:        uuid.New(),
 				Name:      "event_with_data",
 				ProjectID: uuid.New(),
@@ -103,9 +104,9 @@ func TestEventsProject(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
-	subject := EventsProjectSubject(projectID)
+	subject := schemas.EventsProjectSubject(projectID)
 
-	expected := Subject("events.projects." + projectID.String())
+	expected := schemas.Subject("events.projects." + projectID.String())
 	assert.Equal(t, expected, subject)
 }
 
@@ -113,9 +114,9 @@ func TestEventsSchema(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
-	subject := EventsSchemaSubject(projectID)
+	subject := schemas.EventsSchemaSubject(projectID)
 
-	expected := Subject("events.schemas." + projectID.String())
+	expected := schemas.Subject("events.schemas." + projectID.String())
 	assert.Equal(t, expected, subject)
 }
 
@@ -133,7 +134,7 @@ func TestPublisher_PublishAndReceive(t *testing.T) {
 
 	pub := NewPublisher(jet)
 
-	testEvent := Event{
+	testEvent := schemas.Event{
 		ID:        uuid.New(),
 		Name:      "test_event",
 		ProjectID: uuid.New(),
@@ -154,7 +155,7 @@ func TestPublisher_PublishAndReceive(t *testing.T) {
 	msg, err := consumer.Next()
 	require.NoError(t, err)
 
-	var received Event
+	var received schemas.Event
 	err = json.Unmarshal(msg.Data(), &received)
 	require.NoError(t, err)
 

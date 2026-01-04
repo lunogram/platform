@@ -22,7 +22,7 @@ graph TB
 
     %% Recompute triggers from events
     EventHandler -->|Affected Lists| ListSubject[["recompute.lists.{project_id}.{list_id}"]]
-    EventHandler -->|Affected Journeys| JourneySubject[["state.journeys.step.{project_id}"]]
+    EventHandler -->|Affected Journeys| JourneySubject[["journeys.state.{project_id}.{journey_id}"]]
 
     %% Recompute triggers from users
     UserHandler -->|Affected Lists| ListSubject

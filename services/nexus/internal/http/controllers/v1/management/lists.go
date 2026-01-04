@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/services/nexus/internal/importer"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/consumer"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
 )
@@ -272,7 +273,7 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 			return
 		}
 
-		err = pubsub.PublishListRecomputeEvents(ctx, logger, srv.pub, projectID, listID, recomputed)
+		err = consumer.PublishListRecomputeEvents(ctx, logger, srv.pub, projectID, listID, recomputed)
 		if err != nil {
 			logger.Error("failed to publish list recompute events", zap.Error(err))
 			oapi.WriteProblem(w, err)

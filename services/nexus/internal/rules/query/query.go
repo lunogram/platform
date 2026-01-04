@@ -11,6 +11,7 @@ import (
 // QueryBuilder builds PostgreSQL queries from rule definitions
 type QueryBuilder struct {
 	projectID   uuid.UUID
+	userID      *uuid.UUID // Optional: filter for specific user
 	args        []any
 	joins       []string
 	joinCounter int
@@ -23,9 +24,10 @@ type QueryResult struct {
 }
 
 // NewQueryBuilder creates a new QueryBuilder
-func NewQueryBuilder(projectID uuid.UUID) *QueryBuilder {
+func NewQueryBuilder(projectID uuid.UUID, userID *uuid.UUID) *QueryBuilder {
 	return &QueryBuilder{
 		projectID:   projectID,
+		userID:      userID,
 		args:        []any{},
 		joins:       []string{},
 		joinCounter: 0,
@@ -62,6 +64,9 @@ func (qb *QueryBuilder) Query(ruleSet rules.RuleSet) (QueryResult, error) {
 
 	// Build WHERE clause
 	conditions := []string{fmt.Sprintf("u.project_id = %s", qb.arg(qb.projectID))}
+	if qb.userID != nil {
+		conditions = append(conditions, fmt.Sprintf("u.id = %s", qb.arg(*qb.userID)))
+	}
 	if condition != "" {
 		conditions = append(conditions, condition)
 	}

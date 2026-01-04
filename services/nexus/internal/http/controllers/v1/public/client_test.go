@@ -12,6 +12,7 @@ import (
 	"github.com/lunogram/platform/pkg/container"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/consumer"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,7 +42,7 @@ func setupClientController(t *testing.T) *ClientController {
 	jet, err := pubsub.New(ctx, config)
 	require.NoError(t, err)
 
-	err = pubsub.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)

@@ -24,14 +24,6 @@ const (
 	HttpBearerAuthScopes = "HttpBearerAuth.Scopes"
 )
 
-// Defines values for BalancerStepDataInterval.
-const (
-	BalancerStepDataIntervalDay    BalancerStepDataInterval = "day"
-	BalancerStepDataIntervalHour   BalancerStepDataInterval = "hour"
-	BalancerStepDataIntervalMinute BalancerStepDataInterval = "minute"
-	BalancerStepDataIntervalSecond BalancerStepDataInterval = "second"
-)
-
 // Defines values for CampaignUserStatus.
 const (
 	Aborted   CampaignUserStatus = "aborted"
@@ -55,20 +47,6 @@ const (
 	CreateListTypeStatic  CreateListType = "static"
 )
 
-// Defines values for DelayStepDataFormat.
-const (
-	Date     DelayStepDataFormat = "date"
-	Duration DelayStepDataFormat = "duration"
-	Time     DelayStepDataFormat = "time"
-)
-
-// Defines values for EntranceStepDataTrigger.
-const (
-	EntranceStepDataTriggerEvent    EntranceStepDataTrigger = "event"
-	EntranceStepDataTriggerNone     EntranceStepDataTrigger = "none"
-	EntranceStepDataTriggerSchedule EntranceStepDataTrigger = "schedule"
-)
-
 // Defines values for JourneyStatus.
 const (
 	JourneyStatusArchived  JourneyStatus = "archived"
@@ -78,25 +56,17 @@ const (
 
 // Defines values for JourneyStepType.
 const (
-	JourneyStepTypeAction     JourneyStepType = "action"
-	JourneyStepTypeBalancer   JourneyStepType = "balancer"
-	JourneyStepTypeDelay      JourneyStepType = "delay"
-	JourneyStepTypeEntrance   JourneyStepType = "entrance"
-	JourneyStepTypeEvent      JourneyStepType = "event"
-	JourneyStepTypeExit       JourneyStepType = "exit"
-	JourneyStepTypeExperiment JourneyStepType = "experiment"
-	JourneyStepTypeGate       JourneyStepType = "gate"
-	JourneyStepTypeLink       JourneyStepType = "link"
-	JourneyStepTypeSticky     JourneyStepType = "sticky"
-	JourneyStepTypeUpdate     JourneyStepType = "update"
-)
-
-// Defines values for LinkStepDataDelay.
-const (
-	N15Minutes LinkStepDataDelay = "15 minutes"
-	N1Day      LinkStepDataDelay = "1 day"
-	N1Hour     LinkStepDataDelay = "1 hour"
-	N1Minute   LinkStepDataDelay = "1 minute"
+	Action     JourneyStepType = "action"
+	Balancer   JourneyStepType = "balancer"
+	Delay      JourneyStepType = "delay"
+	Entrance   JourneyStepType = "entrance"
+	Event      JourneyStepType = "event"
+	Exit       JourneyStepType = "exit"
+	Experiment JourneyStepType = "experiment"
+	Gate       JourneyStepType = "gate"
+	Link       JourneyStepType = "link"
+	Sticky     JourneyStepType = "sticky"
+	Update     JourneyStepType = "update"
 )
 
 // Defines values for ListState.
@@ -129,10 +99,10 @@ const (
 
 // Defines values for ProviderRateInterval.
 const (
-	ProviderRateIntervalDay    ProviderRateInterval = "day"
-	ProviderRateIntervalHour   ProviderRateInterval = "hour"
-	ProviderRateIntervalMinute ProviderRateInterval = "minute"
-	ProviderRateIntervalSecond ProviderRateInterval = "second"
+	Day    ProviderRateInterval = "day"
+	Hour   ProviderRateInterval = "hour"
+	Minute ProviderRateInterval = "minute"
+	Second ProviderRateInterval = "second"
 )
 
 // Defines values for SubscriptionState.
@@ -140,12 +110,6 @@ const (
 	Subscribed   SubscriptionState = "subscribed"
 	Unsubscribed SubscriptionState = "unsubscribed"
 )
-
-// ActionStepData Data for action step - send campaign
-type ActionStepData struct {
-	// CampaignId Campaign to send
-	CampaignId openapi_types.UUID `json:"campaign_id"`
-}
 
 // Admin defines model for Admin.
 type Admin struct {
@@ -175,18 +139,6 @@ type AdminList struct {
 	// Total Total number of items matching the filters
 	Total int `json:"total"`
 }
-
-// BalancerStepData Data for balancer step - rate-limited distribution
-type BalancerStepData struct {
-	// Interval Rate limit interval
-	Interval BalancerStepDataInterval `json:"interval"`
-
-	// RateLimit Maximum users per interval
-	RateLimit int `json:"rate_limit"`
-}
-
-// BalancerStepDataInterval Rate limit interval
-type BalancerStepDataInterval string
 
 // Campaign defines model for Campaign.
 type Campaign struct {
@@ -292,33 +244,6 @@ type CreateTemplate struct {
 	Locale string `json:"locale"`
 }
 
-// DelayStepData Data for delay step - wait before proceeding
-type DelayStepData struct {
-	// Date Date template string (for date format)
-	Date *string `json:"date,omitempty"`
-
-	// Days Days to delay (for duration format)
-	Days *int `json:"days,omitempty"`
-
-	// ExclusionDays Days to exclude (0=Sunday, 6=Saturday)
-	ExclusionDays *[]int `json:"exclusion_days,omitempty"`
-
-	// Format Format of delay
-	Format DelayStepDataFormat `json:"format"`
-
-	// Hours Hours to delay (for duration format)
-	Hours *int `json:"hours,omitempty"`
-
-	// Minutes Minutes to delay (for duration format)
-	Minutes *int `json:"minutes,omitempty"`
-
-	// Time Time of day HH:mm (for time format)
-	Time *string `json:"time,omitempty"`
-}
-
-// DelayStepDataFormat Format of delay
-type DelayStepDataFormat string
-
 // Delivery defines model for Delivery.
 type Delivery struct {
 	Clicks int `json:"clicks"`
@@ -373,53 +298,11 @@ type EmailTemplateData struct {
 	Subject *string `json:"subject,omitempty"`
 }
 
-// EntranceStepData Data for entrance step - entry point into journey
-type EntranceStepData struct {
-	// Concurrent Allow concurrent journey runs
-	Concurrent *bool `json:"concurrent,omitempty"`
-
-	// EventName Event name that triggers entrance
-	EventName *string `json:"event_name,omitempty"`
-
-	// ListId List ID for scheduled entrance
-	ListId *openapi_types.UUID `json:"list_id,omitempty"`
-
-	// Multiple Allow multiple entries
-	Multiple *bool `json:"multiple,omitempty"`
-
-	// Rule Rule for filtering events
-	Rule *rules.RuleSet `json:"rule,omitempty"`
-
-	// Schedule RRule schedule string
-	Schedule *string `json:"schedule,omitempty"`
-
-	// Trigger Trigger type for entrance
-	Trigger *EntranceStepDataTrigger `json:"trigger,omitempty"`
-}
-
-// EntranceStepDataTrigger Trigger type for entrance
-type EntranceStepDataTrigger string
-
-// EventStepData Data for event step - trigger custom event
-type EventStepData struct {
-	// EventName Name of event to trigger
-	EventName string `json:"event_name"`
-
-	// Template JSON template string for event data
-	Template *string `json:"template,omitempty"`
-}
-
 // EventWithSchema defines model for EventWithSchema.
 type EventWithSchema struct {
 	Id     openapi_types.UUID `json:"id"`
 	Name   string             `json:"name"`
 	Schema []SchemaPath       `json:"schema"`
-}
-
-// ExitStepData Data for exit step - exits user from journey
-type ExitStepData struct {
-	// EntranceUuid External ID of entrance to exit from
-	EntranceUuid string `json:"entrance_uuid"`
 }
 
 // ExperimentChildData Data for experiment step children - defines branch ratio
@@ -428,20 +311,8 @@ type ExperimentChildData struct {
 	Ratio float32 `json:"ratio"`
 }
 
-// ExperimentStepData Data for experiment step - A/B testing
-type ExperimentStepData struct {
-	// Name Experiment name
-	Name string `json:"name"`
-}
-
 // GateChildData Data for gate step children - typically empty, path determines branch
 type GateChildData = map[string]interface{}
-
-// GateStepData Data for gate step - conditional branching
-type GateStepData struct {
-	// Rule Rule set for conditional evaluation
-	Rule rules.RuleSet `json:"rule"`
-}
 
 // IdentifyUser defines model for IdentifyUser.
 type IdentifyUser struct {
@@ -493,8 +364,10 @@ type JourneyStep struct {
 	// Children Child steps connected to this step
 	Children []JourneyStepChild `json:"children"`
 
-	// Data Step-specific configuration data (structure varies by step type)
-	Data *json.RawMessage `json:"data,omitempty"`
+	// Data Step-specific configuration data (structure varies by step type).
+	// The step 'type' field determines which data structure to expect.
+	// See StepData types in Go code for specific structures.
+	Data json.RawMessage `json:"data"`
 
 	// DataKey Key for storing step data in user journey context
 	DataKey *string `json:"data_key,omitempty"`
@@ -529,18 +402,6 @@ type JourneyStepMap map[string]JourneyStep
 
 // JourneyStepType Journey step type
 type JourneyStepType string
-
-// LinkStepData Data for link step - add user to another journey
-type LinkStepData struct {
-	// Delay Delay before adding to journey
-	Delay *LinkStepDataDelay `json:"delay,omitempty"`
-
-	// TargetId Target journey ID to link to
-	TargetId openapi_types.UUID `json:"target_id"`
-}
-
-// LinkStepDataDelay Delay before adding to journey
-type LinkStepDataDelay string
 
 // List defines model for List.
 type List struct {
@@ -730,9 +591,6 @@ type SmsTemplateData struct {
 	Body *string `json:"body,omitempty"`
 }
 
-// StickyStepData Data for sticky step - placeholder for sticky logic
-type StickyStepData = map[string]interface{}
-
 // SubscriptionState User subscription state
 type SubscriptionState string
 
@@ -811,12 +669,6 @@ type UpdateProject struct {
 type UpdateProjectAdmin struct {
 	// Role Role within a project
 	Role ProjectRole `json:"role"`
-}
-
-// UpdateStepData Data for update step - update user data
-type UpdateStepData struct {
-	// Template JSON template string for updating user data
-	Template string `json:"template"`
 }
 
 // UpdateTag defines model for UpdateTag.

@@ -322,7 +322,7 @@ type Recomputed struct {
 // This function only changes database state and does not persist or cache the
 // recomputed result. All updates occur in a single SQL statement.
 func (s *ListsStore) RecomputeList(ctx context.Context, projectID, listID uuid.UUID, ruleset rules.RuleSet) ([]Recomputed, error) {
-	builder := query.NewQueryBuilder(projectID)
+	builder := query.NewQueryBuilder(projectID, nil)
 	query, err := builder.Query(ruleset)
 	if err != nil {
 		return nil, err
