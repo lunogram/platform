@@ -18,14 +18,14 @@ func NewTemplatesController(logger *zap.Logger, db *sqlx.DB) *TemplatesControlle
 	return &TemplatesController{
 		logger: logger,
 		db:     db,
-		store:  store.NewStores(db),
+		store:  store.NewState(db),
 	}
 }
 
 type TemplatesController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.Stores
+	store  *store.State
 }
 
 func (srv *TemplatesController) GetTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
@@ -35,7 +35,7 @@ func (srv *TemplatesController) GetTemplate(w http.ResponseWriter, r *http.Reque
 
 	template, err := srv.store.TemplatesStore.GetTemplate(ctx, projectID, templateID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("template not found", zap.Stringer("template_id", templateID))
+		logger.Info("template not found", zap.Stringer("template_id", templateID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("template not found")))
 		return
 	}
@@ -60,7 +60,7 @@ func (srv *TemplatesController) CreateTemplate(w http.ResponseWriter, r *http.Re
 
 	campaign, err := srv.store.CampaignsStore.GetCampaign(ctx, projectID, campaignID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("campaign not found", zap.Stringer("campaign_id", campaignID))
+		srv.logger.Info("campaign not found", zap.Stringer("campaign_id", campaignID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
 		return
 	}
@@ -112,7 +112,7 @@ func (srv *TemplatesController) DeleteTemplate(w http.ResponseWriter, r *http.Re
 
 	_, err := srv.store.TemplatesStore.GetTemplate(ctx, projectID, templateID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("template not found", zap.Stringer("template_id", templateID))
+		logger.Info("template not found", zap.Stringer("template_id", templateID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("template not found")))
 		return
 	}
@@ -147,7 +147,7 @@ func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Re
 
 	_, err := srv.store.TemplatesStore.GetTemplate(ctx, projectID, templateID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("template not found", zap.Stringer("template_id", templateID))
+		logger.Info("template not found", zap.Stringer("template_id", templateID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("template not found")))
 		return
 	}

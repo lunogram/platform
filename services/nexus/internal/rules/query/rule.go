@@ -20,6 +20,11 @@ var validKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_. -]+$`)
 
 // buildRule recursively builds SQL conditions from a rule
 func (qb *QueryBuilder) buildRule(rule *rules.Rule) (string, error) {
+	// Check if this is an event wrapper with frequency - treat it as an event rule
+	if rule.IsWrapper() && rule.Group == rules.RuleGroupEvent && rule.Frequency != nil {
+		return qb.buildEventRule(rule)
+	}
+
 	if rule.IsWrapper() {
 		return qb.buildWrapper(rule)
 	}
@@ -42,8 +47,8 @@ func (qb *QueryBuilder) buildWrapper(rule *rules.Rule) (string, error) {
 
 	conditions := make([]string, 0, len(rule.Children))
 
-	for _, child := range rule.Children {
-		condition, err := qb.buildRule(&child)
+	for i := range rule.Children {
+		condition, err := qb.buildRule(&rule.Children[i])
 		if err != nil {
 			return "", err
 		}

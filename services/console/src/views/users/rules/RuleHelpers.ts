@@ -57,6 +57,16 @@ export const createEventRule = (parent?: Rule, value = ''): EventRule => {
     return base
 }
 
+export const createSimpleEventRule = (value = ''): WrapperRule => ({
+    uuid: createUuid(),
+    path: '',
+    type: 'wrapper',
+    group: 'event',
+    value,
+    operator: 'and',
+    children: [],
+})
+
 export const emptySuggestions: VariableSuggestions = {
     userPaths: [],
     eventPaths: {},

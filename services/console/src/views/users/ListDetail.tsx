@@ -16,7 +16,6 @@ import UploadField from '../../ui/form/UploadField'
 import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
 import { useRoute } from '../router'
 import { ArchiveIcon, EditIcon, RestartIcon, SendIcon, UploadIcon } from '../../components/icons'
-import { TagPicker } from '../settings/TagPicker'
 import { useTranslation } from 'react-i18next'
 import { Alert, Menu, MenuItem } from '../../ui'
 import { useBlocker } from 'react-router'
@@ -130,7 +129,6 @@ export default function ListDetail() {
             title={list.name}
             desc={
                 <InfoTable rows={{
-                    [t('state')]: <ListTag state={list.state} progress={list.progress} />,
                     [t('type')]: snakeToTitle(list.type),
                     [t('users_count')]: list.state === 'loading'
                         ? <>&#8211;</>

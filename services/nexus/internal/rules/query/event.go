@@ -22,7 +22,8 @@ func (qb *QueryBuilder) buildEventRule(rule *rules.Rule) (string, error) {
 
 	// Child conditions (event attributes)
 	if rule.HasChildren() {
-		for _, child := range rule.Children {
+		for i := range rule.Children {
+			child := &rule.Children[i]
 			column, err := qb.buildColumnPath("e", child.Path, child.Type)
 			if err != nil {
 				return "", err
@@ -36,15 +37,21 @@ func (qb *QueryBuilder) buildEventRule(rule *rules.Rule) (string, error) {
 		}
 	}
 
-	// Add project_id filter for events
-	eventConditions = append([]string{fmt.Sprintf("e.project_id = %s", qb.arg(qb.projectID))}, eventConditions...)
+	// Generate a unique alias for this event join
+	alias := qb.nextJoinAlias()
 
-	existsClause := fmt.Sprintf(
-		"EXISTS (SELECT 1 FROM user_events e WHERE e.user_id = u.id AND %s)",
+	// Build the JOIN clause with subquery that joins user_events with events
+	joinClause := fmt.Sprintf(
+		"JOIN (SELECT DISTINCT ue.user_id FROM user_events ue JOIN events e ON e.id = ue.event_id WHERE %s) %s ON %s.user_id = u.id",
 		strings.Join(eventConditions, " AND "),
+		alias,
+		alias,
 	)
 
-	return existsClause, nil
+	qb.joins = append(qb.joins, joinClause)
+
+	// Return empty condition since the filtering is in the JOIN
+	return "", nil
 }
 
 // buildFrequencyRule builds SQL for frequency-based event rules
@@ -57,10 +64,9 @@ func (qb *QueryBuilder) buildFrequencyRule(rule *rules.Rule) (string, error) {
 	}
 
 	interval := fmt.Sprintf("%d %s", freq.Period.Value, freq.Period.Unit.SQL())
-	timePeriod := fmt.Sprintf("e.created_at >= NOW() - %s::interval", qb.arg(interval))
 
-	// Build event conditions with project_id filter
-	eventConditions := []string{fmt.Sprintf("e.project_id = %s", qb.arg(qb.projectID)), timePeriod}
+	// Start with base event conditions
+	eventConditions := []string{fmt.Sprintf("ue.created_at >= NOW() - %s::interval", qb.arg(interval))}
 
 	// Event name condition
 	if rule.Value != nil {
@@ -69,7 +75,8 @@ func (qb *QueryBuilder) buildFrequencyRule(rule *rules.Rule) (string, error) {
 
 	// Child conditions (event attributes)
 	if rule.HasChildren() {
-		for _, child := range rule.Children {
+		for i := range rule.Children {
+			child := &rule.Children[i]
 			column, err := qb.buildColumnPath("e", child.Path, child.Type)
 			if err != nil {
 				return "", err
@@ -83,18 +90,40 @@ func (qb *QueryBuilder) buildFrequencyRule(rule *rules.Rule) (string, error) {
 		}
 	}
 
-	whereClause := strings.Join(eventConditions, " AND ")
+	// Use JOINs if enabled, otherwise use subquery in WHERE
+	// Generate a unique alias for this frequency join
+	alias := qb.nextJoinAlias()
 
-	// Build frequency comparison
-	countComparison, err := qb.buildComparison(
-		fmt.Sprintf("(SELECT COUNT(*) FROM user_events e WHERE e.user_id = u.id AND %s)", whereClause),
-		freq.Operator,
-		freq.Count,
-		rules.RuleTypeNumber,
-	)
-	if err != nil {
-		return "", err
+	// Build HAVING clause based on frequency operator
+	var havingClause string
+	switch freq.Operator {
+	case rules.OperatorGreaterThan:
+		havingClause = fmt.Sprintf("COUNT(*) > %s", qb.arg(freq.Count))
+	case rules.OperatorGreaterEqual:
+		havingClause = fmt.Sprintf("COUNT(*) >= %s", qb.arg(freq.Count))
+	case rules.OperatorLessThan:
+		havingClause = fmt.Sprintf("COUNT(*) < %s", qb.arg(freq.Count))
+	case rules.OperatorLessEqual:
+		havingClause = fmt.Sprintf("COUNT(*) <= %s", qb.arg(freq.Count))
+	case rules.OperatorEquals:
+		havingClause = fmt.Sprintf("COUNT(*) = %s", qb.arg(freq.Count))
+	case rules.OperatorNotEquals:
+		havingClause = fmt.Sprintf("COUNT(*) != %s", qb.arg(freq.Count))
+	default:
+		return "", fmt.Errorf("unsupported frequency operator: %s", freq.Operator)
 	}
 
-	return countComparison, nil
+	// Build the JOIN clause with subquery using GROUP BY and HAVING
+	joinClause := fmt.Sprintf(
+		"JOIN (SELECT ue.user_id FROM user_events ue JOIN events e ON e.id = ue.event_id WHERE %s GROUP BY ue.user_id HAVING %s) %s ON %s.user_id = u.id",
+		strings.Join(eventConditions, " AND "),
+		havingClause,
+		alias,
+		alias,
+	)
+
+	qb.joins = append(qb.joins, joinClause)
+
+	// Return empty condition since the filtering is in the JOIN
+	return "", nil
 }

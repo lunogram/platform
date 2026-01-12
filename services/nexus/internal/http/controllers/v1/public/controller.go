@@ -1,15 +1,14 @@
 package v1
 
 import (
-	"net/http"
-
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, db *sqlx.DB, platformProxy http.Handler) *Controller {
+func NewController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) *Controller {
 	return &Controller{
-		ClientController: NewClientController(logger, db, platformProxy),
+		ClientController: NewClientController(logger, db, pub),
 	}
 }
 

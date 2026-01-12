@@ -18,14 +18,14 @@ func NewOrganizationsController(logger *zap.Logger, db *sqlx.DB) *OrganizationsC
 	return &OrganizationsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewStores(db),
+		store:  store.NewState(db),
 	}
 }
 
 type OrganizationsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.Stores
+	store  *store.State
 }
 
 func (srv *OrganizationsController) GetOrganization(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +43,7 @@ func (srv *OrganizationsController) GetOrganization(w http.ResponseWriter, r *ht
 
 	organization, err := srv.store.GetOrganization(ctx, scope.OrganizationID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("organization not found", zap.Stringer("organization_id", scope.OrganizationID))
+		logger.Info("organization not found", zap.Stringer("organization_id", scope.OrganizationID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
 		return
 	}

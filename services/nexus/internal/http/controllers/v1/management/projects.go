@@ -21,14 +21,14 @@ func NewProjectsController(logger *zap.Logger, db *sqlx.DB) *ProjectsController 
 	return &ProjectsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewStores(db),
+		store:  store.NewState(db),
 	}
 }
 
 type ProjectsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.Stores
+	store  *store.State
 }
 
 func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Request, params oapi.ListProjectsParams) {
@@ -90,7 +90,7 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 
 	project, err := srv.store.GetProject(ctx, projectID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("project not found", zap.Stringer("project_id", projectID))
+		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
 		return
 	}
@@ -166,7 +166,7 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	if has {
 		admin, err := srv.store.GetAdminBySubject(ctx, session)
 		if errors.Is(err, sql.ErrNoRows) {
-			logger.Error("admin not found")
+			logger.Info("admin not found")
 			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 			return
 		}

@@ -14,19 +14,9 @@ export default function Settings() {
             children: t('general'),
         },
         {
-            key: 'team',
-            to: 'team',
-            children: t('team'),
-        },
-        {
             key: 'locales',
             to: 'locales',
             children: t('locales'),
-        },
-        {
-            key: 'data',
-            to: 'data',
-            children: t('data_schema'),
         },
         {
             key: 'api-keys',
@@ -42,11 +32,6 @@ export default function Settings() {
             key: 'subscriptions',
             to: 'subscriptions',
             children: t('subscriptions'),
-        },
-        {
-            key: 'tags',
-            to: 'tags',
-            children: t('tags'),
         },
     ]
 

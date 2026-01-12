@@ -2,11 +2,13 @@ package store
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/rules"
+	"github.com/lunogram/platform/services/nexus/internal/rules/query"
 )
 
 type ListType string
@@ -14,13 +16,6 @@ type ListType string
 const (
 	ListTypeStatic  = "static"
 	ListTypeDynamic = "dynamic"
-)
-
-type ListState string
-
-const (
-	ListStateDraft = "draft"
-	ListStateReady = "ready"
 )
 
 type Lists []List
@@ -34,42 +29,28 @@ func (lists Lists) OAPI() []oapi.List {
 }
 
 type List struct {
-	ID          uuid.UUID       `db:"id"`
-	ProjectID   uuid.UUID       `db:"project_id"`
-	Name        string          `db:"name"`
-	Type        ListType        `db:"type"`
-	State       ListState       `db:"state"`
-	Rule        JSONB[RuleData] `db:"rule"`
-	RuleID      *uuid.UUID      `db:"rule_id"`
-	Version     int             `db:"version"`
-	UsersCount  int             `db:"users_count"`
-	RefreshedAt *time.Time      `db:"refreshed_at"`
-	CreatedAt   time.Time       `db:"created_at"`
-	UpdatedAt   time.Time       `db:"updated_at"`
+	ID         uuid.UUID             `db:"id"`
+	ProjectID  uuid.UUID             `db:"project_id"`
+	Name       string                `db:"name"`
+	Type       ListType              `db:"type"`
+	RuleID     *uuid.UUID            `db:"rule_id"`
+	Rule       *JSONB[rules.RuleSet] `db:"rule"`
+	Version    int                   `db:"version"`
+	UsersCount int                   `db:"users_count"`
+	CreatedAt  time.Time             `db:"created_at"`
+	UpdatedAt  time.Time             `db:"updated_at"`
 }
 
-type RuleData map[string]any
-
 func (list List) OAPI() oapi.List {
-	var ruleRaw json.RawMessage
-	if list.Rule.Data != nil {
-		ruleRaw, _ = json.Marshal(list.Rule.Data)
-	}
-
 	result := oapi.List{
 		Id:         list.ID,
 		ProjectId:  list.ProjectID,
 		Name:       list.Name,
 		Type:       oapi.ListType(list.Type),
-		State:      oapi.ListState(list.State),
 		UsersCount: list.UsersCount,
 		Version:    list.Version,
 		CreatedAt:  list.CreatedAt,
 		UpdatedAt:  list.UpdatedAt,
-	}
-
-	if ruleRaw != nil {
-		result.Rule = &ruleRaw
 	}
 
 	if list.RuleID != nil {
@@ -77,9 +58,8 @@ func (list List) OAPI() oapi.List {
 		result.RuleId = &ruleID
 	}
 
-	if list.RefreshedAt != nil {
-		refreshedAt := *list.RefreshedAt
-		result.RefreshedAt = &refreshedAt
+	if list.Rule != nil {
+		result.Rule = &list.Rule.Data
 	}
 
 	return result
@@ -87,22 +67,24 @@ func (list List) OAPI() oapi.List {
 
 func NewListsStore(db DB) *ListsStore {
 	return &ListsStore{
-		db: db,
+		db:    db,
+		rules: NewRulesStore(db),
 	}
 }
 
 type ListsStore struct {
-	db DB
+	db    DB
+	rules *RulesStore
 }
 
 func (s *ListsStore) CreateList(ctx context.Context, list List) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO lists (project_id, name, type, state, rule, users_count, version)
-	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	INSERT INTO lists (project_id, name, type, rule_id, version)
+	VALUES ($1, $2, $3, $4, $5)
 	RETURNING id`
 
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, list.ProjectID, list.Name, list.Type, list.State, list.Rule, list.UsersCount, list.Version)
+	err := s.db.GetContext(ctx, &id, stmt, list.ProjectID, list.Name, list.Type, list.RuleID, list.Version)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -112,12 +94,25 @@ func (s *ListsStore) CreateList(ctx context.Context, list List) (uuid.UUID, erro
 
 func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, pagination Pagination) (Lists, int, error) {
 	query := `
-	SELECT id, project_id, name, type, state, rule, rule_id, version, users_count, refreshed_at, created_at, updated_at,
+	SELECT
+		l.id,
+		l.project_id,
+		l.name,
+		l.type,
+		l.rule_id,
+		r.rule,
+		l.version,
+		COUNT(lu.user_id) AS users_count,
+		l.created_at,
+		l.updated_at,
 		COUNT(*) OVER () AS total_count
-	FROM lists
-	WHERE project_id = $1
-	AND deleted_at IS NULL
-	ORDER BY updated_at DESC
+	FROM lists l
+	LEFT JOIN rules r ON l.rule_id = r.id
+	LEFT JOIN list_users lu ON lu.list_id = l.id
+	WHERE l.project_id = $1
+	AND l.deleted_at IS NULL
+	GROUP BY l.id, l.project_id, l.name, l.type, l.rule_id, r.rule, l.version, l.created_at, l.updated_at
+	ORDER BY l.updated_at DESC
 	LIMIT $2 OFFSET $3`
 
 	var results []struct {
@@ -144,11 +139,27 @@ func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, paginat
 
 func (s *ListsStore) GetList(ctx context.Context, projectID, listID uuid.UUID) (*List, error) {
 	query := `
-	SELECT id, project_id, name, type, state, rule, rule_id, version, users_count, refreshed_at, created_at, updated_at
-	FROM lists
-	WHERE project_id = $1
-	AND id = $2
-	AND deleted_at IS NULL`
+	SELECT
+		l.id,
+		l.project_id,
+		l.name,
+		l.type,
+		l.rule_id,
+		r.rule,
+		l.version,
+		COALESCE(lu.user_count, 0)::int AS users_count,
+		l.created_at,
+		l.updated_at
+	FROM lists l
+	LEFT JOIN rules r ON l.rule_id = r.id
+	LEFT JOIN (
+		SELECT list_id, COUNT(*) AS user_count
+		FROM list_users
+		GROUP BY list_id
+	) lu ON lu.list_id = l.id
+	WHERE l.project_id = $1
+	AND l.id = $2
+	AND l.deleted_at IS NULL`
 
 	var list List
 	err := s.db.GetContext(ctx, &list, query, projectID, listID)
@@ -160,33 +171,27 @@ func (s *ListsStore) GetList(ctx context.Context, projectID, listID uuid.UUID) (
 }
 
 type ListUpdate struct {
-	Name      *string
-	Rule      *JSONB[RuleData]
-	Published *bool
+	Name   *string
+	RuleID *uuid.UUID
 }
 
 func (s *ListsStore) UpdateList(ctx context.Context, projectID, listID uuid.UUID, update ListUpdate) error {
-	query := `
+	stmt := `
 	UPDATE lists
 	SET
-		name = COALESCE($1, name),
-		rule = COALESCE($2, rule),
-		state = CASE 
-			WHEN state = 'draft' AND $3 = true THEN 'ready'
-			WHEN state = 'draft' AND $3 = false THEN 'draft'
-			ELSE state
-		END
-	WHERE project_id = $4
-	AND id = $5
-	AND deleted_at IS NULL`
+		name    = COALESCE($3, name),
+		rule_id = COALESCE($4, rule_id)
+	WHERE project_id = $1
+		AND id = $2
+		AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, query, update.Name, update.Rule, update.Published, projectID, listID)
+	_, err := s.db.ExecContext(ctx, stmt, projectID, listID, update.Name, update.RuleID)
 	return err
 }
 
 func (s *ListsStore) AddUserToList(ctx context.Context, listID, userID uuid.UUID) error {
 	stmt := `
-	INSERT INTO user_list (user_id, list_id)
+	INSERT INTO list_users (user_id, list_id)
 	VALUES ($1, $2)
 	ON CONFLICT (user_id, list_id) DO NOTHING`
 
@@ -207,11 +212,9 @@ func (s *ListsStore) DeleteList(ctx context.Context, projectID, listID uuid.UUID
 }
 
 func (s *ListsStore) DuplicateList(ctx context.Context, projectID, listID uuid.UUID, newName string) (uuid.UUID, error) {
-	// When duplicating a list, version and users_count are reset to 0 to initialize the new list.
-	// The duplicated list starts in 'draft' state regardless of the source list's state.
 	query := `
-	INSERT INTO lists (project_id, name, type, state, rule, rule_id, version, users_count)
-	SELECT project_id, $1, type, 'draft', rule, rule_id, 0, 0
+	INSERT INTO lists (project_id, name, type, rule_id, version)
+	SELECT project_id, $1, type, rule_id, 0
 	FROM lists
 	WHERE project_id = $2
 	AND id = $3
@@ -227,7 +230,7 @@ func (s *ListsStore) DuplicateList(ctx context.Context, projectID, listID uuid.U
 	return id, nil
 }
 
-func (s *ListsStore) ListListUsers(ctx context.Context, projectID, listID uuid.UUID, pagination Pagination) (Users, int, error) {
+func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid.UUID, pagination Pagination) (Users, int, error) {
 	query := `
 	SELECT 
 		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
@@ -239,11 +242,10 @@ func (s *ListsStore) ListListUsers(ctx context.Context, projectID, listID uuid.U
 		) as has_push_device,
 		COUNT(*) OVER () AS total_count
 	FROM users u
-	INNER JOIN user_list ul ON u.id = ul.user_id
+	INNER JOIN list_users ul ON u.id = ul.user_id
 	INNER JOIN lists l ON ul.list_id = l.id
 	WHERE l.project_id = $1
 	AND l.id = $2
-	AND ul.deleted_at IS NULL
 	ORDER BY ul.created_at DESC
 	LIMIT $3 OFFSET $4`
 
@@ -270,4 +272,99 @@ func (s *ListsStore) ListListUsers(ctx context.Context, projectID, listID uuid.U
 	}
 
 	return users, total, nil
+}
+
+func (s *ListsStore) SelectListUsersDependency(ctx context.Context, projectID uuid.UUID) ([]uuid.UUID, error) {
+	query := `
+	SELECT l.id
+	FROM lists l
+	JOIN rules r ON l.rule_id = r.id
+	WHERE l.project_id = $1
+	AND r.depends_on_users = TRUE
+	AND l.deleted_at IS NULL`
+
+	var result []uuid.UUID
+	err := s.db.SelectContext(ctx, &result, query, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+type RecomputeAction string
+
+const (
+	RecomputeActionInserted RecomputeAction = "inserted"
+	RecomputeActionDeleted  RecomputeAction = "deleted"
+)
+
+type Recomputed struct {
+	UserID uuid.UUID       `db:"user_id"`
+	Action RecomputeAction `db:"action"`
+}
+
+// RecomputeList evaluates the given ruleset for the specified project and list
+// and updates list membership in the database to match the current result.
+//
+// The ruleset is compiled into a SQL query which yields the set of user IDs
+// that currently qualify for the list ("recomputed"). A single MERGE statement
+// is then executed to:
+//   - insert a new active list_users row for users that now qualify but are not
+//     currently active members of the list
+//   - soft-delete (set deleted_at) active list_users rows whose users no longer
+//     qualify for the list
+//
+// Soft-deleted rows are intentionally NOT reactivated. If a user later qualifies
+// for the list again, a new list_users row will be inserted so historical
+// membership periods remain preserved.
+//
+// This function only changes database state and does not persist or cache the
+// recomputed result. All updates occur in a single SQL statement.
+func (s *ListsStore) RecomputeList(ctx context.Context, projectID, listID uuid.UUID, ruleset rules.RuleSet) ([]Recomputed, error) {
+	builder := query.NewQueryBuilder(projectID, nil)
+	query, err := builder.Query(ruleset)
+	if err != nil {
+		return nil, err
+	}
+
+	args := append(query.Args, listID)
+	listIdx := len(args)
+
+	sql := fmt.Sprintf(`
+	WITH recomputed AS MATERIALIZED (
+		%s
+	),
+	applied AS (
+		MERGE INTO list_users AS lu
+		USING recomputed AS rc
+		CROSS JOIN (SELECT $%d::uuid AS list_id) AS p
+		ON (
+			lu.list_id = p.list_id
+			AND lu.user_id = rc.id
+		)
+
+		WHEN NOT MATCHED THEN
+		INSERT (list_id, user_id)
+		VALUES (p.list_id, rc.id)
+
+		WHEN NOT MATCHED BY SOURCE AND lu.list_id = p.list_id
+		THEN DELETE
+
+		RETURNING
+			lu.user_id,
+			CASE
+				WHEN rc.id IS NULL THEN 'deleted'
+				ELSE 'inserted'
+			END AS action
+	)
+	SELECT * FROM applied`, query.SQL, listIdx)
+
+	var results []Recomputed
+	err = s.db.SelectContext(ctx, &results, sql, args...)
+	if err != nil {
+		return results, err
+	}
+
+	return results, nil
 }

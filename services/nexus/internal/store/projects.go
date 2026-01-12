@@ -21,23 +21,31 @@ type Project struct {
 	LinkWrapPush      bool           `db:"link_wrap_push"`
 	Tools             pq.StringArray `db:"tools"`
 	Locale            string         `db:"locale"`
-	HasProvider       bool           `db:"has_provider"`
+	IntegrationsCount int            `db:"integrations_count"`
+	CampaignsCount    int            `db:"campaigns_count"`
+	JourneysCount     int            `db:"journeys_count"`
+	UsersCount        int            `db:"users_count"`
+	ListsCount        int            `db:"lists_count"`
 	CreatedAt         time.Time      `db:"created_at"`
 	UpdatedAt         time.Time      `db:"updated_at"`
 }
 
 func (p *Project) OAPI() oapi.Project {
 	project := oapi.Project{
-		Id:            p.ID,
-		Name:          p.Name,
-		Timezone:      p.Timezone,
-		Locale:        p.Locale,
-		LinkWrapEmail: &p.LinkWrapEmail,
-		LinkWrapPush:  &p.LinkWrapPush,
-		HasProvider:   &p.HasProvider,
-		Role:          "admin", // NOTE: we hardcode this for now; this has to be refactored later when we are addressing RBAC, the role is right now checked in the controller
-		CreatedAt:     p.CreatedAt,
-		UpdatedAt:     p.UpdatedAt,
+		Id:                p.ID,
+		Name:              p.Name,
+		Timezone:          p.Timezone,
+		Locale:            p.Locale,
+		LinkWrapEmail:     &p.LinkWrapEmail,
+		LinkWrapPush:      &p.LinkWrapPush,
+		IntegrationsCount: &p.IntegrationsCount,
+		CampaignsCount:    &p.CampaignsCount,
+		JourneysCount:     &p.JourneysCount,
+		UsersCount:        &p.UsersCount,
+		ListsCount:        &p.ListsCount,
+		Role:              "admin", // NOTE: we hardcode this for now; this has to be refactored later when we are addressing RBAC, the role is right now checked in the controller
+		CreatedAt:         p.CreatedAt,
+		UpdatedAt:         p.UpdatedAt,
 	}
 
 	if p.OrganizationID != nil {
@@ -91,12 +99,41 @@ func (s *ProjectsStore) CreateProject(ctx context.Context, project Project) (uui
 func (s *ProjectsStore) GetProject(ctx context.Context, id uuid.UUID) (*Project, error) {
 	query := `
 	SELECT id, organization_id, name, description, timezone, text_opt_out_message, link_wrap_email, text_help_message, link_wrap_push, tools, locale, created_at, updated_at,
-	       EXISTS(
-		       SELECT 1 FROM providers
-		       WHERE providers.project_id = projects.id
-		         AND providers.deleted_at IS NULL
-	       ) AS has_provider
+		COALESCE(pr.integrations_count, 0) AS integrations_count,
+		COALESCE(ca.campaigns_count, 0)    AS campaigns_count,
+		COALESCE(j.journeys_count, 0)      AS journeys_count,
+		COALESCE(u.users_count, 0)         AS users_count,
+		COALESCE(l.lists_count, 0)         AS lists_count
 	FROM projects
+	LEFT JOIN (
+		SELECT project_id, COUNT(*) AS integrations_count
+		FROM providers
+		WHERE deleted_at IS NULL
+		GROUP BY project_id
+	) pr ON pr.project_id = projects.id
+	LEFT JOIN (
+		SELECT project_id, COUNT(*) AS campaigns_count
+		FROM campaigns
+		WHERE deleted_at IS NULL
+		GROUP BY project_id
+	) ca ON ca.project_id = projects.id
+	LEFT JOIN (
+		SELECT project_id, COUNT(*) AS journeys_count
+		FROM journeys
+		WHERE deleted_at IS NULL
+		GROUP BY project_id
+	) j ON j.project_id = projects.id
+	LEFT JOIN (
+		SELECT project_id, COUNT(*) AS users_count
+		FROM users
+		GROUP BY project_id
+	) u ON u.project_id = projects.id
+	LEFT JOIN (
+		SELECT project_id, COUNT(*) AS lists_count
+		FROM lists
+		WHERE deleted_at IS NULL
+		GROUP BY project_id
+	) l ON l.project_id = projects.id
 	WHERE id = $1
 	AND deleted_at IS NULL`
 
@@ -110,15 +147,11 @@ func (s *ProjectsStore) GetProject(ctx context.Context, id uuid.UUID) (*Project,
 }
 
 func (s *ProjectsStore) ListProjects(ctx context.Context, organizationID uuid.UUID, pagination Pagination, search string) ([]Project, int, error) {
+	// TODO: include counts as in GetProject
 	query := `
 	SELECT DISTINCT p.id, p.organization_id, p.name, p.description, p.timezone, p.text_opt_out_message, 
 	       p.link_wrap_email, p.text_help_message, p.link_wrap_push, p.tools, p.locale, 
 	       p.created_at, p.updated_at,
-	       EXISTS(
-		       SELECT 1 FROM providers
-		       WHERE providers.project_id = p.id
-		         AND providers.deleted_at IS NULL
-	       ) AS has_provider,
 	       COUNT(*) OVER() AS total_count
 	FROM projects p
 	WHERE p.deleted_at IS NULL

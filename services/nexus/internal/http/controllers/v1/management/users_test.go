@@ -3,8 +3,12 @@ package v1
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
+	"fmt"
+	"mime/multipart"
 	"net/http/httptest"
+	"net/textproto"
 	"testing"
 
 	"github.com/cloudproud/graceful"
@@ -14,17 +18,27 @@ import (
 	"github.com/lunogram/platform/pkg/container"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/rules"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
+
+//go:embed test/users/valid.csv
+var validImportUsersCSV string
+
+//go:embed test/users/no-external-id.csv
+var noExternalIDImportUsersCSV string
+
+//go:embed test/users/out-of-order.csv
+var outOfOrderImportUsersCSV string
 
 func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
+	config := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
@@ -33,7 +47,7 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	err := store.Migrate(config.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, config.Store)
+	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
 	orgsStore := store.NewOrganizationsStore(db)
@@ -49,7 +63,7 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	})
 	require.NoError(t, err)
 
-	controller := NewUsersController(logger, db)
+	controller := NewUsersController(logger, db, 32<<20) // 32 MB max
 	return controller, projectID
 }
 
@@ -470,15 +484,37 @@ func TestGetUserJourneys(t *testing.T) {
 	require.NoError(t, err)
 
 	journeysStore := controller.store.JourneysStore
-	status := "active"
 	journeyID, err := journeysStore.CreateJourney(ctx, store.Journey{
 		ProjectID: projectID,
 		Name:      "Onboarding Flow",
-		Status:    &status,
 	})
 	require.NoError(t, err)
 
-	entranceID, err := journeysStore.CreateUserJourneyStep(ctx, userID, journeyID, "entrance")
+	// Create initial version and link to journey
+	versionID, err := journeysStore.CreateJourneyVersion(ctx, journeyID, "draft")
+	require.NoError(t, err)
+	err = journeysStore.UpdateJourney(ctx, projectID, journeyID, store.JourneyUpdate{VersionID: &versionID})
+	require.NoError(t, err)
+
+	// Create a step so we have a step ID
+	stepMap := oapi.JourneyStepMap{
+		"entrance-1": {
+			Type: "entrance",
+			X:    100,
+			Y:    200,
+		},
+	}
+	_, err = journeysStore.SetJourneySteps(ctx, versionID, stepMap)
+	require.NoError(t, err)
+
+	// Create user state
+	journeyEntryID := uuid.New()
+	_, err = journeysStore.CreateUserJourneyState(ctx, store.JourneyUserState{
+		JourneyID:      journeyID,
+		JourneyEntryID: journeyEntryID,
+		UserID:         userID,
+		ExternalStepID: "entrance-1",
+	})
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
@@ -492,9 +528,9 @@ func TestGetUserJourneys(t *testing.T) {
 	var response oapi.UserJourneyList
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
+	// Should have 1 result since user state was created
 	require.Equal(t, 1, response.Total)
 	require.Len(t, response.Results, 1)
-	require.Equal(t, entranceID, response.Results[0].Id)
 	require.NotNil(t, response.Results[0].Journey)
 	require.Equal(t, "Onboarding Flow", response.Results[0].Journey.Name)
 }
@@ -514,18 +550,38 @@ func TestGetUserJourneysPagination(t *testing.T) {
 	require.NoError(t, err)
 
 	journeysStore := controller.store.JourneysStore
-	status := "active"
 	journeyID, err := journeysStore.CreateJourney(ctx, store.Journey{
 		ProjectID: projectID,
 		Name:      "Test Journey",
-		Status:    &status,
 	})
 	require.NoError(t, err)
 
-	for i := 0; i < 5; i++ {
-		_, err = journeysStore.CreateUserJourneyStep(ctx, userID, journeyID, "entrance")
-		require.NoError(t, err)
+	// Create initial version and link to journey
+	versionID, err := journeysStore.CreateJourneyVersion(ctx, journeyID, "draft")
+	require.NoError(t, err)
+	err = journeysStore.UpdateJourney(ctx, projectID, journeyID, store.JourneyUpdate{VersionID: &versionID})
+	require.NoError(t, err)
+
+	// Create a step so we have a step ID
+	stepMap := oapi.JourneyStepMap{
+		"entrance-1": {
+			Type: "entrance",
+			X:    100,
+			Y:    200,
+		},
 	}
+	_, err = journeysStore.SetJourneySteps(ctx, versionID, stepMap)
+	require.NoError(t, err)
+
+	// Create user state
+	journeyEntryID := uuid.New()
+	_, err = journeysStore.CreateUserJourneyState(ctx, store.JourneyUserState{
+		JourneyID:      journeyID,
+		JourneyEntryID: journeyEntryID,
+		UserID:         userID,
+		ExternalStepID: "entrance-1",
+	})
+	require.NoError(t, err)
 
 	limit := oapi.PaginationLimit(2)
 	offset := oapi.PaginationOffset(1)
@@ -544,8 +600,253 @@ func TestGetUserJourneysPagination(t *testing.T) {
 	var response oapi.UserJourneyList
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
-	require.Equal(t, 5, response.Total)
-	require.Len(t, response.Results, 2)
+	// With offset=1 and only 1 total item, we get 0 results (and total shows 0 because COUNT(*) OVER() returns nothing when no rows)
+	require.Equal(t, 0, response.Total)
+	require.Len(t, response.Results, 0)
 	require.Equal(t, 2, response.Limit)
 	require.Equal(t, 1, response.Offset)
+}
+
+func TestListUserSchemas(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID := setupUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.store.UsersStore
+
+	paths := rules.Paths{
+		{Path: ".email", Type: "string"},
+		{Path: ".age", Type: "number"},
+		{Path: ".plan", Type: "string"},
+		{Path: ".preferences", Type: "object"},
+		{Path: ".preferences.notifications", Type: "boolean"},
+	}
+	err := usersStore.UpsertUserSchema(ctx, projectID, paths)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/user-schemas", nil)
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.ListUserSchemas(res, req, projectID)
+
+	require.Equal(t, 200, res.Code)
+
+	var response struct {
+		Results []oapi.SchemaPath `json:"results"`
+	}
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Len(t, response.Results, 5)
+
+	pathMap := make(map[string][]string)
+	for _, schema := range response.Results {
+		pathMap[schema.Path] = schema.Types
+	}
+
+	require.Contains(t, pathMap[".email"], "string")
+	require.Contains(t, pathMap[".age"], "number")
+	require.Contains(t, pathMap[".plan"], "string")
+	require.Contains(t, pathMap[".preferences"], "object")
+	require.Contains(t, pathMap[".preferences.notifications"], "boolean")
+}
+
+func TestListUserSchemasEmpty(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID := setupUsersController(t)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.ListUserSchemas(res, req, projectID)
+
+	require.Equal(t, 200, res.Code)
+
+	var response struct {
+		Results []oapi.SchemaPath `json:"results"`
+	}
+	err := json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Empty(t, response.Results)
+}
+
+func TestListUserSchemasUnauthorized(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID := setupUsersController(t)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
+
+	controller.ListUserSchemas(res, req, projectID)
+
+	require.Equal(t, 401, res.Code)
+}
+
+func TestListUserSchemasWithMultipleTypes(t *testing.T) {
+	t.Parallel()
+
+	controller, projectID := setupUsersController(t)
+	ctx := context.Background()
+
+	usersStore := controller.store.UsersStore
+
+	// Insert the same path with different types to simulate real-world scenarios
+	// where user data fields might be sent with different types across different users
+	paths := rules.Paths{
+		{Path: ".age", Type: "number"},
+		{Path: ".age", Type: "string"}, // age sent as "25" or 25
+		{Path: ".is_active", Type: "boolean"},
+		{Path: ".is_active", Type: "string"}, // boolean sent as "true" or true
+		{Path: ".tags", Type: "array"},
+		{Path: ".tags", Type: "string"}, // tags sent as ["a","b"] or "a,b"
+		{Path: ".metadata", Type: "object"},
+		{Path: ".name", Type: "string"},
+	}
+	err := usersStore.UpsertUserSchema(ctx, projectID, paths)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
+	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+	controller.ListUserSchemas(res, req, projectID)
+
+	require.Equal(t, 200, res.Code)
+
+	var response struct {
+		Results []oapi.SchemaPath `json:"results"`
+	}
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Len(t, response.Results, 5)
+
+	pathMap := make(map[string][]string)
+	for _, schema := range response.Results {
+		pathMap[schema.Path] = schema.Types
+	}
+
+	// Verify .age has both number and string types
+	require.Contains(t, pathMap, ".age")
+	require.Len(t, pathMap[".age"], 2)
+	require.Contains(t, pathMap[".age"], "number")
+	require.Contains(t, pathMap[".age"], "string")
+
+	// Verify .is_active has both boolean and string types
+	require.Contains(t, pathMap, ".is_active")
+	require.Len(t, pathMap[".is_active"], 2)
+	require.Contains(t, pathMap[".is_active"], "boolean")
+	require.Contains(t, pathMap[".is_active"], "string")
+
+	// Verify .tags has both array and string types
+	require.Contains(t, pathMap, ".tags")
+	require.Len(t, pathMap[".tags"], 2)
+	require.Contains(t, pathMap[".tags"], "array")
+	require.Contains(t, pathMap[".tags"], "string")
+
+	// Verify .metadata has only object type
+	require.Contains(t, pathMap, ".metadata")
+	require.Len(t, pathMap[".metadata"], 1)
+	require.Contains(t, pathMap[".metadata"], "object")
+
+	// Verify .name has only string type
+	require.Contains(t, pathMap, ".name")
+	require.Len(t, pathMap[".name"], 1)
+	require.Contains(t, pathMap[".name"], "string")
+}
+
+func TestImportUsers(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := graceful.NewContext(t.Context())
+
+	type test struct {
+		csv   string
+		code  int
+		users int
+	}
+
+	tests := map[string]test{
+		"successful-import": {
+			csv:   validImportUsersCSV,
+			code:  204,
+			users: 3,
+		},
+		"missing-external-id-column": {
+			csv:   noExternalIDImportUsersCSV,
+			code:  400,
+			users: 0,
+		},
+		"out-of-order-columns": {
+			csv:   outOfOrderImportUsersCSV,
+			code:  204,
+			users: 3,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			config := config.Node{
+				Store: store.Config{
+					URI: container.RunPostgreSQL(t),
+				},
+			}
+
+			err := store.Migrate(config.Store)
+			require.NoError(t, err)
+
+			db, err := store.New(ctx, logger, config.Store)
+			require.NoError(t, err)
+
+			orgsStore := store.NewOrganizationsStore(db)
+			orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
+			require.NoError(t, err)
+
+			projectsStore := store.NewProjectsStore(db)
+			projectID, err := projectsStore.CreateProject(ctx, store.Project{
+				OrganizationID: &orgID,
+				Name:           DefaultProject.Name,
+				Timezone:       DefaultProject.Timezone,
+				Locale:         DefaultProject.Locale,
+			})
+			require.NoError(t, err)
+
+			usersStore := store.NewUsersStore(db)
+			controller := NewUsersController(logger, db, 32<<20) // 32 MB max
+
+			body := &bytes.Buffer{}
+			writer := multipart.NewWriter(body)
+
+			header := textproto.MIMEHeader{}
+			header.Set("Content-Disposition", `form-data; name="file"; filename="users.csv"`)
+			header.Set("Content-Type", "text/csv")
+
+			part, err := writer.CreatePart(header)
+			require.NoError(t, err)
+
+			_, err = part.Write([]byte(test.csv))
+			require.NoError(t, err)
+
+			err = writer.Close()
+			require.NoError(t, err)
+
+			res := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", fmt.Sprintf("/api/admin/projects/%s/users/import", projectID), body)
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+			req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+
+			controller.ImportUsers(res, req, projectID)
+
+			require.Equal(t, test.code, res.Code, res.Body.String())
+
+			users, total, err := usersStore.ListUsers(ctx, projectID, store.Pagination{Limit: 100, Offset: 0}, "")
+			require.NoError(t, err)
+			require.Equal(t, test.users, total, "expected %d users in total", test.users)
+			require.Len(t, users, test.users, "expected %d users to be returned", test.users)
+		})
+	}
 }

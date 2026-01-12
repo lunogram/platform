@@ -49,7 +49,7 @@ func Middleware(middleware ...Handler) openapi3filter.AuthenticationFunc {
 	}
 }
 
-func WithJWT(config config.Service, stores *store.Stores) Handler {
+func WithJWT(config config.Auth, stores *store.State) Handler {
 	keyFunc := config.JWKS.Unwrap()
 	if config.JWTSecret != "" {
 		keyFunc = HMAC([]byte(config.JWTSecret))
@@ -82,7 +82,7 @@ func WithJWT(config config.Service, stores *store.Stores) Handler {
 	}
 }
 
-func WithKey(stores *store.Stores) Handler {
+func WithKey(stores *store.State) Handler {
 	return func(ctx context.Context, tokenString string) (context.Context, error) {
 		if tokenString == "" {
 			return ctx, ErrUnauthorized
@@ -95,7 +95,6 @@ func WithKey(stores *store.Stores) Handler {
 
 		ctx = rbac.WithScope(ctx, &rbac.Scope{
 			OrganizationID: key.OrganizationID,
-			ProjectID:      &key.ProjectID,
 		})
 
 		return ctx, nil

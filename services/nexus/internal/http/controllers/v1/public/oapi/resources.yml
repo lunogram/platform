@@ -5,7 +5,7 @@ info:
   version: 1.0.0
 
 paths:
-  /api/client/identify:
+  /api/client/projects/{projectID}/identify:
     post:
       summary: Identify user
       description: Used by client libraries to create or update a user profile
@@ -14,6 +14,14 @@ paths:
         - Client
       security:
         - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
       requestBody:
         required: true
         content:
@@ -30,15 +38,27 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/client/events:
+  /api/client/projects/{projectID}/events:
     post:
       summary: Post events
-      description: Used by client libraries to trigger events that can be used to execute a step in a journey or update a virtual list
+      description: |
+        Used by client libraries to trigger events that can be used to execute a step in a journey or update a virtual list.
+        Multiple events can be sent in a single request and are processed asynchronously.
+        Each event is handled independently: if one event fails to be accepted or processed, other events in the same request may still be published successfully.
+        Clients requiring deterministic retry or recovery behavior must submit events individually.
       operationId: postEvents
       tags:
         - Client
       security:
         - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
       requestBody:
         required: true
         content:
@@ -46,8 +66,8 @@ paths:
             schema:
               $ref: '#/components/schemas/PostEventsRequest'
       responses:
-        '204':
-          description: Events processed successfully
+        '202':
+          description: Events accepted for asynchronous processing
         default:
           $ref: '#/components/responses/Error'
 
@@ -199,6 +219,7 @@ components:
       type: object
       required:
         - name
+        - data
       properties:
         name:
           type: string
@@ -217,7 +238,6 @@ components:
         data:
           type: object
           additionalProperties: true
-          nullable: true
           x-go-type: map[string]any
           example:
             product_id: "prod_789"

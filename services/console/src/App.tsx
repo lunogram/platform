@@ -6,7 +6,6 @@ import { createRouter } from './views/router'
 import { Toaster } from './ui/Toast'
 
 export default function App(props: RouterProps) {
-
     const router = useMemo(() => createRouter(props), [props])
 
     return (

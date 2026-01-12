@@ -11,6 +11,7 @@ import (
 	"github.com/cloudproud/graceful"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
 )
 
 var ErrNoRows = sql.ErrNoRows
@@ -19,11 +20,22 @@ type Config struct {
 	URI string `env:"POSTGRES_URI" envDefault:"postgres://postgres:password@postgres:5432/postgres?sslmode=disable"`
 }
 
-func Connect(ctx graceful.Context, conf Config) (*sqlx.DB, error) {
-	db, err := sqlx.Connect("pgx", conf.URI)
+func New(ctx graceful.Context, logger *zap.Logger, service Config) (*sqlx.DB, error) {
+	logger.Info("connecting to PostgreSQL database")
+
+	db, err := sqlx.Connect("pgx", service.URI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
+
+	ctx.Closer(func() {
+		logger.Info("received close signal, closing store client")
+
+		err := db.Close()
+		if err != nil {
+			logger.Error("failed to close database connection", zap.Error(err))
+		}
+	})
 
 	return db, nil
 }
@@ -41,8 +53,8 @@ type DB interface {
 	NamedExecContext(ctx context.Context, query string, arg interface{}) (sql.Result, error)
 }
 
-func NewStores(db DB) *Stores {
-	return &Stores{
+func NewState(db DB) *State {
+	return &State{
 		AdminsStore:        NewAdminsStore(db),
 		ProjectsStore:      NewProjectsStore(db),
 		CampaignsStore:     NewCampaignsStore(db),
@@ -59,10 +71,11 @@ func NewStores(db DB) *Stores {
 		DocumentsStore:     NewDocumentsStore(db),
 		EventsStore:        NewEventsStore(db),
 		AuthStore:          NewAuthStore(db),
+		RulesStore:         NewRulesStore(db),
 	}
 }
 
-type Stores struct {
+type State struct {
 	*AdminsStore
 	*ProjectsStore
 	*CampaignsStore
@@ -79,6 +92,7 @@ type Stores struct {
 	*DocumentsStore
 	*EventsStore
 	*AuthStore
+	*RulesStore
 }
 
 type Pagination struct {
@@ -91,7 +105,7 @@ type JSONB[T any] struct {
 }
 
 // Scan implements sql.Scanner for reading from database
-func (j *JSONB[T]) Scan(value interface{}) error {
+func (j *JSONB[T]) Scan(value any) error {
 	if value == nil {
 		return nil
 	}
@@ -109,12 +123,25 @@ func (j JSONB[T]) Value() (driver.Value, error) {
 	return json.Marshal(j.Data)
 }
 
+func (j *JSONB[T]) MarshalRaw() *json.RawMessage {
+	if j == nil {
+		return nil
+	}
+
+	bytes, err := json.Marshal(j.Data)
+	if err != nil {
+		return nil
+	}
+
+	return (*json.RawMessage)(&bytes)
+}
+
 type DataType string
 
 const (
-	DataTypeString DataType = "string"
-	DataTypeNumber DataType = "number"
-	DataTypeBool   DataType = "bool"
-	DataTypeObject DataType = "object"
-	DataTypeArray  DataType = "array"
+	DataTypeString  DataType = "string"
+	DataTypeNumber  DataType = "number"
+	DataTypeBoolean DataType = "boolean"
+	DataTypeObject  DataType = "object"
+	DataTypeArray   DataType = "array"
 )

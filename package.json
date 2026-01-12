@@ -18,5 +18,6 @@
   "devDependencies": {
     "openapi-fetch": "^0.14.1",
     "openapi-typescript": "^7.9.1"
-  }
+  },
+  "packageManager": "pnpm@10.25.0"
 }

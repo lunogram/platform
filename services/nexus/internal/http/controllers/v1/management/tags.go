@@ -17,14 +17,14 @@ func NewTagsController(logger *zap.Logger, db *sqlx.DB) *TagsController {
 	return &TagsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewStores(db),
+		store:  store.NewState(db),
 	}
 }
 
 type TagsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.Stores
+	store  *store.State
 }
 
 func (srv *TagsController) CreateTag(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
@@ -90,7 +90,7 @@ func (srv *TagsController) GetTag(w http.ResponseWriter, r *http.Request, projec
 
 	tag, err := srv.store.TagsStore.GetTag(ctx, projectID, tagID)
 	if errors.Is(err, store.ErrNoRows) {
-		logger.Error("tag not found", zap.Stringer("tag_id", tagID))
+		logger.Info("tag not found", zap.Stringer("tag_id", tagID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("tag not found")))
 		return
 	}
@@ -126,7 +126,7 @@ func (srv *TagsController) UpdateTag(w http.ResponseWriter, r *http.Request, pro
 
 	tag, err := srv.store.TagsStore.GetTag(ctx, projectID, tagID)
 	if errors.Is(err, store.ErrNoRows) {
-		logger.Error("tag not found", zap.Stringer("tag_id", tagID))
+		logger.Info("tag not found", zap.Stringer("tag_id", tagID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("tag not found")))
 		return
 	}

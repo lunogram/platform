@@ -2,7 +2,7 @@ CREATE TYPE data_type AS ENUM('string', 'number', 'boolean', 'object', 'array');
 
 CREATE TABLE IF NOT EXISTS events (
     "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "project_id" uuid REFERENCES projects(id) ON DELETE CASCADE,
+    "project_id" uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     "name" VARCHAR(255) NOT NULL,
     "created_at" timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -14,7 +14,7 @@ CREATE TRIGGER set_updated_at_events BEFORE UPDATE ON events FOR EACH ROW EXECUT
 
 CREATE TABLE IF NOT EXISTS event_schemas (
     "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "event_id" uuid REFERENCES events(id) ON DELETE CASCADE,
+    "event_id" uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     "path" VARCHAR(255) NOT NULL,
     "data_type" data_type NOT NULL,
     "visibility" project_rule_paths_visibility NOT NULL DEFAULT 'hidden',
@@ -28,7 +28,7 @@ CREATE TRIGGER set_updated_at_event_schemas BEFORE UPDATE ON event_schemas FOR E
 
 CREATE TABLE IF NOT EXISTS user_schemas (
     "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "project_id" uuid REFERENCES projects(id) ON DELETE CASCADE,
+    "project_id" uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     "path" VARCHAR(255) NOT NULL,
     "data_type" data_type NOT NULL,
     "visibility" project_rule_paths_visibility NOT NULL DEFAULT 'hidden',

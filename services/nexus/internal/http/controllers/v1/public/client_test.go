@@ -3,14 +3,16 @@ package v1
 import (
 	"bytes"
 	"encoding/json"
-	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/cloudproud/graceful"
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/pkg/claim/rbac"
 	"github.com/lunogram/platform/pkg/container"
 	"github.com/lunogram/platform/services/nexus/internal/config"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/consumer"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,23 +24,30 @@ func setupClientController(t *testing.T) *ClientController {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Service{
+	config := config.Node{
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
+		},
+		Nats: config.Nats{
+			URL: container.RunNATS(t),
 		},
 	}
 
 	err := store.Migrate(config.Store)
 	require.NoError(t, err)
 
-	db, err := store.Connect(ctx, config.Store)
+	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
-	})
+	jet, err := pubsub.New(ctx, config)
+	require.NoError(t, err)
 
-	controller := NewClientController(logger, db, handler)
+	err = consumer.Bootstrap(ctx, logger, jet)
+	require.NoError(t, err)
+
+	pub := pubsub.NewPublisher(jet)
+
+	controller := NewClientController(logger, db, pub)
 	return controller
 }
 
@@ -62,7 +71,7 @@ func TestPostEvents(t *testing.T) {
 					},
 				},
 			},
-			statusCode: 204,
+			statusCode: 202,
 		},
 		"single event with anonymous_id": {
 			events: []map[string]interface{}{
@@ -74,7 +83,7 @@ func TestPostEvents(t *testing.T) {
 					},
 				},
 			},
-			statusCode: 204,
+			statusCode: 202,
 		},
 		"multiple events": {
 			events: []map[string]interface{}{
@@ -87,7 +96,7 @@ func TestPostEvents(t *testing.T) {
 					"anonymous_id": "anon_xyz",
 				},
 			},
-			statusCode: 204,
+			statusCode: 202,
 		},
 		"event with user data": {
 			events: []map[string]interface{}{
@@ -104,7 +113,7 @@ func TestPostEvents(t *testing.T) {
 					},
 				},
 			},
-			statusCode: 204,
+			statusCode: 202,
 		},
 	}
 
@@ -133,11 +142,10 @@ func TestPostEvents(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			req = req.WithContext(rbac.WithScope(req.Context(), &rbac.Scope{
 				OrganizationID: orgID,
-				ProjectID:      &projectID,
 			}))
 			w := httptest.NewRecorder()
 
-			controller.PostEvents(w, req)
+			controller.PostEvents(w, req, projectID)
 
 			assert.Equal(t, tc.statusCode, w.Code)
 		})
@@ -164,11 +172,10 @@ func TestPostEventsInvalidRequest(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(rbac.WithScope(req.Context(), &rbac.Scope{
 		OrganizationID: orgID,
-		ProjectID:      &projectID,
 	}))
 	w := httptest.NewRecorder()
 
-	controller.PostEvents(w, req)
+	controller.PostEvents(w, req, projectID)
 
 	assert.Equal(t, 400, w.Code)
 }
@@ -192,7 +199,7 @@ func TestPostEventsMissingRBACScope(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	controller.PostEvents(w, req)
+	controller.PostEvents(w, req, uuid.Nil)
 
 	assert.Equal(t, 401, w.Code)
 }
@@ -219,11 +226,10 @@ func TestPostEventsMissingProjectID(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(rbac.WithScope(req.Context(), &rbac.Scope{
 		OrganizationID: orgID,
-		ProjectID:      nil,
 	}))
 	w := httptest.NewRecorder()
 
-	controller.PostEvents(w, req)
+	controller.PostEvents(w, req, uuid.Nil)
 
 	assert.Equal(t, 401, w.Code)
 }
@@ -271,13 +277,12 @@ func TestPostEventsWithNestedData(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(rbac.WithScope(req.Context(), &rbac.Scope{
 		OrganizationID: orgID,
-		ProjectID:      &projectID,
 	}))
 	w := httptest.NewRecorder()
 
-	controller.PostEvents(w, req)
+	controller.PostEvents(w, req, projectID)
 
-	assert.Equal(t, 204, w.Code)
+	assert.Equal(t, 202, w.Code)
 }
 
 func TestPostEventsEmptyArray(t *testing.T) {
@@ -305,13 +310,12 @@ func TestPostEventsEmptyArray(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(rbac.WithScope(req.Context(), &rbac.Scope{
 		OrganizationID: orgID,
-		ProjectID:      &projectID,
 	}))
 	w := httptest.NewRecorder()
 
-	controller.PostEvents(w, req)
+	controller.PostEvents(w, req, projectID)
 
-	assert.Equal(t, 204, w.Code)
+	assert.Equal(t, 202, w.Code)
 }
 
 func TestClientIdentifyUser(t *testing.T) {
@@ -384,14 +388,12 @@ func TestClientIdentifyUser(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			req = req.WithContext(rbac.WithScope(req.Context(), &rbac.Scope{
 				OrganizationID: orgID,
-				ProjectID:      &projectID,
 			}))
 			w := httptest.NewRecorder()
 
-			controller.IdentifyUser(w, req)
+			controller.IdentifyUser(w, req, projectID)
 
 			assert.Equal(t, tc.statusCode, w.Code)
-
 			if w.Code == 200 {
 				var response map[string]interface{}
 				err = json.Unmarshal(w.Body.Bytes(), &response)
@@ -452,11 +454,10 @@ func TestClientIdentifyUserInvalidRequest(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			req = req.WithContext(rbac.WithScope(req.Context(), &rbac.Scope{
 				OrganizationID: orgID,
-				ProjectID:      &projectID,
 			}))
 			w := httptest.NewRecorder()
 
-			controller.IdentifyUser(w, req)
+			controller.IdentifyUser(w, req, projectID)
 
 			assert.Equal(t, tc.statusCode, w.Code)
 		})
@@ -478,7 +479,7 @@ func TestClientIdentifyUserMissingRBACScope(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	controller.IdentifyUser(w, req)
+	controller.IdentifyUser(w, req, uuid.Nil)
 
 	assert.Equal(t, 401, w.Code)
 }
@@ -501,11 +502,10 @@ func TestClientIdentifyUserMissingProjectID(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(rbac.WithScope(req.Context(), &rbac.Scope{
 		OrganizationID: orgID,
-		ProjectID:      nil,
 	}))
 	w := httptest.NewRecorder()
 
-	controller.IdentifyUser(w, req)
+	controller.IdentifyUser(w, req, uuid.Nil)
 
 	assert.Equal(t, 401, w.Code)
 }
@@ -541,11 +541,10 @@ func TestClientIdentifyUserUpdateExisting(t *testing.T) {
 	req1.Header.Set("Content-Type", "application/json")
 	req1 = req1.WithContext(rbac.WithScope(req1.Context(), &rbac.Scope{
 		OrganizationID: orgID,
-		ProjectID:      &projectID,
 	}))
 	w1 := httptest.NewRecorder()
 
-	controller.IdentifyUser(w1, req1)
+	controller.IdentifyUser(w1, req1, projectID)
 
 	assert.Equal(t, 200, w1.Code)
 
@@ -570,11 +569,10 @@ func TestClientIdentifyUserUpdateExisting(t *testing.T) {
 	req2.Header.Set("Content-Type", "application/json")
 	req2 = req2.WithContext(rbac.WithScope(req2.Context(), &rbac.Scope{
 		OrganizationID: orgID,
-		ProjectID:      &projectID,
 	}))
 	w2 := httptest.NewRecorder()
 
-	controller.IdentifyUser(w2, req2)
+	controller.IdentifyUser(w2, req2, projectID)
 
 	assert.Equal(t, 200, w2.Code)
 
@@ -618,11 +616,10 @@ func TestClientIdentifyUserWithBothIdentifiers(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(rbac.WithScope(req.Context(), &rbac.Scope{
 		OrganizationID: orgID,
-		ProjectID:      &projectID,
 	}))
 	w := httptest.NewRecorder()
 
-	controller.IdentifyUser(w, req)
+	controller.IdentifyUser(w, req, projectID)
 
 	assert.Equal(t, 200, w.Code)
 

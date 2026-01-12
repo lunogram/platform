@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { Puck, Render, useGetPuck, type Config } from "@measured/puck";
-import { Tailwind, Html, Head, Body, pixelBasedPreset } from "@react-email/components";
+import { Tailwind, Html, Head, Font, Body, pixelBasedPreset } from "@react-email/components";
 import { render } from "@react-email/render";
 import { viewports } from "./viewport";
 import { useContext, useEffect } from "react";
@@ -71,6 +71,7 @@ function SaveHandler() {
 
     onSubmit(async () => {
         const { appState } = getPuck();
+        console.log(appState)
 
         const tailwindConfig = {
             presets: [pixelBasedPreset],
@@ -79,7 +80,18 @@ function SaveHandler() {
         const content = renderToString(<Render config={config} data={appState.data} />)
         const html = await render(
             <Html lang={template.locale}>
-                <Head />
+                <Head>
+                    <Font
+                        fontFamily="Roboto"
+                        fallbackFontFamily="Verdana"
+                        webFont={{
+                            url: "https://fonts.gstatic.com/s/roboto/v27/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2",
+                            format: "woff2",
+                        }}
+                        fontWeight={400}
+                        fontStyle="normal"
+                    />
+                </Head>
                 <Tailwind config={tailwindConfig}>
                     <Body>
                         {parse(content)}

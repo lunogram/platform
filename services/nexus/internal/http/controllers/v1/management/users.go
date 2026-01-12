@@ -1,8 +1,11 @@
 package v1
 
 import (
+	"context"
 	"database/sql"
+	"encoding/csv"
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -11,22 +14,25 @@ import (
 	"github.com/lunogram/platform/pkg/http/json"
 	"github.com/lunogram/platform/pkg/http/problem"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/importer"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
 )
 
-func NewUsersController(logger *zap.Logger, db *sqlx.DB) *UsersController {
+func NewUsersController(logger *zap.Logger, db *sqlx.DB, maxUploadSize int64) *UsersController {
 	return &UsersController{
-		logger: logger,
-		db:     db,
-		store:  store.NewStores(db),
+		logger:        logger,
+		db:            db,
+		store:         store.NewState(db),
+		maxUploadSize: maxUploadSize,
 	}
 }
 
 type UsersController struct {
-	logger *zap.Logger
-	db     *sqlx.DB
-	store  *store.Stores
+	logger        *zap.Logger
+	db            *sqlx.DB
+	store         *store.State
+	maxUploadSize int64
 }
 
 func (srv *UsersController) ListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListUsersParams) {
@@ -137,7 +143,7 @@ func (srv *UsersController) GetUser(w http.ResponseWriter, r *http.Request, proj
 
 	user, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("user not found")
+		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -163,7 +169,7 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("user not found")
+		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -226,7 +232,7 @@ func (srv *UsersController) DeleteUser(w http.ResponseWriter, r *http.Request, p
 
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("user not found")
+		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -266,7 +272,7 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("user not found")
+		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -319,7 +325,7 @@ func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.
 
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("user not found")
+		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -372,7 +378,7 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("user not found")
+		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -401,7 +407,7 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 	for _, sub := range subscriptions {
 		_, err := srv.store.GetSubscription(ctx, projectID, sub.SubscriptionId)
 		if errors.Is(err, sql.ErrNoRows) {
-			logger.Error("subscription not found", zap.String("subscription_id", sub.SubscriptionId.String()))
+			logger.Info("subscription not found", zap.String("subscription_id", sub.SubscriptionId.String()))
 			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("subscription not found")))
 			return
 		}
@@ -442,7 +448,7 @@ func (srv *UsersController) GetUserJourneys(w http.ResponseWriter, r *http.Reque
 
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Error("user not found")
+		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
 		return
 	}
@@ -482,4 +488,136 @@ func (srv *UsersController) GetUserJourneys(w http.ResponseWriter, r *http.Reque
 	}
 
 	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *UsersController) ListUserSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	logger := srv.logger.With(zap.String("project_id", projectID.String()))
+	logger.Info("listing user schemas")
+
+	schemas, err := srv.store.ListUserSchemas(ctx, projectID)
+	if err != nil {
+		logger.Error("failed to list user schemas", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("user schemas listed", zap.Int("count", len(schemas)))
+
+	results := make([]oapi.SchemaPath, len(schemas))
+	for i, schema := range schemas {
+		results[i] = oapi.SchemaPath{
+			Path:  schema.Path,
+			Types: []string(schema.Types),
+		}
+	}
+
+	response := struct {
+		Results []oapi.SchemaPath `json:"results"`
+	}{
+		Results: results,
+	}
+
+	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *UsersController) ImportUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	logger := srv.logger.With(zap.String("project_id", projectID.String()))
+	logger.Info("importing users from CSV")
+
+	err := r.ParseMultipartForm(srv.maxUploadSize)
+	if err != nil {
+		logger.Error("failed to parse multipart form", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("file too large or invalid form data")))
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		logger.Error("failed to get file from form", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("file is required")))
+		return
+	}
+	defer file.Close()
+
+	logger = logger.With(zap.String("filename", header.Filename), zap.Int64("size", header.Size))
+
+	err = srv.processUserImport(ctx, logger, projectID, file)
+	if err != nil {
+		logger.Error("failed to import users", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("users imported successfully")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.Logger, projectID uuid.UUID, file io.Reader) error {
+	reader := csv.NewReader(file)
+	headers, err := reader.Read()
+	if err != nil {
+		return problem.ErrBadRequest(problem.Describe("invalid CSV format"))
+	}
+
+	transformer, err := importer.NewUsers(headers)
+	if err != nil {
+		if errors.Is(err, importer.ErrMissingExternalID) {
+			return problem.ErrBadRequest(problem.Describe("external_id column is required"))
+		}
+		return err
+	}
+
+	imported := 0
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		return err
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+	stores := store.NewState(tx)
+
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			logger.Warn("failed to read CSV row", zap.Error(err))
+			return err
+		}
+
+		user, err := transformer.MapRecord(record)
+		if err != nil {
+			logger.Warn("failed to map CSV row to user", zap.Error(err))
+			return err
+		}
+
+		_, err = stores.UpsertUser(ctx, projectID, user)
+		if err != nil {
+			logger.Warn("failed to upsert user", zap.Error(err))
+			return err
+		}
+
+		imported++
+	}
+
+	logger.Info("import completed", zap.Int("users_imported", imported))
+	return tx.Commit()
 }

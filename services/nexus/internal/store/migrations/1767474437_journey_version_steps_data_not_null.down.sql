@@ -1,0 +1,1 @@
+ALTER TABLE journey_version_steps ALTER COLUMN data DROP NOT NULL, ALTER COLUMN data DROP DEFAULT;

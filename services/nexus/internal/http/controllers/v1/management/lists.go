@@ -14,24 +14,28 @@ import (
 	"github.com/lunogram/platform/pkg/http/problem"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/services/nexus/internal/importer"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/consumer"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
 )
 
-func NewListsController(logger *zap.Logger, db *sqlx.DB, maxUploadSize int64) *ListsController {
+func NewListsController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher, maxUploadSize int64) *ListsController {
 	return &ListsController{
 		logger:        logger,
 		db:            db,
-		store:         store.NewStores(db),
+		store:         store.NewState(db),
 		maxUploadSize: maxUploadSize,
+		pub:           pub,
 	}
 }
 
 type ListsController struct {
 	logger        *zap.Logger
 	db            *sqlx.DB
-	store         *store.Stores
+	store         *store.State
 	maxUploadSize int64
+	pub           pubsub.Publisher
 }
 
 func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
@@ -48,7 +52,7 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 
 	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("project not found", zap.Stringer("project_id", projectID))
+		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
 		return
 	}
@@ -59,28 +63,52 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
-	var rule store.RuleData
-	if body.Rule != nil {
-		if err := json.Unmarshal(*body.Rule, &rule); err != nil {
-			logger.Error("failed to unmarshal rule", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid rule format")))
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	lists := store.NewListsStore(tx)
+	rules := store.NewRulesStore(tx)
+	events := store.NewEventsStore(tx)
+
+	var ruleID *uuid.UUID
+
+	if body.Type == oapi.CreateListTypeDynamic && body.Rule != nil {
+		for _, event := range body.Rule.Events() {
+			_, err := events.UpsertEvent(ctx, projectID, event)
+			if err != nil {
+				logger.Error("failed to upsert event", zap.String("event", event), zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
+		}
+
+		id, err := rules.CreateOrUpdateRule(ctx, projectID, nil, *body.Rule)
+		if err != nil {
+			logger.Error("failed to create rule", zap.Error(err))
+			oapi.WriteProblem(w, err)
 			return
 		}
+
+		err = rules.SetRuleEventDependencies(ctx, projectID, id, body.Rule.Events())
+		if err != nil {
+			logger.Error("failed to set rule event dependencies", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		ruleID = &id
 	}
 
-	// Static lists start in 'ready' state since they don't require rule configuration.
-	// Dynamic lists start in 'draft' state to allow rule setup before activation.
-	state := store.ListStateReady
-	if body.Type == oapi.CreateListTypeDynamic {
-		state = store.ListStateDraft
-	}
-
-	listID, err := srv.store.CreateList(ctx, store.List{
+	listID, err := lists.CreateList(ctx, store.List{
 		ProjectID: projectID,
 		Name:      body.Name,
 		Type:      store.ListType(body.Type),
-		State:     store.ListState(state),
-		Rule:      store.JSONB[store.RuleData]{Data: rule},
+		RuleID:    ruleID,
 	})
 	if err != nil {
 		logger.Error("failed to create list", zap.Error(err))
@@ -88,14 +116,21 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
-	logger.Info("list created", zap.Stringer("list_id", listID))
-	list, err := srv.store.GetList(ctx, projectID, listID)
+	list, err := lists.GetList(ctx, projectID, listID)
 	if err != nil {
 		logger.Error("failed to fetch created list", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("list created", zap.Stringer("list_id", listID))
 	json.Write(w, http.StatusCreated, list.OAPI())
 }
 
@@ -132,7 +167,7 @@ func (srv *ListsController) GetList(w http.ResponseWriter, r *http.Request, proj
 
 	list, err := srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("list not found", zap.Stringer("list_id", listID))
+		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
 		return
 	}
@@ -159,9 +194,9 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
-	_, err = srv.store.GetList(ctx, projectID, listID)
+	list, err := srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("list not found", zap.Stringer("list_id", listID))
+		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
 		return
 	}
@@ -172,31 +207,83 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+
+	lists := store.NewListsStore(tx)
+	rules := store.NewRulesStore(tx)
+	events := store.NewEventsStore(tx)
+
 	update := store.ListUpdate{
-		Name:      &body.Name,
-		Published: body.Published,
+		Name: &body.Name,
 	}
 
 	if body.Rule != nil {
-		var rule store.RuleData
-		if err := json.Unmarshal(*body.Rule, &rule); err != nil {
-			logger.Error("failed to unmarshal rule", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid rule format")))
+		for _, event := range body.Rule.Events() {
+			_, err := events.UpsertEvent(ctx, projectID, event)
+			if err != nil {
+				logger.Error("failed to upsert event", zap.String("event", event), zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
+		}
+
+		id, err := rules.CreateOrUpdateRule(ctx, projectID, list.RuleID, *body.Rule)
+		if err != nil {
+			logger.Error("failed to create or update rule", zap.Error(err))
+			oapi.WriteProblem(w, err)
 			return
 		}
-		update.Rule = &store.JSONB[store.RuleData]{Data: rule}
+
+		err = rules.SetRuleEventDependencies(ctx, projectID, id, body.Rule.Events())
+		if err != nil {
+			logger.Error("failed to set rule event dependencies", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		update.RuleID = &id
 	}
 
-	err = srv.store.UpdateList(ctx, projectID, listID, update)
+	err = lists.UpdateList(ctx, projectID, listID, update)
 	if err != nil {
 		logger.Error("failed to update list", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	list, err := srv.store.GetList(ctx, projectID, listID)
+	list, err = lists.GetList(ctx, projectID, listID)
 	if err != nil {
 		logger.Error("failed to fetch updated list", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if list.Rule != nil {
+		recomputed, err := lists.RecomputeList(ctx, projectID, list.ID, list.Rule.Data)
+		if err != nil {
+			logger.Error("failed to recompute list", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		err = consumer.PublishListRecomputeEvents(ctx, logger, srv.pub, projectID, listID, recomputed)
+		if err != nil {
+			logger.Error("failed to publish list recompute events", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -212,7 +299,7 @@ func (srv *ListsController) DeleteList(w http.ResponseWriter, r *http.Request, p
 
 	_, err := srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("list not found", zap.Stringer("list_id", listID))
+		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
 		return
 	}
@@ -241,7 +328,7 @@ func (srv *ListsController) DuplicateList(w http.ResponseWriter, r *http.Request
 
 	list, err := srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("list not found", zap.Stringer("list_id", listID))
+		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
 		return
 	}
@@ -278,7 +365,7 @@ func (srv *ListsController) ImportListUsers(w http.ResponseWriter, r *http.Reque
 
 	list, err := srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("list not found", zap.Stringer("list_id", listID))
+		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
 		return
 	}
@@ -295,7 +382,8 @@ func (srv *ListsController) ImportListUsers(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := r.ParseMultipartForm(srv.maxUploadSize); err != nil {
+	err = r.ParseMultipartForm(srv.maxUploadSize)
+	if err != nil {
 		logger.Error("failed to parse multipart form", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("file too large or invalid form data")))
 		return
@@ -345,7 +433,7 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	stores := store.NewStores(tx)
+	stores := store.NewState(tx)
 
 	for {
 		record, err := reader.Read()
@@ -389,7 +477,7 @@ func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request,
 
 	_, err := srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
-		logger.Error("list not found", zap.Stringer("list_id", listID))
+		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
 		return
 	}
@@ -405,7 +493,7 @@ func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request,
 		Offset: params.Offset.ToInt(),
 	}
 
-	users, total, err := srv.store.ListListUsers(ctx, projectID, listID, pagination)
+	users, total, err := srv.store.SelectListUsers(ctx, projectID, listID, pagination)
 	if err != nil {
 		logger.Error("failed to list list users", zap.Error(err))
 		oapi.WriteProblem(w, err)

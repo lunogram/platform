@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/services/nexus/internal/rules"
 )
@@ -64,6 +65,27 @@ func NewUsersStore(db DB) *UsersStore {
 
 type UsersStore struct {
 	db DB
+}
+
+func (s *UsersStore) LookupUserID(ctx context.Context, projectID uuid.UUID, externalID, anonymousID *string) (uuid.UUID, error) {
+	// TODO: support traits lookups
+	query := `
+	SELECT id 
+	FROM users 
+	WHERE project_id = $1 
+	AND (
+		($2::text IS NOT NULL AND external_id = $2::text) OR
+		($3::text IS NOT NULL AND anonymous_id = $3::text)
+	)
+	LIMIT 1`
+
+	var userID uuid.UUID
+	err := s.db.GetContext(ctx, &userID, query, projectID, externalID, anonymousID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return userID, nil
 }
 
 func (s *UsersStore) GetUser(ctx context.Context, projectID, userID uuid.UUID) (*User, error) {
@@ -130,6 +152,21 @@ func (s *UsersStore) GetUserByAnonymousID(ctx context.Context, projectID uuid.UU
 	}
 
 	return &user, nil
+}
+
+func (s *UsersStore) InsertUserEvent(ctx context.Context, userID uuid.UUID, eventID uuid.UUID, data map[string]any) (uuid.UUID, error) {
+	stmt := `
+	INSERT INTO user_events ( user_id, event_id, data)
+	VALUES ($1, $2, $3)
+	RETURNING id`
+
+	var id uuid.UUID
+	err := s.db.GetContext(ctx, &id, stmt, userID, eventID, data)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
 }
 
 func (s *UsersStore) ListUsers(ctx context.Context, projectID uuid.UUID, pagination Pagination, search string) (Users, int, error) {
@@ -334,10 +371,10 @@ type UserEvent struct {
 	ID        uuid.UUID       `db:"id"`
 	ProjectID uuid.UUID       `db:"project_id"`
 	UserID    uuid.UUID       `db:"user_id"`
+	EventID   uuid.UUID       `db:"event_id"`
 	Name      string          `db:"name"`
 	Data      json.RawMessage `db:"data"`
 	CreatedAt time.Time       `db:"created_at"`
-	UpdatedAt time.Time       `db:"updated_at"`
 }
 
 func (e *UserEvent) OAPI() oapi.UserEvent {
@@ -348,18 +385,19 @@ func (e *UserEvent) OAPI() oapi.UserEvent {
 		Name:      e.Name,
 		Data:      &e.Data,
 		CreatedAt: e.CreatedAt,
-		UpdatedAt: e.UpdatedAt,
 	}
 }
 
 func (s *UsersStore) ListUserEvents(ctx context.Context, projectID, userID uuid.UUID, pagination Pagination) (UserEvents, int, error) {
 	query := `
 	SELECT 
-		id, project_id, user_id, name, data, created_at, updated_at,
+		ue.id, u.project_id, ue.user_id, ue.event_id, e.name, ue.data, ue.created_at,
 		COUNT(*) OVER () AS total_count
-	FROM user_events
-	WHERE project_id = $1 AND user_id = $2
-	ORDER BY created_at DESC
+	FROM user_events ue
+	INNER JOIN users u ON ue.user_id = u.id
+	INNER JOIN events e ON ue.event_id = e.id
+	WHERE u.project_id = $1 AND ue.user_id = $2
+	ORDER BY ue.created_at DESC
 	LIMIT $3 OFFSET $4`
 
 	type result struct {
@@ -388,16 +426,22 @@ func (s *UsersStore) ListUserEvents(ctx context.Context, projectID, userID uuid.
 }
 
 func (s *UsersStore) CreateUserEvent(ctx context.Context, event UserEvent) (uuid.UUID, error) {
+	// First, get the event_id for this event name
+	eventsStore := NewEventsStore(s.db)
+	eventID, err := eventsStore.UpsertEvent(ctx, event.ProjectID, event.Name)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
 	stmt := `
-	INSERT INTO user_events (project_id, user_id, name, data)
-	VALUES ($1, $2, $3, $4)
+	INSERT INTO user_events (user_id, event_id, data)
+	VALUES ($1, $2, $3)
 	RETURNING id`
 
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt,
-		event.ProjectID,
+	err = s.db.GetContext(ctx, &id, stmt,
 		event.UserID,
-		event.Name,
+		eventID,
 		event.Data,
 	)
 	if err != nil {
@@ -427,4 +471,28 @@ func (s *UsersStore) UpsertUserSchema(ctx context.Context, projectID uuid.UUID, 
 	}
 
 	return nil
+}
+
+type UserSchema struct {
+	Path  string         `db:"path"`
+	Types pq.StringArray `db:"types"`
+}
+
+func (s *UsersStore) ListUserSchemas(ctx context.Context, projectID uuid.UUID) ([]UserSchema, error) {
+	stmt := `
+	SELECT 
+		path,
+		array_agg(DISTINCT data_type ORDER BY data_type) as types
+	FROM user_schemas
+	WHERE project_id = $1
+	GROUP BY path
+	ORDER BY path`
+
+	var schemas []UserSchema
+	err := s.db.SelectContext(ctx, &schemas, stmt, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return schemas, nil
 }

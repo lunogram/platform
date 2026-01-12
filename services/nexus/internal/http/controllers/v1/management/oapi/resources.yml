@@ -931,6 +931,181 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/projects/{projectID}/journeys/{journeyID}/steps:
+    get:
+      summary: Get journey steps
+      description: Retrieves the step map (workflow definition) for a journey
+      operationId: getJourneySteps
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+      responses:
+        '200':
+          description: Journey steps retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JourneyStepMap'
+        default:
+          $ref: '#/components/responses/Error'
+
+    put:
+      summary: Set journey steps
+      description: Sets or updates the step map (workflow definition) for a journey
+      operationId: setJourneySteps
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JourneyStepMap'
+      responses:
+        '200':
+          description: Journey steps updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JourneyStepMap'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/version:
+    post:
+      summary: Create journey version
+      description: Creates a new version of a journey as a child, keeping the same step UUIDs
+      operationId: versionJourney
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+      responses:
+        '201':
+          description: Journey version created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Journey'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/duplicate:
+    post:
+      summary: Duplicate journey
+      description: Creates a copy of a journey with all its steps
+      operationId: duplicateJourney
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+      responses:
+        '201':
+          description: Journey duplicated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Journey'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/publish:
+    post:
+      summary: Publish journey
+      description: Publishes the current draft version of a journey
+      operationId: publishJourney
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+      responses:
+        '200':
+          description: Journey published successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Journey'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/admin/profile:
     get:
       summary: Get current admin profile
@@ -1078,6 +1253,25 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/admin/organizations/whoami:
+    get:
+      summary: Get current admin
+      description: Retrieves the currently authenticated admin's information
+      operationId: whoami
+      tags:
+        - Admins
+      security:
+        - HttpBearerAuth: []
+      responses:
+        '200':
+          description: Current admin retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Admin'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/admin/organizations:
     get:
       summary: Get current organization
@@ -1215,6 +1409,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/users/import:
+    post:
+      summary: Bulk import users
+      description: Imports multiple users from a CSV file
+      operationId: importUsers
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV file with user data (must include external_id column)
+      responses:
+        '204':
+          description: Users imported successfully
         default:
           $ref: '#/components/responses/Error'
 
@@ -1464,6 +1694,63 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserJourneyList'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/events:
+    get:
+      summary: List events with schemas
+      description: Retrieves all events and their schema paths for a project
+      operationId: listEvents
+      tags:
+        - Events
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        '200':
+          $ref: '#/components/responses/EventListResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/admin/projects/{projectID}/users/schema:
+    get:
+      summary: List user schemas
+      description: Retrieves all user data schema paths for a project
+      operationId: listUserSchemas
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        '200':
+          description: User schemas retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SchemaPath'
         default:
           $ref: '#/components/responses/Error'
 
@@ -2187,12 +2474,247 @@ components:
                     items:
                       $ref: '#/components/schemas/List'
 
+    EventListResponse:
+      description: Events retrieved successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - results
+            properties:
+              results:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventWithSchema'
+
   schemas:
     Channel:
       type: string
       enum: [email, text, push]
       description: Communication channel type
       example: email
+
+    JourneyStepType:
+      type: string
+      enum:
+        - entrance
+        - exit
+        - delay
+        - action
+        - gate
+        - experiment
+        - link
+        - sticky
+        - balancer
+        - update
+        - event
+      description: Journey step type
+      example: entrance
+
+    EntranceStepData:
+      type: object
+      description: Data for entrance step - entry point into journey
+      additionalProperties: false
+      properties:
+        trigger:
+          type: string
+          enum: [none, event, schedule]
+          description: Trigger type for entrance
+          example: "event"
+        event_name:
+          type: string
+          description: Event name that triggers entrance
+          example: "user_signup"
+        rule:
+          type: object
+          description: Rule for filtering events
+          additionalProperties: true
+          x-go-type: rules.RuleSet
+        multiple:
+          type: boolean
+          description: Allow multiple entries
+          example: false
+        concurrent:
+          type: boolean
+          description: Allow concurrent journey runs
+          example: false
+        list_id:
+          type: string
+          format: uuid
+          description: List ID for scheduled entrance
+        schedule:
+          type: string
+          description: RRule schedule string
+          example: "FREQ=DAILY;BYHOUR=9;BYMINUTE=0"
+
+    ExitStepData:
+      type: object
+      description: Data for exit step - exits user from journey
+      required:
+        - entrance_uuid
+      properties:
+        entrance_uuid:
+          type: string
+          description: External ID of entrance to exit from
+          example: "step_abc123"
+
+    DelayStepData:
+      type: object
+      description: Data for delay step - wait before proceeding
+      required:
+        - format
+      properties:
+        format:
+          type: string
+          enum: [duration, time, date]
+          description: Format of delay
+          example: "duration"
+        minutes:
+          type: integer
+          description: Minutes to delay (for duration format)
+          example: 30
+        hours:
+          type: integer
+          description: Hours to delay (for duration format)
+          example: 1
+        days:
+          type: integer
+          description: Days to delay (for duration format)
+          example: 0
+        time:
+          type: string
+          description: Time of day HH:mm (for time format)
+          example: "09:00"
+        date:
+          type: string
+          description: Date template string (for date format)
+          example: "2025-12-31T23:59:59Z"
+        exclusion_days:
+          type: array
+          description: Days to exclude (0=Sunday, 6=Saturday)
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+
+    ActionStepData:
+      type: object
+      description: Data for action step - send campaign
+      required:
+        - campaign_id
+      properties:
+        campaign_id:
+          type: string
+          format: uuid
+          description: Campaign to send
+          example: "52f3f921-1343-48af-b795-87c0fd3b44aa"
+
+    GateStepData:
+      type: object
+      description: Data for gate step - conditional branching
+      required:
+        - rule
+      properties:
+        rule:
+          type: object
+          description: Rule set for conditional evaluation
+          additionalProperties: true
+          x-go-type: rules.RuleSet
+
+    ExperimentStepData:
+      type: object
+      description: Data for experiment step - A/B testing
+      properties:
+        name:
+          type: string
+          description: Experiment name
+          example: "Welcome Email Test"
+
+    LinkStepData:
+      type: object
+      description: Data for link step - add user to another journey
+      required:
+        - target_id
+      properties:
+        target_id:
+          type: string
+          format: uuid
+          description: Target journey ID to link to
+        delay:
+          type: string
+          enum: ['1 minute', '15 minutes', '1 hour', '1 day']
+          description: Delay before adding to journey
+          example: "1 day"
+
+    StickyStepData:
+      type: object
+      description: Data for sticky step - placeholder for sticky logic
+      properties: {}
+
+    BalancerStepData:
+      type: object
+      description: Data for balancer step - rate-limited distribution
+      required:
+        - rate_limit
+        - interval
+      properties:
+        rate_limit:
+          type: integer
+          description: Maximum users per interval
+          example: 100
+        interval:
+          type: string
+          enum: [second, minute, hour, day]
+          description: Rate limit interval
+          example: "hour"
+
+    UpdateStepData:
+      type: object
+      description: Data for update step - update user data
+      required:
+        - template
+      properties:
+        template:
+          type: string
+          description: JSON template string for updating user data
+          example: '{"last_journey": "onboarding"}'
+
+    EventStepData:
+      type: object
+      description: Data for event step - trigger custom event
+      required:
+        - event_name
+      properties:
+        event_name:
+          type: string
+          description: Name of event to trigger
+          example: "journey_milestone"
+        template:
+          type: string
+          description: JSON template string for event data
+          example: '{"milestone": "completed_step_1"}'
+
+    ExperimentChildData:
+      type: object
+      description: Data for experiment step children - defines branch ratio
+      additionalProperties: false
+      required:
+        - ratio
+      properties:
+        ratio:
+          type: number
+          format: float
+          description: Ratio for this experiment branch (0-1)
+          example: 0.5
+          minimum: 0
+          maximum: 1
+
+    GateChildData:
+      type: object
+      description: Data for gate step children - typically empty, path determines branch
+      properties: {}
+      additionalProperties: false
 
     OrganizationRole:
       type: string
@@ -2336,9 +2858,21 @@ components:
           items:
             type: string
           example: ["analytics", "reporting"]
-        has_provider:
-          type: boolean
-          example: true
+        integrations_count:
+          type: integer
+          example: 3
+        campaigns_count:
+          type: integer
+          example: 12
+        journeys_count:
+          type: integer
+          example: 5
+        users_count:
+          type: integer
+          example: 1523
+        lists_count:
+          type: integer
+          example: 8
         created_at:
           type: string
           format: date-time
@@ -2594,7 +3128,7 @@ components:
         rule:
           type: object
           additionalProperties: true
-          x-go-type: json.RawMessage
+          x-go-type: rules.RuleSet
         tags:
           type: array
           items:
@@ -2611,7 +3145,7 @@ components:
         rule:
           type: object
           additionalProperties: true
-          x-go-type: json.RawMessage
+          x-go-type: rules.RuleSet
         tags:
           type: array
           items:
@@ -2657,7 +3191,7 @@ components:
         rule:
           type: object
           additionalProperties: true
-          x-go-type: json.RawMessage
+          x-go-type: rules.RuleSet
         version:
           type: integer
           example: 1
@@ -3229,7 +3763,23 @@ components:
           example: "Welcome new users to the platform"
         status:
           type: string
-          example: "active"
+          enum: [draft, published, archived]
+          example: "draft"
+          description: "Status of the active version (draft, published, or archived)"
+        version_number:
+          type: integer
+          example: 1
+          description: "Version number of the active version"
+        draft_version_id:
+          type: string
+          format: uuid
+          example: "1b2deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+          description: "ID of the draft version if one exists"
+        published_version_id:
+          type: string
+          format: uuid
+          example: "2b3deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+          description: "ID of the published version if one exists"
         created_at:
           type: string
           format: date-time
@@ -3250,10 +3800,6 @@ components:
         description:
           type: string
           example: "Welcome new users to the platform"
-        status:
-          type: string
-          enum: [draft, live, off]
-          example: "draft"
 
     UpdateJourney:
       type: object
@@ -3264,10 +3810,6 @@ components:
         description:
           type: string
           example: "Welcome new users to the platform"
-        status:
-          type: string
-          enum: [draft, live, off]
-          example: "live"
 
     UserJourneyEntrance:
       type: object
@@ -3311,6 +3853,76 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/UserJourneyEntrance'
+
+    JourneyStepMap:
+      type: object
+      description: Map of journey steps keyed by external_id
+      additionalProperties:
+        $ref: '#/components/schemas/JourneyStep'
+
+    JourneyStep:
+      type: object
+      required:
+        - type
+        - x
+        - y
+        - children
+        - data
+      properties:
+        type:
+          $ref: '#/components/schemas/JourneyStepType'
+        name:
+          type: string
+          description: Display name for the step
+          example: "Welcome Email"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          description: |
+            Step-specific configuration data (structure varies by step type).
+            The step 'type' field determines which data structure to expect.
+            See StepData types in Go code for specific structures.
+        data_key:
+          type: string
+          description: Key for storing step data in user journey context
+          example: "entrance_data"
+        x:
+          type: number
+          format: float
+          description: X coordinate for visual positioning
+          example: 100
+        y:
+          type: number
+          format: float
+          description: Y coordinate for visual positioning
+          example: 200
+        children:
+          type: array
+          description: Child steps connected to this step
+          items:
+            $ref: '#/components/schemas/JourneyStepChild'
+
+    JourneyStepChild:
+      type: object
+      required:
+        - external_id
+      properties:
+        external_id:
+          type: string
+          description: External ID of the child step
+          example: "step_abc123"
+        path:
+          type: string
+          description: Branch path (e.g., 'yes', 'no' for gates)
+          example: "yes"
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/ExperimentChildData'
+            - $ref: '#/components/schemas/GateChildData'
+          x-go-type: json.RawMessage
+          nullable: true
+          description: Child-specific configuration data (structure varies by parent step type)
 
     Tag:
       type: object
@@ -3586,6 +4198,40 @@ components:
             plan: "premium"
             signup_date: "2025-01-15"
           description: User-specific attributes
+
+    EventWithSchema:
+      type: object
+      required:
+        - id
+        - name
+        - schema
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "5c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        name:
+          type: string
+          example: "purchase_completed"
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchemaPath'
+
+    SchemaPath:
+      type: object
+      required:
+        - path
+        - types
+      properties:
+        path:
+          type: string
+          example: ".email"
+        types:
+          type: array
+          items:
+            type: string
+          example: ["string"]
 
   securitySchemes:
     HttpBearerAuth:

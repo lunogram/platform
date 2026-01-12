@@ -3,14 +3,12 @@ import { createBrowserRouter, Outlet, redirect, useNavigate, useParams } from 'r
 import api from '../api'
 
 import ErrorPage from './ErrorPage'
-import type { SidebarLink } from '../ui/Sidebar'
 import { LoaderContextProvider, StatefulLoaderContextProvider } from './LoaderContextProvider'
 import { AdminContext, CampaignContext, TemplateContext, JourneyContext, ListContext, ProjectContext, UserContext } from '../contexts'
 import ApiKeys from './settings/ApiKeys'
 import Lists from './users/Lists'
 import ListDetail from './users/ListDetail'
 import Users from './users/Users'
-import Teams from './settings/Teams'
 import Subscriptions from './settings/Subscriptions'
 import UserDetail from './users/UserDetail'
 import { createStatefulRoute } from './createStatefulRoute'
@@ -29,7 +27,6 @@ import Journeys from './journey/Journeys'
 import JourneyEditor from './journey/JourneyEditor'
 import ProjectSettings from './settings/ProjectSettings'
 import Integrations from './settings/Integrations'
-import Tags from './settings/Tags'
 import Login from './auth/Login'
 import LoginCallback from './auth/LoginCallback'
 import Onboarding from './auth/Onboarding'
@@ -44,17 +41,14 @@ import ProjectOnboarding from './project/ProjectOnboarding'
 import ProjectOnboardingGettingStarted from './project/ProjectOnboardingGettingStarted'
 import ProjectOnboardingUsers from './project/ProjectOnboardingUsers'
 import ProjectOnboardingTools from './project/ProjectOnboardingTools'
-import Admins from './organization/Admins'
-import OrganizationSettings from './organization/Settings'
 import Locales from './settings/Locales'
 import JourneyUserEntrances from './journey/JourneyUserEntrances'
 import UserDetailJourneys from './users/UserDetailJourneys'
 import EntranceDetails from './journey/EntranceDetails'
 import { Translation } from 'react-i18next'
-import Organization from './organization/Organization'
-import DataSchema from './settings/DataSchema'
 import type { UUID } from '@/types/common'
 import type { Project } from '../types'
+import type { SidebarLink } from '@/types/sidebar'
 
 export const useRoute = (includeProject = true) => {
     const { projectId = '' } = useParams()
@@ -74,13 +68,11 @@ export const useRoute = (includeProject = true) => {
 export interface RouterProps {
     routes?: (routes: RouteObject[]) => RouteObject[]
     projectSidebarLinks?: <T extends SidebarLink>(links: T[]) => T[]
-    orgSidebarLinks?: <T extends SidebarLink>(links: T[]) => T[]
 }
 
 export const createRouter = ({
     routes = routes => routes,
-    projectSidebarLinks = links => links,
-    orgSidebarLinks = links => links,
+    projectSidebarLinks = links => links
 }: RouterProps) => createBrowserRouter(routes([
     {
         path: '/login',
@@ -93,7 +85,7 @@ export const createRouter = ({
     {
         path: '*',
         errorElement: <ErrorPage />,
-        loader: async () => await api.profile.get(),
+        // loader: async () => await api.profile.get(),
         element: (
             <LoaderContextProvider context={AdminContext}>
                 <Outlet />
@@ -103,11 +95,13 @@ export const createRouter = ({
             {
                 index: true,
                 loader: async () => {
-                    const recents = getRecentProjects()
-                    if (recents.length) {
-                        return redirect(`projects/${recents[0].id}`)
+                    const projects = await api.projects.all()
+                    if (!projects || projects.results.length === 0) {
+                        return redirect('onboarding/project')
                     }
-                    return redirect('organization')
+
+                    const [first] = projects.results
+                    return redirect(`projects/${first.id}`)
                 },
                 element: <Projects />,
             },
@@ -118,31 +112,6 @@ export const createRouter = ({
                     {
                         path: 'project',
                         element: <OnboardingProject />,
-                    },
-                ],
-            },
-            {
-                path: 'organization',
-                loader: async () => await api.organizations.get(),
-                element: <Organization filter={orgSidebarLinks} />,
-                children: [
-                    {
-                        index: true,
-                        loader: async () => {
-                            return redirect('projects')
-                        },
-                    },
-                    {
-                        path: 'projects',
-                        element: <Projects />,
-                    },
-                    {
-                        path: 'admins',
-                        element: <Admins />,
-                    },
-                    {
-                        path: 'settings',
-                        element: <OrganizationSettings />,
                     },
                 ],
             },
@@ -400,16 +369,8 @@ export const createRouter = ({
                                         element: <ProjectSettings />,
                                     },
                                     {
-                                        path: 'team',
-                                        element: <Teams />,
-                                    },
-                                    {
                                         path: 'locales',
                                         element: <Locales />,
-                                    },
-                                    {
-                                        path: 'data',
-                                        element: <DataSchema />,
                                     },
                                     {
                                         path: 'api-keys',
@@ -422,10 +383,6 @@ export const createRouter = ({
                                     {
                                         path: 'subscriptions',
                                         element: <Subscriptions />,
-                                    },
-                                    {
-                                        path: 'tags',
-                                        element: <Tags />,
                                     },
                                 ],
                             },
