@@ -9,7 +9,6 @@ import RuleBuilder from './rules/RuleBuilder'
 import Modal from '../../ui/Modal'
 import FormWrapper from '../../ui/form/FormWrapper'
 import TextInput from '../../ui/form/TextInput'
-import { ListTag } from './ListTable'
 import { InfoTable } from '../../ui/InfoTable'
 import { snakeToTitle } from '../../utils'
 import UploadField from '../../ui/form/UploadField'
@@ -30,7 +29,6 @@ interface RuleSectionProps {
 const RuleSection = ({ list, isSaving, onRuleSave, onChange }: RuleSectionProps) => {
     const { t } = useTranslation()
     const [rule, setRule] = useState<Rule>(list.rule)
-    
     const onSetRule = (rule: Rule) => {
         setRule(rule)
         onChange?.(rule)
