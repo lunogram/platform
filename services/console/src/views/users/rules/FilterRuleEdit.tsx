@@ -35,35 +35,8 @@ export default function FilterRuleEdit({
       if (!search.startsWith("$.")) search = "$." + search;
       paths = paths.filter((p) => p.path.toLowerCase().startsWith(search));
     }
-
     return paths;
-  }, [suggestions, group, eventName, path]);
-  const dummyPathSuggestions: RulePath[] = [
-    {
-      id: "1",
-      path: "$.user.email",
-      name: "User Email",
-      type: "user",
-      data_type: "string",
-      visibility: "public",
-    },
-    {
-      id: "2",
-      path: "$.user.name",
-      name: "User Name",
-      type: "user",
-      data_type: "string",
-      visibility: "public",
-    },
-    {
-      id: "3",
-      path: "$.user.age",
-      name: "User Age",
-      type: "user",
-      data_type: "number",
-      visibility: "public",
-    },
-  ];
+  }, [suggestions]);
 
   return (
     <div className="rule">
@@ -80,7 +53,7 @@ export default function FilterRuleEdit({
         <Combobox
           value={rule?.path}
           onValueChange={(selectedPath: string) => {
-            const suggestion = suggestions.userPaths.find(
+            const suggestion = pathSuggestions.find(
               (s) => s.path === selectedPath
             );
             if (suggestion) {
@@ -93,7 +66,7 @@ export default function FilterRuleEdit({
               setRule({ ...rule, path: selectedPath });
             }
           }}
-          options={suggestions.userPaths}
+          options={pathSuggestions}
           placeholder="Path"
           required
           inputClassName="rounded-none border-l-0"

@@ -165,7 +165,7 @@ const api = {
                 client.get<{ results: Array<{ id: UUID; name: string; schema: Array<{ path: string; types: string[] }> }> }>(`${projectUrl(projectId)}/events`),
                 client.get<{ results: Array<{ path: string; types: string[] }> }>(`${projectUrl(projectId)}/users/schema`)
             ])
-            console.log('Fetched path suggestions:', userSchemaResponse.data)
+            
             // Transform event schemas to RulePath format
             const eventPaths: Record<string, RulePath[]> = {}
             for (const event of eventsResponse.data.results) {
@@ -188,7 +188,7 @@ const api = {
                 data_type: (schemaPath.types[0] || 'string') as RulePath['data_type'],
                 visibility: 'public' as const,
             }))
-            console.log('Transformed user paths:', userPaths)
+            
             return {
                 eventPaths,
                 userPaths,
