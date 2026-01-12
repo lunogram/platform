@@ -20,7 +20,7 @@ import { Input } from "./input";
 interface ComboboxProps {
   options: RulePath[];
   value?: string;
-  onValueChange: any;
+  onValueChange: (value: string) => void;
   placeholder?: string;
   emptyText?: string;
   className?: string;

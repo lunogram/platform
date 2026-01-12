@@ -36,8 +36,7 @@ export default function FilterRuleEdit({
       paths = paths.filter((p) => p.path.toLowerCase().startsWith(search));
     }
     return paths;
-  }, [suggestions]);
-
+  }, [suggestions, group, eventName, path]);
   return (
     <div className="rule">
       <ButtonGroup className="ui-select">

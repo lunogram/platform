@@ -63,7 +63,7 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	})
 	require.NoError(t, err)
 
-	controller := NewUsersController(logger, db, 32<<20) // 32 MB max
+	controller := NewUsersController(logger, nil, db, 32<<20)
 	return controller, projectID
 }
 
@@ -816,7 +816,7 @@ func TestImportUsers(t *testing.T) {
 			require.NoError(t, err)
 
 			usersStore := store.NewUsersStore(db)
-			controller := NewUsersController(logger, db, 32<<20) // 32 MB max
+			controller := NewUsersController(logger, nil, db, 32<<20)
 
 			body := &bytes.Buffer{}
 			writer := multipart.NewWriter(body)
