@@ -160,12 +160,11 @@ const api = {
             .get<SearchResult<Project>>('/admin/projects')
             .then(r => r.data),
         pathSuggestions: async (projectId: UUID) => {
-            // Fetch events and user schemas from new Nexus endpoints
             const [eventsResponse, userSchemaResponse] = await Promise.all([
                 client.get<{ results: Array<{ id: UUID; name: string; schema: Array<{ path: string; types: string[] }> }> }>(`${projectUrl(projectId)}/events`),
                 client.get<{ results: Array<{ path: string; types: string[] }> }>(`${projectUrl(projectId)}/users/schema`)
             ])
-            
+
             // Transform event schemas to RulePath format
             const eventPaths: Record<string, RulePath[]> = {}
             for (const event of eventsResponse.data.results) {
