@@ -20,7 +20,7 @@ export default function WrapperRuleEdit({
   const { t } = useTranslation();
 
   const handleAddEventWrapper = () => {
-    const children = rule.children ?? [];
+    const children = rule?.children ?? [];
     const newRule: EventRule = createEventRule(rule);
     setRule({
       ...rule,
@@ -37,7 +37,7 @@ export default function WrapperRuleEdit({
           <>
             {t("rule_include_users_matching")}
             <SingleSelect
-              value={rule.operator}
+              value={rule?.operator}
               onChange={(operator) => setRule({ ...rule, operator })}
               options={operatorTypes.wrapper}
               required
@@ -57,7 +57,7 @@ export default function WrapperRuleEdit({
         {!isEventWrapper(rule) && controls}
       </div>
       <div className="rule-set-rules">
-        {rule.children?.map((child, index, arr) => (
+        {rule?.children?.map((child, index, arr) => (
           <RuleEdit
             key={index}
             root={root}
@@ -65,13 +65,13 @@ export default function WrapperRuleEdit({
             setRule={(child) =>
               setRule({
                 ...rule,
-                children: rule.children?.map((c, i) =>
+                children: rule?.children?.map((c, i) =>
                   i === index ? child : c
                 ),
               })
             }
-            group={rule.group}
-            eventName={rule.value}
+            group={rule?.group}
+            eventName={rule?.value}
             depth={depth + 1}
             controls={
               <Button
@@ -99,14 +99,14 @@ export default function WrapperRuleEdit({
             setRule({
               ...rule,
               children: [
-                ...(rule.children ?? []),
+                ...(rule?.children ?? []),
                 {
                   uuid: createUuid(),
-                  root_uuid: root.uuid,
-                  parent_uuid: rule.uuid,
+                  root_uuid: root?.uuid,
+                  parent_uuid: rule?.uuid,
                   path: "",
                   type: "string",
-                  group: rule.group === "event" ? "event" : "user",
+                  group: rule?.group === "event" ? "event" : "user",
                   value: "",
                   operator: "=",
                 },
@@ -115,11 +115,11 @@ export default function WrapperRuleEdit({
           }
         >
           <PlusIcon />
-          {rule.group === "event"
+          {rule?.group === "event"
             ? t("rule_add_condition")
             : t("rule_add_user_condition")}
         </Button>
-        {depth === 0 && (rule.group === "user" || rule.group === "parent") && (
+        {depth === 0 && (rule?.group === "user" || rule?.group === "parent") && (
           <Button
             size="sm"
             variant="outline"

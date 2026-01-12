@@ -14,39 +14,26 @@ export default function RuleEventName<T extends Rule>({
   usePopperSelectDropdown();
 
   const { suggestions } = useContext(VariablesContext);
-  const dummySuggestions: RulePath[] = [
-    {
-      id: "1",
-      path: "user.signup",
-      name: "User Signup",
-      type: "event",
-      data_type: "string",
-      visibility: "public",
-    },
-    {
-      id: "2",
-      path: "user.login",
-      name: "User Login",
-      type: "event",
-      data_type: "string",
-      visibility: "public",
-    },
-    {
-      id: "3",
-      path: "purchase.completed",
-      name: "Purchase Completed",
-      type: "event",
-      data_type: "string",
-      visibility: "public",
-    },
-  ];
+  
+  // Convert event names (keys) to RulePath objects for the Combobox
+  const eventOptions: RulePath[] = Object.keys(suggestions.eventPaths ?? {})
+    .sort()
+    .map((eventName, index) => ({
+      id: `event-${index}`,
+      path: eventName,
+      name: eventName,
+      type: "event" as const,
+      data_type: "string" as const,
+      visibility: "public" as const,
+    }));
+
   return (
     <Combobox
       value={rule.value ?? ''}
       onValueChange={(selectedPath: string) => {
         setRule({ ...rule, value: selectedPath });
       }}
-      options={dummySuggestions}
+      options={eventOptions}
       placeholder="Event name"
       required
       renderOption={(option, search) => (

@@ -30,6 +30,7 @@ interface RuleSectionProps {
 const RuleSection = ({ list, isSaving, onRuleSave, onChange }: RuleSectionProps) => {
     const { t } = useTranslation()
     const [rule, setRule] = useState<Rule>(list.rule)
+    
     const onSetRule = (rule: Rule) => {
         setRule(rule)
         onChange?.(rule)

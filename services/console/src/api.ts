@@ -159,9 +159,41 @@ const api = {
         all: async () => await client
             .get<SearchResult<Project>>('/admin/projects')
             .then(r => r.data),
-        pathSuggestions: async (projectId: UUID) => await client
-            .get<VariableSuggestions>(`${projectUrl(projectId)}/data/paths`)
-            .then(r => r.data),
+        pathSuggestions: async (projectId: UUID) => {
+            // Fetch events and user schemas from new Nexus endpoints
+            const [eventsResponse, userSchemaResponse] = await Promise.all([
+                client.get<{ results: Array<{ id: UUID; name: string; schema: Array<{ path: string; types: string[] }> }> }>(`${projectUrl(projectId)}/events`),
+                client.get<{ results: Array<{ path: string; types: string[] }> }>(`${projectUrl(projectId)}/users/schema`)
+            ])
+            console.log('Fetched path suggestions:', userSchemaResponse.data)
+            // Transform event schemas to RulePath format
+            const eventPaths: Record<string, RulePath[]> = {}
+            for (const event of eventsResponse.data.results) {
+                eventPaths[event.name] = event.schema.map((schemaPath, index) => ({
+                    id: `${event.id}-${index}`,
+                    path: schemaPath.path,
+                    name: schemaPath.path,
+                    type: 'event' as const,
+                    data_type: (schemaPath.types[0] || 'string') as RulePath['data_type'],
+                    visibility: 'public' as const,
+                }))
+            }
+
+            // Transform user schemas to RulePath format
+            const userPaths: RulePath[] = userSchemaResponse.data.results.map((schemaPath, index) => ({
+                id: `user-${index}`,
+                path: schemaPath.path,
+                name: schemaPath.path,
+                type: 'user' as const,
+                data_type: (schemaPath.types[0] || 'string') as RulePath['data_type'],
+                visibility: 'public' as const,
+            }))
+            console.log('Transformed user paths:', userPaths)
+            return {
+                eventPaths,
+                userPaths,
+            }
+        },
     },
 
     data: {

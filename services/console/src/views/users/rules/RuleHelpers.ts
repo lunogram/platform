@@ -10,13 +10,13 @@ export interface GroupedRule extends Omit<Rule, 'value'> {
 export const trimPathDisplay = (path: string = '') => path.startsWith('.') ? path.substring(2) : path
 
 export const isEventWrapper = (rule: Rule): rule is EventRule => {
-    return rule.group === 'event'
-        && (rule.path === '.name' || rule.path === 'name')
+    return rule?.group === 'event'
+        && (rule?.path === '.name' || rule?.path === 'name')
 }
 
 export const isWrapper = (rule: Rule | GroupedRule): rule is WrapperRule => {
-    return rule.type === 'wrapper'
-        && (rule.group === 'parent' || rule.group === 'event')
+    return rule?.type === 'wrapper'
+        && (rule?.group === 'parent' || rule?.group === 'event')
 }
 
 export const createWrapperRule = (): WrapperRule => ({

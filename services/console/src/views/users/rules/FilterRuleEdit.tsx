@@ -17,7 +17,7 @@ export default function FilterRuleEdit({
 }: Omit<RuleEditProps, "root" | "headerPrefix" | "depth">) {
   usePopperSelectDropdown();
   const { suggestions } = useContext(VariablesContext);
-  const { path } = rule;
+  const { path } = rule ?? {};
   const hasValue =
     rule?.operator &&
     !["is set", "is not set", "empty"].includes(rule?.operator);
@@ -69,7 +69,7 @@ export default function FilterRuleEdit({
     <div className="rule">
       <ButtonGroup className="ui-select">
         <SingleSelect
-          value={rule.type}
+          value={rule?.type}
           onChange={(type) => setRule({ ...rule, type })}
           options={ruleTypes}
           required
@@ -78,9 +78,9 @@ export default function FilterRuleEdit({
           toValue={(x) => x.key as typeof rule.type}
         />
         <Combobox
-          value={rule.path}
+          value={rule?.path}
           onValueChange={(selectedPath: string) => {
-            const suggestion = dummyPathSuggestions.find(
+            const suggestion = suggestions.userPaths.find(
               (s) => s.path === selectedPath
             );
             if (suggestion) {
@@ -93,7 +93,7 @@ export default function FilterRuleEdit({
               setRule({ ...rule, path: selectedPath });
             }
           }}
-          options={dummyPathSuggestions}
+          options={suggestions.userPaths}
           placeholder="Path"
           required
           inputClassName="rounded-none border-l-0"
@@ -107,9 +107,9 @@ export default function FilterRuleEdit({
           )}
         />
         <SingleSelect
-          value={rule.operator}
+          value={rule?.operator}
           onChange={(operator) => setRule({ ...rule, operator })}
-          options={operatorTypes[rule.type] ?? []}
+          options={operatorTypes[rule?.type] ?? []}
           required
           hideLabel
           size="small"
