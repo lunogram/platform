@@ -1,0 +1,59 @@
+name: Feature request ✨
+description: >-
+  Suggest a new feature or enhancement for this project.
+  For questions, please post in GitHub Discussion.
+title: ""
+type: feature
+labels: []
+body:
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem Statement
+      description: >-
+        What problem does this feature solve? Describe the pain point or limitation you're experiencing.
+        Help us understand the "why" behind this request.
+      placeholder: >-
+        Example: "Currently, users cannot [action] which means they have to [workaround], causing [impact]."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: What would you like to happen? Describe your ideal solution clearly and concisely.
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical-implementation
+    attributes:
+      label: Technical Implementation
+      description: >-
+        If you have thoughts on implementation, share them here.
+        You can use the checklist format below or describe in your own words.
+      placeholder: >-
+        - [ ] API/endpoint changes needed
+        - [ ] Database schema modifications required
+        - [ ] UI/UX changes involved
+        - [ ] Breaking changes or migration path needed
+        - [ ] Documentation updates required
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: >-
+        Add any mockups, screenshots, code examples, or links to related discussions
+        that help illustrate this feature.
+      placeholder: Add supporting information here...
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: How will we know this is complete? List specific, testable outcomes.
+      placeholder: >-
+        - [ ] Specific testable outcome
+        - [ ] Another measurable result
