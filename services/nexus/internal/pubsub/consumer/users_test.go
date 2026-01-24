@@ -472,7 +472,7 @@ func TestPublishUserRecomputeLists_Success(t *testing.T) {
 
 	_, err = jet.CreateStream(ctx, jetstream.StreamConfig{
 		Name:     StreamLists,
-		Subjects: []string{"recompute.>"},
+		Subjects: []string{"lists.recompute.>"},
 	})
 	require.NoError(t, err)
 
@@ -514,7 +514,7 @@ func TestPublishUserRecomputeLists_NoLists(t *testing.T) {
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
 		Name:     StreamLists,
-		Subjects: []string{"recompute.>"},
+		Subjects: []string{"lists.recompute.>"},
 	})
 	require.NoError(t, err)
 

@@ -57,7 +57,7 @@ func (s *OrganizationsStore) CreateOrganization(ctx context.Context, name string
 
 func (s *OrganizationsStore) GetOrganization(ctx context.Context, id uuid.UUID) (*Organization, error) {
 	stmt := `
-	SELECT id, name, notification_provider_id, 
+	SELECT id, name, notification_provider_id,
 		   tracking_deeplink_mirror_url, created_at, updated_at
 	FROM organizations
 	WHERE id = $1
@@ -96,7 +96,7 @@ func (s *OrganizationsStore) DeleteOrganization(ctx context.Context, id uuid.UUI
 
 func (s *OrganizationsStore) GetOrganizationIntegrations(ctx context.Context, orgID uuid.UUID) (Providers, error) {
 	stmt := `
-	SELECT p.id, p.project_id, p.type, p.group, p.data, p.is_default, 
+	SELECT p.id, p.project_id, p.module, p.channel, p.data, p.is_default,
 		   p.rate_limit, p.rate_interval, p.name, p.created_at, p.updated_at
 	FROM providers p
 	INNER JOIN projects pr ON pr.id = p.project_id
