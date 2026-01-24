@@ -68,7 +68,7 @@ func TestUsersProcess(t *testing.T) {
 
 	projectID := uuid.New()
 	subject := schemas.UsersProcess(projectID)
-	expected := schemas.Subject("users.projects." + projectID.String())
+	expected := schemas.Subject("users.process." + projectID.String())
 
 	assert.Equal(t, expected, subject)
 }
@@ -78,7 +78,7 @@ func TestUsersSchema(t *testing.T) {
 
 	projectID := uuid.New()
 	subject := schemas.UsersSchema(projectID)
-	expected := schemas.Subject("users.schemas." + projectID.String())
+	expected := schemas.Subject("users.schema." + projectID.String())
 
 	assert.Equal(t, expected, subject)
 }

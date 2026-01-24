@@ -70,7 +70,7 @@ func TestListsRecompute(t *testing.T) {
 	listID := uuid.New()
 
 	subject := schemas.ListsRecompute(projectID, listID)
-	expected := schemas.Subject("recompute.lists." + projectID.String() + "." + listID.String())
+	expected := schemas.Subject("lists.recompute." + projectID.String() + "." + listID.String())
 
 	assert.Equal(t, expected, subject)
 }
