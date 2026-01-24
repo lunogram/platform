@@ -1,3 +1,8 @@
+// Package providers implements a WASM-based provider system for messaging channels.
+//
+// It builds on the generic wasm package to provide provider-specific functionality
+// including channel support validation and a typed Send interface for email, SMS,
+// and push notifications.
 package providers
 
 import (
@@ -5,8 +10,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"slices"
 
 	"github.com/lunogram/platform/pkg/modules/providers"
+	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/wasm"
 )
 
@@ -41,12 +48,7 @@ func (p *Provider) Send(ctx context.Context, req *providers.SendRequest[map[stri
 
 // SupportsChannel checks if this provider supports a specific channel.
 func (p *Provider) SupportsChannel(ch providers.Channel) bool {
-	for _, c := range p.Manifest().Spec.Channels {
-		if c == ch {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(p.Manifest().Spec.Channels, ch)
 }
 
 // Registry is a provider-specific registry that wraps the generic WASM module registry.
@@ -54,20 +56,20 @@ type Registry struct {
 	*wasm.Registry[providers.ProviderManifest]
 }
 
-// NewRegistry creates a new provider registry.
-func NewRegistry() *Registry {
+// NewRegistry creates a new provider registry with the given configuration.
+func NewRegistry(config config.WASM) *Registry {
 	return &Registry{
-		Registry: wasm.NewRegistry[providers.ProviderManifest](),
+		Registry: wasm.NewRegistry[providers.ProviderManifest](config),
 	}
 }
 
 // LoadFromFS loads all provider modules from an embedded filesystem.
+// Validates that each loaded module supports at least one channel.
 func (r *Registry) LoadFromFS(ctx context.Context, fsys fs.FS, dir string) error {
 	if err := r.Registry.LoadFromFS(ctx, fsys, dir); err != nil {
 		return err
 	}
 
-	// Validate that all loaded modules have at least one channel
 	for _, module := range r.Registry.All() {
 		if len(module.Manifest().Spec.Channels) == 0 {
 			return fmt.Errorf("provider %s must support at least one channel", module.Manifest().Metadata.ID)

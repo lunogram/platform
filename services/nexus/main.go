@@ -86,7 +86,7 @@ func run() error {
 
 	logger.Info("initializing provider registry")
 
-	registry, err := providers.NewRegistry(ctx)
+	registry, err := providers.NewRegistry(ctx, conf.WASM)
 	if err != nil {
 		return err
 	}

@@ -8,22 +8,29 @@ import (
 	"sync"
 
 	"github.com/lunogram/platform/pkg/modules"
+	"github.com/lunogram/platform/services/nexus/internal/config"
 )
 
-// Registry is a generic registry for WASM modules.
+// Registry is a thread-safe registry for WASM modules.
+// It supports loading modules from an embedded filesystem and provides
+// concurrent-safe access to registered modules.
 type Registry[T modules.Manifest] struct {
 	mu      sync.RWMutex
 	modules map[string]*Module[T]
+	config  config.WASM
 }
 
-// NewRegistry creates a new empty registry.
-func NewRegistry[T modules.Manifest]() *Registry[T] {
+// NewRegistry creates a new empty registry with the given configuration.
+func NewRegistry[T modules.Manifest](config config.WASM) *Registry[T] {
 	return &Registry[T]{
 		modules: make(map[string]*Module[T]),
+		config:  config,
 	}
 }
 
-// LoadFromFS populates the registry from an embedded filesystem.
+// LoadFromFS loads all .wasm files from the given directory in the filesystem.
+// Each module must export a "manifest" function that returns valid JSON.
+// Modules are registered by their manifest ID.
 func (r *Registry[T]) LoadFromFS(ctx context.Context, fsys fs.FS, dir string) error {
 	return fs.WalkDir(fsys, dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -39,7 +46,7 @@ func (r *Registry[T]) LoadFromFS(ctx context.Context, fsys fs.FS, dir string) er
 			return fmt.Errorf("failed to read module %s: %w", path, err)
 		}
 
-		module, err := LoadModule[T](ctx, data)
+		module, err := LoadModule[T](ctx, data, r.config)
 		if err != nil {
 			return fmt.Errorf("failed to load module %s: %w", path, err)
 		}
@@ -59,6 +66,7 @@ func (r *Registry[T]) LoadFromFS(ctx context.Context, fsys fs.FS, dir string) er
 }
 
 // Register adds a module to the registry.
+// Returns an error if the module has no ID or is already registered.
 func (r *Registry[T]) Register(module *Module[T]) error {
 	id := module.manifest.GetMetadata().ID
 	if id == "" {
@@ -109,7 +117,7 @@ func (r *Registry[T]) All() []*Module[T] {
 	return modules
 }
 
-// Close closes all modules in the registry.
+// Close closes all modules in the registry and clears the registry.
 func (r *Registry[T]) Close(ctx context.Context) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

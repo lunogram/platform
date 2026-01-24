@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cloudproud/graceful"
+	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/wasm/providers"
 )
 
@@ -18,8 +19,8 @@ type Registry = providers.Registry
 type Provider = providers.Provider
 
 // NewRegistry creates a new registry and loads all embedded WASM provider modules.
-func NewRegistry(ctx graceful.Context) (*Registry, error) {
-	registry := providers.NewRegistry()
+func NewRegistry(ctx graceful.Context, cfg config.WASM) (*Registry, error) {
+	registry := providers.NewRegistry(cfg)
 
 	err := registry.LoadFromFS(ctx, modulesFS, "modules")
 	if err != nil {

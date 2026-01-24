@@ -84,8 +84,7 @@ clean: ; $(info $(M) cleaning…)	@ ## Cleanup everything
 	@find . -name '*_string.go' -exec rm -r {} \;
 	@find . -name '*_gen.go' -exec rm -r {} \;
 	@find . -name '*.sql.go' -exec rm -r {} \;
-	@cd services/nexus/internal/wasm && cargo clean 2>/dev/null || true
-	@rm -f services/nexus/internal/wasm/libwasm_executor.a
+	@find . -name '*.wasm' -exec rm -r {} \;
 
 .PHONY: help
 help:
