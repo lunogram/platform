@@ -16,7 +16,7 @@ SHORT_COMMIT	?= $(shell git rev-parse --short HEAD)
 
 PATH := $(GOBIN):$(BIN):$(PATH)
 
-EMBEDDED = 
+EMBEDDED =
 LDFLAGS	= -w -s -X "github.com/lunogram/platform/pkg/build.version=$(VERSION)" -X "github.com/lunogram/platform/pkg/build.commit=$(SHORT_COMMIT)"
 
 # Printing
@@ -31,7 +31,7 @@ PROVIDER_MODULES := $(notdir $(wildcard ./modules/providers/*))
 
 $(PROVIDER_MODULES):
 	$(info $(M) building $@ module…)
-	$Q cd modules/providers/$@ &&  $(TINYGO) build -target=wasi -buildmode c-shared -o ../../../services/nexus/internal/providers/modules/$@.wasm ./main.go
+	$Q cd modules/providers/$@ &&  $(TINYGO) build -target=wasi -buildmode c-shared -opt=2 -no-debug -o ../../../services/nexus/internal/providers/modules/$@.wasm ./main.go
 # Tools
 $(BIN):
 	@mkdir -p $@
