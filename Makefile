@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.DEFAULT_GOAL := generate
+.DEFAULT_GOAL := build
 
 BIN			= $(CURDIR)/bin
 BUILD_DIR	= $(CURDIR)/build
@@ -7,6 +7,7 @@ BUILD_DIR	= $(CURDIR)/build
 GOPATH			= $(HOME)/go
 GOBIN			= $(GOPATH)/bin
 GO				?= GOGC=off $(shell which go)
+TINYGO			?= $(shell which tinygo)
 NODE			?= $(shell which node)
 PNPM			?= $(shell which pnpm)
 PKGS			= $(or $(PKG),$(shell env $(GO) list ./...))
@@ -15,7 +16,7 @@ SHORT_COMMIT	?= $(shell git rev-parse --short HEAD)
 
 PATH := $(GOBIN):$(BIN):$(PATH)
 
-EMBEDDED = 
+EMBEDDED =
 LDFLAGS	= -w -s -X "github.com/lunogram/platform/pkg/build.version=$(VERSION)" -X "github.com/lunogram/platform/pkg/build.commit=$(SHORT_COMMIT)"
 
 # Printing
@@ -26,6 +27,11 @@ M = $(shell printf "\033[34;1m▶\033[0m")
 $(BUILD_DIR):
 	@mkdir -p $@
 
+PROVIDER_MODULES := $(notdir $(wildcard ./modules/providers/*))
+
+$(PROVIDER_MODULES):
+	$(info $(M) building $@ module…)
+	$Q cd modules/providers/$@ &&  $(TINYGO) build -target=wasi -buildmode c-shared -opt=2 -no-debug -o ../../../services/nexus/internal/providers/modules/$@.wasm ./main.go
 # Tools
 $(BIN):
 	@mkdir -p $@
@@ -42,6 +48,10 @@ MINIMOCK = $(BIN)/minimock
 OAPI_CODEGEN = $(BIN)/oapi-codegen
 
 TOOLCHAIN = $(STRINGER) $(MINIMOCK) $(OAPI_CODEGEN)
+
+.PHONY: build # Build all services
+build: $(PROVIDER_MODULES)
+	@true
 
 # Targets
 .PHONY: lint
@@ -74,6 +84,7 @@ clean: ; $(info $(M) cleaning…)	@ ## Cleanup everything
 	@find . -name '*_string.go' -exec rm -r {} \;
 	@find . -name '*_gen.go' -exec rm -r {} \;
 	@find . -name '*.sql.go' -exec rm -r {} \;
+	@find . -name '*.wasm' -exec rm -r {} \;
 
 .PHONY: help
 help:

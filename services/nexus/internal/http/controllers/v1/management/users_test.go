@@ -215,7 +215,7 @@ func TestUpdateUser(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "updated@example.com", string(*user.Email))
 
-	var data map[string]interface{}
+	var data map[string]any
 	err = json.Unmarshal(user.Data, &data)
 	require.NoError(t, err)
 	require.Contains(t, data, "old", "should preserve existing keys")

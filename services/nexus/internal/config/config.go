@@ -18,6 +18,7 @@ type Node struct {
 	Cluster                  Cluster `envPrefix:"CLUSTER_"`
 	Auth                     Auth    `envPrefix:"AUTH_"`
 	Nats                     Nats    `envPrefix:"NATS_"`
+	WASM                     WASM    `envPrefix:"WASM_"`
 	HTTP                     http.Config
 	Store                    store.Config
 	Storage                  storage.Config
@@ -41,4 +42,8 @@ type Cluster struct {
 	ReconciliationInterval time.Duration `env:"RECONCILIATION_INTERVAL" envDefault:"1m"`
 	LeaderCampaignInterval time.Duration `env:"LEADER_CAMPAIGN_INTERVAL" envDefault:"5s"`
 	HeartbeatInterval      time.Duration `env:"HEARTBEAT_INTERVAL" envDefault:"4s"`
+}
+
+type WASM struct {
+	CallTimeout time.Duration `env:"CALL_TIMEOUT" envDefault:"30s"`
 }

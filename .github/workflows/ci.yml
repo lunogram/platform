@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest      
+    runs-on: ubuntu-latest
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@f974e0c5942f8f37973c4cc395704165fbe629ba # v2
@@ -23,7 +23,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ vars.NODEJS_VERSION }}
-          cache: 'pnpm'
+          cache: "pnpm"
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
@@ -33,7 +33,7 @@ jobs:
       - name: Lint
         run: |
           make lint
-  
+
   tests:
     runs-on: ubuntu-latest
     steps:
@@ -51,7 +51,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ vars.NODEJS_VERSION }}
-          cache: 'pnpm'
+          cache: "pnpm"
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
@@ -72,19 +72,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v5
-    - uses: pnpm/action-setup@v4
-      with:
-        version: ${{ vars.PNPM_VERSION }}
-    - name: Set-up Node
-      uses: actions/setup-node@v5
-      with:
-        node-version: ${{ vars.NODEJS_VERSION }}
-        cache: 'pnpm'
-    - name: Install Dependencies
-      run: pnpm install
-    - name: Build
-      run: pnpm build
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ vars.PNPM_VERSION }}
+      - name: Set-up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ vars.NODEJS_VERSION }}
+          cache: "pnpm"
+      - name: Install Dependencies
+        run: pnpm install
+      - name: Build
+        run: pnpm build
 
   generate:
     runs-on: ubuntu-latest
@@ -95,6 +95,10 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ vars.GO_VERSION }}
+      - name: Set up TinyGo
+        uses: acifani/setup-tinygo@v2
+        with:
+          tinygo-version: ${{ vars.TINYGO_VERSION }}
       - name: Tool bins
         uses: actions/cache@v4
         with:
@@ -103,4 +107,4 @@ jobs:
       - name: Auto generate files
         run: make generate
       - name: Check for file changes
-        run: git diff --exit-code
+        run: git diff --exit-code -- . ':!*.wasm'

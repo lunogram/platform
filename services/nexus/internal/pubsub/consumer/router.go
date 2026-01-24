@@ -50,8 +50,9 @@ func (r *Router) Handle(stream, consumer string, handler HandlerFunc) {
 			if err != nil {
 				log.Error("failed to NAK message, shutting down...", zap.Error(err))
 				r.ctx.Shutdown()
-				return
 			}
+
+			return
 		}
 
 		err = msg.Ack()

@@ -164,12 +164,12 @@ func TestListLocales(t *testing.T) {
 
 			require.Equal(t, 200, res.Code, res.Body.String())
 
-			var response map[string]interface{}
+			var response map[string]any
 			err = json.Unmarshal(res.Body.Bytes(), &response)
 			require.NoError(t, err)
 			require.Equal(t, float64(3), response["total"])
 
-			results := response["results"].([]interface{})
+			results := response["results"].([]any)
 			require.Len(t, results, test.count)
 		})
 	}

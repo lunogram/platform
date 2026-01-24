@@ -497,7 +497,7 @@ func TestGetCampaignUsers(t *testing.T) {
 			require.Equal(t, test.code, res.Code, res.Body.String())
 
 			if test.code == 200 {
-				var response map[string]interface{}
+				var response map[string]any
 				err := json.Unmarshal(res.Body.Bytes(), &response)
 				require.NoError(t, err)
 

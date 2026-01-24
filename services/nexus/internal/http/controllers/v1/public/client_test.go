@@ -55,17 +55,17 @@ func TestPostEvents(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
-		events     []map[string]interface{}
+		events     []map[string]any
 		statusCode int
 	}
 
 	tests := map[string]test{
 		"single event with external_id": {
-			events: []map[string]interface{}{
+			events: []map[string]any{
 				{
 					"name":        "purchase_completed",
 					"external_id": "user_123",
-					"data": map[string]interface{}{
+					"data": map[string]any{
 						"amount":     99.99,
 						"product_id": "prod_456",
 					},
@@ -74,11 +74,11 @@ func TestPostEvents(t *testing.T) {
 			statusCode: 202,
 		},
 		"single event with anonymous_id": {
-			events: []map[string]interface{}{
+			events: []map[string]any{
 				{
 					"name":         "page_viewed",
 					"anonymous_id": "anon_abc",
-					"data": map[string]interface{}{
+					"data": map[string]any{
 						"page": "/home",
 					},
 				},
@@ -86,7 +86,7 @@ func TestPostEvents(t *testing.T) {
 			statusCode: 202,
 		},
 		"multiple events": {
-			events: []map[string]interface{}{
+			events: []map[string]any{
 				{
 					"name":        "cart_updated",
 					"external_id": "user_123",
@@ -99,15 +99,15 @@ func TestPostEvents(t *testing.T) {
 			statusCode: 202,
 		},
 		"event with user data": {
-			events: []map[string]interface{}{
+			events: []map[string]any{
 				{
 					"name":        "signup",
 					"external_id": "user_789",
-					"user": map[string]interface{}{
+					"user": map[string]any{
 						"email":    "user@example.com",
 						"timezone": "America/New_York",
 						"locale":   "en-US",
-						"data": map[string]interface{}{
+						"data": map[string]any{
 							"plan": "premium",
 						},
 					},
@@ -185,7 +185,7 @@ func TestPostEventsMissingRBACScope(t *testing.T) {
 
 	controller := setupClientController(t)
 
-	events := []map[string]interface{}{
+	events := []map[string]any{
 		{
 			"name":        "test_event",
 			"external_id": "user_123",
@@ -212,7 +212,7 @@ func TestPostEventsMissingProjectID(t *testing.T) {
 	orgID, err := controller.store.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
 	require.NoError(t, err)
 
-	events := []map[string]interface{}{
+	events := []map[string]any{
 		{
 			"name":        "test_event",
 			"external_id": "user_123",
@@ -250,16 +250,16 @@ func TestPostEventsWithNestedData(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	events := []map[string]interface{}{
+	events := []map[string]any{
 		{
 			"name":        "complex_event",
 			"external_id": "user_123",
-			"data": map[string]interface{}{
-				"product": map[string]interface{}{
+			"data": map[string]any{
+				"product": map[string]any{
 					"id":    "prod_123",
 					"name":  "Widget",
 					"price": 99.99,
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"sku":      "WDG-001",
 						"category": "electronics",
 					},
@@ -301,7 +301,7 @@ func TestPostEventsEmptyArray(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	events := []map[string]interface{}{}
+	events := []map[string]any{}
 
 	body, err := json.Marshal(events)
 	require.NoError(t, err)
@@ -322,18 +322,18 @@ func TestClientIdentifyUser(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
-		body       map[string]interface{}
+		body       map[string]any
 		statusCode int
 	}
 
 	tests := map[string]test{
 		"identify with external_id": {
-			body: map[string]interface{}{
+			body: map[string]any{
 				"external_id": "user_123",
 				"email":       "user@example.com",
 				"timezone":    "America/Chicago",
 				"locale":      "en",
-				"data": map[string]interface{}{
+				"data": map[string]any{
 					"first_name": "John",
 					"last_name":  "Smith",
 				},
@@ -341,20 +341,20 @@ func TestClientIdentifyUser(t *testing.T) {
 			statusCode: 200,
 		},
 		"identify with anonymous_id": {
-			body: map[string]interface{}{
+			body: map[string]any{
 				"anonymous_id": "anon_abc",
 				"email":        "test@test.com",
 			},
 			statusCode: 200,
 		},
 		"identify with minimal data": {
-			body: map[string]interface{}{
+			body: map[string]any{
 				"external_id": "user_456",
 			},
 			statusCode: 200,
 		},
 		"identify with phone": {
-			body: map[string]interface{}{
+			body: map[string]any{
 				"external_id": "user_789",
 				"phone":       "+1234567890",
 				"timezone":    "Europe/Amsterdam",
@@ -395,7 +395,7 @@ func TestClientIdentifyUser(t *testing.T) {
 
 			assert.Equal(t, tc.statusCode, w.Code)
 			if w.Code == 200 {
-				var response map[string]interface{}
+				var response map[string]any
 				err = json.Unmarshal(w.Body.Bytes(), &response)
 				require.NoError(t, err)
 				assert.NotEmpty(t, response["id"])
@@ -408,13 +408,13 @@ func TestClientIdentifyUserInvalidRequest(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
-		body       map[string]interface{}
+		body       map[string]any
 		statusCode int
 	}
 
 	tests := map[string]test{
 		"missing both identifiers": {
-			body: map[string]interface{}{
+			body: map[string]any{
 				"email": "test@test.com",
 			},
 			statusCode: 400,
@@ -469,7 +469,7 @@ func TestClientIdentifyUserMissingRBACScope(t *testing.T) {
 
 	controller := setupClientController(t)
 
-	body, err := json.Marshal(map[string]interface{}{
+	body, err := json.Marshal(map[string]any{
 		"external_id": "user_123",
 		"email":       "test@test.com",
 	})
@@ -492,7 +492,7 @@ func TestClientIdentifyUserMissingProjectID(t *testing.T) {
 	orgID, err := controller.store.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
 	require.NoError(t, err)
 
-	body, err := json.Marshal(map[string]interface{}{
+	body, err := json.Marshal(map[string]any{
 		"external_id": "user_123",
 		"email":       "test@test.com",
 	})
@@ -527,11 +527,11 @@ func TestClientIdentifyUserUpdateExisting(t *testing.T) {
 	require.NoError(t, err)
 
 	// First identify call
-	body1, err := json.Marshal(map[string]interface{}{
+	body1, err := json.Marshal(map[string]any{
 		"external_id": "user_123",
 		"email":       "original@example.com",
 		"timezone":    "America/New_York",
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"first_name": "John",
 		},
 	})
@@ -548,17 +548,17 @@ func TestClientIdentifyUserUpdateExisting(t *testing.T) {
 
 	assert.Equal(t, 200, w1.Code)
 
-	var response1 map[string]interface{}
+	var response1 map[string]any
 	err = json.Unmarshal(w1.Body.Bytes(), &response1)
 	require.NoError(t, err)
 	userID1 := response1["id"]
 
 	// Second identify call with updated data
-	body2, err := json.Marshal(map[string]interface{}{
+	body2, err := json.Marshal(map[string]any{
 		"external_id": "user_123",
 		"email":       "updated@example.com",
 		"timezone":    "Europe/Amsterdam",
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"first_name": "John",
 			"last_name":  "Doe",
 		},
@@ -576,7 +576,7 @@ func TestClientIdentifyUserUpdateExisting(t *testing.T) {
 
 	assert.Equal(t, 200, w2.Code)
 
-	var response2 map[string]interface{}
+	var response2 map[string]any
 	err = json.Unmarshal(w2.Body.Bytes(), &response2)
 	require.NoError(t, err)
 
@@ -605,7 +605,7 @@ func TestClientIdentifyUserWithBothIdentifiers(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	body, err := json.Marshal(map[string]interface{}{
+	body, err := json.Marshal(map[string]any{
 		"external_id":  "user_123",
 		"anonymous_id": "anon_abc",
 		"email":        "test@test.com",
@@ -623,7 +623,7 @@ func TestClientIdentifyUserWithBothIdentifiers(t *testing.T) {
 
 	assert.Equal(t, 200, w.Code)
 
-	var response map[string]interface{}
+	var response map[string]any
 	err = json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
 	assert.NotEmpty(t, response["id"])

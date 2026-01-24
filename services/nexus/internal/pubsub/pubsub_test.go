@@ -49,7 +49,7 @@ func TestPublisher_Publish(t *testing.T) {
 	// Create a stream for testing
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
 		Name:     "test_events",
-		Subjects: []string{"events.projects.>"},
+		Subjects: []string{"events.process.>"},
 	})
 	require.NoError(t, err)
 
@@ -62,7 +62,7 @@ func TestPublisher_Publish(t *testing.T) {
 
 	tests := map[string]test{
 		"publish event": {
-			subject: "events.projects.123",
+			subject: "events.process.123",
 			data: schemas.Event{
 				ID:        uuid.New(),
 				Name:      "test_event",
@@ -70,7 +70,7 @@ func TestPublisher_Publish(t *testing.T) {
 			},
 		},
 		"publish with nil data": {
-			subject: "events.projects.456",
+			subject: "events.process.456",
 			data: schemas.Event{
 				ID:          uuid.New(),
 				Name:        "another_event",
@@ -79,7 +79,7 @@ func TestPublisher_Publish(t *testing.T) {
 			},
 		},
 		"publish with event data": {
-			subject: "events.projects.789",
+			subject: "events.process.789",
 			data: schemas.Event{
 				ID:        uuid.New(),
 				Name:      "event_with_data",
@@ -104,9 +104,9 @@ func TestEventsProject(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
-	subject := schemas.EventsProjectSubject(projectID)
+	subject := schemas.EventsProcess(projectID)
 
-	expected := schemas.Subject("events.projects." + projectID.String())
+	expected := schemas.Subject("events.process." + projectID.String())
 	assert.Equal(t, expected, subject)
 }
 
@@ -114,9 +114,9 @@ func TestEventsSchema(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
-	subject := schemas.EventsSchemaSubject(projectID)
+	subject := schemas.EventsSchema(projectID)
 
-	expected := schemas.Subject("events.schemas." + projectID.String())
+	expected := schemas.Subject("events.schema." + projectID.String())
 	assert.Equal(t, expected, subject)
 }
 

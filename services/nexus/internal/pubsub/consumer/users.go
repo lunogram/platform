@@ -34,7 +34,7 @@ func UsersHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) Handler
 		}
 
 		if user.Data != nil {
-			err = pub.Publish(ctx, schemas.UsersSchemaSubject(user.ProjectID), user)
+			err = pub.Publish(ctx, schemas.UsersSchema(user.ProjectID), user)
 			if err != nil {
 				logger.Error("failed to publish user to project subject", zap.Error(err))
 				return err
@@ -65,7 +65,7 @@ func PublishUserRecomputeLists(ctx context.Context, logger *zap.Logger, lists *s
 			ProjectID: user.ProjectID,
 		}
 
-		err = pub.Publish(ctx, schemas.RecomputeListSubject(user.ProjectID, list.ID), list)
+		err = pub.Publish(ctx, schemas.ListsRecompute(user.ProjectID, list.ID), list)
 		if err != nil {
 			logger.Error("failed to publish rule to project subject", zap.Error(err))
 			return err
@@ -78,7 +78,7 @@ func PublishUserRecomputeLists(ctx context.Context, logger *zap.Logger, lists *s
 func PublishUserEvents(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, user schemas.User) (err error) {
 	// NOTE: the user is created, let's publish a different event
 	if user.Version == 0 {
-		err = pub.Publish(ctx, schemas.EventsProjectSubject(user.ProjectID), user.Event(schemas.EventUserCreated))
+		err = pub.Publish(ctx, schemas.EventsProcess(user.ProjectID), user.Event(schemas.EventUserCreated))
 		if err != nil {
 			logger.Error("failed to publish user created event", zap.Error(err))
 			return err
@@ -87,7 +87,7 @@ func PublishUserEvents(ctx context.Context, logger *zap.Logger, pub pubsub.Publi
 		return nil
 	}
 
-	err = pub.Publish(ctx, schemas.EventsProjectSubject(user.ProjectID), user.Event(schemas.EventUserUpdated))
+	err = pub.Publish(ctx, schemas.EventsProcess(user.ProjectID), user.Event(schemas.EventUserUpdated))
 	if err != nil {
 		logger.Error("failed to publish user updated event", zap.Error(err))
 		return err

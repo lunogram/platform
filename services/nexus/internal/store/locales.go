@@ -98,7 +98,7 @@ func (s *LocalesStore) GetLocale(ctx context.Context, projectID uuid.UUID, local
 	// Try to parse as UUID first for more efficient lookup
 	id, err := uuid.Parse(localeID)
 	var query string
-	var args []interface{}
+	var args []any
 
 	if err == nil {
 		// localeID is a valid UUID, use direct comparison
@@ -107,7 +107,7 @@ func (s *LocalesStore) GetLocale(ctx context.Context, projectID uuid.UUID, local
 		FROM locales
 		WHERE project_id = $1
 		AND id = $2`
-		args = []interface{}{projectID, id}
+		args = []any{projectID, id}
 	} else {
 		// localeID is not a UUID, search by key
 		query = `
@@ -115,7 +115,7 @@ func (s *LocalesStore) GetLocale(ctx context.Context, projectID uuid.UUID, local
 		FROM locales
 		WHERE project_id = $1
 		AND key = $2`
-		args = []interface{}{projectID, localeID}
+		args = []any{projectID, localeID}
 	}
 
 	var locale Locale

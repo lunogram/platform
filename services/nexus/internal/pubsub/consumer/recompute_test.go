@@ -63,14 +63,14 @@ func setupRecomputeTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream)
 	return db, projectID, jet
 }
 
-func TestRecomputeListSubject(t *testing.T) {
+func TestListsRecompute(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
 	listID := uuid.New()
 
-	subject := schemas.RecomputeListSubject(projectID, listID)
-	expected := schemas.Subject("recompute.lists." + projectID.String() + "." + listID.String())
+	subject := schemas.ListsRecompute(projectID, listID)
+	expected := schemas.Subject("lists.recompute." + projectID.String() + "." + listID.String())
 
 	assert.Equal(t, expected, subject)
 }
@@ -132,10 +132,10 @@ func TestRecomputeListHandler_Success(t *testing.T) {
 		ProjectID: projectID,
 	}
 
-	err = pub.Publish(ctx, schemas.RecomputeListSubject(projectID, listID), recompute)
+	err = pub.Publish(ctx, schemas.ListsRecompute(projectID, listID), recompute)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamRecompute, ConsumerRecomputeLists)
+	consumer, err := jet.Consumer(ctx, StreamLists, ConsumerListsRecompute)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -182,10 +182,10 @@ func TestRecomputeListHandler_NoRule(t *testing.T) {
 		ProjectID: projectID,
 	}
 
-	err = pub.Publish(ctx, schemas.RecomputeListSubject(projectID, listID), recompute)
+	err = pub.Publish(ctx, schemas.ListsRecompute(projectID, listID), recompute)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamRecompute, ConsumerRecomputeLists)
+	consumer, err := jet.Consumer(ctx, StreamLists, ConsumerListsRecompute)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -252,10 +252,10 @@ func TestRecomputeListHandler_WithUserAddedEvent(t *testing.T) {
 		ProjectID: projectID,
 	}
 
-	err = pub.Publish(ctx, schemas.RecomputeListSubject(projectID, listID), recompute)
+	err = pub.Publish(ctx, schemas.ListsRecompute(projectID, listID), recompute)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamRecompute, ConsumerRecomputeLists)
+	consumer, err := jet.Consumer(ctx, StreamLists, ConsumerListsRecompute)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -267,7 +267,7 @@ func TestRecomputeListHandler_WithUserAddedEvent(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	eventConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEvents)
+	eventConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
 	require.NoError(t, err)
 
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))

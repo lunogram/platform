@@ -186,7 +186,7 @@ func TestHandleEvent(t *testing.T) {
 
 				// Verify event structure
 				event := mockPub.publishedEvents[0]
-				assert.Equal(t, schemas.Subject("events.projects."+projectID.String()), event.subject)
+				assert.Equal(t, schemas.Subject("events.process."+projectID.String()), event.subject)
 
 				eventData, ok := event.data.(schemas.Event)
 				require.True(t, ok, "event data should be schemas.Event type")

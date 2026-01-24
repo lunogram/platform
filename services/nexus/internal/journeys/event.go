@@ -48,7 +48,7 @@ func HandleEvent(ctx HandlerContext, step store.JourneyVersionStep, state store.
 		Data:        payload,
 	}
 
-	err = ctx.Publisher.Publish(ctx, schemas.Subject(schemas.EventsProjectSubject(ctx.ProjectID)), event)
+	err = ctx.Publisher.Publish(ctx, schemas.Subject(schemas.EventsProcess(ctx.ProjectID)), event)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to publish event: %w", err)
 	}

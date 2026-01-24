@@ -49,14 +49,14 @@ func TestBootstrap_CreatesStreamsAndConsumers(t *testing.T) {
 	assert.Equal(t, StreamEvents, info.Config.Name)
 	assert.Contains(t, info.Config.Subjects, "events.>")
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEvents)
+	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
 	require.NoError(t, err)
 	assert.NotNil(t, consumer)
 
 	consumerInfo, err := consumer.Info(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, ConsumerEvents, consumerInfo.Name)
-	assert.Equal(t, "events.projects.>", consumerInfo.Config.FilterSubject)
+	assert.Equal(t, ConsumerEventsProcess, consumerInfo.Name)
+	assert.Equal(t, "events.process.>", consumerInfo.Config.FilterSubject)
 }
 
 func TestBootstrap_CreatesRecomputeStream(t *testing.T) {
@@ -69,14 +69,14 @@ func TestBootstrap_CreatesRecomputeStream(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	stream, err := jet.Stream(ctx, StreamRecompute)
+	stream, err := jet.Stream(ctx, StreamLists)
 	require.NoError(t, err)
 	assert.NotNil(t, stream)
 
 	info, err := stream.Info(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, StreamRecompute, info.Config.Name)
-	assert.Contains(t, info.Config.Subjects, "recompute.lists.>")
+	assert.Equal(t, StreamLists, info.Config.Name)
+	assert.Contains(t, info.Config.Subjects, "lists.>")
 }
 
 func TestBootstrap_CreatesAllConsumers(t *testing.T) {
@@ -96,10 +96,10 @@ func TestBootstrap_CreatesAllConsumers(t *testing.T) {
 	}
 
 	consumers := []consumer{
-		{StreamEvents, ConsumerEvents, "events.projects.>"},
-		{StreamEvents, ConsumerEventSchemas, "events.schemas.>"},
-		{StreamJourney, ConsumerJourneysState, "journeys.state.>"},
-		{StreamRecompute, ConsumerRecomputeLists, "recompute.lists.>"},
+		{StreamEvents, ConsumerEventsProcess, "events.process.>"},
+		{StreamEvents, ConsumerEventsSchema, "events.schema.>"},
+		{StreamJourneys, ConsumerJourneysAdvance, "journeys.advance.>"},
+		{StreamLists, ConsumerListsRecompute, "lists.recompute.>"},
 	}
 
 	for _, tc := range consumers {

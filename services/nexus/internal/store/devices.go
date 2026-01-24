@@ -87,3 +87,19 @@ func (s *DevicesStore) CreateDevice(ctx context.Context, device Device) (uuid.UU
 
 	return id, nil
 }
+
+func (s *DevicesStore) ListDevicesByUser(ctx context.Context, projectID, userID uuid.UUID) (Devices, error) {
+	query := `
+	SELECT id, project_id, user_id, device_id, token, os, os_version, model, app_build, app_version, created_at, updated_at
+	FROM devices
+	WHERE project_id = $1 AND user_id = $2
+	AND token IS NOT NULL AND token != ''`
+
+	var devices Devices
+	err := s.db.SelectContext(ctx, &devices, query, projectID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return devices, nil
+}

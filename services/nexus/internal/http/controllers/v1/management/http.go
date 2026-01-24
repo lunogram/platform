@@ -13,6 +13,7 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/http/auth"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/providers"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
 	"github.com/lunogram/platform/services/nexus/internal/storage"
 	"github.com/lunogram/platform/services/nexus/internal/store"
@@ -21,7 +22,7 @@ import (
 
 // NewServer constructs a new HTTP server and it's routes. The returned server
 // could be used to listen and serve incoming requests on the given address.
-func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db *sqlx.DB, storage storage.Storage, pub pubsub.Publisher) (*http.Server, error) {
+func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db *sqlx.DB, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) (*http.Server, error) {
 	spec, err := oapi.Spec()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load OpenAPI spec: %w", err)
@@ -45,7 +46,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db 
 
 	router.Use(oapi.Scalar())
 
-	oapi.HandlerWithOptions(NewController(logger, db, config, storage, pub), oapi.ChiServerOptions{
+	oapi.HandlerWithOptions(NewController(logger, db, config, storage, pub, registry), oapi.ChiServerOptions{
 		BaseRouter:  router,
 		Middlewares: []oapi.MiddlewareFunc{oapi.Validator(spec, options)},
 	})

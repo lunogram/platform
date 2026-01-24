@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/services/nexus/internal/journeys"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
-	"github.com/lunogram/platform/services/nexus/internal/pubsub/consumer/journeys"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub/schemas"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/nats-io/nats.go/jetstream"
@@ -85,7 +85,7 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) H
 				ExternalStepID: child.ChildExternalID,
 			}
 
-			err = pub.Publish(ctx, schemas.JourneyStepSubject(event.ProjectID, event.JourneyID), next)
+			err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, event.JourneyID), next)
 			if err != nil {
 				logger.Error("failed to publish next journey step", zap.Error(err))
 				return err

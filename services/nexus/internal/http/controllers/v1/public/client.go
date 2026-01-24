@@ -66,7 +66,7 @@ func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request, 
 			ExternalId:  event.ExternalId,
 		}
 
-		err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.EventsProjectSubject(projectID)), msg)
+		err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.EventsProcess(projectID)), msg)
 		if err != nil {
 			logger.Error("failed to publish event", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal())
@@ -156,7 +156,7 @@ func (srv *ClientController) IdentifyUser(w http.ResponseWriter, r *http.Request
 		Version:     user.Version,
 	}
 
-	err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UsersProjectSubject(projectID)), msg)
+	err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UsersProcess(projectID)), msg)
 	if err != nil {
 		logger.Error("failed to publish user", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())

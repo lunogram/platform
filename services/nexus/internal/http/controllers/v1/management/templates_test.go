@@ -111,7 +111,7 @@ func TestCreateTemplate(t *testing.T) {
 	controller := NewTemplatesController(logger, db)
 
 	type test struct {
-		body interface{}
+		body any
 		code int
 	}
 
@@ -188,7 +188,7 @@ func TestUpdateTemplate(t *testing.T) {
 
 	type test struct {
 		id   uuid.UUID
-		body interface{}
+		body any
 		code int
 	}
 

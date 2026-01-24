@@ -16,7 +16,7 @@ import (
 var ErrUnauthorized = errors.New("unauthorized")
 
 func HMAC(secret []byte) jwt.Keyfunc {
-	return func(token *jwt.Token) (interface{}, error) {
+	return func(token *jwt.Token) (any, error) {
 		return secret, nil
 	}
 }
