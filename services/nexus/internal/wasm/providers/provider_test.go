@@ -13,13 +13,15 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/wasm/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 var testProviderWasm = test.ProviderWASM
 
 func TestNewRegistry(t *testing.T) {
+	logger := zaptest.NewLogger(t)
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
-	registry := NewRegistry(cfg)
+	registry := NewRegistry(cfg, logger)
 
 	assert.NotNil(t, registry)
 	assert.Empty(t, registry.List())
@@ -69,7 +71,8 @@ func TestRegistryLoadFromFS(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			registry := NewRegistry(cfg)
+			logger := zaptest.NewLogger(t)
+			registry := NewRegistry(cfg, logger)
 
 			err := registry.LoadFromFS(t.Context(), test.fsys, test.dir)
 
@@ -364,13 +367,14 @@ func TestRegistryCloseWithCanceledContext(t *testing.T) {
 func loadTestRegistry(t *testing.T) *Registry {
 	t.Helper()
 
+	logger := zaptest.NewLogger(t)
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
 
 	fsys := fstest.MapFS{
 		"modules/testprovider.wasm": &fstest.MapFile{Data: testProviderWasm},
 	}
 
-	registry := NewRegistry(cfg)
+	registry := NewRegistry(cfg, logger)
 
 	err := registry.LoadFromFS(t.Context(), fsys, "modules")
 	require.NoError(t, err)

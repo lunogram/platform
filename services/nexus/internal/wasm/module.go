@@ -7,6 +7,8 @@ import (
 	"time"
 
 	extism "github.com/extism/go-sdk"
+	"go.uber.org/zap"
+
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 )
@@ -45,7 +47,7 @@ func (m *Module[T]) Close(ctx context.Context) {
 }
 
 // NewPlugin creates a new Extism plugin from WASM bytes.
-func NewPlugin(ctx context.Context, wasm []byte) (*extism.Plugin, error) {
+func NewPlugin(ctx context.Context, wasm []byte, logger *zap.Logger) (*extism.Plugin, error) {
 	manifest := extism.Manifest{
 		AllowedHosts: []string{"*"},
 		Wasm: []extism.Wasm{
@@ -62,12 +64,28 @@ func NewPlugin(ctx context.Context, wasm []byte) (*extism.Plugin, error) {
 		return nil, fmt.Errorf("failed to initialize plugin: %w", err)
 	}
 
+	if logger != nil {
+		// TODO: store the logs inside the database or a log management system
+		plugin.SetLogger(func(level extism.LogLevel, message string) {
+			switch level {
+			case extism.LogLevelTrace, extism.LogLevelDebug:
+				logger.Debug(message)
+			case extism.LogLevelInfo:
+				logger.Info(message)
+			case extism.LogLevelWarn:
+				logger.Warn(message)
+			case extism.LogLevelError:
+				logger.Error(message)
+			}
+		})
+	}
+
 	return plugin, nil
 }
 
 // LoadModule loads a WASM module and extracts its manifest.
-func LoadModule[T modules.Manifest](ctx context.Context, data []byte, cfg config.WASM) (*Module[T], error) {
-	plugin, err := NewPlugin(ctx, data)
+func LoadModule[T modules.Manifest](ctx context.Context, data []byte, cfg config.WASM, logger *zap.Logger) (*Module[T], error) {
+	plugin, err := NewPlugin(ctx, data, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create plugin: %w", err)
 	}

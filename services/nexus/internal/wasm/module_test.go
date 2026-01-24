@@ -9,6 +9,7 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestLoadModule(t *testing.T) {
@@ -47,7 +48,8 @@ func TestLoadModule(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			module, err := LoadModule[providers.ProviderManifest](t.Context(), test.data, test.cfg)
+			logger := zaptest.NewLogger(t)
+			module, err := LoadModule[providers.ProviderManifest](t.Context(), test.data, test.cfg, logger)
 
 			if test.wantErr {
 				require.Error(t, err)
@@ -134,7 +136,8 @@ func TestModuleCallWithTimeout(t *testing.T) {
 		CallTimeout: 5 * time.Second,
 	}
 
-	module, err := LoadModule[providers.ProviderManifest](t.Context(), testProviderWASM, cfg)
+	logger := zaptest.NewLogger(t)
+	module, err := LoadModule[providers.ProviderManifest](t.Context(), testProviderWASM, cfg, logger)
 	require.NoError(t, err)
 	defer module.Close(t.Context())
 
@@ -213,7 +216,8 @@ func TestNewPlugin(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			plugin, err := NewPlugin(t.Context(), test.data)
+			logger := zaptest.NewLogger(t)
+			plugin, err := NewPlugin(t.Context(), test.data, logger)
 
 			if test.wantErr {
 				require.Error(t, err)
@@ -230,8 +234,9 @@ func TestNewPlugin(t *testing.T) {
 func loadTestProviderModule(t *testing.T) *Module[providers.ProviderManifest] {
 	t.Helper()
 
+	logger := zaptest.NewLogger(t)
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
-	module, err := LoadModule[providers.ProviderManifest](t.Context(), testProviderWASM, cfg)
+	module, err := LoadModule[providers.ProviderManifest](t.Context(), testProviderWASM, cfg, logger)
 	require.NoError(t, err)
 
 	return module

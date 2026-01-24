@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"go.uber.org/zap"
+
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 )
@@ -18,13 +20,15 @@ type Registry[T modules.Manifest] struct {
 	mu      sync.RWMutex
 	modules map[string]*Module[T]
 	config  config.WASM
+	logger  *zap.Logger
 }
 
 // NewRegistry creates a new empty registry with the given configuration.
-func NewRegistry[T modules.Manifest](config config.WASM) *Registry[T] {
+func NewRegistry[T modules.Manifest](config config.WASM, logger *zap.Logger) *Registry[T] {
 	return &Registry[T]{
 		modules: make(map[string]*Module[T]),
 		config:  config,
+		logger:  logger,
 	}
 }
 
@@ -46,7 +50,7 @@ func (r *Registry[T]) LoadFromFS(ctx context.Context, fsys fs.FS, dir string) er
 			return fmt.Errorf("failed to read module %s: %w", path, err)
 		}
 
-		module, err := LoadModule[T](ctx, data, r.config)
+		module, err := LoadModule[T](ctx, data, r.config, r.logger)
 		if err != nil {
 			return fmt.Errorf("failed to load module %s: %w", path, err)
 		}

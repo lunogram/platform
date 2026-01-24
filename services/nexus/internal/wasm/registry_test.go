@@ -11,11 +11,13 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestNewRegistry(t *testing.T) {
+	logger := zaptest.NewLogger(t)
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
-	registry := NewRegistry[providers.ProviderManifest](cfg)
+	registry := NewRegistry[providers.ProviderManifest](cfg, logger)
 
 	assert.NotNil(t, registry)
 	assert.Empty(t, registry.List())
@@ -29,7 +31,8 @@ func TestRegistryRegister(t *testing.T) {
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
 
 	t.Run("valid module", func(t *testing.T) {
-		registry := NewRegistry[providers.ProviderManifest](cfg)
+		logger := zaptest.NewLogger(t)
+		registry := NewRegistry[providers.ProviderManifest](cfg, logger)
 
 		module := loadTestProviderModule(t)
 		defer module.Close(t.Context())
@@ -40,7 +43,8 @@ func TestRegistryRegister(t *testing.T) {
 	})
 
 	t.Run("duplicate module", func(t *testing.T) {
-		registry := NewRegistry[providers.ProviderManifest](cfg)
+		logger := zaptest.NewLogger(t)
+		registry := NewRegistry[providers.ProviderManifest](cfg, logger)
 
 		module1 := loadTestProviderModule(t)
 		defer module1.Close(t.Context())
@@ -62,8 +66,9 @@ func TestRegistryGet(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
+	logger := zaptest.NewLogger(t)
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
-	registry := NewRegistry[providers.ProviderManifest](cfg)
+	registry := NewRegistry[providers.ProviderManifest](cfg, logger)
 
 	module := loadTestProviderModule(t)
 	defer module.Close(t.Context())
@@ -107,8 +112,9 @@ func TestRegistryList(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
+	logger := zaptest.NewLogger(t)
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
-	registry := NewRegistry[providers.ProviderManifest](cfg)
+	registry := NewRegistry[providers.ProviderManifest](cfg, logger)
 
 	assert.Empty(t, registry.List())
 
@@ -128,8 +134,9 @@ func TestRegistryAll(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
+	logger := zaptest.NewLogger(t)
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
-	registry := NewRegistry[providers.ProviderManifest](cfg)
+	registry := NewRegistry[providers.ProviderManifest](cfg, logger)
 
 	assert.Empty(t, registry.All())
 
@@ -205,7 +212,8 @@ func TestRegistryLoadFromFS(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			registry := NewRegistry[providers.ProviderManifest](cfg)
+			logger := zaptest.NewLogger(t)
+			registry := NewRegistry[providers.ProviderManifest](cfg, logger)
 
 			err := registry.LoadFromFS(t.Context(), test.fsys, test.dir)
 
@@ -228,8 +236,9 @@ func TestRegistryClose(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
+	logger := zaptest.NewLogger(t)
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
-	registry := NewRegistry[providers.ProviderManifest](cfg)
+	registry := NewRegistry[providers.ProviderManifest](cfg, logger)
 
 	module := loadTestProviderModule(t)
 	err := registry.Register(module)
@@ -243,8 +252,9 @@ func TestRegistryClose(t *testing.T) {
 }
 
 func TestRegistryCloseEmpty(t *testing.T) {
+	logger := zaptest.NewLogger(t)
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
-	registry := NewRegistry[providers.ProviderManifest](cfg)
+	registry := NewRegistry[providers.ProviderManifest](cfg, logger)
 
 	registry.Close(t.Context())
 }
@@ -260,7 +270,8 @@ func TestRegistryCloseMultiple(t *testing.T) {
 		"modules/testprovider.wasm": &fstest.MapFile{Data: testProviderWASM},
 	}
 
-	registry := NewRegistry[providers.ProviderManifest](cfg)
+	logger := zaptest.NewLogger(t)
+	registry := NewRegistry[providers.ProviderManifest](cfg, logger)
 
 	err := registry.LoadFromFS(t.Context(), fsys, "modules")
 	require.NoError(t, err)
@@ -277,8 +288,9 @@ func TestRegistryConcurrentAccess(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
+	logger := zaptest.NewLogger(t)
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
-	registry := NewRegistry[providers.ProviderManifest](cfg)
+	registry := NewRegistry[providers.ProviderManifest](cfg, logger)
 
 	module := loadTestProviderModule(t)
 	defer module.Close(t.Context())
@@ -309,8 +321,9 @@ func TestRegistryCloseWithCanceledContext(t *testing.T) {
 		t.Skip("skipping integration test in short mode")
 	}
 
+	logger := zaptest.NewLogger(t)
 	cfg := config.WASM{CallTimeout: 30 * time.Second}
-	registry := NewRegistry[providers.ProviderManifest](cfg)
+	registry := NewRegistry[providers.ProviderManifest](cfg, logger)
 
 	module := loadTestProviderModule(t)
 	err := registry.Register(module)

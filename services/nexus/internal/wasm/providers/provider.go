@@ -12,6 +12,8 @@ import (
 	"io/fs"
 	"slices"
 
+	"go.uber.org/zap"
+
 	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/wasm"
@@ -57,9 +59,9 @@ type Registry struct {
 }
 
 // NewRegistry creates a new provider registry with the given configuration.
-func NewRegistry(config config.WASM) *Registry {
+func NewRegistry(config config.WASM, logger *zap.Logger) *Registry {
 	return &Registry{
-		Registry: wasm.NewRegistry[providers.ProviderManifest](config),
+		Registry: wasm.NewRegistry[providers.ProviderManifest](config, logger),
 	}
 }
 
