@@ -8,7 +8,7 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/wasm/providers"
 )
 
-//go:embed modules/*.wasm
+//go:embed modules/*
 var modulesFS embed.FS
 
 // Registry is a type alias for the provider registry.
