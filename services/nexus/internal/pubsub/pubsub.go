@@ -56,3 +56,14 @@ func (p *publisher) Publish(ctx context.Context, subject schemas.Subject, v any)
 
 	return nil
 }
+
+type noopPublisher struct{}
+
+// NewNoopPublisher creates a Publisher that does nothing for testing.
+func NewNoopPublisher() Publisher {
+	return &noopPublisher{}
+}
+
+func (n *noopPublisher) Publish(ctx context.Context, subject schemas.Subject, v any) error {
+	return nil
+}

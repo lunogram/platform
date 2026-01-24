@@ -91,10 +91,10 @@ func TestEventsProjectHandler_Success(t *testing.T) {
 		},
 	}
 
-	err = pub.Publish(ctx, schemas.Subject(schemas.EventsProjectSubject(projectID)), event)
+	err = pub.Publish(ctx, schemas.Subject(schemas.EventsProcess(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEvents)
+	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -106,7 +106,7 @@ func TestEventsProjectHandler_Success(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	schemaConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventSchemas)
+	schemaConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsSchema)
 	require.NoError(t, err)
 
 	schemaMsg, err := schemaConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -146,10 +146,10 @@ func TestEventsProjectHandler_WithoutData(t *testing.T) {
 		Data:      nil,
 	}
 
-	err = pub.Publish(ctx, schemas.Subject(schemas.EventsProjectSubject(projectID)), event)
+	err = pub.Publish(ctx, schemas.Subject(schemas.EventsProcess(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEvents)
+	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -161,7 +161,7 @@ func TestEventsProjectHandler_WithoutData(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	schemaConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventSchemas)
+	schemaConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsSchema)
 	require.NoError(t, err)
 
 	_, err = schemaConsumer.Next(jetstream.FetchMaxWait(1 * time.Second))
@@ -201,10 +201,10 @@ func TestEventsProjectHandler_WithIdentifiers(t *testing.T) {
 		},
 	}
 
-	err = pub.Publish(ctx, schemas.Subject(schemas.EventsProjectSubject(projectID)), event)
+	err = pub.Publish(ctx, schemas.Subject(schemas.EventsProcess(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEvents)
+	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -243,10 +243,10 @@ func TestEventsSchemaHandler_Success(t *testing.T) {
 		},
 	}
 
-	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.Subject(schemas.EventsSchemaSubject(projectID)), event)
+	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.Subject(schemas.EventsSchema(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventSchemas)
+	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsSchema)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -294,10 +294,10 @@ func TestEventsSchemaHandler_ComplexNestedData(t *testing.T) {
 		},
 	}
 
-	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.Subject(schemas.EventsSchemaSubject(projectID)), event)
+	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.Subject(schemas.EventsSchema(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventSchemas)
+	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsSchema)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))

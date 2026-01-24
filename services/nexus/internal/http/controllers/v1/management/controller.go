@@ -3,12 +3,13 @@ package v1
 import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/services/nexus/internal/config"
+	"github.com/lunogram/platform/services/nexus/internal/providers"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
 	"github.com/lunogram/platform/services/nexus/internal/storage"
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher) *Controller {
+func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) *Controller {
 	return &Controller{
 		ProjectsController:      NewProjectsController(logger, db),
 		CampaignsController:     NewCampaignsController(logger, db),
@@ -22,6 +23,7 @@ func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage sto
 		OrganizationsController: NewOrganizationsController(logger, db),
 		ListsController:         NewListsController(logger, db, pub, cfg.Storage.MaxUploadSize),
 		DocumentsController:     NewDocumentsController(logger, db, storage, cfg.Storage.MaxUploadSize),
+		ProvidersController:     NewProvidersController(logger, db, registry),
 	}
 }
 
@@ -38,4 +40,5 @@ type Controller struct {
 	*OrganizationsController
 	*ListsController
 	*DocumentsController
+	*ProvidersController
 }

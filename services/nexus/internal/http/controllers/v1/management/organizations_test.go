@@ -285,8 +285,8 @@ func TestGetOrganizationIntegrations(t *testing.T) {
 	providerData := []byte(`{"api_key": "test"}`)
 	_, err = providers.CreateProvider(ctx, store.Provider{
 		ProjectID: projectID,
-		Type:      "sendgrid",
-		Group:     "email",
+		Module:    "sendgrid",
+		Channel:   "email",
 		Data:      providerData,
 		Name:      "Test Provider",
 		IsDefault: true,
@@ -324,7 +324,7 @@ func TestGetOrganizationIntegrations(t *testing.T) {
 				err := json.NewDecoder(res.Body).Decode(&providers)
 				require.NoError(t, err)
 				require.Len(t, providers, 1)
-				require.Equal(t, "sendgrid", providers[0].Type)
+				require.Equal(t, "sendgrid", providers[0].Module)
 				require.Equal(t, "Test Provider", providers[0].Name)
 			}
 		})

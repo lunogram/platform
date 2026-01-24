@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	managementv1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management"
 	publicv1 "github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/public"
+	"github.com/lunogram/platform/services/nexus/internal/providers"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub/consumer"
 	"github.com/lunogram/platform/services/nexus/internal/storage"
@@ -83,8 +84,16 @@ func run() error {
 		return err
 	}
 
+	logger.Info("initializing provider registry")
+
+	registry, err := providers.NewRegistry(ctx)
+	if err != nil {
+		return err
+	}
+	defer registry.Close(ctx)
+
 	pub := pubsub.NewPublisher(jet)
-	consumer.Serve(ctx, jet, logger, db)
+	consumer.Serve(ctx, jet, logger, db, registry)
 
 	logger.Info("initializing cluster")
 
@@ -102,7 +111,7 @@ func run() error {
 
 	logger.Info("starting http servers")
 
-	mgmt, err := managementv1.NewServer(ctx, logger, conf, db, bucket, pub)
+	mgmt, err := managementv1.NewServer(ctx, logger, conf, db, bucket, pub, registry)
 	if err != nil {
 		return err
 	}

@@ -73,7 +73,7 @@ func (srv *LocalesController) CreateLocale(w http.ResponseWriter, r *http.Reques
 	}
 
 	logger.Info("locale created", zap.Stringer("locale_id", localeID))
-	json.Write(w, http.StatusCreated, map[string]interface{}{
+	json.Write(w, http.StatusCreated, map[string]any{
 		"data": locale.OAPI(),
 	})
 }
@@ -117,7 +117,7 @@ func (srv *LocalesController) ListLocales(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	json.Write(w, http.StatusOK, map[string]interface{}{
+	json.Write(w, http.StatusOK, map[string]any{
 		"results": locales.OAPI(),
 		"total":   total,
 		"limit":   limit,

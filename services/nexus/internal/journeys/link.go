@@ -80,7 +80,7 @@ func HandleLink(ctx HandlerContext, step store.JourneyVersionStep, state store.J
 			ExternalStepID: child.ChildExternalID,
 		}
 
-		err = ctx.Publisher.Publish(ctx, schemas.JourneyStepSubject(ctx.ProjectID, targetJourneyID), journeyStep)
+		err = ctx.Publisher.Publish(ctx, schemas.JourneysAdvance(ctx.ProjectID, targetJourneyID), journeyStep)
 		if err != nil {
 			return state, nil, fmt.Errorf("failed to publish journey step: %w", err)
 		}

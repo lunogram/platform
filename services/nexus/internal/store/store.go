@@ -43,14 +43,14 @@ func New(ctx graceful.Context, logger *zap.Logger, service Config) (*sqlx.DB, er
 type DB interface {
 	sqlx.Ext
 	sqlx.ExtContext
-	Get(dest interface{}, query string, args ...interface{}) error
-	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	Select(dest interface{}, query string, args ...interface{}) error
-	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	Get(dest any, query string, args ...any) error
+	GetContext(ctx context.Context, dest any, query string, args ...any) error
+	Select(dest any, query string, args ...any) error
+	SelectContext(ctx context.Context, dest any, query string, args ...any) error
 	QueryRow(query string, args ...any) *sql.Row
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-	NamedExec(query string, arg interface{}) (sql.Result, error)
-	NamedExecContext(ctx context.Context, query string, arg interface{}) (sql.Result, error)
+	NamedExec(query string, arg any) (sql.Result, error)
+	NamedExecContext(ctx context.Context, query string, arg any) (sql.Result, error)
 }
 
 func NewState(db DB) *State {

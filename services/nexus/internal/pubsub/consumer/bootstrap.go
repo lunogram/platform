@@ -23,16 +23,16 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 	})
 
 	bootstrap.EnsureConsumer(ctx, StreamUsers, jetstream.ConsumerConfig{
-		Name:          ConsumerUsers,
-		FilterSubject: "users.projects.>",
+		Name:          ConsumerUsersProcess,
+		FilterSubject: "users.process.>",
 		Description:   "Processes incoming users",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		MaxDeliver:    5,
 	})
 
 	bootstrap.EnsureConsumer(ctx, StreamUsers, jetstream.ConsumerConfig{
-		Name:          ConsumerUserSchemas,
-		FilterSubject: "users.schemas.>",
+		Name:          ConsumerUsersSchema,
+		FilterSubject: "users.schema.>",
 		Description:   "Processes user schema definitions",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		MaxDeliver:    5,
@@ -48,56 +48,69 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 	})
 
 	bootstrap.EnsureConsumer(ctx, StreamEvents, jetstream.ConsumerConfig{
-		Name:          ConsumerEvents,
-		FilterSubject: "events.projects.>",
+		Name:          ConsumerEventsProcess,
+		FilterSubject: "events.process.>",
 		Description:   "Processes incoming events",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		MaxDeliver:    5,
 	})
 
 	bootstrap.EnsureConsumer(ctx, StreamEvents, jetstream.ConsumerConfig{
-		Name:          ConsumerEventSchemas,
-		FilterSubject: "events.schemas.>",
+		Name:          ConsumerEventsSchema,
+		FilterSubject: "events.schema.>",
 		Description:   "Processes event schema definitions",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		MaxDeliver:    5,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
-		Name:        StreamRecompute,
-		Description: "Recompute triggers for derived data",
-		Subjects: []string{
-			"recompute.lists.>",
-		},
-		Discard:  jetstream.DiscardOld,
-		MaxAge:   24 * time.Hour,
-		Replicas: 1,
+		Name:        StreamLists,
+		Description: "List recomputation triggers",
+		Subjects:    []string{"lists.>"},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
 	})
 
-	bootstrap.EnsureConsumer(ctx, StreamRecompute, jetstream.ConsumerConfig{
-		Name:          ConsumerRecomputeLists,
-		Description:   "Processes recompute list requests",
+	bootstrap.EnsureConsumer(ctx, StreamLists, jetstream.ConsumerConfig{
+		Name:          ConsumerListsRecompute,
+		Description:   "Processes list recomputation requests",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: "recompute.lists.>",
+		FilterSubject: "lists.recompute.>",
 		MaxDeliver:    5,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
-		Name:        StreamJourney,
-		Description: "Advance a journey state based on incoming events",
-		Subjects: []string{
-			"journeys.state.>",
-		},
-		Discard:  jetstream.DiscardOld,
-		MaxAge:   24 * time.Hour,
-		Replicas: 1,
+		Name:        StreamJourneys,
+		Description: "Journey advancement and orchestration",
+		Subjects:    []string{"journeys.>"},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
 	})
 
-	bootstrap.EnsureConsumer(ctx, StreamJourney, jetstream.ConsumerConfig{
-		Name:          ConsumerJourneysState,
-		Description:   "Processes journey state requests",
+	bootstrap.EnsureConsumer(ctx, StreamJourneys, jetstream.ConsumerConfig{
+		Name:          ConsumerJourneysAdvance,
+		Description:   "Processes journey advancement requests",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: "journeys.state.>",
+		FilterSubject: "journeys.advance.>",
+		MaxDeliver:    5,
+	})
+
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        StreamCampaigns,
+		Description: "Campaign sending and execution",
+		Subjects:    []string{"campaigns.>"},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, StreamCampaigns, jetstream.ConsumerConfig{
+		Name:          ConsumerCampaignsSend,
+		Description:   "Processes campaign send requests",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: "campaigns.send.>",
 		MaxDeliver:    5,
 	})
 

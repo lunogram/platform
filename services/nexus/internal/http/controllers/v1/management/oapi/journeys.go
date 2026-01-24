@@ -1,6 +1,7 @@
 package oapi
 
 import (
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/services/nexus/internal/rules"
 )
 
@@ -60,7 +61,7 @@ type DelayStepData struct {
 
 // ActionStepData represents data for action step - send campaign
 type ActionStepData struct {
-	CampaignId string `json:"campaign_id"`
+	CampaignId uuid.UUID `json:"campaign_id"`
 }
 
 // GateStepData represents data for gate step - conditional branching

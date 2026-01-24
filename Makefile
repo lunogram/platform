@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.DEFAULT_GOAL := generate
+.DEFAULT_GOAL := build
 
 BIN			= $(CURDIR)/bin
 BUILD_DIR	= $(CURDIR)/build
@@ -7,6 +7,7 @@ BUILD_DIR	= $(CURDIR)/build
 GOPATH			= $(HOME)/go
 GOBIN			= $(GOPATH)/bin
 GO				?= GOGC=off $(shell which go)
+TINYGO			?= $(shell which tinygo)
 NODE			?= $(shell which node)
 PNPM			?= $(shell which pnpm)
 PKGS			= $(or $(PKG),$(shell env $(GO) list ./...))
@@ -26,6 +27,11 @@ M = $(shell printf "\033[34;1m▶\033[0m")
 $(BUILD_DIR):
 	@mkdir -p $@
 
+PROVIDER_MODULES := $(notdir $(wildcard ./modules/providers/*))
+
+$(PROVIDER_MODULES):
+	$(info $(M) building $@ module…)
+	$Q cd modules/providers/$@ &&  $(TINYGO) build -target=wasi -buildmode c-shared -o ../../../services/nexus/internal/providers/modules/$@.wasm ./main.go
 # Tools
 $(BIN):
 	@mkdir -p $@
@@ -42,6 +48,10 @@ MINIMOCK = $(BIN)/minimock
 OAPI_CODEGEN = $(BIN)/oapi-codegen
 
 TOOLCHAIN = $(STRINGER) $(MINIMOCK) $(OAPI_CODEGEN)
+
+.PHONY: build # Build all services
+build: $(PROVIDER_MODULES)
+	@true
 
 # Targets
 .PHONY: lint
@@ -74,6 +84,8 @@ clean: ; $(info $(M) cleaning…)	@ ## Cleanup everything
 	@find . -name '*_string.go' -exec rm -r {} \;
 	@find . -name '*_gen.go' -exec rm -r {} \;
 	@find . -name '*.sql.go' -exec rm -r {} \;
+	@cd services/nexus/internal/wasm && cargo clean 2>/dev/null || true
+	@rm -f services/nexus/internal/wasm/libwasm_executor.a
 
 .PHONY: help
 help:

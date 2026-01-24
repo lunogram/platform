@@ -104,7 +104,7 @@ func TestEventsProject(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
-	subject := schemas.EventsProjectSubject(projectID)
+	subject := schemas.EventsProcess(projectID)
 
 	expected := schemas.Subject("events.projects." + projectID.String())
 	assert.Equal(t, expected, subject)
@@ -114,7 +114,7 @@ func TestEventsSchema(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
-	subject := schemas.EventsSchemaSubject(projectID)
+	subject := schemas.EventsSchema(projectID)
 
 	expected := schemas.Subject("events.schemas." + projectID.String())
 	assert.Equal(t, expected, subject)

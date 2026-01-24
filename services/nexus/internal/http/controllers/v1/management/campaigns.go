@@ -350,7 +350,7 @@ func (srv *CampaignsController) GetCampaignUsers(w http.ResponseWriter, r *http.
 	}
 
 	logger.Info("campaign users retrieved", zap.Int("count", len(users)))
-	json.Write(w, http.StatusOK, map[string]interface{}{
+	json.Write(w, http.StatusOK, map[string]any{
 		"data":   users.OAPI(),
 		"total":  total,
 		"limit":  pagination.Limit,

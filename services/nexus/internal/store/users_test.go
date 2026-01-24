@@ -394,7 +394,7 @@ func TestUpdateUserWithDataMerge(t *testing.T) {
 			user, err := db.GetUser(ctx, projectID, userID)
 			require.NoError(t, err)
 
-			var userData map[string]interface{}
+			var userData map[string]any
 			err = json.Unmarshal(user.Data, &userData)
 			require.NoError(t, err)
 

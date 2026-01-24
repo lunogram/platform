@@ -63,21 +63,21 @@ func setupUsersTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream) {
 	return db, projectID, jet
 }
 
-func TestUsersProjectSubject(t *testing.T) {
+func TestUsersProcess(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
-	subject := schemas.UsersProjectSubject(projectID)
+	subject := schemas.UsersProcess(projectID)
 	expected := schemas.Subject("users.projects." + projectID.String())
 
 	assert.Equal(t, expected, subject)
 }
 
-func TestUsersSchemaSubject(t *testing.T) {
+func TestUsersSchema(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
-	subject := schemas.UsersSchemaSubject(projectID)
+	subject := schemas.UsersSchema(projectID)
 	expected := schemas.Subject("users.schemas." + projectID.String())
 
 	assert.Equal(t, expected, subject)
@@ -150,10 +150,10 @@ func TestUsersHandler_Success(t *testing.T) {
 		Version: 0,
 	}
 
-	err = pub.Publish(ctx, schemas.UsersProjectSubject(projectID), user)
+	err = pub.Publish(ctx, schemas.UsersProcess(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsers)
+	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersProcess)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -190,10 +190,10 @@ func TestUsersHandler_PublishesUserCreatedEvent(t *testing.T) {
 		Version: 0,
 	}
 
-	err = pub.Publish(ctx, schemas.UsersProjectSubject(projectID), user)
+	err = pub.Publish(ctx, schemas.UsersProcess(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsers)
+	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersProcess)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -202,7 +202,7 @@ func TestUsersHandler_PublishesUserCreatedEvent(t *testing.T) {
 	err = handler(ctx, msg)
 	require.NoError(t, err)
 
-	eventConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEvents)
+	eventConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
 	require.NoError(t, err)
 
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -239,10 +239,10 @@ func TestUsersHandler_PublishesUserUpdatedEvent(t *testing.T) {
 		Version: 5,
 	}
 
-	err = pub.Publish(ctx, schemas.UsersProjectSubject(projectID), user)
+	err = pub.Publish(ctx, schemas.UsersProcess(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsers)
+	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersProcess)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -251,7 +251,7 @@ func TestUsersHandler_PublishesUserUpdatedEvent(t *testing.T) {
 	err = handler(ctx, msg)
 	require.NoError(t, err)
 
-	eventConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEvents)
+	eventConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
 	require.NoError(t, err)
 
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -318,10 +318,10 @@ func TestUsersHandler_WithListDependencies(t *testing.T) {
 		Version: 0,
 	}
 
-	err = pub.Publish(ctx, schemas.UsersProjectSubject(projectID), user)
+	err = pub.Publish(ctx, schemas.UsersProcess(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsers)
+	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersProcess)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -330,7 +330,7 @@ func TestUsersHandler_WithListDependencies(t *testing.T) {
 	err = handler(ctx, msg)
 	require.NoError(t, err)
 
-	recomputeConsumer, err := jet.Consumer(ctx, StreamRecompute, ConsumerRecomputeLists)
+	recomputeConsumer, err := jet.Consumer(ctx, StreamLists, ConsumerListsRecompute)
 	require.NoError(t, err)
 
 	recomputeMsg, err := recomputeConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -367,10 +367,10 @@ func TestUsersHandler_WithUserData(t *testing.T) {
 		Version: 0,
 	}
 
-	err = pub.Publish(ctx, schemas.UsersProjectSubject(projectID), user)
+	err = pub.Publish(ctx, schemas.UsersProcess(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsers)
+	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersProcess)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -379,7 +379,7 @@ func TestUsersHandler_WithUserData(t *testing.T) {
 	err = handler(ctx, msg)
 	require.NoError(t, err)
 
-	schemaConsumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUserSchemas)
+	schemaConsumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersSchema)
 	require.NoError(t, err)
 
 	schemaMsg, err := schemaConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -414,10 +414,10 @@ func TestUsersHandler_WithoutData(t *testing.T) {
 		Version:   0,
 	}
 
-	err = pub.Publish(ctx, schemas.UsersProjectSubject(projectID), user)
+	err = pub.Publish(ctx, schemas.UsersProcess(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsers)
+	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersProcess)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -426,7 +426,7 @@ func TestUsersHandler_WithoutData(t *testing.T) {
 	err = handler(ctx, msg)
 	require.NoError(t, err)
 
-	schemaConsumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUserSchemas)
+	schemaConsumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersSchema)
 	require.NoError(t, err)
 
 	_, err = schemaConsumer.Next(jetstream.FetchMaxWait(1 * time.Second))
@@ -471,7 +471,7 @@ func TestPublishUserRecomputeLists_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamRecompute,
+		Name:     StreamLists,
 		Subjects: []string{"recompute.>"},
 	})
 	require.NoError(t, err)
@@ -493,7 +493,7 @@ func TestPublishUserRecomputeLists_Success(t *testing.T) {
 	err = PublishUserRecomputeLists(ctx, logger, lists, pub, user)
 	require.NoError(t, err)
 
-	stream, err := jet.Stream(ctx, StreamRecompute)
+	stream, err := jet.Stream(ctx, StreamLists)
 	require.NoError(t, err)
 
 	info, err := stream.Info(ctx)
@@ -513,7 +513,7 @@ func TestPublishUserRecomputeLists_NoLists(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamRecompute,
+		Name:     StreamLists,
 		Subjects: []string{"recompute.>"},
 	})
 	require.NoError(t, err)
@@ -628,10 +628,10 @@ func TestUserSchemasHandler_Success(t *testing.T) {
 		Version: 0,
 	}
 
-	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.UsersSchemaSubject(projectID), user)
+	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.UsersSchema(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUserSchemas)
+	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersSchema)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -684,10 +684,10 @@ func TestUserSchemasHandler_ComplexData(t *testing.T) {
 		Version: 0,
 	}
 
-	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.UsersSchemaSubject(projectID), user)
+	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.UsersSchema(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUserSchemas)
+	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersSchema)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))

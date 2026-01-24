@@ -58,6 +58,12 @@ func (u User) Event(name string) Event {
 	}
 }
 
+type SendCampaign struct {
+	ProjectID  uuid.UUID `json:"project_id"`
+	UserID     uuid.UUID `json:"user_id"`
+	CampaignID uuid.UUID `json:"campaign_id"`
+}
+
 type JourneyStep struct {
 	ProjectID      uuid.UUID  `json:"project_id"`
 	JourneyID      uuid.UUID  `json:"journey_id"`
@@ -68,32 +74,37 @@ type JourneyStep struct {
 	StateID        *uuid.UUID `json:"state_id,omitempty"`
 }
 
-// EventsProjectSubject returns the NATS subject for project-specific events.
-func EventsProjectSubject(projectID uuid.UUID) Subject {
-	return Subject(fmt.Sprintf("events.projects.%s", projectID))
+// CampaignsSend returns the NATS subject for campaign sending.
+func CampaignsSend(projectID uuid.UUID, campaignID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("campaigns.send.%s.%s", projectID, campaignID))
 }
 
-// EventsSchemaSubject returns the NATS subject for event schema updates.
-func EventsSchemaSubject(projectID uuid.UUID) Subject {
-	return Subject(fmt.Sprintf("events.schemas.%s", projectID))
+// EventsProcess returns the NATS subject for event processing.
+func EventsProcess(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("events.process.%s", projectID))
 }
 
-// UsersProjectSubject returns the NATS subject for project-specific user events.
-func UsersProjectSubject(projectID uuid.UUID) Subject {
-	return Subject(fmt.Sprintf("users.projects.%s", projectID))
+// EventsSchema returns the NATS subject for event schema updates.
+func EventsSchema(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("events.schema.%s", projectID))
 }
 
-// UsersSchemaSubject returns the NATS subject for user schema updates.
-func UsersSchemaSubject(projectID uuid.UUID) Subject {
-	return Subject(fmt.Sprintf("users.schemas.%s", projectID))
+// UsersProcess returns the NATS subject for user processing.
+func UsersProcess(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("users.process.%s", projectID))
 }
 
-// RecomputeListSubject returns the NATS subject for list recomputation.
-func RecomputeListSubject(projectID uuid.UUID, listID uuid.UUID) Subject {
-	return Subject(fmt.Sprintf("recompute.lists.%s.%s", projectID, listID))
+// UsersSchema returns the NATS subject for user schema updates.
+func UsersSchema(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("users.schema.%s", projectID))
 }
 
-// JourneyStepSubject returns the NATS subject for journey step processing.
-func JourneyStepSubject(projectID uuid.UUID, journeyID uuid.UUID) Subject {
-	return Subject(fmt.Sprintf("journeys.state.%s.%s", projectID, journeyID))
+// ListsRecompute returns the NATS subject for list recomputation.
+func ListsRecompute(projectID uuid.UUID, listID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("lists.recompute.%s.%s", projectID, listID))
+}
+
+// JourneysAdvance returns the NATS subject for journey advancement.
+func JourneysAdvance(projectID uuid.UUID, journeyID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("journeys.advance.%s.%s", projectID, journeyID))
 }

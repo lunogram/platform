@@ -22,13 +22,13 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
-        '200':
-          $ref: '#/components/responses/CampaignListResponse'
+        "200":
+          $ref: "#/components/responses/CampaignListResponse"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     post:
       summary: Create campaign
@@ -51,16 +51,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateCampaign'
+              $ref: "#/components/schemas/CreateCampaign"
       responses:
-        '201':
+        "201":
           description: Campaign created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Campaign'
+                $ref: "#/components/schemas/Campaign"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/campaigns/{campaignID}:
     get:
@@ -87,7 +87,7 @@ paths:
             format: uuid
           description: The campaign ID
       responses:
-        '200':
+        "200":
           description: Campaign retrieved successfully
           content:
             application/json:
@@ -97,10 +97,10 @@ paths:
                   - data
                 properties:
                   data:
-                    $ref: '#/components/schemas/Campaign'
+                    $ref: "#/components/schemas/Campaign"
         default:
-          $ref: '#/components/responses/Error'
-    
+          $ref: "#/components/responses/Error"
+
     patch:
       summary: Update campaign
       description: Updates campaign properties such as name and provider
@@ -129,17 +129,17 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateCampaign'
+              $ref: "#/components/schemas/UpdateCampaign"
       responses:
-        '200':
+        "200":
           description: Campaign updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Campaign'
+                $ref: "#/components/schemas/Campaign"
         default:
-          $ref: '#/components/responses/Error'
-    
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/campaigns/{campaignID}/templates:
     post:
       summary: Create template
@@ -169,16 +169,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateTemplate'
+              $ref: "#/components/schemas/CreateTemplate"
       responses:
-        '201':
+        "201":
           description: Template created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Template'
+                $ref: "#/components/schemas/Template"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}:
     get:
@@ -212,7 +212,7 @@ paths:
             format: uuid
           description: The template ID
       responses:
-        '200':
+        "200":
           description: Template retrieved successfully
           content:
             application/json:
@@ -222,9 +222,9 @@ paths:
                   - data
                 properties:
                   data:
-                    $ref: '#/components/schemas/Template'
+                    $ref: "#/components/schemas/Template"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     patch:
       summary: Update template
@@ -261,16 +261,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateTemplate'
+              $ref: "#/components/schemas/UpdateTemplate"
       responses:
-        '200':
+        "200":
           description: Template updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Template'
+                $ref: "#/components/schemas/Template"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     delete:
       summary: Delete template
@@ -303,10 +303,10 @@ paths:
             format: uuid
           description: The template ID
       responses:
-        '204':
+        "204":
           description: Template deleted successfully
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/campaigns/{campaignID}/duplicate:
     post:
@@ -333,14 +333,14 @@ paths:
             format: uuid
           description: The campaign ID to duplicate
       responses:
-        '201':
+        "201":
           description: Campaign duplicated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Campaign'
+                $ref: "#/components/schemas/Campaign"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/campaigns/{campaignID}/users:
     get:
@@ -366,10 +366,10 @@ paths:
             type: string
             format: uuid
           description: The campaign ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
-        '200':
+        "200":
           description: Campaign users retrieved successfully
           content:
             application/json:
@@ -384,7 +384,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/CampaignUser'
+                      $ref: "#/components/schemas/CampaignUser"
                   total:
                     type: integer
                     minimum: 0
@@ -393,7 +393,7 @@ paths:
                   offset:
                     type: integer
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/lists:
     get:
@@ -412,13 +412,13 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
-        '200':
-          $ref: '#/components/responses/ListListResponse'
+        "200":
+          $ref: "#/components/responses/ListListResponse"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     post:
       summary: Create list
@@ -441,16 +441,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateList'
+              $ref: "#/components/schemas/CreateList"
       responses:
-        '201':
+        "201":
           description: List created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/List'
+                $ref: "#/components/schemas/List"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/lists/{listID}:
     get:
@@ -477,15 +477,15 @@ paths:
             format: uuid
           description: The list ID
       responses:
-        '200':
+        "200":
           description: List retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/List'
+                $ref: "#/components/schemas/List"
         default:
-          $ref: '#/components/responses/Error'
-    
+          $ref: "#/components/responses/Error"
+
     patch:
       summary: Update list
       description: Updates list properties such as name, rule, and tags
@@ -514,17 +514,17 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateList'
+              $ref: "#/components/schemas/UpdateList"
       responses:
-        '200':
+        "200":
           description: List updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/List'
+                $ref: "#/components/schemas/List"
         default:
-          $ref: '#/components/responses/Error'
-    
+          $ref: "#/components/responses/Error"
+
     delete:
       summary: Delete list
       description: Soft deletes a list
@@ -549,10 +549,10 @@ paths:
             format: uuid
           description: The list ID
       responses:
-        '204':
+        "204":
           description: List deleted successfully
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/lists/{listID}/duplicate:
     post:
@@ -579,14 +579,14 @@ paths:
             format: uuid
           description: The list ID to duplicate
       responses:
-        '201':
+        "201":
           description: List duplicated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/List'
+                $ref: "#/components/schemas/List"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/lists/{listID}/users:
     get:
@@ -612,17 +612,17 @@ paths:
             type: string
             format: uuid
           description: The list ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
-        '200':
+        "200":
           description: List users retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserList'
+                $ref: "#/components/schemas/UserList"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     post:
       summary: Import list users
@@ -661,10 +661,10 @@ paths:
                   format: binary
                   description: CSV file containing user data. Must include external_id column.
       responses:
-        '204':
+        "204":
           description: Users imported successfully
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects:
     get:
@@ -676,18 +676,18 @@ paths:
       security:
         - HttpBearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
-        - $ref: '#/components/parameters/Search'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
-        '200':
+        "200":
           description: Projects retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectList'
+                $ref: "#/components/schemas/ProjectList"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     post:
       summary: Create project
@@ -702,16 +702,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateProject'
+              $ref: "#/components/schemas/CreateProject"
       responses:
-        '201':
+        "201":
           description: Project created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Project'
+                $ref: "#/components/schemas/Project"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}:
     get:
@@ -731,14 +731,14 @@ paths:
             format: uuid
           description: The project ID
       responses:
-        '200':
+        "200":
           description: Project retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Project'
+                $ref: "#/components/schemas/Project"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     patch:
       summary: Update project
@@ -761,16 +761,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateProject'
+              $ref: "#/components/schemas/UpdateProject"
       responses:
-        '200':
+        "200":
           description: Project updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Project'
+                $ref: "#/components/schemas/Project"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/journeys:
     get:
@@ -789,13 +789,13 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
-        '200':
-          $ref: '#/components/responses/JourneyListResponse'
+        "200":
+          $ref: "#/components/responses/JourneyListResponse"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     post:
       summary: Create journey
@@ -818,16 +818,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateJourney'
+              $ref: "#/components/schemas/CreateJourney"
       responses:
-        '201':
+        "201":
           description: Journey created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Journey'
+                $ref: "#/components/schemas/Journey"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/journeys/{journeyID}:
     get:
@@ -854,15 +854,15 @@ paths:
             format: uuid
           description: The journey ID
       responses:
-        '200':
+        "200":
           description: Journey retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Journey'
+                $ref: "#/components/schemas/Journey"
         default:
-          $ref: '#/components/responses/Error'
-    
+          $ref: "#/components/responses/Error"
+
     patch:
       summary: Update journey
       description: Updates journey properties such as name, description, and status
@@ -891,17 +891,17 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateJourney'
+              $ref: "#/components/schemas/UpdateJourney"
       responses:
-        '200':
+        "200":
           description: Journey updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Journey'
+                $ref: "#/components/schemas/Journey"
         default:
-          $ref: '#/components/responses/Error'
-    
+          $ref: "#/components/responses/Error"
+
     delete:
       summary: Delete journey
       description: Soft deletes a journey
@@ -926,10 +926,10 @@ paths:
             format: uuid
           description: The journey ID
       responses:
-        '204':
+        "204":
           description: Journey deleted successfully
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/journeys/{journeyID}/steps:
     get:
@@ -956,14 +956,14 @@ paths:
             format: uuid
           description: The journey ID
       responses:
-        '200':
+        "200":
           description: Journey steps retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JourneyStepMap'
+                $ref: "#/components/schemas/JourneyStepMap"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     put:
       summary: Set journey steps
@@ -993,16 +993,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JourneyStepMap'
+              $ref: "#/components/schemas/JourneyStepMap"
       responses:
-        '200':
+        "200":
           description: Journey steps updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JourneyStepMap'
+                $ref: "#/components/schemas/JourneyStepMap"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/journeys/{journeyID}/version:
     post:
@@ -1029,14 +1029,14 @@ paths:
             format: uuid
           description: The journey ID
       responses:
-        '201':
+        "201":
           description: Journey version created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Journey'
+                $ref: "#/components/schemas/Journey"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/journeys/{journeyID}/duplicate:
     post:
@@ -1063,14 +1063,14 @@ paths:
             format: uuid
           description: The journey ID
       responses:
-        '201':
+        "201":
           description: Journey duplicated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Journey'
+                $ref: "#/components/schemas/Journey"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/journeys/{journeyID}/publish:
     post:
@@ -1097,14 +1097,14 @@ paths:
             format: uuid
           description: The journey ID
       responses:
-        '200':
+        "200":
           description: Journey published successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Journey'
+                $ref: "#/components/schemas/Journey"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/profile:
     get:
@@ -1116,14 +1116,14 @@ paths:
       security:
         - HttpBearerAuth: []
       responses:
-        '200':
+        "200":
           description: Profile retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Admin'
+                $ref: "#/components/schemas/Admin"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/organizations/admins:
     get:
@@ -1135,18 +1135,18 @@ paths:
       security:
         - HttpBearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
-        - $ref: '#/components/parameters/Search'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
-        '200':
+        "200":
           description: Admins retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminList'
+                $ref: "#/components/schemas/AdminList"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     post:
       summary: Create or update admin
@@ -1161,16 +1161,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateAdmin'
+              $ref: "#/components/schemas/CreateAdmin"
       responses:
-        '201':
+        "201":
           description: Admin created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Admin'
+                $ref: "#/components/schemas/Admin"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/organizations/admins/{adminID}:
     get:
@@ -1190,14 +1190,14 @@ paths:
             format: uuid
           description: The admin ID
       responses:
-        '200':
+        "200":
           description: Admin retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Admin'
+                $ref: "#/components/schemas/Admin"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     patch:
       summary: Update admin
@@ -1220,16 +1220,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateAdmin'
+              $ref: "#/components/schemas/UpdateAdmin"
       responses:
-        '200':
+        "200":
           description: Admin updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Admin'
+                $ref: "#/components/schemas/Admin"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     delete:
       summary: Delete admin
@@ -1248,10 +1248,10 @@ paths:
             format: uuid
           description: The admin ID
       responses:
-        '204':
+        "204":
           description: Admin deleted successfully
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/organizations/whoami:
     get:
@@ -1263,14 +1263,14 @@ paths:
       security:
         - HttpBearerAuth: []
       responses:
-        '200':
+        "200":
           description: Current admin retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Admin'
+                $ref: "#/components/schemas/Admin"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/organizations:
     get:
@@ -1282,14 +1282,14 @@ paths:
       security:
         - HttpBearerAuth: []
       responses:
-        '200':
+        "200":
           description: Organization retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Organization'
+                $ref: "#/components/schemas/Organization"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     patch:
       summary: Update organization
@@ -1304,16 +1304,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateOrganization'
+              $ref: "#/components/schemas/UpdateOrganization"
       responses:
-        '200':
+        "200":
           description: Organization updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Organization'
+                $ref: "#/components/schemas/Organization"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     delete:
       summary: Delete organization
@@ -1324,10 +1324,10 @@ paths:
       security:
         - HttpBearerAuth: []
       responses:
-        '204':
+        "204":
           description: Organization deleted successfully
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/organizations/integrations:
     get:
@@ -1339,16 +1339,16 @@ paths:
       security:
         - HttpBearerAuth: []
       responses:
-        '200':
+        "200":
           description: Integrations retrieved successfully
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Provider'
+                  $ref: "#/components/schemas/Provider"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/users:
     get:
@@ -1367,18 +1367,18 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
-        - $ref: '#/components/parameters/Search'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
-        '200':
+        "200":
           description: Users retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserList'
+                $ref: "#/components/schemas/UserList"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     post:
       summary: Identify user
@@ -1401,16 +1401,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/IdentifyUser'
+              $ref: "#/components/schemas/IdentifyUser"
       responses:
-        '200':
+        "200":
           description: User identified successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: "#/components/schemas/User"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/users/import:
     post:
@@ -1443,10 +1443,10 @@ paths:
                   format: binary
                   description: CSV file with user data (must include external_id column)
       responses:
-        '204':
+        "204":
           description: Users imported successfully
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/users/{userID}:
     get:
@@ -1473,14 +1473,14 @@ paths:
             format: uuid
           description: The user ID
       responses:
-        '200':
+        "200":
           description: User retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: "#/components/schemas/User"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     patch:
       summary: Update user
@@ -1510,16 +1510,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateUser'
+              $ref: "#/components/schemas/UpdateUser"
       responses:
-        '200':
+        "200":
           description: User updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: "#/components/schemas/User"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     delete:
       summary: Delete user
@@ -1545,10 +1545,10 @@ paths:
             format: uuid
           description: The user ID
       responses:
-        '204':
+        "204":
           description: User deleted successfully
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/users/{userID}/events:
     get:
@@ -1574,17 +1574,17 @@ paths:
             type: string
             format: uuid
           description: The user ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
-        '200':
+        "200":
           description: User events retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserEventList'
+                $ref: "#/components/schemas/UserEventList"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/users/{userID}/subscriptions:
     get:
@@ -1610,17 +1610,17 @@ paths:
             type: string
             format: uuid
           description: The user ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
-        '200':
+        "200":
           description: User subscriptions retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserSubscriptionList'
+                $ref: "#/components/schemas/UserSubscriptionList"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     patch:
       summary: Update user subscriptions
@@ -1650,16 +1650,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateUserSubscriptions'
+              $ref: "#/components/schemas/UpdateUserSubscriptions"
       responses:
-        '200':
+        "200":
           description: User subscriptions updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: "#/components/schemas/User"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/users/{userID}/journeys:
     get:
@@ -1685,17 +1685,17 @@ paths:
             type: string
             format: uuid
           description: The user ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
-        '200':
+        "200":
           description: User journeys retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserJourneyList'
+                $ref: "#/components/schemas/UserJourneyList"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/events:
     get:
@@ -1715,10 +1715,10 @@ paths:
             format: uuid
           description: The project ID
       responses:
-        '200':
-          $ref: '#/components/responses/EventListResponse'
+        "200":
+          $ref: "#/components/responses/EventListResponse"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/users/schema:
     get:
@@ -1738,7 +1738,7 @@ paths:
             format: uuid
           description: The project ID
       responses:
-        '200':
+        "200":
           description: User schemas retrieved successfully
           content:
             application/json:
@@ -1750,9 +1750,9 @@ paths:
                   results:
                     type: array
                     items:
-                      $ref: '#/components/schemas/SchemaPath'
+                      $ref: "#/components/schemas/SchemaPath"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/tags:
     get:
@@ -1771,14 +1771,14 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
-        - $ref: '#/components/parameters/Search'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
-        '200':
-          $ref: '#/components/responses/TagListResponse'
+        "200":
+          $ref: "#/components/responses/TagListResponse"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     post:
       summary: Create tag
@@ -1801,16 +1801,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateTag'
+              $ref: "#/components/schemas/CreateTag"
       responses:
-        '201':
+        "201":
           description: Tag created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tag'
+                $ref: "#/components/schemas/Tag"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/tags/{tagID}:
     get:
@@ -1837,14 +1837,14 @@ paths:
             format: uuid
           description: The tag ID
       responses:
-        '200':
+        "200":
           description: Tag retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tag'
+                $ref: "#/components/schemas/Tag"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     patch:
       summary: Update tag
@@ -1874,16 +1874,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateTag'
+              $ref: "#/components/schemas/UpdateTag"
       responses:
-        '200':
+        "200":
           description: Tag updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tag'
+                $ref: "#/components/schemas/Tag"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     delete:
       summary: Delete tag
@@ -1909,10 +1909,10 @@ paths:
             format: uuid
           description: The tag ID
       responses:
-        '204':
+        "204":
           description: Tag deleted successfully
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/locales:
     get:
@@ -1931,16 +1931,16 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
-        '200':
+        "200":
           description: Locales retrieved successfully
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - $ref: "#/components/schemas/PaginatedResponse"
                   - type: object
                     required:
                       - results
@@ -1948,9 +1948,9 @@ paths:
                       results:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Locale'
+                          $ref: "#/components/schemas/Locale"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     post:
       summary: Create locale
@@ -1973,16 +1973,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateLocale'
+              $ref: "#/components/schemas/CreateLocale"
       responses:
-        '201':
+        "201":
           description: Locale created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Locale'
+                $ref: "#/components/schemas/Locale"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/locales/{localeID}:
     get:
@@ -2008,14 +2008,14 @@ paths:
             type: string
           description: The locale ID (can be UUID or key)
       responses:
-        '200':
+        "200":
           description: Locale retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Locale'
+                $ref: "#/components/schemas/Locale"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     delete:
       summary: Delete locale
@@ -2041,10 +2041,10 @@ paths:
             format: uuid
           description: The locale ID
       responses:
-        '204':
+        "204":
           description: Locale deleted successfully
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/documents:
     get:
@@ -2063,13 +2063,13 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
-        '200':
-          $ref: '#/components/responses/DocumentListResponse'
+        "200":
+          $ref: "#/components/responses/DocumentListResponse"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     post:
       summary: Upload documents
@@ -2103,7 +2103,7 @@ paths:
                     format: binary
                   description: One or more document files to upload
       responses:
-        '201':
+        "201":
           description: Documents uploaded successfully
           content:
             application/json:
@@ -2118,9 +2118,13 @@ paths:
                       type: string
                       format: uuid
                     description: UUIDs of the uploaded documents
-                    example: ["6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899", "4a3145d4-9ae0-4a46-9cbe-5e47ec0b02d4"]
+                    example:
+                      [
+                        "6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899",
+                        "4a3145d4-9ae0-4a46-9cbe-5e47ec0b02d4",
+                      ]
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/documents/{documentID}:
     get:
@@ -2147,7 +2151,7 @@ paths:
             format: uuid
           description: The document ID
       responses:
-        '200':
+        "200":
           description: Document retrieved successfully
           content:
             application/octet-stream:
@@ -2155,7 +2159,7 @@ paths:
                 type: string
                 format: binary
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     delete:
       summary: Delete document
@@ -2181,10 +2185,10 @@ paths:
             format: uuid
           description: The document ID
       responses:
-        '204':
+        "204":
           description: Document deleted successfully
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/documents/{documentID}/metadata:
     get:
@@ -2211,14 +2215,14 @@ paths:
             format: uuid
           description: The document ID
       responses:
-        '200':
+        "200":
           description: Document metadata retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Document'
+                $ref: "#/components/schemas/Document"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/admins:
     get:
@@ -2237,18 +2241,18 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
-        - $ref: '#/components/parameters/Search'
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
-        '200':
+        "200":
           description: Project admins retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectAdminList'
+                $ref: "#/components/schemas/ProjectAdminList"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/admins/{adminID}:
     get:
@@ -2275,14 +2279,14 @@ paths:
             format: uuid
           description: The admin ID
       responses:
-        '200':
+        "200":
           description: Project admin retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectAdmin'
+                $ref: "#/components/schemas/ProjectAdmin"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     patch:
       summary: Update project admin role
@@ -2312,16 +2316,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateProjectAdmin'
+              $ref: "#/components/schemas/UpdateProjectAdmin"
       responses:
-        '200':
+        "200":
           description: Project admin updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectAdmin'
+                $ref: "#/components/schemas/ProjectAdmin"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
     delete:
       summary: Remove admin from project
@@ -2347,10 +2351,264 @@ paths:
             format: uuid
           description: The admin ID
       responses:
-        '204':
+        "204":
           description: Admin removed from project successfully
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/providers:
+    get:
+      summary: List providers
+      description: Retrieves a paginated list of providers for a project
+      operationId: listProviders
+      tags:
+        - Providers
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          $ref: "#/components/responses/ProviderListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/providers/all:
+    get:
+      summary: List all providers
+      description: Retrieves all providers for a project without pagination
+      operationId: listAllProviders
+      tags:
+        - Providers
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        "200":
+          description: Providers retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Provider"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/providers/meta:
+    get:
+      summary: List available provider modules
+      description: Retrieves all available provider modules (integrations) that can be configured
+      operationId: listProviderMeta
+      tags:
+        - Providers
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        "200":
+          description: Provider modules retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderMeta"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/providers/{group}/{type}:
+    post:
+      summary: Create provider
+      description: Creates a new provider configuration
+      operationId: createProvider
+      tags:
+        - Providers
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: group
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The provider group (email, text, push)
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The provider module type (e.g., resend, twilio)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProvider"
+      responses:
+        "201":
+          description: Provider created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Provider"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}:
+    get:
+      summary: Get provider by ID
+      description: Retrieves a specific provider
+      operationId: getProvider
+      tags:
+        - Providers
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: group
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The provider group (email, text, push)
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The provider module type
+        - name: providerID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The provider ID
+      responses:
+        "200":
+          description: Provider retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Provider"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      summary: Update provider
+      description: Updates provider configuration
+      operationId: updateProvider
+      tags:
+        - Providers
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: group
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The provider group (email, text, push)
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The provider module type
+        - name: providerID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The provider ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProvider"
+      responses:
+        "200":
+          description: Provider updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Provider"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/providers/{providerID}:
+    delete:
+      summary: Delete provider
+      description: Soft deletes a provider
+      operationId: deleteProvider
+      tags:
+        - Providers
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: providerID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The provider ID
+      responses:
+        "204":
+          description: Provider deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
 
 components:
   parameters:
@@ -2365,7 +2623,7 @@ components:
         default: 20
         x-go-type: PaginationLimit
       description: Maximum number of items to return
-    
+
     Offset:
       name: offset
       in: query
@@ -2376,7 +2634,7 @@ components:
         default: 0
         x-go-type: PaginationOffset
       description: Number of items to skip
-    
+
     Search:
       name: search
       in: query
@@ -2392,15 +2650,15 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Problem'
-    
+            $ref: "#/components/schemas/Problem"
+
     CampaignListResponse:
       description: Campaigns retrieved successfully
       content:
         application/json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/PaginatedResponse'
+              - $ref: "#/components/schemas/PaginatedResponse"
               - type: object
                 required:
                   - results
@@ -2408,15 +2666,15 @@ components:
                   results:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Campaign'
-    
+                      $ref: "#/components/schemas/Campaign"
+
     JourneyListResponse:
       description: Journeys retrieved successfully
       content:
         application/json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/PaginatedResponse'
+              - $ref: "#/components/schemas/PaginatedResponse"
               - type: object
                 required:
                   - results
@@ -2424,7 +2682,7 @@ components:
                   results:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Journey'
+                      $ref: "#/components/schemas/Journey"
 
     TagListResponse:
       description: Tags retrieved successfully
@@ -2432,7 +2690,7 @@ components:
         application/json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/PaginatedResponse'
+              - $ref: "#/components/schemas/PaginatedResponse"
               - type: object
                 required:
                   - results
@@ -2440,7 +2698,7 @@ components:
                   results:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Tag'
+                      $ref: "#/components/schemas/Tag"
 
     DocumentListResponse:
       description: Documents retrieved successfully
@@ -2448,7 +2706,7 @@ components:
         application/json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/PaginatedResponse'
+              - $ref: "#/components/schemas/PaginatedResponse"
               - type: object
                 required:
                   - results
@@ -2456,7 +2714,7 @@ components:
                   results:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Document'
+                      $ref: "#/components/schemas/Document"
 
     ListListResponse:
       description: Lists retrieved successfully
@@ -2464,7 +2722,7 @@ components:
         application/json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/PaginatedResponse'
+              - $ref: "#/components/schemas/PaginatedResponse"
               - type: object
                 required:
                   - results
@@ -2472,7 +2730,7 @@ components:
                   results:
                     type: array
                     items:
-                      $ref: '#/components/schemas/List'
+                      $ref: "#/components/schemas/List"
 
     EventListResponse:
       description: Events retrieved successfully
@@ -2486,7 +2744,23 @@ components:
               results:
                 type: array
                 items:
-                  $ref: '#/components/schemas/EventWithSchema'
+                  $ref: "#/components/schemas/EventWithSchema"
+
+    ProviderListResponse:
+      description: Providers retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/PaginatedResponse"
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Provider"
 
   schemas:
     Channel:
@@ -2609,6 +2883,7 @@ components:
           format: uuid
           description: Campaign to send
           example: "52f3f921-1343-48af-b795-87c0fd3b44aa"
+          x-go-type: uuid.UUID
 
     GateStepData:
       type: object
@@ -2643,7 +2918,7 @@ components:
           description: Target journey ID to link to
         delay:
           type: string
-          enum: ['1 minute', '15 minutes', '1 hour', '1 day']
+          enum: ["1 minute", "15 minutes", "1 hour", "1 day"]
           description: Delay before adding to journey
           example: "1 day"
 
@@ -2773,7 +3048,7 @@ components:
 
     UserList:
       allOf:
-        - $ref: '#/components/schemas/PaginatedResponse'
+        - $ref: "#/components/schemas/PaginatedResponse"
         - type: object
           required:
             - results
@@ -2781,11 +3056,11 @@ components:
             results:
               type: array
               items:
-                $ref: '#/components/schemas/User'
+                $ref: "#/components/schemas/User"
 
     AdminList:
       allOf:
-        - $ref: '#/components/schemas/PaginatedResponse'
+        - $ref: "#/components/schemas/PaginatedResponse"
         - type: object
           required:
             - results
@@ -2793,11 +3068,11 @@ components:
             results:
               type: array
               items:
-                $ref: '#/components/schemas/Admin'
+                $ref: "#/components/schemas/Admin"
 
     ProjectList:
       allOf:
-        - $ref: '#/components/schemas/PaginatedResponse'
+        - $ref: "#/components/schemas/PaginatedResponse"
         - type: object
           required:
             - results
@@ -2805,7 +3080,7 @@ components:
             results:
               type: array
               items:
-                $ref: '#/components/schemas/Project'
+                $ref: "#/components/schemas/Project"
 
     Project:
       type: object
@@ -2962,7 +3237,7 @@ components:
           type: string
           example: "Welcome Campaign"
         channel:
-          $ref: '#/components/schemas/Channel'
+          $ref: "#/components/schemas/Channel"
         provider_id:
           type: string
           format: uuid
@@ -3039,18 +3314,18 @@ components:
           type: string
           example: "Welcome to the program!"
         channel:
-          $ref: '#/components/schemas/Channel'
+          $ref: "#/components/schemas/Channel"
         subscription_id:
           type: string
           format: uuid
         provider:
-          $ref: '#/components/schemas/Provider'
+          $ref: "#/components/schemas/Provider"
         templates:
           type: array
           items:
-            $ref: '#/components/schemas/Template'
+            $ref: "#/components/schemas/Template"
         delivery:
-          $ref: '#/components/schemas/Delivery'
+          $ref: "#/components/schemas/Delivery"
 
     Delivery:
       type: object
@@ -3218,10 +3493,10 @@ components:
       type: object
       required:
         - id
-        - type
+        - module
         - name
         - project_id
-        - group
+        - channel
         - is_default
         - created_at
         - updated_at
@@ -3230,7 +3505,7 @@ components:
           type: string
           format: uuid
           example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
-        type:
+        module:
           type: string
           example: "webhook"
         name:
@@ -3240,13 +3515,13 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        group:
-          $ref: '#/components/schemas/Channel'
+        channel:
+          $ref: "#/components/schemas/Channel"
         data:
           oneOf:
-            - $ref: '#/components/schemas/EmailProviderData'
-            - $ref: '#/components/schemas/SmsProviderData'
-            - $ref: '#/components/schemas/PushProviderData'
+            - $ref: "#/components/schemas/EmailProviderData"
+            - $ref: "#/components/schemas/SmsProviderData"
+            - $ref: "#/components/schemas/PushProviderData"
           x-go-type: json.RawMessage
         is_default:
           type: boolean
@@ -3267,6 +3542,78 @@ components:
           type: string
           format: date-time
           example: "2025-11-11T13:58:40.657Z"
+
+    CreateProvider:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "My Email Provider"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+        is_default:
+          type: boolean
+          example: false
+        rate_limit:
+          type: integer
+          x-go-type: int32
+        rate_interval:
+          type: string
+          enum: [second, minute, hour, day]
+
+    UpdateProvider:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "My Email Provider"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+        is_default:
+          type: boolean
+        rate_limit:
+          type: integer
+          x-go-type: int32
+        rate_interval:
+          type: string
+          enum: [second, minute, hour, day]
+
+    ProviderMeta:
+      type: object
+      required:
+        - type
+        - name
+        - group
+        - schema
+      properties:
+        type:
+          type: string
+          description: Module ID
+          example: "resend"
+        name:
+          type: string
+          example: "Resend Email"
+        description:
+          type: string
+          example: "Resend email service integration"
+        url:
+          type: string
+          example: "https://resend.com"
+        icon:
+          type: string
+        group:
+          type: string
+          example: "email"
+        schema:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
 
     Template:
       type: object
@@ -3301,12 +3648,12 @@ components:
           format: uuid
           example: "52f3f921-1343-48af-b795-87c0fd3b44aa"
         type:
-          $ref: '#/components/schemas/Channel'
+          $ref: "#/components/schemas/Channel"
         data:
           oneOf:
-            - $ref: '#/components/schemas/EmailTemplateData'
-            - $ref: '#/components/schemas/SmsTemplateData'
-            - $ref: '#/components/schemas/PushTemplateData'
+            - $ref: "#/components/schemas/EmailTemplateData"
+            - $ref: "#/components/schemas/SmsTemplateData"
+            - $ref: "#/components/schemas/PushTemplateData"
           x-go-type: json.RawMessage
         locale:
           type: string
@@ -3419,7 +3766,7 @@ components:
           type: string
           example: "https://example.com/avatar.jpg"
         role:
-          $ref: '#/components/schemas/OrganizationRole'
+          $ref: "#/components/schemas/OrganizationRole"
         created_at:
           type: string
           format: date-time
@@ -3441,7 +3788,7 @@ components:
           example: "newadmin@example.com"
           x-go-type: string
         role:
-          $ref: '#/components/schemas/OrganizationRole'
+          $ref: "#/components/schemas/OrganizationRole"
         first_name:
           type: string
           example: "Jane"
@@ -3458,7 +3805,7 @@ components:
           example: "updated@example.com"
           x-go-type: string
         role:
-          $ref: '#/components/schemas/OrganizationRole'
+          $ref: "#/components/schemas/OrganizationRole"
         first_name:
           type: string
           example: "Jane"
@@ -3679,7 +4026,7 @@ components:
 
     UserEventList:
       allOf:
-        - $ref: '#/components/schemas/PaginatedResponse'
+        - $ref: "#/components/schemas/PaginatedResponse"
         - type: object
           required:
             - results
@@ -3687,7 +4034,7 @@ components:
             results:
               type: array
               items:
-                $ref: '#/components/schemas/UserEvent'
+                $ref: "#/components/schemas/UserEvent"
 
     UserSubscription:
       type: object
@@ -3705,13 +4052,13 @@ components:
           type: string
           example: "Marketing Newsletter"
         channel:
-          $ref: '#/components/schemas/Channel'
+          $ref: "#/components/schemas/Channel"
         state:
-          $ref: '#/components/schemas/SubscriptionState'
+          $ref: "#/components/schemas/SubscriptionState"
 
     UserSubscriptionList:
       allOf:
-        - $ref: '#/components/schemas/PaginatedResponse'
+        - $ref: "#/components/schemas/PaginatedResponse"
         - type: object
           required:
             - results
@@ -3719,7 +4066,7 @@ components:
             results:
               type: array
               items:
-                $ref: '#/components/schemas/UserSubscription'
+                $ref: "#/components/schemas/UserSubscription"
 
     UpdateUserSubscriptions:
       type: array
@@ -3735,7 +4082,7 @@ components:
             format: uuid
             example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
           state:
-            $ref: '#/components/schemas/SubscriptionState'
+            $ref: "#/components/schemas/SubscriptionState"
 
     Journey:
       type: object
@@ -3828,7 +4175,7 @@ components:
           format: uuid
           example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
         journey:
-          $ref: '#/components/schemas/Journey'
+          $ref: "#/components/schemas/Journey"
         created_at:
           type: string
           format: date-time
@@ -3844,7 +4191,7 @@ components:
 
     UserJourneyList:
       allOf:
-        - $ref: '#/components/schemas/PaginatedResponse'
+        - $ref: "#/components/schemas/PaginatedResponse"
         - type: object
           required:
             - results
@@ -3852,13 +4199,13 @@ components:
             results:
               type: array
               items:
-                $ref: '#/components/schemas/UserJourneyEntrance'
+                $ref: "#/components/schemas/UserJourneyEntrance"
 
     JourneyStepMap:
       type: object
       description: Map of journey steps keyed by external_id
       additionalProperties:
-        $ref: '#/components/schemas/JourneyStep'
+        $ref: "#/components/schemas/JourneyStep"
 
     JourneyStep:
       type: object
@@ -3870,7 +4217,7 @@ components:
         - data
       properties:
         type:
-          $ref: '#/components/schemas/JourneyStepType'
+          $ref: "#/components/schemas/JourneyStepType"
         name:
           type: string
           description: Display name for the step
@@ -3901,7 +4248,7 @@ components:
           type: array
           description: Child steps connected to this step
           items:
-            $ref: '#/components/schemas/JourneyStepChild'
+            $ref: "#/components/schemas/JourneyStepChild"
 
     JourneyStepChild:
       type: object
@@ -3918,8 +4265,8 @@ components:
           example: "yes"
         data:
           oneOf:
-            - $ref: '#/components/schemas/ExperimentChildData'
-            - $ref: '#/components/schemas/GateChildData'
+            - $ref: "#/components/schemas/ExperimentChildData"
+            - $ref: "#/components/schemas/GateChildData"
           x-go-type: json.RawMessage
           nullable: true
           description: Child-specific configuration data (structure varies by parent step type)
@@ -4094,7 +4441,7 @@ components:
           format: uuid
           example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
         role:
-          $ref: '#/components/schemas/ProjectRole'
+          $ref: "#/components/schemas/ProjectRole"
         email:
           type: string
           format: email
@@ -4121,11 +4468,11 @@ components:
         - role
       properties:
         role:
-          $ref: '#/components/schemas/ProjectRole'
+          $ref: "#/components/schemas/ProjectRole"
 
     ProjectAdminList:
       allOf:
-        - $ref: '#/components/schemas/PaginatedResponse'
+        - $ref: "#/components/schemas/PaginatedResponse"
         - type: object
           required:
             - results
@@ -4133,7 +4480,7 @@ components:
             results:
               type: array
               items:
-                $ref: '#/components/schemas/ProjectAdmin'
+                $ref: "#/components/schemas/ProjectAdmin"
 
     ClientEvent:
       type: object
@@ -4164,7 +4511,7 @@ components:
             amount: 99.99
           description: Event-specific data
         user:
-          $ref: '#/components/schemas/ClientEventUser'
+          $ref: "#/components/schemas/ClientEventUser"
 
     ClientEventUser:
       type: object
@@ -4216,7 +4563,7 @@ components:
         schema:
           type: array
           items:
-            $ref: '#/components/schemas/SchemaPath'
+            $ref: "#/components/schemas/SchemaPath"
 
     SchemaPath:
       type: object

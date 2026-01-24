@@ -3,6 +3,7 @@ package consumer
 import (
 	"github.com/cloudproud/graceful"
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/services/nexus/internal/providers"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
@@ -12,29 +13,32 @@ import (
 const (
 	StreamUsers     = "users"
 	StreamEvents    = "events"
-	StreamRecompute = "recompute"
-	StreamJourney   = "journey"
+	StreamLists     = "lists"
+	StreamJourneys  = "journeys"
+	StreamCampaigns = "campaigns"
 )
 
 // Consumer names for NATS JetStream subscribers.
 const (
-	ConsumerUsers          = "users"
-	ConsumerUserSchemas    = "user-schemas"
-	ConsumerEvents         = "events"
-	ConsumerEventSchemas   = "event-schemas"
-	ConsumerJourneysState  = "journeys-state"
-	ConsumerRecomputeLists = "recompute-lists"
+	ConsumerUsersProcess    = "users-process"
+	ConsumerUsersSchema     = "users-schema"
+	ConsumerEventsProcess   = "events-process"
+	ConsumerEventsSchema    = "events-schema"
+	ConsumerListsRecompute  = "lists-recompute"
+	ConsumerJourneysAdvance = "journeys-advance"
+	ConsumerCampaignsSend   = "campaigns-send"
 )
 
 // Serve starts all JetStream consumers and registers their handlers.
-func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, db *sqlx.DB) {
+func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, db *sqlx.DB, registry *providers.Registry) {
 	pub := pubsub.NewPublisher(jet)
 	router := NewRouter(ctx, jet, logger)
 
-	router.Handle(StreamUsers, ConsumerUsers, UsersHandler(logger, db, pub))
-	router.Handle(StreamUsers, ConsumerUserSchemas, UserSchemasHandler(logger, db))
-	router.Handle(StreamEvents, ConsumerEvents, EventsHandler(logger, db, pub))
-	router.Handle(StreamEvents, ConsumerEventSchemas, EventSchemasHandler(logger, db))
-	router.Handle(StreamRecompute, ConsumerRecomputeLists, RecomputeListHandler(logger, db, pub))
-	router.Handle(StreamJourney, ConsumerJourneysState, JourneyStepHandler(logger, db, pub))
+	router.Handle(StreamUsers, ConsumerUsersProcess, UsersHandler(logger, db, pub))
+	router.Handle(StreamUsers, ConsumerUsersSchema, UserSchemasHandler(logger, db))
+	router.Handle(StreamEvents, ConsumerEventsProcess, EventsHandler(logger, db, pub))
+	router.Handle(StreamEvents, ConsumerEventsSchema, EventSchemasHandler(logger, db))
+	router.Handle(StreamLists, ConsumerListsRecompute, RecomputeListHandler(logger, db, pub))
+	router.Handle(StreamJourneys, ConsumerJourneysAdvance, JourneyStepHandler(logger, db, pub))
+	router.Handle(StreamCampaigns, ConsumerCampaignsSend, CampaignsSendHandler(logger, db, registry))
 }

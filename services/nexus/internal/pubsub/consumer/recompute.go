@@ -99,7 +99,7 @@ func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub pub
 				},
 			}
 
-			err = pub.Publish(ctx, schemas.EventsProjectSubject(event.ProjectID), event)
+			err = pub.Publish(ctx, schemas.EventsProcess(event.ProjectID), event)
 			if err != nil {
 				logger.Error("failed to publish user list inserted event", zap.Error(err))
 				return err
@@ -114,7 +114,7 @@ func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub pub
 				},
 			}
 
-			err = pub.Publish(ctx, schemas.EventsProjectSubject(event.ProjectID), event)
+			err = pub.Publish(ctx, schemas.EventsProcess(event.ProjectID), event)
 			if err != nil {
 				logger.Error("failed to publish user list removed event", zap.Error(err))
 				return err

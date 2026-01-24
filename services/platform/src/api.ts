@@ -19,6 +19,7 @@ export default class Api extends Koa {
 
         app.error.attach(this)
         this.use(async (ctx, next) => {
+            logger.info({ method: ctx.method, path: ctx.path, query: ctx.query }, 'request')
             try {
                 await next()
             } catch (error: any) {

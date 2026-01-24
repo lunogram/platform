@@ -102,7 +102,7 @@ func EventsHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) Handle
 func PublishEventSchema(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, event schemas.Event) func() error {
 	return func() error {
 		if event.Data != nil {
-			err := pub.Publish(ctx, schemas.EventsSchemaSubject(event.ProjectID), event)
+			err := pub.Publish(ctx, schemas.EventsSchema(event.ProjectID), event)
 			if err != nil {
 				logger.Error("failed to publish event to project subject", zap.Error(err))
 				return err
@@ -129,7 +129,7 @@ func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, state
 				ProjectID: event.ProjectID,
 			}
 
-			err = pub.Publish(ctx, schemas.RecomputeListSubject(event.ProjectID, list.ID), list)
+			err = pub.Publish(ctx, schemas.ListsRecompute(event.ProjectID, list.ID), list)
 			if err != nil {
 				logger.Error("failed to publish rule to project subject", zap.Error(err))
 				return err
@@ -213,7 +213,7 @@ func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, st
 					UserID:         event.UserID,
 				}
 
-				err = pub.Publish(ctx, schemas.JourneyStepSubject(event.ProjectID, dep.JourneyID), step)
+				err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID), step)
 				if err != nil {
 					logger.Error("failed to publish journey state to project subject", zap.Error(err))
 					return err

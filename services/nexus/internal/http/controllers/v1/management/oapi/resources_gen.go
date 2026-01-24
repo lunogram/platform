@@ -47,6 +47,14 @@ const (
 	CreateListTypeStatic  CreateListType = "static"
 )
 
+// Defines values for CreateProviderRateInterval.
+const (
+	CreateProviderRateIntervalDay    CreateProviderRateInterval = "day"
+	CreateProviderRateIntervalHour   CreateProviderRateInterval = "hour"
+	CreateProviderRateIntervalMinute CreateProviderRateInterval = "minute"
+	CreateProviderRateIntervalSecond CreateProviderRateInterval = "second"
+)
+
 // Defines values for JourneyStatus.
 const (
 	JourneyStatusArchived  JourneyStatus = "archived"
@@ -99,16 +107,24 @@ const (
 
 // Defines values for ProviderRateInterval.
 const (
-	Day    ProviderRateInterval = "day"
-	Hour   ProviderRateInterval = "hour"
-	Minute ProviderRateInterval = "minute"
-	Second ProviderRateInterval = "second"
+	ProviderRateIntervalDay    ProviderRateInterval = "day"
+	ProviderRateIntervalHour   ProviderRateInterval = "hour"
+	ProviderRateIntervalMinute ProviderRateInterval = "minute"
+	ProviderRateIntervalSecond ProviderRateInterval = "second"
 )
 
 // Defines values for SubscriptionState.
 const (
 	Subscribed   SubscriptionState = "subscribed"
 	Unsubscribed SubscriptionState = "unsubscribed"
+)
+
+// Defines values for UpdateProviderRateInterval.
+const (
+	Day    UpdateProviderRateInterval = "day"
+	Hour   UpdateProviderRateInterval = "hour"
+	Minute UpdateProviderRateInterval = "minute"
+	Second UpdateProviderRateInterval = "second"
 )
 
 // Admin defines model for Admin.
@@ -229,6 +245,18 @@ type CreateProject struct {
 	Timezone          string    `json:"timezone"`
 	Tools             *[]string `json:"tools,omitempty"`
 }
+
+// CreateProvider defines model for CreateProvider.
+type CreateProvider struct {
+	Data         *json.RawMessage            `json:"data,omitempty"`
+	IsDefault    *bool                       `json:"is_default,omitempty"`
+	Name         string                      `json:"name"`
+	RateInterval *CreateProviderRateInterval `json:"rate_interval,omitempty"`
+	RateLimit    *int32                      `json:"rate_limit,omitempty"`
+}
+
+// CreateProviderRateInterval defines model for CreateProvider.RateInterval.
+type CreateProviderRateInterval string
 
 // CreateTag defines model for CreateTag.
 type CreateTag struct {
@@ -543,23 +571,35 @@ type ProjectRole string
 
 // Provider defines model for Provider.
 type Provider struct {
-	CreatedAt time.Time        `json:"created_at"`
-	Data      *json.RawMessage `json:"data,omitempty"`
-
-	// Group Communication channel type
-	Group        Channel               `json:"group"`
+	// Channel Communication channel type
+	Channel      Channel               `json:"channel"`
+	CreatedAt    time.Time             `json:"created_at"`
+	Data         *json.RawMessage      `json:"data,omitempty"`
 	Id           openapi_types.UUID    `json:"id"`
 	IsDefault    bool                  `json:"is_default"`
+	Module       string                `json:"module"`
 	Name         string                `json:"name"`
 	ProjectId    openapi_types.UUID    `json:"project_id"`
 	RateInterval *ProviderRateInterval `json:"rate_interval,omitempty"`
 	RateLimit    *int32                `json:"rate_limit,omitempty"`
-	Type         string                `json:"type"`
 	UpdatedAt    time.Time             `json:"updated_at"`
 }
 
 // ProviderRateInterval defines model for Provider.RateInterval.
 type ProviderRateInterval string
+
+// ProviderMeta defines model for ProviderMeta.
+type ProviderMeta struct {
+	Description *string         `json:"description,omitempty"`
+	Group       string          `json:"group"`
+	Icon        *string         `json:"icon,omitempty"`
+	Name        string          `json:"name"`
+	Schema      json.RawMessage `json:"schema"`
+
+	// Type Module ID
+	Type string  `json:"type"`
+	Url  *string `json:"url,omitempty"`
+}
 
 // PushProviderData defines model for PushProviderData.
 type PushProviderData = map[string]interface{}
@@ -670,6 +710,18 @@ type UpdateProjectAdmin struct {
 	// Role Role within a project
 	Role ProjectRole `json:"role"`
 }
+
+// UpdateProvider defines model for UpdateProvider.
+type UpdateProvider struct {
+	Data         *json.RawMessage            `json:"data,omitempty"`
+	IsDefault    *bool                       `json:"is_default,omitempty"`
+	Name         *string                     `json:"name,omitempty"`
+	RateInterval *UpdateProviderRateInterval `json:"rate_interval,omitempty"`
+	RateLimit    *int32                      `json:"rate_limit,omitempty"`
+}
+
+// UpdateProviderRateInterval defines model for UpdateProvider.RateInterval.
+type UpdateProviderRateInterval string
 
 // UpdateTag defines model for UpdateTag.
 type UpdateTag struct {
@@ -872,6 +924,19 @@ type ListListResponse struct {
 	Total int `json:"total"`
 }
 
+// ProviderListResponse defines model for ProviderListResponse.
+type ProviderListResponse struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int        `json:"offset"`
+	Results []Provider `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // TagListResponse defines model for TagListResponse.
 type TagListResponse struct {
 	// Limit Maximum number of items returned
@@ -996,6 +1061,15 @@ type ListLocalesParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// ListProvidersParams defines parameters for ListProviders.
+type ListProvidersParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // ListTagsParams defines parameters for ListTags.
 type ListTagsParams struct {
 	// Limit Maximum number of items to return
@@ -1106,6 +1180,12 @@ type ImportListUsersMultipartRequestBody ImportListUsersMultipartBody
 
 // CreateLocaleJSONRequestBody defines body for CreateLocale for application/json ContentType.
 type CreateLocaleJSONRequestBody = CreateLocale
+
+// CreateProviderJSONRequestBody defines body for CreateProvider for application/json ContentType.
+type CreateProviderJSONRequestBody = CreateProvider
+
+// UpdateProviderJSONRequestBody defines body for UpdateProvider for application/json ContentType.
+type UpdateProviderJSONRequestBody = UpdateProvider
 
 // CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
 type CreateTagJSONRequestBody = CreateTag
@@ -1580,6 +1660,31 @@ type ClientInterface interface {
 
 	// GetLocale request
 	GetLocale(ctx context.Context, projectID openapi_types.UUID, localeID string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProviders request
+	ListProviders(ctx context.Context, projectID openapi_types.UUID, params *ListProvidersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAllProviders request
+	ListAllProviders(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProviderMeta request
+	ListProviderMeta(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProviderWithBody request with any body
+	CreateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, group string, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateProvider(ctx context.Context, projectID openapi_types.UUID, group string, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProvider request
+	GetProvider(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProviderWithBody request with any body
+	UpdateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateProvider(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteProvider request
+	DeleteProvider(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListTags request
 	ListTags(ctx context.Context, projectID openapi_types.UUID, params *ListTagsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2506,6 +2611,114 @@ func (c *Client) DeleteLocale(ctx context.Context, projectID openapi_types.UUID,
 
 func (c *Client) GetLocale(ctx context.Context, projectID openapi_types.UUID, localeID string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLocaleRequest(c.Server, projectID, localeID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListProviders(ctx context.Context, projectID openapi_types.UUID, params *ListProvidersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProvidersRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListAllProviders(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAllProvidersRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListProviderMeta(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProviderMetaRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, group string, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProviderRequestWithBody(c.Server, projectID, group, pType, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateProvider(ctx context.Context, projectID openapi_types.UUID, group string, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProviderRequest(c.Server, projectID, group, pType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetProvider(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProviderRequest(c.Server, projectID, group, pType, providerID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateProviderWithBody(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProviderRequestWithBody(c.Server, projectID, group, pType, providerID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateProvider(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProviderRequest(c.Server, projectID, group, pType, providerID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteProvider(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProviderRequest(c.Server, projectID, providerID)
 	if err != nil {
 		return nil, err
 	}
@@ -5507,6 +5720,371 @@ func NewGetLocaleRequest(server string, projectID openapi_types.UUID, localeID s
 	return req, nil
 }
 
+// NewListProvidersRequest generates requests for ListProviders
+func NewListProvidersRequest(server string, projectID openapi_types.UUID, params *ListProvidersParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAllProvidersRequest generates requests for ListAllProviders
+func NewListAllProvidersRequest(server string, projectID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/all", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListProviderMetaRequest generates requests for ListProviderMeta
+func NewListProviderMetaRequest(server string, projectID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/meta", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateProviderRequest calls the generic CreateProvider builder with application/json body
+func NewCreateProviderRequest(server string, projectID openapi_types.UUID, group string, pType string, body CreateProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateProviderRequestWithBody(server, projectID, group, pType, "application/json", bodyReader)
+}
+
+// NewCreateProviderRequestWithBody generates requests for CreateProvider with any type of body
+func NewCreateProviderRequestWithBody(server string, projectID openapi_types.UUID, group string, pType string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "group", runtime.ParamLocationPath, group)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "type", runtime.ParamLocationPath, pType)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetProviderRequest generates requests for GetProvider
+func NewGetProviderRequest(server string, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "group", runtime.ParamLocationPath, group)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "type", runtime.ParamLocationPath, pType)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "providerID", runtime.ParamLocationPath, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s/%s/%s", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateProviderRequest calls the generic UpdateProvider builder with application/json body
+func NewUpdateProviderRequest(server string, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateProviderRequestWithBody(server, projectID, group, pType, providerID, "application/json", bodyReader)
+}
+
+// NewUpdateProviderRequestWithBody generates requests for UpdateProvider with any type of body
+func NewUpdateProviderRequestWithBody(server string, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "group", runtime.ParamLocationPath, group)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "type", runtime.ParamLocationPath, pType)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "providerID", runtime.ParamLocationPath, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s/%s/%s", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteProviderRequest generates requests for DeleteProvider
+func NewDeleteProviderRequest(server string, projectID openapi_types.UUID, providerID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "providerID", runtime.ParamLocationPath, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/providers/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListTagsRequest generates requests for ListTags
 func NewListTagsRequest(server string, projectID openapi_types.UUID, params *ListTagsParams) (*http.Request, error) {
 	var err error
@@ -6655,6 +7233,31 @@ type ClientWithResponsesInterface interface {
 
 	// GetLocaleWithResponse request
 	GetLocaleWithResponse(ctx context.Context, projectID openapi_types.UUID, localeID string, reqEditors ...RequestEditorFn) (*GetLocaleResponse, error)
+
+	// ListProvidersWithResponse request
+	ListProvidersWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListProvidersParams, reqEditors ...RequestEditorFn) (*ListProvidersResponse, error)
+
+	// ListAllProvidersWithResponse request
+	ListAllProvidersWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListAllProvidersResponse, error)
+
+	// ListProviderMetaWithResponse request
+	ListProviderMetaWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProviderMetaResponse, error)
+
+	// CreateProviderWithBodyWithResponse request with any body
+	CreateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
+
+	CreateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error)
+
+	// GetProviderWithResponse request
+	GetProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProviderResponse, error)
+
+	// UpdateProviderWithBodyWithResponse request with any body
+	UpdateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error)
+
+	UpdateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error)
+
+	// DeleteProviderWithResponse request
+	DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error)
 
 	// ListTagsWithResponse request
 	ListTagsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListTagsParams, reqEditors ...RequestEditorFn) (*ListTagsResponse, error)
@@ -8038,6 +8641,166 @@ func (r GetLocaleResponse) StatusCode() int {
 	return 0
 }
 
+type ListProvidersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ProviderListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProvidersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListAllProvidersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Provider
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAllProvidersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAllProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListProviderMetaResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]ProviderMeta
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListProviderMetaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListProviderMetaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Provider
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Provider
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Provider
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListTagsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -9044,6 +9807,85 @@ func (c *ClientWithResponses) GetLocaleWithResponse(ctx context.Context, project
 		return nil, err
 	}
 	return ParseGetLocaleResponse(rsp)
+}
+
+// ListProvidersWithResponse request returning *ListProvidersResponse
+func (c *ClientWithResponses) ListProvidersWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListProvidersParams, reqEditors ...RequestEditorFn) (*ListProvidersResponse, error) {
+	rsp, err := c.ListProviders(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProvidersResponse(rsp)
+}
+
+// ListAllProvidersWithResponse request returning *ListAllProvidersResponse
+func (c *ClientWithResponses) ListAllProvidersWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListAllProvidersResponse, error) {
+	rsp, err := c.ListAllProviders(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAllProvidersResponse(rsp)
+}
+
+// ListProviderMetaWithResponse request returning *ListProviderMetaResponse
+func (c *ClientWithResponses) ListProviderMetaWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProviderMetaResponse, error) {
+	rsp, err := c.ListProviderMeta(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListProviderMetaResponse(rsp)
+}
+
+// CreateProviderWithBodyWithResponse request with arbitrary body returning *CreateProviderResponse
+func (c *ClientWithResponses) CreateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error) {
+	rsp, err := c.CreateProviderWithBody(ctx, projectID, group, pType, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProviderResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, body CreateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProviderResponse, error) {
+	rsp, err := c.CreateProvider(ctx, projectID, group, pType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProviderResponse(rsp)
+}
+
+// GetProviderWithResponse request returning *GetProviderResponse
+func (c *ClientWithResponses) GetProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProviderResponse, error) {
+	rsp, err := c.GetProvider(ctx, projectID, group, pType, providerID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProviderResponse(rsp)
+}
+
+// UpdateProviderWithBodyWithResponse request with arbitrary body returning *UpdateProviderResponse
+func (c *ClientWithResponses) UpdateProviderWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error) {
+	rsp, err := c.UpdateProviderWithBody(ctx, projectID, group, pType, providerID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProviderResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID, body UpdateProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProviderResponse, error) {
+	rsp, err := c.UpdateProvider(ctx, projectID, group, pType, providerID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProviderResponse(rsp)
+}
+
+// DeleteProviderWithResponse request returning *DeleteProviderResponse
+func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error) {
+	rsp, err := c.DeleteProvider(ctx, projectID, providerID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProviderResponse(rsp)
 }
 
 // ListTagsWithResponse request returning *ListTagsResponse
@@ -11063,6 +11905,230 @@ func ParseGetLocaleResponse(rsp *http.Response) (*GetLocaleResponse, error) {
 	return response, nil
 }
 
+// ParseListProvidersResponse parses an HTTP response from a ListProvidersWithResponse call
+func ParseListProvidersResponse(rsp *http.Response) (*ListProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProvidersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProviderListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAllProvidersResponse parses an HTTP response from a ListAllProvidersWithResponse call
+func ParseListAllProvidersResponse(rsp *http.Response) (*ListAllProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAllProvidersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Provider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListProviderMetaResponse parses an HTTP response from a ListProviderMetaWithResponse call
+func ParseListProviderMetaResponse(rsp *http.Response) (*ListProviderMetaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListProviderMetaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []ProviderMeta
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateProviderResponse parses an HTTP response from a CreateProviderWithResponse call
+func ParseCreateProviderResponse(rsp *http.Response) (*CreateProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Provider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProviderResponse parses an HTTP response from a GetProviderWithResponse call
+func ParseGetProviderResponse(rsp *http.Response) (*GetProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Provider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateProviderResponse parses an HTTP response from a UpdateProviderWithResponse call
+func ParseUpdateProviderResponse(rsp *http.Response) (*UpdateProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Provider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProviderResponse parses an HTTP response from a DeleteProviderWithResponse call
+func ParseDeleteProviderResponse(rsp *http.Response) (*DeleteProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListTagsResponse parses an HTTP response from a ListTagsWithResponse call
 func ParseListTagsResponse(rsp *http.Response) (*ListTagsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -11745,6 +12811,27 @@ type ServerInterface interface {
 	// Get locale by ID
 	// (GET /api/admin/projects/{projectID}/locales/{localeID})
 	GetLocale(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, localeID string)
+	// List providers
+	// (GET /api/admin/projects/{projectID}/providers)
+	ListProviders(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListProvidersParams)
+	// List all providers
+	// (GET /api/admin/projects/{projectID}/providers/all)
+	ListAllProviders(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// List available provider modules
+	// (GET /api/admin/projects/{projectID}/providers/meta)
+	ListProviderMeta(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Create provider
+	// (POST /api/admin/projects/{projectID}/providers/{group}/{type})
+	CreateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, group string, pType string)
+	// Get provider by ID
+	// (GET /api/admin/projects/{projectID}/providers/{group}/{type}/{providerID})
+	GetProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID)
+	// Update provider
+	// (PATCH /api/admin/projects/{projectID}/providers/{group}/{type}/{providerID})
+	UpdateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID)
+	// Delete provider
+	// (DELETE /api/admin/projects/{projectID}/providers/{providerID})
+	DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, providerID openapi_types.UUID)
 	// List tags
 	// (GET /api/admin/projects/{projectID}/tags)
 	ListTags(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListTagsParams)
@@ -12138,6 +13225,48 @@ func (_ Unimplemented) DeleteLocale(w http.ResponseWriter, r *http.Request, proj
 // Get locale by ID
 // (GET /api/admin/projects/{projectID}/locales/{localeID})
 func (_ Unimplemented) GetLocale(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, localeID string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List providers
+// (GET /api/admin/projects/{projectID}/providers)
+func (_ Unimplemented) ListProviders(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListProvidersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List all providers
+// (GET /api/admin/projects/{projectID}/providers/all)
+func (_ Unimplemented) ListAllProviders(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List available provider modules
+// (GET /api/admin/projects/{projectID}/providers/meta)
+func (_ Unimplemented) ListProviderMeta(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create provider
+// (POST /api/admin/projects/{projectID}/providers/{group}/{type})
+func (_ Unimplemented) CreateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, group string, pType string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get provider by ID
+// (GET /api/admin/projects/{projectID}/providers/{group}/{type}/{providerID})
+func (_ Unimplemented) GetProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update provider
+// (PATCH /api/admin/projects/{projectID}/providers/{group}/{type}/{providerID})
+func (_ Unimplemented) UpdateProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, group string, pType string, providerID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete provider
+// (DELETE /api/admin/projects/{projectID}/providers/{providerID})
+func (_ Unimplemented) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, providerID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -14418,6 +15547,323 @@ func (siw *ServerInterfaceWrapper) GetLocale(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// ListProviders operation middleware
+func (siw *ServerInterfaceWrapper) ListProviders(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListProvidersParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProviders(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAllProviders operation middleware
+func (siw *ServerInterfaceWrapper) ListAllProviders(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAllProviders(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListProviderMeta operation middleware
+func (siw *ServerInterfaceWrapper) ListProviderMeta(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProviderMeta(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateProvider operation middleware
+func (siw *ServerInterfaceWrapper) CreateProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "group" -------------
+	var group string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "group", chi.URLParam(r, "group"), &group, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "type" -------------
+	var pType string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "type", chi.URLParam(r, "type"), &pType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProvider(w, r, projectID, group, pType)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProvider operation middleware
+func (siw *ServerInterfaceWrapper) GetProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "group" -------------
+	var group string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "group", chi.URLParam(r, "group"), &group, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "type" -------------
+	var pType string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "type", chi.URLParam(r, "type"), &pType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "providerID" -------------
+	var providerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerID", chi.URLParam(r, "providerID"), &providerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProvider(w, r, projectID, group, pType, providerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateProvider operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "group" -------------
+	var group string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "group", chi.URLParam(r, "group"), &group, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "type" -------------
+	var pType string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "type", chi.URLParam(r, "type"), &pType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "providerID" -------------
+	var providerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerID", chi.URLParam(r, "providerID"), &providerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProvider(w, r, projectID, group, pType, providerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProvider operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "providerID" -------------
+	var providerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerID", chi.URLParam(r, "providerID"), &providerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProvider(w, r, projectID, providerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListTags operation middleware
 func (siw *ServerInterfaceWrapper) ListTags(w http.ResponseWriter, r *http.Request) {
 
@@ -15398,6 +16844,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/locales/{localeID}", wrapper.GetLocale)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/providers", wrapper.ListProviders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/providers/all", wrapper.ListAllProviders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/providers/meta", wrapper.ListProviderMeta)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/providers/{group}/{type}", wrapper.CreateProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}", wrapper.GetProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}", wrapper.UpdateProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/providers/{providerID}", wrapper.DeleteProvider)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/tags", wrapper.ListTags)

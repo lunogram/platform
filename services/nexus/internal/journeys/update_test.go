@@ -5,27 +5,61 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/pkg/container"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
+
+func setupStore(t *testing.T) (*store.State, *sqlx.DB) {
+	t.Helper()
+
+	logger := zaptest.NewLogger(t)
+
+	ctx := graceful.NewContext(t.Context())
+	config := store.Config{
+		URI: container.RunPostgreSQL(t),
+	}
+
+	err := store.Migrate(config)
+	require.NoError(t, err)
+
+	db, err := store.New(ctx, logger, config)
+	require.NoError(t, err)
+
+	return store.NewState(db), db
+}
 
 func TestHandleUpdate(t *testing.T) {
 	t.Parallel()
 
+	db, dbConn := setupStore(t)
+	pub := pubsub.NewNoopPublisher()
 	ctx := context.Background()
-	projectID := uuid.New()
-	userID := uuid.New()
+
+	organizationID, err := db.CreateOrganization(ctx, "Test Org")
+	require.NoError(t, err)
+
+	project, err := db.CreateProject(ctx, store.Project{
+		OrganizationID: &organizationID,
+		Name:           "Test Project",
+		Timezone:       "UTC",
+		Locale:         "en-US",
+	})
+	require.NoError(t, err)
 
 	type test struct {
-		step        store.JourneyVersionStep
-		state       store.JourneyUserState
-		data        map[string]any
-		expectedSQL string
-		wantErr     bool
+		step            store.JourneyVersionStep
+		state           store.JourneyUserState
+		data            map[string]any
+		initialUserData map[string]any
+		expectedData    map[string]any
+		wantErr         bool
 	}
 
 	tests := map[string]test{
@@ -38,10 +72,11 @@ func TestHandleUpdate(t *testing.T) {
 					{ChildExternalID: "next-step"},
 				},
 			},
-			state:       store.JourneyUserState{},
-			data:        map[string]any{},
-			expectedSQL: "",
-			wantErr:     false,
+			state:           store.JourneyUserState{},
+			data:            map[string]any{},
+			initialUserData: map[string]any{},
+			expectedData:    nil,
+			wantErr:         false,
 		},
 		"simple template with static values": {
 			step: store.JourneyVersionStep{
@@ -52,20 +87,12 @@ func TestHandleUpdate(t *testing.T) {
 					{ChildExternalID: "next-step"},
 				},
 			},
-			state: store.JourneyUserState{},
-			data:  map[string]any{},
-			expectedSQL: `UPDATE users 
-	SET 
-		external_id = COALESCE($2, external_id),
-		email = COALESCE($3, email),
-		phone = COALESCE($4, phone),
-		timezone = COALESCE($5, timezone),
-		locale = COALESCE($6, locale),
-		data = CASE 
-			WHEN $7::jsonb IS NOT NULL THEN data || $7::jsonb
-			ELSE data
-		END
-	WHERE id = $1`,
+			state:           store.JourneyUserState{},
+			data:            map[string]any{},
+			initialUserData: map[string]any{},
+			expectedData: map[string]any{
+				"last_journey": "onboarding",
+			},
 			wantErr: false,
 		},
 		"template with liquid variables": {
@@ -89,18 +116,11 @@ func TestHandleUpdate(t *testing.T) {
 					},
 				},
 			},
-			expectedSQL: `UPDATE users 
-	SET 
-		external_id = COALESCE($2, external_id),
-		email = COALESCE($3, email),
-		phone = COALESCE($4, phone),
-		timezone = COALESCE($5, timezone),
-		locale = COALESCE($6, locale),
-		data = CASE 
-			WHEN $7::jsonb IS NOT NULL THEN data || $7::jsonb
-			ELSE data
-		END
-	WHERE id = $1`,
+			initialUserData: map[string]any{},
+			expectedData: map[string]any{
+				"full_name":    "John Doe",
+				"last_product": "Premium Plan",
+			},
 			wantErr: false,
 		},
 		"invalid JSON template": {
@@ -109,31 +129,30 @@ func TestHandleUpdate(t *testing.T) {
 				Type: UpdateStepType,
 				Data: json.RawMessage(`{"template":"not valid json"}`),
 			},
-			state:   store.JourneyUserState{},
-			data:    map[string]any{},
-			wantErr: true,
+			state:           store.JourneyUserState{},
+			data:            map[string]any{},
+			initialUserData: map[string]any{},
+			wantErr:         true,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockDB, mock, err := sqlmock.New()
+			initialData, _ := json.Marshal(tc.initialUserData)
+			userID, err := db.CreateUser(ctx, store.User{
+				ProjectID:   project,
+				Data:        json.RawMessage(initialData),
+				AnonymousID: ptr("anon_" + uuid.New().String()),
+			})
 			require.NoError(t, err)
-			defer mockDB.Close()
-			db := sqlx.NewDb(mockDB, "sqlmock")
-
-			if tc.expectedSQL != "" {
-				mock.ExpectExec(tc.expectedSQL).
-					WithArgs(userID, nil, nil, nil, nil, nil, sqlmock.AnyArg()).
-					WillReturnResult(sqlmock.NewResult(1, 1))
-			}
 
 			hctx := HandlerContext{
 				Context:   ctx,
-				DB:        db,
-				ProjectID: projectID,
+				DB:        dbConn,
+				ProjectID: project,
 				UserID:    userID,
 				Data:      tc.data,
+				Publisher: pub,
 			}
 
 			gotState, gotChildren, err := HandleUpdate(hctx, tc.step, tc.state)
@@ -146,8 +165,18 @@ func TestHandleUpdate(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, gotState.CompletedAt)
 
-			if tc.expectedSQL != "" {
-				assert.NoError(t, mock.ExpectationsWereMet())
+			if tc.expectedData != nil {
+				user, err := db.GetUser(ctx, project, userID)
+				require.NoError(t, err)
+
+				var actualData map[string]any
+				err = json.Unmarshal(user.Data, &actualData)
+				require.NoError(t, err)
+
+				for k, v := range tc.expectedData {
+					assert.Equal(t, v, actualData[k])
+				}
+
 				require.Len(t, gotChildren, 1)
 				assert.Equal(t, "next-step", gotChildren[0].ChildExternalID)
 			}
@@ -158,14 +187,25 @@ func TestHandleUpdate(t *testing.T) {
 func TestHandleUpdateTemplateRendering(t *testing.T) {
 	t.Parallel()
 
+	db, dbConn := setupStore(t)
+	pub := pubsub.NewNoopPublisher()
 	ctx := context.Background()
-	projectID := uuid.New()
-	userID := uuid.New()
+
+	organizationID, err := db.CreateOrganization(ctx, "Test Org")
+	require.NoError(t, err)
+
+	project, err := db.CreateProject(ctx, store.Project{
+		OrganizationID: &organizationID,
+		Name:           "Test Project",
+		Timezone:       "UTC",
+		Locale:         "en-US",
+	})
+	require.NoError(t, err)
 
 	type test struct {
 		template     string
 		data         map[string]any
-		expectedData string
+		expectedData map[string]any
 	}
 
 	tests := map[string]test{
@@ -177,7 +217,10 @@ func TestHandleUpdateTemplateRendering(t *testing.T) {
 					"email": "alice@example.com",
 				},
 			},
-			expectedData: `{"name":"Alice","email":"alice@example.com"}`,
+			expectedData: map[string]any{
+				"name":  "Alice",
+				"email": "alice@example.com",
+			},
 		},
 		"renders journey step data": {
 			template: `{"product":"{{ journey.entrance.product_id }}","category":"{{ journey.entrance.category }}"}`,
@@ -189,7 +232,10 @@ func TestHandleUpdateTemplateRendering(t *testing.T) {
 					},
 				},
 			},
-			expectedData: `{"product":"12345","category":"electronics"}`,
+			expectedData: map[string]any{
+				"product":  "12345",
+				"category": "electronics",
+			},
 		},
 		"renders nested data structures": {
 			template: `{"full_name":"{{ user.first_name }} {{ user.last_name }}","company":"{{ user.company.name }}"}`,
@@ -202,21 +248,21 @@ func TestHandleUpdateTemplateRendering(t *testing.T) {
 					},
 				},
 			},
-			expectedData: `{"full_name":"Bob Smith","company":"Acme Corp"}`,
+			expectedData: map[string]any{
+				"full_name": "Bob Smith",
+				"company":   "Acme Corp",
+			},
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockDB, mock, err := sqlmock.New()
+			userID, err := db.CreateUser(ctx, store.User{
+				ProjectID:   project,
+				Data:        json.RawMessage(`{}`),
+				AnonymousID: ptr("anon_" + uuid.New().String()),
+			})
 			require.NoError(t, err)
-			defer mockDB.Close()
-			db := sqlx.NewDb(mockDB, "sqlmock")
-
-			// Expect the update call with the rendered data
-			mock.ExpectExec(`UPDATE users`).
-				WithArgs(sqlmock.AnyArg(), nil, nil, nil, nil, nil, sqlmock.AnyArg()).
-				WillReturnResult(sqlmock.NewResult(1, 1))
 
 			stepData := map[string]any{
 				"template": tc.template,
@@ -234,10 +280,11 @@ func TestHandleUpdateTemplateRendering(t *testing.T) {
 
 			hctx := HandlerContext{
 				Context:   ctx,
-				DB:        db,
-				ProjectID: projectID,
+				DB:        dbConn,
+				ProjectID: project,
 				UserID:    userID,
 				Data:      tc.data,
+				Publisher: pub,
 			}
 
 			gotState, gotChildren, err := HandleUpdate(hctx, step, store.JourneyUserState{})
@@ -246,8 +293,16 @@ func TestHandleUpdateTemplateRendering(t *testing.T) {
 			assert.NotNil(t, gotState.CompletedAt)
 			require.Len(t, gotChildren, 1)
 
-			// Verify the SQL was called
-			assert.NoError(t, mock.ExpectationsWereMet())
+			user, err := db.GetUser(ctx, project, userID)
+			require.NoError(t, err)
+
+			var actualData map[string]any
+			err = json.Unmarshal(user.Data, &actualData)
+			require.NoError(t, err)
+
+			for k, v := range tc.expectedData {
+				assert.Equal(t, v, actualData[k])
+			}
 		})
 	}
 }
