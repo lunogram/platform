@@ -148,7 +148,7 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 		Version:     user.Version,
 	}
 
-	err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UsersProjectSubject(projectID)), msg)
+	err = srv.pubsub.Publish(ctx, schemas.UsersProcess(projectID), msg)
 	if err != nil {
 		logger.Error("failed to publish user", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
