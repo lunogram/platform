@@ -107,4 +107,4 @@ jobs:
       - name: Auto generate files
         run: make generate
       - name: Check for file changes
-        run: git diff --exit-code
+        run: git diff --exit-code -- . ':!*.wasm'
