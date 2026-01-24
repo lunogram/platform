@@ -18,6 +18,8 @@ import (
 	"github.com/lunogram/platform/pkg/container"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/consumer"
 	"github.com/lunogram/platform/services/nexus/internal/rules"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/stretchr/testify/require"
@@ -42,6 +44,9 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 		Store: store.Config{
 			URI: container.RunPostgreSQL(t),
 		},
+		Nats: config.Nats{
+			URL: container.RunNATS(t),
+		},
 	}
 
 	err := store.Migrate(config.Store)
@@ -49,6 +54,14 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 
 	db, err := store.New(ctx, logger, config.Store)
 	require.NoError(t, err)
+
+	jet, err := pubsub.New(ctx, config)
+	require.NoError(t, err)
+
+	err = consumer.Bootstrap(ctx, logger, jet)
+	require.NoError(t, err)
+
+	pub := pubsub.NewPublisher(jet)
 
 	orgsStore := store.NewOrganizationsStore(db)
 	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
@@ -63,7 +76,7 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	})
 	require.NoError(t, err)
 
-	controller := NewUsersController(logger, db, 32<<20) // 32 MB max
+	controller := NewUsersController(logger, pub, db, 32<<20)
 	return controller, projectID
 }
 
@@ -794,6 +807,9 @@ func TestImportUsers(t *testing.T) {
 				Store: store.Config{
 					URI: container.RunPostgreSQL(t),
 				},
+				Nats: config.Nats{
+					URL: container.RunNATS(t),
+				},
 			}
 
 			err := store.Migrate(config.Store)
@@ -801,6 +817,14 @@ func TestImportUsers(t *testing.T) {
 
 			db, err := store.New(ctx, logger, config.Store)
 			require.NoError(t, err)
+
+			jet, err := pubsub.New(ctx, config)
+			require.NoError(t, err)
+
+			err = consumer.Bootstrap(ctx, logger, jet)
+			require.NoError(t, err)
+
+			pub := pubsub.NewPublisher(jet)
 
 			orgsStore := store.NewOrganizationsStore(db)
 			orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
@@ -816,7 +840,7 @@ func TestImportUsers(t *testing.T) {
 			require.NoError(t, err)
 
 			usersStore := store.NewUsersStore(db)
-			controller := NewUsersController(logger, db, 32<<20) // 32 MB max
+			controller := NewUsersController(logger, pub, db, 32<<20)
 
 			body := &bytes.Buffer{}
 			writer := multipart.NewWriter(body)

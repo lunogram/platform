@@ -15,15 +15,18 @@ import (
 	"github.com/lunogram/platform/pkg/http/problem"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/services/nexus/internal/importer"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub"
+	"github.com/lunogram/platform/services/nexus/internal/pubsub/schemas"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
 )
 
-func NewUsersController(logger *zap.Logger, db *sqlx.DB, maxUploadSize int64) *UsersController {
+func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, db *sqlx.DB, maxUploadSize int64) *UsersController {
 	return &UsersController{
 		logger:        logger,
 		db:            db,
 		store:         store.NewState(db),
+		pubsub:        pub,
 		maxUploadSize: maxUploadSize,
 	}
 }
@@ -31,6 +34,7 @@ func NewUsersController(logger *zap.Logger, db *sqlx.DB, maxUploadSize int64) *U
 type UsersController struct {
 	logger        *zap.Logger
 	db            *sqlx.DB
+	pubsub        pubsub.Publisher
 	store         *store.State
 	maxUploadSize int64
 }
@@ -104,6 +108,16 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 		data = *body.Data
 	}
 
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+	users := store.NewUsersStore(tx)
+
 	params := store.UpsertUserParams{
 		AnonymousID: body.AnonymousId,
 		ExternalID:  body.ExternalId,
@@ -114,10 +128,37 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 		Data:        data,
 	}
 
-	user, err := srv.store.IdentifyAndGetUser(ctx, projectID, params, true)
+	user, err := users.IdentifyAndGetUser(ctx, projectID, params, true)
 	if err != nil {
 		logger.Error("failed to identify user", zap.Error(err))
 		oapi.WriteProblem(w, err)
+		return
+	}
+
+	msg := schemas.User{
+		ProjectID:   projectID,
+		ID:          user.ID,
+		AnonymousID: user.AnonymousID,
+		ExternalID:  user.ExternalID,
+		Email:       user.Email,
+		Phone:       user.Phone,
+		Timezone:    user.Timezone,
+		Locale:      user.Locale,
+		Data:        data,
+		Version:     user.Version,
+	}
+
+	err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UsersProjectSubject(projectID)), msg)
+	if err != nil {
+		logger.Error("failed to publish user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
 

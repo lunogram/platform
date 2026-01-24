@@ -2,12 +2,15 @@
   font-size: 14px;
   font-weight: 500;
   line-height: 20px;
-  margin-bottom: 10px;
 }
 .select-button {
   height: 46px;
   font-size: 14px;
   font-weight: 400;
+}
+
+.select-button.small {
+  height: 32px;
 }
 .select-options {
   max-height: 275px !important;

@@ -20,8 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import * as SelectPrimitive from "@radix-ui/react-select";
-import { ChevronDown } from "lucide-react";
 
 export interface SingleSelectProps<T, O = T>
   extends ControlledInputProps<T>,
@@ -100,7 +98,7 @@ export function SingleSelect<T, U = T>({
         disabled={disabled}
       >
         <SelectTrigger
-          className={cn("select-button", size, buttonClassName)}
+          className={cn("select-button gap-x-1", size, buttonClassName)}
           onBlur={onBlur}
         >
           <SelectValue asChild>
