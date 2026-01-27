@@ -182,22 +182,6 @@ func (s *AdminsStore) GetAdminByEmail(ctx context.Context, email string) (*Admin
 	return &admin, nil
 }
 
-func (s *AdminsStore) GetAdminByEmail(ctx context.Context, email string) (*Admin, error) {
-	stmt := `
-	SELECT id, organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
-	FROM admins
-	WHERE email = $1
-	AND deleted_at IS NULL`
-
-	var admin Admin
-	err := s.db.GetContext(ctx, &admin, stmt, email)
-	if err != nil {
-		return nil, err
-	}
-
-	return &admin, nil
-}
-
 type AdminUpdate struct {
 	Email     *string
 	FirstName *string
