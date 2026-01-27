@@ -2,7 +2,7 @@ import api from '../../api'
 import type { Project } from '../../types'
 import { useTranslation } from 'react-i18next'
 import type { UseFormReturn } from 'react-hook-form'
-import { Controller, FormProvider, useForm  } from 'react-hook-form'
+import { Controller, FormProvider, useForm } from 'react-hook-form'
 import { useState } from 'react'
 import { languageName } from '../../utils'
 
@@ -62,6 +62,8 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
     const defaults = project ?? {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         locale,
+        link_wrap_email: false,
+        link_wrap_push: false,
     }
     const form = useForm<Project>({
         defaultValues: defaults,
@@ -115,9 +117,8 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                             rules={{ required: true }}
                             render={({ field }) => (
                                 <Input
-                                    id="name"
+                                    id={t('name')}
                                     type="text"
-                                    placeholder="Enter your name"
                                     required
                                     value={field.value ?? ''}
                                     onChange={field.onChange}
@@ -166,6 +167,7 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                                 type="text"
                                 {...form.register('locale', {
                                     onChange: (e) => setLanguage(languageName(e.target.value)),
+                                    required: true,
                                 })}
                             />
                             {language && (
@@ -184,10 +186,11 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                         <Controller
                             control={form.control}
                             name="timezone"
+                            rules={{ required: true }}
                             render={({ field }) => (
                                 <Select value={field.value} onValueChange={field.onChange}>
                                     <SelectTrigger id="timezone">
-                                        <SelectValue />
+                                        <SelectValue placeholder={t('timezone_placeholder')} />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[300px]">
                                         <SelectGroup>
@@ -224,7 +227,7 @@ export function ProjectSettings({ form }: { form: UseFormReturn<Project> }) {
 
         <Field>
             <FieldLabel htmlFor="text_opt_out_message" className="flex-box gap-1">
-                SMS Opt Out Message
+                {t('sms_opt_out_message')}
             </FieldLabel>
             <FieldDescription className="text-xs">
                 {t('sms_opt_out_message_subtitle')}
@@ -280,7 +283,7 @@ export function ProjectSettings({ form }: { form: UseFormReturn<Project> }) {
                     render={({ field }) => (
                         <Switch
                             id="link_wrap_email"
-                            checked={field.value}
+                            checked={!!field.value}
                             onCheckedChange={field.onChange}
                             className="scale-125 data-[state=checked]:bg-[#32d583]"
                         />
@@ -303,7 +306,7 @@ export function ProjectSettings({ form }: { form: UseFormReturn<Project> }) {
                     render={({ field }) => (
                         <Switch
                             id="link_wrap_push"
-                            checked={field.value}
+                            checked={!!field.value}
                             onCheckedChange={field.onChange}
                             className="scale-125 data-[state=checked]:bg-[#32d583]"
                         />
