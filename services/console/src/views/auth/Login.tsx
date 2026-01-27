@@ -111,6 +111,21 @@ export default function Login() {
     );
   }
 
+  // Clerk auth - render standalone without Card wrapper
+  if (selectedDriver === AUTH_DRIVERS.CLERK) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-muted/40 p-4 gap-4">
+        <SignIn forceRedirectUrl={`/login/clerk/callback?r=${redirect}`} />
+        {drivers.length > 1 && (
+          <Button variant="ghost" onClick={() => setSelectedDriver(undefined)}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {t("back")}
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-sm">
@@ -119,7 +134,7 @@ export default function Login() {
           {!selectedDriver && (
             <CardDescription>{t("login_select_method")}</CardDescription>
           )}
-          {selectedDriver === "basic" && (
+          {selectedDriver === AUTH_DRIVERS.BASIC && (
             <CardDescription>{t("login_basic_instructions")}</CardDescription>
           )}
         </CardHeader>
@@ -220,25 +235,6 @@ export default function Login() {
                 )}
               </form>
             </Form>
-          )}
-
-          {/* Clerk auth - Clerk's SignIn component */}
-          {selectedDriver === AUTH_DRIVERS.CLERK && (
-            <div className="space-y-4">
-              <SignIn
-                forceRedirectUrl={`/login/clerk/callback?r=${redirect}`}
-              />
-              {drivers.length > 1 && (
-                <Button
-                  variant="ghost"
-                  className="w-full"
-                  onClick={() => setSelectedDriver(undefined)}
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  {t("back")}
-                </Button>
-              )}
-            </div>
           )}
         </CardContent>
       </Card>

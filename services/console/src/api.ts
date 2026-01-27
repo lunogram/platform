@@ -195,8 +195,12 @@ const api = {
       await client.post("/auth/login/basic/callback", { email, password });
       window.location.href = redirect;
     },
-    clerkAuth: async (redirect: string = "/") => {
-      await client.post("/auth/login/clerk/callback", { redirect });
+    clerkAuth: async (token: string, redirect: string = "/") => {
+      await client.post(
+        "/auth/login/clerk/callback",
+        { redirect },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
     },
     login() {
       window.location.href = `/login?r=${encodeURIComponent(window.location.href)}`;

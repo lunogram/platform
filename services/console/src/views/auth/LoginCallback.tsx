@@ -24,9 +24,13 @@ export default function LoginCallback() {
             if (!session) return;
 
             // Get the session token from Clerk
-            await session.getToken();
+            const token = await session.getToken();
+            if (!token) {
+              setError(t("login_callback_error"));
+              return;
+            }
             // Call our backend to complete the auth flow
-            await api.auth.clerkAuth(redirect);
+            await api.auth.clerkAuth(token, redirect);
             break;
           }
           default:

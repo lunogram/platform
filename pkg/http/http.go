@@ -35,7 +35,7 @@ type Config struct {
 	// WriteTimeout is the maximum duration before timing out writes of the response.
 	WriteTimeout time.Duration `env:"WRITE_TIMEOUT" envDefault:"10s"`
 	// MaxHeaderBytes controls the maximum number of bytes the server will read parsing the request header's keys and values, including the request line.
-	MaxHeaderBytes int `env:"MAX_HEADER_BYTES" envDefault:"512"`
+	MaxHeaderBytes int `env:"MAX_HEADER_BYTES" envDefault:"1048576"`
 }
 
 // NewServer creates a new http *Server with the given logger. A trace handler
