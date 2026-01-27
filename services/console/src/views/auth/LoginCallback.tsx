@@ -1,34 +1,66 @@
-import { useParams, useSearchParams } from 'react-router'
-import { useEffect } from 'react'
-import { useClerk } from '@clerk/clerk-react'
-import api from '../../api'
+import { useParams, useSearchParams } from "react-router";
+import { useEffect, useState } from "react";
+import { useClerk } from "@clerk/clerk-react";
+import api from "../../api";
+import { Alert } from "../../ui";
+import { useTranslation } from "react-i18next";
 
-import './Auth.css'
+import "./Auth.css";
 
 export default function LoginCallback() {
-    const { session } = useClerk()
-    const { driver } = useParams() as { driver: string }
-    const [searchParams] = useSearchParams()
-    const redirect = searchParams.get('r') ?? '/'
+  const { t } = useTranslation();
+  const { session } = useClerk();
+  const { driver } = useParams() as { driver: string };
+  const [searchParams] = useSearchParams();
+  const [error, setError] = useState<string>();
+  const redirect = searchParams.get("r") ?? "/";
 
-    useEffect(() => {
-        const handleAuth = async () => {
-            switch (driver) {
-                case 'cloud': {
-                    if (!session) return
+  useEffect(() => {
+    const handleAuth = async () => {
+      try {
+        switch (driver) {
+          case "clerk": {
+            if (!session) return;
 
-                    await session.getToken()
-                    await api.auth.cloudAuth(redirect)
-                    break
-                }
-            }
-
-            window.location.href = redirect
+            // Get the session token from Clerk
+            await session.getToken();
+            // Call our backend to complete the auth flow
+            await api.auth.clerkAuth(redirect);
+            break;
+          }
+          default:
+            setError(t("login_unsupported_driver"));
+            return;
         }
 
-        handleAuth()
-    }, [driver, redirect, session])
+        // Redirect on success
+        window.location.href = redirect;
+      } catch (err) {
+        console.error("Auth callback error:", err);
+        setError(t("login_callback_error"));
+      }
+    };
 
-    // TODO: handle callback error
-    return <></>
+    handleAuth();
+  }, [driver, redirect, session, t]);
+
+  if (error) {
+    return (
+      <div className="auth login">
+        <div className="auth-step">
+          <Alert variant="destructive" title={t("error")}>
+            {error}
+          </Alert>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="auth login">
+      <div className="auth-step">
+        <p>{t("authenticating")}</p>
+      </div>
+    </div>
+  );
 }

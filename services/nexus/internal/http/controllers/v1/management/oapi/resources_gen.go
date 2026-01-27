@@ -127,6 +127,17 @@ const (
 	Second UpdateProviderRateInterval = "second"
 )
 
+// Defines values for AuthCallbackParamsDriver.
+const (
+	AuthCallbackParamsDriverBasic AuthCallbackParamsDriver = "basic"
+	AuthCallbackParamsDriverClerk AuthCallbackParamsDriver = "clerk"
+)
+
+// Defines values for AuthWebhookParamsDriver.
+const (
+	AuthWebhookParamsDriverClerk AuthWebhookParamsDriver = "clerk"
+)
+
 // Admin defines model for Admin.
 type Admin struct {
 	CreatedAt      time.Time          `json:"created_at"`
@@ -154,6 +165,27 @@ type AdminList struct {
 
 	// Total Total number of items matching the filters
 	Total int `json:"total"`
+}
+
+// AuthCallbackRequest defines model for AuthCallbackRequest.
+type AuthCallbackRequest struct {
+	// Email Email address (required for basic auth)
+	Email *string `json:"email,omitempty"`
+
+	// Password Password (required for basic auth)
+	Password *string `json:"password,omitempty"`
+
+	// Redirect URL to redirect after successful auth
+	Redirect *string `json:"redirect,omitempty"`
+}
+
+// AuthResponse defines model for AuthResponse.
+type AuthResponse struct {
+	// AccessToken JWT access token
+	AccessToken string `json:"access_token"`
+
+	// ExpiresAt Token expiration time
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 // Campaign defines model for Campaign.
@@ -1127,6 +1159,12 @@ type GetUserSubscriptionsParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// AuthCallbackParamsDriver defines parameters for AuthCallback.
+type AuthCallbackParamsDriver string
+
+// AuthWebhookParamsDriver defines parameters for AuthWebhook.
+type AuthWebhookParamsDriver string
+
 // UpdateOrganizationJSONRequestBody defines body for UpdateOrganization for application/json ContentType.
 type UpdateOrganizationJSONRequestBody = UpdateOrganization
 
@@ -1204,6 +1242,9 @@ type UpdateUserJSONRequestBody = UpdateUser
 
 // UpdateUserSubscriptionsJSONRequestBody defines body for UpdateUserSubscriptions for application/json ContentType.
 type UpdateUserSubscriptionsJSONRequestBody = UpdateUserSubscriptions
+
+// AuthCallbackJSONRequestBody defines body for AuthCallback for application/json ContentType.
+type AuthCallbackJSONRequestBody = AuthCallbackRequest
 
 // AsIdentifyUser0 returns the union data inside the IdentifyUser as a IdentifyUser0
 func (t IdentifyUser) AsIdentifyUser0() (IdentifyUser0, error) {
@@ -1743,6 +1784,17 @@ type ClientInterface interface {
 	UpdateUserSubscriptionsWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateUserSubscriptions(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserSubscriptionsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AuthCallbackWithBody request with any body
+	AuthCallbackWithBody(ctx context.Context, driver AuthCallbackParamsDriver, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AuthCallback(ctx context.Context, driver AuthCallbackParamsDriver, body AuthCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAuthMethods request
+	GetAuthMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AuthWebhook request
+	AuthWebhook(ctx context.Context, driver AuthWebhookParamsDriver, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) DeleteOrganization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2971,6 +3023,54 @@ func (c *Client) UpdateUserSubscriptionsWithBody(ctx context.Context, projectID 
 
 func (c *Client) UpdateUserSubscriptions(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserSubscriptionsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateUserSubscriptionsRequest(c.Server, projectID, userID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AuthCallbackWithBody(ctx context.Context, driver AuthCallbackParamsDriver, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthCallbackRequestWithBody(c.Server, driver, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AuthCallback(ctx context.Context, driver AuthCallbackParamsDriver, body AuthCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthCallbackRequest(c.Server, driver, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAuthMethods(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAuthMethodsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AuthWebhook(ctx context.Context, driver AuthWebhookParamsDriver, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthWebhookRequest(c.Server, driver)
 	if err != nil {
 		return nil, err
 	}
@@ -6988,6 +7088,114 @@ func NewUpdateUserSubscriptionsRequestWithBody(server string, projectID openapi_
 	return req, nil
 }
 
+// NewAuthCallbackRequest calls the generic AuthCallback builder with application/json body
+func NewAuthCallbackRequest(server string, driver AuthCallbackParamsDriver, body AuthCallbackJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAuthCallbackRequestWithBody(server, driver, "application/json", bodyReader)
+}
+
+// NewAuthCallbackRequestWithBody generates requests for AuthCallback with any type of body
+func NewAuthCallbackRequestWithBody(server string, driver AuthCallbackParamsDriver, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "driver", runtime.ParamLocationPath, driver)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/login/%s/callback", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetAuthMethodsRequest generates requests for GetAuthMethods
+func NewGetAuthMethodsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/methods")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAuthWebhookRequest generates requests for AuthWebhook
+func NewAuthWebhookRequest(server string, driver AuthWebhookParamsDriver) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "driver", runtime.ParamLocationPath, driver)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/%s/webhook", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -7316,6 +7524,17 @@ type ClientWithResponsesInterface interface {
 	UpdateUserSubscriptionsWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserSubscriptionsResponse, error)
 
 	UpdateUserSubscriptionsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserSubscriptionsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserSubscriptionsResponse, error)
+
+	// AuthCallbackWithBodyWithResponse request with any body
+	AuthCallbackWithBodyWithResponse(ctx context.Context, driver AuthCallbackParamsDriver, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthCallbackResponse, error)
+
+	AuthCallbackWithResponse(ctx context.Context, driver AuthCallbackParamsDriver, body AuthCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthCallbackResponse, error)
+
+	// GetAuthMethodsWithResponse request
+	GetAuthMethodsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAuthMethodsResponse, error)
+
+	// AuthWebhookWithResponse request
+	AuthWebhookWithResponse(ctx context.Context, driver AuthWebhookParamsDriver, reqEditors ...RequestEditorFn) (*AuthWebhookResponse, error)
 }
 
 type DeleteOrganizationResponse struct {
@@ -9168,6 +9387,74 @@ func (r UpdateUserSubscriptionsResponse) StatusCode() int {
 	return 0
 }
 
+type AuthCallbackResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AuthResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AuthCallbackResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AuthCallbackResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetAuthMethodsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]string
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAuthMethodsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAuthMethodsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AuthWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AuthWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AuthWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // DeleteOrganizationWithResponse request returning *DeleteOrganizationResponse
 func (c *ClientWithResponses) DeleteOrganizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeleteOrganizationResponse, error) {
 	rsp, err := c.DeleteOrganization(ctx, reqEditors...)
@@ -10070,6 +10357,41 @@ func (c *ClientWithResponses) UpdateUserSubscriptionsWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseUpdateUserSubscriptionsResponse(rsp)
+}
+
+// AuthCallbackWithBodyWithResponse request with arbitrary body returning *AuthCallbackResponse
+func (c *ClientWithResponses) AuthCallbackWithBodyWithResponse(ctx context.Context, driver AuthCallbackParamsDriver, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AuthCallbackResponse, error) {
+	rsp, err := c.AuthCallbackWithBody(ctx, driver, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuthCallbackResponse(rsp)
+}
+
+func (c *ClientWithResponses) AuthCallbackWithResponse(ctx context.Context, driver AuthCallbackParamsDriver, body AuthCallbackJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthCallbackResponse, error) {
+	rsp, err := c.AuthCallback(ctx, driver, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuthCallbackResponse(rsp)
+}
+
+// GetAuthMethodsWithResponse request returning *GetAuthMethodsResponse
+func (c *ClientWithResponses) GetAuthMethodsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAuthMethodsResponse, error) {
+	rsp, err := c.GetAuthMethods(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAuthMethodsResponse(rsp)
+}
+
+// AuthWebhookWithResponse request returning *AuthWebhookResponse
+func (c *ClientWithResponses) AuthWebhookWithResponse(ctx context.Context, driver AuthWebhookParamsDriver, reqEditors ...RequestEditorFn) (*AuthWebhookResponse, error) {
+	rsp, err := c.AuthWebhook(ctx, driver, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAuthWebhookResponse(rsp)
 }
 
 // ParseDeleteOrganizationResponse parses an HTTP response from a DeleteOrganizationWithResponse call
@@ -12638,6 +12960,98 @@ func ParseUpdateUserSubscriptionsResponse(rsp *http.Response) (*UpdateUserSubscr
 	return response, nil
 }
 
+// ParseAuthCallbackResponse parses an HTTP response from a AuthCallbackWithResponse call
+func ParseAuthCallbackResponse(rsp *http.Response) (*AuthCallbackResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AuthCallbackResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAuthMethodsResponse parses an HTTP response from a GetAuthMethodsWithResponse call
+func ParseGetAuthMethodsResponse(rsp *http.Response) (*GetAuthMethodsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAuthMethodsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []string
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAuthWebhookResponse parses an HTTP response from a AuthWebhookWithResponse call
+func ParseAuthWebhookResponse(rsp *http.Response) (*AuthWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AuthWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Delete organization
@@ -12880,6 +13294,15 @@ type ServerInterface interface {
 	// Update user subscriptions
 	// (PATCH /api/admin/projects/{projectID}/users/{userID}/subscriptions)
 	UpdateUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Complete authentication
+	// (POST /api/auth/login/{driver}/callback)
+	AuthCallback(w http.ResponseWriter, r *http.Request, driver AuthCallbackParamsDriver)
+	// Get available auth methods
+	// (GET /api/auth/methods)
+	GetAuthMethods(w http.ResponseWriter, r *http.Request)
+	// Auth provider webhook
+	// (POST /api/auth/{driver}/webhook)
+	AuthWebhook(w http.ResponseWriter, r *http.Request, driver AuthWebhookParamsDriver)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -13363,6 +13786,24 @@ func (_ Unimplemented) GetUserSubscriptions(w http.ResponseWriter, r *http.Reque
 // Update user subscriptions
 // (PATCH /api/admin/projects/{projectID}/users/{userID}/subscriptions)
 func (_ Unimplemented) UpdateUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Complete authentication
+// (POST /api/auth/login/{driver}/callback)
+func (_ Unimplemented) AuthCallback(w http.ResponseWriter, r *http.Request, driver AuthCallbackParamsDriver) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get available auth methods
+// (GET /api/auth/methods)
+func (_ Unimplemented) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Auth provider webhook
+// (POST /api/auth/{driver}/webhook)
+func (_ Unimplemented) AuthWebhook(w http.ResponseWriter, r *http.Request, driver AuthWebhookParamsDriver) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -16561,6 +17002,70 @@ func (siw *ServerInterfaceWrapper) UpdateUserSubscriptions(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// AuthCallback operation middleware
+func (siw *ServerInterfaceWrapper) AuthCallback(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "driver" -------------
+	var driver AuthCallbackParamsDriver
+
+	err = runtime.BindStyledParameterWithOptions("simple", "driver", chi.URLParam(r, "driver"), &driver, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "driver", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AuthCallback(w, r, driver)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAuthMethods operation middleware
+func (siw *ServerInterfaceWrapper) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAuthMethods(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AuthWebhook operation middleware
+func (siw *ServerInterfaceWrapper) AuthWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "driver" -------------
+	var driver AuthWebhookParamsDriver
+
+	err = runtime.BindStyledParameterWithOptions("simple", "driver", chi.URLParam(r, "driver"), &driver, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "driver", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AuthWebhook(w, r, driver)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -16913,6 +17418,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/users/{userID}/subscriptions", wrapper.UpdateUserSubscriptions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/auth/login/{driver}/callback", wrapper.AuthCallback)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/auth/methods", wrapper.GetAuthMethods)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/auth/{driver}/webhook", wrapper.AuthWebhook)
 	})
 
 	return r

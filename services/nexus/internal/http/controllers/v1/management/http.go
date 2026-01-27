@@ -37,8 +37,16 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db 
 
 	stores := store.NewState(db)
 
+	controller, err := NewController(logger, db, config, storage, pub, registry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create controller: %w", err)
+	}
+
 	options := openapi3filter.Options{
-		AuthenticationFunc: auth.Middleware(auth.WithJWT(config.Auth, stores), auth.WithKey(stores)),
+		AuthenticationFunc: auth.Middleware(
+			auth.WithJWT(config.Auth, stores),
+			auth.WithKey(stores),
+		),
 	}
 
 	router := chi.NewRouter()
@@ -46,7 +54,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db 
 
 	router.Use(oapi.Scalar())
 
-	oapi.HandlerWithOptions(NewController(logger, db, config, storage, pub, registry), oapi.ChiServerOptions{
+	oapi.HandlerWithOptions(controller, oapi.ChiServerOptions{
 		BaseRouter:  router,
 		Middlewares: []oapi.MiddlewareFunc{oapi.Validator(spec, options)},
 	})

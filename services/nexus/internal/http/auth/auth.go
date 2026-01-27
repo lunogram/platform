@@ -12,6 +12,21 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/store"
 )
 
+// TokenClaims represents the claims from a JWT token
+type TokenClaims struct {
+	jwt.RegisteredClaims
+}
+
+// Subject returns the subject claim
+func (c *TokenClaims) Subject() string {
+	return c.RegisteredClaims.Subject
+}
+
+// Issuer returns the issuer claim
+func (c *TokenClaims) Issuer() string {
+	return c.RegisteredClaims.Issuer
+}
+
 // ErrUnauthorized is returned when the authentication fails.
 var ErrUnauthorized = errors.New("unauthorized")
 
@@ -99,4 +114,17 @@ func WithKey(stores *store.State) Handler {
 
 		return ctx, nil
 	}
+}
+
+// ParseTokenClaims parses a JWT token and returns its claims without full validation
+// This is useful when the token has already been validated and we just need to extract claims
+func ParseTokenClaims(tokenString string) (*TokenClaims, error) {
+	parser := jwt.NewParser()
+	var claims TokenClaims
+	_, _, err := parser.ParseUnverified(tokenString, &claims)
+	if err != nil {
+		return nil, err
+	}
+
+	return &claims, nil
 }

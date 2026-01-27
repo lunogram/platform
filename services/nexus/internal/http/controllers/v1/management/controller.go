@@ -9,8 +9,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) *Controller {
-	return &Controller{
+func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) (_ *Controller, err error) {
+	controller := &Controller{
 		ProjectsController:      NewProjectsController(logger, db),
 		CampaignsController:     NewCampaignsController(logger, db),
 		TemplatesController:     NewTemplatesController(logger, db),
@@ -25,6 +25,13 @@ func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage sto
 		DocumentsController:     NewDocumentsController(logger, db, storage, cfg.Storage.MaxUploadSize),
 		ProvidersController:     NewProvidersController(logger, db, registry),
 	}
+
+	controller.AuthController, err = NewAuthController(logger, db, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return controller, nil
 }
 
 type Controller struct {
@@ -41,4 +48,5 @@ type Controller struct {
 	*ListsController
 	*DocumentsController
 	*ProvidersController
+	*AuthController
 }

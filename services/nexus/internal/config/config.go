@@ -25,8 +25,22 @@ type Node struct {
 }
 
 type Auth struct {
-	JWTSecret string     `env:"JWT_SECRET"`
-	JWKS      claim.JWKS `env:"JWKS_URL"`
+	Driver    string        `env:"DRIVER"`
+	JWTSecret string        `env:"JWT_SECRET"`
+	JWKS      claim.JWKS    `env:"JWKS_URL"`
+	TokenLife time.Duration `env:"TOKEN_LIFE" envDefault:"24h"`
+	Basic     BasicAuth     `envPrefix:"BASIC_"`
+	Clerk     ClerkAuth     `envPrefix:"CLERK_"`
+}
+
+type BasicAuth struct {
+	Email    string `env:"EMAIL"`
+	Password string `env:"PASSWORD"`
+}
+
+type ClerkAuth struct {
+	SecretKey     string `env:"SECRET_KEY"`
+	WebhookSecret string `env:"WEBHOOK_SECRET"`
 }
 
 type Redis struct {

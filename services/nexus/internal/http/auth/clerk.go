@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -22,12 +23,17 @@ func getCookieOAuthToken(r *http.Request) *OAuthResponse {
 		return nil
 	}
 
-	var oauthResp OAuthResponse
-	if err := json.Unmarshal([]byte(cookie.Value), &oauthResp); err != nil {
+	decoded, err := base64.StdEncoding.DecodeString(cookie.Value)
+	if err != nil {
 		return nil
 	}
 
-	return &oauthResp
+	var res OAuthResponse
+	if err := json.Unmarshal(decoded, &res); err != nil {
+		return nil
+	}
+
+	return &res
 }
 
 // RetrieveAuthToken extracts the authentication token from the request.

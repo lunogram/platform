@@ -128,16 +128,16 @@ func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, 
 	var total int
 
 	query := `
-	SELECT 
+	SELECT
 		id, organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at,
 		COUNT(*) OVER () AS total_count
 	FROM admins
-	WHERE organization_id = $1 
+	WHERE organization_id = $1
 	AND deleted_at IS NULL
 	AND (
 		$2 = '' OR
-		first_name ILIKE '%' || $2 || '%' OR 
-		last_name ILIKE '%' || $2 || '%' OR 
+		first_name ILIKE '%' || $2 || '%' OR
+		last_name ILIKE '%' || $2 || '%' OR
 		email ILIKE '%' || $2 || '%'
 	)
 	ORDER BY created_at DESC
@@ -183,6 +183,23 @@ func (s *AdminsStore) GetAdminByEmail(ctx context.Context, email string, organiz
 	return &admin, nil
 }
 
+func (s *AdminsStore) GetAdminByEmailGlobal(ctx context.Context, email string) (*Admin, error) {
+	stmt := `
+	SELECT id, organization_id, external_id, email, first_name, last_name, image_url, role, created_at, updated_at
+	FROM admins
+	WHERE email = $1
+	AND deleted_at IS NULL
+	LIMIT 1`
+
+	var admin Admin
+	err := s.db.GetContext(ctx, &admin, stmt, email)
+	if err != nil {
+		return nil, err
+	}
+
+	return &admin, nil
+}
+
 type AdminUpdate struct {
 	Email     *string
 	FirstName *string
@@ -192,13 +209,13 @@ type AdminUpdate struct {
 
 func (s *AdminsStore) UpdateAdmin(ctx context.Context, id uuid.UUID, update AdminUpdate) error {
 	stmt := `
-	UPDATE admins 
-	SET 
+	UPDATE admins
+	SET
 		email = COALESCE($2, email),
 		first_name = COALESCE($3, first_name),
 		last_name = COALESCE($4, last_name),
 		role = COALESCE($5, role)
-	WHERE id = $1 
+	WHERE id = $1
 	AND deleted_at IS NULL`
 
 	_, err := s.db.ExecContext(ctx, stmt, id, update.Email, update.FirstName, update.LastName, update.Role)
@@ -264,12 +281,12 @@ func (s *AdminsStore) ListProjectAdmins(ctx context.Context, projectID uuid.UUID
 	var total int
 
 	query := `
-	SELECT 
-		project_admins.id, 
-		project_admins.project_id, 
-		project_admins.admin_id, 
+	SELECT
+		project_admins.id,
+		project_admins.project_id,
+		project_admins.admin_id,
 		project_admins.role,
-		project_admins.created_at, 
+		project_admins.created_at,
 		project_admins.updated_at,
 		admins.email,
 		admins.first_name,
@@ -277,12 +294,12 @@ func (s *AdminsStore) ListProjectAdmins(ctx context.Context, projectID uuid.UUID
 		COUNT(*) OVER () AS total_count
 	FROM project_admins
 	JOIN admins ON project_admins.admin_id = admins.id
-	WHERE project_admins.project_id = $1 
+	WHERE project_admins.project_id = $1
 	AND project_admins.deleted_at IS NULL
 	AND (
 		$2 = '' OR
-		admins.first_name ILIKE '%' || $2 || '%' OR 
-		admins.last_name ILIKE '%' || $2 || '%' OR 
+		admins.first_name ILIKE '%' || $2 || '%' OR
+		admins.last_name ILIKE '%' || $2 || '%' OR
 		admins.email ILIKE '%' || $2 || '%'
 	)
 	ORDER BY project_admins.created_at DESC
@@ -313,19 +330,19 @@ func (s *AdminsStore) ListProjectAdmins(ctx context.Context, projectID uuid.UUID
 
 func (s *AdminsStore) GetProjectAdmin(ctx context.Context, projectID, adminID uuid.UUID) (*ProjectAdmin, error) {
 	query := `
-	SELECT 
-		project_admins.id, 
-		project_admins.project_id, 
-		project_admins.admin_id, 
+	SELECT
+		project_admins.id,
+		project_admins.project_id,
+		project_admins.admin_id,
 		project_admins.role,
-		project_admins.created_at, 
+		project_admins.created_at,
 		project_admins.updated_at,
 		admins.email,
 		admins.first_name,
 		admins.last_name
 	FROM project_admins
 	JOIN admins ON project_admins.admin_id = admins.id
-	WHERE project_admins.project_id = $1 
+	WHERE project_admins.project_id = $1
 	AND project_admins.admin_id = $2
 	AND project_admins.deleted_at IS NULL`
 
@@ -349,9 +366,9 @@ func (s *AdminsStore) AddAdminToProject(ctx context.Context, projectID, adminID 
 
 func (s *AdminsStore) UpdateProjectAdminRole(ctx context.Context, projectID, adminID uuid.UUID, role string) error {
 	query := `
-	UPDATE project_admins 
+	UPDATE project_admins
 	SET role = $1
-	WHERE project_id = $2 
+	WHERE project_id = $2
 	AND admin_id = $3
 	AND deleted_at IS NULL`
 
@@ -361,9 +378,9 @@ func (s *AdminsStore) UpdateProjectAdminRole(ctx context.Context, projectID, adm
 
 func (s *AdminsStore) DeleteProjectAdmin(ctx context.Context, projectID, adminID uuid.UUID) error {
 	query := `
-	UPDATE project_admins 
-	SET deleted_at = NOW() 
-	WHERE project_id = $1 
+	UPDATE project_admins
+	SET deleted_at = NOW()
+	WHERE project_id = $1
 	AND admin_id = $2
 	AND deleted_at IS NULL`
 

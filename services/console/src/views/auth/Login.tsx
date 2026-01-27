@@ -1,154 +1,249 @@
-import { useSearchParams } from 'react-router'
-import { SignIn } from '@clerk/clerk-react'
-// import { ReactComponent as Logo } from '../../assets/logo.svg'
-import { env } from '../../config/env'
-import { Button } from '@/components/ui/button'
-import { useEffect, useState, useCallback } from 'react'
-import api from '../../api'
-import type { AuthMethod } from '../../types'
-import FormWrapper from '../../ui/form/FormWrapper'
-import TextInput from '../../ui/form/TextInput'
-import { Alert } from '../../ui'
-import { useTranslation } from 'react-i18next'
+import { useSearchParams } from "react-router";
+import { SignIn } from "@clerk/clerk-react";
+import { useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
+import { Loader2, Mail, Lock, ArrowLeft } from "lucide-react";
+import { useForm } from "react-hook-form";
 
-import './Auth.css'
+import api from "../../api";
+import type { AuthDriver } from "../../types";
 
-interface LoginParams {
-    email: string
-    password?: string
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+
+interface LoginFormValues {
+  email: string;
+  password: string;
 }
 
-const RESERVED_DRIVERS = ['cloud', 'basic', 'email'] as const
+const SUPPORTED_DRIVERS: AuthDriver[] = ["basic", "clerk"];
+
+const DRIVER_TRANSLATION_KEYS: Record<AuthDriver, string> = {
+  basic: "auth_driver_basic",
+  clerk: "auth_driver_clerk",
+};
 
 export default function Login() {
-    const { t } = useTranslation()
-    const [searchParams] = useSearchParams()
-    const [methods, setMethods] = useState<AuthMethod[]>()
-    const [method, setMethod] = useState<AuthMethod>()
-    const [message, setMessage] = useState<string>()
-    const redirect = searchParams.get('r') ?? '/'
+  const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const [drivers, setDrivers] = useState<AuthDriver[]>();
+  const [selectedDriver, setSelectedDriver] = useState<AuthDriver>();
+  const [error, setError] = useState<string>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const redirect = searchParams.get("r") ?? "/";
 
-    const handleRedirect = useCallback((driver: string, email?: string) => {
-        window.location.href = new URL(`/auth/login/${driver}?r=${redirect}&email=${email}`, env.api.baseURL).toString()
-    }, [redirect])
+  const form = useForm<LoginFormValues>({
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
 
-    const handleMethod = useCallback((method: AuthMethod) => {
-        if (RESERVED_DRIVERS.includes(method.driver as typeof RESERVED_DRIVERS[number])) {
-            setMethod(method)
-        } else {
-            handleRedirect(method.driver)
+  const handleSelectDriver = useCallback((driver: AuthDriver) => {
+    if (SUPPORTED_DRIVERS.includes(driver)) {
+      setSelectedDriver(driver);
+      setError(undefined);
+    }
+  }, []);
+
+  const handleBasicAuth = async (data: LoginFormValues) => {
+    if (!data.password) {
+      setError(t("login_basic_instructions"));
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await api.auth.basicAuth(
+        data.email,
+        data.password,
+        searchParams.get("r") ?? "/",
+      );
+    } catch {
+      setError(t("login_invalid_credentials"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    api.auth
+      .methods()
+      .then((methods) => {
+        const supportedDrivers = methods.filter((driver) =>
+          SUPPORTED_DRIVERS.includes(driver),
+        );
+        setDrivers(supportedDrivers);
+        if (supportedDrivers.length === 1) {
+          handleSelectDriver(supportedDrivers[0]);
         }
-    }, [handleRedirect, setMethod])
+      })
+      .catch(() => {
+        setError(t("login_methods_error"));
+      });
+  }, [handleSelectDriver, t]);
 
-    const handleBasicAuth = async ({ email, password }: LoginParams) => {
-        if (!password) {
-            setMessage(t('login_basic_instructions'))
-            return
-        }
-
-        await api.auth.basicAuth(email, password, searchParams.get('r') ?? '/')
-    }
-
-    const handleEmailAuth = async ({ email }: LoginParams) => {
-        await api.auth.emailAuth(email, searchParams.get('r') ?? '/')
-        setMessage(t('login_email_confirmation'))
-    }
-
-    const handleLogin = (method: string) => {
-        return async ({ email }: LoginParams) => {
-            await checkEmail(method, email)
-            handleRedirect(method, email)
-        }
-    }
-
-    const checkEmail = async (method: string, email: string) => {
-        const isAllowed = await api.auth.check(method, email)
-        if (!isAllowed) throw new Error(t('login_method_not_available'))
-        return isAllowed
-    }
-
-    useEffect(() => {
-        api.auth.methods().then((methods) => {
-            setMethods(methods)
-            if (methods.length === 1) {
-                handleMethod(methods[0])
-            }
-        }).catch(() => { })
-    }, [handleMethod])
-
-    // TODO: we have to think what to do if no methods are available
-    if (!methods || methods.length === 0) {
-        return null
-    }
-
+  // Loading state
+  if (!drivers || drivers.length === 0) {
     return (
-        <div className="auth login">
-            <div className="logo">
-                {/* <Logo /> */}
+      <div className="min-h-screen flex items-center justify-center bg-muted/40">
+        <Card className="w-full max-w-sm">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="mt-4 text-sm text-muted-foreground">{t("loading")}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold">{t("welcome")}</CardTitle>
+          {!selectedDriver && (
+            <CardDescription>{t("login_select_method")}</CardDescription>
+          )}
+          {selectedDriver === "basic" && (
+            <CardDescription>{t("login_basic_instructions")}</CardDescription>
+          )}
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertTitle>{t("error")}</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Driver selection */}
+          {!selectedDriver && (
+            <div className="flex flex-col gap-3">
+              {drivers.map((driver) => (
+                <Button
+                  key={driver}
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleSelectDriver(driver)}
+                >
+                  {t(DRIVER_TRANSLATION_KEYS[driver])}
+                </Button>
+              ))}
             </div>
-            {!method && (
-                <div className="auth-step">
-                    <h2 className="legacy-typography">{t('welcome')}</h2>
-                    <p>{t('login_select_method')}</p>
-                    <div className="auth-methods">
-                        {methods?.map((method) => (
-                            <Button key={method.driver} onClick={() => handleMethod(method)}>{method.name}</Button>
-                        ))}
-                    </div>
-                </div>
-            )}
-            {method && method.driver === 'basic' && (
-                <div className="auth-step">
-                    <h2 className="legacy-typography">{t('welcome')}</h2>
-                    <p>{t('login_basic_instructions')}</p>
-                    <FormWrapper<LoginParams>
-                        onSubmit={handleBasicAuth}>
-                        {form => <>
-                            <TextInput.Field form={form} name="email" />
-                            <TextInput.Field form={form} name="password" type="password" />
-                        </>}
-                    </FormWrapper>
-                    <Button variant="ghost" onClick={() => setMethod(undefined)}>{t('back')}</Button>
-                </div>
-            )}
-            {method && method.driver === 'email' && (
-                <div className="auth-step">
-                    <h2 className="legacy-typography">{t('welcome')}</h2>
-                    {message
-                        ? <>
-                            <Alert variant="info" title="Success">{message}</Alert>
-                            <Button variant="ghost" onClick={() => setMethod(undefined)}>{t('cancel')}</Button>
-                        </>
-                        : <>
-                            <p>{t('login_email_instructions')}</p>
-                            <FormWrapper<LoginParams>
-                                onSubmit={handleEmailAuth}>
-                                {form => <>
-                                    <TextInput.Field form={form} name="email" />
-                                </>}
-                            </FormWrapper>
-                            <Button variant="ghost" onClick={() => setMethod(undefined)}>{t('next')}</Button>
-                        </>
-                    }
-                </div>
-            )}
-            {method && method.driver === 'cloud' && (
-                <SignIn forceRedirectUrl={`/login/cloud/callback?r=${redirect}`} />
-            )}
-            {method && !RESERVED_DRIVERS.includes(method.driver as typeof RESERVED_DRIVERS[number]) && (
-                <div className="auth-step">
-                    <h2 className="legacy-typography">{t('welcome')}</h2>
-                    <p>{t('login_email_available_methods')}</p>
-                    <FormWrapper<LoginParams>
-                        onSubmit={handleLogin(method.driver)}
-                        submitLabel={method.name}>
-                        {form => <>
-                            <TextInput.Field form={form} name="email" />
-                        </>}
-                    </FormWrapper>
-                    <Button variant="secondary" onClick={() => setMethod(undefined)}>{t('back')}</Button>
-                </div>
-            )}
-        </div>
-    )
+          )}
+
+          {/* Basic auth - email/password form */}
+          {selectedDriver === "basic" && (
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(handleBasicAuth)}
+                className="space-y-4"
+              >
+                <FormField
+                  control={form.control}
+                  name="email"
+                  rules={{ required: t("field_required") }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("email")}</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            type="email"
+                            placeholder="name@example.com"
+                            className="pl-9"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  rules={{ required: t("field_required") }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("password")}</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input type="password" className="pl-9" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {t("submit")}
+                </Button>
+
+                {drivers.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => setSelectedDriver(undefined)}
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    {t("back")}
+                  </Button>
+                )}
+              </form>
+            </Form>
+          )}
+
+          {/* Clerk auth - Clerk's SignIn component */}
+          {selectedDriver === "clerk" && (
+            <div className="space-y-4">
+              <SignIn
+                forceRedirectUrl={`/login/clerk/callback?r=${redirect}`}
+              />
+              {drivers.length > 1 && (
+                <Button
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => setSelectedDriver(undefined)}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  {t("back")}
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
