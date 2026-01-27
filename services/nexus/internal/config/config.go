@@ -13,7 +13,6 @@ type Node struct {
 	NodeID                   string  `env:"NODE_ID" envDefault:""`
 	ManagementServiceAddress string  `env:"ADMIN_SERVICE_ADDRESS" envDefault:":8080"`
 	PublicServiceAddress     string  `env:"PUBLIC_SERVICE_ADDRESS" envDefault:":8081"`
-	PlatformURL              string  `env:"PLATFORM_URL" envDefault:"http://localhost:3001"`
 	Redis                    Redis   `envPrefix:"REDIS_"`
 	Cluster                  Cluster `envPrefix:"CLUSTER_"`
 	Auth                     Auth    `envPrefix:"AUTH_"`

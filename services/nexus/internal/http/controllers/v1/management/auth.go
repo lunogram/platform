@@ -24,7 +24,7 @@ type SessionCookieData struct {
 
 func NewAuthController(logger *zap.Logger, db *sqlx.DB, cfg config.Node) (*AuthController, error) {
 	stores := store.NewState(db)
-	tokenGen := providers.NewJWTGeneratorWithSecret(cfg.Auth.JWTSecret, cfg.PlatformURL, cfg.Auth.TokenLife)
+	tokenGen := providers.NewJWTGeneratorWithSecret(cfg.Auth.JWTSecret, cfg.Auth.TokenLife)
 
 	driver := cfg.Auth.Driver
 	if driver == "" {
