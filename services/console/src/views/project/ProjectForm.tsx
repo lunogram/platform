@@ -107,8 +107,8 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
             <FormProvider {...form}>
                 <form onSubmit={handleSubmit}>
                     <Field>
-                        <FieldLabel htmlFor="name" className="flex-box gap-1">
-                            Name
+                        <FieldLabel htmlFor="name" className="flex gap-1">
+                            {t('name')}
                             <span className="text-destructive">*</span>
                         </FieldLabel>
                         <Controller
@@ -139,7 +139,6 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                             render={({ field }) => (
                                 <Textarea
                                     id="description"
-                                    placeholder="Enter description"
                                     value={field.value ?? ''}
                                     onChange={field.onChange}
                                     onBlur={field.onBlur}
@@ -249,7 +248,7 @@ export function ProjectSettings({ form }: { form: UseFormReturn<Project> }) {
 
         <Field>
             <FieldLabel htmlFor="text_help_message" className="mt-2">
-                SMS Help Message
+                {t('sms_help_message')}
             </FieldLabel>
             <FieldDescription className="text-xs">
                 {t('sms_help_message_subtitle')}
