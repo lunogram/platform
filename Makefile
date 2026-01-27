@@ -17,7 +17,7 @@ SHORT_COMMIT	?= $(shell git rev-parse --short HEAD)
 PATH := $(GOBIN):$(BIN):$(PATH)
 
 EMBEDDED =
-LDFLAGS	= -w -s -X "github.com/lunogram/platform/pkg/build.version=$(VERSION)" -X "github.com/lunogram/platform/pkg/build.commit=$(SHORT_COMMIT)"
+LDFLAGS	= -w -s -X "github.com/lunogram/services/nexus/internal/build.version=$(VERSION)" -X "github.com/lunogram/services/nexus/internal/build.commit=$(SHORT_COMMIT)"
 
 # Printing
 V ?= 0
