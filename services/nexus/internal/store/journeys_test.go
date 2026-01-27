@@ -6,7 +6,7 @@ import (
 
 	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/pkg/container"
+	"github.com/lunogram/platform/services/nexus/internal/container"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -633,7 +633,7 @@ func TestJourneysStore_EnsureDraftVersionCopiesSteps(t *testing.T) {
 	// Add steps directly to database
 	_, err = db.db.ExecContext(ctx, `
 		INSERT INTO journey_version_steps (version_id, external_id, type, name, x, y)
-		VALUES 
+		VALUES
 			($1, 'step-1', 'entrance', 'Entrance', 100, 100),
 			($1, 'step-2', 'email', 'Send Email', 200, 200)
 	`, versionID)

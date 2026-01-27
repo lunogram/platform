@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/lunogram/platform/pkg/http/json"
-	"github.com/lunogram/platform/pkg/http/problem"
+	"github.com/lunogram/platform/services/nexus/internal/http/json"
+	"github.com/lunogram/platform/services/nexus/internal/http/problem"
 )
 
 //go:generate oapi-codegen -o ./resources_gen.go -generate types,client,chi-server -package oapi ./resources.yml

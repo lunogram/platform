@@ -8,7 +8,7 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/pkg/container"
+	"github.com/lunogram/platform/services/nexus/internal/container"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/stretchr/testify/assert"

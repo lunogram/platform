@@ -3,8 +3,8 @@ package config
 import (
 	"time"
 
-	"github.com/lunogram/platform/pkg/claim"
-	"github.com/lunogram/platform/pkg/http"
+	"github.com/lunogram/platform/services/nexus/internal/claim"
+	"github.com/lunogram/platform/services/nexus/internal/http"
 	"github.com/lunogram/platform/services/nexus/internal/storage"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 )

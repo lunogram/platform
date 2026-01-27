@@ -10,8 +10,8 @@ import (
 
 	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/cloudproud/graceful"
-	"github.com/lunogram/platform/pkg/container"
 	"github.com/lunogram/platform/services/nexus/internal/config"
+	"github.com/lunogram/platform/services/nexus/internal/container"
 	"github.com/lunogram/platform/services/nexus/internal/http/auth"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"github.com/stretchr/testify/require"

@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/lunogram/platform/pkg/http/problem"
+	"github.com/lunogram/platform/services/nexus/internal/http/problem"
 )
 
 const ContentType = "Content-Type"

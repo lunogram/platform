@@ -6,8 +6,8 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
-	"github.com/lunogram/platform/pkg/http/problem"
-	"github.com/lunogram/platform/pkg/http/scalar"
+	"github.com/lunogram/platform/services/nexus/internal/http/problem"
+	"github.com/lunogram/platform/services/nexus/internal/http/scalar"
 	middleware "github.com/oapi-codegen/nethttp-middleware"
 )
 

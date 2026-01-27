@@ -5,10 +5,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/pkg/claim/rbac"
-	"github.com/lunogram/platform/pkg/http/json"
-	"github.com/lunogram/platform/pkg/http/problem"
+	"github.com/lunogram/platform/services/nexus/internal/claim/rbac"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/public/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/http/json"
+	"github.com/lunogram/platform/services/nexus/internal/http/problem"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub/schemas"
 	"github.com/lunogram/platform/services/nexus/internal/store"

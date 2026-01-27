@@ -6,8 +6,8 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/lunogram/platform/pkg/claim"
-	"github.com/lunogram/platform/pkg/claim/rbac"
+	"github.com/lunogram/platform/services/nexus/internal/claim"
+	"github.com/lunogram/platform/services/nexus/internal/claim/rbac"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 )

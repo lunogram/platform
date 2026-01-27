@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/pkg/http/json"
-	"github.com/lunogram/platform/pkg/http/problem"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/http/auth"
 	"github.com/lunogram/platform/services/nexus/internal/http/auth/providers"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/http/json"
+	"github.com/lunogram/platform/services/nexus/internal/http/problem"
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
 )

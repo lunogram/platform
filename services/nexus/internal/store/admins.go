@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/pkg/claim"
-	"github.com/lunogram/platform/pkg/http/problem"
+	"github.com/lunogram/platform/services/nexus/internal/claim"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/services/nexus/internal/http/problem"
 )
 
 func NewAdminsStore(db DB) *AdminsStore {
