@@ -94,7 +94,8 @@ export default function Login() {
           handleSelectDriver(supportedDrivers[0]);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Failed to fetch auth methods:", err);
         setError(t("login_methods_error"));
       });
   }, [handleSelectDriver, t]);
