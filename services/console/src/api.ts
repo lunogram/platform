@@ -2,7 +2,7 @@ import Axios from "axios";
 import { env } from "./config/env";
 import type {
   Admin,
-  AuthMethod,
+  AuthDriver,
   Campaign,
   CampaignCreateParams,
   CampaignLaunchParams,
@@ -186,11 +186,7 @@ const cache: {
 const api = {
   auth: {
     methods: async () =>
-      await client.get<AuthMethod[]>("/auth/methods").then((r) => r.data),
-    check: async (method: string, email: string) =>
-      await client
-        .post<boolean>("/auth/check", { method, email })
-        .then((r) => r.data),
+      await client.get<AuthDriver[]>("/auth/methods").then((r) => r.data),
     basicAuth: async (
       email: string,
       password: string,
@@ -199,11 +195,8 @@ const api = {
       await client.post("/auth/login/basic/callback", { email, password });
       window.location.href = redirect;
     },
-    emailAuth: async (email: string, redirect: string = "/") => {
-      await client.post("/auth/login/email", { email, redirect });
-    },
-    cloudAuth: async (redirect: string = "/") => {
-      await client.post("/auth/login/cloud/callback", { redirect });
+    clerkAuth: async (redirect: string = "/") => {
+      await client.post("/auth/login/clerk/callback", { redirect });
     },
     login() {
       window.location.href = `/login?r=${encodeURIComponent(window.location.href)}`;

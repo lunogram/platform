@@ -5,6 +5,79 @@ info:
   version: 1.0.0
 
 paths:
+  /api/auth/methods:
+    get:
+      summary: Get available auth methods
+      description: Returns a list of available authentication methods/drivers
+      operationId: getAuthMethods
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: Auth methods retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  description: Authentication driver identifier
+                example: ["basic", "clerk"]
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/login/{driver}/callback:
+    post:
+      summary: Complete authentication
+      description: Validates credentials and completes the authentication flow
+      operationId: authCallback
+      tags:
+        - Auth
+      parameters:
+        - name: driver
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [basic, clerk]
+          description: The authentication driver
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthCallbackRequest"
+      responses:
+        "200":
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/auth/{driver}/webhook:
+    post:
+      summary: Auth provider webhook
+      description: Webhook endpoint for external auth providers (e.g., Clerk user sync)
+      operationId: authWebhook
+      tags:
+        - Auth
+      parameters:
+        - name: driver
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [clerk]
+          description: The authentication driver
+      responses:
+        "200":
+          description: Webhook processed successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/campaigns:
     get:
       summary: List campaigns
@@ -4579,6 +4652,40 @@ components:
           items:
             type: string
           example: ["string"]
+
+    AuthCallbackRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address (required for basic auth)
+          example: "admin@example.com"
+          x-go-type: string
+        password:
+          type: string
+          description: Password (required for basic auth)
+          example: "password123"
+        redirect:
+          type: string
+          description: URL to redirect after successful auth
+          example: "/"
+
+    AuthResponse:
+      type: object
+      required:
+        - access_token
+        - expires_at
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+          example: "eyJhbGciOiJIUzI1NiIs..."
+        expires_at:
+          type: string
+          format: date-time
+          description: Token expiration time
+          example: "2024-01-15T12:00:00Z"
 
   securitySchemes:
     HttpBearerAuth:
