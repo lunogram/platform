@@ -163,7 +163,7 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	currentAdmin, err := srv.store.GetAdminBySubject(ctx, session)
+	admin, err := srv.store.GetAdminBySubject(ctx, session)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
@@ -184,12 +184,12 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 	}
 
 	logger := srv.logger.With(
-		zap.String("organization_id", currentAdmin.OrganizationID.String()),
+		zap.String("organization_id", admin.OrganizationID.String()),
 		zap.String("email", string(body.Email)),
 		zap.String("role", string(body.Role)),
 	)
 
-	if !srv.hasPermission(currentAdmin.Role, string(body.Role)) {
+	if !srv.hasPermission(admin.Role, string(body.Role)) {
 		logger.Error("insufficient permissions")
 		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("insufficient permissions to assign this role")))
 		return
@@ -197,7 +197,7 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 
 	logger.Info("creating or updating admin")
 
-	existingAdmin, err := srv.store.GetAdminByEmail(ctx, string(body.Email), currentAdmin.OrganizationID)
+	existingAdmin, err := srv.store.GetAdminByEmail(ctx, string(body.Email))
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("failed to check existing admin", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -238,7 +238,7 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 	}
 
 	newAdmin := store.Admin{
-		OrganizationID: currentAdmin.OrganizationID,
+		OrganizationID: admin.OrganizationID,
 		Email:          string(body.Email),
 		FirstName:      body.FirstName,
 		LastName:       body.LastName,

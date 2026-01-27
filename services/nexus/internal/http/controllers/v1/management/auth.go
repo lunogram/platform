@@ -16,8 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// OAuthCookieData represents the data stored in the OAuth cookie
-type OAuthCookieData struct {
+// SessionCookieData represents the data stored in the OAuth cookie
+type SessionCookieData struct {
 	AccessToken string    `json:"access_token"`
 	ExpiresAt   time.Time `json:"expires_at"`
 }
@@ -86,7 +86,8 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 		return
 	}
 
-	if err := c.setOAuthCookie(w, r, token, expiresAt); err != nil {
+	err = c.setSessionCookie(w, r, token, expiresAt)
+	if err != nil {
 		c.logger.Error("failed to set oauth cookie", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to set authentication cookie")))
 		return
@@ -134,13 +135,13 @@ func (c *AuthController) writeAuthError(w http.ResponseWriter, err error) {
 	}
 }
 
-func (c *AuthController) setOAuthCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) error {
-	oauthData := OAuthCookieData{
+func (c *AuthController) setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) error {
+	sessionData := SessionCookieData{
 		AccessToken: token,
 		ExpiresAt:   expiresAt,
 	}
 
-	value, err := json.Marshal(oauthData)
+	value, err := json.Marshal(sessionData)
 	if err != nil {
 		return err
 	}

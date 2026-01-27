@@ -68,12 +68,12 @@ func (p *BasicProvider) Validate(ctx context.Context, r *http.Request) (*store.A
 
 // findOrCreateAdmin finds an existing admin or creates a new one with a new organization
 func (p *BasicProvider) findOrCreateAdmin(ctx context.Context, email string) (*store.Admin, error) {
-	admin, err := p.stores.GetAdminByEmailGlobal(ctx, email)
+	admin, err := p.stores.GetAdminByEmail(ctx, email)
 	if err == nil && admin != nil {
 		return admin, nil
 	}
 
-	orgID, err := p.orgStore.CreateOrganization(ctx, "Organization")
+	orgID, err := p.orgStore.CreateOrganization(ctx, "Default Organization")
 	if err != nil {
 		return nil, err
 	}
