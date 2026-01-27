@@ -2,6 +2,7 @@ import { useParams, useSearchParams } from "react-router";
 import { useEffect, useState } from "react";
 import { useClerk } from "@clerk/clerk-react";
 import api from "../../api";
+import { AUTH_DRIVERS } from "../../types";
 import { Alert } from "../../ui";
 import { useTranslation } from "react-i18next";
 
@@ -19,7 +20,7 @@ export default function LoginCallback() {
     const handleAuth = async () => {
       try {
         switch (driver) {
-          case "clerk": {
+          case AUTH_DRIVERS.CLERK: {
             if (!session) return;
 
             // Get the session token from Clerk

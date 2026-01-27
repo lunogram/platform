@@ -235,6 +235,11 @@ export type AuditFields = "created_at" | "updated_at" | "deleted_at";
 
 export type AuthDriver = "basic" | "clerk";
 
+export const AUTH_DRIVERS = {
+  BASIC: "basic" as const,
+  CLERK: "clerk" as const,
+};
+
 export const organizationRoles = ["member", "admin", "owner"] as const;
 
 export type OrganizationRole = (typeof organizationRoles)[number];

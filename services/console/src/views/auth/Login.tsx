@@ -6,7 +6,7 @@ import { Loader2, Mail, Lock, ArrowLeft } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 import api from "../../api";
-import type { AuthDriver } from "../../types";
+import { type AuthDriver, AUTH_DRIVERS } from "../../types";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,12 +32,10 @@ interface LoginFormValues {
   password: string;
 }
 
-const SUPPORTED_DRIVERS: AuthDriver[] = ["basic", "clerk"];
-
-const DRIVER_TRANSLATION_KEYS: Record<AuthDriver, string> = {
-  basic: "auth_driver_basic",
-  clerk: "auth_driver_clerk",
-};
+const SUPPORTED_DRIVERS: AuthDriver[] = [
+  AUTH_DRIVERS.BASIC,
+  AUTH_DRIVERS.CLERK,
+];
 
 export default function Login() {
   const { t } = useTranslation();
@@ -56,10 +54,8 @@ export default function Login() {
   });
 
   const handleSelectDriver = useCallback((driver: AuthDriver) => {
-    if (SUPPORTED_DRIVERS.includes(driver)) {
-      setSelectedDriver(driver);
-      setError(undefined);
-    }
+    setSelectedDriver(driver);
+    setError(undefined);
   }, []);
 
   const handleBasicAuth = async (data: LoginFormValues) => {
@@ -146,14 +142,14 @@ export default function Login() {
                   className="w-full"
                   onClick={() => handleSelectDriver(driver)}
                 >
-                  {t(DRIVER_TRANSLATION_KEYS[driver])}
+                  {t(`auth_driver_${driver}`)}
                 </Button>
               ))}
             </div>
           )}
 
           {/* Basic auth - email/password form */}
-          {selectedDriver === "basic" && (
+          {selectedDriver === AUTH_DRIVERS.BASIC && (
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(handleBasicAuth)}
@@ -227,7 +223,7 @@ export default function Login() {
           )}
 
           {/* Clerk auth - Clerk's SignIn component */}
-          {selectedDriver === "clerk" && (
+          {selectedDriver === AUTH_DRIVERS.CLERK && (
             <div className="space-y-4">
               <SignIn
                 forceRedirectUrl={`/login/clerk/callback?r=${redirect}`}
