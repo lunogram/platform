@@ -75,7 +75,8 @@ export default function Login() {
         data.password,
         searchParams.get("r") ?? "/",
       );
-    } catch {
+    } catch (err) {
+      console.error("Basic auth failed:", err);
       setError(t("login_invalid_credentials"));
     } finally {
       setIsSubmitting(false);
