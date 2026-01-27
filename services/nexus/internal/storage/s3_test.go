@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/pkg/container"
+	"github.com/lunogram/platform/services/nexus/internal/container"
 	"github.com/stretchr/testify/require"
 )
 

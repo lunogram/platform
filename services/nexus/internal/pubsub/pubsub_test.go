@@ -7,8 +7,8 @@ import (
 
 	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/pkg/container"
 	"github.com/lunogram/platform/services/nexus/internal/config"
+	"github.com/lunogram/platform/services/nexus/internal/container"
 	"github.com/lunogram/platform/services/nexus/internal/pubsub/schemas"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"

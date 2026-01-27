@@ -1,13 +1,23 @@
 package http
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net"
+	"net/http"
+	"os"
 	"regexp"
+	"time"
 
+	"github.com/cloudproud/graceful"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/nyaruka/phonenumbers"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$")
@@ -36,4 +46,80 @@ func init() {
 
 		return nil
 	}))
+}
+
+type ResponseWriter = http.ResponseWriter
+
+// FileServer to serve static files eg public swagger ui
+var FileServer = http.FileServer
+
+// FS Filesystem of static files
+var FS = http.FS
+
+// Config holds the configuration for the http server.
+type Config struct {
+	// ReadHeaderTimeout is the maximum duration for reading the request header.
+	ReadHeaderTimeout time.Duration `env:"READ_HEADER_TIMEOUT" envDefault:"5s"`
+	// ReadTimeout is the maximum duration for reading the entire request, including the body.
+	ReadTimeout time.Duration `env:"READ_TIMEOUT" envDefault:"5s"`
+	// IdleTimeout is the maximum amount of time to wait for the next request when keep-alives are enabled.
+	IdleTimeout time.Duration `env:"IDLE_TIMEOUT" envDefault:"5s"`
+	// WriteTimeout is the maximum duration before timing out writes of the response.
+	WriteTimeout time.Duration `env:"WRITE_TIMEOUT" envDefault:"10s"`
+	// MaxHeaderBytes controls the maximum number of bytes the server will read parsing the request header's keys and values, including the request line.
+	MaxHeaderBytes int `env:"MAX_HEADER_BYTES" envDefault:"1048576"`
+}
+
+// NewServer creates a new http *Server with the given logger. A trace handler
+// will be wrapped around the provided handler.
+func NewServer(logger *zap.Logger, handler http.Handler, config Config) *Server {
+	stdLogger, err := zap.NewStdLogAt(logger, zapcore.ErrorLevel)
+	if err != nil {
+		logger.Error("failed to inject logger. fallback to std log", zap.Error(err))
+		stdLogger = slog.NewLogLogger(slog.NewJSONHandler(os.Stderr, nil), slog.LevelError)
+	}
+
+	return &Server{
+		logger: logger,
+		Server: &http.Server{
+			ReadHeaderTimeout: config.ReadHeaderTimeout,
+			ReadTimeout:       config.ReadTimeout,
+			IdleTimeout:       config.IdleTimeout,
+			WriteTimeout:      config.WriteTimeout,
+			MaxHeaderBytes:    config.MaxHeaderBytes,
+			ErrorLog:          stdLogger,
+			Handler:           otelhttp.NewHandler(handler, "http-server"),
+		},
+	}
+}
+
+// Server wraps the http.Server with a logger and custom Serve method
+type Server struct {
+	logger *zap.Logger
+	*http.Server
+}
+
+// Serve starts the http server on the given address and listens for incoming connections.
+// The server will gracefully shutdown when the provided context is closed.
+func (srv *Server) Serve(ctx graceful.Context, address string) {
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		srv.logger.Fatal("failed to establish HTTP connection, shutting down...", zap.Error(err))
+		ctx.Shutdown()
+	}
+
+	go ctx.Closer(func() {
+		srv.logger.Info("received close signal, http server shutting down")
+		if err = srv.Shutdown(ctx); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
+			srv.logger.Debug("failed to shutdown http server", zap.Error(err))
+		}
+	})
+
+	srv.logger.Info("serving incoming http connections", zap.Stringer("address", listener.Addr()))
+
+	err = srv.Server.Serve(listener)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		srv.logger.Fatal("failure serving http connections, http server shutting down", zap.Error(err))
+		ctx.Shutdown()
+	}
 }
