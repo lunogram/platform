@@ -80,7 +80,7 @@ func (p *ClerkProvider) Validate(ctx context.Context, r *http.Request) (*store.A
 }
 
 // createAdminFromSubject creates a new admin when one doesn't exist
-func (p *ClerkProvider) createAdminFromSubject(ctx context.Context, subject string, r *http.Request) (*store.Admin, error) {
+func (p *ClerkProvider) createAdminFromSubject(ctx context.Context, subject string, r *http.Request) (_ *store.Admin, err error) {
 	var reqBody struct {
 		Email     string `json:"email"`
 		FirstName string `json:"first_name"`
@@ -89,22 +89,26 @@ func (p *ClerkProvider) createAdminFromSubject(ctx context.Context, subject stri
 	}
 
 	if r.Body != nil {
-		body, _ := io.ReadAll(r.Body)
-		json.Unmarshal(body, &reqBody)
-	}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			return nil, err
+		}
 
-	orgID, err := p.stores.CreateOrganization(ctx, "Default Organization")
-	if err != nil {
-		return nil, err
+		err = json.Unmarshal(body, &reqBody)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	externalID := subject
 
 	admin := store.Admin{
-		OrganizationID: orgID,
-		ExternalID:     &externalID,
-		Email:          reqBody.Email,
-		Role:           "owner",
+		Email: reqBody.Email,
+		Role:  "owner",
+	}
+
+	admin.ExternalID = &subject
+	admin.OrganizationID, err = p.stores.CreateOrganization(ctx, "Default Organization")
+	if err != nil {
+		return nil, err
 	}
 
 	if reqBody.FirstName != "" {
@@ -117,12 +121,11 @@ func (p *ClerkProvider) createAdminFromSubject(ctx context.Context, subject stri
 		admin.ImageURL = &reqBody.ImageURL
 	}
 
-	adminID, err := p.stores.CreateAdmin(ctx, admin)
+	admin.ID, err = p.stores.CreateAdmin(ctx, admin)
 	if err != nil {
 		return nil, err
 	}
 
-	admin.ID = adminID
 	return &admin, nil
 }
 

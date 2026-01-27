@@ -2,11 +2,11 @@ package v1
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/pkg/http/json"
 	"github.com/lunogram/platform/pkg/http/problem"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/http/auth"
@@ -63,9 +63,7 @@ type AuthController struct {
 }
 
 func (c *AuthController) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode([]string{c.driver})
+	json.Write(w, http.StatusOK, []string{c.driver})
 }
 
 func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, driver oapi.AuthCallbackParamsDriver) {
@@ -88,11 +86,13 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 		return
 	}
 
-	c.setOAuthCookie(w, r, token, expiresAt)
+	if err := c.setOAuthCookie(w, r, token, expiresAt); err != nil {
+		c.logger.Error("failed to set oauth cookie", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to set authentication cookie")))
+		return
+	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(oapi.AuthResponse{
+	json.Write(w, http.StatusOK, oapi.AuthResponse{
 		AccessToken: token,
 		ExpiresAt:   expiresAt,
 	})
@@ -134,13 +134,16 @@ func (c *AuthController) writeAuthError(w http.ResponseWriter, err error) {
 	}
 }
 
-func (c *AuthController) setOAuthCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) {
+func (c *AuthController) setOAuthCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) error {
 	oauthData := OAuthCookieData{
 		AccessToken: token,
 		ExpiresAt:   expiresAt,
 	}
 
-	value, _ := json.Marshal(oauthData) //nolint:errcheck
+	value, err := json.Marshal(oauthData)
+	if err != nil {
+		return err
+	}
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth",
@@ -151,4 +154,6 @@ func (c *AuthController) setOAuthCookie(w http.ResponseWriter, r *http.Request, 
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteLaxMode,
 	})
+
+	return nil
 }
