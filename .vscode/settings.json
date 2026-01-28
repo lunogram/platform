@@ -1,6 +1,3 @@
 {
-    "eslint.workingDirectories": [
-        "./services/console",
-        "./services/platform"
-    ]
+  "eslint.workingDirectories": ["./services/console"],
 }
