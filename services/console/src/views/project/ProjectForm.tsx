@@ -284,7 +284,6 @@ export function ProjectSettings({ form }: { form: UseFormReturn<Project> }) {
                             id="link_wrap_email"
                             checked={!!field.value}
                             onCheckedChange={field.onChange}
-                            className="scale-125 data-[state=checked]:bg-[var(--color-green)]"
                         />
                     )}
                 />
@@ -307,7 +306,6 @@ export function ProjectSettings({ form }: { form: UseFormReturn<Project> }) {
                             id="link_wrap_push"
                             checked={!!field.value}
                             onCheckedChange={field.onChange}
-                            className="scale-125 data-[state=checked]:bg-[var(--color-green)]"
                         />
                     )}
                 />
