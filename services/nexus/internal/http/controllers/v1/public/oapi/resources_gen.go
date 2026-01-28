@@ -90,11 +90,26 @@ type User struct {
 // Error defines model for Error.
 type Error = Problem
 
+// UpdatePreferencesFormdataBody defines parameters for UpdatePreferences.
+type UpdatePreferencesFormdataBody struct {
+	// SubscriptionIds Array of subscription IDs to keep subscribed
+	SubscriptionIds *[]openapi_types.UUID `form:"subscriptionIds,omitempty" json:"subscriptionIds,omitempty"`
+}
+
+// EmailUnsubscribeParams defines parameters for EmailUnsubscribe.
+type EmailUnsubscribeParams struct {
+	// Link Encoded unsubscribe link with user and campaign data
+	Link string `form:"link" json:"link"`
+}
+
 // PostEventsJSONRequestBody defines body for PostEvents for application/json ContentType.
 type PostEventsJSONRequestBody = PostEventsRequest
 
 // IdentifyUserJSONRequestBody defines body for IdentifyUser for application/json ContentType.
 type IdentifyUserJSONRequestBody = IdentifyRequest
+
+// UpdatePreferencesFormdataRequestBody defines body for UpdatePreferences for application/x-www-form-urlencoded ContentType.
+type UpdatePreferencesFormdataRequestBody UpdatePreferencesFormdataBody
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -178,6 +193,17 @@ type ClientInterface interface {
 	IdentifyUserWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	IdentifyUser(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPreferencesPage request
+	GetPreferencesPage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdatePreferencesWithBody request with any body
+	UpdatePreferencesWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdatePreferencesWithFormdataBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdatePreferencesFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EmailUnsubscribe request
+	EmailUnsubscribe(ctx context.Context, params *EmailUnsubscribeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) PostEventsWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -218,6 +244,54 @@ func (c *Client) IdentifyUserWithBody(ctx context.Context, projectID openapi_typ
 
 func (c *Client) IdentifyUser(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewIdentifyUserRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPreferencesPage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPreferencesPageRequest(c.Server, projectID, userID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdatePreferencesWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePreferencesRequestWithBody(c.Server, projectID, userID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdatePreferencesWithFormdataBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdatePreferencesFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePreferencesRequestWithFormdataBody(c.Server, projectID, userID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) EmailUnsubscribe(ctx context.Context, params *EmailUnsubscribeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEmailUnsubscribeRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -322,6 +396,146 @@ func NewIdentifyUserRequestWithBody(server string, projectID openapi_types.UUID,
 	return req, nil
 }
 
+// NewGetPreferencesPageRequest generates requests for GetPreferencesPage
+func NewGetPreferencesPageRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/preferences/%s/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdatePreferencesRequestWithFormdataBody calls the generic UpdatePreferences builder with application/x-www-form-urlencoded body
+func NewUpdatePreferencesRequestWithFormdataBody(server string, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdatePreferencesFormdataRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyStr, err := runtime.MarshalForm(body, nil)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = strings.NewReader(bodyStr.Encode())
+	return NewUpdatePreferencesRequestWithBody(server, projectID, userID, "application/x-www-form-urlencoded", bodyReader)
+}
+
+// NewUpdatePreferencesRequestWithBody generates requests for UpdatePreferences with any type of body
+func NewUpdatePreferencesRequestWithBody(server string, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/preferences/%s/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEmailUnsubscribeRequest generates requests for EmailUnsubscribe
+func NewEmailUnsubscribeRequest(server string, params *EmailUnsubscribeParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/unsubscribe/email")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "link", runtime.ParamLocationQuery, params.Link); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -374,6 +588,17 @@ type ClientWithResponsesInterface interface {
 	IdentifyUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error)
 
 	IdentifyUserWithResponse(ctx context.Context, projectID openapi_types.UUID, body IdentifyUserJSONRequestBody, reqEditors ...RequestEditorFn) (*IdentifyUserResponse, error)
+
+	// GetPreferencesPageWithResponse request
+	GetPreferencesPageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetPreferencesPageResponse, error)
+
+	// UpdatePreferencesWithBodyWithResponse request with any body
+	UpdatePreferencesWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePreferencesResponse, error)
+
+	UpdatePreferencesWithFormdataBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdatePreferencesFormdataRequestBody, reqEditors ...RequestEditorFn) (*UpdatePreferencesResponse, error)
+
+	// EmailUnsubscribeWithResponse request
+	EmailUnsubscribeWithResponse(ctx context.Context, params *EmailUnsubscribeParams, reqEditors ...RequestEditorFn) (*EmailUnsubscribeResponse, error)
 }
 
 type PostEventsResponse struct {
@@ -421,6 +646,69 @@ func (r IdentifyUserResponse) StatusCode() int {
 	return 0
 }
 
+type GetPreferencesPageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPreferencesPageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPreferencesPageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdatePreferencesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdatePreferencesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdatePreferencesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type EmailUnsubscribeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r EmailUnsubscribeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EmailUnsubscribeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // PostEventsWithBodyWithResponse request with arbitrary body returning *PostEventsResponse
 func (c *ClientWithResponses) PostEventsWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostEventsResponse, error) {
 	rsp, err := c.PostEventsWithBody(ctx, projectID, contentType, body, reqEditors...)
@@ -453,6 +741,41 @@ func (c *ClientWithResponses) IdentifyUserWithResponse(ctx context.Context, proj
 		return nil, err
 	}
 	return ParseIdentifyUserResponse(rsp)
+}
+
+// GetPreferencesPageWithResponse request returning *GetPreferencesPageResponse
+func (c *ClientWithResponses) GetPreferencesPageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetPreferencesPageResponse, error) {
+	rsp, err := c.GetPreferencesPage(ctx, projectID, userID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPreferencesPageResponse(rsp)
+}
+
+// UpdatePreferencesWithBodyWithResponse request with arbitrary body returning *UpdatePreferencesResponse
+func (c *ClientWithResponses) UpdatePreferencesWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePreferencesResponse, error) {
+	rsp, err := c.UpdatePreferencesWithBody(ctx, projectID, userID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePreferencesResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdatePreferencesWithFormdataBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdatePreferencesFormdataRequestBody, reqEditors ...RequestEditorFn) (*UpdatePreferencesResponse, error) {
+	rsp, err := c.UpdatePreferencesWithFormdataBody(ctx, projectID, userID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePreferencesResponse(rsp)
+}
+
+// EmailUnsubscribeWithResponse request returning *EmailUnsubscribeResponse
+func (c *ClientWithResponses) EmailUnsubscribeWithResponse(ctx context.Context, params *EmailUnsubscribeParams, reqEditors ...RequestEditorFn) (*EmailUnsubscribeResponse, error) {
+	rsp, err := c.EmailUnsubscribe(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEmailUnsubscribeResponse(rsp)
 }
 
 // ParsePostEventsResponse parses an HTTP response from a PostEventsWithResponse call
@@ -514,6 +837,54 @@ func ParseIdentifyUserResponse(rsp *http.Response) (*IdentifyUserResponse, error
 	return response, nil
 }
 
+// ParseGetPreferencesPageResponse parses an HTTP response from a GetPreferencesPageWithResponse call
+func ParseGetPreferencesPageResponse(rsp *http.Response) (*GetPreferencesPageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPreferencesPageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseUpdatePreferencesResponse parses an HTTP response from a UpdatePreferencesWithResponse call
+func ParseUpdatePreferencesResponse(rsp *http.Response) (*UpdatePreferencesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdatePreferencesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseEmailUnsubscribeResponse parses an HTTP response from a EmailUnsubscribeWithResponse call
+func ParseEmailUnsubscribeResponse(rsp *http.Response) (*EmailUnsubscribeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EmailUnsubscribeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Post events
@@ -522,6 +893,15 @@ type ServerInterface interface {
 	// Identify user
 	// (POST /api/client/projects/{projectID}/identify)
 	IdentifyUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Subscription preferences page
+	// (GET /preferences/{projectID}/{userID})
+	GetPreferencesPage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Update subscription preferences
+	// (POST /preferences/{projectID}/{userID})
+	UpdatePreferences(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Email unsubscribe page
+	// (GET /unsubscribe/email)
+	EmailUnsubscribe(w http.ResponseWriter, r *http.Request, params EmailUnsubscribeParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -537,6 +917,24 @@ func (_ Unimplemented) PostEvents(w http.ResponseWriter, r *http.Request, projec
 // Identify user
 // (POST /api/client/projects/{projectID}/identify)
 func (_ Unimplemented) IdentifyUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Subscription preferences page
+// (GET /preferences/{projectID}/{userID})
+func (_ Unimplemented) GetPreferencesPage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update subscription preferences
+// (POST /preferences/{projectID}/{userID})
+func (_ Unimplemented) UpdatePreferences(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Email unsubscribe page
+// (GET /unsubscribe/email)
+func (_ Unimplemented) EmailUnsubscribe(w http.ResponseWriter, r *http.Request, params EmailUnsubscribeParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -602,6 +1000,108 @@ func (siw *ServerInterfaceWrapper) IdentifyUser(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.IdentifyUser(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPreferencesPage operation middleware
+func (siw *ServerInterfaceWrapper) GetPreferencesPage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPreferencesPage(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePreferences operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePreferences(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EmailUnsubscribe operation middleware
+func (siw *ServerInterfaceWrapper) EmailUnsubscribe(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EmailUnsubscribeParams
+
+	// ------------- Required query parameter "link" -------------
+
+	if paramValue := r.URL.Query().Get("link"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "link"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "link", r.URL.Query(), &params.Link)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "link", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EmailUnsubscribe(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -729,6 +1229,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/client/projects/{projectID}/identify", wrapper.IdentifyUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/preferences/{projectID}/{userID}", wrapper.GetPreferencesPage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/preferences/{projectID}/{userID}", wrapper.UpdatePreferences)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/unsubscribe/email", wrapper.EmailUnsubscribe)
 	})
 
 	return r

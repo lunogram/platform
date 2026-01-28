@@ -1983,6 +1983,136 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/subscriptions:
+    get:
+      summary: List subscriptions
+      description: Retrieves a list of subscription types for a project
+      operationId: listSubscriptions
+      tags:
+        - Subscriptions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          $ref: "#/components/responses/SubscriptionListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      summary: Create subscription type
+      description: Creates a new subscription type
+      operationId: createSubscription
+      tags:
+        - Subscriptions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubscription"
+      responses:
+        "201":
+          description: Subscription type created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subscriptions/{subscriptionID}:
+    get:
+      summary: Get subscription by ID
+      description: Retrieves a specific subscription type
+      operationId: getSubscription
+      tags:
+        - Subscriptions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: subscriptionID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The subscription ID
+      responses:
+        "200":
+          description: Subscription type retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        default:
+          $ref: "#/components/responses/Error"
+
+    patch:
+      summary: Update subscription type
+      description: Updates a specific subscription type
+      operationId: updateSubscription
+      tags:
+        - Subscriptions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: subscriptionID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The subscription ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSubscription"
+      responses:
+        "200":
+          description: Subscription type updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/locales:
     get:
       summary: List locales
@@ -2768,6 +2898,22 @@ components:
                     type: array
                     items:
                       $ref: "#/components/schemas/Tag"
+
+    SubscriptionListResponse:
+      description: Subscriptions retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/PaginatedResponse"
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Subscription"
 
     DocumentListResponse:
       description: Documents retrieved successfully
@@ -4386,6 +4532,72 @@ components:
         name:
           type: string
           example: "updated-tag-name"
+
+    Subscription:
+      type: object
+      required:
+        - id
+        - project_id
+        - name
+        - channel
+        - is_public
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        name:
+          type: string
+          example: "Marketing Newsletter"
+        channel:
+          $ref: "#/components/schemas/Channel"
+        is_public:
+          type: boolean
+          example: true
+          description: Whether users can manage this subscription in preferences
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    CreateSubscription:
+      type: object
+      required:
+        - name
+        - channel
+      properties:
+        name:
+          type: string
+          example: "Product Updates"
+        channel:
+          $ref: "#/components/schemas/Channel"
+        is_public:
+          type: boolean
+          example: true
+          description: Whether users can manage this subscription in preferences
+
+    UpdateSubscription:
+      type: object
+      required:
+        - name
+        - is_public
+      properties:
+        name:
+          type: string
+          example: "Updated Subscription Name"
+        is_public:
+          type: boolean
+          example: false
 
     Locale:
       type: object
