@@ -50,10 +50,6 @@ paths:
       responses:
         "200":
           description: Authentication successful
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResponse"
         default:
           $ref: "#/components/responses/Error"
 
@@ -4670,22 +4666,6 @@ components:
           type: string
           description: URL to redirect after successful auth
           example: "/"
-
-    AuthResponse:
-      type: object
-      required:
-        - access_token
-        - expires_at
-      properties:
-        access_token:
-          type: string
-          description: JWT access token
-          example: "eyJhbGciOiJIUzI1NiIs..."
-        expires_at:
-          type: string
-          format: date-time
-          description: Token expiration time
-          example: "2024-01-15T12:00:00Z"
 
   securitySchemes:
     HttpBearerAuth:

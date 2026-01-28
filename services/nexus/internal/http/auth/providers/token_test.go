@@ -38,7 +38,7 @@ func TestHMACJWTGeneratorGenerate(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			generator := NewJWTGeneratorWithSecret(tc.secret, tc.tokenLife)
+			generator := NewHMACJWTGenerator(tc.secret, tc.tokenLife)
 
 			token, expiresAt, err := generator.Generate(tc.adminID)
 			require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestHMACJWTGeneratorTokenLife(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			generator := NewJWTGeneratorWithSecret("secret", tc.inputLife)
+			generator := NewHMACJWTGenerator("secret", tc.inputLife)
 			require.Equal(t, tc.expectedLife, generator.TokenLife())
 		})
 	}
@@ -96,7 +96,7 @@ func TestHMACJWTGeneratorTokenValidation(t *testing.T) {
 	t.Parallel()
 
 	secret := "test-secret-key"
-	generator := NewJWTGeneratorWithSecret(secret, time.Hour)
+	generator := NewHMACJWTGenerator(secret, time.Hour)
 	adminID := uuid.New()
 
 	token, _, err := generator.Generate(adminID)
@@ -122,7 +122,7 @@ func TestHMACJWTGeneratorKeyfunc(t *testing.T) {
 	t.Parallel()
 
 	secret := "test-secret"
-	generator := NewJWTGeneratorWithSecret(secret, time.Hour)
+	generator := NewHMACJWTGenerator(secret, time.Hour)
 	adminID := uuid.New()
 
 	token, _, err := generator.Generate(adminID)
@@ -136,7 +136,7 @@ func TestHMACJWTGeneratorKeyfunc(t *testing.T) {
 func TestHMACJWTGeneratorMultipleTokens(t *testing.T) {
 	t.Parallel()
 
-	generator := NewJWTGeneratorWithSecret("secret", time.Hour)
+	generator := NewHMACJWTGenerator("secret", time.Hour)
 
 	adminID1 := uuid.New()
 	adminID2 := uuid.New()
@@ -159,7 +159,7 @@ func TestHMACJWTGeneratorMultipleTokens(t *testing.T) {
 func TestHMACJWTGeneratorClaimsTimestamps(t *testing.T) {
 	t.Parallel()
 
-	generator := NewJWTGeneratorWithSecret("secret", time.Hour)
+	generator := NewHMACJWTGenerator("secret", time.Hour)
 	adminID := uuid.New()
 
 	beforeGeneration := time.Now()

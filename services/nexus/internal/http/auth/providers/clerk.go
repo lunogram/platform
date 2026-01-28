@@ -8,6 +8,8 @@ import (
 	"net/http"
 
 	"github.com/clerk/clerk-sdk-go/v2"
+	"github.com/clerk/clerk-sdk-go/v2/user"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/http/auth"
 	"github.com/lunogram/platform/services/nexus/internal/store"
@@ -21,16 +23,20 @@ type ClerkProvider struct {
 	stores        *store.State
 	webhookClient *svix.Webhook
 	logger        *zap.Logger
-	jwtHandler    auth.Handler
+	users         *user.Client
+	keyFunc       jwt.Keyfunc
 }
 
 // NewClerkProvider creates a new Clerk auth provider
-func NewClerkProvider(cfg config.ClerkAuth, stores *store.State, logger *zap.Logger, jwtHandler auth.Handler) (_ *ClerkProvider, err error) {
+func NewClerkProvider(cfg config.ClerkAuth, stores *store.State, logger *zap.Logger, keyFunc jwt.Keyfunc) (_ *ClerkProvider, err error) {
+	clerk.SetKey(cfg.SecretKey)
+
 	provider := &ClerkProvider{
-		config:     cfg,
-		stores:     stores,
-		logger:     logger,
-		jwtHandler: jwtHandler,
+		config:  cfg,
+		stores:  stores,
+		logger:  logger,
+		users:   user.NewClient(&clerk.ClientConfig{}),
+		keyFunc: keyFunc,
 	}
 
 	if cfg.WebhookSecret != "" {
@@ -48,85 +54,53 @@ func (p *ClerkProvider) Driver() string {
 	return "clerk"
 }
 
-// Validate validates the Clerk JWT token and creates/retrieves admin
-func (p *ClerkProvider) Validate(ctx context.Context, r *http.Request) (*store.Admin, error) {
-	token := auth.RetrieveAuthToken(r)
-	if token == "" {
-		return nil, ErrNoToken
+func (p *ClerkProvider) Authenticate(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, error) {
+	session := auth.GetSession(r)
+	if session == "" {
+		return ctx, ErrNoSession
 	}
 
-	validatedCtx, err := p.jwtHandler(ctx, token)
+	claims := jwt.RegisteredClaims{}
+	token, err := jwt.ParseWithClaims(session, &claims, p.keyFunc, jwt.WithValidMethods([]string{"RS256", "HS256"}))
 	if err != nil {
-		p.logger.Error("failed to verify clerk token", zap.Error(err))
-		return nil, ErrInvalidToken
+		return ctx, err
 	}
 
-	claims, err := auth.ParseTokenClaims(token)
-	if err != nil {
-		return nil, ErrInvalidToken
+	if !token.Valid {
+		return ctx, ErrInvalidToken
 	}
 
-	subject := claims.Subject()
-	if subject == "" {
-		return nil, ErrInvalidToken
-	}
-
-	admin, err := p.stores.GetAdminByExternalID(validatedCtx, subject)
+	admin, err := p.stores.GetAdminByExternalID(ctx, claims.Subject)
 	if err == nil && admin != nil {
-		return admin, nil
+		return ctx, nil
 	}
 
-	return p.createAdminFromSubject(validatedCtx, subject, r)
-}
-
-// createAdminFromSubject creates a new admin when one doesn't exist
-func (p *ClerkProvider) createAdminFromSubject(ctx context.Context, subject string, r *http.Request) (_ *store.Admin, err error) {
-	var reqBody struct {
-		Email     string `json:"email"`
-		FirstName string `json:"first_name"`
-		LastName  string `json:"last_name"`
-		ImageURL  string `json:"image_url"`
+	if err != nil {
+		return nil, err
 	}
 
-	if r.Body != nil {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal(body, &reqBody)
-		if err != nil {
-			return nil, err
-		}
+	user, err := p.users.Get(ctx, claims.Subject)
+	if err != nil {
+		return nil, err
 	}
 
-	admin := store.Admin{
-		Email: reqBody.Email,
+	admin = &store.Admin{
+		Email: p.getPrimaryEmail(*user),
 		Role:  "owner",
 	}
 
-	admin.ExternalID = &subject
+	admin.ExternalID = &claims.Subject
 	admin.OrganizationID, err = p.stores.CreateOrganization(ctx, "Default Organization")
 	if err != nil {
 		return nil, err
 	}
 
-	if reqBody.FirstName != "" {
-		admin.FirstName = &reqBody.FirstName
-	}
-	if reqBody.LastName != "" {
-		admin.LastName = &reqBody.LastName
-	}
-	if reqBody.ImageURL != "" {
-		admin.ImageURL = &reqBody.ImageURL
-	}
-
-	admin.ID, err = p.stores.CreateAdmin(ctx, admin)
+	admin.ID, err = p.stores.CreateAdmin(ctx, *admin)
 	if err != nil {
 		return nil, err
 	}
 
-	return &admin, nil
+	return ctx, nil
 }
 
 // clerkWebhookEvent represents a Clerk webhook event

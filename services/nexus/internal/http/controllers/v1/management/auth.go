@@ -1,13 +1,10 @@
 package v1
 
 import (
-	"encoding/base64"
 	"net/http"
-	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/services/nexus/internal/config"
-	"github.com/lunogram/platform/services/nexus/internal/http/auth"
 	"github.com/lunogram/platform/services/nexus/internal/http/auth/providers"
 	"github.com/lunogram/platform/services/nexus/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/services/nexus/internal/http/json"
@@ -16,101 +13,57 @@ import (
 	"go.uber.org/zap"
 )
 
-// SessionCookieData represents the data stored in the OAuth cookie
-type SessionCookieData struct {
-	AccessToken string    `json:"access_token"`
-	ExpiresAt   time.Time `json:"expires_at"`
-}
-
 func NewAuthController(logger *zap.Logger, db *sqlx.DB, cfg config.Node) (*AuthController, error) {
 	stores := store.NewState(db)
-	tokenGen := providers.NewJWTGeneratorWithSecret(cfg.Auth.JWTSecret, cfg.Auth.TokenLife)
 
-	driver := cfg.Auth.Driver
-	if driver == "" {
-		return nil, providers.ErrUnknownDriver
-	}
-
-	provider, err := NewProvider(driver, cfg, stores, logger)
+	provider, err := providers.NewProvider(cfg.Auth, stores, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &AuthController{
 		logger:   logger,
-		driver:   driver,
 		provider: provider,
-		tokenGen: tokenGen,
 	}, nil
-}
-
-func NewProvider(driver string, cfg config.Node, stores *store.State, logger *zap.Logger) (providers.Provider, error) {
-	switch driver {
-	case "basic":
-		return providers.NewBasicProvider(cfg.Auth.Basic, stores), nil
-	case "clerk":
-		return providers.NewClerkProvider(cfg.Auth.Clerk, stores, logger, auth.WithJWT(cfg.Auth, stores))
-	default:
-		return nil, providers.ErrUnknownDriver
-	}
 }
 
 type AuthController struct {
 	logger   *zap.Logger
-	driver   string
 	provider providers.Provider
 	tokenGen *providers.HMACJWTGenerator
 }
 
 func (c *AuthController) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
-	json.Write(w, http.StatusOK, []string{c.driver})
+	json.Write(w, http.StatusOK, []string{c.provider.Driver()})
 }
 
 func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, driver oapi.AuthCallbackParamsDriver) {
-	if string(driver) != c.driver {
+	if string(driver) != c.provider.Driver() {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("auth driver not found")))
 		return
 	}
 
-	admin, err := c.provider.Validate(r.Context(), r)
+	ctx := r.Context()
+	ctx, err := c.provider.Authenticate(ctx, w, r)
 	if err != nil {
 		c.logger.Error("auth validation failed", zap.String("driver", string(driver)), zap.Error(err))
 		c.writeAuthError(w, err)
 		return
 	}
 
-	token, expiresAt, err := c.tokenGen.Generate(admin.ID)
-	if err != nil {
-		c.logger.Error("failed to generate token", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to generate authentication token")))
-		return
-	}
-
-	err = c.setSessionCookie(w, r, token, expiresAt)
-	if err != nil {
-		c.logger.Error("failed to set oauth cookie", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to set authentication cookie")))
-		return
-	}
-
-	json.Write(w, http.StatusOK, oapi.AuthResponse{
-		AccessToken: token,
-		ExpiresAt:   expiresAt,
-	})
+	w.WriteHeader(http.StatusOK)
 }
 
 func (c *AuthController) AuthWebhook(w http.ResponseWriter, r *http.Request, driver oapi.AuthWebhookParamsDriver) {
-	if string(driver) != c.driver {
+	if string(driver) != c.provider.Driver() {
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("auth driver not found")))
 		return
 	}
 
-	if err := c.provider.Webhook(r.Context(), r); err != nil {
+	ctx := r.Context()
+	err := c.provider.Webhook(ctx, r)
+	if err != nil {
 		c.logger.Error("webhook processing failed", zap.String("driver", string(driver)), zap.Error(err))
-		if err == providers.ErrWebhookDenied {
-			oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("webhook signature verification failed")))
-			return
-		}
 		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("webhook processing failed")))
 		return
 	}
@@ -124,7 +77,7 @@ func (c *AuthController) writeAuthError(w http.ResponseWriter, err error) {
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("email and password are required")))
 	case providers.ErrInvalidCredentials:
 		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("invalid email or password")))
-	case providers.ErrNoToken:
+	case providers.ErrNoSession:
 		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("authentication token required")))
 	case providers.ErrInvalidToken:
 		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("invalid authentication token")))
@@ -133,28 +86,4 @@ func (c *AuthController) writeAuthError(w http.ResponseWriter, err error) {
 	default:
 		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("authentication failed")))
 	}
-}
-
-func (c *AuthController) setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) error {
-	sessionData := SessionCookieData{
-		AccessToken: token,
-		ExpiresAt:   expiresAt,
-	}
-
-	value, err := json.Marshal(sessionData)
-	if err != nil {
-		return err
-	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "oauth",
-		Value:    base64.StdEncoding.EncodeToString(value),
-		Path:     "/",
-		Expires:  expiresAt,
-		HttpOnly: true,
-		Secure:   r.TLS != nil,
-		SameSite: http.SameSiteLaxMode,
-	})
-
-	return nil
 }

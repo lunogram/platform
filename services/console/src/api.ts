@@ -81,7 +81,8 @@ export const client = Axios.create({
 client.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response.status === 401) {
+    const isLoginPage = window.location.pathname.startsWith("/login");
+    if (error.response.status === 401 && !isLoginPage) {
       api.auth.login();
     }
     throw error;
@@ -187,13 +188,8 @@ const api = {
   auth: {
     methods: async () =>
       await client.get<AuthDriver[]>("/auth/methods").then((r) => r.data),
-    basicAuth: async (
-      email: string,
-      password: string,
-      redirect: string = "/",
-    ) => {
+    basicAuth: async (email: string, password: string) => {
       await client.post("/auth/login/basic/callback", { email, password });
-      window.location.href = redirect;
     },
     clerkAuth: async (token: string, redirect: string = "/") => {
       await client.post(

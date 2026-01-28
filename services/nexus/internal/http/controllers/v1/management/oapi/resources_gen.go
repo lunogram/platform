@@ -179,15 +179,6 @@ type AuthCallbackRequest struct {
 	Redirect *string `json:"redirect,omitempty"`
 }
 
-// AuthResponse defines model for AuthResponse.
-type AuthResponse struct {
-	// AccessToken JWT access token
-	AccessToken string `json:"access_token"`
-
-	// ExpiresAt Token expiration time
-	ExpiresAt time.Time `json:"expires_at"`
-}
-
 // Campaign defines model for Campaign.
 type Campaign struct {
 	// Channel Communication channel type
@@ -9390,7 +9381,6 @@ func (r UpdateUserSubscriptionsResponse) StatusCode() int {
 type AuthCallbackResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AuthResponse
 	JSONDefault  *Error
 }
 
@@ -12974,13 +12964,6 @@ func ParseAuthCallbackResponse(rsp *http.Response) (*AuthCallbackResponse, error
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AuthResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

@@ -13,8 +13,8 @@ type HMACJWTGenerator struct {
 	tokenLife time.Duration
 }
 
-// NewJWTGeneratorWithSecret creates a JWT generator that uses HMAC-SHA256
-func NewJWTGeneratorWithSecret(secret string, tokenLife time.Duration) *HMACJWTGenerator {
+// NewHMACJWTGenerator creates a JWT generator that uses HMAC-SHA256
+func NewHMACJWTGenerator(secret string, tokenLife time.Duration) *HMACJWTGenerator {
 	return &HMACJWTGenerator{
 		secret:    []byte(secret),
 		tokenLife: tokenLife,

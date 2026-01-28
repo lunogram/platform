@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/services/nexus/internal/config"
 	"github.com/lunogram/platform/services/nexus/internal/store"
+	"go.uber.org/zap"
 )
 
 var (
-	ErrNoToken          = errors.New("no authentication token provided")
+	ErrNoSession        = errors.New("no session token provided")
 	ErrInvalidToken     = errors.New("invalid authentication token")
 	ErrInvalidEmail     = errors.New("user has no email address")
 	ErrWebhookDenied    = errors.New("webhook signature verification failed")
@@ -26,15 +28,28 @@ type AuthResult struct {
 	ExpiresAt   time.Time
 }
 
+func NewProvider(cfg config.Auth, stores *store.State, logger *zap.Logger) (Provider, error) {
+	switch cfg.Driver {
+	case "basic":
+		generator := NewHMACJWTGenerator(cfg.JWTSecret, cfg.TokenLife)
+		return NewBasicProvider(cfg.Basic, stores, generator), nil
+	case "clerk":
+		return NewClerkProvider(cfg.Clerk, stores, logger, cfg.JWKS.Unwrap())
+	default:
+		return nil, ErrUnknownDriver
+	}
+}
+
 // Provider defines the interface for authentication providers
 type Provider interface {
-	// Driver returns the driver identifier (e.g., "basic", "clerk")
+	// Driver returns the unique driver identifier
 	Driver() string
 
-	// Validate validates the authentication request and returns admin info
-	// For basic auth: validates email/password
-	// For clerk auth: validates JWT token and creates/retrieves admin
-	Validate(ctx context.Context, r *http.Request) (*store.Admin, error)
+	// Authenticate the authentication credentials from the HTTP request.
+	// It extracts and verifies the token or credentials from the request,
+	// and returns the associated Admin if authentication is successful.
+	// Returns an error if the credentials are missing, invalid, or expired.
+	Authenticate(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, error)
 
 	// Webhook handles webhook callbacks from external auth providers (optional)
 	// Returns nil if the provider doesn't support webhooks
@@ -43,19 +58,5 @@ type Provider interface {
 
 // TokenGenerator generates JWT tokens for authenticated sessions
 type TokenGenerator interface {
-	Generate(adminID uuid.UUID) (token string, expiresAt time.Time, err error)
-}
-
-// AdminStore defines the store operations needed by auth providers
-type AdminStore interface {
-	GetAdminByExternalID(ctx context.Context, externalID string) (*store.Admin, error)
-	GetAdminByEmail(ctx context.Context, email string, organizationID uuid.UUID) (*store.Admin, error)
-	CreateAdmin(ctx context.Context, admin store.Admin) (uuid.UUID, error)
-	UpdateAdmin(ctx context.Context, id uuid.UUID, update store.AdminUpdate) error
-	DeleteAdmin(ctx context.Context, id uuid.UUID) error
-}
-
-// OrganizationStore defines the store operations for organizations
-type OrganizationStore interface {
-	CreateOrganization(ctx context.Context, name string) (uuid.UUID, error)
+	Generate(sub uuid.UUID) (token string, expiresAt time.Time, err error)
 }
