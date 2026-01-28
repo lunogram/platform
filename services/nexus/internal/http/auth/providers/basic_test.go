@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/services/nexus/internal/config"
@@ -19,11 +20,12 @@ import (
 func TestBasicProviderDriver(t *testing.T) {
 	t.Parallel()
 
-	provider := NewBasicProvider(config.BasicAuth{}, nil)
+	generator := NewHMACJWTGenerator("test-secret", time.Hour)
+	provider := NewBasicProvider(config.BasicAuth{}, nil, generator)
 	require.Equal(t, "basic", provider.Driver())
 }
 
-func TestBasicProviderValidateCredentials(t *testing.T) {
+func TestBasicProviderAuthenticate(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
@@ -79,7 +81,8 @@ func TestBasicProviderValidateCredentials(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			provider := NewBasicProvider(tc.config, nil)
+			generator := NewHMACJWTGenerator("test-secret", time.Hour)
+			provider := NewBasicProvider(tc.config, nil, generator)
 
 			body, err := json.Marshal(tc.requestBody)
 			require.NoError(t, err)
@@ -87,13 +90,14 @@ func TestBasicProviderValidateCredentials(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/auth/login/basic/callback", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 
-			_, err = provider.Validate(context.Background(), req)
+			w := httptest.NewRecorder()
+			_, err = provider.Authenticate(context.Background(), w, req)
 			require.ErrorIs(t, err, tc.expectErr)
 		})
 	}
 }
 
-func TestBasicProviderValidateWithExistingAdmin(t *testing.T) {
+func TestBasicProviderAuthenticateWithExistingAdmin(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
@@ -126,7 +130,8 @@ func TestBasicProviderValidateWithExistingAdmin(t *testing.T) {
 		Email:    "admin@example.com",
 		Password: "secret",
 	}
-	provider := NewBasicProvider(providerConfig, stores)
+	generator := NewHMACJWTGenerator("test-secret", time.Hour)
+	provider := NewBasicProvider(providerConfig, stores, generator)
 
 	body, err := json.Marshal(map[string]string{
 		"email":    "admin@example.com",
@@ -137,14 +142,12 @@ func TestBasicProviderValidateWithExistingAdmin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/auth/login/basic/callback", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	admin, err := provider.Validate(ctx, req)
+	w := httptest.NewRecorder()
+	_, err = provider.Authenticate(ctx, w, req)
 	require.NoError(t, err)
-	require.NotNil(t, admin)
-	require.Equal(t, "admin@example.com", admin.Email)
-	require.Equal(t, orgID, admin.OrganizationID)
 }
 
-func TestBasicProviderValidateCreatesNewAdmin(t *testing.T) {
+func TestBasicProviderAuthenticateCreatesNewAdmin(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
@@ -167,7 +170,8 @@ func TestBasicProviderValidateCreatesNewAdmin(t *testing.T) {
 		Email:    "newadmin@example.com",
 		Password: "secret",
 	}
-	provider := NewBasicProvider(providerConfig, stores)
+	generator := NewHMACJWTGenerator("test-secret", time.Hour)
+	provider := NewBasicProvider(providerConfig, stores, generator)
 
 	body, err := json.Marshal(map[string]string{
 		"email":    "newadmin@example.com",
@@ -178,7 +182,11 @@ func TestBasicProviderValidateCreatesNewAdmin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/auth/login/basic/callback", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	admin, err := provider.Validate(ctx, req)
+	w := httptest.NewRecorder()
+	_, err = provider.Authenticate(ctx, w, req)
+	require.NoError(t, err)
+
+	admin, err := stores.GetAdminByEmail(ctx, "newadmin@example.com")
 	require.NoError(t, err)
 	require.NotNil(t, admin)
 	require.Equal(t, "newadmin@example.com", admin.Email)
@@ -188,7 +196,8 @@ func TestBasicProviderValidateCreatesNewAdmin(t *testing.T) {
 func TestBasicProviderWebhook(t *testing.T) {
 	t.Parallel()
 
-	provider := NewBasicProvider(config.BasicAuth{}, nil)
+	generator := NewHMACJWTGenerator("test-secret", time.Hour)
+	provider := NewBasicProvider(config.BasicAuth{}, nil, generator)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/basic/webhook", nil)
 	err := provider.Webhook(context.Background(), req)
@@ -200,29 +209,35 @@ func TestBasicProviderWebhook(t *testing.T) {
 func TestBasicProviderEmptyBody(t *testing.T) {
 	t.Parallel()
 
-	provider := NewBasicProvider(config.BasicAuth{
+	cfg := config.BasicAuth{
 		Email:    "admin@example.com",
 		Password: "secret",
-	}, nil)
+	}
+	generator := NewHMACJWTGenerator("test-secret", time.Hour)
+	provider := NewBasicProvider(cfg, nil, generator)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/login/basic/callback", nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	_, err := provider.Validate(context.Background(), req)
+	w := httptest.NewRecorder()
+	_, err := provider.Authenticate(context.Background(), w, req)
 	require.ErrorIs(t, err, ErrMissingCredentials)
 }
 
 func TestBasicProviderInvalidJSON(t *testing.T) {
 	t.Parallel()
 
-	provider := NewBasicProvider(config.BasicAuth{
+	cfg := config.BasicAuth{
 		Email:    "admin@example.com",
 		Password: "secret",
-	}, nil)
+	}
+	generator := NewHMACJWTGenerator("test-secret", time.Hour)
+	provider := NewBasicProvider(cfg, nil, generator)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/login/basic/callback", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("Content-Type", "application/json")
 
-	_, err := provider.Validate(context.Background(), req)
+	w := httptest.NewRecorder()
+	_, err := provider.Authenticate(context.Background(), w, req)
 	require.ErrorIs(t, err, ErrMissingCredentials)
 }

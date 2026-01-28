@@ -3,7 +3,6 @@ package v1
 import (
 	_ "embed"
 	"fmt"
-	"net/url"
 
 	"github.com/cloudproud/graceful"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -27,13 +26,6 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db 
 	if err != nil {
 		return nil, fmt.Errorf("failed to load OpenAPI spec: %w", err)
 	}
-
-	platform, err := url.Parse(config.PlatformURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid platform URL: %w", err)
-	}
-
-	platformProxy := http.ReverseProxy(platform)
 
 	stores := store.NewState(db)
 
@@ -59,7 +51,5 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db 
 		Middlewares: []oapi.MiddlewareFunc{oapi.Validator(spec, options)},
 	})
 
-	// NOTE: during the migration we proxy all unknown requests to the platform service.
-	router.Handle("/*", platformProxy)
 	return http.NewServer(logger, router, config.HTTP), nil
 }

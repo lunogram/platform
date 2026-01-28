@@ -66,15 +66,11 @@ export default function Login() {
 
     setIsSubmitting(true);
     try {
-      await api.auth.basicAuth(
-        data.email,
-        data.password,
-        searchParams.get("r") ?? "/",
-      );
+      await api.auth.basicAuth(data.email, data.password);
+      window.location.href = redirect;
     } catch (err) {
       console.error("Basic auth failed:", err);
       setError(t("login_invalid_credentials"));
-    } finally {
       setIsSubmitting(false);
     }
   };

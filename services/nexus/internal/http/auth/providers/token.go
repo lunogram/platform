@@ -10,15 +10,13 @@ import (
 // HMACJWTGenerator generates JWT tokens using HMAC-SHA256 (symmetric key)
 type HMACJWTGenerator struct {
 	secret    []byte
-	issuer    string
 	tokenLife time.Duration
 }
 
-// NewJWTGeneratorWithSecret creates a JWT generator that uses HMAC-SHA256
-func NewJWTGeneratorWithSecret(secret string, issuer string, tokenLife time.Duration) *HMACJWTGenerator {
+// NewHMACJWTGenerator creates a JWT generator that uses HMAC-SHA256
+func NewHMACJWTGenerator(secret string, tokenLife time.Duration) *HMACJWTGenerator {
 	return &HMACJWTGenerator{
 		secret:    []byte(secret),
-		issuer:    issuer,
 		tokenLife: tokenLife,
 	}
 }
@@ -27,9 +25,9 @@ func NewJWTGeneratorWithSecret(secret string, issuer string, tokenLife time.Dura
 func (g *HMACJWTGenerator) Generate(adminID uuid.UUID) (token string, expiresAt time.Time, err error) {
 	expiresAt = time.Now().Add(g.tokenLife)
 
+	// TODO: configure a issuer
 	claims := jwt.RegisteredClaims{
 		Subject:   adminID.String(),
-		Issuer:    g.issuer,
 		ExpiresAt: jwt.NewNumericDate(expiresAt),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		NotBefore: jwt.NewNumericDate(time.Now()),
