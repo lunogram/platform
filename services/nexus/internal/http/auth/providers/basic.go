@@ -16,16 +16,15 @@ var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 )
 
-// BasicProvider implements basic email/password authentication
+// BasicProvider is a static authentication provider that validates credentials
+// against configured email/password values and signs its own tokens.
+// It is primarily intended for simple setups and testing purposes.
 type BasicProvider struct {
 	config    config.BasicAuth
 	stores    *store.State
 	generator TokenGenerator
 }
 
-// BasicProvider is a static authentication provider that validates credentials
-// against configured email/password values and signs its own tokens.
-// It is primarily intended for simple setups and testing purposes.
 func NewBasicProvider(cfg config.BasicAuth, stores *store.State, generator TokenGenerator) *BasicProvider {
 	return &BasicProvider{
 		config:    cfg,

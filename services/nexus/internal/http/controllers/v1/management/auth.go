@@ -43,7 +43,7 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 	}
 
 	ctx := r.Context()
-	ctx, err := c.provider.Authenticate(ctx, w, r)
+	_, err := c.provider.Authenticate(ctx, w, r)
 	if err != nil {
 		c.logger.Error("auth validation failed", zap.String("driver", string(driver)), zap.Error(err))
 		c.writeAuthError(w, err)

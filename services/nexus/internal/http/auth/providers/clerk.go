@@ -17,7 +17,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// ClerkProvider implements Clerk-based authentication
+// ClerkProvider implements the auth.Provider interface for Clerk authentication.
+// It handles JWT-based session authentication, user management, and webhook
+// processing for synchronizing user data between Clerk and the local database.
+// The provider supports automatic user provisioning on first authentication
+// and keeps user data in sync through Clerk webhook events.
 type ClerkProvider struct {
 	config        config.ClerkAuth
 	stores        *store.State
@@ -27,7 +31,6 @@ type ClerkProvider struct {
 	keyFunc       jwt.Keyfunc
 }
 
-// NewClerkProvider creates a new Clerk auth provider
 func NewClerkProvider(cfg config.ClerkAuth, stores *store.State, logger *zap.Logger, keyFunc jwt.Keyfunc) (_ *ClerkProvider, err error) {
 	clerk.SetKey(cfg.SecretKey)
 
@@ -85,8 +88,11 @@ func (p *ClerkProvider) Authenticate(ctx context.Context, w http.ResponseWriter,
 	}
 
 	admin = &store.Admin{
-		Email: p.getPrimaryEmail(*user),
-		Role:  "owner",
+		Email:     p.getPrimaryEmail(*user),
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		ImageURL:  user.ImageURL,
+		Role:      "owner",
 	}
 
 	admin.ExternalID = &claims.Subject

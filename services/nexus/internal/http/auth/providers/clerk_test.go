@@ -25,6 +25,8 @@ func TestClerkProviderDriver(t *testing.T) {
 }
 
 func TestClerkProviderAuthenticateNoToken(t *testing.T) {
+	t.Parallel()
+
 	logger := zaptest.NewLogger(t)
 	cfg := config.ClerkAuth{SecretKey: "test"}
 	provider, err := NewClerkProvider(cfg, nil, logger, nil)
