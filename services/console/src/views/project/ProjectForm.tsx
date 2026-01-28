@@ -149,11 +149,11 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                     </Field>
 
                     <Field className="mt-5">
-                        <FieldLegend className="text-2xl ">{t('defaults')}</FieldLegend>
+                        <FieldLegend className="text-2xl">{t('defaults')}</FieldLegend>
                     </Field>
 
                     <Field>
-                        <FieldLabel htmlFor="locale" className="flex-box gap-1">
+                        <FieldLabel htmlFor="locale" className="flex gap-1">
                             {t('default_locale')}
                             <span className="text-destructive">*</span>
                         </FieldLabel>
@@ -178,7 +178,7 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                     </Field>
 
                     <Field>
-                        <FieldLabel htmlFor="timezone" className="flex-box gap-1 mt-2">
+                        <FieldLabel htmlFor="timezone" className="flex gap-1 mt-2">
                             {t('timezone')}
                             <span className="text-destructive">*</span>
                         </FieldLabel>
@@ -221,11 +221,11 @@ export function ProjectSettings({ form }: { form: UseFormReturn<Project> }) {
     const { t } = useTranslation()
     return <>
         <Field className="mt-5">
-            <FieldLegend className="text-2xl ">{t('message_settings')}</FieldLegend>
+            <FieldLegend className="text-2xl">{t('message_settings')}</FieldLegend>
         </Field>
 
         <Field>
-            <FieldLabel htmlFor="text_opt_out_message" className="flex-box gap-1">
+            <FieldLabel htmlFor="text_opt_out_message" className="flex gap-1">
                 {t('sms_opt_out_message')}
             </FieldLabel>
             <FieldDescription className="text-xs">
@@ -269,7 +269,7 @@ export function ProjectSettings({ form }: { form: UseFormReturn<Project> }) {
         </Field>
 
         <Field>
-            <FieldLabel htmlFor="link_wrap_email" className="flex-box gap-1 mt-2 text-base">
+            <FieldLabel htmlFor="link_wrap_email" className="flex gap-1 mt-2 text-base">
                 {t('link_wrapping_email')}
             </FieldLabel>
             <FieldDescription className="text-xs">
@@ -291,7 +291,7 @@ export function ProjectSettings({ form }: { form: UseFormReturn<Project> }) {
         </Field>
 
         <Field>
-            <FieldLabel htmlFor="link_wrap_push" className="flex-box gap-1 mt-2 text-base">
+            <FieldLabel htmlFor="link_wrap_push" className="flex gap-1 mt-2 text-base">
                 {t('link_wrapping_push')}
             </FieldLabel>
             <FieldDescription className="text-xs">
