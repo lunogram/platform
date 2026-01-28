@@ -30,7 +30,6 @@ func NewAuthController(logger *zap.Logger, db *sqlx.DB, cfg config.Node) (*AuthC
 type AuthController struct {
 	logger   *zap.Logger
 	provider providers.Provider
-	tokenGen *providers.HMACJWTGenerator
 }
 
 func (c *AuthController) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
