@@ -113,8 +113,21 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("user_id", userID))
 	logger.Info("updating preferences")
 
+	// Verify user exists
+	_, err := srv.store.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("user not found")
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		logger.Error("failed to get user", zap.Error(err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
 	// Parse form data
-	err := r.ParseForm()
+	err = r.ParseForm()
 	if err != nil {
 		logger.Error("failed to parse form", zap.Error(err))
 		http.Error(w, "Bad Request", http.StatusBadRequest)
