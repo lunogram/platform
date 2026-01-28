@@ -91,11 +91,17 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
             tools: project?.tools,
         }
 
-        const updatedProject = id
-            ? await api.projects.update(id, params)
-            : await api.projects.create(params)
-
-        onSave?.(updatedProject)
+        try {
+            const updatedProject = id
+                ? await api.projects.update(id, params)
+                : await api.projects.create(params)
+            onSave?.(updatedProject)
+        } catch (error) {
+            console.error('Failed to save project', error)
+            window.alert(
+                t('project.saveError', 'Unable to save project. Please try again.')
+            )
+        }
     })
 
     const [language, setLanguage] = useState<string | undefined>(
@@ -189,7 +195,7 @@ export default function ProjectForm({ project, onSave }: ProjectFormProps) {
                             render={({ field }) => (
                                 <Select value={field.value} onValueChange={field.onChange}>
                                     <SelectTrigger id="timezone">
-                                        <SelectValue placeholder={t('timezone_placeholder')} />
+                                        <SelectValue placeholder={t('timezone')} />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-[300px]">
                                         <SelectGroup>
