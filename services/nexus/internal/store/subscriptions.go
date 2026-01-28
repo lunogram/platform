@@ -10,6 +10,14 @@ import (
 
 type Subscriptions []Subscription
 
+func (s Subscriptions) OAPI() []oapi.Subscription {
+	results := make([]oapi.Subscription, len(s))
+	for i, sub := range s {
+		results[i] = sub.OAPI()
+	}
+	return results
+}
+
 type Subscription struct {
 	ID        uuid.UUID `db:"id"`
 	ProjectID uuid.UUID `db:"project_id"`
@@ -18,6 +26,18 @@ type Subscription struct {
 	IsPublic  bool      `db:"is_public"`
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
+}
+
+func (s *Subscription) OAPI() oapi.Subscription {
+	return oapi.Subscription{
+		Id:        s.ID,
+		ProjectId: s.ProjectID,
+		Name:      s.Name,
+		Channel:   oapi.Channel(s.Channel),
+		IsPublic:  s.IsPublic,
+		CreatedAt: s.CreatedAt,
+		UpdatedAt: s.UpdatedAt,
+	}
 }
 
 type UserSubscriptions []UserSubscription
@@ -165,3 +185,55 @@ func (s *SubscriptionsStore) ToggleSubscription(ctx context.Context, userID, sub
 
 	return nil
 }
+
+func (s *SubscriptionsStore) ListSubscriptions(ctx context.Context, projectID uuid.UUID, pagination Pagination) (Subscriptions, int, error) {
+	query := `
+	SELECT 
+		id,
+		project_id,
+		name,
+		channel,
+		is_public,
+		created_at,
+		updated_at,
+		COUNT(*) OVER () AS total_count
+	FROM subscriptions
+	WHERE project_id = $1
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`
+
+	type result struct {
+		Subscription
+		TotalCount int `db:"total_count"`
+	}
+
+	var results []result
+	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(results) == 0 {
+		return []Subscription{}, 0, nil
+	}
+
+	total := results[0].TotalCount
+	subscriptions := make([]Subscription, len(results))
+
+	for index, r := range results {
+		subscriptions[index] = r.Subscription
+	}
+
+	return subscriptions, total, nil
+}
+
+func (s *SubscriptionsStore) UpdateSubscription(ctx context.Context, subscriptionID uuid.UUID, name string, isPublic bool) error {
+	stmt := `
+	UPDATE subscriptions
+	SET name = $1, is_public = $2, updated_at = CURRENT_TIMESTAMP
+	WHERE id = $3`
+
+	_, err := s.db.ExecContext(ctx, stmt, name, isPublic, subscriptionID)
+	return err
+}
+

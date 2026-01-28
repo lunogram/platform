@@ -37,7 +37,12 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db 
 
 	router.Use(oapi.Scalar())
 
-	oapi.HandlerWithOptions(NewController(logger, db, pub), oapi.ChiServerOptions{
+	controller, err := NewController(logger, db, pub)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create controller: %w", err)
+	}
+
+	oapi.HandlerWithOptions(controller, oapi.ChiServerOptions{
 		BaseRouter:  router,
 		Middlewares: []oapi.MiddlewareFunc{oapi.Validator(spec, options)},
 	})

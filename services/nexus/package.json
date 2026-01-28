@@ -1,0 +1,11 @@
+{
+  "name": "nexus-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./web/static/css/input.css -o ./web/static/css/output.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1"
+  }
+}
