@@ -6,7 +6,6 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
-	"net/url"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -16,7 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:embed ../../../../web/templates/*.html
+//go:embed templates/*.html
 var templatesFS embed.FS
 
 type SubscriptionsController struct {
@@ -27,7 +26,7 @@ type SubscriptionsController struct {
 }
 
 func NewSubscriptionsController(logger *zap.Logger, db *sqlx.DB) (*SubscriptionsController, error) {
-	tmpl, err := template.ParseFS(templatesFS, "../../../../web/templates/*.html")
+	tmpl, err := template.ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		return nil, err
 	}
@@ -122,8 +121,8 @@ func (srv *SubscriptionsController) GetPreferencesPage(w http.ResponseWriter, r 
 		return
 	}
 
-	// Get subscriptions
-	pagination := store.Pagination{Limit: 100, Offset: 0}
+	// Get all subscriptions without pagination limit for user-facing page
+	pagination := store.Pagination{Limit: 1000, Offset: 0}
 	subscriptions, _, err := srv.store.GetUserSubscriptions(ctx, projectID, userID, pagination)
 	if err != nil {
 		logger.Error("failed to get user subscriptions", zap.Error(err))
@@ -195,8 +194,8 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 		}
 	}
 
-	// Get all user subscriptions
-	pagination := store.Pagination{Limit: 100, Offset: 0}
+	// Get all user subscriptions without pagination limit
+	pagination := store.Pagination{Limit: 1000, Offset: 0}
 	subscriptions, _, err := srv.store.GetUserSubscriptions(ctx, projectID, userID, pagination)
 	if err != nil {
 		logger.Error("failed to get user subscriptions", zap.Error(err))
@@ -231,22 +230,23 @@ type UnsubscribeData struct {
 }
 
 func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *http.Request, params oapi.EmailUnsubscribeParams) {
-	ctx := r.Context()
 	logger := srv.logger.With(zap.String("link", params.Link))
 	logger.Info("processing email unsubscribe")
 
-	// Parse the encoded link
-	decoded, err := url.QueryUnescape(params.Link)
-	if err != nil {
-		logger.Error("failed to decode link", zap.Error(err))
-		http.Error(w, "Invalid link", http.StatusBadRequest)
-		return
-	}
+	// TODO: Implement full unsubscribe logic
+	// The link format from the legacy TypeScript code suggests it contains encoded user and campaign info
+	// This needs to be decoded to extract:
+	// - user_id: to identify which user is unsubscribing
+	// - campaign_id or subscription_id: to identify what they're unsubscribing from
+	// - signature: to verify the link hasn't been tampered with
+	//
+	// For now, we display a confirmation message. The actual unsubscribe logic needs to:
+	// 1. Decode and verify the link
+	// 2. Extract user_id and subscription_id
+	// 3. Call srv.store.ToggleSubscription(ctx, userID, subscriptionID, "unsubscribed")
+	// 4. Get user locale for proper message display
 
-	// The link format from the TypeScript code suggests it contains user and campaign info
-	// For now, we'll show a simple unsubscribe confirmation
-	// In a real implementation, you would decode the link and unsubscribe the user
-
+	// Default to English for now
 	locale := "en"
 	trans := getTranslations(locale)
 
@@ -257,9 +257,10 @@ func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *h
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err = srv.tmpl.ExecuteTemplate(w, "unsubscribe.html", data)
+	err := srv.tmpl.ExecuteTemplate(w, "unsubscribe.html", data)
 	if err != nil {
 		logger.Error("failed to execute template", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 }
