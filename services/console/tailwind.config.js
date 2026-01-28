@@ -5,9 +5,6 @@ export default {
     ],
     theme: {
         extend: {
-            colors: {
-                'brand-green': 'var(--color-green)',
-            }
         },
     },
     plugins: [],
