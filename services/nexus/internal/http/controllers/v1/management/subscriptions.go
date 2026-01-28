@@ -39,16 +39,15 @@ func (srv *SubscriptionsController) CreateSubscription(w http.ResponseWriter, r 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("name", body.Name))
 	logger.Info("creating subscription type")
 
-	isPublic := true
-	if body.IsPublic != nil {
-		isPublic = *body.IsPublic
-	}
-
 	subscription := store.Subscription{
 		ProjectID: projectID,
 		Name:      body.Name,
 		Channel:   string(body.Channel),
-		IsPublic:  isPublic,
+		IsPublic:  true,
+	}
+
+	if body.IsPublic != nil {
+		subscription.IsPublic = *body.IsPublic
 	}
 
 	subscriptionID, err := srv.store.SubscriptionsStore.CreateSubscription(ctx, subscription)

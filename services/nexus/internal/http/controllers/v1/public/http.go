@@ -1,8 +1,9 @@
 package v1
 
 import (
-	_ "embed"
+	"embed"
 	"fmt"
+	nethttp "net/http"
 
 	"github.com/cloudproud/graceful"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -17,6 +18,9 @@ import (
 	"github.com/lunogram/platform/services/nexus/internal/store"
 	"go.uber.org/zap"
 )
+
+//go:embed static
+var staticFiles embed.FS
 
 // NewServer constructs a new HTTP server and it's routes. The returned server
 // could be used to listen and serve incoming requests on the given address.
@@ -36,6 +40,11 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db 
 	router.Use(http.Logger(logger))
 
 	router.Use(oapi.Scalar())
+
+	// Serve static files for CSS
+	staticFS := nethttp.FS(staticFiles)
+	fileServer := nethttp.FileServer(staticFS)
+	router.Handle("/static/*", nethttp.StripPrefix("/static/", fileServer))
 
 	controller, err := NewController(logger, db, pub)
 	if err != nil {

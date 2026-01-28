@@ -126,6 +126,49 @@ func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID
 	return subscriptions, total, nil
 }
 
+func (s *SubscriptionsStore) GetAllUserSubscriptions(ctx context.Context, projectID, userID uuid.UUID) (UserSubscriptions, error) {
+	query := `
+	SELECT 
+		s.id AS subscription_id,
+		s.name,
+		s.channel,
+		CASE 
+			WHEN EXISTS (
+				SELECT 1 FROM user_subscription us 
+				WHERE us.user_id = $2 AND us.subscription_id = s.id AND us.state = 1
+			) THEN 'unsubscribed'
+			ELSE 'subscribed'
+		END AS state
+	FROM subscriptions s
+	WHERE s.project_id = $1 AND s.is_public = true
+	ORDER BY s.name`
+
+	type result struct {
+		SubscriptionID uuid.UUID `db:"subscription_id"`
+		Name           string    `db:"name"`
+		Channel        string    `db:"channel"`
+		State          string    `db:"state"`
+	}
+
+	var results []result
+	err := s.db.SelectContext(ctx, &results, query, projectID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	subscriptions := make([]UserSubscription, len(results))
+	for index, r := range results {
+		subscriptions[index] = UserSubscription{
+			SubscriptionID: r.SubscriptionID,
+			Name:           r.Name,
+			Channel:        r.Channel,
+			State:          r.State,
+		}
+	}
+
+	return subscriptions, nil
+}
+
 func (s *SubscriptionsStore) GetSubscription(ctx context.Context, projectID, subscriptionID uuid.UUID) (*Subscription, error) {
 	stmt := `
 	SELECT id, project_id, name, channel, is_public, created_at, updated_at
