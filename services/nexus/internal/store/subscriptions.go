@@ -158,12 +158,7 @@ func (s *SubscriptionsStore) GetAllUserSubscriptions(ctx context.Context, projec
 
 	subscriptions := make([]UserSubscription, len(results))
 	for index, r := range results {
-		subscriptions[index] = UserSubscription{
-			SubscriptionID: r.SubscriptionID,
-			Name:           r.Name,
-			Channel:        r.Channel,
-			State:          r.State,
-		}
+		subscriptions[index] = UserSubscription(r)
 	}
 
 	return subscriptions, nil

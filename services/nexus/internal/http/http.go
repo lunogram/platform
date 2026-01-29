@@ -68,6 +68,35 @@ type Config struct {
 	WriteTimeout time.Duration `env:"WRITE_TIMEOUT" envDefault:"10s"`
 	// MaxHeaderBytes controls the maximum number of bytes the server will read parsing the request header's keys and values, including the request line.
 	MaxHeaderBytes int `env:"MAX_HEADER_BYTES" envDefault:"1048576"`
+	// CSRF holds the CSRF protection configuration.
+	CSRF CSRFConfig `envPrefix:"CSRF_"`
+}
+
+// CSRFConfig holds the configuration for CSRF protection.
+type CSRFConfig struct {
+	// Enabled determines whether CSRF protection is enabled.
+	Enabled bool `env:"ENABLED" envDefault:"true"`
+	// Secret is the secret key used to generate CSRF tokens.
+	// If not provided, a random key will be generated on startup.
+	Secret string `env:"SECRET"`
+	// TokenLength is the length of the CSRF token in bytes.
+	TokenLength int `env:"TOKEN_LENGTH" envDefault:"32"`
+	// CookieName is the name of the CSRF cookie.
+	CookieName string `env:"COOKIE_NAME" envDefault:"csrf_token"`
+	// HeaderName is the name of the CSRF header.
+	HeaderName string `env:"HEADER_NAME" envDefault:"X-CSRF-Token"`
+	// FieldName is the name of the CSRF form field.
+	FieldName string `env:"FIELD_NAME" envDefault:"csrf_token"`
+	// CookieSecure determines whether the CSRF cookie should be secure (HTTPS only).
+	CookieSecure bool `env:"COOKIE_SECURE" envDefault:"true"`
+	// CookieHTTPOnly determines whether the CSRF cookie should be HTTP only.
+	CookieHTTPOnly bool `env:"COOKIE_HTTP_ONLY" envDefault:"true"`
+	// CookieSameSite determines the SameSite attribute of the CSRF cookie.
+	// Valid values: "strict", "lax", "none", "default"
+	CookieSameSite string `env:"COOKIE_SAME_SITE" envDefault:"strict"`
+	// TrustedOrigins is a list of trusted origins for CSRF validation.
+	// If empty, only same-origin requests are allowed.
+	TrustedOrigins []string `env:"TRUSTED_ORIGINS"`
 }
 
 // NewServer creates a new http *Server with the given logger. A trace handler
