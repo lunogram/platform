@@ -49,10 +49,7 @@ import { languageName } from '../../utils'
 import { useTranslation } from 'react-i18next'
 
 type LocaleFieldProps<X extends FieldValues, P extends FieldPath<X>> = TextInputProps<string> & 
-    FieldProps<X, P> & {
-        form: any
-        name: P
-    }
+    FieldProps<X, P>
 
 export const LocaleTextField = <X extends FieldValues, P extends FieldPath<X>>(params: LocaleFieldProps<X, P>) => {
     const { t } = useTranslation()
@@ -136,6 +133,7 @@ export default function Locales() {
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
     const [rowSelection, setRowSelection] = React.useState({})
+    const [localePreview, setLocalePreview] = useState<string | undefined>()
 
     const form = useForm<Pick<LocaleOption, 'key'>>({
         defaultValues: {
@@ -185,8 +183,11 @@ export default function Locales() {
                 return (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0 ">
-                                
+                            <Button 
+                                variant="ghost" 
+                                className="h-8 w-8 p-0"
+                                aria-label={t('action')}
+                            >
                                 <MoreHorizontal />
                             </Button>
                         </DropdownMenuTrigger>
@@ -291,7 +292,6 @@ export default function Locales() {
                                         colSpan={columns.length}
                                         className="h-24 text-center"
                                     >
-                                        No locales found.
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -322,11 +322,26 @@ export default function Locales() {
                                             <span className="text-destructive">*</span>
                                         </FormLabel>
                                         <FormDescription>
-                                            {t('create_locale')}
+                                            {t('locale.field_subtitle')}
                                         </FormDescription>
-                                        <FormControl>
-                                            <Input {...field} type="text" />
-                                        </FormControl>
+                                        <div className="flex items-center gap-2">
+                                            <FormControl>
+                                                <Input 
+                                                    {...field} 
+                                                    type="text"
+                                                    onChange={(e) => {
+                                                        field.onChange(e)
+                                                        const value = e.target.value
+                                                        setLocalePreview(value ? languageName(value) : undefined)
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            {localePreview && (
+                                                <Badge variant="secondary" className="whitespace-nowrap">
+                                                    {localePreview}
+                                                </Badge>
+                                            )}
+                                        </div>
                                         <FormMessage />
                                     </FormItem>
                                 )}
