@@ -48,7 +48,13 @@ import { PlusIcon } from '../../components/icons'
 import { languageName } from '../../utils'
 import { useTranslation } from 'react-i18next'
 
-export const LocaleTextField = <X extends FieldValues, P extends FieldPath<X>>(params: TextInputProps<P> & FieldProps<X, P>) => {
+type LocaleFieldProps<X extends FieldValues, P extends FieldPath<X>> = TextInputProps<string> & 
+    FieldProps<X, P> & {
+        form: any
+        name: P
+    }
+
+export const LocaleTextField = <X extends FieldValues, P extends FieldPath<X>>(params: LocaleFieldProps<X, P>) => {
     const { t } = useTranslation()
     const {
         form,
@@ -73,49 +79,50 @@ export const LocaleTextField = <X extends FieldValues, P extends FieldPath<X>>(p
         setLanguage(languageName(locale))
     }
 
-
     return (
-        <FormField
-            control={form.control}
-            name={name}
-            rules={{
-                required
-            }}
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel className="inline-flex gap-1">
-                        <span>
-                            {t('locale.singular')}
-                            {required && <span className="text-destructive">*</span>}
-                        </span>
-                    </FormLabel>
-                    {subtitle && <FormDescription>{subtitle}</FormDescription>}
-                    <FormControl>
-                        <div className="flex items-center gap-2">
-                            <Input
-                                {...field}
-                                type={type}
-                                disabled={disabled}
-                                readOnly={readOnly}
-                                value={field.value ?? ''}
-                                onFocus={onFocus}
-                                onChange={event => {
-                                    field.onChange(event)
-                                    handlePreviewLanguage(event.target.value)
-                                    onChange?.(event.target.value as any)
-                                }}
-                            />
-                            {language && (
-                                <Badge variant="secondary" className="whitespace-nowrap">
-                                    {language}
-                                </Badge>
-                            )}
-                        </div>
-                    </FormControl>
+        <Form {...form}>
+            <FormField
+                control={form.control}
+                name={name}
+                rules={{
+                    required
+                }}
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel className="inline-flex gap-1">
+                            <span>
+                                {params.label ?? t('locale.singular')}
+                                {required && <span className="text-destructive">*</span>}
+                            </span>
+                        </FormLabel>
+                        {subtitle && <FormDescription>{subtitle}</FormDescription>}
+                        <FormControl>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    {...field}
+                                    type={type}
+                                    disabled={disabled}
+                                    readOnly={readOnly}
+                                    value={field.value ?? ''}
+                                    onFocus={onFocus}
+                                    onChange={event => {
+                                        field.onChange(event)
+                                        handlePreviewLanguage(event.target.value)
+                                        onChange?.(event.target.value)
+                                    }}
+                                />
+                                {language && (
+                                    <Badge variant="secondary" className="whitespace-nowrap">
+                                        {language}
+                                    </Badge>
+                                )}
+                            </div>
+                        </FormControl>
                     <FormMessage />
                 </FormItem>
-            )}
-        />
+                )}
+            />
+        </Form>
     )
 }
 
@@ -151,7 +158,7 @@ export default function Locales() {
     }, [loadLocales])
 
     const handleDeleteLocale = async (locale: Locale) => {
-        if (!confirm(t('locale.delete_confirmation'))) return
+        if (!confirm(t('locale_delete_confirmation'))) return
         await api.locales.delete(project.id, locale.id)
         await loadLocales()
     }
@@ -178,7 +185,8 @@ export default function Locales() {
                 return (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
+                            <Button variant="ghost" className="h-8 w-8 p-0 ">
+                                
                                 <MoreHorizontal />
                             </Button>
                         </DropdownMenuTrigger>
@@ -283,7 +291,7 @@ export default function Locales() {
                                         colSpan={columns.length}
                                         className="h-24 text-center"
                                     >
-                                        {t('')}
+                                        No locales found.
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -301,6 +309,7 @@ export default function Locales() {
                             await api.locales.create(project.id, { key, label: languageName(key) ?? key })
                             await loadLocales()
                             setOpen(false)
+                            form.reset({ key: ''})
                         })}>
                             <FormField
                                 control={form.control}
@@ -313,7 +322,7 @@ export default function Locales() {
                                             <span className="text-destructive">*</span>
                                         </FormLabel>
                                         <FormDescription>
-                                            {t('locale.select.create_new')}
+                                            {t('create_locale')}
                                         </FormDescription>
                                         <FormControl>
                                             <Input {...field} type="text" />
