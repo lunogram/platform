@@ -6,6 +6,7 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
+	"net/url"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -174,25 +175,104 @@ type UnsubscribeData struct {
 }
 
 func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *http.Request, params oapi.EmailUnsubscribeParams) {
+	ctx := r.Context()
 	logger := srv.logger.With(zap.String("link", params.Link))
 	logger.Info("processing email unsubscribe")
 
-	// TODO: Implement full unsubscribe logic
-	// The link format from the legacy TypeScript code suggests it contains encoded user and campaign info
-	// This needs to be decoded to extract:
-	// - user_id: to identify which user is unsubscribing
-	// - campaign_id or subscription_id: to identify what they're unsubscribing from
-	// - signature: to verify the link hasn't been tampered with
-	//
-	// For now, we display a confirmation message. The actual unsubscribe logic needs to:
-	// 1. Decode and verify the link
-	// 2. Extract user_id and subscription_id
-	// 3. Call srv.store.ToggleSubscription(ctx, userID, subscriptionID, "unsubscribed")
+	// Parse the URL to extract query parameters
+	// The link format from legacy code: ?u={user_id}&c={campaign_id}&s={reference_id}&r={redirect}
+	parsedURL, err := url.Parse(params.Link)
+	if err != nil {
+		logger.Error("failed to parse link", zap.Error(err))
+		http.Error(w, "Invalid link", http.StatusBadRequest)
+		return
+	}
+
+	// Extract user_id and campaign_id from query parameters
+	userIDStr := parsedURL.Query().Get("u")
+	campaignIDStr := parsedURL.Query().Get("c")
+
+	if userIDStr == "" || campaignIDStr == "" {
+		logger.Error("missing required parameters in link")
+		http.Error(w, "Invalid link format", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		logger.Error("invalid user_id", zap.Error(err))
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	campaignID, err := uuid.Parse(campaignIDStr)
+	if err != nil {
+		logger.Error("invalid campaign_id", zap.Error(err))
+		http.Error(w, "Invalid campaign ID", http.StatusBadRequest)
+		return
+	}
+
+	// We need to get the user first to find their project_id
+	// Since we don't know the project_id from the link, we need to query for the user
+	// across projects. For now, we'll use a simpler approach: get campaign by ID only
+	// and use its project_id
+	
+	// Query campaign across all projects to find the subscription_id
+	query := `SELECT id, project_id, subscription_id FROM campaigns WHERE id = $1 AND deleted_at IS NULL`
+	var campaignData struct {
+		ID             uuid.UUID  `db:"id"`
+		ProjectID      uuid.UUID  `db:"project_id"`
+		SubscriptionID *uuid.UUID `db:"subscription_id"`
+	}
+	
+	err = srv.db.GetContext(ctx, &campaignData, query, campaignID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("campaign not found")
+		http.Error(w, "Campaign not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		logger.Error("failed to get campaign", zap.Error(err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	if campaignData.SubscriptionID == nil {
+		logger.Error("campaign has no subscription_id")
+		http.Error(w, "Invalid campaign", http.StatusBadRequest)
+		return
+	}
+
+	// Get user to verify they exist
+	_, err = srv.store.GetUser(ctx, campaignData.ProjectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("user not found")
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		logger.Error("failed to get user", zap.Error(err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Unsubscribe the user from this subscription type
+	err = srv.store.ToggleSubscription(ctx, userID, *campaignData.SubscriptionID, "unsubscribed")
+	if err != nil {
+		logger.Error("failed to unsubscribe user", zap.Error(err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	logger.Info("user successfully unsubscribed", 
+		zap.Stringer("user_id", userID),
+		zap.Stringer("campaign_id", campaignID),
+		zap.Stringer("subscription_id", *campaignData.SubscriptionID))
 
 	data := UnsubscribeData{}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err := srv.tmpl.ExecuteTemplate(w, "unsubscribe.html", data)
+	err = srv.tmpl.ExecuteTemplate(w, "unsubscribe.html", data)
 	if err != nil {
 		logger.Error("failed to execute template", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
