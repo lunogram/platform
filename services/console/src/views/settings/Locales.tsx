@@ -156,7 +156,7 @@ export default function Locales() {
     }, [loadLocales])
 
     const handleDeleteLocale = async (locale: Locale) => {
-        if (!confirm(t('locale_delete_confirmation'))) return
+        if (!confirm(t('locale.delete_confirmation'))) return
         await api.locales.delete(project.id, locale.id)
         await loadLocales()
     }
@@ -191,7 +191,7 @@ export default function Locales() {
                                 <MoreHorizontal />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="start" side="right">
                             <DropdownMenuGroup>
                                 <DropdownMenuLabel>{t('action')}</DropdownMenuLabel>
                                 <DropdownMenuItem
