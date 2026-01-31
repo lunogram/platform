@@ -6,28 +6,32 @@ This directory contains static assets for the subscription management UI.
 
 The `styles.css` file is compiled from `input.css` using Tailwind CSS.
 
-### Rebuilding CSS
+### Automatic Rebuilding
 
-To rebuild the CSS file after making changes to templates or Tailwind configuration:
+The CSS is automatically rebuilt when you run:
 
 ```bash
-# From the services/nexus directory
-npx tailwindcss@latest -i ./internal/http/controllers/v1/public/static/input.css \
-  -o ./internal/http/controllers/v1/public/static/styles.css \
-  --config ./internal/http/controllers/v1/public/static/tailwind.config.js \
+make generate
+```
+
+This command:
+1. Installs npm dependencies (including tailwindcss) via `pnpm install`
+2. Runs `go generate` which invokes `pnpm exec tailwindcss` to compile the CSS
+
+### Manual Rebuilding
+
+If you need to manually rebuild the CSS:
+
+```bash
+# From the repository root
+pnpm exec tailwindcss -i ./services/nexus/internal/http/controllers/v1/public/static/input.css \
+  -o ./services/nexus/internal/http/controllers/v1/public/static/styles.css \
+  --config ./services/nexus/internal/http/controllers/v1/public/static/tailwind.config.js \
   --minify
 ```
 
-Or use the standalone Tailwind CLI binary:
+### Requirements
 
-```bash
-# Download the binary if not already present
-curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64
-chmod +x tailwindcss-linux-x64
-
-# Build CSS
-./tailwindcss-linux-x64 -i ./internal/http/controllers/v1/public/static/input.css \
-  -o ./internal/http/controllers/v1/public/static/styles.css \
-  --config ./internal/http/controllers/v1/public/static/tailwind.config.js \
-  --minify
-```
+- Node.js and pnpm must be installed
+- Tailwind CSS is included as a dev dependency in the root `package.json`
+- The CSS compilation is integrated into the `make generate` toolchain
