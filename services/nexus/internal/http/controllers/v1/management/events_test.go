@@ -85,7 +85,7 @@ func TestListEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events", nil)
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events/schema", nil)
 	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
 
 	controller.ListEvents(res, req, projectID)
@@ -149,7 +149,7 @@ func TestListEventsEmpty(t *testing.T) {
 	controller, projectID := setupEventsController(t)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events", nil)
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events/schema", nil)
 	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
 
 	controller.ListEvents(res, req, projectID)
@@ -170,7 +170,7 @@ func TestListEventsUnauthorized(t *testing.T) {
 	controller, projectID := setupEventsController(t)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events", nil)
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events/schema", nil)
 
 	controller.ListEvents(res, req, projectID)
 
@@ -201,7 +201,7 @@ func TestListEventsWithMultipleTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events", nil)
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events/schema", nil)
 	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
 
 	controller.ListEvents(res, req, projectID)

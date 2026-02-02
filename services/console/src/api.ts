@@ -229,9 +229,21 @@ const api = {
         .get<SearchResult<Project>>("/admin/projects")
         .then((r) => r.data),
     pathSuggestions: async (projectId: UUID) => {
-      const eventSuggestions = await client
-        .get<{ results: VariableSuggestions['eventPaths'] }>(`${projectUrl(projectId)}/events`)
+      let eventSuggestions = await client
+        .get<{ results: VariableSuggestions['eventPaths'] }>(`${projectUrl(projectId)}/events/schema`)
         .then((r) => r.data.results);
+
+      eventSuggestions = eventSuggestions.map((event) => {
+        event.schema ??= [];
+        event.schema = event.schema.map((schemaPath) => {
+          return {
+            ...schemaPath,
+            path: `.data${schemaPath.path}`
+          }
+        })
+
+        return event;
+      })
 
       const userSuggestions = await client
         .get<{ results: VariableSuggestions['userPaths'] }>(`${projectUrl(projectId)}/users/schema`)
