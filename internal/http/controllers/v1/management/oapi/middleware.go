@@ -25,12 +25,18 @@ func Validator(spec *openapi3.T, options openapi3filter.Options) func(next http.
 func Scalar() func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			if req.URL.Path == "/openapi.yaml" {
+			if req.URL.Path == "/api/openapi.yaml" {
 				scalar.HandleOAPI(oapi).ServeHTTP(w, req)
 				return
 			}
-			if req.URL.Path == "/" {
-				http.FileServer(http.FS(scalar.FS)).ServeHTTP(w, req)
+			if req.URL.Path == "/api" || req.URL.Path == "/api/" {
+				content, err := scalar.FS.ReadFile("index.html")
+				if err != nil {
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Write(content)
 				return
 			}
 
