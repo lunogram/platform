@@ -5,59 +5,92 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Communication Preferences</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <script>
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
 </head>
-<body class="bg-gray-50 min-h-screen py-8 px-4">
-    <div class="max-w-2xl mx-auto">
-        <div class="bg-white rounded-lg shadow-md p-8">
-            <h1 class="text-3xl font-bold text-gray-900 mb-4">Communication Preferences</h1>
-            <p class="text-gray-600 mb-8">Choose which methods of communication you would like to continue to receive:</p>
-            
-            {{if .ShowSuccessMessage}}
-            <div class="bg-green-50 border border-green-200 rounded-md p-4 mb-6 flex items-start">
-                <svg class="w-5 h-5 text-green-400 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <p class="text-sm text-green-800">Your preferences have been updated!</p>
-            </div>
-            {{end}}
-
-            {{if .Subscriptions}}
-            <form method="POST" action="/preferences/{{.ProjectID}}/{{.UserID}}" class="space-y-4">
-                {{range .Subscriptions}}
-                <div class="flex items-start p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                    <input 
-                        type="checkbox" 
-                        name="subscriptionIds" 
-                        value="{{.SubscriptionID}}"
-                        id="sub-{{.SubscriptionID}}"
-                        {{if eq .State "subscribed"}}checked{{end}}
-                        class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5"
-                    />
-                    <label for="sub-{{.SubscriptionID}}" class="ml-3 flex-1 cursor-pointer">
-                        <span class="block text-sm font-medium text-gray-900">{{.Name}}</span>
-                        <span class="block text-xs text-gray-500 capitalize">{{.Channel}}</span>
-                    </label>
-                </div>
-                {{end}}
-                
-                <div class="pt-4">
-                    <button 
-                        type="submit"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                    >
-                        Save Preferences
-                    </button>
-                </div>
-            </form>
-            {{else}}
-            <div class="text-center py-8">
-                <svg class="mx-auto w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
-                </svg>
-                <p class="mt-4 text-gray-600">You are not subscribed to any notifications.</p>
-            </div>
-            {{end}}
+<body class="bg-white dark:bg-zinc-950 min-h-screen py-12 px-4 antialiased">
+    <div class="max-w-md mx-auto">
+        <div class="mb-8">
+            <h1 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Communication Preferences</h1>
+            <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Manage your notification settings.</p>
         </div>
+
+        {{if .ShowSuccessMessage}}
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4 mb-6">
+            <div class="flex items-center gap-3">
+                <svg class="w-4 h-4 text-zinc-900 dark:text-zinc-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                </svg>
+                <p class="text-sm font-medium text-zinc-900 dark:text-zinc-50">Your preferences have been saved.</p>
+            </div>
+        </div>
+        {{end}}
+
+        {{if .Subscriptions}}
+        <form method="POST" action="/preferences/{{.ProjectID}}/{{.UserID}}">
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-200 dark:divide-zinc-800">
+                {{range .Subscriptions}}
+                <label for="sub-{{.SubscriptionID}}" class="flex items-center justify-between p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
+                    <div class="space-y-0.5">
+                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-50">{{.Name}}</span>
+                        <span class="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                            {{if eq .Channel "email"}}
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
+                            </svg>
+                            {{else if eq .Channel "sms"}}
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"/>
+                            </svg>
+                            {{else if eq .Channel "push"}}
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+                            </svg>
+                            {{end}}
+                            <span class="capitalize">{{.Channel}}</span>
+                        </span>
+                    </div>
+                    <div class="relative">
+                        <input
+                            type="checkbox"
+                            name="subscriptionIds"
+                            value="{{.SubscriptionID}}"
+                            id="sub-{{.SubscriptionID}}"
+                            {{if eq .State "subscribed"}}checked{{end}}
+                            class="peer sr-only"
+                        />
+                        <div class="w-9 h-5 bg-zinc-200 dark:bg-zinc-700 rounded-full peer-checked:bg-zinc-900 dark:peer-checked:bg-zinc-50 transition-colors"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white dark:bg-zinc-900 rounded-full shadow-sm peer-checked:translate-x-4 peer-checked:dark:bg-zinc-900 transition-transform"></div>
+                    </div>
+                </label>
+                {{end}}
+            </div>
+
+            <button
+                type="submit"
+                class="mt-6 w-full h-9 px-4 text-sm font-medium text-zinc-50 dark:text-zinc-900 bg-zinc-900 dark:bg-zinc-50 rounded-md hover:bg-zinc-800 dark:hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-zinc-300 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950 transition-colors"
+            >
+                Save preferences
+            </button>
+        </form>
+        {{else}}
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-8 text-center">
+            <div class="mx-auto w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
+                <svg class="w-5 h-5 text-zinc-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+                </svg>
+            </div>
+            <p class="text-sm font-medium text-zinc-900 dark:text-zinc-50">No subscriptions</p>
+            <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">You're not subscribed to any notifications yet.</p>
+        </div>
+        {{end}}
+
+        <p class="text-center text-xs text-zinc-400 dark:text-zinc-600 mt-8">
+            Powered by Lunogram
+        </p>
     </div>
 </body>
 </html>

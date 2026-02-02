@@ -76,13 +76,13 @@ type SubscriptionsStore struct {
 
 func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID, userID uuid.UUID, pagination Pagination) (UserSubscriptions, int, error) {
 	query := `
-	SELECT 
+	SELECT
 		s.id AS subscription_id,
 		s.name,
 		s.channel,
-		CASE 
+		CASE
 			WHEN EXISTS (
-				SELECT 1 FROM user_subscription us 
+				SELECT 1 FROM user_subscription us
 				WHERE us.user_id = $2 AND us.subscription_id = s.id AND us.state = 1
 			) THEN 'unsubscribed'
 			ELSE 'subscribed'
@@ -128,13 +128,13 @@ func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID
 
 func (s *SubscriptionsStore) GetAllUserSubscriptions(ctx context.Context, projectID, userID uuid.UUID) (UserSubscriptions, error) {
 	query := `
-	SELECT 
+	SELECT
 		s.id AS subscription_id,
 		s.name,
 		s.channel,
-		CASE 
+		CASE
 			WHEN EXISTS (
-				SELECT 1 FROM user_subscription us 
+				SELECT 1 FROM user_subscription us
 				WHERE us.user_id = $2 AND us.subscription_id = s.id AND us.state = 1
 			) THEN 'unsubscribed'
 			ELSE 'subscribed'
@@ -199,34 +199,41 @@ func (s *SubscriptionsStore) CreateSubscription(ctx context.Context, subscriptio
 	return id, nil
 }
 
-func (s *SubscriptionsStore) ToggleSubscription(ctx context.Context, userID, subscriptionID uuid.UUID, state string) error {
-	// First, delete any existing subscription state
-	deleteStmt := `
-	DELETE FROM user_subscription 
+func (s *SubscriptionsStore) Subscribe(ctx context.Context, db DB, userID, subscriptionID uuid.UUID) error {
+	stmt := `
+	DELETE FROM user_subscription
 	WHERE user_id = $1 AND subscription_id = $2`
 
-	_, err := s.db.ExecContext(ctx, deleteStmt, userID, subscriptionID)
+	_, err := db.ExecContext(ctx, stmt, userID, subscriptionID)
+	return err
+}
+
+func (s *SubscriptionsStore) Unsubscribe(ctx context.Context, db DB, userID, subscriptionID uuid.UUID) error {
+	// Delete any existing record first
+	_, err := db.ExecContext(ctx, `
+		DELETE FROM user_subscription
+		WHERE user_id = $1 AND subscription_id = $2`, userID, subscriptionID)
 	if err != nil {
 		return err
 	}
 
-	// If unsubscribing, insert the unsubscribe record (state = 1)
-	// If subscribing (or resubscribing), we just delete the record (done above)
-	if state == "unsubscribed" {
-		insertStmt := `
+	// Insert unsubscribe record
+	_, err = db.ExecContext(ctx, `
 		INSERT INTO user_subscription (user_id, subscription_id, state, created_at, updated_at)
-		VALUES ($1, $2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+		VALUES ($1, $2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, userID, subscriptionID)
+	return err
+}
 
-		_, err = s.db.ExecContext(ctx, insertStmt, userID, subscriptionID)
-		return err
+func (s *SubscriptionsStore) SetSubscriptionState(ctx context.Context, db DB, userID, subscriptionID uuid.UUID, subscribed bool) error {
+	if subscribed {
+		return s.Subscribe(ctx, db, userID, subscriptionID)
 	}
-
-	return nil
+	return s.Unsubscribe(ctx, db, userID, subscriptionID)
 }
 
 func (s *SubscriptionsStore) ListSubscriptions(ctx context.Context, projectID uuid.UUID, pagination Pagination) (Subscriptions, int, error) {
 	query := `
-	SELECT 
+	SELECT
 		id,
 		project_id,
 		name,

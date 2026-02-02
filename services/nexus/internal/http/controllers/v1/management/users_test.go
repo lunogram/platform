@@ -372,7 +372,7 @@ func TestGetUserSubscriptions(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = subscriptionsStore.ToggleSubscription(ctx, userID, subscriptionID1, "unsubscribed")
+	err = subscriptionsStore.Unsubscribe(ctx, controller.db, userID, subscriptionID1)
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()

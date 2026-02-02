@@ -114,20 +114,19 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("user_id", userID))
 	logger.Info("updating preferences")
 
-	// Verify user exists
 	_, err := srv.store.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("user not found")
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
+
 	if err != nil {
 		logger.Error("failed to get user", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	// Parse form data
 	err = r.ParseForm()
 	if err != nil {
 		logger.Error("failed to parse form", zap.Error(err))
@@ -135,15 +134,13 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 		return
 	}
 
-	// Get selected subscription IDs
-	selectedIDs := make(map[uuid.UUID]bool)
+	selected := make(map[uuid.UUID]bool)
 	for _, idStr := range r.Form["subscriptionIds"] {
 		if id, err := uuid.Parse(idStr); err == nil {
-			selectedIDs[id] = true
+			selected[id] = true
 		}
 	}
 
-	// Get all user subscriptions
 	subscriptions, err := srv.store.GetAllUserSubscriptions(ctx, projectID, userID)
 	if err != nil {
 		logger.Error("failed to get user subscriptions", zap.Error(err))
@@ -151,23 +148,32 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 		return
 	}
 
-	// Update each subscription
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
 	for _, sub := range subscriptions {
-		state := "unsubscribed"
-		if selectedIDs[sub.SubscriptionID] {
-			state = "subscribed"
-		}
-		err = srv.store.ToggleSubscription(ctx, userID, sub.SubscriptionID, state)
+		subscribed := selected[sub.SubscriptionID]
+		err = srv.store.SetSubscriptionState(ctx, tx, userID, sub.SubscriptionID, subscribed)
 		if err != nil {
-			logger.Error("failed to toggle subscription", zap.Error(err))
+			logger.Error("failed to update subscription", zap.Error(err))
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 	}
 
-	logger.Info("preferences updated successfully")
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 
-	// Redirect back to preferences page with success indicator
+	logger.Info("preferences updated successfully")
 	http.Redirect(w, r, "/preferences/"+projectID.String()+"/"+userID.String()+"?u=1", http.StatusSeeOther)
 }
 
@@ -181,51 +187,28 @@ func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *h
 
 	// Parse the URL to extract query parameters
 	// The link format from legacy code: ?u={user_id}&c={campaign_id}&s={reference_id}&r={redirect}
-	parsedURL, err := url.Parse(params.Link)
+	link, err := url.Parse(params.Link)
 	if err != nil {
 		logger.Error("failed to parse link", zap.Error(err))
 		http.Error(w, "Invalid link", http.StatusBadRequest)
 		return
 	}
 
-	// Extract user_id and campaign_id from query parameters
-	userIDStr := parsedURL.Query().Get("u")
-	campaignIDStr := parsedURL.Query().Get("c")
-
-	if userIDStr == "" || campaignIDStr == "" {
-		logger.Error("missing required parameters in link")
-		http.Error(w, "Invalid link format", http.StatusBadRequest)
-		return
-	}
-
-	userID, err := uuid.Parse(userIDStr)
+	userID, err := uuid.Parse(link.Query().Get("u"))
 	if err != nil {
 		logger.Error("invalid user_id", zap.Error(err))
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	campaignID, err := uuid.Parse(campaignIDStr)
+	campaignID, err := uuid.Parse(link.Query().Get("c"))
 	if err != nil {
 		logger.Error("invalid campaign_id", zap.Error(err))
 		http.Error(w, "Invalid campaign ID", http.StatusBadRequest)
 		return
 	}
 
-	// We need to get the user first to find their project_id
-	// Since we don't know the project_id from the link, we need to query for the user
-	// across projects. For now, we'll use a simpler approach: get campaign by ID only
-	// and use its project_id
-
-	// Query campaign across all projects to find the subscription_id
-	query := `SELECT id, project_id, subscription_id FROM campaigns WHERE id = $1 AND deleted_at IS NULL`
-	var campaignData struct {
-		ID             uuid.UUID  `db:"id"`
-		ProjectID      uuid.UUID  `db:"project_id"`
-		SubscriptionID *uuid.UUID `db:"subscription_id"`
-	}
-
-	err = srv.db.GetContext(ctx, &campaignData, query, campaignID)
+	campaign, err := srv.store.GetCampaignByID(ctx, campaignID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("campaign not found")
 		http.Error(w, "Campaign not found", http.StatusNotFound)
@@ -237,14 +220,13 @@ func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *h
 		return
 	}
 
-	if campaignData.SubscriptionID == nil {
+	if campaign.SubscriptionID == nil {
 		logger.Error("campaign has no subscription_id")
 		http.Error(w, "Invalid campaign", http.StatusBadRequest)
 		return
 	}
 
-	// Get user to verify they exist
-	_, err = srv.store.GetUser(ctx, campaignData.ProjectID, userID)
+	_, err = srv.store.GetUser(ctx, campaign.ProjectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("user not found")
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -256,8 +238,7 @@ func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *h
 		return
 	}
 
-	// Unsubscribe the user from this subscription type
-	err = srv.store.ToggleSubscription(ctx, userID, *campaignData.SubscriptionID, "unsubscribed")
+	err = srv.store.Unsubscribe(ctx, srv.db, userID, *campaign.SubscriptionID)
 	if err != nil {
 		logger.Error("failed to unsubscribe user", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -267,7 +248,7 @@ func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *h
 	logger.Info("user successfully unsubscribed",
 		zap.Stringer("user_id", userID),
 		zap.Stringer("campaign_id", campaignID),
-		zap.Stringer("subscription_id", *campaignData.SubscriptionID))
+		zap.Stringer("subscription_id", *campaign.SubscriptionID))
 
 	data := UnsubscribeData{}
 
