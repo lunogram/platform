@@ -445,6 +445,7 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 
 	logger.Info("updating user subscriptions", zap.Int("count", len(subscriptions)))
 
+	// Validate all subscriptions exist before starting transaction
 	for _, sub := range subscriptions {
 		_, err := srv.store.GetSubscription(ctx, projectID, sub.SubscriptionId)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -452,19 +453,34 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("subscription not found")))
 			return
 		}
-
 		if err != nil {
 			logger.Error("failed to get subscription", zap.Error(err))
 			oapi.WriteProblem(w, err)
 			return
 		}
+	}
 
-		err = srv.store.ToggleSubscription(ctx, userID, sub.SubscriptionId, string(sub.State))
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+	defer tx.Rollback()
+
+	for _, sub := range subscriptions {
+		err = srv.store.SetSubscriptionState(ctx, tx, userID, sub.SubscriptionId, sub.State == "subscribed")
 		if err != nil {
-			logger.Error("failed to toggle subscription", zap.Error(err))
+			logger.Error("failed to update subscription", zap.Error(err))
 			oapi.WriteProblem(w, err)
 			return
 		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
 	}
 
 	user, err := srv.store.GetUser(ctx, projectID, userID)

@@ -1,0 +1,4 @@
+@import "tailwindcss";
+@source "../templates/**/*.html";
+
+@custom-variant dark (&:where(.dark, .dark *));

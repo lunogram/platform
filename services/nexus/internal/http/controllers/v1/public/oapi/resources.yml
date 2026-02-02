@@ -71,6 +71,108 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /unsubscribe/email:
+    get:
+      summary: Email unsubscribe page
+      description: |
+        Public endpoint for email unsubscribe links. Extracts user and campaign information
+        from the encoded URL and displays an unsubscribe confirmation page.
+      operationId: emailUnsubscribe
+      tags:
+        - Subscriptions
+      parameters:
+        - name: link
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Encoded unsubscribe link with user and campaign data
+      responses:
+        '200':
+          description: Unsubscribe confirmation page
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /preferences/{projectID}/{userID}:
+    get:
+      summary: Subscription preferences page
+      description: |
+        Public endpoint for users to view and manage their subscription preferences.
+        Shows all public subscriptions with current user state.
+      operationId: getPreferencesPage
+      tags:
+        - Subscriptions
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        '200':
+          description: Subscription preferences page
+          content:
+            text/html:
+              schema:
+                type: string
+
+    post:
+      summary: Update subscription preferences
+      description: |
+        Handles form submission to update user subscription preferences.
+        Redirects back to preferences page with success indicator.
+      operationId: updatePreferences
+      tags:
+        - Subscriptions
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                subscriptionIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Array of subscription IDs to keep subscribed
+      responses:
+        '302':
+          description: Redirect to preferences page with success indicator
+        '200':
+          description: Success response (for htmx partial updates)
+          content:
+            text/html:
+              schema:
+                type: string
+
 components:
   responses:
     Error:

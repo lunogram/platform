@@ -17,7 +17,8 @@
   },
   "devDependencies": {
     "openapi-fetch": "^0.14.1",
-    "openapi-typescript": "^7.9.1"
+    "openapi-typescript": "^7.9.1",
+    "tailwindcss": "^4.1.18"
   },
   "packageManager": "pnpm@10.25.0"
 }

@@ -255,3 +255,28 @@ func (s *CampaignsStore) GetCampaignUsers(ctx context.Context, projectID, campai
 
 	return users, total, nil
 }
+
+// CampaignLookup contains minimal campaign data for unsubscribe flows
+type CampaignLookup struct {
+	ID             uuid.UUID  `db:"id"`
+	ProjectID      uuid.UUID  `db:"project_id"`
+	SubscriptionID *uuid.UUID `db:"subscription_id"`
+}
+
+// GetCampaignByID retrieves a campaign by ID without project filter.
+// This is used for unsubscribe flows where the project_id is not known.
+func (s *CampaignsStore) GetCampaignByID(ctx context.Context, campaignID uuid.UUID) (*CampaignLookup, error) {
+	query := `
+	SELECT id, project_id, subscription_id
+	FROM campaigns
+	WHERE id = $1
+	AND deleted_at IS NULL`
+
+	var campaign CampaignLookup
+	err := s.db.GetContext(ctx, &campaign, query, campaignID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &campaign, nil
+}

@@ -1,8 +1,10 @@
 package v1
 
 import (
-	_ "embed"
+	"embed"
 	"fmt"
+	"io/fs"
+	nethttp "net/http"
 
 	"github.com/cloudproud/graceful"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -18,7 +20,10 @@ import (
 	"go.uber.org/zap"
 )
 
-// NewServer constructs a new HTTP server and it's routes. The returned server
+//go:embed static
+var staticFiles embed.FS
+
+// NewServer constructs a new HTTP server and its routes. The returned server
 // could be used to listen and serve incoming requests on the given address.
 func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db *sqlx.DB, storage storage.Storage, pub pubsub.Publisher) (*http.Server, error) {
 	spec, err := oapi.Spec()
@@ -37,7 +42,19 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db 
 
 	router.Use(oapi.Scalar())
 
-	oapi.HandlerWithOptions(NewController(logger, db, pub), oapi.ChiServerOptions{
+	// Serve static files for CSS - use sub-filesystem to strip the "static" prefix
+	staticSubFS, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create static sub-filesystem: %w", err)
+	}
+	router.Handle("/static/*", nethttp.StripPrefix("/static/", nethttp.FileServer(nethttp.FS(staticSubFS))))
+
+	controller, err := NewController(logger, db, pub)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create controller: %w", err)
+	}
+
+	oapi.HandlerWithOptions(controller, oapi.ChiServerOptions{
 		BaseRouter:  router,
 		Middlewares: []oapi.MiddlewareFunc{oapi.Validator(spec, options)},
 	})
