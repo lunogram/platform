@@ -424,6 +424,7 @@
   "lists": "Lists",
   "live": "Live",
   "load_user": "Load User",
+  "locale_field_subtitle": "The abbreviated language code, e.g., en, es, fr.",
   "locales": "Locales",
   "login_basic_instructions": "Enter your email and password to continue.",
   "login_callback_error": "Authentication failed. Please try again.",
