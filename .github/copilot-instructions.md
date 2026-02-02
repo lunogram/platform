@@ -8,7 +8,6 @@ This is the Lunogram platform - a multi-service monorepo for customer engagement
 
 - **services/nexus** - Go backend API (OpenAPI 3.0, PostgreSQL)
 - **services/console** - React TypeScript frontend (Vite, React Router 7)
-- **services/platform** - Legacy Node.js backend (being migrated to Nexus)
 
 ## Code Style & Conventions
 
