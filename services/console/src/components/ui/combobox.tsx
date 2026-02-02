@@ -14,11 +14,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import type { RulePath } from "@/types";
 import { Input } from "./input";
 
-interface ComboboxProps {
-  options: RulePath[];
+interface PathOption {
+  path: string;
+}
+
+interface ComboboxProps<T extends PathOption> {
+  options: T[];
   value?: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
@@ -29,10 +32,10 @@ interface ComboboxProps {
   contentClassName?: string;
   disabled?: boolean;
   required?: boolean;
-  renderOption?: (option: RulePath, search: string) => React.ReactNode;
+  renderOption?: (option: T, search: string) => React.ReactNode;
 }
 
-export function Combobox({
+export function Combobox<T extends PathOption>({
   options,
   value,
   onValueChange,
@@ -45,7 +48,7 @@ export function Combobox({
   disabled = false,
   required = false,
   renderOption,
-}: ComboboxProps) {
+}: ComboboxProps<T>) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState(value || "");
   const inputRef = React.useRef<HTMLInputElement>(null);

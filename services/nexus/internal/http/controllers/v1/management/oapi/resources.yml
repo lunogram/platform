@@ -1766,7 +1766,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/events:
+  /api/admin/projects/{projectID}/events/schema:
     get:
       summary: List events with schemas
       description: Retrieves all events and their schema paths for a project

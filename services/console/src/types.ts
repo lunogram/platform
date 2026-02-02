@@ -102,13 +102,13 @@ export type Rule = {
   operator: Operator;
   value?: string;
 } & (
-  | { type: "wrapper" }
-  | { type: "string" }
-  | { type: "number" }
-  | { type: "boolean" }
-  | { type: "date" }
-  | { type: "array" }
-);
+    | { type: "wrapper" }
+    | { type: "string" }
+    | { type: "number" }
+    | { type: "boolean" }
+    | { type: "date" }
+    | { type: "array" }
+  );
 
 export function defaultOperator(type: RuleType): Operator {
   switch (type) {
@@ -169,15 +169,15 @@ export type WrapperRule = Rule & { type: "wrapper"; children: Rule[] };
 
 export type EventRulePeriod =
   | {
-      type: "rolling";
-      unit: "minute" | "hour" | "day" | "week" | "month";
-      value: number;
-    }
+    type: "rolling";
+    unit: "minute" | "hour" | "day" | "week" | "month";
+    value: number;
+  }
   | {
-      type: "fixed";
-      start_date: string;
-      end_date?: string;
-    };
+    type: "fixed";
+    start_date: string;
+    end_date?: string;
+  };
 
 export interface EventRuleFrequency {
   period: EventRulePeriod;
@@ -199,11 +199,20 @@ export interface RulePath {
   visibility: "public" | "hidden" | "classified";
 }
 
+export interface EventSchemaPath {
+  path: string;
+  types: string[];
+}
+
+export interface EventSchema {
+  id: UUID;
+  name: string;
+  schema: EventSchemaPath[];
+}
+
 export interface VariableSuggestions {
   userPaths: RulePath[];
-  eventPaths: {
-    [name: string]: RulePath[];
-  };
+  eventPaths: EventSchema[];
 }
 
 export interface Preferences {
@@ -380,12 +389,12 @@ export type List = {
   created_at: string;
   updated_at: string;
 } & (
-  | {
+    | {
       type: "dynamic";
       rule: WrapperRule;
     }
-  | { type: "static" }
-);
+    | { type: "static" }
+  );
 
 export type DynamicList = List & { type: "dynamic" };
 
@@ -624,23 +633,23 @@ export type Template = {
   created_at: string;
   updated_at: string;
 } & (
-  | {
+    | {
       type: "email";
       data: EmailTemplateData;
     }
-  | {
+    | {
       type: "text";
       data: TextTemplateData;
     }
-  | {
+    | {
       type: "push";
       data: PushTemplateData;
     }
-  | {
+    | {
       type: "webhook";
       data: WebhookTemplateData;
     }
-);
+  );
 
 export type TemplateCreateParams = Pick<Template, "data" | "locale">;
 export type TemplateUpdateParams = Pick<Template, "data">;

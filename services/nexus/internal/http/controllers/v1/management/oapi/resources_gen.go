@@ -4701,7 +4701,7 @@ func NewListEventsRequest(server string, projectID openapi_types.UUID) (*http.Re
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/events", pathParam0)
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/events/schema", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -13140,7 +13140,7 @@ type ServerInterface interface {
 	// (GET /api/admin/projects/{projectID}/documents/{documentID}/metadata)
 	GetDocumentMetadata(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, documentID openapi_types.UUID)
 	// List events with schemas
-	// (GET /api/admin/projects/{projectID}/events)
+	// (GET /api/admin/projects/{projectID}/events/schema)
 	ListEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// List journeys
 	// (GET /api/admin/projects/{projectID}/journeys)
@@ -13497,7 +13497,7 @@ func (_ Unimplemented) GetDocumentMetadata(w http.ResponseWriter, r *http.Reques
 }
 
 // List events with schemas
-// (GET /api/admin/projects/{projectID}/events)
+// (GET /api/admin/projects/{projectID}/events/schema)
 func (_ Unimplemented) ListEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
@@ -17265,7 +17265,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/documents/{documentID}/metadata", wrapper.GetDocumentMetadata)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/events", wrapper.ListEvents)
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/events/schema", wrapper.ListEvents)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys", wrapper.ListJourneys)

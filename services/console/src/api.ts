@@ -228,10 +228,32 @@ const api = {
       await client
         .get<SearchResult<Project>>("/admin/projects")
         .then((r) => r.data),
-    pathSuggestions: async (projectId: UUID) =>
-      await client
-        .get<VariableSuggestions>(`${projectUrl(projectId)}/data/paths`)
-        .then((r) => r.data),
+    pathSuggestions: async (projectId: UUID) => {
+      let eventSuggestions = await client
+        .get<{ results: VariableSuggestions['eventPaths'] }>(`${projectUrl(projectId)}/events/schema`)
+        .then((r) => r.data.results);
+
+      eventSuggestions = eventSuggestions.map((event) => {
+        event.schema ??= [];
+        event.schema = event.schema.map((schemaPath) => {
+          return {
+            ...schemaPath,
+            path: `.data${schemaPath.path}`
+          }
+        })
+
+        return event;
+      })
+
+      const userSuggestions = await client
+        .get<{ results: VariableSuggestions['userPaths'] }>(`${projectUrl(projectId)}/users/schema`)
+        .then((r) => r.data.results);
+
+      return {
+        eventPaths: eventSuggestions,
+        userPaths: userSuggestions,
+      }
+    }
   },
 
   data: {
