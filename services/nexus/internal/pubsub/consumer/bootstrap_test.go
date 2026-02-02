@@ -30,7 +30,7 @@ func setupBootstrapTest(t *testing.T) jetstream.JetStream {
 	return jet
 }
 
-func TestBootstrap_CreatesStreamsAndConsumers(t *testing.T) {
+func TestBootstrapCreatesStreamsAndConsumers(t *testing.T) {
 	t.Parallel()
 
 	jet := setupBootstrapTest(t)
@@ -59,7 +59,7 @@ func TestBootstrap_CreatesStreamsAndConsumers(t *testing.T) {
 	assert.Equal(t, "events.process.>", consumerInfo.Config.FilterSubject)
 }
 
-func TestBootstrap_CreatesRecomputeStream(t *testing.T) {
+func TestBootstrapCreatesRecomputeStream(t *testing.T) {
 	t.Parallel()
 
 	jet := setupBootstrapTest(t)
@@ -79,7 +79,7 @@ func TestBootstrap_CreatesRecomputeStream(t *testing.T) {
 	assert.Contains(t, info.Config.Subjects, "lists.>")
 }
 
-func TestBootstrap_CreatesAllConsumers(t *testing.T) {
+func TestBootstrapCreatesAllConsumers(t *testing.T) {
 	t.Parallel()
 
 	jet := setupBootstrapTest(t)
@@ -113,7 +113,7 @@ func TestBootstrap_CreatesAllConsumers(t *testing.T) {
 	}
 }
 
-func TestBootstrap_Idempotent(t *testing.T) {
+func TestBootstrapIdempotent(t *testing.T) {
 	t.Parallel()
 
 	jet := setupBootstrapTest(t)
@@ -131,7 +131,7 @@ func TestBootstrap_Idempotent(t *testing.T) {
 	assert.NotNil(t, stream)
 }
 
-func TestBootstrapper_EnsureStream(t *testing.T) {
+func TestBootstrapperEnsureStream(t *testing.T) {
 	t.Parallel()
 
 	jet := setupBootstrapTest(t)
@@ -155,7 +155,7 @@ func TestBootstrapper_EnsureStream(t *testing.T) {
 	assert.NotNil(t, stream)
 }
 
-func TestBootstrapper_EnsureConsumer(t *testing.T) {
+func TestBootstrapperEnsureConsumer(t *testing.T) {
 	t.Parallel()
 
 	jet := setupBootstrapTest(t)
@@ -184,7 +184,7 @@ func TestBootstrapper_EnsureConsumer(t *testing.T) {
 	assert.NotNil(t, consumer)
 }
 
-func TestBootstrapper_StreamRetention(t *testing.T) {
+func TestBootstrapperStreamRetention(t *testing.T) {
 	t.Parallel()
 
 	jet := setupBootstrapTest(t)

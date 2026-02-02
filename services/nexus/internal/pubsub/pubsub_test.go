@@ -40,7 +40,7 @@ func TestNewPublisher(t *testing.T) {
 	assert.NotNil(t, pub)
 }
 
-func TestPublisher_Publish(t *testing.T) {
+func TestPublisherPublish(t *testing.T) {
 	t.Parallel()
 
 	jet := setupJetStream(t)
@@ -120,7 +120,7 @@ func TestEventsSchema(t *testing.T) {
 	assert.Equal(t, expected, subject)
 }
 
-func TestPublisher_PublishAndReceive(t *testing.T) {
+func TestPublisherPublishAndReceive(t *testing.T) {
 	t.Parallel()
 
 	jet := setupJetStream(t)

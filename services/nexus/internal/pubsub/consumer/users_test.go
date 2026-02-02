@@ -83,7 +83,7 @@ func TestUsersSchema(t *testing.T) {
 	assert.Equal(t, expected, subject)
 }
 
-func TestUser_Event(t *testing.T) {
+func TestUserEvent(t *testing.T) {
 	t.Parallel()
 
 	projectID := uuid.New()
@@ -126,7 +126,7 @@ func TestUser_Event(t *testing.T) {
 	assert.Equal(t, int32(5), event.Data["version"])
 }
 
-func TestUsersHandler_Success(t *testing.T) {
+func TestUsersHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupUsersTest(t)
@@ -166,7 +166,7 @@ func TestUsersHandler_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUsersHandler_PublishesUserCreatedEvent(t *testing.T) {
+func TestUsersHandlerPublishesUserCreatedEvent(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupUsersTest(t)
@@ -215,7 +215,7 @@ func TestUsersHandler_PublishesUserCreatedEvent(t *testing.T) {
 	assert.Equal(t, projectID, receivedEvent.ProjectID)
 }
 
-func TestUsersHandler_PublishesUserUpdatedEvent(t *testing.T) {
+func TestUsersHandlerPublishesUserUpdatedEvent(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupUsersTest(t)
@@ -264,7 +264,7 @@ func TestUsersHandler_PublishesUserUpdatedEvent(t *testing.T) {
 	assert.Equal(t, projectID, receivedEvent.ProjectID)
 }
 
-func TestUsersHandler_WithListDependencies(t *testing.T) {
+func TestUsersHandlerWithListDependencies(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupUsersTest(t)
@@ -342,7 +342,7 @@ func TestUsersHandler_WithListDependencies(t *testing.T) {
 	assert.Equal(t, projectID, recompute.ProjectID)
 }
 
-func TestUsersHandler_WithUserData(t *testing.T) {
+func TestUsersHandlerWithUserData(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupUsersTest(t)
@@ -392,7 +392,7 @@ func TestUsersHandler_WithUserData(t *testing.T) {
 	assert.NotNil(t, receivedUser.Data)
 }
 
-func TestUsersHandler_WithoutData(t *testing.T) {
+func TestUsersHandlerWithoutData(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupUsersTest(t)
@@ -433,7 +433,7 @@ func TestUsersHandler_WithoutData(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestPublishUserRecomputeLists_Success(t *testing.T) {
+func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupUsersTest(t)
@@ -505,7 +505,7 @@ func TestPublishUserRecomputeLists_Success(t *testing.T) {
 	assert.Contains(t, result, listID)
 }
 
-func TestPublishUserRecomputeLists_NoLists(t *testing.T) {
+func TestPublishUserRecomputeListsNoLists(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupUsersTest(t)
@@ -536,7 +536,7 @@ func TestPublishUserRecomputeLists_NoLists(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestPublishUserEvents_UserCreated(t *testing.T) {
+func TestPublishUserEventsUserCreated(t *testing.T) {
 	t.Parallel()
 
 	jet := setupBootstrapTest(t)
@@ -567,7 +567,7 @@ func TestPublishUserEvents_UserCreated(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestPublishUserEvents_UserUpdated(t *testing.T) {
+func TestPublishUserEventsUserUpdated(t *testing.T) {
 	t.Parallel()
 
 	jet := setupBootstrapTest(t)
@@ -598,7 +598,7 @@ func TestPublishUserEvents_UserUpdated(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUserSchemasHandler_Success(t *testing.T) {
+func TestUserSchemasHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupUsersTest(t)
@@ -644,7 +644,7 @@ func TestUserSchemasHandler_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUserSchemasHandler_ComplexData(t *testing.T) {
+func TestUserSchemasHandlerComplexData(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupUsersTest(t)

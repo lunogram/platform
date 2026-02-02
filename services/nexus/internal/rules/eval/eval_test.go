@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEvaluator_SimpleUserRules(t *testing.T) {
+func TestEvaluatorSimpleUserRules(t *testing.T) {
 	t.Parallel()
 
 	evaluator := NewEvaluator()
@@ -86,7 +86,7 @@ func TestEvaluator_SimpleUserRules(t *testing.T) {
 	}
 }
 
-func TestEvaluator_NestedPaths(t *testing.T) {
+func TestEvaluatorNestedPaths(t *testing.T) {
 	t.Parallel()
 
 	evaluator := NewEvaluator()
@@ -114,7 +114,7 @@ func TestEvaluator_NestedPaths(t *testing.T) {
 	assert.True(t, got)
 }
 
-func TestEvaluator_LogicalOperators(t *testing.T) {
+func TestEvaluatorLogicalOperators(t *testing.T) {
 	t.Parallel()
 
 	evaluator := NewEvaluator()
@@ -153,7 +153,7 @@ func TestEvaluator_LogicalOperators(t *testing.T) {
 	assert.True(t, got)
 }
 
-func TestEvaluator_EventRules(t *testing.T) {
+func TestEvaluatorEventRules(t *testing.T) {
 	t.Parallel()
 
 	evaluator := NewEvaluator()
@@ -194,7 +194,7 @@ func TestEvaluator_EventRules(t *testing.T) {
 	assert.True(t, got)
 }
 
-func TestEvaluator_DateOperators(t *testing.T) {
+func TestEvaluatorDateOperators(t *testing.T) {
 	t.Parallel()
 
 	evaluator := NewEvaluator()
@@ -220,7 +220,7 @@ func TestEvaluator_DateOperators(t *testing.T) {
 	assert.True(t, got)
 }
 
-func TestEvaluator_FrequencyReturnsError(t *testing.T) {
+func TestEvaluatorFrequencyReturnsError(t *testing.T) {
 	t.Parallel()
 
 	evaluator := NewEvaluator()

@@ -40,7 +40,7 @@ func newTestStore(t *testing.T) *testState {
 	}
 }
 
-func TestJourneysStore_CreateJourney(t *testing.T) {
+func TestJourneysStoreCreateJourney(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
@@ -72,7 +72,7 @@ func TestJourneysStore_CreateJourney(t *testing.T) {
 	})
 }
 
-func TestJourneysStore_VersionWorkflow(t *testing.T) {
+func TestJourneysStoreVersionWorkflow(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
@@ -153,7 +153,7 @@ func TestJourneysStore_VersionWorkflow(t *testing.T) {
 	})
 }
 
-func TestJourneysStore_SetJourneySteps(t *testing.T) {
+func TestJourneysStoreSetJourneySteps(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
@@ -268,7 +268,7 @@ func TestJourneysStore_SetJourneySteps(t *testing.T) {
 	})
 }
 
-func TestJourneysStore_DuplicateJourney(t *testing.T) {
+func TestJourneysStoreDuplicateJourney(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
@@ -353,7 +353,7 @@ func TestJourneysStore_DuplicateJourney(t *testing.T) {
 	})
 }
 
-func TestJourneysStore_EventDependencies(t *testing.T) {
+func TestJourneysStoreEventDependencies(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
@@ -421,7 +421,7 @@ func TestJourneysStore_EventDependencies(t *testing.T) {
 	})
 }
 
-func TestJourneysStore_UserJourneyState(t *testing.T) {
+func TestJourneysStoreUserJourneyState(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
@@ -492,7 +492,7 @@ func TestJourneysStore_UserJourneyState(t *testing.T) {
 	})
 }
 
-func TestJourneysStore_VersionPinning(t *testing.T) {
+func TestJourneysStoreVersionPinning(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
@@ -610,7 +610,7 @@ func TestJourneysStore_VersionPinning(t *testing.T) {
 	})
 }
 
-func TestJourneysStore_EnsureDraftVersionCopiesSteps(t *testing.T) {
+func TestJourneysStoreEnsureDraftVersionCopiesSteps(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 	projectID := uuid.New()
@@ -666,7 +666,7 @@ func TestJourneysStore_EnsureDraftVersionCopiesSteps(t *testing.T) {
 	assert.Len(t, draftChildren, 1, "connections should be copied to new draft")
 }
 
-func TestJourneysStore_MultiExecutionSteps(t *testing.T) {
+func TestJourneysStoreMultiExecutionSteps(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 

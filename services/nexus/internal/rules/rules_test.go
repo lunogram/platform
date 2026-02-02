@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRule_Events(t *testing.T) {
+func TestRuleEvents(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
@@ -129,7 +129,7 @@ func TestRule_Events(t *testing.T) {
 	}
 }
 
-func TestRule_DependsOnEvents(t *testing.T) {
+func TestRuleDependsOnEvents(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
@@ -242,7 +242,7 @@ func TestRule_DependsOnEvents(t *testing.T) {
 	}
 }
 
-func TestRule_DependsOnUsers(t *testing.T) {
+func TestRuleDependsOnUsers(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
@@ -353,7 +353,7 @@ func TestRule_DependsOnUsers(t *testing.T) {
 	}
 }
 
-func TestRule_HasChildren(t *testing.T) {
+func TestRuleHasChildren(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
@@ -403,7 +403,7 @@ func TestRule_HasChildren(t *testing.T) {
 	}
 }
 
-func TestRule_IsRoot(t *testing.T) {
+func TestRuleIsRoot(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
@@ -438,7 +438,7 @@ func TestRule_IsRoot(t *testing.T) {
 	}
 }
 
-func TestRuleType_SQL(t *testing.T) {
+func TestRuleTypeSQL(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
@@ -485,7 +485,7 @@ func TestRuleType_SQL(t *testing.T) {
 	}
 }
 
-func TestOperator_SQL(t *testing.T) {
+func TestOperatorSQL(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
@@ -520,7 +520,7 @@ func TestOperator_SQL(t *testing.T) {
 	}
 }
 
-func TestPeriodUnit_SQL(t *testing.T) {
+func TestPeriodUnitSQL(t *testing.T) {
 	t.Parallel()
 
 	type test struct {

@@ -62,7 +62,7 @@ func setupEventsTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream) {
 	return db, projectID, jet
 }
 
-func TestEventsProjectHandler_Success(t *testing.T) {
+func TestEventsProjectHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupEventsTest(t)
@@ -119,7 +119,7 @@ func TestEventsProjectHandler_Success(t *testing.T) {
 	assert.Equal(t, "test_event", receivedEvent.Name)
 }
 
-func TestEventsProjectHandler_WithoutData(t *testing.T) {
+func TestEventsProjectHandlerWithoutData(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupEventsTest(t)
@@ -168,7 +168,7 @@ func TestEventsProjectHandler_WithoutData(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestEventsProjectHandler_WithIdentifiers(t *testing.T) {
+func TestEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupEventsTest(t)
@@ -214,7 +214,7 @@ func TestEventsProjectHandler_WithIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEventsSchemaHandler_Success(t *testing.T) {
+func TestEventsSchemaHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupEventsTest(t)
@@ -259,7 +259,7 @@ func TestEventsSchemaHandler_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEventsSchemaHandler_ComplexNestedData(t *testing.T) {
+func TestEventsSchemaHandlerComplexNestedData(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupEventsTest(t)

@@ -75,7 +75,7 @@ func TestListsRecompute(t *testing.T) {
 	assert.Equal(t, expected, subject)
 }
 
-func TestRecomputeListHandler_Success(t *testing.T) {
+func TestRecomputeListHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupRecomputeTest(t)
@@ -154,7 +154,7 @@ func TestRecomputeListHandler_Success(t *testing.T) {
 	assert.Equal(t, userID, users[0].ID)
 }
 
-func TestRecomputeListHandler_NoRule(t *testing.T) {
+func TestRecomputeListHandlerNoRule(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupRecomputeTest(t)
@@ -195,7 +195,7 @@ func TestRecomputeListHandler_NoRule(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRecomputeListHandler_WithUserAddedEvent(t *testing.T) {
+func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	t.Parallel()
 
 	db, projectID, jet := setupRecomputeTest(t)
@@ -281,7 +281,7 @@ func TestRecomputeListHandler_WithUserAddedEvent(t *testing.T) {
 	assert.Equal(t, projectID, receivedEvent.ProjectID)
 }
 
-func TestPublishListRecomputeEvents_Inserted(t *testing.T) {
+func TestPublishListRecomputeEventsInserted(t *testing.T) {
 	t.Parallel()
 
 	jet := setupBootstrapTest(t)
@@ -310,7 +310,7 @@ func TestPublishListRecomputeEvents_Inserted(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestPublishListRecomputeEvents_Deleted(t *testing.T) {
+func TestPublishListRecomputeEventsDeleted(t *testing.T) {
 	t.Parallel()
 
 	jet := setupBootstrapTest(t)
@@ -339,7 +339,7 @@ func TestPublishListRecomputeEvents_Deleted(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestPublishListRecomputeEvents_Mixed(t *testing.T) {
+func TestPublishListRecomputeEventsMixed(t *testing.T) {
 	t.Parallel()
 
 	jet := setupBootstrapTest(t)
