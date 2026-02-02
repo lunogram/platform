@@ -6,12 +6,25 @@ This is the Lunogram platform - a multi-service monorepo for customer engagement
 
 ### Architecture
 
-- **services/nexus** - Go backend API (OpenAPI 3.0, PostgreSQL)
-- **services/console** - React TypeScript frontend (Vite, React Router 7)
+- **cmd/lunogram** - Single binary entry point
+- **internal** - Go backend packages (API, embedded console, workers)
+- **internal/http/console** - Embedded React frontend (built from `console/`)
+- **console** - React TypeScript frontend source (Vite, React Router 7)
+
+### Build
+
+The console frontend is built and embedded into the Go binary:
+
+```bash
+make build        # Builds WASM modules + console, copies dist to internal/http/console/dist
+make console      # Builds only the console
+```
+
+The embedded console is served at the root path (`/`) by the management HTTP server.
 
 ## Code Style & Conventions
 
-### Go (services/nexus)
+### Go (internal)
 
 #### General Principles
 
@@ -125,7 +138,7 @@ LIMIT $2 OFFSET $3
 - Use `problem` package for consistent error responses
 - Validate input using generated OAPI types
 
-### TypeScript (services/console)
+### TypeScript (console)
 
 - Use TypeScript strictly - no `any` types
 - Follow React hooks best practices
@@ -135,7 +148,7 @@ LIMIT $2 OFFSET $3
 
 ### Database
 
-- Always use migrations (services/nexus/internal/store/migrations)
+- Always use migrations (internal/store/migrations)
 - Use UUIDs for primary keys
 - Include `created_at`, `updated_at` timestamps
 - Use `deleted_at` for soft deletes
@@ -155,7 +168,7 @@ LIMIT $2 OFFSET $3
 
 ### Making OpenAPI Changes
 
-1. Edit `services/nexus/oapi/resources.yml`
+1. Edit `oapi/resources.yml`
 2. Run `make generate`
 3. Update controller implementations
 4. Update tests
@@ -241,7 +254,7 @@ Return pagination metadata:
 
 ## References
 
-- OpenAPI Spec: `services/nexus/oapi/resources.yml`
-- Database Schema: `services/nexus/internal/store/migrations/`
-- API Client: `services/console/src/api.ts`
-- Example Tests: `services/nexus/internal/http/controllers/v1/*_test.go`
+- OpenAPI Spec: `oapi/resources.yml`
+- Database Schema: `internal/store/migrations/`
+- API Client: `console/src/api.ts`
+- Example Tests: `internal/http/controllers/v1/*_test.go`

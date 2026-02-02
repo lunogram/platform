@@ -40,7 +40,7 @@ make logger
 ```
 pkg/modules/                      # Shared types (WASM guests import this)
 pkg/modules/providers/            # Provider-specific types (payloads, requests)
-services/nexus/internal/wasm/     # WASM runtime (host only)
+internal/providers/               # WASM runtime (host only)
 ```
 
 The split keeps `pkg/modules` free of WASM runtime dependencies so TinyGo can compile it.

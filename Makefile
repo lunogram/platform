@@ -17,7 +17,7 @@ SHORT_COMMIT	?= $(shell git rev-parse --short HEAD)
 PATH := $(GOBIN):$(BIN):$(PATH)
 
 EMBEDDED =
-LDFLAGS	= -w -s -X "github.com/lunogram/services/nexus/internal/build.version=$(VERSION)" -X "github.com/lunogram/services/nexus/internal/build.commit=$(SHORT_COMMIT)"
+LDFLAGS	= -w -s -X "github.com/lunogram/platform/internal/build.version=$(VERSION)" -X "github.com/lunogram/platform/internal/build.commit=$(SHORT_COMMIT)"
 
 # Printing
 V ?= 0
@@ -31,7 +31,7 @@ PROVIDER_MODULES := $(notdir $(wildcard ./modules/providers/*))
 
 $(PROVIDER_MODULES):
 	$(info $(M) building $@ module…)
-	$Q cd modules/providers/$@ &&  $(TINYGO) build -target=wasi -buildmode c-shared -opt=2 -no-debug -o ../../../services/nexus/internal/providers/modules/$@.wasm ./main.go
+	$Q cd modules/providers/$@ && $(TINYGO) build -target=wasi -buildmode c-shared -opt=2 -no-debug -o ../../../internal/providers/modules/$@.wasm ./main.go
 # Tools
 $(BIN):
 	@mkdir -p $@
@@ -54,13 +54,19 @@ TAILWINDCSS = $(BIN)/tailwindcss
 TOOLCHAIN = $(STRINGER) $(MINIMOCK) $(OAPI_CODEGEN) $(TAILWINDCSS)
 
 .PHONY: build # Build all services
-build: $(PROVIDER_MODULES)
+build: $(PROVIDER_MODULES) console
 	@true
+
+.PHONY: console
+console: ; $(info $(M) building console…)
+	$Q cd console && $(PNPM) run build
+	$Q rm -rf internal/http/console/dist/*
+	$Q cp -r console/dist/* internal/http/console/dist/
 
 # Targets
 .PHONY: lint
 lint: | $(EMBEDDED) $(GOLANGCI_LINT) $(BUF) ; $(info $(M) running linters…) @ ## Run the project linters
-	$Q $(PNPM) run lint
+	$Q cd console && $(PNPM) run lint
 	$Q $(GOLANGCI_LINT) run --max-issues-per-linter 10 --timeout 5m
 
 .PHONY: test
