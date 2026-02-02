@@ -145,12 +145,12 @@ func TestListSubscriptions(t *testing.T) {
 	// List subscriptions
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/v1/subscriptions?limit=10&offset=0", nil)
-	
+
 	params := oapi.ListSubscriptionsParams{
 		Limit:  ptr(oapi.PaginationLimit(10)),
 		Offset: ptr(oapi.PaginationOffset(0)),
 	}
-	
+
 	subs.ListSubscriptions(res, req, projectID, params)
 	require.Equal(t, 200, res.Code, res.Body.String())
 

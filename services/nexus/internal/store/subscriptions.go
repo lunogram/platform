@@ -274,4 +274,3 @@ func (s *SubscriptionsStore) UpdateSubscription(ctx context.Context, subscriptio
 	_, err := s.db.ExecContext(ctx, stmt, name, isPublic, subscriptionID)
 	return err
 }
-

@@ -216,7 +216,7 @@ func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *h
 	// Since we don't know the project_id from the link, we need to query for the user
 	// across projects. For now, we'll use a simpler approach: get campaign by ID only
 	// and use its project_id
-	
+
 	// Query campaign across all projects to find the subscription_id
 	query := `SELECT id, project_id, subscription_id FROM campaigns WHERE id = $1 AND deleted_at IS NULL`
 	var campaignData struct {
@@ -224,7 +224,7 @@ func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *h
 		ProjectID      uuid.UUID  `db:"project_id"`
 		SubscriptionID *uuid.UUID `db:"subscription_id"`
 	}
-	
+
 	err = srv.db.GetContext(ctx, &campaignData, query, campaignID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("campaign not found")
@@ -264,7 +264,7 @@ func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *h
 		return
 	}
 
-	logger.Info("user successfully unsubscribed", 
+	logger.Info("user successfully unsubscribed",
 		zap.Stringer("user_id", userID),
 		zap.Stringer("campaign_id", campaignID),
 		zap.Stringer("subscription_id", *campaignData.SubscriptionID))
