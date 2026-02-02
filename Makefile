@@ -38,6 +38,9 @@ $(BIN):
 $(BIN)/%: | $(BIN) ; $(info $(M) building $(@F)…)
 	$Q GOBIN=$(BIN) $(GO) install $(shell $(GO) list tool | grep $(@F))
 
+$(BIN)/tailwindcss: | $(BIN) ; $(info $(M) building tailwindcss…)
+	$Q ./etc/install-tailwindcss.sh $(BIN)
+
 $(EMBEDDED):
 	$Q mkdir -p $(shell dirname $@)
 	$Q touch $@
@@ -46,8 +49,9 @@ GOLANGCI_LINT = $(BIN)/golangci-lint
 STRINGER = $(BIN)/stringer
 MINIMOCK = $(BIN)/minimock
 OAPI_CODEGEN = $(BIN)/oapi-codegen
+TAILWINDCSS = $(BIN)/tailwindcss
 
-TOOLCHAIN = $(STRINGER) $(MINIMOCK) $(OAPI_CODEGEN)
+TOOLCHAIN = $(STRINGER) $(MINIMOCK) $(OAPI_CODEGEN) $(TAILWINDCSS)
 
 .PHONY: build # Build all services
 build: $(PROVIDER_MODULES)
@@ -73,7 +77,6 @@ fmt: | $(EMBEDDED) ; $(info $(M) running go fmt…) @ ## Run gofmt on all source
 
 .PHONY: generate
 generate: | $(EMBEDDED) $(TOOLCHAIN) ; $(info $(M) running go generate…) @ ## Run gogenerate on all source files
-	$Q $(PNPM) install
 	$Q $(GO) generate $(PKGS)
 	$Q $(MAKE) fmt
 
