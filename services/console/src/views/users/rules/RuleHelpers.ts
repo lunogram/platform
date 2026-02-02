@@ -69,7 +69,7 @@ export const createSimpleEventRule = (value = ''): WrapperRule => ({
 
 export const emptySuggestions: VariableSuggestions = {
     userPaths: [],
-    eventPaths: {},
+    eventPaths: [],
 }
 
 export const VariablesContext = createContext<{

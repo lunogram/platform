@@ -6,7 +6,9 @@ import { ButtonGroup } from "../../../ui";
 import { SingleSelect } from "../../../ui/form/SingleSelect";
 import { Combobox } from "../../../components/ui/combobox";
 import TextInput from "../../../ui/form/TextInput";
-import type { RulePath } from "../../../types";
+import type { EventSchemaPath, RulePath } from "../../../types";
+
+type PathOption = RulePath | EventSchemaPath;
 
 export default function FilterRuleEdit({
   rule,
@@ -21,14 +23,25 @@ export default function FilterRuleEdit({
   const hasValue =
     rule?.operator &&
     !["is set", "is not set", "empty"].includes(rule?.operator);
-  const pathSuggestions = useMemo<RulePath[]>(() => {
-    let paths =
-      group === "event"
-        ? eventName
-          ? (suggestions.eventPaths[eventName] ?? [])
-          : []
-        : suggestions.userPaths;
 
+  const isEventGroup = group === "event";
+
+  const pathSuggestions = useMemo<PathOption[]>(() => {
+    if (isEventGroup) {
+      if (!eventName) return [];
+      const event = suggestions.eventPaths.find((e) => e.name === eventName);
+      if (!event) return [];
+      let schemaPaths = event.schema;
+      if (path) {
+        const search = path.toLowerCase();
+        schemaPaths = schemaPaths.filter((s) =>
+          s.path.toLowerCase().includes(search)
+        );
+      }
+      return schemaPaths;
+    }
+
+    let paths = suggestions.userPaths;
     if (path) {
       let search = path.toLowerCase();
       if (search.startsWith(".")) search = "$" + search;
@@ -36,7 +49,16 @@ export default function FilterRuleEdit({
       paths = paths.filter((p) => p.path.toLowerCase().startsWith(search));
     }
     return paths;
-  }, [suggestions, group, eventName, path]);
+  }, [suggestions, isEventGroup, eventName, path]);
+
+  const getOptionDataType = (option: PathOption): string => {
+    if ("types" in option) {
+      return option.types[0] || "string";
+    }
+  
+    return option.data_type;
+  };
+
   return (
     <div className="rule">
       <ButtonGroup className="ui-select">
@@ -58,7 +80,7 @@ export default function FilterRuleEdit({
             if (suggestion) {
               setRule({
                 ...rule,
-                type: suggestion.data_type,
+                type: getOptionDataType(suggestion) as typeof rule.type,
                 path: suggestion.path,
               });
             } else {

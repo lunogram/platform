@@ -16,17 +16,18 @@ export default function RuleEventName<T extends Rule>({
   const { suggestions } = useContext(VariablesContext);
   
   // Convert event names (keys) to RulePath objects for the Combobox
-  const eventOptions: RulePath[] = Object.keys(suggestions.eventPaths ?? {})
-    .sort()
-    .map((eventName, index) => ({
-      id: `event-${index}`,
-      path: eventName,
-      name: eventName,
-      type: "event" as const,
-      data_type: "string" as const,
-      visibility: "public" as const,
-    }));
 
+  const eventOptions: RulePath[] = Array.isArray(suggestions.eventPaths)
+    ? suggestions.eventPaths.map((event, index) => ({
+        id: `event-${index}`,
+        name: event.name,
+        path: event.name,
+        type: "event" as const,
+        data_type: "string" as const,
+        visibility: "public" as const,
+      }))
+    : [];
+  
   return (
     <Combobox
       value={rule.value ?? ''}
@@ -39,7 +40,7 @@ export default function RuleEventName<T extends Rule>({
       renderOption={(option, search) => (
         <span
           dangerouslySetInnerHTML={{
-            __html: highlightSearch(option.path, search),
+            __html: highlightSearch(option.name, search),
           }}
         />
       )}
