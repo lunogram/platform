@@ -154,7 +154,7 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	for _, sub := range subscriptions {
 		subscribed := selected[sub.SubscriptionID]

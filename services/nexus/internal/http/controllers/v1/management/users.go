@@ -466,7 +466,7 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	for _, sub := range subscriptions {
 		err = srv.store.SetSubscriptionState(ctx, tx, userID, sub.SubscriptionId, sub.State == "subscribed")
