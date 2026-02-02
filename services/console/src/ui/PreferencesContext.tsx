@@ -11,7 +11,8 @@ const language = () => {
 }
 
 const initial: Preferences = {
-    mode: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+    // mode: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+    mode: 'light',
     lang: language(),
     ...localStorageGetJson<Preferences>(PREFERENCES) ?? {},
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
