@@ -57,6 +57,13 @@ func run() error {
 		return store.Migrate(conf.Store)
 	}
 
+	if conf.DatabaseMigrate {
+		logger.Info("running database migrations...")
+		if err := store.Migrate(conf.Store); err != nil {
+			return fmt.Errorf("auto-migrate failed: %w", err)
+		}
+	}
+
 	logger.Info("starting service...")
 	logger.Info("initializing database")
 

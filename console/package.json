@@ -77,11 +77,7 @@
     "test": "vitest",
     "test:coverage": "vitest run --coverage --watch=false",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
-    "docker:build": "docker buildx build -f ./Dockerfile -t ghcr.io/lunogram/ui:latest -t ghcr.io/lunogram/ui:$TAG ../",
-    "docker:build-beta": "docker buildx build -f ./Dockerfile -t ghcr.io/lunogram/ui:$TAG ../",
-    "docker:build:push": "pnpm docker:build --push",
-    "docker:build-beta:push": "pnpm docker:build-beta --push",
-    "analyze:bundle": "pnpm build && npx source-map-explorer './build/static/js/*.js'",
+    "analyze:bundle": "pnpm build && npx source-map-explorer './dist/assets/*.js'",
     "generate:openapi": "openapi-typescript ../oapi/webhooks.yml -o ./src/oapi/webhooks.generated.ts"
   },
   "types": "./lib/cjs/mod.d.ts",

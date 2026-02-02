@@ -54,8 +54,12 @@ TAILWINDCSS = $(BIN)/tailwindcss
 TOOLCHAIN = $(STRINGER) $(MINIMOCK) $(OAPI_CODEGEN) $(TAILWINDCSS)
 
 .PHONY: build # Build all services
-build: $(PROVIDER_MODULES) console
+build: $(PROVIDER_MODULES) console binary
 	@true
+
+.PHONY: binary
+binary: ; $(info $(M) building binary…)
+	$Q CGO_ENABLED=0 $(GO) build -ldflags='$(LDFLAGS)' -o $(BIN)/lunogram ./cmd/lunogram
 
 .PHONY: console
 console: ; $(info $(M) building console…)

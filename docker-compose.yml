@@ -1,6 +1,32 @@
-version: '3.8'
-
 services:
+  lunogram:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: dev
+        COMMIT: local
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      POSTGRES_URI: postgres://postgres:postgrespw@postgres:5432/app?sslmode=disable
+      REDIS_ADDRESS: redis://redis:6379
+      NATS_URL: nats://nats:4222
+      AUTH_DRIVER: basic
+      AUTH_JWT_SECRET: never-gonna-give-you-up
+      AUTH_BASIC_EMAIL: admin@lunogram.com
+      AUTH_BASIC_PASSWORD: admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    networks:
+      - app_network
+
   postgres:
     image: postgres:18
     environment:
@@ -11,26 +37,26 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - app_network
 
   nats:
     image: nats:2.12
     ports:
-      - "4222:4222"  # Client connections
-      - "8222:8222"  # HTTP monitoring
-      - "6222:6222"  # Cluster connections
+      - "4222:4222"
+      - "8222:8222"
+      - "6222:6222"
     command: "--http_port 8222 --js"
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - app_network
 
   redis:
-    image: redis:8.4
+    image: redis:8
     ports:
       - "6379:6379"
     command: redis-server --appendonly yes
@@ -38,7 +64,7 @@ services:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
     networks:
