@@ -18,6 +18,10 @@ import { TextSection, type TextSectionProps } from "./components/TextSection";
 import { Pricing, type PricingProps } from "./components/templates/Pricing";
 import { PricingEmphasised, type PricingEmphasisedProps } from "./components/templates/PricingEmphasised";
 
+import { Img, type ImgProps } from "./components/Image";
+import { Link, type LinkProps } from "./components/Link";
+import { Heading, type HeadingProps } from "./components/Heading";
+
 import "@puckeditor/core/dist/index.css"; 
 import "./Editor.css";
 import { ProjectContext, TemplateContext, CampaignContext } from "@/contexts";
@@ -32,18 +36,22 @@ interface Components {
     TextSection: TextSectionProps
     Pricing: PricingProps
     PricingEmphasised: PricingEmphasisedProps
+    Img: ImgProps
+    Link: LinkProps
+    Heading: HeadingProps
 }
 
 const config: Config<Components> = {
-    categories: {},
+    categories: {
+        layout: { components: ["Container", "Column", "Divider"] },
+        typography: { components: ["Heading", "Text", "Link"] },
+        media: { components: ["Img"] },
+        templates: { components: ["Pricing", "PricingEmphasised"] }
+    },
     root: {
         fields: {
-            title: {
-                type: "text",
-            },
-            preview: {
-                type: "textarea",
-            },
+            title: { type: "text" },
+            preview: { type: "textarea" },
         },
     },
     components: {
@@ -54,7 +62,10 @@ const config: Config<Components> = {
         Text,
         TextSection,
         Pricing,
-        PricingEmphasised
+        PricingEmphasised,
+        Img,
+        Link,
+        Heading,
     },
 }
 
