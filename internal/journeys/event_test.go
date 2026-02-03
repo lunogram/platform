@@ -1,0 +1,339 @@
+package journeys
+
+import (
+	"context"
+	"encoding/json"
+	"testing"
+	"time"
+
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/store"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+type mockPublisher struct {
+	publishedEvents []mockEvent
+}
+
+type mockEvent struct {
+	subject schemas.Subject
+	data    any
+}
+
+func (m *mockPublisher) Publish(ctx context.Context, subject schemas.Subject, v any) error {
+	m.publishedEvents = append(m.publishedEvents, mockEvent{
+		subject: subject,
+		data:    v,
+	})
+	return nil
+}
+
+func TestHandleEvent(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	projectID := uuid.New()
+	userID := uuid.New()
+
+	type test struct {
+		step           store.JourneyVersionStep
+		state          store.JourneyUserState
+		data           map[string]any
+		expectedEvents int
+		wantErr        bool
+	}
+
+	tests := map[string]test{
+		"simple event with no template": {
+			step: store.JourneyVersionStep{
+				ID:   uuid.New(),
+				Type: EventStepType,
+				Data: json.RawMessage(`{"event_name":"journey_milestone"}`),
+				Children: []store.JourneyVersionStepChild{
+					{ChildExternalID: "next-step"},
+				},
+			},
+			state:          store.JourneyUserState{},
+			data:           map[string]any{},
+			expectedEvents: 1,
+			wantErr:        false,
+		},
+		"event with static template": {
+			step: store.JourneyVersionStep{
+				ID:   uuid.New(),
+				Type: EventStepType,
+				Data: json.RawMessage(`{"event_name":"completed_step","template":"{\"milestone\":\"step_1\"}"}`),
+				Children: []store.JourneyVersionStepChild{
+					{ChildExternalID: "next-step"},
+				},
+			},
+			state:          store.JourneyUserState{},
+			data:           map[string]any{},
+			expectedEvents: 1,
+			wantErr:        false,
+		},
+		"event with liquid template variables": {
+			step: store.JourneyVersionStep{
+				ID:   uuid.New(),
+				Type: EventStepType,
+				Data: json.RawMessage(`{"event_name":"product_viewed","template":"{\"product_name\":\"{{ journey.product.name }}\",\"category\":\"{{ journey.product.category }}\"}"}`),
+				Children: []store.JourneyVersionStepChild{
+					{ChildExternalID: "next-step"},
+				},
+			},
+			state: store.JourneyUserState{},
+			data: map[string]any{
+				"journey": map[string]any{
+					"product": map[string]any{
+						"name":     "Premium Widget",
+						"category": "widgets",
+					},
+				},
+			},
+			expectedEvents: 1,
+			wantErr:        false,
+		},
+		"event with empty template": {
+			step: store.JourneyVersionStep{
+				ID:   uuid.New(),
+				Type: EventStepType,
+				Data: json.RawMessage(`{"event_name":"simple_event","template":""}`),
+				Children: []store.JourneyVersionStepChild{
+					{ChildExternalID: "next-step"},
+				},
+			},
+			state:          store.JourneyUserState{},
+			data:           map[string]any{},
+			expectedEvents: 1,
+			wantErr:        false,
+		},
+		"missing event_name": {
+			step: store.JourneyVersionStep{
+				ID:   uuid.New(),
+				Type: EventStepType,
+				Data: json.RawMessage(`{"template":"{\"key\":\"value\"}"}`),
+			},
+			state:          store.JourneyUserState{},
+			data:           map[string]any{},
+			expectedEvents: 0,
+			wantErr:        true,
+		},
+		"invalid JSON template": {
+			step: store.JourneyVersionStep{
+				ID:   uuid.New(),
+				Type: EventStepType,
+				Data: json.RawMessage(`{"event_name":"test_event","template":"not valid json"}`),
+			},
+			state:          store.JourneyUserState{},
+			data:           map[string]any{},
+			expectedEvents: 0,
+			wantErr:        true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			mockDB, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer mockDB.Close()
+			db := sqlx.NewDb(mockDB, "sqlmock")
+
+			mockPub := &mockPublisher{}
+
+			if !tc.wantErr {
+				// Expect GetUser query
+				now := time.Now()
+				rows := sqlmock.NewRows([]string{
+					"id", "project_id", "external_id", "email", "phone",
+					"anonymous_id", "timezone", "locale", "data", "created_at", "updated_at",
+				}).AddRow(
+					userID, projectID, "test-user", nil, nil,
+					"anon-123", nil, nil, []byte("{}"), now, now,
+				)
+				mock.ExpectQuery(`SELECT (.+) FROM users`).
+					WithArgs(userID, projectID).
+					WillReturnRows(rows)
+			}
+
+			hctx := HandlerContext{
+				Context:   ctx,
+				DB:        db,
+				Publisher: mockPub,
+				ProjectID: projectID,
+				UserID:    userID,
+				Data:      tc.data,
+			}
+
+			gotState, gotChildren, err := HandleEvent(hctx, tc.step, tc.state)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.NotNil(t, gotState.CompletedAt)
+
+			if tc.expectedEvents > 0 {
+				assert.Len(t, mockPub.publishedEvents, tc.expectedEvents)
+				assert.NoError(t, mock.ExpectationsWereMet())
+				require.Len(t, gotChildren, 1)
+				assert.Equal(t, "next-step", gotChildren[0].ChildExternalID)
+
+				// Verify event structure
+				event := mockPub.publishedEvents[0]
+				assert.Equal(t, schemas.Subject("events.process."+projectID.String()), event.subject)
+
+				eventData, ok := event.data.(schemas.Event)
+				require.True(t, ok, "event data should be schemas.Event type")
+				assert.NotNil(t, eventData.ID)
+				assert.NotEmpty(t, eventData.Name)
+				assert.Equal(t, projectID, eventData.ProjectID)
+				assert.Equal(t, userID, eventData.UserID)
+			}
+		})
+	}
+}
+
+func TestHandleEventTemplateRendering(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	projectID := uuid.New()
+	userID := uuid.New()
+
+	type test struct {
+		template     string
+		data         map[string]any
+		eventName    string
+		checkPayload func(t *testing.T, data map[string]any)
+	}
+
+	tests := map[string]test{
+		"renders user data": {
+			template:  `{"user_email":"{{ user.email }}","user_name":"{{ user.name }}"}`,
+			eventName: "user_action",
+			data: map[string]any{
+				"user": map[string]any{
+					"email": "test@example.com",
+					"name":  "Test User",
+				},
+			},
+			checkPayload: func(t *testing.T, data map[string]any) {
+				assert.Equal(t, "test@example.com", data["user_email"])
+				assert.Equal(t, "Test User", data["user_name"])
+			},
+		},
+		"renders journey step data": {
+			template:  `{"product_id":"{{ journey.entrance.product_id }}","quantity":{{ journey.entrance.quantity }}}`,
+			eventName: "cart_updated",
+			data: map[string]any{
+				"journey": map[string]any{
+					"entrance": map[string]any{
+						"product_id": "prod-123",
+						"quantity":   5,
+					},
+				},
+			},
+			checkPayload: func(t *testing.T, data map[string]any) {
+				assert.Equal(t, "prod-123", data["product_id"])
+				// quantity is rendered as string but parsed as float64 by JSON
+				assert.Equal(t, float64(5), data["quantity"])
+			},
+		},
+		"renders complex nested data": {
+			template:  `{"summary":"{{ user.first_name }} {{ user.last_name }} completed {{ journey.course.name }}","course_id":"{{ journey.course.id }}"}`,
+			eventName: "course_completed",
+			data: map[string]any{
+				"user": map[string]any{
+					"first_name": "John",
+					"last_name":  "Doe",
+				},
+				"journey": map[string]any{
+					"course": map[string]any{
+						"id":   "course-456",
+						"name": "Advanced Go",
+					},
+				},
+			},
+			checkPayload: func(t *testing.T, data map[string]any) {
+				assert.Equal(t, "John Doe completed Advanced Go", data["summary"])
+				assert.Equal(t, "course-456", data["course_id"])
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			mockDB, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer mockDB.Close()
+			db := sqlx.NewDb(mockDB, "sqlmock")
+
+			mockPub := &mockPublisher{}
+
+			// Expect GetUser query
+			now := time.Now()
+			rows := sqlmock.NewRows([]string{
+				"id", "project_id", "external_id", "email", "phone",
+				"anonymous_id", "timezone", "locale", "data", "created_at", "updated_at",
+			}).AddRow(
+				userID, projectID, "test-user", nil, nil,
+				"anon-123", nil, nil, []byte("{}"), now, now,
+			)
+			mock.ExpectQuery(`SELECT (.+) FROM users`).
+				WithArgs(userID, projectID).
+				WillReturnRows(rows)
+
+			stepData := map[string]any{
+				"event_name": tc.eventName,
+				"template":   tc.template,
+			}
+			stepDataJSON, _ := json.Marshal(stepData)
+
+			step := store.JourneyVersionStep{
+				ID:   uuid.New(),
+				Type: EventStepType,
+				Data: json.RawMessage(stepDataJSON),
+				Children: []store.JourneyVersionStepChild{
+					{ChildExternalID: "next"},
+				},
+			}
+
+			hctx := HandlerContext{
+				Context:   ctx,
+				DB:        db,
+				Publisher: mockPub,
+				ProjectID: projectID,
+				UserID:    userID,
+				Data:      tc.data,
+			}
+
+			gotState, gotChildren, err := HandleEvent(hctx, step, store.JourneyUserState{})
+
+			require.NoError(t, err)
+			assert.NotNil(t, gotState.CompletedAt)
+			require.Len(t, gotChildren, 1)
+
+			// Verify the event was published
+			require.Len(t, mockPub.publishedEvents, 1)
+			assert.NoError(t, mock.ExpectationsWereMet())
+
+			// Check the event payload
+			event := mockPub.publishedEvents[0]
+			eventData, ok := event.data.(schemas.Event)
+			require.True(t, ok)
+
+			payloadData := eventData.Data
+			require.True(t, ok)
+
+			if tc.checkPayload != nil {
+				tc.checkPayload(t, payloadData)
+			}
+		})
+	}
+}

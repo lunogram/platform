@@ -1,6 +1,36 @@
+# Git
 .git
+.gitignore
+
+# OS files
 .DS_Store
+
+# Environment files
 .env
+.env.*
+
+# Dependencies
 node_modules
 **/node_modules
+
+# Build artifacts
+bin
 build
+console/dist
+internal/http/console/dist
+
+# IDE
+.vscode
+.idea
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Test files
+*_test.go
+**/*_test.go
+
+# Development files
+docker-compose.yml

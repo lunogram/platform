@@ -24,15 +24,15 @@ jobs:
         with:
           node-version: ${{ vars.NODEJS_VERSION }}
           cache: "pnpm"
+          cache-dependency-path: console/pnpm-lock.yaml
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: ${{ vars.GO_VERSION }}
       - name: Install Dependencies
-        run: pnpm install
+        run: cd console && pnpm install
       - name: Lint
-        run: |
-          make lint
+        run: make lint
 
   tests:
     runs-on: ubuntu-latest
@@ -52,13 +52,14 @@ jobs:
         with:
           node-version: ${{ vars.NODEJS_VERSION }}
           cache: "pnpm"
+          cache-dependency-path: console/pnpm-lock.yaml
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: ${{ vars.GO_VERSION }}
       - name: Install Dependencies
         run: |
-          pnpm install
+          cd console && pnpm install
           go mod tidy
       - name: Tool bins
         uses: actions/cache@v4
@@ -66,8 +67,7 @@ jobs:
           path: bin
           key: ${{ runner.os }}-bin-${{ hashFiles('**/go.sum') }}
       - name: Run tests
-        run: |
-          make test
+        run: make test
 
   build:
     runs-on: ubuntu-latest
@@ -81,10 +81,11 @@ jobs:
         with:
           node-version: ${{ vars.NODEJS_VERSION }}
           cache: "pnpm"
+          cache-dependency-path: console/pnpm-lock.yaml
       - name: Install Dependencies
-        run: pnpm install
-      - name: Build
-        run: pnpm build
+        run: cd console && pnpm install
+      - name: Build Console
+        run: cd console && pnpm build
 
   generate:
     runs-on: ubuntu-latest
