@@ -34,6 +34,13 @@ export function AppSidebar({
   const profile = useContext(AdminContext);
   const location = useLocation();
 
+  const getUserDisplayName = (profile: typeof AdminContext extends React.Context<infer T> ? T : never) => {
+    if (profile?.first_name && profile?.last_name) {
+      return `${profile.first_name} ${profile.last_name}`;
+    }
+    return profile?.first_name || profile?.email || "User";
+  };
+
   const [allProjects] = useResolver(
     React.useCallback(async () => {
       try {
@@ -83,9 +90,7 @@ export function AppSidebar({
       <SidebarFooter>
         <UserDropdown
           user={{
-            name: profile?.first_name && profile?.last_name 
-              ? `${profile.first_name} ${profile.last_name}` 
-              : profile?.first_name || profile?.email || "User",
+            name: getUserDisplayName(profile),
             email: profile?.email || "",
           }}
         />
