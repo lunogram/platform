@@ -3,7 +3,6 @@ import { type ComponentConfig } from "@puckeditor/core";
 import { cn } from "@/utils";
 import { Layout, layoutClassMap, type LayoutProps } from "./fields/Layout";
 import { Spacing, spacingClassMap, type SpacingProps } from "./fields/Spacing";
-import { Decoration, decorationClassMap, type DecorationProps } from "./fields/Decoration";
 import { generateTailwindClasses } from "./fields/unit";
 
 export interface ImgProps {
@@ -13,7 +12,6 @@ export interface ImgProps {
   height?: string;
   layout: LayoutProps;
   spacing: SpacingProps;
-  decoration: DecorationProps;
 }
 
 export const Img: ComponentConfig<ImgProps> = {
@@ -24,20 +22,17 @@ export const Img: ComponentConfig<ImgProps> = {
     height: { type: "text" },
     layout: Layout,
     spacing: Spacing,
-    decoration: Decoration,
   },
   defaultProps: {
     src: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png",
     alt: "Image",
     layout: {},
     spacing: {},
-    decoration: {},
   },
-  render: ({ src, alt, width, height, layout, spacing, decoration }) => {
+  render: ({ src, alt, width, height, layout, spacing }) => {
     const classes = cn(
       generateTailwindClasses(layout, layoutClassMap),
       generateTailwindClasses(spacing, spacingClassMap),
-      generateTailwindClasses(decoration, decorationClassMap)
     );
     return <EmailImg src={src} alt={alt} width={width} height={height} className={classes} />;
   },
