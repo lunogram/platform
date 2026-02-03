@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/internal/config"
+	"github.com/lunogram/platform/pkg/modules"
 )
 
 // Registry is a thread-safe registry for WASM modules.

@@ -9,8 +9,8 @@ import (
 	extism "github.com/extism/go-sdk"
 	"go.uber.org/zap"
 
-	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/internal/config"
+	"github.com/lunogram/platform/pkg/modules"
 )
 
 // Module represents a loaded WASM module with its manifest.

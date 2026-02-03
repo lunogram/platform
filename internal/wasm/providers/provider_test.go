@@ -8,9 +8,9 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/wasm/test"
+	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"

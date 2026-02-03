@@ -1,4 +1,4 @@
-module github.com/lunogram/platform/services/nexus/internal/wasm/testprovider
+module github.com/lunogram/platform/internal/wasm/test/provider
 
 go 1.25.1
 
@@ -7,4 +7,4 @@ require (
 	github.com/lunogram/platform v0.0.0-00010101000000-000000000000
 )
 
-replace github.com/lunogram/platform => ../../../../../../
+replace github.com/lunogram/platform => ../../../../

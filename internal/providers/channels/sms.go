@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
 // SMSTemplateData represents SMS template content.

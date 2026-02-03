@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/lunogram/platform/internal/providers/channels"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 

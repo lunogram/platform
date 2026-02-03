@@ -14,9 +14,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/wasm"
+	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
 // Provider wraps a WASM module with provider-specific functionality.

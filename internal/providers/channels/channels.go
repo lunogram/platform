@@ -3,8 +3,8 @@ package channels
 import (
 	"fmt"
 
-	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
 type ComposeOptions struct {
