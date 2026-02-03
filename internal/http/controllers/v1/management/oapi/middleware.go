@@ -36,7 +36,7 @@ func Scalar() func(next http.Handler) http.Handler {
 					return
 				}
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				w.Write(content)
+				w.Write(content) //nolint:errcheck
 				return
 			}
 
