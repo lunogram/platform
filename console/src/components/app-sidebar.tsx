@@ -83,8 +83,10 @@ export function AppSidebar({
       <SidebarFooter>
         <UserDropdown
           user={{
-            name: profile?.first_name || "User",
-            email: profile?.email || "user@example.com",
+            name: profile?.first_name && profile?.last_name 
+              ? `${profile.first_name} ${profile.last_name}` 
+              : profile?.first_name || profile?.email || "User",
+            email: profile?.email || "",
           }}
         />
       </SidebarFooter>
