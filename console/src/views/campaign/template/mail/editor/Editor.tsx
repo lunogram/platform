@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { Puck, Render, useGetPuck, type Config } from "@measured/puck";
+import { Puck, Render, useGetPuck, type Config } from "@puckeditor/core"; 
 import { Tailwind, Html, Head, Font, Body, pixelBasedPreset } from "@react-email/components";
 import { render } from "@react-email/render";
 import { viewports } from "./viewport";
@@ -18,7 +18,7 @@ import { TextSection, type TextSectionProps } from "./components/TextSection";
 import { Pricing, type PricingProps } from "./components/templates/Pricing";
 import { PricingEmphasised, type PricingEmphasisedProps } from "./components/templates/PricingEmphasised";
 
-import "@measured/puck/puck.css";
+import "@puckeditor/core/dist/index.css"; 
 import "./Editor.css";
 import { ProjectContext, TemplateContext, CampaignContext } from "@/contexts";
 import api from "@/api";
@@ -58,10 +58,6 @@ const config: Config<Components> = {
     },
 }
 
-
-// The SaveHandler component registers a save handler that is called when the
-// user clicks the "Next" button in the CampaignDetail view. This handler has to
-// be defined within a separate component to have access to the Puck context.
 function SaveHandler() {
     const { onSubmit } = useContext(TemplateWorkflowContext);
     const [project] = useContext(ProjectContext);
@@ -71,8 +67,7 @@ function SaveHandler() {
 
     onSubmit(async () => {
         const { appState } = getPuck();
-        console.log(appState)
-
+        
         const tailwindConfig = {
             presets: [pixelBasedPreset],
         }
@@ -117,30 +112,35 @@ function SaveHandler() {
 
 export default function Editor() {
     const [template] = useContext(TemplateContext);
-    const data = template.data.editor ?? {}
+    const data = template.data.editor ?? { content: [], root: {} }
 
     return (
         <div className="w-full h-full">
-            <Puck viewports={viewports} config={config} data={data} overrides={{
-                iframe: ({ children, document }) => {
-                    useEffect(() => {
-                        if (document) {
-                            const script = document.createElement('script');
-                            script.type = 'module';
-                            script.src = 'https://cdn.skypack.dev/twind/shim';
-                            document.head.appendChild(script);
-                        }
-                    }, [document]);
+            <Puck 
+                viewports={viewports} 
+                config={config} 
+                data={data} 
+                overrides={{
+                    iframe: ({ children, document }) => {
+                        useEffect(() => {
+                            if (document) {
+                                const script = document.createElement('script');
+                                script.type = 'module';
+                                script.src = 'https://cdn.skypack.dev/twind/shim';
+                                document.head.appendChild(script);
+                            }
+                        }, [document]);
 
-                    return <>{children}</>;
-                },
-                puck: ({ children }) => (
-                    <>
-                        <SaveHandler />
-                        {children}
-                    </>
-                ),
-            }} />
+                        return <>{children}</>;
+                    },
+                    puck: ({ children }) => (
+                        <>
+                            <SaveHandler />
+                            {children}
+                        </>
+                    ),
+                }} 
+            />
         </div>
     );
 }

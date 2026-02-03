@@ -1,4 +1,5 @@
-import type { ComponentConfig, Slot } from '@measured/puck';
+// 1. Updated import source
+import type { ComponentConfig, Slot } from '@puckeditor/core'; 
 import { Container as EmailContainer, Section as EmailSection } from '@react-email/components';
 import { Layout, type LayoutProps, layoutClassMap } from '../fields/Layout';
 import { cn } from '@/utils';

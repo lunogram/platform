@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { createUsePuck, type Field } from "@measured/puck";
+import { usePuck, type CustomField } from "@puckeditor/core"; 
 import { getViewportTailwindBreakpoint } from "../../viewport";
 import { addUnit, hasAnyProperty } from "./unit";
 import { useTranslation } from "react-i18next";
@@ -45,23 +45,18 @@ export const decorationClassMap: Record<Exclude<keyof DecorationViewport, 'borde
     borderLeftWidth: (value, prefix) => `${prefix}border-l-${addUnit(value)}`,
 };
 
-const usePuck = createUsePuck();
-
-export const Decoration: Field<DecorationProps, DecorationProps> = {
+export const Decoration: CustomField<DecorationProps> = {
     type: "custom",
     render: ({ onChange, value = {} }) => {
         const { t } = useTranslation();
-        const viewport = usePuck((s) => s.appState.ui.viewports.current);
-        const breakpoint = getViewportTailwindBreakpoint(viewport.width);
+        
+        const { appState } = usePuck();
+        const viewport = appState.ui.viewports.current;
+        const breakpoint = getViewportTailwindBreakpoint(typeof viewport.width == 'number' ? viewport.width : 1000);
 
         const config = value[breakpoint] || {};
         const borderRadiusLinked = config.borderRadiusLinked ?? true;
         const borderWidthLinked = config.borderWidthLinked ?? true;
-
-        // Check if sections have values
-        const hasBackground = hasAnyProperty(config, ['backgroundColor']);
-        const hasBorderRadius = hasAnyProperty(config, ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius']);
-        const hasBorder = hasAnyProperty(config, ['borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'borderStyle', 'borderColor']);
 
         const handleChange = (field: string, val: string) => {
             onChange({
@@ -118,13 +113,16 @@ export const Decoration: Field<DecorationProps, DecorationProps> = {
         };
 
         const handleRemoveBackground = () => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { backgroundColor, ...rest } = config;
             onChange({
                 ...value,
                 [breakpoint]: rest
             });
         };
+
+        const hasBackground = hasAnyProperty(config, ['backgroundColor']);
+        const hasBorderRadius = hasAnyProperty(config, ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius']);
+        const hasBorder = hasAnyProperty(config, ['borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'borderStyle', 'borderColor']);
 
         const handleAddBorderRadius = () => {
             onChange({
@@ -140,7 +138,6 @@ export const Decoration: Field<DecorationProps, DecorationProps> = {
         };
 
         const handleRemoveBorderRadius = () => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { borderTopLeftRadius, borderTopRightRadius, borderBottomLeftRadius, borderBottomRightRadius, borderRadiusLinked, ...rest } = config;
             onChange({
                 ...value,
@@ -164,7 +161,6 @@ export const Decoration: Field<DecorationProps, DecorationProps> = {
         };
 
         const handleRemoveBorder = () => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth, borderStyle, borderColor, borderWidthLinked, ...rest } = config;
             onChange({
                 ...value,

@@ -1,4 +1,4 @@
-import type { ComponentConfig, Slot } from '@measured/puck';
+import type { ComponentConfig, Slot } from '@puckeditor/core'; 
 import { Container as EmailContainer, Section as EmailSection } from '@react-email/components';
 import { Layout, type LayoutProps, layoutClassMap } from '../fields/Layout';
 import { cn } from '@/utils';
@@ -8,7 +8,7 @@ import { Decoration, type DecorationProps, decorationClassMap } from '../fields/
 import { generateTailwindClasses } from '../fields/unit';
 
 export interface PricingProps {
-    content: Slot;
+    content: Slot; 
     layout: LayoutProps;
     spacing: SpacingProps;
     typography: TypographyProps;
@@ -36,7 +36,7 @@ export const Pricing: ComponentConfig<PricingProps> = {
                 props: {
                     align: "center",
                     layout: {
-                        xl: {
+                        xl: { 
                             maxWidth: '90%',
                         }
                     },
@@ -83,15 +83,15 @@ export const Pricing: ComponentConfig<PricingProps> = {
                                     }
                                 },
                                 spacing: {
-                                    xl: {
-                                        marginTop: '16',
-                                        marginBottom: '16',
+                                    xl: { 
+                                        marginTop: '16', 
+                                        marginBottom: '16', 
                                     }
                                 },
                                 content: [
                                     {
                                         type: "TextSection",
-                                        props: {
+                                        props: { 
                                             value: "Exclusive Offer",
                                         },
                                     },
@@ -102,8 +102,8 @@ export const Pricing: ComponentConfig<PricingProps> = {
                             type: "Text",
                             props: {
                                 spacing: {
-                                    xl: {
-                                        marginTop: '0',
+                                    xl: { 
+                                        marginTop: '0', 
                                         marginBottom: '12',
                                     }
                                 },
@@ -113,11 +113,11 @@ export const Pricing: ComponentConfig<PricingProps> = {
                                         props: {
                                             value: "$12",
                                             typography: {
-                                                xl: {
-                                                    fontSize: '30',
-                                                    fontWeight: 'bold',
-                                                    color: '#101828',
-                                                    lineHeight: '36',
+                                                xl: { 
+                                                    fontSize: '30', 
+                                                    fontWeight: 'bold', 
+                                                    color: '#101828', 
+                                                    lineHeight: '36', 
                                                 }
                                             },
                                         },
@@ -127,11 +127,11 @@ export const Pricing: ComponentConfig<PricingProps> = {
                                         props: {
                                             value: " / month",
                                             typography: {
-                                                xl: {
-                                                    fontSize: '16',
-                                                    fontWeight: 'medium',
-                                                    color: '#101828',
-                                                    lineHeight: '20',
+                                                xl: { 
+                                                    fontSize: '16', 
+                                                    fontWeight: 'medium', 
+                                                    color: '#101828', 
+                                                    lineHeight: '20', 
                                                 }
                                             },
                                         },

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { createUsePuck, type Field } from "@measured/puck";
+import { usePuck, type CustomField } from "@puckeditor/core"; 
 import { getViewportTailwindBreakpoint } from "../../viewport";
 import { addUnit, hasAnyProperty } from "./unit";
 import { useTranslation } from "react-i18next";
@@ -7,6 +7,7 @@ import { Link2, Link2Off, Plus, Minus } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+
 export interface LayoutViewport {
     paddingTop?: string;
     paddingBottom?: string;
@@ -37,22 +38,20 @@ export const spacingClassMap: Record<Exclude<keyof LayoutViewport, 'paddingLinke
     marginLeft: (value, prefix) => `${prefix}ml-${addUnit(value)}`,
 };
 
-const usePuck = createUsePuck();
-
-export const Spacing: Field<SpacingProps, SpacingProps> = {
+export const Spacing: CustomField<SpacingProps> = {
     type: "custom",
     render: ({ onChange, value = {} }) => {
         const { t } = useTranslation();
-        const viewport = usePuck((s) => s.appState.ui.viewports.current);
-        const breakpoint = getViewportTailwindBreakpoint(viewport.width);
+        
+        const { appState } = usePuck();
+        const viewport = appState.ui.viewports.current;
+        const breakpoint = getViewportTailwindBreakpoint(typeof viewport.width == 'number' ? viewport.width : 1000);
 
         const config = value[breakpoint] || {};
         const paddingLinked = config.paddingLinked ?? true;
         const marginLinked = config.marginLinked ?? true;
 
-        // Check if padding or margin values exist (including empty strings which means fields are enabled)
-        const hasPadding = hasAnyProperty(config, ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']);
-        const hasMargin = hasAnyProperty(config, ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']);
+        // ... logic for handlePaddingChange, handleMarginChange, etc. remains the same ...
 
         const handlePaddingChange = (field: string, val: string) => {
             onChange({
@@ -102,7 +101,6 @@ export const Spacing: Field<SpacingProps, SpacingProps> = {
         };
 
         const handleRemovePadding = () => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { paddingTop, paddingRight, paddingBottom, paddingLeft, paddingLinked, ...rest } = config;
             onChange({
                 ...value,
@@ -124,13 +122,15 @@ export const Spacing: Field<SpacingProps, SpacingProps> = {
         };
 
         const handleRemoveMargin = () => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { marginTop, marginRight, marginBottom, marginLeft, marginLinked, ...rest } = config;
             onChange({
                 ...value,
                 [breakpoint]: rest
             });
         };
+
+        const hasPadding = hasAnyProperty(config, ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']);
+        const hasMargin = hasAnyProperty(config, ['marginTop', 'marginRight', 'marginBottom', 'marginLeft']);
 
         const paddingFields: Array<{ key: Exclude<keyof LayoutViewport, 'paddingLinked' | 'marginLinked'>; label: string; placeholder: string }> = [
             { key: 'paddingTop', label: t('editor.fields.spacing.top'), placeholder: t('editor.fields.spacing.placeholder') },

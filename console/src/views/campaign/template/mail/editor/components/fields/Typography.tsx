@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { createUsePuck, type Field } from "@measured/puck";
+import { usePuck, type CustomField } from "@puckeditor/core"; 
 import { getViewportTailwindBreakpoint } from "../../viewport";
 import { addUnit, hasAnyProperty } from "./unit";
 import { useTranslation } from "react-i18next";
@@ -41,22 +41,16 @@ export const typographyClassMap: Record<keyof TypographyViewport, (value: string
     color: (value, prefix) => `${prefix}text-[${value}]`,
 };
 
-const usePuck = createUsePuck();
-
-export const Typography: Field<TypographyProps, TypographyProps> = {
+export const Typography: CustomField<TypographyProps> = {
     type: "custom",
     render: ({ onChange, value = {} }) => {
         const { t } = useTranslation();
-        const viewport = usePuck((s) => s.appState.ui.viewports.current);
-        const breakpoint = getViewportTailwindBreakpoint(viewport.width);
+        
+        const { appState } = usePuck();
+        const viewport = appState.ui.viewports.current;
+        const breakpoint = getViewportTailwindBreakpoint(typeof viewport.width === 'number' ? viewport.width : 1000);
 
         const config = value[breakpoint] || {};
-
-        // Check if any typography values exist
-        const hasTypography = hasAnyProperty(config, [
-            'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight',
-            'letterSpacing', 'textAlign', 'textDecoration', 'textTransform', 'color'
-        ]);
 
         const handleChange = (field: string, val: string) => {
             onChange({
@@ -67,7 +61,6 @@ export const Typography: Field<TypographyProps, TypographyProps> = {
                 }
             });
         };
-
 
         const handleAddTypography = () => {
             onChange({
@@ -81,13 +74,21 @@ export const Typography: Field<TypographyProps, TypographyProps> = {
         };
 
         const handleRemoveTypography = () => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { fontFamily, fontSize, fontWeight, fontStyle, lineHeight, letterSpacing, textAlign, textDecoration, textTransform, color, ...rest } = config;
+            const { 
+                fontFamily, fontSize, fontWeight, fontStyle, lineHeight, 
+                letterSpacing, textAlign, textDecoration, textTransform, color, 
+                ...rest 
+            } = config;
             onChange({
                 ...value,
                 [breakpoint]: rest
             });
         };
+
+        const hasTypography = hasAnyProperty(config, [
+            'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight',
+            'letterSpacing', 'textAlign', 'textDecoration', 'textTransform', 'color'
+        ]);
 
         const fontFamilies = [
             { value: 'sans', label: t('editor.fields.typography.font_families.sans') },
@@ -302,5 +303,3 @@ export const Typography: Field<TypographyProps, TypographyProps> = {
         );
     }
 }
-
-

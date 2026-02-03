@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { createUsePuck, type Field } from "@measured/puck";
+import { usePuck, type CustomField } from "@puckeditor/core"; 
 import { getViewportTailwindBreakpoint } from "../../viewport";
 import { addUnit } from "./unit";
 import { useTranslation } from "react-i18next";
@@ -30,14 +30,14 @@ export const layoutClassMap: Record<keyof LayoutViewport, (value: string, prefix
     maxHeight: (value, prefix) => `${prefix}max-h-${addUnit(value)}`,
 };
 
-const usePuck = createUsePuck();
-
-export const Layout: Field<LayoutProps, LayoutProps> = {
+export const Layout: CustomField<LayoutProps> = {
     type: "custom",
     render: ({ onChange, value = {} }) => {
         const { t } = useTranslation();
-        const viewport = usePuck((s) => s.appState.ui.viewports.current);
-        const breakpoint = getViewportTailwindBreakpoint(viewport.width);
+        
+        const { appState } = usePuck();
+        const viewport = appState.ui.viewports.current;
+        const breakpoint = getViewportTailwindBreakpoint(typeof viewport.width == 'number' ? viewport.width : 1000);
 
         const config = value[breakpoint] || {};
 
