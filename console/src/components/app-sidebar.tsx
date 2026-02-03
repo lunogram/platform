@@ -21,6 +21,7 @@ import { AdminContext, ProjectContext } from "@/contexts";
 import { useResolver } from "@/hooks";
 import api from "@/api";
 import { UserDropdown } from "./user-dropdown";
+import type { Admin } from "@/types";
 
 interface AppSidebarProps {
   links?: SidebarLink[];
@@ -34,7 +35,7 @@ export function AppSidebar({
   const profile = useContext(AdminContext);
   const location = useLocation();
 
-  const getUserDisplayName = (profile: typeof AdminContext extends React.Context<infer T> ? T : never) => {
+  const getUserDisplayName = (profile: Admin | null) => {
     if (profile?.first_name && profile?.last_name) {
       return `${profile.first_name} ${profile.last_name}`;
     }
