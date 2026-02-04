@@ -30,6 +30,8 @@ export const layoutClassMap: Record<keyof LayoutViewport, (value: string, prefix
     maxHeight: (value, prefix) => `${prefix}max-h-${addUnit(value)}`,
 };
 
+const maxBreakpointWidth: number = 1280;
+
 export const Layout: CustomField<LayoutProps> = {
     type: "custom",
     render: ({ onChange, value = {} }) => {
@@ -37,7 +39,7 @@ export const Layout: CustomField<LayoutProps> = {
         
         const { appState } = usePuck();
         const viewport = appState.ui.viewports.current;
-        const breakpoint = getViewportTailwindBreakpoint(typeof viewport.width == 'number' ? viewport.width : 1000);
+        const breakpoint = getViewportTailwindBreakpoint(typeof viewport.width == 'number' ? viewport.width : maxBreakpointWidth);
 
         const config = value[breakpoint] || {};
 

@@ -41,6 +41,8 @@ export const typographyClassMap: Record<keyof TypographyViewport, (value: string
     color: (value, prefix) => `${prefix}text-[${value}]`,
 };
 
+const maxBreakpointWidth: number = 1280;
+
 export const Typography: CustomField<TypographyProps> = {
     type: "custom",
     render: ({ onChange, value = {} }) => {
@@ -48,7 +50,7 @@ export const Typography: CustomField<TypographyProps> = {
         
         const { appState } = usePuck();
         const viewport = appState.ui.viewports.current;
-        const breakpoint = getViewportTailwindBreakpoint(typeof viewport.width === 'number' ? viewport.width : 1000);
+        const breakpoint = getViewportTailwindBreakpoint(typeof viewport.width == 'number' ? viewport.width : maxBreakpointWidth);
 
         const config = value[breakpoint] || {};
 
@@ -75,7 +77,9 @@ export const Typography: CustomField<TypographyProps> = {
 
         const handleRemoveTypography = () => {
             const { 
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 fontFamily, fontSize, fontWeight, fontStyle, lineHeight, 
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 letterSpacing, textAlign, textDecoration, textTransform, color, 
                 ...rest 
             } = config;

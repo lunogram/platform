@@ -45,6 +45,8 @@ export const decorationClassMap: Record<Exclude<keyof DecorationViewport, 'borde
     borderLeftWidth: (value, prefix) => `${prefix}border-l-${addUnit(value)}`,
 };
 
+const maxBreakpointWidth: number = 1280;
+
 export const Decoration: CustomField<DecorationProps> = {
     type: "custom",
     render: ({ onChange, value = {} }) => {
@@ -52,7 +54,7 @@ export const Decoration: CustomField<DecorationProps> = {
         
         const { appState } = usePuck();
         const viewport = appState.ui.viewports.current;
-        const breakpoint = getViewportTailwindBreakpoint(typeof viewport.width == 'number' ? viewport.width : 1000);
+        const breakpoint = getViewportTailwindBreakpoint(typeof viewport.width == 'number' ? viewport.width : maxBreakpointWidth);
 
         const config = value[breakpoint] || {};
         const borderRadiusLinked = config.borderRadiusLinked ?? true;
@@ -113,6 +115,7 @@ export const Decoration: CustomField<DecorationProps> = {
         };
 
         const handleRemoveBackground = () => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { backgroundColor, ...rest } = config;
             onChange({
                 ...value,
@@ -138,6 +141,7 @@ export const Decoration: CustomField<DecorationProps> = {
         };
 
         const handleRemoveBorderRadius = () => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { borderTopLeftRadius, borderTopRightRadius, borderBottomLeftRadius, borderBottomRightRadius, borderRadiusLinked, ...rest } = config;
             onChange({
                 ...value,
@@ -161,6 +165,7 @@ export const Decoration: CustomField<DecorationProps> = {
         };
 
         const handleRemoveBorder = () => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { borderTopWidth, borderRightWidth, borderBottomWidth, borderLeftWidth, borderStyle, borderColor, borderWidthLinked, ...rest } = config;
             onChange({
                 ...value,

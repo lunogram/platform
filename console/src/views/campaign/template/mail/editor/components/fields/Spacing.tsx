@@ -27,6 +27,8 @@ export interface SpacingProps {
     xl?: Partial<LayoutViewport>;
 }
 
+const maxBreakpointWidth: number = 1280;
+
 export const spacingClassMap: Record<Exclude<keyof LayoutViewport, 'paddingLinked' | 'marginLinked'>, (value: string, prefix: string) => string> = {
     paddingTop: (value, prefix) => `${prefix}pt-${addUnit(value)}`,
     paddingRight: (value, prefix) => `${prefix}pr-${addUnit(value)}`,
@@ -45,7 +47,7 @@ export const Spacing: CustomField<SpacingProps> = {
         
         const { appState } = usePuck();
         const viewport = appState.ui.viewports.current;
-        const breakpoint = getViewportTailwindBreakpoint(typeof viewport.width == 'number' ? viewport.width : 1000);
+        const breakpoint = getViewportTailwindBreakpoint(typeof viewport.width == 'number' ? viewport.width : maxBreakpointWidth);
 
         const config = value[breakpoint] || {};
         const paddingLinked = config.paddingLinked ?? true;
@@ -101,6 +103,7 @@ export const Spacing: CustomField<SpacingProps> = {
         };
 
         const handleRemovePadding = () => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { paddingTop, paddingRight, paddingBottom, paddingLeft, paddingLinked, ...rest } = config;
             onChange({
                 ...value,
@@ -122,6 +125,7 @@ export const Spacing: CustomField<SpacingProps> = {
         };
 
         const handleRemoveMargin = () => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { marginTop, marginRight, marginBottom, marginLeft, marginLinked, ...rest } = config;
             onChange({
                 ...value,
