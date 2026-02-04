@@ -29,15 +29,14 @@ export const CodeInline: ComponentConfig<CodeInlineProps> = {
         fontSize: "14"
       } 
     },
-    // Adding a default "Box" look
     decoration: {
       xl: {
-        backgroundColor: "#f3f4f6", // Light gray (gray-100)
+        backgroundColor: "#f3f4f6",
         borderTopWidth: "1",
         borderBottomWidth: "1",
         borderLeftWidth: "1",
         borderRightWidth: "1",
-        borderColor: "#e5e7eb",    // Border gray (gray-200)
+        borderColor: "#e5e7eb",
         borderStyle: "solid",
         borderTopLeftRadius: "4",
         borderTopRightRadius: "4",
@@ -56,7 +55,7 @@ export const CodeInline: ComponentConfig<CodeInlineProps> = {
   },
   render: ({ text, typography, spacing, decoration }) => {
     const classes = cn(
-      "inline-block border-separate", // inline-block helps with padding consistency
+      "inline-block border-separate",
       generateTailwindClasses(typography, typographyClassMap),
       generateTailwindClasses(spacing, spacingClassMap),
       generateTailwindClasses(decoration, decorationClassMap)
