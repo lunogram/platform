@@ -18,7 +18,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=console /src/console/dist ./internal/http/console/dist/
-RUN make binary VERSION=${VERSION} SHORT_COMMIT=${COMMIT}
+RUN VERSION=${VERSION} SHORT_COMMIT=${COMMIT} make lunogram
 
 FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
