@@ -53,8 +53,6 @@ export const Spacing: CustomField<SpacingProps> = {
         const paddingLinked = config.paddingLinked ?? true;
         const marginLinked = config.marginLinked ?? true;
 
-        // ... logic for handlePaddingChange, handleMarginChange, etc. remains the same ...
-
         const handlePaddingChange = (field: string, val: string) => {
             onChange({
                 ...value,
