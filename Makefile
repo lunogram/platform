@@ -74,7 +74,7 @@ lint: | $(EMBEDDED) $(GOLANGCI_LINT) $(BUF) ; $(info $(M) running linters…) @ 
 	$Q $(GOLANGCI_LINT) run --max-issues-per-linter 10 --timeout 5m
 
 .PHONY: test
-test: | $(EMBEDDED) ; $(info $(M) running tests) @ ## Run all tests
+test: | $(EMBEDDED) generate ; $(info $(M) running tests) @ ## Run all tests
 	$Q $(GO) test $(PKGS) -timeout 300s -race -count 1
 
 .PHONY: test-short
@@ -86,7 +86,7 @@ fmt: | $(EMBEDDED) ; $(info $(M) running go fmt…) @ ## Run gofmt on all source
 	$Q $(GO) fmt $(PKGS)
 
 .PHONY: generate
-generate: | $(EMBEDDED) $(TOOLCHAIN) ; $(info $(M) running go generate…) @ ## Run gogenerate on all source files
+generate: | $(EMBEDDED) $(TOOLCHAIN) ; $(info $(M) updating generated files…) @ ## Update all generated files
 	$Q $(GO) generate $(PKGS)
 	$Q $(MAKE) fmt
 
