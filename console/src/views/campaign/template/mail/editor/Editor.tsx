@@ -195,6 +195,10 @@ export default function Editor() {
 
             return <>{children}</>;
           },
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          headerActions: ({ children }) => (
+            <></>
+          ),
           puck: ({ children }) => (
             <>
               <SaveHandler />
