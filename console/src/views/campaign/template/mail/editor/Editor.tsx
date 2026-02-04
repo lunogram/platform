@@ -33,12 +33,14 @@ import { Link, type LinkProps } from "./components/Link";
 import { Heading, type HeadingProps } from "./components/Heading";
 import { Markdown, type MarkdownProps } from "./components/Markdown";
 import { Section, type SectionProps } from "./components/Section";
+import { Row, type RowProps } from "./components/Row";
+import { CodeBlock, type CodeBlockProps } from "./components/CodeBlock";
+import { CodeInline, type CodeInlineProps } from "./components/CodeInline";
 
 import "@puckeditor/core/dist/index.css";
 import "./Editor.css";
 import { ProjectContext, TemplateContext, CampaignContext } from "@/contexts";
 import api from "@/api";
-import {Row, type RowProps } from "./components/Row";
 
 interface Components {
   Button: ButtonProps;
@@ -55,11 +57,15 @@ interface Components {
   Markdown: MarkdownProps;
   Section: SectionProps;
   Row: RowProps;
+  CodeBlock: CodeBlockProps;
+  CodeInline: CodeInlineProps;
 }
 
 const config: Config<Components> = {
   categories: {
-    layout: { components: ["Container", "Section", "Column", "Divider", "Row"] },
+    layout: {
+      components: ["Container", "Section", "Column", "Divider", "Row"],
+    },
     content: {
       components: [
         "Heading",
@@ -69,6 +75,8 @@ const config: Config<Components> = {
         "Button",
         "Link",
         "Markdown",
+        "CodeBlock",
+        "CodeInline",
       ],
     },
     templates: { components: ["Pricing", "PricingEmphasised"] },
@@ -102,6 +110,8 @@ const config: Config<Components> = {
     Markdown,
     Section,
     Row,
+    CodeBlock,
+    CodeInline,
   },
 };
 
