@@ -139,7 +139,7 @@ export default function Campaigns({ create = false }: CampaignsPageProps) {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                {campaign.updated_at}
+                                                {formatDate(userPrefs, campaign.updated_at, 'Pp')}
                                             </TableCell>
                                             <TableCell onClick={e => e.stopPropagation()}>
                                                 <DropdownMenu>
