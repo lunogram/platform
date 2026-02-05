@@ -10,7 +10,8 @@ type contextKey string
 
 const scopeKey contextKey = "admin"
 
-// Scope represents an authenticated user in the context
+// Scope represents an authenticated user or API key in the context.
+// It is used for both the management API (JWT authentication) and the client API (API key authentication).
 type Scope struct {
 	OrganizationID uuid.UUID
 	ProjectID      uuid.UUID
