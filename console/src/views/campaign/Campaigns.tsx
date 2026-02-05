@@ -161,10 +161,10 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                                         <DropdownMenuItem onClick={() => navigateToEdit(campaign.id)}>
                                                             {t('edit')}
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={async () => await duplicateCampaignAction(campaign.id)}>
+                                                        <DropdownMenuItem onClick={() => duplicateCampaignAction(campaign.id)}>
                                                             {t('duplicate')}
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={async () => await archiveCampaignAction(campaign.id)}>
+                                                        <DropdownMenuItem onClick={() => archiveCampaignAction(campaign.id)}>
                                                             {t('archive')}
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
