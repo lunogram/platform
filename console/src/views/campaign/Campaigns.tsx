@@ -51,13 +51,13 @@ export default function Campaigns({ create = false }: CampaignsProps) {
         newQuery => tableState.setParams({ ...tableState.params, q: newQuery })
     )
 
-    const navigateToEdit = async (campaignId: UUID) => {
-        await routerNavigate(`/projects/${activeProject.id}/campaigns/${campaignId.toString()}`)
+    const navigateToEdit = (campaignId: UUID) => {
+        routerNavigate(`/projects/${activeProject.id}/campaigns/${campaignId.toString()}`)
     }
 
     const duplicateCampaignAction = async (campaignId: UUID) => {
         const duplicated = await api.campaigns.duplicate(activeProject.id, campaignId)
-        await routerNavigate(`/projects/${activeProject.id}/campaigns/${duplicated.id.toString()}`)
+        routerNavigate(`/projects/${activeProject.id}/campaigns/${duplicated.id.toString()}`)
     }
 
     const archiveCampaignAction = async (campaignId: UUID) => {
@@ -65,8 +65,8 @@ export default function Campaigns({ create = false }: CampaignsProps) {
         await tableState.reload()
     }
 
-    const handleRowClick = async (campaign: Campaign) => {
-        await routerNavigate(`/projects/${activeProject.id}/campaigns/${campaign.id.toString()}`)
+    const handleRowClick = (campaign: Campaign) => {
+        routerNavigate(`/projects/${activeProject.id}/campaigns/${campaign.id.toString()}`)
     }
 
     const campaignsList = tableState.results?.results ?? []
@@ -123,7 +123,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                         <TableRow
                                             key={campaign.id}
                                             className="cursor-pointer"
-                                            onClick={async () => await handleRowClick(campaign)}
+                                            onClick={() => handleRowClick(campaign)}
                                         >
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
@@ -150,7 +150,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={async () => await navigateToEdit(campaign.id)}>
+                                                        <DropdownMenuItem onClick={() => navigateToEdit(campaign.id)}>
                                                             {t('edit')}
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={async () => await duplicateCampaignAction(campaign.id)}>
