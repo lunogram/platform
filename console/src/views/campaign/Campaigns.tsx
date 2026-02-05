@@ -32,11 +32,11 @@ import { CreateCampaign } from './CreateCampaign'
 import type { Campaign } from '@/types'
 import type { UUID } from '@/types/common'
 
-interface CampaignsPageProps {
+interface CampaignsProps {
     create?: boolean
 }
 
-export default function Campaigns({ create = false }: CampaignsPageProps) {
+export default function Campaigns({ create = false }: CampaignsProps) {
     const [userPrefs] = useContext(PreferencesContext)
     const [activeProject] = useContext(ProjectContext)
     const routerNavigate = useNavigate()
@@ -123,7 +123,7 @@ export default function Campaigns({ create = false }: CampaignsPageProps) {
                                         <TableRow
                                             key={campaign.id}
                                             className="cursor-pointer"
-                                            onClick={() => handleRowClick(campaign)}
+                                            onClick={async () => await handleRowClick(campaign)}
                                         >
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
@@ -150,13 +150,13 @@ export default function Campaigns({ create = false }: CampaignsPageProps) {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => navigateToEdit(campaign.id)}>
+                                                        <DropdownMenuItem onClick={async () => await navigateToEdit(campaign.id)}>
                                                             {t('edit')}
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => duplicateCampaignAction(campaign.id)}>
+                                                        <DropdownMenuItem onClick={async () => await duplicateCampaignAction(campaign.id)}>
                                                             {t('duplicate')}
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => archiveCampaignAction(campaign.id)}>
+                                                        <DropdownMenuItem onClick={async () => await archiveCampaignAction(campaign.id)}>
                                                             {t('archive')}
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
