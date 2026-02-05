@@ -27,7 +27,3 @@ func NewContainerStore(t *testing.T) *State {
 
 	return NewState(db)
 }
-
-func ptr[T any](v T) *T {
-	return &v
-}
