@@ -43,7 +43,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
     const { t } = useTranslation()
 
     const tableState = useSearchTableQueryState(
-        useCallback(async queryParams => await api.campaigns.search(activeProject.id, queryParams), [activeProject.id]),
+        useCallback(queryParams => api.campaigns.search(activeProject.id, queryParams), [activeProject.id]),
     )
 
     const [searchQuery, updateSearchQuery] = useDebounceControl(
