@@ -242,9 +242,6 @@ func TestUpdateApiKey(t *testing.T) {
 	require.NoError(t, err)
 
 	apiKeysStore := management.NewApiKeysStore(db)
-	apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
-	require.NoError(t, err)
-
 	controller := NewApiKeysController(logger, db)
 
 	type test struct {
@@ -277,6 +274,10 @@ func TestUpdateApiKey(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
+			// Create a fresh API key for each test case
+			apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
+			require.NoError(t, err)
+
 			bb, err := json.Marshal(test.body)
 			require.NoError(t, err)
 
