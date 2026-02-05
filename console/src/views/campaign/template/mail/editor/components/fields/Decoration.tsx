@@ -8,6 +8,7 @@ import { Link2, Link2Off, Plus, Minus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { ColorPicker } from "@/components/ui/color-picker";
 
 export interface DecorationViewport {
     backgroundColor?: string;
@@ -200,11 +201,9 @@ export const Decoration: CustomField<DecorationProps> = {
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-gray-600">{t('editor.fields.decoration.background_color')}</label>
-                            <Input
-                                type="color"
+                            <ColorPicker
                                 value={config.backgroundColor ?? '#ffffff'}
-                                onChange={(e) => handleChange('backgroundColor', e.target.value)}
-                                className="h-8"
+                                onChange={(color) => handleChange('backgroundColor', color)}
                             />
                         </div>
                     </div>
@@ -354,11 +353,9 @@ export const Decoration: CustomField<DecorationProps> = {
                             </div>
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-gray-600">{t('editor.fields.decoration.border_color')}</label>
-                                <Input
-                                    type="color"
+                                <ColorPicker
                                     value={config.borderColor ?? '#000000'}
-                                    onChange={(e) => handleChange('borderColor', e.target.value)}
-                                    className="h-8"
+                                    onChange={(color) => handleChange('borderColor', color)}
                                 />
                             </div>
                         </div>
