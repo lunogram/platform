@@ -1,241 +1,189 @@
 import { useCallback, useContext } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { MoreHorizontal, Search } from 'lucide-react'
 import api from '../../api'
-
 import { Button } from '@/components/ui/button'
-import { ArchiveIcon, DuplicateIcon, EditIcon } from '../../components/icons'
-import Menu, { MenuItem } from '../../ui/Menu'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
 import PageContent from '../../ui/PageContent'
-import { SearchTable, useSearchTableQueryState } from '../../ui/SearchTable'
-import type { TagVariant } from '../../ui/Tag';
-import Tag from '../../ui/Tag'
+import { useSearchTableQueryState } from '../../ui/SearchTable'
 import { formatDate, snakeToTitle } from '../../utils'
 import { ChannelIcon } from './ChannelTag'
 import { Alert } from '../../ui'
 import { ProjectContext } from '../../contexts'
 import { PreferencesContext } from '../../ui/PreferencesContext'
-import { Translation, useTranslation } from 'react-i18next'
-
+import { useTranslation } from 'react-i18next'
+import { useDebounceControl } from '../../hooks'
+import CursorPagination from '../../ui/Pagination'
 import { CreateCampaign } from './CreateCampaign'
-
-import type { Campaign, CampaignDelivery, CampaignState } from '@/types'
+import type { Campaign } from '@/types'
 import type { UUID } from '@/types/common'
-import { SingleSelect } from '../../ui/form/SingleSelect'
 
-export const CampaignTag = ({ state, progress, send_at }: Pick<Campaign, 'state' | 'progress' | 'send_at'>) => {
-    const variant: Record<CampaignState, TagVariant> = {
-        draft: 'plain',
-        aborted: 'error',
-        aborting: 'error',
-        loading: 'info',
-        scheduled: 'info',
-        running: 'info',
-        finished: 'success',
-    }
-
-    const complete = progress?.complete ?? 0
-    const total = progress?.total ?? 0
-    const percent = total > 0 ? complete / total : 0
-    const percentStr = percent.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 })
-
-    const label = state === 'aborting' && send_at ? 'rescheduling' : state
-
-    return <Tag variant={variant[state]}>
-        <Translation>{(t) => t(label)}</Translation>
-        {progress && ` (${percentStr})`}
-    </Tag>
-}
-
-export const DeliveryRatio = ({ delivery }: { delivery: CampaignDelivery }) => {
-    const sent = (delivery?.sent ?? 0)
-    const total = (delivery?.total ?? 0)
-    const ratio = sent > 0 ? sent / total : 0
-    const sentStr = sent.toLocaleString()
-    const ratioStr = ratio.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 })
-    return `${sentStr} (${ratioStr})`
-}
-
-export const OpenRate = ({ delivery }: { delivery: CampaignDelivery }) => {
-    const opens = (delivery?.opens ?? 0)
-    const sent = (delivery?.sent ?? 0)
-    const ratio = sent > 0 ? opens / sent : 0
-    const opensStr = opens.toLocaleString()
-    const ratioStr = ratio.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 })
-    return `${opensStr} (${ratioStr})`
-}
-
-export const ClickRate = ({ delivery }: { delivery: CampaignDelivery }) => {
-    const clicks = (delivery?.clicks ?? 0)
-    const sent = (delivery?.sent ?? 0)
-    const ratio = sent > 0 ? clicks / sent : 0
-    const clicksStr = clicks.toLocaleString()
-    const ratioStr = ratio.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 })
-    return `${clicksStr} (${ratioStr})`
-}
-
-const campaignTypes = [
-    { key: 'all', label: 'All' },
-    { key: 'blast', label: 'Blast' },
-    { key: 'trigger', label: 'Journey' },
-]
-
-interface CampaignsProps {
+interface CampaignsPageProps {
     create?: boolean
 }
 
-export default function Campaigns({ create = false }: CampaignsProps) {
-    const [preferences] = useContext(PreferencesContext)
-    const [project] = useContext(ProjectContext)
-    const navigate = useNavigate()
+export default function Campaigns({ create = false }: CampaignsPageProps) {
+    const [userPrefs] = useContext(PreferencesContext)
+    const [activeProject] = useContext(ProjectContext)
+    const routerNavigate = useNavigate()
     const { t } = useTranslation()
 
-    const options = {
-        filter: {
-            type: '',
-        },
-    }
-
-    const state = useSearchTableQueryState(
-        useCallback(async params => await api.campaigns.search(project.id, params), [project.id]),
-        options,
+    const tableState = useSearchTableQueryState(
+        useCallback(async queryParams => await api.campaigns.search(activeProject.id, queryParams), [activeProject.id]),
     )
 
-    const handleEditCampaign = async (id: UUID) => {
-        await navigate(`/projects/${project.id}/campaigns/${id.toString()}`)
+    const [searchQuery, updateSearchQuery] = useDebounceControl(
+        tableState.params.q ?? '', 
+        newQuery => tableState.setParams({ ...tableState.params, q: newQuery })
+    )
+
+    const navigateToEdit = async (campaignId: UUID) => {
+        await routerNavigate(`/projects/${activeProject.id}/campaigns/${campaignId.toString()}`)
     }
 
-    const handleDuplicateCampaign = async (id: UUID) => {
-        const campaign = await api.campaigns.duplicate(project.id, id)
-        await navigate(`/projects/${project.id}/campaigns/${campaign.id.toString()}`)
+    const duplicateCampaignAction = async (campaignId: UUID) => {
+        const duplicated = await api.campaigns.duplicate(activeProject.id, campaignId)
+        await routerNavigate(`/projects/${activeProject.id}/campaigns/${duplicated.id.toString()}`)
     }
 
-    const handleArchiveCampaign = async (id: UUID) => {
-        await api.campaigns.delete(project.id, id)
-        await state.reload()
+    const archiveCampaignAction = async (campaignId: UUID) => {
+        await api.campaigns.delete(activeProject.id, campaignId)
+        await tableState.reload()
     }
+
+    const handleRowClick = async (campaign: Campaign) => {
+        await routerNavigate(`/projects/${activeProject.id}/campaigns/${campaign.id.toString()}`)
+    }
+
+    const campaignsList = tableState.results?.results ?? []
+    const isLoadingData = !tableState.results
 
     return (
         <>
-            <PageContent title={t('campaign.plural')} actions={
-                <CreateCampaign open={create} />
-            } banner={project.has_provider === false && (
-                <Alert
-                    variant="plain"
-                    title={t('setup')}
-                    actions={
-                        <Link to={`/projects/${project.id}/settings/integrations`}>
-                            <Button>{t('setup_integration')}</Button>
-                        </Link>
-                    }
-                >{t('setup_integration_description')}</Alert>
-            )}>
-                <SearchTable
-                    {...state}
-                    emptyMessage={t('no_campaigns_found')}
-                    columns={[
-                        {
-                            key: 'name',
-                            title: t('name'),
-                            sortable: true,
-                            minWidth: '225px',
-                            cell: ({ item: { name, channel } }) => (
-                                <div className="multi-cell">
-                                    <div className="placeholder">
-                                        <ChannelIcon channel={channel} />
-                                    </div>
-                                    <div className="text">
-                                        <div className="title">{name}</div>
-                                        <div className="subtitle">
-                                            {snakeToTitle(channel)}</div>
-                                    </div>
-                                </div>
-                            ),
-                        },
-                        {
-                            key: 'state',
-                            title: t('state'),
-                            sortable: true,
-                            cell: ({ item: { state, send_at } }) => CampaignTag({ state, send_at }),
-                        },
-                        {
-                            key: 'delivery',
-                            title: t('delivery'),
-                            cell: ({ item: { delivery } }) => DeliveryRatio({ delivery }),
-                        },
-                        {
-                            key: 'engagement',
-                            title: t('engagement'),
-                            cell: ({ item: { channel, delivery } }) => delivery?.opens > 0
-                                ? (
-                                    <div className="multi-cell no-image">
-                                        <div className="text">
-                                            <div className="title">
-                                                {OpenRate({ delivery })} {t('open_rate')}
-                                            </div>
-                                            {channel === 'email' && <div className="subtitle">
-                                                {ClickRate({ delivery })} {t('click_rate')}
-                                            </div>}
-                                        </div>
-                                    </div>
-                                )
-                                : null,
-                        },
-                        {
-                            key: 'send_at',
-                            sortable: true,
-                            title: t('launched_at'),
-                            cell: ({ item: { send_at, type } }) => {
-                                return send_at != null
-                                    ? formatDate(preferences, send_at, 'Pp')
-                                    : type === 'trigger'
-                                        ? t('api_triggered')
-                                        : <>&#8211;</>
-                            },
-                        },
-                        {
-                            key: 'updated_at',
-                            title: t('updated_at'),
-                            sortable: true,
-                        },
-                        {
-                            key: 'options',
-                            title: t('options'),
-                            cell: ({ item: { id } }) => (
-                                <Menu size="min">
-                                    <MenuItem onClick={async () => await handleEditCampaign(id)}>
-                                        <EditIcon />{t('edit')}
-                                    </MenuItem>
-                                    <MenuItem onClick={async () => await handleDuplicateCampaign(id)}>
-                                        <DuplicateIcon />{t('duplicate')}
-                                    </MenuItem>
-                                    <MenuItem onClick={async () => await handleArchiveCampaign(id)}>
-                                        <ArchiveIcon />{t('archive')}
-                                    </MenuItem>
-                                </Menu>
-                            ),
-                        },
-                    ]}
-                    onSelectRow={async ({ id }) => { await navigate(`/projects/${project.id}/campaigns/${id.toString()}`) }}
-                    enableSearch
-                    tagEntity="campaigns"
-                    filters={[
-                        <SingleSelect
-                            key="type"
-                            options={campaignTypes}
-                            prefix={t('type')}
-                            value={state.params.filter?.type || 'all'}
-                            onChange={value => state.setParams({
-                                ...state.params,
-                                filter: {
-                                    ...state.params.filter,
-                                    type: value === 'all' ? '' : value,
-                                },
-                            })}
-                            toValue={(value) => value.key}
-                            className="[&_svg]:h-2 [&_select-button]:px-1"
-                        />,
-                    ]}
-                />
+            <PageContent 
+                title={t('campaign.plural')} 
+                actions={<CreateCampaign open={create} />} 
+                banner={activeProject.has_provider === false && (
+                    <Alert
+                        variant="plain"
+                        title={t('setup')}
+                        actions={
+                            <Link to={`/projects/${activeProject.id}/settings/integrations`}>
+                                <Button>{t('setup_integration')}</Button>
+                            </Link>
+                        }
+                    >{t('setup_integration_description')}</Alert>
+                )}
+            >
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-2">
+                        <div className="relative flex-1 max-w-sm">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder={t('search')}
+                                value={searchQuery}
+                                onChange={e => updateSearchQuery(e.target.value)}
+                                className="pl-9"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>{t('name')}</TableHead>
+                                    <TableHead>{t('updated_at')}</TableHead>
+                                    <TableHead className="w-[50px]"></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoadingData ? (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="h-24 text-center">
+                                            {t('loading')}
+                                        </TableCell>
+                                    </TableRow>
+                                ) : campaignsList.length > 0 ? (
+                                    campaignsList.map((campaign) => (
+                                        <TableRow
+                                            key={campaign.id}
+                                            className="cursor-pointer"
+                                            onClick={() => handleRowClick(campaign)}
+                                        >
+                                            <TableCell>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded bg-muted">
+                                                        <ChannelIcon channel={campaign.channel} />
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">{campaign.name}</span>
+                                                        <span className="text-sm text-muted-foreground">
+                                                            {snakeToTitle(campaign.channel)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                {campaign.updated_at}
+                                            </TableCell>
+                                            <TableCell onClick={e => e.stopPropagation()}>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                            <span className="sr-only">{t('options')}</span>
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => navigateToEdit(campaign.id)}>
+                                                            {t('edit')}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => duplicateCampaignAction(campaign.id)}>
+                                                            {t('duplicate')}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => archiveCampaignAction(campaign.id)}>
+                                                            {t('archive')}
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="h-24 text-center">
+                                            {t('no_campaigns_found')}
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {tableState.results && (
+                        <CursorPagination
+                            nextCursor={tableState.results.nextCursor}
+                            prevCursor={tableState.results.prevCursor}
+                            onPrev={cursor => tableState.setParams({ ...tableState.params, cursor, page: 'prev' })}
+                            onNext={cursor => tableState.setParams({ ...tableState.params, cursor, page: 'next' })}
+                        />
+                    )}
+                </div>
             </PageContent>
         </>
     )
