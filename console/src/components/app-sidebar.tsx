@@ -21,6 +21,7 @@ import { AdminContext, ProjectContext } from "@/contexts";
 import { useResolver } from "@/hooks";
 import api from "@/api";
 import { UserDropdown } from "./user-dropdown";
+import type { Admin } from "@/types";
 
 interface AppSidebarProps {
   links?: SidebarLink[];
@@ -33,6 +34,13 @@ export function AppSidebar({
   const [project] = useContext(ProjectContext);
   const profile = useContext(AdminContext);
   const location = useLocation();
+
+  const getUserDisplayName = (profile: Admin | null) => {
+    if (profile?.first_name && profile?.last_name) {
+      return `${profile.first_name} ${profile.last_name}`;
+    }
+    return profile?.first_name || profile?.email || "User";
+  };
 
   const [allProjects] = useResolver(
     React.useCallback(async () => {
@@ -83,8 +91,8 @@ export function AppSidebar({
       <SidebarFooter>
         <UserDropdown
           user={{
-            name: profile?.first_name || "User",
-            email: profile?.email || "user@example.com",
+            name: getUserDisplayName(profile),
+            email: profile?.email || "",
           }}
         />
       </SidebarFooter>
