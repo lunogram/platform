@@ -118,7 +118,6 @@ func TestListApiKeys(t *testing.T) {
 
 	apiKeysStore := management.NewApiKeysStore(db)
 
-	// Create test API keys
 	for i := 0; i < 3; i++ {
 		_, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
 		require.NoError(t, err)
