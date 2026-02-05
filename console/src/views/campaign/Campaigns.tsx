@@ -56,13 +56,21 @@ export default function Campaigns({ create = false }: CampaignsProps) {
     }
 
     const duplicateCampaignAction = async (campaignId: UUID) => {
-        const duplicated = await api.campaigns.duplicate(activeProject.id, campaignId)
-        routerNavigate(`/projects/${activeProject.id}/campaigns/${duplicated.id.toString()}`)
+        try {
+            const duplicated = await api.campaigns.duplicate(activeProject.id, campaignId)
+            routerNavigate(`/projects/${activeProject.id}/campaigns/${duplicated.id.toString()}`)
+        } catch (error) {
+            console.error('Failed to duplicate campaign:', error)
+        }
     }
 
     const archiveCampaignAction = async (campaignId: UUID) => {
-        await api.campaigns.delete(activeProject.id, campaignId)
-        await tableState.reload()
+        try {
+            await api.campaigns.delete(activeProject.id, campaignId)
+            await tableState.reload()
+        } catch (error) {
+            console.error('Failed to archive campaign:', error)
+        }
     }
 
     const handleRowClick = (campaign: Campaign) => {
