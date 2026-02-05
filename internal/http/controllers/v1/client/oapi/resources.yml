@@ -5,23 +5,15 @@ info:
   version: 1.0.0
 
 paths:
-  /api/client/projects/{projectID}/identify:
+  /api/client/identify:
     post:
       summary: Identify user
-      description: Used by client libraries to create or update a user profile
-      operationId: identifyUser
+      description: Used by client libraries to create or update a user profile. The project is determined from the API key.
+      operationId: identifyUserClient
       tags:
         - Client
       security:
         - HttpBearerAuth: []
-      parameters:
-        - name: projectID
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: The project ID
       requestBody:
         required: true
         content:
@@ -38,7 +30,7 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/client/projects/{projectID}/events:
+  /api/client/events:
     post:
       summary: Post events
       description: |
@@ -46,19 +38,12 @@ paths:
         Multiple events can be sent in a single request and are processed asynchronously.
         Each event is handled independently: if one event fails to be accepted or processed, other events in the same request may still be published successfully.
         Clients requiring deterministic retry or recovery behavior must submit events individually.
+        The project is determined from the API key.
       operationId: postEvents
       tags:
         - Client
       security:
         - HttpBearerAuth: []
-      parameters:
-        - name: projectID
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: The project ID
       requestBody:
         required: true
         content:

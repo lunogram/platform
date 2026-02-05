@@ -15,8 +15,18 @@
         <!-- Initialize the Scalar API Reference -->
         <script>
             Scalar.createApiReference("#app", {
-                // The URL of the OpenAPI/Swagger document
-                url: "/api/openapi.yaml",
+                sources: [
+                    {
+                        title: "Management API",
+                        slug: "management",
+                        url: "/api/openapi/management.yaml",
+                    },
+                    {
+                        title: "Client API",
+                        slug: "client",
+                        url: "/api/openapi/client.yaml",
+                    },
+                ],
                 hideClientButton: true,
             });
         </script>

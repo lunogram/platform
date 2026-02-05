@@ -13,8 +13,7 @@ import (
 	"github.com/lunogram/platform/internal/cluster/leader"
 	"github.com/lunogram/platform/internal/cluster/scheduler"
 	"github.com/lunogram/platform/internal/config"
-	managementv1 "github.com/lunogram/platform/internal/http/controllers/v1/management"
-	publicv1 "github.com/lunogram/platform/internal/http/controllers/v1/public"
+	v1 "github.com/lunogram/platform/internal/http/controllers/v1"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
@@ -124,23 +123,15 @@ func run() error {
 		return err
 	}
 
-	logger.Info("starting http servers")
+	logger.Info("starting http server")
 
-	mgmt, err := managementv1.NewServer(ctx, logger, conf, managementDB, bucket, pub, registry)
+	server, err := v1.NewServer(ctx, logger, conf, managementDB, bucket, pub, registry)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("serving management http server")
-	go mgmt.Serve(ctx, conf.ManagementServiceAddress)
-
-	public, err := publicv1.NewServer(ctx, logger, conf, managementDB, managementStore, usersStore, bucket, pub)
-	if err != nil {
-		return err
-	}
-
-	logger.Info("serving public http server")
-	go public.Serve(ctx, conf.PublicServiceAddress)
+	logger.Info("serving http server")
+	go server.Serve(ctx, conf.HTTPAddress)
 
 	logger.Info("service up and running!")
 	ctx.AwaitKillSignal()

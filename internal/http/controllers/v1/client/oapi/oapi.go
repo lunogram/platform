@@ -13,10 +13,10 @@ import (
 //go:generate oapi-codegen -o ./resources_gen.go -generate types,client,chi-server -package oapi ./resources.yml
 
 //go:embed resources.yml
-var oapi []byte
+var OAPI []byte
 
 func Spec() (*openapi3.T, error) {
-	return openapi3.NewLoader().LoadFromData(oapi)
+	return openapi3.NewLoader().LoadFromData(OAPI)
 }
 
 // WriteProblem writes a JSON v1 problem message to the given response writer.

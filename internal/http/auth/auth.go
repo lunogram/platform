@@ -115,6 +115,7 @@ func WithKey(mgmt *management.State) Handler {
 
 		ctx = rbac.WithScope(ctx, &rbac.Scope{
 			OrganizationID: key.OrganizationID,
+			ProjectID:      key.ProjectID,
 		})
 
 		return ctx, nil
