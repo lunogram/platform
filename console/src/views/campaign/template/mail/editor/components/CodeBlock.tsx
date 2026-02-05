@@ -2,6 +2,7 @@ import {
   dracula,
   CodeBlock as EmailCodeBlock,
   nord,
+  vscDarkPlus,
   type PrismLanguage,
   type Theme,
 } from "@react-email/components";
@@ -14,24 +15,51 @@ export interface CodeBlockProps {
   code: string;
   language: PrismLanguage;
   lineNumbers?: boolean;
-  theme?: string;
+  theme?: keyof Theme;
   spacing: SpacingProps;
 }
 
-const themeMap: Record<string, Theme> = {
+const themeMap: Record<keyof Theme, Theme> = {
+  vscDarkPlus: vscDarkPlus,
   dracula: dracula,
   nord: nord,
 };
+
+const themeOptions: { label: string; value: keyof Theme }[] = [
+  { label: "Dracula", value: "dracula" },
+  { label: "Nord", value: "nord" },
+  { label: "VS Code Dark+", value: "vscDarkPlus" },
+];
+
+const languages: { label: string; value: PrismLanguage }[] = [
+  { label: "Bash", value: "bash" },
+  { label: "C#", value: "csharp" },
+  { label: "C++", value: "cpp" },
+  { label: "CSS", value: "css" },
+  { label: "Docker", value: "docker" },
+  { label: "Go", value: "go" },
+  { label: "GraphQL", value: "graphql" },
+  { label: "HTML/XML", value: "markup" },
+  { label: "Java", value: "java" },
+  { label: "JavaScript", value: "javascript" },
+  { label: "JSON", value: "json" },
+  { label: "JSX", value: "jsx" },
+  { label: "Markdown", value: "markdown" },
+  { label: "PHP", value: "php" },
+  { label: "Python", value: "python" },
+  { label: "Rust", value: "rust" },
+  { label: "SQL", value: "sql" },
+  { label: "TSX", value: "tsx" },
+  { label: "TypeScript", value: "typescript" },
+  { label: "YAML", value: "yaml" },
+];
 
 export const CodeBlock: ComponentConfig<CodeBlockProps> = {
   fields: {
     code: { type: "textarea" },
     language: {
       type: "select",
-      options: [
-        { label: "JavaScript", value: "javascript" },
-        { label: "TypeScript", value: "typescript" },
-      ],
+      options: languages,
     },
     lineNumbers: {
       type: "select",
@@ -42,10 +70,7 @@ export const CodeBlock: ComponentConfig<CodeBlockProps> = {
     },
     theme: {
       type: "select",
-      options: [
-        { label: "Dracula", value: "dracula" },
-        { label: "Nord", value: "nord" },
-      ],
+      options: themeOptions as { label: string; value: string }[],
     },
     spacing: Spacing,
   },
@@ -63,7 +88,7 @@ export const CodeBlock: ComponentConfig<CodeBlockProps> = {
           code={code}
           language={language}
           lineNumbers={lineNumbers}
-          theme={themeMap[theme!] || dracula}
+          theme={themeMap[theme!] || vscDarkPlus}
         />
       </div>
     );
