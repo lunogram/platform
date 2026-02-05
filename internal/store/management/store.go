@@ -47,6 +47,7 @@ func NewState(db store.DB) *State {
 		LocalesStore:       NewLocalesStore(db),
 		DocumentsStore:     NewDocumentsStore(db),
 		AuthStore:          NewAuthStore(db),
+		ApiKeysStore:       NewApiKeysStore(db),
 	}
 }
 
@@ -62,4 +63,5 @@ type State struct {
 	*LocalesStore
 	*DocumentsStore
 	*AuthStore
+	*ApiKeysStore
 }
