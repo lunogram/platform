@@ -1,4 +1,4 @@
-package store
+package management
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Providers []Provider
@@ -58,12 +59,12 @@ func (provider Provider) OAPI() oapi.Provider {
 	return result
 }
 
-func NewProvidersStore(db DB) *ProvidersStore {
+func NewProvidersStore(db store.DB) *ProvidersStore {
 	return &ProvidersStore{db: db}
 }
 
 type ProvidersStore struct {
-	db DB
+	db store.DB
 }
 
 func (s *ProvidersStore) GetProvider(ctx context.Context, id uuid.UUID) (*Provider, error) {
@@ -140,7 +141,7 @@ func (s *ProvidersStore) CreateProvider(ctx context.Context, provider Provider) 
 	return id, nil
 }
 
-func (s *ProvidersStore) ListProviders(ctx context.Context, projectID uuid.UUID, pagination Pagination) (Providers, int, error) {
+func (s *ProvidersStore) ListProviders(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Providers, int, error) {
 	query := `
 	SELECT id, project_id, module, channel, data, is_default, rate_limit, rate_interval, name, created_at, updated_at,
 		COUNT(*) OVER () AS total_count

@@ -8,7 +8,7 @@ import (
 
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/auth"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 )
 
 var (
@@ -21,14 +21,14 @@ var (
 // It is primarily intended for simple setups and testing purposes.
 type BasicProvider struct {
 	config    config.BasicAuth
-	stores    *store.State
+	mgmt      *management.State
 	generator TokenGenerator
 }
 
-func NewBasicProvider(cfg config.BasicAuth, stores *store.State, generator TokenGenerator) *BasicProvider {
+func NewBasicProvider(cfg config.BasicAuth, mgmt *management.State, generator TokenGenerator) *BasicProvider {
 	return &BasicProvider{
 		config:    cfg,
-		stores:    stores,
+		mgmt:      mgmt,
 		generator: generator,
 	}
 }
@@ -77,23 +77,23 @@ func (provider *BasicProvider) Authenticate(ctx context.Context, w http.Response
 }
 
 // findOrCreateAdmin finds an existing admin or creates a new one with a new organization
-func (p *BasicProvider) findOrCreateAdmin(ctx context.Context, email string) (*store.Admin, error) {
-	admin, err := p.stores.GetAdminByEmail(ctx, email)
+func (p *BasicProvider) findOrCreateAdmin(ctx context.Context, email string) (*management.Admin, error) {
+	admin, err := p.mgmt.GetAdminByEmail(ctx, email)
 	if err == nil && admin != nil {
 		return admin, nil
 	}
 
-	admin = &store.Admin{
+	admin = &management.Admin{
 		Email: email,
 		Role:  "owner",
 	}
 
-	admin.OrganizationID, err = p.stores.CreateOrganization(ctx, "Default Organization")
+	admin.OrganizationID, err = p.mgmt.CreateOrganization(ctx, "Default Organization")
 	if err != nil {
 		return nil, err
 	}
 
-	admin.ID, err = p.stores.CreateAdmin(ctx, *admin)
+	admin.ID, err = p.mgmt.CreateAdmin(ctx, *admin)
 	if err != nil {
 		return nil, err
 	}

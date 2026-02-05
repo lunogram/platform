@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
@@ -27,7 +28,7 @@ type EmailTemplateData struct {
 	Bcc       string        `json:"bcc,omitempty"`
 }
 
-func ComposeEmail(config map[string]any, template store.Template, user *store.User) (*providers.SendRequest[map[string]any], error) {
+func ComposeEmail(config map[string]any, template management.Template, user *users.User) (*providers.SendRequest[map[string]any], error) {
 	if user.Email == nil {
 		return nil, fmt.Errorf("user has no email address")
 	}

@@ -16,7 +16,8 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/public/oapi"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/storage"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"go.uber.org/zap"
 )
 
@@ -25,16 +26,14 @@ var staticFiles embed.FS
 
 // NewServer constructs a new HTTP server and its routes. The returned server
 // could be used to listen and serve incoming requests on the given address.
-func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db *sqlx.DB, storage storage.Storage, pub pubsub.Publisher) (*http.Server, error) {
+func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db *sqlx.DB, mgmt *management.State, usrs *users.State, storage storage.Storage, pub pubsub.Publisher) (*http.Server, error) {
 	spec, err := oapi.Spec()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load OpenAPI spec: %w", err)
 	}
 
-	stores := store.NewState(db)
-
 	options := openapi3filter.Options{
-		AuthenticationFunc: auth.Middleware(auth.WithJWT(config.Auth, stores), auth.WithKey(stores)),
+		AuthenticationFunc: auth.Middleware(auth.WithJWT(config.Auth, mgmt), auth.WithKey(mgmt)),
 	}
 
 	router := chi.NewRouter()
@@ -49,7 +48,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db 
 	}
 	router.Handle("/static/*", nethttp.StripPrefix("/static/", nethttp.FileServer(nethttp.FS(staticSubFS))))
 
-	controller, err := NewController(logger, db, pub)
+	controller, err := NewController(logger, db, mgmt, usrs, pub)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create controller: %w", err)
 	}

@@ -10,10 +10,9 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/claim/rbac"
-	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -23,24 +22,22 @@ func TestCreateProject(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	cfg := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(cfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, cfg)
 	require.NoError(t, err)
 
-	orgs := store.NewOrganizationsStore(db)
+	orgs := management.NewOrganizationsStore(db)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := store.NewAdminsStore(db)
-	adminID, err := admins.CreateAdmin(ctx, store.Admin{
+	admins := management.NewAdminsStore(db)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
 		Role:           "admin",
@@ -121,24 +118,22 @@ func TestListProjects(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	cfg := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(cfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, cfg)
 	require.NoError(t, err)
 
-	orgs := store.NewOrganizationsStore(db)
+	orgs := management.NewOrganizationsStore(db)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := store.NewAdminsStore(db)
-	adminID, err := admins.CreateAdmin(ctx, store.Admin{
+	admins := management.NewAdminsStore(db)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
 		Role:           "admin",
@@ -148,9 +143,9 @@ func TestListProjects(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
-	projectStore := store.NewProjectsStore(db)
+	projectStore := management.NewProjectsStore(db)
 	for i := 0; i < 3; i++ {
-		projectID, err := projectStore.CreateProject(ctx, store.Project{
+		projectID, err := projectStore.CreateProject(ctx, management.Project{
 			OrganizationID: &orgID,
 			Name:           "Test Project",
 			Timezone:       "UTC",
@@ -195,24 +190,22 @@ func TestGetProject(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	cfg := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(cfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, cfg)
 	require.NoError(t, err)
 
-	orgs := store.NewOrganizationsStore(db)
+	orgs := management.NewOrganizationsStore(db)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := store.NewAdminsStore(db)
-	adminID, err := admins.CreateAdmin(ctx, store.Admin{
+	admins := management.NewAdminsStore(db)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
 		Role:           "admin",
@@ -222,8 +215,8 @@ func TestGetProject(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
-	projectStore := store.NewProjectsStore(db)
-	projectID, err := projectStore.CreateProject(ctx, store.Project{
+	projectStore := management.NewProjectsStore(db)
+	projectID, err := projectStore.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -260,24 +253,22 @@ func TestUpdateProject(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	cfg := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(cfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, cfg)
 	require.NoError(t, err)
 
-	orgs := store.NewOrganizationsStore(db)
+	orgs := management.NewOrganizationsStore(db)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := store.NewAdminsStore(db)
-	adminID, err := admins.CreateAdmin(ctx, store.Admin{
+	admins := management.NewAdminsStore(db)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
 		Role:           "admin",
@@ -287,8 +278,8 @@ func TestUpdateProject(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
-	projectStore := store.NewProjectsStore(db)
-	projectID, err := projectStore.CreateProject(ctx, store.Project{
+	projectStore := management.NewProjectsStore(db)
+	projectID, err := projectStore.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",

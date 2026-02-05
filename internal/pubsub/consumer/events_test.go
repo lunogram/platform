@@ -13,6 +13,9 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,30 +31,32 @@ func setupEventsTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream) {
 	natsURL := container.RunNATS(t)
 	postgresURI := container.RunPostgreSQL(t)
 
-	config := config.Node{
+	cfg := config.Node{
 		Store: store.Config{
-			URI: postgresURI,
+			ManagementURI: postgresURI,
+			UsersURI:      postgresURI,
+			JourneyURI:    postgresURI,
 		},
 		Nats: config.Nats{
 			URL: natsURL,
 		},
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	jet, err := pubsub.New(ctx, config)
+	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	st := store.NewState(db)
+	mgmtState := management.NewState(db)
 
-	orgID, err := st.OrganizationsStore.CreateOrganization(ctx, "Test Org")
+	orgID, err := mgmtState.OrganizationsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := st.ProjectsStore.CreateProject(ctx, store.Project{
+	projectID, err := mgmtState.ProjectsStore.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -72,15 +77,16 @@ func TestEventsProjectHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	st := store.NewState(db)
+	usersState := users.NewState(db)
+	journeyState := journey.NewState(db)
 	email := "test@example.com"
-	userID, err := st.UsersStore.UpsertUser(ctx, projectID, store.UpsertUserParams{
+	userID, err := usersState.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
 		Email: &email,
 	})
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := EventsHandler(logger, db, pub)
+	handler := EventsHandler(logger, usersState, journeyState, pub)
 
 	event := schemas.Event{
 		Name:      "test_event",
@@ -129,15 +135,16 @@ func TestEventsProjectHandlerWithoutData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	st := store.NewState(db)
+	usersState := users.NewState(db)
+	journeyState := journey.NewState(db)
 	email := "test2@example.com"
-	userID, err := st.UsersStore.UpsertUser(ctx, projectID, store.UpsertUserParams{
+	userID, err := usersState.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
 		Email: &email,
 	})
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := EventsHandler(logger, db, pub)
+	handler := EventsHandler(logger, usersState, journeyState, pub)
 
 	event := schemas.Event{
 		Name:      "test_event_no_data",
@@ -178,18 +185,19 @@ func TestEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	st := store.NewState(db)
+	usersState := users.NewState(db)
+	journeyState := journey.NewState(db)
 	externalID := "user_123"
 	anonymousID := "anon_abc"
 
-	_, err = st.UsersStore.UpsertUser(ctx, projectID, store.UpsertUserParams{
+	_, err = usersState.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
 		ExternalID:  &externalID,
 		AnonymousID: &anonymousID,
 	})
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := EventsHandler(logger, db, pub)
+	handler := EventsHandler(logger, usersState, journeyState, pub)
 
 	event := schemas.Event{
 		Name:        "user_action",
@@ -224,11 +232,11 @@ func TestEventsSchemaHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	st := store.NewState(db)
-	eventID, err := st.EventsStore.UpsertEvent(ctx, projectID, "test_event")
+	usersState := users.NewState(db)
+	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "test_event")
 	require.NoError(t, err)
 
-	handler := EventSchemasHandler(logger, db)
+	handler := EventSchemasHandler(logger, usersState)
 
 	event := schemas.Event{
 		ID:        eventID,
@@ -269,11 +277,11 @@ func TestEventsSchemaHandlerComplexNestedData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	st := store.NewState(db)
-	eventID, err := st.EventsStore.UpsertEvent(ctx, projectID, "complex_event")
+	usersState := users.NewState(db)
+	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "complex_event")
 	require.NoError(t, err)
 
-	handler := EventSchemasHandler(logger, db)
+	handler := EventSchemasHandler(logger, usersState)
 
 	event := schemas.Event{
 		ID:        eventID,

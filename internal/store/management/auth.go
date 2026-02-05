@@ -1,9 +1,10 @@
-package store
+package management
 
 import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type APIKey struct {
@@ -19,12 +20,12 @@ type APIKey struct {
 	Role           string    `db:"role"`
 }
 
-func NewAuthStore(db DB) *AuthStore {
+func NewAuthStore(db store.DB) *AuthStore {
 	return &AuthStore{db: db}
 }
 
 type AuthStore struct {
-	db DB
+	db store.DB
 }
 
 func (s *AuthStore) GetAPIKeyBySecret(key string) (*APIKey, error) {

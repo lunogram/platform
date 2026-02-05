@@ -1,4 +1,4 @@
-package store
+package management
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Tags []Tag
@@ -37,14 +38,14 @@ func (tag Tag) OAPI() oapi.Tag {
 	}
 }
 
-func NewTagsStore(db DB) *TagsStore {
+func NewTagsStore(db store.DB) *TagsStore {
 	return &TagsStore{
 		db: db,
 	}
 }
 
 type TagsStore struct {
-	db DB
+	db store.DB
 }
 
 func (s *TagsStore) CreateTag(ctx context.Context, projectID uuid.UUID, name string) (uuid.UUID, error) {
@@ -62,7 +63,7 @@ func (s *TagsStore) CreateTag(ctx context.Context, projectID uuid.UUID, name str
 	return id, nil
 }
 
-func (s *TagsStore) ListTags(ctx context.Context, projectID uuid.UUID, pagination Pagination, search string) (Tags, int, error) {
+func (s *TagsStore) ListTags(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string) (Tags, int, error) {
 	query := `
 	SELECT id, project_id, name, created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count

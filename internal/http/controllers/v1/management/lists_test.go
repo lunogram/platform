@@ -17,6 +17,8 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -37,22 +39,22 @@ func TestListCreation(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	managementCfg := management.Config{
+		URI: container.RunPostgreSQL(t),
+	}
+	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(managementCfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, managementCfg)
 	require.NoError(t, err)
 
-	jet, err := pubsub.New(ctx, config)
+	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
 	err = consumer.Bootstrap(ctx, logger, jet)
@@ -60,7 +62,7 @@ func TestListCreation(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -115,22 +117,22 @@ func TestListLists(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	managementCfg := management.Config{
+		URI: container.RunPostgreSQL(t),
+	}
+	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(managementCfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, managementCfg)
 	require.NoError(t, err)
 
-	jet, err := pubsub.New(ctx, config)
+	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
 	err = consumer.Bootstrap(ctx, logger, jet)
@@ -138,13 +140,13 @@ func TestListLists(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := store.NewListsStore(db)
+	listsStore := users.NewListsStore(db)
 
-	testLists := []store.List{
+	testLists := []users.List{
 		{
 			ProjectID: projectID,
 			Name:      "Test List 1",
@@ -227,22 +229,22 @@ func TestGetList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	managementCfg := management.Config{
+		URI: container.RunPostgreSQL(t),
+	}
+	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(managementCfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, managementCfg)
 	require.NoError(t, err)
 
-	jet, err := pubsub.New(ctx, config)
+	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
 	err = consumer.Bootstrap(ctx, logger, jet)
@@ -250,12 +252,12 @@ func TestGetList(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := store.NewListsStore(db)
-	listID, err := listsStore.CreateList(ctx, store.List{
+	listsStore := users.NewListsStore(db)
+	listID, err := listsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
@@ -282,22 +284,22 @@ func TestUpdateList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	managementCfg := management.Config{
+		URI: container.RunPostgreSQL(t),
+	}
+	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(managementCfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, managementCfg)
 	require.NoError(t, err)
 
-	jet, err := pubsub.New(ctx, config)
+	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
 	err = consumer.Bootstrap(ctx, logger, jet)
@@ -305,12 +307,12 @@ func TestUpdateList(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := store.NewListsStore(db)
-	listID, err := listsStore.CreateList(ctx, store.List{
+	listsStore := users.NewListsStore(db)
+	listID, err := listsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "dynamic",
@@ -343,22 +345,22 @@ func TestDeleteList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	managementCfg := management.Config{
+		URI: container.RunPostgreSQL(t),
+	}
+	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(managementCfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, managementCfg)
 	require.NoError(t, err)
 
-	jet, err := pubsub.New(ctx, config)
+	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
 	err = consumer.Bootstrap(ctx, logger, jet)
@@ -366,12 +368,12 @@ func TestDeleteList(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := store.NewListsStore(db)
-	listID, err := listsStore.CreateList(ctx, store.List{
+	listsStore := users.NewListsStore(db)
+	listID, err := listsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
@@ -395,22 +397,22 @@ func TestDuplicateList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	managementCfg := management.Config{
+		URI: container.RunPostgreSQL(t),
+	}
+	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(managementCfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, managementCfg)
 	require.NoError(t, err)
 
-	jet, err := pubsub.New(ctx, config)
+	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
 	err = consumer.Bootstrap(ctx, logger, jet)
@@ -418,12 +420,12 @@ func TestDuplicateList(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := store.NewListsStore(db)
-	listID, err := listsStore.CreateList(ctx, store.List{
+	listsStore := users.NewListsStore(db)
+	listID, err := listsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Original List",
 		Type:      "static",
@@ -478,22 +480,22 @@ func TestImportListUsers(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			config := config.Node{
-				Store: store.Config{
-					URI: container.RunPostgreSQL(t),
-				},
+			managementCfg := management.Config{
+				URI: container.RunPostgreSQL(t),
+			}
+			cfg := config.Node{
 				Nats: config.Nats{
 					URL: container.RunNATS(t),
 				},
 			}
 
-			err := store.Migrate(config.Store)
+			err := management.Migrate(managementCfg)
 			require.NoError(t, err)
 
-			db, err := store.New(ctx, logger, config.Store)
+			db, err := management.New(ctx, logger, managementCfg)
 			require.NoError(t, err)
 
-			jet, err := pubsub.New(ctx, config)
+			jet, err := pubsub.New(ctx, cfg)
 			require.NoError(t, err)
 
 			err = consumer.Bootstrap(ctx, logger, jet)
@@ -501,17 +503,17 @@ func TestImportListUsers(t *testing.T) {
 
 			pub := pubsub.NewPublisher(jet)
 
-			projects := store.NewProjectsStore(db)
+			projects := management.NewProjectsStore(db)
 			projectID, err := projects.CreateProject(ctx, DefaultProject)
 			require.NoError(t, err)
 
-			usersStore := store.NewUsersStore(db)
-			listsStore := store.NewListsStore(db)
+			usersStore := users.NewUsersStore(db)
+			listsStore := users.NewListsStore(db)
 
-			list := store.List{
+			list := users.List{
 				ProjectID: projectID,
 				Name:      "Import Test List",
-				Type:      store.ListTypeStatic,
+				Type:      users.ListTypeStatic,
 			}
 
 			listID, err := listsStore.CreateList(ctx, list)

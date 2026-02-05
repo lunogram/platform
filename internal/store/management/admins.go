@@ -1,4 +1,4 @@
-package store
+package management
 
 import (
 	"context"
@@ -10,14 +10,15 @@ import (
 	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/store"
 )
 
-func NewAdminsStore(db DB) *AdminsStore {
+func NewAdminsStore(db store.DB) *AdminsStore {
 	return &AdminsStore{db: db}
 }
 
 type AdminsStore struct {
-	db DB
+	db store.DB
 }
 
 type Admin struct {
@@ -123,7 +124,7 @@ func (s *AdminsStore) CreateAdmin(ctx context.Context, admin Admin) (uuid.UUID, 
 	return id, nil
 }
 
-func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, pagination Pagination, search string) ([]Admin, int, error) {
+func (s *AdminsStore) ListAdmins(ctx context.Context, organizationID uuid.UUID, pagination store.Pagination, search string) ([]Admin, int, error) {
 	var admins []Admin
 	var total int
 
@@ -258,7 +259,7 @@ func (pas ProjectAdmins) OAPI() []oapi.ProjectAdmin {
 	return results
 }
 
-func (s *AdminsStore) ListProjectAdmins(ctx context.Context, projectID uuid.UUID, pagination Pagination, search string) ([]ProjectAdmin, int, error) {
+func (s *AdminsStore) ListProjectAdmins(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string) ([]ProjectAdmin, int, error) {
 	var projectAdmins []ProjectAdmin
 	var total int
 

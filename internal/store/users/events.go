@@ -1,4 +1,4 @@
-package store
+package users
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/rules"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type EventSchemaPath struct {
@@ -21,22 +22,22 @@ type Event struct {
 }
 
 type JourneyEntranceStep struct {
-	JourneyID  uuid.UUID                  `db:"journey_id"`
-	VersionID  uuid.UUID                  `db:"version_id"`
-	StepID     uuid.UUID                  `db:"step_id"`
-	ExternalID string                     `db:"external_id"`
-	Type       string                     `db:"type"`
-	DataKey    *string                    `db:"data_key"`
-	Data       *json.RawMessage           `db:"data"`
-	Children   JourneyVersionStepChildren `db:"children"`
+	JourneyID  uuid.UUID                        `db:"journey_id"`
+	VersionID  uuid.UUID                        `db:"version_id"`
+	StepID     uuid.UUID                        `db:"step_id"`
+	ExternalID string                           `db:"external_id"`
+	Type       string                           `db:"type"`
+	DataKey    *string                          `db:"data_key"`
+	Data       *json.RawMessage                 `db:"data"`
+	Children   store.JourneyVersionStepChildren `db:"children"`
 }
 
-func NewEventsStore(db DB) *EventsStore {
+func NewEventsStore(db store.DB) *EventsStore {
 	return &EventsStore{db: db}
 }
 
 type EventsStore struct {
-	db DB
+	db store.DB
 }
 
 func (s *EventsStore) UpsertEvent(ctx context.Context, projectID uuid.UUID, name string) (uuid.UUID, error) {
@@ -112,7 +113,7 @@ func (rows eventSchemaRows) ToEvents() []Event {
 
 func (s *EventsStore) ListEvents(ctx context.Context, projectID uuid.UUID) ([]Event, error) {
 	stmt := `
-	SELECT 
+	SELECT
 		e.id,
 		e.name,
 		es.path,

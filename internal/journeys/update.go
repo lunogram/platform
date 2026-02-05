@@ -6,11 +6,12 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/osteele/liquid"
 )
 
-func HandleUpdate(ctx HandlerContext, step store.JourneyVersionStep, state store.JourneyUserState) (store.JourneyUserState, store.JourneyVersionStepChildren, error) {
+func HandleUpdate(ctx HandlerContext, step journey.JourneyVersionStep, state journey.JourneyUserState) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
 	config, err := DecodeStepData[oapi.UpdateStepData](step.Data)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to decode update step data: %w", err)
@@ -35,8 +36,8 @@ func HandleUpdate(ctx HandlerContext, step store.JourneyVersionStep, state store
 
 	updated := json.RawMessage(rendered)
 
-	users := store.NewUsersStore(ctx.DB)
-	err = users.UpdateUser(ctx, ctx.UserID, store.UserUpdate{
+	usersStore := users.NewUsersStore(ctx.DB)
+	err = usersStore.UpdateUser(ctx, ctx.UserID, users.UserUpdate{
 		Data: &updated,
 	})
 	if err != nil {
@@ -46,7 +47,7 @@ func HandleUpdate(ctx HandlerContext, step store.JourneyVersionStep, state store
 	state.CompletedAt = Now()
 	state.Data = updated
 
-	user, err := users.GetUser(ctx, ctx.ProjectID, ctx.UserID)
+	user, err := usersStore.GetUser(ctx, ctx.ProjectID, ctx.UserID)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to get updated user: %w", err)
 	}

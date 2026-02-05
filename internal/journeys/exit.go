@@ -2,10 +2,10 @@ package journeys
 
 import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 )
 
-func HandleExit(ctx HandlerContext, step store.JourneyVersionStep, state store.JourneyUserState) (store.JourneyUserState, store.JourneyVersionStepChildren, error) {
+func HandleExit(ctx HandlerContext, step journey.JourneyVersionStep, state journey.JourneyUserState) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
 	if state.CompletedAt != nil {
 		return state, nil, nil
 	}
@@ -17,7 +17,7 @@ func HandleExit(ctx HandlerContext, step store.JourneyVersionStep, state store.J
 
 	now := Now()
 
-	journeys := store.NewJourneysStore(ctx.DB)
+	journeys := journey.NewJourneysStore(ctx.DB)
 	err = journeys.CompleteJourneyEntryStates(ctx, state.JourneyID, config.EntranceUuid, *now)
 	if err != nil {
 		return state, nil, err

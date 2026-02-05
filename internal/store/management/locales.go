@@ -1,4 +1,4 @@
-package store
+package management
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Locales []Locale
@@ -38,14 +39,14 @@ func (locale Locale) OAPI() oapi.Locale {
 	}
 }
 
-func NewLocalesStore(db DB) *LocalesStore {
+func NewLocalesStore(db store.DB) *LocalesStore {
 	return &LocalesStore{
 		db: db,
 	}
 }
 
 type LocalesStore struct {
-	db DB
+	db store.DB
 }
 
 func (s *LocalesStore) CreateLocale(ctx context.Context, locale Locale) (uuid.UUID, error) {
@@ -63,7 +64,7 @@ func (s *LocalesStore) CreateLocale(ctx context.Context, locale Locale) (uuid.UU
 	return id, nil
 }
 
-func (s *LocalesStore) ListLocales(ctx context.Context, projectID uuid.UUID, pagination Pagination) (Locales, int, error) {
+func (s *LocalesStore) ListLocales(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Locales, int, error) {
 	query := `
 	SELECT id, project_id, key, label, created_at, updated_at,
 		COUNT(*) OVER () AS total_count

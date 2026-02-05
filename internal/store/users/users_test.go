@@ -1,22 +1,52 @@
-package store
+package users
 
 import (
 	"context"
 	"encoding/json"
 	"testing"
 
+	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/container"
+	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
-func SetupUsers(t *testing.T, db *State) uuid.UUID {
+func ptr[T any](v T) *T {
+	return &v
+}
+
+// NewContainerStore creates a test database and returns a users State
+func NewContainerStore(t *testing.T) (*State, *management.State) {
+	t.Helper()
+
+	logger := zaptest.NewLogger(t)
+
+	ctx := graceful.NewContext(t.Context())
+	uri := container.RunPostgreSQL(t)
+	config := management.Config{
+		URI: uri,
+	}
+
+	err := management.Migrate(config)
+	require.NoError(t, err)
+
+	db, err := management.New(ctx, logger, config)
+	require.NoError(t, err)
+
+	return NewState(db), management.NewState(db)
+}
+
+func SetupUsers(t *testing.T, mgmt *management.State) uuid.UUID {
 	t.Helper()
 
 	ctx := t.Context()
-	organization, err := db.CreateOrganization(ctx, "Test Org")
+	organization, err := mgmt.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	project, err := db.CreateProject(ctx, Project{
+	project, err := mgmt.CreateProject(ctx, management.Project{
 		OrganizationID: &organization,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -30,8 +60,8 @@ func SetupUsers(t *testing.T, db *State) uuid.UUID {
 func TestCreateUser(t *testing.T) {
 	t.Parallel()
 
-	db := NewContainerStore(t)
-	projectID := SetupUsers(t, db)
+	db, mgmt := NewContainerStore(t)
+	projectID := SetupUsers(t, mgmt)
 	ctx := context.Background()
 
 	type test struct {
@@ -88,8 +118,8 @@ func TestCreateUser(t *testing.T) {
 func TestGetUserByExternalID(t *testing.T) {
 	t.Parallel()
 
-	db := NewContainerStore(t)
-	projectID := SetupUsers(t, db)
+	db, mgmt := NewContainerStore(t)
+	projectID := SetupUsers(t, mgmt)
 	ctx := context.Background()
 
 	externalID := "user_external_123"
@@ -111,8 +141,8 @@ func TestGetUserByExternalID(t *testing.T) {
 func TestGetUserByAnonymousID(t *testing.T) {
 	t.Parallel()
 
-	db := NewContainerStore(t)
-	projectID := SetupUsers(t, db)
+	db, mgmt := NewContainerStore(t)
+	projectID := SetupUsers(t, mgmt)
 	ctx := context.Background()
 
 	anonymousID := "anon_unique_123"
@@ -132,8 +162,8 @@ func TestGetUserByAnonymousID(t *testing.T) {
 func TestListUsersWithSearch(t *testing.T) {
 	t.Parallel()
 
-	db := NewContainerStore(t)
-	projectID := SetupUsers(t, db)
+	db, mgmt := NewContainerStore(t)
+	projectID := SetupUsers(t, mgmt)
 	ctx := context.Background()
 
 	_, err := db.CreateUser(ctx, User{
@@ -198,7 +228,7 @@ func TestListUsersWithSearch(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			users, total, err := db.ListUsers(ctx, projectID, Pagination{Limit: 20, Offset: 0}, tt.search)
+			users, total, err := db.ListUsers(ctx, projectID, store.Pagination{Limit: 20, Offset: 0}, tt.search)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedCount, len(users), tt.description)
 			require.Equal(t, tt.expectedCount, total, "total count should match result count")
@@ -209,8 +239,8 @@ func TestListUsersWithSearch(t *testing.T) {
 func TestListUsersWithPagination(t *testing.T) {
 	t.Parallel()
 
-	db := NewContainerStore(t)
-	projectID := SetupUsers(t, db)
+	db, mgmt := NewContainerStore(t)
+	projectID := SetupUsers(t, mgmt)
 	ctx := context.Background()
 
 	for i := 0; i < 5; i++ {
@@ -224,29 +254,29 @@ func TestListUsersWithPagination(t *testing.T) {
 	}
 
 	type test struct {
-		pagination    Pagination
+		pagination    store.Pagination
 		expectedCount int
 		expectedTotal int
 	}
 
 	tests := map[string]test{
 		"first page": {
-			pagination:    Pagination{Limit: 2, Offset: 0},
+			pagination:    store.Pagination{Limit: 2, Offset: 0},
 			expectedCount: 2,
 			expectedTotal: 5,
 		},
 		"second page": {
-			pagination:    Pagination{Limit: 2, Offset: 2},
+			pagination:    store.Pagination{Limit: 2, Offset: 2},
 			expectedCount: 2,
 			expectedTotal: 5,
 		},
 		"last page partial": {
-			pagination:    Pagination{Limit: 2, Offset: 4},
+			pagination:    store.Pagination{Limit: 2, Offset: 4},
 			expectedCount: 1,
 			expectedTotal: 5,
 		},
 		"beyond last page": {
-			pagination:    Pagination{Limit: 2, Offset: 10},
+			pagination:    store.Pagination{Limit: 2, Offset: 10},
 			expectedCount: 0,
 			expectedTotal: 0,
 		},
@@ -265,8 +295,8 @@ func TestListUsersWithPagination(t *testing.T) {
 func TestUpsertUser(t *testing.T) {
 	t.Parallel()
 
-	db := NewContainerStore(t)
-	projectID := SetupUsers(t, db)
+	db, mgmt := NewContainerStore(t)
+	projectID := SetupUsers(t, mgmt)
 	ctx := context.Background()
 
 	type test struct {
@@ -348,8 +378,8 @@ func TestUpsertUser(t *testing.T) {
 func TestUpdateUserWithDataMerge(t *testing.T) {
 	t.Parallel()
 
-	db := NewContainerStore(t)
-	projectID := SetupUsers(t, db)
+	db, mgmt := NewContainerStore(t)
+	projectID := SetupUsers(t, mgmt)
 	ctx := context.Background()
 
 	initialData := json.RawMessage(`{"first_name":"John","age":30,"nested":{"key":"value"}}`)
@@ -409,8 +439,8 @@ func TestUpdateUserWithDataMerge(t *testing.T) {
 func TestDeleteUser(t *testing.T) {
 	t.Parallel()
 
-	db := NewContainerStore(t)
-	projectID := SetupUsers(t, db)
+	db, mgmt := NewContainerStore(t)
+	projectID := SetupUsers(t, mgmt)
 	ctx := context.Background()
 
 	userID, err := db.CreateUser(ctx, User{
@@ -430,8 +460,8 @@ func TestDeleteUser(t *testing.T) {
 func TestVersionAutoIncrement(t *testing.T) {
 	t.Parallel()
 
-	db := NewContainerStore(t)
-	projectID := SetupUsers(t, db)
+	db, mgmt := NewContainerStore(t)
+	projectID := SetupUsers(t, mgmt)
 	ctx := context.Background()
 
 	userID, err := db.CreateUser(ctx, User{
@@ -512,8 +542,8 @@ func TestUserOAPIConversionWithDevices(t *testing.T) {
 func TestGetUserWithDevices(t *testing.T) {
 	t.Parallel()
 
-	db := NewContainerStore(t)
-	projectID := SetupUsers(t, db)
+	db, mgmt := NewContainerStore(t)
+	projectID := SetupUsers(t, mgmt)
 	ctx := context.Background()
 
 	// Create a user
@@ -554,8 +584,8 @@ func TestGetUserWithDevices(t *testing.T) {
 func TestListUsersWithDevices(t *testing.T) {
 	t.Parallel()
 
-	db := NewContainerStore(t)
-	projectID := SetupUsers(t, db)
+	db, mgmt := NewContainerStore(t)
+	projectID := SetupUsers(t, mgmt)
 	ctx := context.Background()
 
 	// Create two users
@@ -584,7 +614,7 @@ func TestListUsersWithDevices(t *testing.T) {
 	require.NoError(t, err)
 
 	// List users
-	users, total, err := db.ListUsers(ctx, projectID, Pagination{Limit: 10, Offset: 0}, "")
+	users, total, err := db.ListUsers(ctx, projectID, store.Pagination{Limit: 10, Offset: 0}, "")
 	require.NoError(t, err)
 	require.Equal(t, 2, total)
 

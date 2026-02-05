@@ -1,4 +1,4 @@
-package store
+package management
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Project struct {
@@ -73,12 +74,12 @@ func (p *Project) OAPI() oapi.Project {
 	return project
 }
 
-func NewProjectsStore(db DB) *ProjectsStore {
+func NewProjectsStore(db store.DB) *ProjectsStore {
 	return &ProjectsStore{db: db}
 }
 
 type ProjectsStore struct {
-	db DB
+	db store.DB
 }
 
 func (s *ProjectsStore) CreateProject(ctx context.Context, project Project) (uuid.UUID, error) {
@@ -146,11 +147,11 @@ func (s *ProjectsStore) GetProject(ctx context.Context, id uuid.UUID) (*Project,
 	return &project, nil
 }
 
-func (s *ProjectsStore) ListProjects(ctx context.Context, organizationID uuid.UUID, pagination Pagination, search string) ([]Project, int, error) {
+func (s *ProjectsStore) ListProjects(ctx context.Context, organizationID uuid.UUID, pagination store.Pagination, search string) ([]Project, int, error) {
 	// TODO: include counts as in GetProject
 	query := `
-	SELECT DISTINCT p.id, p.organization_id, p.name, p.description, p.timezone, p.text_opt_out_message, 
-	       p.link_wrap_email, p.text_help_message, p.link_wrap_push, p.tools, p.locale, 
+	SELECT DISTINCT p.id, p.organization_id, p.name, p.description, p.timezone, p.text_opt_out_message,
+	       p.link_wrap_email, p.text_help_message, p.link_wrap_push, p.tools, p.locale,
 	       p.created_at, p.updated_at,
 	       COUNT(*) OVER() AS total_count
 	FROM projects p

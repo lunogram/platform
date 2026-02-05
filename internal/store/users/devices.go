@@ -1,4 +1,4 @@
-package store
+package users
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Devices []Device
@@ -58,12 +59,12 @@ func (d *Device) HasPushToken() bool {
 	return d.Token != nil && *d.Token != ""
 }
 
-func NewDevicesStore(db DB) *DevicesStore {
+func NewDevicesStore(db store.DB) *DevicesStore {
 	return &DevicesStore{db: db}
 }
 
 type DevicesStore struct {
-	db DB
+	db store.DB
 }
 
 func (s *DevicesStore) CreateDevice(ctx context.Context, device Device) (uuid.UUID, error) {

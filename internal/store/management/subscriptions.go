@@ -1,4 +1,4 @@
-package store
+package management
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Subscriptions []Subscription
@@ -66,15 +67,15 @@ func (us *UserSubscription) OAPI() oapi.UserSubscription {
 	}
 }
 
-func NewSubscriptionsStore(db DB) *SubscriptionsStore {
+func NewSubscriptionsStore(db store.DB) *SubscriptionsStore {
 	return &SubscriptionsStore{db: db}
 }
 
 type SubscriptionsStore struct {
-	db DB
+	db store.DB
 }
 
-func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID, userID uuid.UUID, pagination Pagination) (UserSubscriptions, int, error) {
+func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID, userID uuid.UUID, pagination store.Pagination) (UserSubscriptions, int, error) {
 	query := `
 	SELECT
 		s.id AS subscription_id,
@@ -199,7 +200,7 @@ func (s *SubscriptionsStore) CreateSubscription(ctx context.Context, subscriptio
 	return id, nil
 }
 
-func (s *SubscriptionsStore) Subscribe(ctx context.Context, db DB, userID, subscriptionID uuid.UUID) error {
+func (s *SubscriptionsStore) Subscribe(ctx context.Context, db store.DB, userID, subscriptionID uuid.UUID) error {
 	stmt := `
 	DELETE FROM user_subscription
 	WHERE user_id = $1 AND subscription_id = $2`
@@ -208,7 +209,7 @@ func (s *SubscriptionsStore) Subscribe(ctx context.Context, db DB, userID, subsc
 	return err
 }
 
-func (s *SubscriptionsStore) Unsubscribe(ctx context.Context, db DB, userID, subscriptionID uuid.UUID) error {
+func (s *SubscriptionsStore) Unsubscribe(ctx context.Context, db store.DB, userID, subscriptionID uuid.UUID) error {
 	// Delete any existing record first
 	_, err := db.ExecContext(ctx, `
 		DELETE FROM user_subscription
@@ -224,14 +225,14 @@ func (s *SubscriptionsStore) Unsubscribe(ctx context.Context, db DB, userID, sub
 	return err
 }
 
-func (s *SubscriptionsStore) SetSubscriptionState(ctx context.Context, db DB, userID, subscriptionID uuid.UUID, subscribed bool) error {
+func (s *SubscriptionsStore) SetSubscriptionState(ctx context.Context, db store.DB, userID, subscriptionID uuid.UUID, subscribed bool) error {
 	if subscribed {
 		return s.Subscribe(ctx, db, userID, subscriptionID)
 	}
 	return s.Unsubscribe(ctx, db, userID, subscriptionID)
 }
 
-func (s *SubscriptionsStore) ListSubscriptions(ctx context.Context, projectID uuid.UUID, pagination Pagination) (Subscriptions, int, error) {
+func (s *SubscriptionsStore) ListSubscriptions(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Subscriptions, int, error) {
 	query := `
 	SELECT
 		id,

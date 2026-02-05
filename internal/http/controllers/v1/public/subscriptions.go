@@ -12,7 +12,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/public/oapi"
 	"github.com/lunogram/platform/internal/http/problem"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"go.uber.org/zap"
 )
 
@@ -22,11 +23,12 @@ var templatesFS embed.FS
 type SubscriptionsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.State
+	mgmt   *management.State
+	users  *users.State
 	tmpl   *template.Template
 }
 
-func NewSubscriptionsController(logger *zap.Logger, db *sqlx.DB) (*SubscriptionsController, error) {
+func NewSubscriptionsController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, usrs *users.State) (*SubscriptionsController, error) {
 	tmpl, err := template.ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		return nil, err
@@ -35,7 +37,8 @@ func NewSubscriptionsController(logger *zap.Logger, db *sqlx.DB) (*Subscriptions
 	return &SubscriptionsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewState(db),
+		mgmt:   mgmt,
+		users:  usrs,
 		tmpl:   tmpl,
 	}, nil
 }
@@ -60,7 +63,7 @@ func (srv *SubscriptionsController) GetPreferencesPage(w http.ResponseWriter, r 
 	logger.Info("getting preferences page")
 
 	// Check if user exists
-	_, err := srv.store.GetUser(ctx, projectID, userID)
+	_, err := srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -73,7 +76,7 @@ func (srv *SubscriptionsController) GetPreferencesPage(w http.ResponseWriter, r 
 	}
 
 	// Get all subscriptions for user-facing page
-	subscriptions, err := srv.store.GetAllUserSubscriptions(ctx, projectID, userID)
+	subscriptions, err := srv.mgmt.GetAllUserSubscriptions(ctx, projectID, userID)
 	if err != nil {
 		logger.Error("failed to get user subscriptions", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
@@ -114,7 +117,7 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("user_id", userID))
 	logger.Info("updating preferences")
 
-	_, err := srv.store.GetUser(ctx, projectID, userID)
+	_, err := srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("user not found")
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -141,7 +144,7 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 		}
 	}
 
-	subscriptions, err := srv.store.GetAllUserSubscriptions(ctx, projectID, userID)
+	subscriptions, err := srv.mgmt.GetAllUserSubscriptions(ctx, projectID, userID)
 	if err != nil {
 		logger.Error("failed to get user subscriptions", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -158,7 +161,7 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 
 	for _, sub := range subscriptions {
 		subscribed := selected[sub.SubscriptionID]
-		err = srv.store.SetSubscriptionState(ctx, tx, userID, sub.SubscriptionID, subscribed)
+		err = srv.mgmt.SetSubscriptionState(ctx, tx, userID, sub.SubscriptionID, subscribed)
 		if err != nil {
 			logger.Error("failed to update subscription", zap.Error(err))
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -208,7 +211,7 @@ func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *h
 		return
 	}
 
-	campaign, err := srv.store.GetCampaignByID(ctx, campaignID)
+	campaign, err := srv.mgmt.GetCampaignByID(ctx, campaignID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("campaign not found")
 		http.Error(w, "Campaign not found", http.StatusNotFound)
@@ -226,7 +229,7 @@ func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *h
 		return
 	}
 
-	_, err = srv.store.GetUser(ctx, campaign.ProjectID, userID)
+	_, err = srv.users.GetUser(ctx, campaign.ProjectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("user not found")
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -238,7 +241,7 @@ func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *h
 		return
 	}
 
-	err = srv.store.Unsubscribe(ctx, srv.db, userID, *campaign.SubscriptionID)
+	err = srv.mgmt.Unsubscribe(ctx, srv.db, userID, *campaign.SubscriptionID)
 	if err != nil {
 		logger.Error("failed to unsubscribe user", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)

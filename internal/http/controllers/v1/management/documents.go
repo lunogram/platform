@@ -16,6 +16,7 @@ import (
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
@@ -66,7 +67,7 @@ func (srv *DocumentsController) uploadDocument(ctx context.Context, logger *zap.
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	document := store.CreateDocumentParams{
+	document := management.CreateDocumentParams{
 		Name:        header.Filename,
 		Key:         key,
 		Filename:    header.Filename,
@@ -74,7 +75,7 @@ func (srv *DocumentsController) uploadDocument(ctx context.Context, logger *zap.
 		SizeBytes:   header.Size,
 	}
 
-	documents := store.NewDocumentsStore(tx)
+	documents := management.NewDocumentsStore(tx)
 	err = documents.CreateDocument(ctx, projectID, documentID, document)
 	if err != nil {
 		logger.Error("failed to create document record", zap.Error(err))
@@ -135,7 +136,7 @@ func (srv *DocumentsController) ListDocuments(w http.ResponseWriter, r *http.Req
 		Offset: params.Offset.ToInt(),
 	}
 
-	documentsStore := store.NewDocumentsStore(srv.db)
+	documentsStore := management.NewDocumentsStore(srv.db)
 	result, total, err := documentsStore.ListDocuments(ctx, projectID, pagination)
 	if err != nil {
 		logger.Error("failed to list documents", zap.Error(err))
@@ -157,7 +158,7 @@ func (srv *DocumentsController) GetDocument(w http.ResponseWriter, r *http.Reque
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("document_id", documentID))
 	logger.Info("getting document file")
 
-	documentsStore := store.NewDocumentsStore(srv.db)
+	documentsStore := management.NewDocumentsStore(srv.db)
 	document, err := documentsStore.GetDocument(ctx, projectID, documentID)
 	if errors.Is(err, store.ErrNoRows) {
 		logger.Info("document not found", zap.Stringer("document_id", documentID))
@@ -195,7 +196,7 @@ func (srv *DocumentsController) GetDocumentMetadata(w http.ResponseWriter, r *ht
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("document_id", documentID))
 	logger.Info("getting document metadata")
 
-	documentsStore := store.NewDocumentsStore(srv.db)
+	documentsStore := management.NewDocumentsStore(srv.db)
 	document, err := documentsStore.GetDocument(ctx, projectID, documentID)
 	if errors.Is(err, store.ErrNoRows) {
 		logger.Info("document not found", zap.Stringer("document_id", documentID))
@@ -218,7 +219,7 @@ func (srv *DocumentsController) DeleteDocument(w http.ResponseWriter, r *http.Re
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("document_id", documentID))
 	logger.Info("deleting document")
 
-	documentsStore := store.NewDocumentsStore(srv.db)
+	documentsStore := management.NewDocumentsStore(srv.db)
 	document, err := documentsStore.GetDocument(ctx, projectID, documentID)
 	if errors.Is(err, store.ErrNoRows) {
 		logger.Info("document not found", zap.Stringer("document_id", documentID))

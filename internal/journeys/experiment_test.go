@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,8 +21,8 @@ func TestHandleExperiment(t *testing.T) {
 	now := time.Now()
 
 	type test struct {
-		step    store.JourneyVersionStep
-		state   *store.JourneyUserState
+		step    journey.JourneyVersionStep
+		state   *journey.JourneyUserState
 		wantErr bool
 	}
 
@@ -35,7 +36,7 @@ func TestHandleExperiment(t *testing.T) {
 
 	tests := map[string]test{
 		"nil state selects one child": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: "experiment",
 				Children: []store.JourneyVersionStepChild{
@@ -47,7 +48,7 @@ func TestHandleExperiment(t *testing.T) {
 			wantErr: false,
 		},
 		"existing state returns selected child": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: "experiment",
 				Children: []store.JourneyVersionStepChild{
@@ -55,11 +56,11 @@ func TestHandleExperiment(t *testing.T) {
 					{ChildExternalID: "child2", Data: &childData2Raw},
 				},
 			},
-			state: func() *store.JourneyUserState {
+			state: func() *journey.JourneyUserState {
 				selectedChild := store.JourneyVersionStepChild{ChildExternalID: "child1", Data: &childData1Raw}
 				expData := ExperimentData{Selected: selectedChild}
 				expDataJSON, _ := json.Marshal(expData)
-				return &store.JourneyUserState{
+				return &journey.JourneyUserState{
 					CompletedAt: &now,
 					Data:        json.RawMessage(expDataJSON),
 				}
@@ -67,7 +68,7 @@ func TestHandleExperiment(t *testing.T) {
 			wantErr: false,
 		},
 		"no children returns empty": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:       uuid.New(),
 				Type:     "experiment",
 				Children: []store.JourneyVersionStepChild{},
@@ -76,7 +77,7 @@ func TestHandleExperiment(t *testing.T) {
 			wantErr: false,
 		},
 		"single child always selected": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: "experiment",
 				Children: []store.JourneyVersionStepChild{
@@ -93,7 +94,7 @@ func TestHandleExperiment(t *testing.T) {
 			hctx := HandlerContext{
 				Context: ctx,
 			}
-			var state store.JourneyUserState
+			var state journey.JourneyUserState
 			if tc.state != nil {
 				state = *tc.state
 			}
