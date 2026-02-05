@@ -9,7 +9,7 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/container"
-	"github.com/lunogram/platform/internal/http/controllers/v1/public/oapi"
+	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
