@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/claim/rbac"
-	"github.com/lunogram/platform/internal/http/controllers/v1/public/oapi"
+	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/pubsub"
@@ -31,7 +31,7 @@ type ClientController struct {
 	pubsub pubsub.Publisher
 }
 
-func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	scope := rbac.FromContext(ctx)
@@ -41,6 +41,7 @@ func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
+	projectID := scope.ProjectID
 	if projectID == uuid.Nil {
 		srv.logger.Error("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
@@ -78,7 +79,7 @@ func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (srv *ClientController) IdentifyUser(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+func (srv *ClientController) IdentifyUserClient(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	scope := rbac.FromContext(ctx)
@@ -88,6 +89,7 @@ func (srv *ClientController) IdentifyUser(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	projectID := scope.ProjectID
 	if projectID == uuid.Nil {
 		srv.logger.Error("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
