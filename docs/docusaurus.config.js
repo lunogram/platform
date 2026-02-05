@@ -45,7 +45,6 @@ const config = {
             'https://github.com/lunogram/platform/blob/main/docs/',
           routeBasePath: '/',
         },
-        blog: false, // Blog is unused atm
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
