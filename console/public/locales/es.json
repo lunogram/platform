@@ -1,4 +1,10 @@
 {
+  "sidebar": {
+    "api_docs": {
+      "title": "Documentación API",
+      "description": "Explorar la API"
+    }
+  },
   "abort_campaign": "Cancelar campaña",
   "aborted": "Cancellado",
   "aborting": "Abortando",
