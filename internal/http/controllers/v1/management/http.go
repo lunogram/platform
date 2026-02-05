@@ -16,7 +16,7 @@ import (
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/storage"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
@@ -28,7 +28,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, config config.Node, db 
 		return nil, fmt.Errorf("failed to load OpenAPI spec: %w", err)
 	}
 
-	stores := store.NewState(db)
+	stores := management.NewState(db)
 
 	controller, err := NewController(logger, db, config, storage, pub, registry)
 	if err != nil {

@@ -14,7 +14,7 @@ import (
 	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/claim/rbac"
 	"github.com/lunogram/platform/internal/config"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 )
 
 // TokenClaims represents the claims from a JWT token
@@ -69,7 +69,7 @@ func Middleware(middleware ...Handler) openapi3filter.AuthenticationFunc {
 	}
 }
 
-func WithJWT(config config.Auth, stores *store.State) Handler {
+func WithJWT(config config.Auth, mgmt *management.State) Handler {
 	keyFunc := config.JWKS.Unwrap()
 	if config.JWTSecret != "" {
 		keyFunc = HMAC([]byte(config.JWTSecret))
@@ -90,7 +90,7 @@ func WithJWT(config config.Auth, stores *store.State) Handler {
 			RegisteredClaims: claims,
 		}
 
-		admin, err := stores.GetAdminBySubject(ctx, session)
+		admin, err := mgmt.GetAdminBySubject(ctx, session)
 		if err != nil {
 			return ctx, ErrUnauthorized
 		}
@@ -102,13 +102,13 @@ func WithJWT(config config.Auth, stores *store.State) Handler {
 	}
 }
 
-func WithKey(stores *store.State) Handler {
+func WithKey(mgmt *management.State) Handler {
 	return func(ctx context.Context, tokenString string) (context.Context, error) {
 		if tokenString == "" {
 			return ctx, ErrUnauthorized
 		}
 
-		key, err := stores.GetAPIKeyBySecret(tokenString)
+		key, err := mgmt.GetAPIKeyBySecret(tokenString)
 		if err != nil {
 			return ctx, ErrUnauthorized
 		}

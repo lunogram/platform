@@ -1,4 +1,4 @@
-package store
+package users
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/rules"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Users []User
@@ -59,20 +60,20 @@ func (u *User) OAPI() oapi.User {
 	}
 }
 
-func NewUsersStore(db DB) *UsersStore {
+func NewUsersStore(db store.DB) *UsersStore {
 	return &UsersStore{db: db}
 }
 
 type UsersStore struct {
-	db DB
+	db store.DB
 }
 
 func (s *UsersStore) LookupUserID(ctx context.Context, projectID uuid.UUID, externalID, anonymousID *string) (uuid.UUID, error) {
 	// TODO: support traits lookups
 	query := `
-	SELECT id 
-	FROM users 
-	WHERE project_id = $1 
+	SELECT id
+	FROM users
+	WHERE project_id = $1
 	AND (
 		($2::text IS NOT NULL AND external_id = $2::text) OR
 		($3::text IS NOT NULL AND anonymous_id = $3::text)
@@ -90,12 +91,12 @@ func (s *UsersStore) LookupUserID(ctx context.Context, projectID uuid.UUID, exte
 
 func (s *UsersStore) GetUser(ctx context.Context, projectID, userID uuid.UUID) (*User, error) {
 	stmt := `
-	SELECT 
+	SELECT
 		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
 		EXISTS(
-			SELECT 1 FROM devices d 
+			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL 
+			AND d.token IS NOT NULL
 			AND d.token != ''
 		) as has_push_device
 	FROM users u
@@ -112,12 +113,12 @@ func (s *UsersStore) GetUser(ctx context.Context, projectID, userID uuid.UUID) (
 
 func (s *UsersStore) GetUserByExternalID(ctx context.Context, projectID uuid.UUID, externalID string) (*User, error) {
 	stmt := `
-	SELECT 
+	SELECT
 		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
 		EXISTS(
-			SELECT 1 FROM devices d 
+			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL 
+			AND d.token IS NOT NULL
 			AND d.token != ''
 		) as has_push_device
 	FROM users u
@@ -134,12 +135,12 @@ func (s *UsersStore) GetUserByExternalID(ctx context.Context, projectID uuid.UUI
 
 func (s *UsersStore) GetUserByAnonymousID(ctx context.Context, projectID uuid.UUID, anonymousID string) (*User, error) {
 	stmt := `
-	SELECT 
+	SELECT
 		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
 		EXISTS(
-			SELECT 1 FROM devices d 
+			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL 
+			AND d.token IS NOT NULL
 			AND d.token != ''
 		) as has_push_device
 	FROM users u
@@ -169,14 +170,14 @@ func (s *UsersStore) InsertUserEvent(ctx context.Context, userID uuid.UUID, even
 	return id, nil
 }
 
-func (s *UsersStore) ListUsers(ctx context.Context, projectID uuid.UUID, pagination Pagination, search string) (Users, int, error) {
+func (s *UsersStore) ListUsers(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string) (Users, int, error) {
 	query := `
-	SELECT 
+	SELECT
 		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
 		EXISTS(
-			SELECT 1 FROM devices d 
+			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL 
+			AND d.token IS NOT NULL
 			AND d.token != ''
 		) as has_push_device,
 		COUNT(*) OVER () AS total_count
@@ -184,8 +185,8 @@ func (s *UsersStore) ListUsers(ctx context.Context, projectID uuid.UUID, paginat
 	WHERE u.project_id = $1
 	AND (
 		$2 = '' OR
-		u.external_id ILIKE '%' || $2 || '%' OR 
-		u.email ILIKE '%' || $2 || '%' OR 
+		u.external_id ILIKE '%' || $2 || '%' OR
+		u.email ILIKE '%' || $2 || '%' OR
 		u.phone ILIKE '%' || $2 || '%'
 	)
 	ORDER BY u.created_at DESC
@@ -269,7 +270,7 @@ func (s *UsersStore) UpsertUser(ctx context.Context, projectID uuid.UUID, params
 		$7,
 		$8
 	)
-	ON CONFLICT (project_id, external_id) 
+	ON CONFLICT (project_id, external_id)
 		WHERE external_id IS NOT NULL
 	DO UPDATE SET
 		email = COALESCE(EXCLUDED.email, users.email),
@@ -334,14 +335,14 @@ type UserUpdate struct {
 // the new data will overwrite existing keys, and new keys will be added.
 func (s *UsersStore) UpdateUser(ctx context.Context, userID uuid.UUID, update UserUpdate) error {
 	stmt := `
-	UPDATE users 
-	SET 
+	UPDATE users
+	SET
 		external_id = COALESCE($2, external_id),
 		email = COALESCE($3, email),
 		phone = COALESCE($4, phone),
 		timezone = COALESCE($5, timezone),
 		locale = COALESCE($6, locale),
-		data = CASE 
+		data = CASE
 			WHEN $7::jsonb IS NOT NULL THEN data || $7::jsonb
 			ELSE data
 		END
@@ -388,9 +389,9 @@ func (e *UserEvent) OAPI() oapi.UserEvent {
 	}
 }
 
-func (s *UsersStore) ListUserEvents(ctx context.Context, projectID, userID uuid.UUID, pagination Pagination) (UserEvents, int, error) {
+func (s *UsersStore) ListUserEvents(ctx context.Context, projectID, userID uuid.UUID, pagination store.Pagination) (UserEvents, int, error) {
 	query := `
-	SELECT 
+	SELECT
 		ue.id, u.project_id, ue.user_id, ue.event_id, e.name, ue.data, ue.created_at,
 		COUNT(*) OVER () AS total_count
 	FROM user_events ue
@@ -480,7 +481,7 @@ type UserSchema struct {
 
 func (s *UsersStore) ListUserSchemas(ctx context.Context, projectID uuid.UUID) ([]UserSchema, error) {
 	stmt := `
-	SELECT 
+	SELECT
 		path,
 		array_agg(DISTINCT data_type ORDER BY data_type) as types
 	FROM user_schemas

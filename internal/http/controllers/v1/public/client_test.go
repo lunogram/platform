@@ -13,42 +13,53 @@ import (
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
-func setupClientController(t *testing.T) *ClientController {
+type testClientController struct {
+	*ClientController
+	mgmt *management.State
+}
+
+func setupClientController(t *testing.T) *testClientController {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	uri := container.RunPostgreSQL(t)
+	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
+	mgmtConfig := management.Config{
+		URI: uri,
+	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(mgmtConfig)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, mgmtConfig)
 	require.NoError(t, err)
 
-	jet, err := pubsub.New(ctx, config)
+	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
 	err = consumer.Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
+	usersState := users.NewState(db)
 
-	controller := NewClientController(logger, db, pub)
-	return controller
+	controller := NewClientController(logger, db, usersState, pub)
+	return &testClientController{
+		ClientController: controller,
+		mgmt:             management.NewState(db),
+	}
 }
 
 func TestPostEvents(t *testing.T) {
@@ -124,10 +135,10 @@ func TestPostEvents(t *testing.T) {
 			controller := setupClientController(t)
 
 			// Create organization and project for the test
-			orgID, err := controller.store.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
+			orgID, err := controller.mgmt.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
 			require.NoError(t, err)
 
-			projectID, err := controller.store.ProjectsStore.CreateProject(t.Context(), store.Project{
+			projectID, err := controller.mgmt.ProjectsStore.CreateProject(t.Context(), management.Project{
 				OrganizationID: &orgID,
 				Name:           "Test Project",
 				Timezone:       "UTC",
@@ -157,10 +168,10 @@ func TestPostEventsInvalidRequest(t *testing.T) {
 
 	controller := setupClientController(t)
 
-	orgID, err := controller.store.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
+	orgID, err := controller.mgmt.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := controller.store.ProjectsStore.CreateProject(t.Context(), store.Project{
+	projectID, err := controller.mgmt.ProjectsStore.CreateProject(t.Context(), management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -209,7 +220,7 @@ func TestPostEventsMissingProjectID(t *testing.T) {
 
 	controller := setupClientController(t)
 
-	orgID, err := controller.store.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
+	orgID, err := controller.mgmt.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
 	require.NoError(t, err)
 
 	events := []map[string]any{
@@ -239,10 +250,10 @@ func TestPostEventsWithNestedData(t *testing.T) {
 
 	controller := setupClientController(t)
 
-	orgID, err := controller.store.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
+	orgID, err := controller.mgmt.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := controller.store.ProjectsStore.CreateProject(t.Context(), store.Project{
+	projectID, err := controller.mgmt.ProjectsStore.CreateProject(t.Context(), management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -290,10 +301,10 @@ func TestPostEventsEmptyArray(t *testing.T) {
 
 	controller := setupClientController(t)
 
-	orgID, err := controller.store.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
+	orgID, err := controller.mgmt.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := controller.store.ProjectsStore.CreateProject(t.Context(), store.Project{
+	projectID, err := controller.mgmt.ProjectsStore.CreateProject(t.Context(), management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -370,10 +381,10 @@ func TestClientIdentifyUser(t *testing.T) {
 			controller := setupClientController(t)
 
 			// Create organization and project for the test
-			orgID, err := controller.store.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
+			orgID, err := controller.mgmt.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
 			require.NoError(t, err)
 
-			projectID, err := controller.store.ProjectsStore.CreateProject(t.Context(), store.Project{
+			projectID, err := controller.mgmt.ProjectsStore.CreateProject(t.Context(), management.Project{
 				OrganizationID: &orgID,
 				Name:           "Test Project",
 				Timezone:       "UTC",
@@ -431,10 +442,10 @@ func TestClientIdentifyUserInvalidRequest(t *testing.T) {
 
 			controller := setupClientController(t)
 
-			orgID, err := controller.store.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
+			orgID, err := controller.mgmt.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
 			require.NoError(t, err)
 
-			projectID, err := controller.store.ProjectsStore.CreateProject(t.Context(), store.Project{
+			projectID, err := controller.mgmt.ProjectsStore.CreateProject(t.Context(), management.Project{
 				OrganizationID: &orgID,
 				Name:           "Test Project",
 				Timezone:       "UTC",
@@ -489,7 +500,7 @@ func TestClientIdentifyUserMissingProjectID(t *testing.T) {
 
 	controller := setupClientController(t)
 
-	orgID, err := controller.store.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
+	orgID, err := controller.mgmt.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
 	require.NoError(t, err)
 
 	body, err := json.Marshal(map[string]any{
@@ -515,10 +526,10 @@ func TestClientIdentifyUserUpdateExisting(t *testing.T) {
 
 	controller := setupClientController(t)
 
-	orgID, err := controller.store.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
+	orgID, err := controller.mgmt.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := controller.store.ProjectsStore.CreateProject(t.Context(), store.Project{
+	projectID, err := controller.mgmt.ProjectsStore.CreateProject(t.Context(), management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -594,10 +605,10 @@ func TestClientIdentifyUserWithBothIdentifiers(t *testing.T) {
 
 	controller := setupClientController(t)
 
-	orgID, err := controller.store.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
+	orgID, err := controller.mgmt.OrganizationsStore.CreateOrganization(t.Context(), "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := controller.store.ProjectsStore.CreateProject(t.Context(), store.Project{
+	projectID, err := controller.mgmt.ProjectsStore.CreateProject(t.Context(), management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",

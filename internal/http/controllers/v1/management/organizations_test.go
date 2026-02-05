@@ -9,10 +9,9 @@ import (
 
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/claim/rbac"
-	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -22,24 +21,22 @@ func TestGetOrganization(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	storeConfig := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(storeConfig)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, storeConfig)
 	require.NoError(t, err)
 
-	orgs := store.NewOrganizationsStore(db)
+	orgs := management.NewOrganizationsStore(db)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := store.NewAdminsStore(db)
-	adminID, err := admins.CreateAdmin(ctx, store.Admin{
+	admins := management.NewAdminsStore(db)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
 		Role:           "admin",
@@ -91,24 +88,22 @@ func TestUpdateOrganization(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	storeConfig := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(storeConfig)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, storeConfig)
 	require.NoError(t, err)
 
-	orgs := store.NewOrganizationsStore(db)
+	orgs := management.NewOrganizationsStore(db)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := store.NewAdminsStore(db)
-	adminID, err := admins.CreateAdmin(ctx, store.Admin{
+	admins := management.NewAdminsStore(db)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",
 		Role:           "admin",
@@ -175,24 +170,22 @@ func TestDeleteOrganization(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	storeConfig := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(storeConfig)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, storeConfig)
 	require.NoError(t, err)
 
-	orgs := store.NewOrganizationsStore(db)
+	orgs := management.NewOrganizationsStore(db)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := store.NewAdminsStore(db)
-	adminID, err := admins.CreateAdmin(ctx, store.Admin{
+	admins := management.NewAdminsStore(db)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",
 		Role:           "admin",
@@ -243,24 +236,22 @@ func TestGetOrganizationIntegrations(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	storeConfig := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(storeConfig)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, storeConfig)
 	require.NoError(t, err)
 
-	orgs := store.NewOrganizationsStore(db)
+	orgs := management.NewOrganizationsStore(db)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := store.NewAdminsStore(db)
-	adminID, err := admins.CreateAdmin(ctx, store.Admin{
+	admins := management.NewAdminsStore(db)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
 		Role:           "admin",
@@ -271,8 +262,8 @@ func TestGetOrganizationIntegrations(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a project for this organization
-	projects := store.NewProjectsStore(db)
-	projectID, err := projects.CreateProject(ctx, store.Project{
+	projects := management.NewProjectsStore(db)
+	projectID, err := projects.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "America/New_York",
@@ -281,9 +272,9 @@ func TestGetOrganizationIntegrations(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a provider for this project
-	providers := store.NewProvidersStore(db)
+	providers := management.NewProvidersStore(db)
 	providerData := []byte(`{"api_key": "test"}`)
-	_, err = providers.CreateProvider(ctx, store.Provider{
+	_, err = providers.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "sendgrid",
 		Channel:   "email",

@@ -11,15 +11,15 @@ import (
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/users"
 	"go.uber.org/zap"
 )
 
-func NewClientController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) *ClientController {
+func NewClientController(logger *zap.Logger, db *sqlx.DB, usrs *users.State, pub pubsub.Publisher) *ClientController {
 	return &ClientController{
 		logger: logger,
 		db:     db,
-		store:  store.NewState(db),
+		users:  usrs,
 		pubsub: pub,
 	}
 }
@@ -27,7 +27,7 @@ func NewClientController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) 
 type ClientController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.State
+	users  *users.State
 	pubsub pubsub.Publisher
 }
 
@@ -119,14 +119,14 @@ func (srv *ClientController) IdentifyUser(w http.ResponseWriter, r *http.Request
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	users := store.NewUsersStore(tx)
+	usersStore := users.NewUsersStore(tx)
 
 	var data map[string]any
 	if req.Data != nil {
 		data = *req.Data
 	}
 
-	params := store.UpsertUserParams{
+	params := users.UpsertUserParams{
 		AnonymousID: req.AnonymousId,
 		ExternalID:  req.ExternalId,
 		Email:       req.Email,
@@ -136,7 +136,7 @@ func (srv *ClientController) IdentifyUser(w http.ResponseWriter, r *http.Request
 		Data:        data,
 	}
 
-	user, err := users.IdentifyAndGetUser(ctx, projectID, params, false)
+	user, err := usersStore.IdentifyAndGetUser(ctx, projectID, params, false)
 	if err != nil {
 		logger.Error("failed to identify user", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())

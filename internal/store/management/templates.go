@@ -1,4 +1,4 @@
-package store
+package management
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Templates []Template
@@ -43,12 +44,12 @@ func (template Template) OAPI() oapi.Template {
 	}
 }
 
-func NewTemplatesStore(db DB) *TemplatesStore {
+func NewTemplatesStore(db store.DB) *TemplatesStore {
 	return &TemplatesStore{db: db}
 }
 
 type TemplatesStore struct {
-	db DB
+	db store.DB
 }
 
 func (s *TemplatesStore) CreateTemplate(ctx context.Context, projectID, campaignID uuid.UUID, channel string, locale string) (uuid.UUID, error) {

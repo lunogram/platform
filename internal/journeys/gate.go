@@ -4,7 +4,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/rules/query"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 )
 
 const (
@@ -16,7 +16,7 @@ type GateData struct {
 	SelectedExternalID string `json:"selected_child"`
 }
 
-func HandleGate(ctx HandlerContext, step store.JourneyVersionStep, state store.JourneyUserState) (store.JourneyUserState, store.JourneyVersionStepChildren, error) {
+func HandleGate(ctx HandlerContext, step journey.JourneyVersionStep, state journey.JourneyUserState) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
 	config, err := DecodeStepData[oapi.GateStepData](step.Data)
 	if err != nil {
 		return state, nil, err
@@ -40,16 +40,16 @@ func HandleGate(ctx HandlerContext, step store.JourneyVersionStep, state store.J
 		return state, nil, err
 	}
 
-	return state, []store.JourneyVersionStepChild{*selected}, nil
+	return state, []journey.JourneyVersionStepChild{*selected}, nil
 }
 
-func selectGateBranch(ctx HandlerContext, step store.JourneyVersionStep, config oapi.GateStepData) (*store.JourneyVersionStepChild, error) {
+func selectGateBranch(ctx HandlerContext, step journey.JourneyVersionStep, config oapi.GateStepData) (*journey.JourneyVersionStepChild, error) {
 	if len(step.Children) == 0 {
 		return nil, nil
 	}
 
-	var yes *store.JourneyVersionStepChild
-	var no *store.JourneyVersionStepChild
+	var yes *journey.JourneyVersionStepChild
+	var no *journey.JourneyVersionStepChild
 
 	for i := range step.Children {
 		child := &step.Children[i]

@@ -1,4 +1,4 @@
-package store
+package users
 
 import (
 	"context"
@@ -6,34 +6,35 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/rules"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Rule struct {
-	ID              uuid.UUID            `db:"id"`
-	ProjectID       uuid.UUID            `db:"project_id"`
-	Rule            JSONB[rules.RuleSet] `db:"rule"`
-	DependsOnEvents bool                 `db:"depends_on_events"`
-	DependsOnUsers  bool                 `db:"depends_on_users"`
-	Events          []uuid.UUID          `db:"events"`
-	Version         int                  `db:"version"`
-	CreatedAt       time.Time            `db:"created_at"`
-	UpdatedAt       time.Time            `db:"updated_at"`
+	ID              uuid.UUID                  `db:"id"`
+	ProjectID       uuid.UUID                  `db:"project_id"`
+	Rule            store.JSONB[rules.RuleSet] `db:"rule"`
+	DependsOnEvents bool                       `db:"depends_on_events"`
+	DependsOnUsers  bool                       `db:"depends_on_users"`
+	Events          []uuid.UUID                `db:"events"`
+	Version         int                        `db:"version"`
+	CreatedAt       time.Time                  `db:"created_at"`
+	UpdatedAt       time.Time                  `db:"updated_at"`
 }
 
-func NewRulesStore(db DB) *RulesStore {
+func NewRulesStore(db store.DB) *RulesStore {
 	return &RulesStore{
 		db: db,
 	}
 }
 
 type RulesStore struct {
-	db DB
+	db store.DB
 }
 
 func (s *RulesStore) CreateOrUpdateRule(ctx context.Context, projectID uuid.UUID, id *uuid.UUID, rule rules.RuleSet) (uuid.UUID, error) {
 	if id != nil {
 		err := s.UpdateRule(ctx, projectID, *id, RuleUpdate{
-			Rule:            &JSONB[rules.RuleSet]{Data: rule},
+			Rule:            &store.JSONB[rules.RuleSet]{Data: rule},
 			DependsOnEvents: rule.DependsOnEvents(),
 			DependsOnUsers:  rule.DependsOnUsers(),
 		})
@@ -43,7 +44,7 @@ func (s *RulesStore) CreateOrUpdateRule(ctx context.Context, projectID uuid.UUID
 
 	return s.CreateRule(ctx, Rule{
 		ProjectID:       projectID,
-		Rule:            JSONB[rules.RuleSet]{Data: rule},
+		Rule:            store.JSONB[rules.RuleSet]{Data: rule},
 		DependsOnEvents: rule.DependsOnEvents(),
 		DependsOnUsers:  rule.DependsOnUsers(),
 		Version:         1,
@@ -120,7 +121,7 @@ func (s *RulesStore) GetRule(ctx context.Context, projectID, ruleID uuid.UUID) (
 }
 
 type RuleUpdate struct {
-	Rule            *JSONB[rules.RuleSet]
+	Rule            *store.JSONB[rules.RuleSet]
 	DependsOnEvents bool
 	DependsOnUsers  bool
 }

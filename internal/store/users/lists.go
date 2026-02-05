@@ -1,4 +1,4 @@
-package store
+package users
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/rules/query"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type ListType string
@@ -29,16 +30,16 @@ func (lists Lists) OAPI() []oapi.List {
 }
 
 type List struct {
-	ID         uuid.UUID             `db:"id"`
-	ProjectID  uuid.UUID             `db:"project_id"`
-	Name       string                `db:"name"`
-	Type       ListType              `db:"type"`
-	RuleID     *uuid.UUID            `db:"rule_id"`
-	Rule       *JSONB[rules.RuleSet] `db:"rule"`
-	Version    int                   `db:"version"`
-	UsersCount int                   `db:"users_count"`
-	CreatedAt  time.Time             `db:"created_at"`
-	UpdatedAt  time.Time             `db:"updated_at"`
+	ID         uuid.UUID                   `db:"id"`
+	ProjectID  uuid.UUID                   `db:"project_id"`
+	Name       string                      `db:"name"`
+	Type       ListType                    `db:"type"`
+	RuleID     *uuid.UUID                  `db:"rule_id"`
+	Rule       *store.JSONB[rules.RuleSet] `db:"rule"`
+	Version    int                         `db:"version"`
+	UsersCount int                         `db:"users_count"`
+	CreatedAt  time.Time                   `db:"created_at"`
+	UpdatedAt  time.Time                   `db:"updated_at"`
 }
 
 func (list List) OAPI() oapi.List {
@@ -65,7 +66,7 @@ func (list List) OAPI() oapi.List {
 	return result
 }
 
-func NewListsStore(db DB) *ListsStore {
+func NewListsStore(db store.DB) *ListsStore {
 	return &ListsStore{
 		db:    db,
 		rules: NewRulesStore(db),
@@ -73,7 +74,7 @@ func NewListsStore(db DB) *ListsStore {
 }
 
 type ListsStore struct {
-	db    DB
+	db    store.DB
 	rules *RulesStore
 }
 
@@ -92,7 +93,7 @@ func (s *ListsStore) CreateList(ctx context.Context, list List) (uuid.UUID, erro
 	return id, nil
 }
 
-func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, pagination Pagination) (Lists, int, error) {
+func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Lists, int, error) {
 	query := `
 	SELECT
 		l.id,
@@ -230,14 +231,14 @@ func (s *ListsStore) DuplicateList(ctx context.Context, projectID, listID uuid.U
 	return id, nil
 }
 
-func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid.UUID, pagination Pagination) (Users, int, error) {
+func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid.UUID, pagination store.Pagination) (Users, int, error) {
 	query := `
-	SELECT 
+	SELECT
 		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
 		EXISTS(
-			SELECT 1 FROM devices d 
+			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL 
+			AND d.token IS NOT NULL
 			AND d.token != ''
 		) as has_push_device,
 		COUNT(*) OVER () AS total_count

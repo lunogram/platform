@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
@@ -31,7 +30,7 @@ type RecomputeList struct {
 //
 // Membership recomputation is idempotent and handled entirely in the database;
 // the handler itself does not batch, debounce, or persist recompute state.
-func RecomputeListHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) HandlerFunc {
+func RecomputeListHandler(logger *zap.Logger, usrs *users.State, pub pubsub.Publisher) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		event := RecomputeList{}
 		err := json.Unmarshal(msg.Data(), &event)
@@ -43,16 +42,7 @@ func RecomputeListHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher)
 		logger := logger.With(zap.Stringer("project_id", event.ProjectID), zap.Stringer("list_id", event.ID))
 		logger.Info("recomputing list", zap.Stringer("list_id", event.ID))
 
-		tx, err := db.BeginTxx(ctx, nil)
-		if err != nil {
-			logger.Error("failed to begin transaction", zap.Error(err))
-			return err
-		}
-
-		defer tx.Rollback() //nolint:errcheck
-		lists := store.NewListsStore(tx)
-
-		list, err := lists.GetList(ctx, event.ProjectID, event.ID)
+		list, err := usrs.GetList(ctx, event.ProjectID, event.ID)
 		if err != nil {
 			logger.Error("failed to get list for recompute", zap.Error(err))
 			return err
@@ -60,10 +50,10 @@ func RecomputeListHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher)
 
 		if list.Rule == nil {
 			logger.Info("list has no rule, skipping recompute")
-			return tx.Commit()
+			return nil
 		}
 
-		recomputed, err := lists.RecomputeList(ctx, event.ProjectID, list.ID, list.Rule.Data)
+		recomputed, err := usrs.RecomputeList(ctx, event.ProjectID, list.ID, list.Rule.Data)
 		if err != nil {
 			logger.Error("failed to recompute list", zap.Error(err))
 			return err
@@ -75,21 +65,15 @@ func RecomputeListHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher)
 			return err
 		}
 
-		err = tx.Commit()
-		if err != nil {
-			logger.Error("failed to commit transaction", zap.Error(err))
-			return err
-		}
-
 		logger.Info("successfully recomputed list")
 		return nil
 	}
 }
 
-func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, projectID uuid.UUID, listID uuid.UUID, recomputed []store.Recomputed) (err error) {
+func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, projectID uuid.UUID, listID uuid.UUID, recomputed []users.Recomputed) (err error) {
 	for _, applied := range recomputed {
 		switch applied.Action {
-		case store.RecomputeActionInserted:
+		case users.RecomputeActionInserted:
 			event := schemas.Event{
 				Name:      schemas.EventListUserAdded,
 				UserID:    applied.UserID,
@@ -104,7 +88,7 @@ func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub pub
 				logger.Error("failed to publish user list inserted event", zap.Error(err))
 				return err
 			}
-		case store.RecomputeActionDeleted:
+		case users.RecomputeActionDeleted:
 			event := schemas.Event{
 				Name:      schemas.EventListUserRemoved,
 				UserID:    applied.UserID,

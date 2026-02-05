@@ -1,4 +1,4 @@
-package store
+package journey
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Journeys []Journey
@@ -110,48 +111,27 @@ func (step JourneyVersionStep) OAPI() oapi.JourneyStep {
 		Name:     step.Name,
 		Data:     step.Data,
 		DataKey:  step.DataKey,
-		Children: step.Children.OAPI(),
+		Children: JourneyVersionStepChildrenOAPI(step.Children),
 	}
 }
 
-type JourneyVersionStepChildren []JourneyVersionStepChild
+// JourneyVersionStepChildren is an alias for the shared type with OAPI conversion.
+type JourneyVersionStepChildren = store.JourneyVersionStepChildren
 
-func (steps *JourneyVersionStepChildren) Scan(value any) error {
-	if value == nil {
-		return nil
-	}
-	var buf []byte
-	switch v := value.(type) {
-	case []byte:
-		buf = v
-	case string:
-		buf = []byte(v)
-	}
-	return json.Unmarshal(buf, steps)
-}
+// JourneyVersionStepChild is an alias for the shared type.
+type JourneyVersionStepChild = store.JourneyVersionStepChild
 
-func (steps JourneyVersionStepChildren) OAPI() []oapi.JourneyStepChild {
+// JourneyVersionStepChildrenOAPI converts children to OAPI format.
+func JourneyVersionStepChildrenOAPI(steps JourneyVersionStepChildren) []oapi.JourneyStepChild {
 	results := make([]oapi.JourneyStepChild, len(steps))
 	for i, child := range steps {
-		results[i] = child.OAPI()
+		results[i] = oapi.JourneyStepChild{
+			ExternalId: child.ChildExternalID,
+			Path:       child.Path,
+			Data:       child.Data,
+		}
 	}
 	return results
-}
-
-type JourneyVersionStepChild struct {
-	VersionID        uuid.UUID        `db:"version_id" json:"version_id"`
-	ParentExternalID string           `db:"parent_external_id" json:"parent_external_id"`
-	ChildExternalID  string           `db:"child_external_id" json:"child_external_id"`
-	Path             *string          `db:"path" json:"path,omitempty"`
-	Data             *json.RawMessage `db:"data" json:"data,omitempty"`
-}
-
-func (child JourneyVersionStepChild) OAPI() oapi.JourneyStepChild {
-	return oapi.JourneyStepChild{
-		ExternalId: child.ChildExternalID,
-		Path:       child.Path,
-		Data:       child.Data,
-	}
 }
 
 type JourneyUserState struct {
@@ -170,12 +150,12 @@ type JourneyUserState struct {
 	UpdatedAt       time.Time       `db:"updated_at"`
 }
 
-func NewJourneysStore(db DB) *JourneysStore {
+func NewJourneysStore(db store.DB) *JourneysStore {
 	return &JourneysStore{db: db}
 }
 
 type JourneysStore struct {
-	db DB
+	db store.DB
 }
 
 func (s *JourneysStore) GetJourney(ctx context.Context, projectID, journeyID uuid.UUID) (*Journey, error) {
@@ -202,7 +182,7 @@ type JourneyVersionInfo struct {
 
 func (s *JourneysStore) GetJourneyVersionInfo(ctx context.Context, journeyID uuid.UUID) (*JourneyVersionInfo, error) {
 	stmt := `
-	SELECT 
+	SELECT
 		COALESCE(active.status, 'draft') as status,
 		COALESCE(active.version_number, 0) as version_number,
 		draft.id as draft_version_id,
@@ -216,8 +196,8 @@ func (s *JourneysStore) GetJourneyVersionInfo(ctx context.Context, journeyID uui
 		WHERE status = 'published'
 		GROUP BY journey_id
 	) latest_pub ON j.id = latest_pub.journey_id
-	LEFT JOIN journey_versions published ON j.id = published.journey_id 
-		AND published.status = 'published' 
+	LEFT JOIN journey_versions published ON j.id = published.journey_id
+		AND published.status = 'published'
 		AND published.version_number = latest_pub.max_version
 	WHERE j.id = $1 AND j.deleted_at IS NULL`
 
@@ -328,15 +308,15 @@ func (s *JourneysStore) CreateJourney(ctx context.Context, journey Journey) (uui
 	return id, nil
 }
 
-func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, pagination Pagination) (Journeys, int, error) {
+func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Journeys, int, error) {
 	query := `
-	SELECT 
-		id, 
+	SELECT
+		id,
 		project_id,
-		name, 
-		description, 
+		name,
+		description,
 		version_id,
-		created_at, 
+		created_at,
 		updated_at,
 		COUNT(*) OVER () AS total_count
 	FROM journeys
@@ -375,7 +355,7 @@ func (s *JourneysStore) GetJourneyVersionInfoMap(ctx context.Context, journeyIDs
 	}
 
 	query := `
-	SELECT 
+	SELECT
 		j.id as journey_id,
 		COALESCE(active.status, 'draft') as status,
 		COALESCE(active.version_number, 0) as version_number,
@@ -391,8 +371,8 @@ func (s *JourneysStore) GetJourneyVersionInfoMap(ctx context.Context, journeyIDs
 		WHERE status = 'published'
 		GROUP BY journey_id
 	) latest_pub ON journeys.id = latest_pub.journey_id
-	LEFT JOIN journey_versions published ON journeys.id = published.journey_id 
-		AND published.status = 'published' 
+	LEFT JOIN journey_versions published ON journeys.id = published.journey_id
+		AND published.status = 'published'
 		AND published.version_number = latest_pub.max_version`
 
 	type row struct {
@@ -605,16 +585,16 @@ func (s *JourneysStore) GetJourneyStep(ctx context.Context, journeyID uuid.UUID,
 		FROM journeys j
 		WHERE j.id = $1
 	)
-	SELECT 
-		s.id, 
-		s.version_id, 
-		s.external_id, 
-		s.type, 
-		s.name, 
-		s.data, 
-		s.data_key, 
-		s.x, 
-		s.y, 
+	SELECT
+		s.id,
+		s.version_id,
+		s.external_id,
+		s.type,
+		s.name,
+		s.data,
+		s.data_key,
+		s.x,
+		s.y,
 		s.created_at,
 		COALESCE(
 			json_agg(row_to_json(c)) FILTER (WHERE c.version_id IS NOT NULL),
@@ -638,16 +618,16 @@ func (s *JourneysStore) GetJourneyStep(ctx context.Context, journeyID uuid.UUID,
 
 func (s *JourneysStore) GetJourneyVersionSteps(ctx context.Context, versionID uuid.UUID) (JourneyVersionSteps, error) {
 	query := `
-	SELECT 
-		s.id, 
-		s.version_id, 
-		s.external_id, 
-		s.type, 
-		s.name, 
-		s.data, 
-		s.data_key, 
-		s.x, 
-		s.y, 
+	SELECT
+		s.id,
+		s.version_id,
+		s.external_id,
+		s.type,
+		s.name,
+		s.data,
+		s.data_key,
+		s.x,
+		s.y,
 		s.created_at,
 		COALESCE(
 			json_agg(row_to_json(c)) FILTER (WHERE c.version_id IS NOT NULL),
@@ -672,7 +652,7 @@ func (s *JourneysStore) SetJourneySteps(ctx context.Context, versionID uuid.UUID
 	stmt := `
 	INSERT INTO journey_version_steps (version_id, external_id, type, name, data, data_key, x, y)
 	VALUES ($1, $2, $3, $4, COALESCE($5, '{}'::jsonb), $6, $7, $8)
-	ON CONFLICT (version_id, external_id) 
+	ON CONFLICT (version_id, external_id)
 	DO UPDATE SET
 		type = EXCLUDED.type,
 		name = EXCLUDED.name,
@@ -1048,9 +1028,9 @@ func (e *UserJourneyEntrance) OAPI() oapi.UserJourneyEntrance {
 	return oapiEntrance
 }
 
-func (s *JourneysStore) ListUserJourneyEntrances(ctx context.Context, projectID, userID uuid.UUID, pagination Pagination) (UserJourneyEntrances, int, error) {
+func (s *JourneysStore) ListUserJourneyEntrances(ctx context.Context, projectID, userID uuid.UUID, pagination store.Pagination) (UserJourneyEntrances, int, error) {
 	query := `
-	SELECT 
+	SELECT
 		jus.id,
 		jus.id AS entrance_id,
 		jus.entered_at AS created_at,
@@ -1068,7 +1048,7 @@ func (s *JourneysStore) ListUserJourneyEntrances(ctx context.Context, projectID,
 	LEFT JOIN journeys j ON j.id = jus.journey_id AND j.project_id = $2 AND j.deleted_at IS NULL
 	WHERE jus.user_id = $1
 		AND jus.journey_id IN (
-			SELECT id FROM journeys 
+			SELECT id FROM journeys
 			WHERE project_id = $2 AND deleted_at IS NULL
 		)
 	ORDER BY jus.entered_at DESC

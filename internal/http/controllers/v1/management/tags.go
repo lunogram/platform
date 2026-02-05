@@ -10,6 +10,7 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
@@ -17,14 +18,14 @@ func NewTagsController(logger *zap.Logger, db *sqlx.DB) *TagsController {
 	return &TagsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewState(db),
+		store:  management.NewState(db),
 	}
 }
 
 type TagsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.State
+	store  *management.State
 }
 
 func (srv *TagsController) CreateTag(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {

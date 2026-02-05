@@ -1,4 +1,4 @@
-package store
+package management
 
 import (
 	"testing"
@@ -26,8 +26,4 @@ func NewContainerStore(t *testing.T) *State {
 	require.NoError(t, err)
 
 	return NewState(db)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

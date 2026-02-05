@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,9 +20,9 @@ func TestHandleDelay(t *testing.T) {
 	now := time.Now()
 
 	type test struct {
-		step      store.JourneyVersionStep
-		state     *store.JourneyUserState
-		wantState store.JourneyUserState
+		step      journey.JourneyVersionStep
+		state     *journey.JourneyUserState
+		wantState journey.JourneyUserState
 		wantErr   bool
 	}
 
@@ -44,13 +44,13 @@ func TestHandleDelay(t *testing.T) {
 
 	tests := map[string]test{
 		"nil state with duration delay": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: "delay",
 				Data: durationRaw,
 			},
 			state: nil,
-			wantState: store.JourneyUserState{
+			wantState: journey.JourneyUserState{
 				ResumeAt: func() *time.Time {
 					t := now.Add(15 * time.Minute)
 					return &t
@@ -59,19 +59,19 @@ func TestHandleDelay(t *testing.T) {
 			wantErr: false,
 		},
 		"existing state marks as completed": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:       uuid.New(),
 				Type:     "delay",
 				Data:     durationRaw,
-				Children: []store.JourneyVersionStepChild{{ChildExternalID: "child1"}},
+				Children: []journey.JourneyVersionStepChild{{ChildExternalID: "child1"}},
 			},
-			state: &store.JourneyUserState{
+			state: &journey.JourneyUserState{
 				ResumeAt: func() *time.Time {
 					t := now.Add(-1 * time.Hour)
 					return &t
 				}(),
 			},
-			wantState: store.JourneyUserState{
+			wantState: journey.JourneyUserState{
 				ResumeAt: func() *time.Time {
 					t := now.Add(-1 * time.Hour)
 					return &t
@@ -81,11 +81,11 @@ func TestHandleDelay(t *testing.T) {
 			wantErr: false,
 		},
 		"past resume time marks as completed immediately": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:       uuid.New(),
 				Type:     "delay",
 				Data:     timeRaw,
-				Children: []store.JourneyVersionStepChild{{ChildExternalID: "child1"}},
+				Children: []journey.JourneyVersionStepChild{{ChildExternalID: "child1"}},
 			},
 			state:   nil,
 			wantErr: false,
@@ -97,7 +97,7 @@ func TestHandleDelay(t *testing.T) {
 			hctx := HandlerContext{
 				Context: ctx,
 			}
-			var state store.JourneyUserState
+			var state journey.JourneyUserState
 			if tc.state != nil {
 				state = *tc.state
 			}

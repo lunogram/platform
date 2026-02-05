@@ -1,4 +1,4 @@
-package store
+package management
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Organization struct {
@@ -32,12 +33,12 @@ type OrganizationUpdate struct {
 	TrackingDeeplinkMirrorURL *string
 }
 
-func NewOrganizationsStore(db DB) *OrganizationsStore {
+func NewOrganizationsStore(db store.DB) *OrganizationsStore {
 	return &OrganizationsStore{db: db}
 }
 
 type OrganizationsStore struct {
-	db DB
+	db store.DB
 }
 
 func (s *OrganizationsStore) CreateOrganization(ctx context.Context, name string) (uuid.UUID, error) {

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,17 +19,17 @@ func TestHandleBalancer(t *testing.T) {
 	now := time.Now()
 
 	type test struct {
-		step    store.JourneyVersionStep
-		state   *store.JourneyUserState
+		step    journey.JourneyVersionStep
+		state   *journey.JourneyUserState
 		wantErr bool
 	}
 
 	tests := map[string]test{
 		"nil state selects one child": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: "balancer",
-				Children: []store.JourneyVersionStepChild{
+				Children: []journey.JourneyVersionStepChild{
 					{ChildExternalID: "child1"},
 					{ChildExternalID: "child2"},
 				},
@@ -38,19 +38,19 @@ func TestHandleBalancer(t *testing.T) {
 			wantErr: false,
 		},
 		"existing state returns selected child": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: "balancer",
-				Children: []store.JourneyVersionStepChild{
+				Children: []journey.JourneyVersionStepChild{
 					{ChildExternalID: "child1"},
 					{ChildExternalID: "child2"},
 				},
 			},
-			state: func() *store.JourneyUserState {
-				selectedChild := store.JourneyVersionStepChild{ChildExternalID: "child1"}
+			state: func() *journey.JourneyUserState {
+				selectedChild := journey.JourneyVersionStepChild{ChildExternalID: "child1"}
 				balancerData := BalancerData{Selected: selectedChild}
 				balancerDataJSON, _ := json.Marshal(balancerData)
-				return &store.JourneyUserState{
+				return &journey.JourneyUserState{
 					CompletedAt: &now,
 					Data:        json.RawMessage(balancerDataJSON),
 				}
@@ -58,19 +58,19 @@ func TestHandleBalancer(t *testing.T) {
 			wantErr: false,
 		},
 		"no children returns empty": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:       uuid.New(),
 				Type:     "balancer",
-				Children: []store.JourneyVersionStepChild{},
+				Children: []journey.JourneyVersionStepChild{},
 			},
 			state:   nil,
 			wantErr: false,
 		},
 		"single child always selected": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: "balancer",
-				Children: []store.JourneyVersionStepChild{
+				Children: []journey.JourneyVersionStepChild{
 					{ChildExternalID: "child1"},
 				},
 			},
@@ -84,7 +84,7 @@ func TestHandleBalancer(t *testing.T) {
 			hctx := HandlerContext{
 				Context: ctx,
 			}
-			var state store.JourneyUserState
+			var state journey.JourneyUserState
 			if tc.state != nil {
 				state = *tc.state
 			}
@@ -137,35 +137,35 @@ func TestSelectBalancerBranch(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
-		children  []store.JourneyVersionStepChild
-		checkFunc func(t *testing.T, selected store.JourneyVersionStepChild)
+		children  []journey.JourneyVersionStepChild
+		checkFunc func(t *testing.T, selected journey.JourneyVersionStepChild)
 		wantErr   bool
 	}
 
 	tests := map[string]test{
 		"empty children returns empty": {
-			children: []store.JourneyVersionStepChild{},
-			checkFunc: func(t *testing.T, selected store.JourneyVersionStepChild) {
+			children: []journey.JourneyVersionStepChild{},
+			checkFunc: func(t *testing.T, selected journey.JourneyVersionStepChild) {
 				assert.Equal(t, "", selected.ChildExternalID)
 			},
 			wantErr: false,
 		},
 		"single child always selected": {
-			children: []store.JourneyVersionStepChild{
+			children: []journey.JourneyVersionStepChild{
 				{ChildExternalID: "only-child"},
 			},
-			checkFunc: func(t *testing.T, selected store.JourneyVersionStepChild) {
+			checkFunc: func(t *testing.T, selected journey.JourneyVersionStepChild) {
 				assert.Equal(t, "only-child", selected.ChildExternalID)
 			},
 			wantErr: false,
 		},
 		"multiple children equal distribution": {
-			children: []store.JourneyVersionStepChild{
+			children: []journey.JourneyVersionStepChild{
 				{ChildExternalID: "child1"},
 				{ChildExternalID: "child2"},
 				{ChildExternalID: "child3"},
 			},
-			checkFunc: func(t *testing.T, selected store.JourneyVersionStepChild) {
+			checkFunc: func(t *testing.T, selected journey.JourneyVersionStepChild) {
 				assert.Contains(t, []string{"child1", "child2", "child3"}, selected.ChildExternalID)
 			},
 			wantErr: false,
@@ -192,7 +192,7 @@ func TestSelectBalancerBranch(t *testing.T) {
 func TestBalancerDistribution(t *testing.T) {
 	t.Parallel()
 
-	children := []store.JourneyVersionStepChild{
+	children := []journey.JourneyVersionStepChild{
 		{ChildExternalID: "child1"},
 		{ChildExternalID: "child2"},
 		{ChildExternalID: "child3"},

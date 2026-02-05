@@ -17,6 +17,8 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"go.uber.org/zap"
 )
 
@@ -24,7 +26,8 @@ func NewListsController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher, m
 	return &ListsController{
 		logger:        logger,
 		db:            db,
-		store:         store.NewState(db),
+		store:         users.NewState(db),
+		projects:      management.NewProjectsStore(db),
 		maxUploadSize: maxUploadSize,
 		pub:           pub,
 	}
@@ -33,7 +36,8 @@ func NewListsController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher, m
 type ListsController struct {
 	logger        *zap.Logger
 	db            *sqlx.DB
-	store         *store.State
+	store         *users.State
+	projects      *management.ProjectsStore
 	maxUploadSize int64
 	pub           pubsub.Publisher
 }
@@ -50,7 +54,7 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("name", body.Name))
 	logger.Info("creating list")
 
-	_, err = srv.store.ProjectsStore.GetProject(ctx, projectID)
+	_, err = srv.projects.GetProject(ctx, projectID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -71,9 +75,9 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	lists := store.NewListsStore(tx)
-	rules := store.NewRulesStore(tx)
-	events := store.NewEventsStore(tx)
+	lists := users.NewListsStore(tx)
+	rules := users.NewRulesStore(tx)
+	events := users.NewEventsStore(tx)
 
 	var ruleID *uuid.UUID
 
@@ -104,10 +108,10 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 		ruleID = &id
 	}
 
-	listID, err := lists.CreateList(ctx, store.List{
+	listID, err := lists.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      body.Name,
-		Type:      store.ListType(body.Type),
+		Type:      users.ListType(body.Type),
 		RuleID:    ruleID,
 	})
 	if err != nil {
@@ -216,11 +220,11 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 
 	defer tx.Rollback() //nolint:errcheck
 
-	lists := store.NewListsStore(tx)
-	rules := store.NewRulesStore(tx)
-	events := store.NewEventsStore(tx)
+	lists := users.NewListsStore(tx)
+	rules := users.NewRulesStore(tx)
+	events := users.NewEventsStore(tx)
 
-	update := store.ListUpdate{
+	update := users.ListUpdate{
 		Name: &body.Name,
 	}
 
@@ -376,7 +380,7 @@ func (srv *ListsController) ImportListUsers(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if list.Type != store.ListTypeStatic {
+	if list.Type != users.ListTypeStatic {
 		logger.Error("list is not static", zap.String("type", string(list.Type)))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("only static lists support user imports")))
 		return
@@ -433,7 +437,7 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	stores := store.NewState(tx)
+	stores := users.NewState(tx)
 
 	for {
 		record, err := reader.Read()

@@ -10,6 +10,7 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/pkg/modules/providers"
 	"go.uber.org/zap"
 
@@ -20,7 +21,7 @@ func NewProvidersController(logger *zap.Logger, db *sqlx.DB, registry *internalP
 	return &ProvidersController{
 		logger:   logger,
 		db:       db,
-		store:    store.NewState(db),
+		store:    management.NewState(db),
 		registry: registry,
 	}
 }
@@ -28,7 +29,7 @@ func NewProvidersController(logger *zap.Logger, db *sqlx.DB, registry *internalP
 type ProvidersController struct {
 	logger   *zap.Logger
 	db       *sqlx.DB
-	store    *store.State
+	store    *management.State
 	registry *internalProviders.Registry
 }
 
@@ -142,7 +143,7 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 		data = *body.Data
 	}
 
-	provider := store.Provider{
+	provider := management.Provider{
 		ProjectID: projectID,
 		Module:    providerType,
 		Channel:   string(channel),
@@ -233,7 +234,7 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	update := store.ProviderUpdate{
+	update := management.ProviderUpdate{
 		Name:      body.Name,
 		Data:      body.Data,
 		IsDefault: body.IsDefault,

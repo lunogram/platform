@@ -9,7 +9,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/users"
 	"go.uber.org/zap"
 )
 
@@ -17,14 +17,14 @@ func NewEventsController(logger *zap.Logger, db *sqlx.DB) *EventsController {
 	return &EventsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewState(db),
+		store:  users.NewState(db),
 	}
 }
 
 type EventsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.State
+	store  *users.State
 }
 
 func (srv *EventsController) ListEvents(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {

@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -40,8 +40,8 @@ func TestHandleEvent(t *testing.T) {
 	userID := uuid.New()
 
 	type test struct {
-		step           store.JourneyVersionStep
-		state          store.JourneyUserState
+		step           journey.JourneyVersionStep
+		state          journey.JourneyUserState
 		data           map[string]any
 		expectedEvents int
 		wantErr        bool
@@ -49,43 +49,43 @@ func TestHandleEvent(t *testing.T) {
 
 	tests := map[string]test{
 		"simple event with no template": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: EventStepType,
 				Data: json.RawMessage(`{"event_name":"journey_milestone"}`),
-				Children: []store.JourneyVersionStepChild{
+				Children: []journey.JourneyVersionStepChild{
 					{ChildExternalID: "next-step"},
 				},
 			},
-			state:          store.JourneyUserState{},
+			state:          journey.JourneyUserState{},
 			data:           map[string]any{},
 			expectedEvents: 1,
 			wantErr:        false,
 		},
 		"event with static template": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: EventStepType,
 				Data: json.RawMessage(`{"event_name":"completed_step","template":"{\"milestone\":\"step_1\"}"}`),
-				Children: []store.JourneyVersionStepChild{
+				Children: []journey.JourneyVersionStepChild{
 					{ChildExternalID: "next-step"},
 				},
 			},
-			state:          store.JourneyUserState{},
+			state:          journey.JourneyUserState{},
 			data:           map[string]any{},
 			expectedEvents: 1,
 			wantErr:        false,
 		},
 		"event with liquid template variables": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: EventStepType,
 				Data: json.RawMessage(`{"event_name":"product_viewed","template":"{\"product_name\":\"{{ journey.product.name }}\",\"category\":\"{{ journey.product.category }}\"}"}`),
-				Children: []store.JourneyVersionStepChild{
+				Children: []journey.JourneyVersionStepChild{
 					{ChildExternalID: "next-step"},
 				},
 			},
-			state: store.JourneyUserState{},
+			state: journey.JourneyUserState{},
 			data: map[string]any{
 				"journey": map[string]any{
 					"product": map[string]any{
@@ -98,37 +98,37 @@ func TestHandleEvent(t *testing.T) {
 			wantErr:        false,
 		},
 		"event with empty template": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: EventStepType,
 				Data: json.RawMessage(`{"event_name":"simple_event","template":""}`),
-				Children: []store.JourneyVersionStepChild{
+				Children: []journey.JourneyVersionStepChild{
 					{ChildExternalID: "next-step"},
 				},
 			},
-			state:          store.JourneyUserState{},
+			state:          journey.JourneyUserState{},
 			data:           map[string]any{},
 			expectedEvents: 1,
 			wantErr:        false,
 		},
 		"missing event_name": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: EventStepType,
 				Data: json.RawMessage(`{"template":"{\"key\":\"value\"}"}`),
 			},
-			state:          store.JourneyUserState{},
+			state:          journey.JourneyUserState{},
 			data:           map[string]any{},
 			expectedEvents: 0,
 			wantErr:        true,
 		},
 		"invalid JSON template": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: EventStepType,
 				Data: json.RawMessage(`{"event_name":"test_event","template":"not valid json"}`),
 			},
-			state:          store.JourneyUserState{},
+			state:          journey.JourneyUserState{},
 			data:           map[string]any{},
 			expectedEvents: 0,
 			wantErr:        true,
@@ -295,11 +295,11 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 			}
 			stepDataJSON, _ := json.Marshal(stepData)
 
-			step := store.JourneyVersionStep{
+			step := journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: EventStepType,
 				Data: json.RawMessage(stepDataJSON),
-				Children: []store.JourneyVersionStepChild{
+				Children: []journey.JourneyVersionStepChild{
 					{ChildExternalID: "next"},
 				},
 			}
@@ -313,7 +313,7 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 				Data:      tc.data,
 			}
 
-			gotState, gotChildren, err := HandleEvent(hctx, step, store.JourneyUserState{})
+			gotState, gotChildren, err := HandleEvent(hctx, step, journey.JourneyUserState{})
 
 			require.NoError(t, err)
 			assert.NotNil(t, gotState.CompletedAt)

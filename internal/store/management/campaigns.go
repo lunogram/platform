@@ -1,4 +1,4 @@
-package store
+package management
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Campaigns []Campaign
@@ -19,18 +20,18 @@ func (campaigns Campaigns) OAPI() []oapi.Campaign {
 }
 
 type Campaign struct {
-	ID             uuid.UUID       `db:"id"`
-	ProjectID      uuid.UUID       `db:"project_id"`
-	Name           string          `db:"name"`
-	Channel        string          `db:"channel"`
-	ProviderID     *uuid.UUID      `db:"provider_id"`
-	SubscriptionID *uuid.UUID      `db:"subscription_id"`
-	Delivery       JSONB[Delivery] `db:"delivery"`
-	Templates      Templates       `db:"-"`
-	Provider       *Provider       `db:"-"`
-	CreatedAt      time.Time       `db:"created_at"`
-	UpdatedAt      time.Time       `db:"updated_at"`
-	DeletedAt      *time.Time      `db:"deleted_at"`
+	ID             uuid.UUID             `db:"id"`
+	ProjectID      uuid.UUID             `db:"project_id"`
+	Name           string                `db:"name"`
+	Channel        string                `db:"channel"`
+	ProviderID     *uuid.UUID            `db:"provider_id"`
+	SubscriptionID *uuid.UUID            `db:"subscription_id"`
+	Delivery       store.JSONB[Delivery] `db:"delivery"`
+	Templates      Templates             `db:"-"`
+	Provider       *Provider             `db:"-"`
+	CreatedAt      time.Time             `db:"created_at"`
+	UpdatedAt      time.Time             `db:"updated_at"`
+	DeletedAt      *time.Time            `db:"deleted_at"`
 }
 
 func (campaign Campaign) OAPI() oapi.Campaign {
@@ -70,7 +71,7 @@ func (delivery Delivery) OAPI() oapi.Delivery {
 	}
 }
 
-func NewCampaignsStore(db DB) *CampaignsStore {
+func NewCampaignsStore(db store.DB) *CampaignsStore {
 	return &CampaignsStore{
 		db:        db,
 		templates: NewTemplatesStore(db),
@@ -79,7 +80,7 @@ func NewCampaignsStore(db DB) *CampaignsStore {
 }
 
 type CampaignsStore struct {
-	db        DB
+	db        store.DB
 	templates *TemplatesStore
 	providers *ProvidersStore
 }
@@ -99,7 +100,7 @@ func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) 
 	return id, nil
 }
 
-func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, pagination Pagination) (Campaigns, int, error) {
+func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, pagination store.Pagination) (Campaigns, int, error) {
 	query := `
 	SELECT id, project_id, name, channel, provider_id, subscription_id, delivery, created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count
@@ -223,7 +224,7 @@ func (user CampaignUser) OAPI() oapi.CampaignUser {
 	}
 }
 
-func (s *CampaignsStore) GetCampaignUsers(ctx context.Context, projectID, campaignID uuid.UUID, pagination Pagination) (CampaignUsers, int, error) {
+func (s *CampaignsStore) GetCampaignUsers(ctx context.Context, projectID, campaignID uuid.UUID, pagination store.Pagination) (CampaignUsers, int, error) {
 	query := `
 	SELECT cs.id, cs.campaign_id, cs.user_id, cs.state, cs.sent_at, cs.created_at, cs.updated_at,
 		COUNT(*) OVER () AS total_count

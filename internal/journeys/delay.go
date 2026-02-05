@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 )
 
-func HandleDelay(ctx HandlerContext, step store.JourneyVersionStep, state store.JourneyUserState) (store.JourneyUserState, store.JourneyVersionStepChildren, error) {
+func HandleDelay(ctx HandlerContext, step journey.JourneyVersionStep, state journey.JourneyUserState) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
 	// NOTE: If state is not nil, it means the delay has already been processed once,
 	// so we mark it as completed and proceed to the next step.
 	if state.ResumeAt != nil && (state.ResumeAt.Before(time.Now()) || state.ResumeAt.Equal(time.Now())) {

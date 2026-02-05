@@ -1,4 +1,4 @@
-package store
+package journey
 
 import (
 	"context"
@@ -8,14 +8,22 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 type testState struct {
 	*State
-	db DB
+	mgmt *management.State
+	db   store.DB
 }
 
 func newTestStore(t *testing.T) *testState {
@@ -24,18 +32,20 @@ func newTestStore(t *testing.T) *testState {
 	logger := zaptest.NewLogger(t)
 
 	ctx := graceful.NewContext(t.Context())
-	config := Config{
-		URI: container.RunPostgreSQL(t),
+	uri := container.RunPostgreSQL(t)
+	config := management.Config{
+		URI: uri,
 	}
 
-	err := Migrate(config)
+	err := management.Migrate(config)
 	require.NoError(t, err)
 
-	db, err := New(ctx, logger, config)
+	db, err := management.New(ctx, logger, config)
 	require.NoError(t, err)
 
 	return &testState{
 		State: NewState(db),
+		mgmt:  management.NewState(db),
 		db:    db,
 	}
 }
@@ -44,10 +54,10 @@ func TestJourneysStoreCreateJourney(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
-	orgID, err := db.CreateOrganization(ctx, "Test Org")
+	orgID, err := db.mgmt.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := db.CreateProject(ctx, Project{
+	projectID, err := db.mgmt.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -76,10 +86,10 @@ func TestJourneysStoreVersionWorkflow(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
-	orgID, err := db.CreateOrganization(ctx, "Test Org")
+	orgID, err := db.mgmt.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := db.CreateProject(ctx, Project{
+	projectID, err := db.mgmt.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -157,10 +167,10 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
-	orgID, err := db.CreateOrganization(ctx, "Test Org")
+	orgID, err := db.mgmt.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := db.CreateProject(ctx, Project{
+	projectID, err := db.mgmt.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -272,10 +282,10 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
-	orgID, err := db.CreateOrganization(ctx, "Test Org")
+	orgID, err := db.mgmt.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := db.CreateProject(ctx, Project{
+	projectID, err := db.mgmt.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -357,10 +367,10 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
-	orgID, err := db.CreateOrganization(ctx, "Test Org")
+	orgID, err := db.mgmt.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := db.CreateProject(ctx, Project{
+	projectID, err := db.mgmt.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -411,7 +421,7 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 		err := db.PublishVersion(ctx, journeyID, versionID)
 		require.NoError(t, err)
 
-		eventsStore := NewEventsStore(db.db)
+		eventsStore := users.NewEventsStore(db.db)
 		entrances, err := eventsStore.ListEventJourneyDependencies(ctx, eventID)
 		require.NoError(t, err)
 		assert.Len(t, entrances, 1)
@@ -425,10 +435,10 @@ func TestJourneysStoreUserJourneyState(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
-	orgID, err := db.CreateOrganization(ctx, "Test Org")
+	orgID, err := db.mgmt.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := db.CreateProject(ctx, Project{
+	projectID, err := db.mgmt.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -496,10 +506,10 @@ func TestJourneysStoreVersionPinning(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
-	orgID, err := db.CreateOrganization(ctx, "Test Org")
+	orgID, err := db.mgmt.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := db.CreateProject(ctx, Project{
+	projectID, err := db.mgmt.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -670,10 +680,10 @@ func TestJourneysStoreMultiExecutionSteps(t *testing.T) {
 	db := newTestStore(t)
 	ctx := context.Background()
 
-	orgID, err := db.CreateOrganization(ctx, "Test Org")
+	orgID, err := db.mgmt.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := db.CreateProject(ctx, Project{
+	projectID, err := db.mgmt.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",

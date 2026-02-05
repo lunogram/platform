@@ -1,4 +1,4 @@
-package store
+package management
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 )
 
 type Documents []Document
@@ -44,14 +45,14 @@ func (document Document) OAPI() oapi.Document {
 	}
 }
 
-func NewDocumentsStore(db DB) *DocumentsStore {
+func NewDocumentsStore(db store.DB) *DocumentsStore {
 	return &DocumentsStore{
 		db: db,
 	}
 }
 
 type DocumentsStore struct {
-	db DB
+	db store.DB
 }
 
 type CreateDocumentParams struct {
@@ -79,7 +80,7 @@ func (s *DocumentsStore) CreateDocument(ctx context.Context, projectID uuid.UUID
 	return err
 }
 
-func (s *DocumentsStore) ListDocuments(ctx context.Context, projectID uuid.UUID, pagination Pagination) (Documents, int, error) {
+func (s *DocumentsStore) ListDocuments(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Documents, int, error) {
 	query := `
 	SELECT id, project_id, name, filename, key, content_type, size_bytes, created_at, updated_at,
 		COUNT(*) OVER () AS total_count
