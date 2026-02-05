@@ -87,7 +87,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *sq
 		})},
 	})
 
-	// Serve static files for CSS - use sub-filesystem to strip the "client/static" prefix
+	// Serve static assets - use sub-filesystem to strip the "client/static" prefix
 	staticSubFS, err := fs.Sub(staticFiles, "client/static")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create static sub-filesystem: %w", err)
