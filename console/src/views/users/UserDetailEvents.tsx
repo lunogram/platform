@@ -1,15 +1,38 @@
 import { useCallback, useContext, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Search } from 'lucide-react'
 import api from '../../api'
 import { ProjectContext, UserContext } from '../../contexts'
-import { useResolver } from '../../hooks'
+import { useDebounceControl, useResolver } from '../../hooks'
 import type { SearchParams, UserEvent } from '../../types'
-import Modal from '../../ui/Modal'
-import { SearchTable } from '../../ui/SearchTable'
-import { Column, Columns, JsonPreview } from '../../ui'
-import { PreferencesContext } from '../../ui/PreferencesContext'
 import { formatDate } from '../../utils'
+import { PreferencesContext } from '../../ui/PreferencesContext'
+import JsonPreview from '../../ui/JsonPreview'
 import Iframe from '../../ui/Iframe'
-import { useTranslation } from 'react-i18next'
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@/components/ui/dialog'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationPrevious,
+    PaginationNext,
+} from '@/components/ui/pagination'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function UserDetailEvents() {
     const { t } = useTranslation()
@@ -20,55 +43,132 @@ export default function UserDetailEvents() {
         limit: 25,
         q: '',
     })
+    const [search, setSearch] = useDebounceControl(params.q ?? '', q => setParams({ ...params, q }))
     const projectId = project.id
     const userId = user.id
     const [results] = useResolver(useCallback(async () => await api.users.events(projectId, userId, params), [projectId, userId, params]))
     const [event, setEvent] = useState<UserEvent>()
     const hasPreview = !!event?.data?.result?.message?.html
+    const isFullscreen = hasPreview
 
-    return <>
-        <SearchTable
-            results={results}
-            params={params}
-            setParams={setParams}
-            title={t('events')}
-            itemKey={({ item }) => item.id}
-            columns={[
-                { key: 'name', title: t('name') },
-                { key: 'created_at', title: t('created_at') },
-            ]}
-            onSelectRow={setEvent}
-        />
-        {event && (hasPreview
-            ? (
-                <Modal
-                    title={event.name}
-                    size="fullscreen"
-                    open={event != null}
-                    onClose={() => setEvent(undefined)}
-                >
-                    <Columns>
-                        <Column style={{ padding: '20px' }}>
-                            {formatDate(preferences, event.created_at)}
-                            <JsonPreview value={{ name: event.name, ...event.data, created_at: event.created_at }} />
-                        </Column>
-                        <Column>
-                            {event.name === 'email_sent' && event.data?.result?.message?.html && <Iframe content={event.data.result.message.html ?? ''} fullHeight={true} width="100%" /> }
-                        </Column>
-                    </Columns>
-                </Modal>
-            )
-            : (
-                <Modal
-                    title={event.name}
-                    description={formatDate(preferences, event.created_at)}
-                    size="large"
-                    open={event != null}
-                    onClose={() => setEvent(undefined)}
-                >
-                    <JsonPreview value={{ name: event.name, ...event.data, created_at: event.created_at }} />
-                </Modal>
-            )
-        )}
-    </>
+    return (
+        <div className="space-y-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>{t('events')}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="relative w-full max-w-sm">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="search"
+                            placeholder={t('search')}
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-8"
+                        />
+                    </div>
+
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>{t('name')}</TableHead>
+                                    <TableHead>{t('created_at')}</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {!results ? (
+                                    Array.from({ length: 3 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell colSpan={2}>
+                                                <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : results.results.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={2} className="text-center text-muted-foreground">
+                                            {t('no_results')}
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    results.results.map((item) => (
+                                        <TableRow
+                                            key={item.id}
+                                            className="cursor-pointer"
+                                            onClick={() => setEvent(item)}
+                                        >
+                                            <TableCell>{item.name}</TableCell>
+                                            <TableCell>{formatDate(preferences, item.created_at)}</TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {results && (
+                        <Pagination>
+                            <PaginationContent>
+                                {results.prevCursor && (
+                                    <PaginationItem>
+                                        <PaginationPrevious
+                                            onClick={() => setParams({ ...params, cursor: results.prevCursor!, page: 'prev' })}
+                                        />
+                                    </PaginationItem>
+                                )}
+                                {results.nextCursor && (
+                                    <PaginationItem>
+                                        <PaginationNext
+                                            onClick={() => setParams({ ...params, cursor: results.nextCursor!, page: 'next' })}
+                                        />
+                                    </PaginationItem>
+                                )}
+                            </PaginationContent>
+                        </Pagination>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Dialog open={!!event} onOpenChange={(open) => !open && setEvent(undefined)}>
+                <DialogContent className={isFullscreen ? 'max-w-[95vw] w-[95vw] h-[90vh]' : 'max-w-3xl'}>
+                    <DialogHeader>
+                        <DialogTitle>{event?.name}</DialogTitle>
+                        {event && !hasPreview && (
+                            <DialogDescription>
+                                {formatDate(preferences, event.created_at)}
+                            </DialogDescription>
+                        )}
+                    </DialogHeader>
+
+                    {event && (
+                        hasPreview ? (
+                            <div className="grid grid-cols-2 gap-4 h-full overflow-hidden">
+                                <div className="space-y-4 overflow-auto p-4">
+                                    <p className="text-sm text-muted-foreground">
+                                        {formatDate(preferences, event.created_at)}
+                                    </p>
+                                    <JsonPreview value={{ name: event.name, ...event.data, created_at: event.created_at }} />
+                                </div>
+                                <div className="h-full overflow-hidden">
+                                    {event.name === 'email_sent' && event.data?.result?.message?.html && (
+                                        <Iframe
+                                            content={event.data.result.message.html}
+                                            fullHeight={true}
+                                            width="100%"
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="py-4">
+                                <JsonPreview value={{ name: event.name, ...event.data, created_at: event.created_at }} />
+                            </div>
+                        )
+                    )}
+                </DialogContent>
+            </Dialog>
+        </div>
+    )
 }

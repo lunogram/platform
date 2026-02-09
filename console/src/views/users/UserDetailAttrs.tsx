@@ -1,11 +1,17 @@
 import { useContext, useState, useEffect } from 'react'
 import { ProjectContext, UserContext } from '../../contexts'
-import Heading from '../../ui/Heading'
 import JsonPreview from '../../ui/JsonPreview'
 import { useTranslation } from 'react-i18next'
 import { getEditableUserFields } from '../../ui/utils'
 import api from '../../api'
 import { Button } from '@/components/ui/button'
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    CardFooter,
+} from '@/components/ui/card'
 import type { User } from '../../types'
 
 export default function UserDetail() {
@@ -47,24 +53,25 @@ export default function UserDetail() {
     }
 
     return (
-        <div className="user-details-attrs">
-            <Heading size="h3" title={t('details')} />
-
-            <section className="legacy-container">
+        <Card>
+            <CardHeader>
+                <CardTitle>{t('details')}</CardTitle>
+            </CardHeader>
+            <CardContent>
                 <JsonPreview
                     editable
                     onChange={handleChange}
                     value={editableUser}
                 />
-            </section>
-
-            <Button
-                disabled={!dirty || saving}
-                isLoading={saving}
-                onClick={handleSave}
-            >
-                {t('save')}
-            </Button>
-        </div>
+            </CardContent>
+            <CardFooter className="flex justify-end">
+                <Button
+                    disabled={!dirty || saving}
+                    onClick={handleSave}
+                >
+                    {saving ? t('saving') : t('save')}
+                </Button>
+            </CardFooter>
+        </Card>
     )
 }

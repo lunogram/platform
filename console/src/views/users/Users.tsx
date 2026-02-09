@@ -1,16 +1,41 @@
 import { useCallback, useState } from 'react'
 import { useParams } from 'react-router'
+import { useForm } from 'react-hook-form'
 import api from '../../api'
-import PageContent from '../../ui/PageContent'
-import { SearchTable, useSearchTableQueryState } from '../../ui/SearchTable'
+import { useSearchTableQueryState } from '../../ui/SearchTable'
 import { useRoute } from '../router'
+import { Input } from '@/components/ui/input'
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from '@/components/ui/form'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table'
 import { useTranslation } from 'react-i18next'
-import { Modal } from '../../ui'
 import { Button } from '@/components/ui/button'
-import FormWrapper from '../../ui/form/FormWrapper'
-import UploadField from '../../ui/form/UploadField'
-import TextInput from '../../ui/form/TextInput'
-import { SingleSelect } from '../../ui/form/SingleSelect'
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
 import { PlusIcon, TrashIcon } from '../../components/icons'
 import type { UUID } from '@/types/common'
 import { NIL } from 'uuid'
@@ -50,13 +75,14 @@ export default function UserTabs() {
     const timeZones = Intl.supportedValuesOf('timeZone')
     const locale = navigator.languages[0]?.split('-')[0] ?? 'en'
 
-    const state = useSearchTableQueryState(useCallback(async params => await api.users.search(projectId, params), [projectId]))
+    const state = useSearchTableQueryState(useCallback(async params => {return await api.users.search(projectId, params)}, [projectId]))
     const [isBulkRemovalOpen, setIsBulkRemovalOpen] = useState(false)
     const [isCreateUserOpen, setIsCreateUserOpen] = useState(false)
 
     const defaultUser = {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         locale,
+        data: {},
     }
 
     const createUser = async (user: User) => {
@@ -64,11 +90,14 @@ export default function UserTabs() {
         const newUser: User = {
             ...rest,
             anonymous_id: crypto.randomUUID() as UUID,
+            email: user.email || undefined,
+            phone: user.phone || undefined,
             ...(full_name
                 ? { data: { full_name } }
-                : { data: user.data }),
+                : { data: user.data || {} }),
         }
 
+        console.log('Creating user with data:', newUser)
         await api.users.create(projectId, newUser)
         await state.reload()
 
@@ -81,71 +110,260 @@ export default function UserTabs() {
         setIsBulkRemovalOpen(false)
     }
 
-    return <PageContent
-        title={t('users')}
-        actions={
-            <>
-                <Button
-                    onClick={() => setIsBulkRemovalOpen(true)}
-                    variant="destructive"><TrashIcon />{t('delete_users')}
-                </Button>
-                <Button
-                    onClick={() => setIsCreateUserOpen(true)}><PlusIcon />{t('create_user')}
-                </Button>
-            </>
-        }>
-        <SearchTable
-            {...state}
-            columns={[
-                { key: 'full_name', title: t('name') },
-                { key: 'external_id', title: t('external_id') },
-                { key: 'email', title: t('email') },
-                { key: 'phone', title: t('phone') },
-                { key: 'locale', title: t('locale.singular') },
-                { key: 'created_at', title: t('created_at'), sortable: true },
-            ]}
-            onSelectRow={({ id }) => route(`users/${id}`)}
-            enableSearch
-            searchPlaceholder={t('search_users')}
-        />
+    return <>
+        <div className="py-8 px-8 space-y-8">
+            <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                    <h2 className="text-3xl font-bold tracking-tight">{t('users')}</h2>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        onClick={() => setIsBulkRemovalOpen(true)}
+                        variant="destructive">
+                        <TrashIcon />
+                        {t('delete_users')}
+                    </Button>
+                    <Button onClick={() => setIsCreateUserOpen(true)}>
+                        <PlusIcon />
+                        {t('create_user')}
+                    </Button>
+                </div>
+            </div>
+            
+            <div className="space-y-4">
+            <Input
+                type="search"
+                placeholder={t('search_users')}
+                value={state.params.q || ''}
+                onChange={(e) => state.setParams({ ...state.params, q: e.target.value })}
+                className="max-w-sm"
+            />
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>{t('name')}</TableHead>
+                            <TableHead>{t('external_id')}</TableHead>
+                            <TableHead>{t('email')}</TableHead>
+                            <TableHead>{t('phone')}</TableHead>
+                            <TableHead>{t('locale.singular')}</TableHead>
+                            <TableHead>{t('created_at')}</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {state.results?.results?.length ? (
+                            state.results.results.map((user) => (
+                                <TableRow
+                                    key={user.id}
+                                    className="cursor-pointer"
+                                    onClick={() => route(`users/${user.id}`)}
+                                >
+                                    <TableCell>{user.data?.full_name || user.full_name || '-'}</TableCell>
+                                    <TableCell>{user.external_id || '-'}</TableCell>
+                                    <TableCell>{user.email || '-'}</TableCell>
+                                    <TableCell>{user.data?.phone || user.phone || '-'}</TableCell>
+                                    <TableCell>{user.locale || '-'}</TableCell>
+                                    <TableCell>{user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={6} className="h-24 text-center">
+                                    {t('No Results')}
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+        </div>
+        </div>
 
-        <Modal
-            open={isCreateUserOpen}
-            onClose={() => setIsCreateUserOpen(false)}
-            title={t('create_user')}>
-            <FormWrapper<User>
-                defaultValues={defaultUser}
-                onSubmit={async (form) => await createUser(form)}
-                submitLabel={t('create')}
-            >
-                {form => <>
-                    <TextInput.Field form={form} name="full_name" label={t('full_name')} />
-                    <TextInput.Field form={form} name="email" label={t('email')} />
-                    <TextInput.Field form={form} name="phone" label={t('phone')} />
-                    <SingleSelect.Field
-                        form={form}
-                        options={timeZones}
-                        name="timezone"
-                        label={t('timezone')}
-                    />
-                    <TextInput.Field form={form} name="locale" label={t('locale.singular')} />
-                </>}
-            </FormWrapper>
-        </Modal>
+        <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{t('create_user')}</DialogTitle>
+                </DialogHeader>
+                <CreateUserForm
+                    defaultUser={defaultUser}
+                    timeZones={timeZones}
+                    onSubmit={createUser}
+                />
+            </DialogContent>
+        </Dialog>
 
-        <Modal
-            open={isBulkRemovalOpen}
-            onClose={() => setIsBulkRemovalOpen(false)}
-            title={t('delete_users')}>
-            <FormWrapper<{ file: FileList }>
-                onSubmit={async (form) => await bulkRemoveUsers(form.file)}
-                submitLabel={t('delete')}
-            >
-                {form => <>
-                    <p>{t('delete_users_instructions')}</p>
-                    <UploadField form={form} name="file" label={t('file')} required />
-                </>}
-            </FormWrapper>
-        </Modal>
-    </PageContent>
+        <Dialog open={isBulkRemovalOpen} onOpenChange={setIsBulkRemovalOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{t('delete_users')}</DialogTitle>
+                </DialogHeader>
+                <BulkRemoveUsersForm onSubmit={bulkRemoveUsers} />
+            </DialogContent>
+        </Dialog>
+    </>
+}
+
+function CreateUserForm({ defaultUser, timeZones, onSubmit }: { defaultUser: any, timeZones: string[], onSubmit: (user: User) => Promise<void> }) {
+    const { t } = useTranslation()
+    const [isLoading, setIsLoading] = useState(false)
+    const form = useForm<User>({
+        defaultValues: defaultUser,
+    })
+
+    const handleSubmit = async (data: User) => {
+        if (isLoading) return
+        setIsLoading(true)
+        try {
+            console.log('Form data:', data)
+            await onSubmit(data)
+        } catch (error: any) {
+            console.error('Error creating user:', error)
+            console.error('Error response:', error.response?.data)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                <FormField
+                    control={form.control}
+                    name="full_name"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('full_name')}</FormLabel>
+                            <FormControl>
+                                <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('email')}</FormLabel>
+                            <FormControl>
+                                <Input {...field} type="email" />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('phone')}</FormLabel>
+                            <FormControl>
+                                <Input {...field} type="tel" placeholder="+31612345678" />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="timezone"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('timezone')}</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={t('timezone')} />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent side="bottom" className="max-h-[200px]">
+                                    {timeZones.map((tz) => (
+                                        <SelectItem key={tz} value={tz}>
+                                            {tz}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="locale"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('locale.singular')}</FormLabel>
+                            <FormControl>
+                                <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? t('loading') : t('create')}
+                </Button>
+            </form>
+        </Form>
+    )
+}
+
+function BulkRemoveUsersForm({ onSubmit }: { onSubmit: (file: FileList) => Promise<void> }) {
+    const { t } = useTranslation()
+    const form = useForm<{ file: FileList }>()
+    const [fileName, setFileName] = useState<string>('')
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(data => onSubmit(data.file))} className="space-y-5">
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4">
+                    <p className="text-sm leading-relaxed text-amber-900 dark:text-amber-200">
+                        {t('delete_users_instructions')}
+                    </p>
+                </div>
+                <FormField
+                    control={form.control}
+                    name="file"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('file')}</FormLabel>
+                            <FormControl>
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="relative"
+                                        onClick={() => document.getElementById('file-upload')?.click()}
+                                    >
+                                        {t('upload')}
+                                        <input
+                                            id="file-upload"
+                                            type="file"
+                                            className="sr-only"
+                                            onChange={(e) => {
+                                                field.onChange(e.target.files)
+                                                setFileName(e.target.files?.[0]?.name || '')
+                                            }}
+                                            required
+                                            accept=".csv"
+                                        />
+                                    </Button>
+                                    <span className="text-sm text-muted-foreground">
+                                        {fileName}
+                                    </span>
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <Button type="submit" variant="destructive" className="w-full">
+                    {t('delete')}
+                </Button>
+            </form>
+        </Form>
+    )
 }
