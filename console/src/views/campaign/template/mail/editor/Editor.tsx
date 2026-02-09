@@ -8,18 +8,18 @@ import "./Editor.css";
 import { TemplateContext } from "@/contexts";
 import { Preview } from "./Overrides/Preview";
 import { Code2Icon } from "lucide-react";
-import { RawHtmlPlugin } from "./plugins/RawHtmlPlugin";
 import { editorEvents } from "./editorEvents";
 
 import SaveHandler from "./Handlers/SaveHandler";
 import { config } from "./Handlers/ConfigHandler";
+import { CodeEditorPlugin } from "./CodeEditorPlugins/CodeEditorPlugin";
 
 const plugin: Plugin = {
   name: "raw-html",
   label: "Raw html",
   icon: <Code2Icon />,
   render: () => {
-    return <RawHtmlPlugin />;
+    return <CodeEditorPlugin />;
   },
 };
 
