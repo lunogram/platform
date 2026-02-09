@@ -359,6 +359,7 @@ export const createRouter = ({
                                 path: 'entrances/:entranceId',
                                 loader: async ({ params }) => await api.journeys.entrances.log(params.projectId! as UUID, params.entranceId! as UUID),
                                 element: <EntranceDetails />,
+                                errorElement: <ErrorPage />,
                             },
                             {
                                 path: 'settings',

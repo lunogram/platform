@@ -20,15 +20,14 @@ export const typeVariants: Record<string, TagProps['variant']> = {
 }
 
 export default function EntranceDetails() {
-
     const { t } = useTranslation()
     const [preferences] = useContext(PreferencesContext)
 
     const { journey, user, userSteps } = useLoaderData<JourneyEntranceDetail>()
-
+    
     const entrance = userSteps[0]
     const error = userSteps.find(s => s.type === 'error')
-    const displayName = user.full_name ?? user.email ?? user.phone ?? user.id
+    const displayName = user?.full_name ?? user?.email ?? user?.phone ?? user?.id
 
     return (
         <PageContent
@@ -53,7 +52,6 @@ export default function EntranceDetails() {
                     {
                         key: 'step',
                         cell: ({ item }) => {
-
                             const stepType = stepTypes[item.step!.type as keyof typeof stepTypes]
 
                             return (

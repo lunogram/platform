@@ -25,7 +25,7 @@ export default function UserDetailJourneys() {
     return (
         <SearchTable
             {...state}
-            title={t('journeys')}
+            title={t('journeys')} 
             columns={[
                 {
                     key: 'journey',
