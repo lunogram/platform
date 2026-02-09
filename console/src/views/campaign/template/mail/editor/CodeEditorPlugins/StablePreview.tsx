@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+// preview/StablePreview.tsx
+import React, { useMemo } from "react";
 import { useSyncExternalStore } from "react";
+import { Render } from "@puckeditor/core";
 import { codeStore } from "./codeStore";
 import { compileCode } from "./compileCode";
 
-export function StablePreview() {
+export function StablePreview(props: any) {
   const code = useSyncExternalStore(
     codeStore.subscribe.bind(codeStore),
     () => codeStore.getCode()
@@ -11,14 +13,10 @@ export function StablePreview() {
 
   const result = useMemo(() => compileCode(code), [code]);
 
-  if (result.error) {
-    return <pre style={{ color: "red" }}>{result.error.message}</pre>;
+  if (result.component) {
+    const Comp = result.component;
+    return <Comp />;
   }
 
-  if (!result.component) {
-    return <div>No preview</div>;
-  }
-
-  const Comp = result.component;
-  return <Comp />;
+  return <Render {...props} />;
 }

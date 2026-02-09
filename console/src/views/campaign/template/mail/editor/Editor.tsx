@@ -13,6 +13,7 @@ import { editorEvents } from "./editorEvents";
 import SaveHandler from "./Handlers/SaveHandler";
 import { config } from "./Handlers/ConfigHandler";
 import { CodeEditorPlugin } from "./CodeEditorPlugins/CodeEditorPlugin";
+import { StablePreview } from "./CodeEditorPlugins/StablePreview";
 
 const plugin: Plugin = {
   name: "raw-html",
@@ -59,7 +60,7 @@ export default function Editor() {
               {children}
             </>
           ),
-          preview: ({ children }) => <Preview>{children}</Preview>,
+          preview: ({ children }) => <StablePreview>{children}</StablePreview>,
         }}
       />
     </div>
