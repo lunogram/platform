@@ -12,7 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/auth"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	svix "github.com/svix/svix-webhooks/go"
 	"go.uber.org/zap"
 )
@@ -24,19 +24,19 @@ import (
 // and keeps user data in sync through Clerk webhook events.
 type ClerkProvider struct {
 	config        config.ClerkAuth
-	stores        *store.State
+	mgmt          *management.State
 	webhookClient *svix.Webhook
 	logger        *zap.Logger
 	users         *user.Client
 	keyFunc       jwt.Keyfunc
 }
 
-func NewClerkProvider(cfg config.ClerkAuth, stores *store.State, logger *zap.Logger, keyFunc jwt.Keyfunc) (_ *ClerkProvider, err error) {
+func NewClerkProvider(cfg config.ClerkAuth, mgmt *management.State, logger *zap.Logger, keyFunc jwt.Keyfunc) (_ *ClerkProvider, err error) {
 	clerk.SetKey(cfg.SecretKey)
 
 	provider := &ClerkProvider{
 		config:  cfg,
-		stores:  stores,
+		mgmt:    mgmt,
 		logger:  logger,
 		users:   user.NewClient(&clerk.ClientConfig{}),
 		keyFunc: keyFunc,
@@ -73,7 +73,7 @@ func (p *ClerkProvider) Authenticate(ctx context.Context, w http.ResponseWriter,
 		return ctx, ErrInvalidToken
 	}
 
-	admin, err := p.stores.GetAdminByExternalID(ctx, claims.Subject)
+	admin, err := p.mgmt.GetAdminByExternalID(ctx, claims.Subject)
 	if err == nil && admin != nil {
 		return ctx, nil
 	}
@@ -87,7 +87,7 @@ func (p *ClerkProvider) Authenticate(ctx context.Context, w http.ResponseWriter,
 		return nil, err
 	}
 
-	admin = &store.Admin{
+	admin = &management.Admin{
 		Email:     p.getPrimaryEmail(*user),
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
@@ -96,12 +96,12 @@ func (p *ClerkProvider) Authenticate(ctx context.Context, w http.ResponseWriter,
 	}
 
 	admin.ExternalID = &claims.Subject
-	admin.OrganizationID, err = p.stores.CreateOrganization(ctx, "Default Organization")
+	admin.OrganizationID, err = p.mgmt.CreateOrganization(ctx, "Default Organization")
 	if err != nil {
 		return nil, err
 	}
 
-	admin.ID, err = p.stores.CreateAdmin(ctx, *admin)
+	admin.ID, err = p.mgmt.CreateAdmin(ctx, *admin)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func (p *ClerkProvider) handleUserCreated(ctx context.Context, data json.RawMess
 		return err
 	}
 
-	admin, _ := p.stores.GetAdminByExternalID(ctx, user.ID)
+	admin, _ := p.mgmt.GetAdminByExternalID(ctx, user.ID)
 	if admin != nil {
 		return nil
 	}
@@ -173,14 +173,14 @@ func (p *ClerkProvider) handleUserCreated(ctx context.Context, data json.RawMess
 		return ErrInvalidEmail
 	}
 
-	orgID, err := p.stores.CreateOrganization(ctx, "Default Organization")
+	orgID, err := p.mgmt.CreateOrganization(ctx, "Default Organization")
 	if err != nil {
 		return err
 	}
 
 	externalID := user.ID
 
-	newAdmin := store.Admin{
+	newAdmin := management.Admin{
 		OrganizationID: orgID,
 		ExternalID:     &externalID,
 		Email:          email,
@@ -190,7 +190,7 @@ func (p *ClerkProvider) handleUserCreated(ctx context.Context, data json.RawMess
 		Role:           "owner",
 	}
 
-	_, err = p.stores.CreateAdmin(ctx, newAdmin)
+	_, err = p.mgmt.CreateAdmin(ctx, newAdmin)
 	return err
 }
 
@@ -200,7 +200,7 @@ func (p *ClerkProvider) handleUserUpdated(ctx context.Context, data json.RawMess
 		return err
 	}
 
-	admin, err := p.stores.GetAdminByExternalID(ctx, user.ID)
+	admin, err := p.mgmt.GetAdminByExternalID(ctx, user.ID)
 	if err != nil || admin == nil {
 		return nil
 	}
@@ -211,13 +211,13 @@ func (p *ClerkProvider) handleUserUpdated(ctx context.Context, data json.RawMess
 		return ErrInvalidEmail
 	}
 
-	update := store.AdminUpdate{
+	update := management.AdminUpdate{
 		Email:     &email,
 		FirstName: user.FirstName,
 		LastName:  user.LastName,
 	}
 
-	return p.stores.UpdateAdmin(ctx, admin.ID, update)
+	return p.mgmt.UpdateAdmin(ctx, admin.ID, update)
 }
 
 func (p *ClerkProvider) handleUserDeleted(ctx context.Context, data json.RawMessage) error {
@@ -232,12 +232,12 @@ func (p *ClerkProvider) handleUserDeleted(ctx context.Context, data json.RawMess
 		return nil
 	}
 
-	admin, err := p.stores.GetAdminByExternalID(ctx, userData.ID)
+	admin, err := p.mgmt.GetAdminByExternalID(ctx, userData.ID)
 	if err != nil || admin == nil {
 		return nil
 	}
 
-	return p.stores.DeleteAdmin(ctx, admin.ID)
+	return p.mgmt.DeleteAdmin(ctx, admin.ID)
 }
 
 func (p *ClerkProvider) getPrimaryEmail(user clerk.User) string {

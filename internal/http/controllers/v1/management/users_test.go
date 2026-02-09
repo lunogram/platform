@@ -22,6 +22,9 @@ import (
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -40,22 +43,26 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
+	postgresURI := container.RunPostgreSQL(t)
+	mgmtConfig := management.Config{
+		URI: postgresURI,
+	}
+	cfg := config.Node{
 		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
+			ManagementURI: postgresURI,
 		},
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(mgmtConfig)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, mgmtConfig)
 	require.NoError(t, err)
 
-	jet, err := pubsub.New(ctx, config)
+	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
 	err = consumer.Bootstrap(ctx, logger, jet)
@@ -63,12 +70,12 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	orgsStore := store.NewOrganizationsStore(db)
+	orgsStore := management.NewOrganizationsStore(db)
 	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectsStore := store.NewProjectsStore(db)
-	projectID, err := projectsStore.CreateProject(ctx, store.Project{
+	projectsStore := management.NewProjectsStore(db)
+	projectID, err := projectsStore.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           DefaultProject.Name,
 		Timezone:       DefaultProject.Timezone,
@@ -94,9 +101,9 @@ func TestListUsers(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
+	usersStore := controller.users.UsersStore
 	for i := 0; i < 5; i++ {
-		_, err := usersStore.CreateUser(ctx, store.User{
+		_, err := usersStore.CreateUser(ctx, users.User{
 			ProjectID:   projectID,
 			AnonymousID: ptr(uuid.New().String()),
 			Data:        json.RawMessage(`{}`),
@@ -154,8 +161,8 @@ func TestGetUser(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
-	userID, err := usersStore.CreateUser(ctx, store.User{
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, users.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_get"),
 		Email:       ptr("get@example.com"),
@@ -184,8 +191,8 @@ func TestUpdateUser(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
-	userID, err := usersStore.CreateUser(ctx, store.User{
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, users.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_update"),
 		Email:       ptr("old@example.com"),
@@ -228,8 +235,8 @@ func TestDeleteUser(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
-	userID, err := usersStore.CreateUser(ctx, store.User{
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, users.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_delete"),
 		Data:        json.RawMessage(`{}`),
@@ -254,8 +261,8 @@ func TestVersionIncrementsOnUpdate(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
-	userID, err := usersStore.CreateUser(ctx, store.User{
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, users.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_version"),
 		Data:        json.RawMessage(`{}`),
@@ -291,8 +298,8 @@ func TestGetUserEvents(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
-	userID, err := usersStore.CreateUser(ctx, store.User{
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, users.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_events"),
 		Data:        json.RawMessage(`{}`),
@@ -300,7 +307,7 @@ func TestGetUserEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := 0; i < 3; i++ {
-		_, err := usersStore.CreateUserEvent(ctx, store.UserEvent{
+		_, err := usersStore.CreateUserEvent(ctx, users.UserEvent{
 			ProjectID: projectID,
 			UserID:    userID,
 			Name:      "page_viewed",
@@ -347,16 +354,16 @@ func TestGetUserSubscriptions(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
-	userID, err := usersStore.CreateUser(ctx, store.User{
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, users.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_subscriptions"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
 
-	subscriptionsStore := controller.store.SubscriptionsStore
-	subscriptionID1, err := subscriptionsStore.CreateSubscription(ctx, store.Subscription{
+	subscriptionsStore := controller.mgmt.SubscriptionsStore
+	subscriptionID1, err := subscriptionsStore.CreateSubscription(ctx, management.Subscription{
 		ProjectID: projectID,
 		Name:      "Newsletter",
 		Channel:   "email",
@@ -364,7 +371,7 @@ func TestGetUserSubscriptions(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = subscriptionsStore.CreateSubscription(ctx, store.Subscription{
+	_, err = subscriptionsStore.CreateSubscription(ctx, management.Subscription{
 		ProjectID: projectID,
 		Name:      "SMS Updates",
 		Channel:   "sms",
@@ -404,16 +411,16 @@ func TestUpdateUserSubscriptions(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
-	userID, err := usersStore.CreateUser(ctx, store.User{
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, users.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_update_subs"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
 
-	subscriptionsStore := controller.store.SubscriptionsStore
-	subscriptionID, err := subscriptionsStore.CreateSubscription(ctx, store.Subscription{
+	subscriptionsStore := controller.mgmt.SubscriptionsStore
+	subscriptionID, err := subscriptionsStore.CreateSubscription(ctx, management.Subscription{
 		ProjectID: projectID,
 		Name:      "Marketing",
 		Channel:   "email",
@@ -453,8 +460,8 @@ func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
-	userID, err := usersStore.CreateUser(ctx, store.User{
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, users.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_sub_not_found"),
 		Data:        json.RawMessage(`{}`),
@@ -488,16 +495,16 @@ func TestGetUserJourneys(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
-	userID, err := usersStore.CreateUser(ctx, store.User{
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, users.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_journeys"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
 
-	journeysStore := controller.store.JourneysStore
-	journeyID, err := journeysStore.CreateJourney(ctx, store.Journey{
+	journeysStore := controller.journey.JourneysStore
+	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID: projectID,
 		Name:      "Onboarding Flow",
 	})
@@ -506,7 +513,7 @@ func TestGetUserJourneys(t *testing.T) {
 	// Create initial version and link to journey
 	versionID, err := journeysStore.CreateJourneyVersion(ctx, journeyID, "draft")
 	require.NoError(t, err)
-	err = journeysStore.UpdateJourney(ctx, projectID, journeyID, store.JourneyUpdate{VersionID: &versionID})
+	err = journeysStore.UpdateJourney(ctx, projectID, journeyID, journey.JourneyUpdate{VersionID: &versionID})
 	require.NoError(t, err)
 
 	// Create a step so we have a step ID
@@ -522,7 +529,7 @@ func TestGetUserJourneys(t *testing.T) {
 
 	// Create user state
 	journeyEntryID := uuid.New()
-	_, err = journeysStore.CreateUserJourneyState(ctx, store.JourneyUserState{
+	_, err = journeysStore.CreateUserJourneyState(ctx, journey.JourneyUserState{
 		JourneyID:      journeyID,
 		JourneyEntryID: journeyEntryID,
 		UserID:         userID,
@@ -554,16 +561,16 @@ func TestGetUserJourneysPagination(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
-	userID, err := usersStore.CreateUser(ctx, store.User{
+	usersStore := controller.users.UsersStore
+	userID, err := usersStore.CreateUser(ctx, users.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_journeys_page"),
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
 
-	journeysStore := controller.store.JourneysStore
-	journeyID, err := journeysStore.CreateJourney(ctx, store.Journey{
+	journeysStore := controller.journey.JourneysStore
+	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID: projectID,
 		Name:      "Test Journey",
 	})
@@ -572,7 +579,7 @@ func TestGetUserJourneysPagination(t *testing.T) {
 	// Create initial version and link to journey
 	versionID, err := journeysStore.CreateJourneyVersion(ctx, journeyID, "draft")
 	require.NoError(t, err)
-	err = journeysStore.UpdateJourney(ctx, projectID, journeyID, store.JourneyUpdate{VersionID: &versionID})
+	err = journeysStore.UpdateJourney(ctx, projectID, journeyID, journey.JourneyUpdate{VersionID: &versionID})
 	require.NoError(t, err)
 
 	// Create a step so we have a step ID
@@ -588,7 +595,7 @@ func TestGetUserJourneysPagination(t *testing.T) {
 
 	// Create user state
 	journeyEntryID := uuid.New()
-	_, err = journeysStore.CreateUserJourneyState(ctx, store.JourneyUserState{
+	_, err = journeysStore.CreateUserJourneyState(ctx, journey.JourneyUserState{
 		JourneyID:      journeyID,
 		JourneyEntryID: journeyEntryID,
 		UserID:         userID,
@@ -626,7 +633,7 @@ func TestListUserSchemas(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
+	usersStore := controller.users.UsersStore
 
 	paths := rules.Paths{
 		{Path: ".email", Type: "string"},
@@ -705,7 +712,7 @@ func TestListUserSchemasWithMultipleTypes(t *testing.T) {
 	controller, projectID := setupUsersController(t)
 	ctx := context.Background()
 
-	usersStore := controller.store.UsersStore
+	usersStore := controller.users.UsersStore
 
 	// Insert the same path with different types to simulate real-world scenarios
 	// where user data fields might be sent with different types across different users
@@ -803,22 +810,26 @@ func TestImportUsers(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			config := config.Node{
+			postgresURI := container.RunPostgreSQL(t)
+			mgmtConfig := management.Config{
+				URI: postgresURI,
+			}
+			cfg := config.Node{
 				Store: store.Config{
-					URI: container.RunPostgreSQL(t),
+					ManagementURI: postgresURI,
 				},
 				Nats: config.Nats{
 					URL: container.RunNATS(t),
 				},
 			}
 
-			err := store.Migrate(config.Store)
+			err := management.Migrate(mgmtConfig)
 			require.NoError(t, err)
 
-			db, err := store.New(ctx, logger, config.Store)
+			db, err := management.New(ctx, logger, mgmtConfig)
 			require.NoError(t, err)
 
-			jet, err := pubsub.New(ctx, config)
+			jet, err := pubsub.New(ctx, cfg)
 			require.NoError(t, err)
 
 			err = consumer.Bootstrap(ctx, logger, jet)
@@ -826,12 +837,12 @@ func TestImportUsers(t *testing.T) {
 
 			pub := pubsub.NewPublisher(jet)
 
-			orgsStore := store.NewOrganizationsStore(db)
+			orgsStore := management.NewOrganizationsStore(db)
 			orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
 			require.NoError(t, err)
 
-			projectsStore := store.NewProjectsStore(db)
-			projectID, err := projectsStore.CreateProject(ctx, store.Project{
+			projectsStore := management.NewProjectsStore(db)
+			projectID, err := projectsStore.CreateProject(ctx, management.Project{
 				OrganizationID: &orgID,
 				Name:           DefaultProject.Name,
 				Timezone:       DefaultProject.Timezone,
@@ -839,7 +850,7 @@ func TestImportUsers(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			usersStore := store.NewUsersStore(db)
+			usersStore := users.NewUsersStore(db)
 			controller := NewUsersController(logger, pub, db, 32<<20)
 
 			body := &bytes.Buffer{}

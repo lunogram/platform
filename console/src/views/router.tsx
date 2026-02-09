@@ -85,7 +85,7 @@ export const createRouter = ({
     {
         path: '*',
         errorElement: <ErrorPage />,
-        // loader: async () => await api.profile.get(),
+        loader: async () => await api.profile.get(),
         element: (
             <LoaderContextProvider context={AdminContext}>
                 <Outlet />

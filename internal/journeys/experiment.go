@@ -8,14 +8,14 @@ import (
 	"math/big"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 )
 
 type ExperimentData struct {
-	Selected store.JourneyVersionStepChild `json:"selected_child_id"`
+	Selected journey.JourneyVersionStepChild `json:"selected_child_id"`
 }
 
-func HandleExperiment(ctx HandlerContext, step store.JourneyVersionStep, state store.JourneyUserState) (store.JourneyUserState, store.JourneyVersionStepChildren, error) {
+func HandleExperiment(ctx HandlerContext, step journey.JourneyVersionStep, state journey.JourneyUserState) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
 	if state.CompletedAt != nil {
 		var experiment ExperimentData
 		err := json.Unmarshal(state.Data, &experiment)
@@ -23,7 +23,7 @@ func HandleExperiment(ctx HandlerContext, step store.JourneyVersionStep, state s
 			return state, nil, err
 		}
 
-		return state, []store.JourneyVersionStepChild{experiment.Selected}, nil
+		return state, []journey.JourneyVersionStepChild{experiment.Selected}, nil
 	}
 
 	selected, err := selectExperimentBranch(step.Children)
@@ -39,11 +39,11 @@ func HandleExperiment(ctx HandlerContext, step store.JourneyVersionStep, state s
 		return state, nil, err
 	}
 
-	return state, []store.JourneyVersionStepChild{selected}, nil
+	return state, []journey.JourneyVersionStepChild{selected}, nil
 }
 
-func selectExperimentBranch(children []store.JourneyVersionStepChild) (store.JourneyVersionStepChild, error) {
-	return selectWeightedBranch(children, func(child store.JourneyVersionStepChild) (float32, error) {
+func selectExperimentBranch(children []journey.JourneyVersionStepChild) (journey.JourneyVersionStepChild, error) {
+	return selectWeightedBranch(children, func(child journey.JourneyVersionStepChild) (float32, error) {
 		if child.Data == nil {
 			return 1.0, nil
 		}
@@ -59,9 +59,9 @@ func selectExperimentBranch(children []store.JourneyVersionStepChild) (store.Jou
 
 // selectWeightedBranch selects a child branch based on weighted ratios
 // The ratioExtractor function extracts the weight from each child's data
-func selectWeightedBranch(children []store.JourneyVersionStepChild, ratioExtractor func(store.JourneyVersionStepChild) (float32, error)) (store.JourneyVersionStepChild, error) {
+func selectWeightedBranch(children []journey.JourneyVersionStepChild, ratioExtractor func(journey.JourneyVersionStepChild) (float32, error)) (journey.JourneyVersionStepChild, error) {
 	if len(children) == 0 {
-		return store.JourneyVersionStepChild{}, nil
+		return journey.JourneyVersionStepChild{}, nil
 	}
 
 	ratios := make([]float32, len(children))
@@ -70,11 +70,11 @@ func selectWeightedBranch(children []store.JourneyVersionStepChild, ratioExtract
 	for i, child := range children {
 		ratio, err := ratioExtractor(child)
 		if err != nil {
-			return store.JourneyVersionStepChild{}, err
+			return journey.JourneyVersionStepChild{}, err
 		}
 
 		if ratio < 0 || math.IsNaN(float64(ratio)) || math.IsInf(float64(ratio), 0) {
-			return store.JourneyVersionStepChild{}, errors.New("invalid ratio: must be non-negative finite number")
+			return journey.JourneyVersionStepChild{}, errors.New("invalid ratio: must be non-negative finite number")
 		}
 
 		ratios[i] = ratio
@@ -82,12 +82,12 @@ func selectWeightedBranch(children []store.JourneyVersionStepChild, ratioExtract
 	}
 
 	if totalRatio == 0 {
-		return store.JourneyVersionStepChild{}, errors.New("total ratio cannot be zero")
+		return journey.JourneyVersionStepChild{}, errors.New("total ratio cannot be zero")
 	}
 
 	randomValue, err := cryptoRandFloat64()
 	if err != nil {
-		return store.JourneyVersionStepChild{}, err
+		return journey.JourneyVersionStepChild{}, err
 	}
 
 	randomValue *= float64(totalRatio)

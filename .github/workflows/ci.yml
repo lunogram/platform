@@ -4,8 +4,8 @@ on:
   push:
 
 permissions:
-  actions: read
-  contents: read
+  actions: write
+  contents: write
 
 jobs:
   lint:

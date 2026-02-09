@@ -11,6 +11,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,8 +29,8 @@ func TestHandleGate(t *testing.T) {
 	db := sqlx.NewDb(mockDB, "sqlmock")
 
 	type test struct {
-		step           store.JourneyVersionStep
-		state          *store.JourneyUserState
+		step           journey.JourneyVersionStep
+		state          *journey.JourneyUserState
 		data           map[string]any
 		matchesRule    bool
 		expectedPath   string
@@ -39,7 +40,7 @@ func TestHandleGate(t *testing.T) {
 
 	tests := map[string]test{
 		"nil state with rule match follows yes path": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				Type: GateStepType,
 				Data: json.RawMessage(`{"rule":{"type":"wrapper","group":"user","operator":"and","children":[]}}`),
 				Children: []store.JourneyVersionStepChild{
@@ -58,7 +59,7 @@ func TestHandleGate(t *testing.T) {
 			expectedResult: true,
 		},
 		"nil state with rule mismatch follows no path": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				Type: GateStepType,
 				Data: json.RawMessage(`{"rule":{"type":"wrapper","group":"user","operator":"and","children":[]}}`),
 				Children: []store.JourneyVersionStepChild{
@@ -77,7 +78,7 @@ func TestHandleGate(t *testing.T) {
 			expectedResult: true,
 		},
 		"existing state returns selected child": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				Type: GateStepType,
 				Data: json.RawMessage(`{"rule":{"type":"wrapper","group":"user","operator":"and","children":[]}}`),
 				Children: []store.JourneyVersionStepChild{
@@ -85,7 +86,7 @@ func TestHandleGate(t *testing.T) {
 					{ChildExternalID: "child2", Path: ptr("no")},
 				},
 			},
-			state: &store.JourneyUserState{
+			state: &journey.JourneyUserState{
 				CompletedAt: nil, // Not completed yet
 				Data:        json.RawMessage(`{"selected_child":"child1"}`),
 			},
@@ -99,7 +100,7 @@ func TestHandleGate(t *testing.T) {
 			expectedResult: true,
 		},
 		"no children returns no result": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				Type:     GateStepType,
 				Data:     json.RawMessage(`{"rule":{"type":"wrapper","group":"user","operator":"and","children":[]}}`),
 				Children: []store.JourneyVersionStepChild{},
@@ -115,7 +116,7 @@ func TestHandleGate(t *testing.T) {
 			expectedResult: false, // No children so no result
 		},
 		"no matching path returns nil": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				Type: GateStepType,
 				Data: json.RawMessage(`{"rule":{"type":"wrapper","group":"user","operator":"and","children":[]}}`),
 				Children: []store.JourneyVersionStepChild{
@@ -158,7 +159,7 @@ func TestHandleGate(t *testing.T) {
 				UserID:    userID,
 				Data:      tc.data,
 			}
-			var state store.JourneyUserState
+			var state journey.JourneyUserState
 			if tc.state != nil {
 				state = *tc.state
 			}
@@ -316,7 +317,7 @@ func TestSelectGateBranch(t *testing.T) {
 				UserID:    userID,
 			}
 
-			step := store.JourneyVersionStep{
+			step := journey.JourneyVersionStep{
 				Type:     GateStepType,
 				Children: tc.children,
 				Data:     json.RawMessage(`{"rule":{"type":"wrapper","group":"user","operator":"and","children":[]}}`),

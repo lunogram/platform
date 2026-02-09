@@ -6,6 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      network: host
       args:
         VERSION: dev
         COMMIT: local
@@ -13,9 +14,12 @@ services:
       - "8080:8080"
       - "8081:8081"
     environment:
-      POSTGRES_URI: postgres://postgres:postgrespw@postgres:5432/app?sslmode=disable
+      POSTGRES_URI: postgres://postgres:postgrespw@postgres:5432/management?sslmode=disable
+      USERS_POSTGRES_URI: postgres://postgres:postgrespw@postgres:5432/users?sslmode=disable
+      JOURNEY_POSTGRES_URI: postgres://postgres:postgrespw@postgres:5432/journey?sslmode=disable
       REDIS_ADDRESS: redis://redis:6379
       NATS_URL: nats://nats:4222
+      # Authentication
       AUTH_DRIVER: ${AUTH_DRIVER:-basic}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-secret-change-in-production}
       AUTH_BASIC_EMAIL: ${AUTH_BASIC_EMAIL:-admin@localhost}

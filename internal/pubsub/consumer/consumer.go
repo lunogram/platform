@@ -5,6 +5,9 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
@@ -30,15 +33,15 @@ const (
 )
 
 // Serve starts all JetStream consumers and registers their handlers.
-func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, db *sqlx.DB, registry *providers.Registry) {
+func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, db *sqlx.DB, mgmt *management.State, usrs *users.State, jrny *journey.State, registry *providers.Registry) {
 	pub := pubsub.NewPublisher(jet)
 	router := NewRouter(ctx, jet, logger)
 
-	router.Handle(StreamUsers, ConsumerUsersProcess, UsersHandler(logger, db, pub))
-	router.Handle(StreamUsers, ConsumerUsersSchema, UserSchemasHandler(logger, db))
-	router.Handle(StreamEvents, ConsumerEventsProcess, EventsHandler(logger, db, pub))
-	router.Handle(StreamEvents, ConsumerEventsSchema, EventSchemasHandler(logger, db))
-	router.Handle(StreamLists, ConsumerListsRecompute, RecomputeListHandler(logger, db, pub))
-	router.Handle(StreamJourneys, ConsumerJourneysAdvance, JourneyStepHandler(logger, db, pub))
-	router.Handle(StreamCampaigns, ConsumerCampaignsSend, CampaignsSendHandler(logger, db, registry))
+	router.Handle(StreamUsers, ConsumerUsersProcess, UsersHandler(logger, usrs, pub))
+	router.Handle(StreamUsers, ConsumerUsersSchema, UserSchemasHandler(logger, usrs))
+	router.Handle(StreamEvents, ConsumerEventsProcess, EventsHandler(logger, usrs, jrny, pub))
+	router.Handle(StreamEvents, ConsumerEventsSchema, EventSchemasHandler(logger, usrs))
+	router.Handle(StreamLists, ConsumerListsRecompute, RecomputeListHandler(logger, usrs, pub))
+	router.Handle(StreamJourneys, ConsumerJourneysAdvance, JourneyStepHandler(logger, db, jrny, pub))
+	router.Handle(StreamCampaigns, ConsumerCampaignsSend, CampaignsSendHandler(logger, mgmt, usrs, registry))
 }

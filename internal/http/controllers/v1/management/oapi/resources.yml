@@ -2555,6 +2555,165 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/keys:
+    get:
+      summary: List API keys
+      description: Retrieves a paginated list of API keys for a project
+      operationId: listApiKeys
+      tags:
+        - API Keys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          $ref: "#/components/responses/ApiKeyListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      summary: Create API key
+      description: Creates a new API key for a project
+      operationId: createApiKey
+      tags:
+        - API Keys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKey"
+      responses:
+        "201":
+          description: API key created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKey"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/keys/{keyID}:
+    get:
+      summary: Get API key by ID
+      description: Retrieves a specific API key
+      operationId: getApiKey
+      tags:
+        - API Keys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: keyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The API key ID
+      responses:
+        "200":
+          description: API key retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKey"
+        default:
+          $ref: "#/components/responses/Error"
+
+    patch:
+      summary: Update API key
+      description: Updates an API key's name or description (scope cannot be changed)
+      operationId: updateApiKey
+      tags:
+        - API Keys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: keyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The API key ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateApiKey"
+      responses:
+        "200":
+          description: API key updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKey"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      summary: Delete API key
+      description: Deletes an API key, revoking access
+      operationId: deleteApiKey
+      tags:
+        - API Keys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: keyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The API key ID
+      responses:
+        "204":
+          description: API key deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/providers:
     get:
       summary: List providers
@@ -2976,6 +3135,22 @@ components:
                     type: array
                     items:
                       $ref: "#/components/schemas/Provider"
+
+    ApiKeyListResponse:
+      description: API keys retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/PaginatedResponse"
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApiKey"
 
   schemas:
     Channel:
@@ -4762,6 +4937,84 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/ProjectAdmin"
+
+    ApiKeyScope:
+      type: string
+      enum: [public, secret]
+      description: API key scope - public keys are safe to expose in client-side code
+      example: secret
+
+    ApiKey:
+      type: object
+      required:
+        - id
+        - project_id
+        - name
+        - value
+        - scope
+        - role
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        name:
+          type: string
+          example: "Production API Key"
+        value:
+          type: string
+          example: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+          description: The API key value
+        scope:
+          $ref: "#/components/schemas/ApiKeyScope"
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+        description:
+          type: string
+          example: "API key for production environment"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    CreateApiKey:
+      type: object
+      required:
+        - name
+        - scope
+      properties:
+        name:
+          type: string
+          example: "Production API Key"
+        scope:
+          $ref: "#/components/schemas/ApiKeyScope"
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+        description:
+          type: string
+          example: "API key for production environment"
+
+    UpdateApiKey:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Updated API Key Name"
+        role:
+          $ref: "#/components/schemas/ProjectRole"
+        description:
+          type: string
+          example: "Updated description"
 
     ClientEvent:
       type: object

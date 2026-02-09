@@ -8,10 +8,10 @@ import (
 
 	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -21,19 +21,17 @@ func TestCreateJourney(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	config := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(config)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, config)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -93,26 +91,24 @@ func TestListJourneys(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	config := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(config)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, config)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeysStore := store.NewJourneysStore(db)
+	journeysStore := journey.NewJourneysStore(db)
 
 	for i := 0; i < 5; i++ {
-		_, err := journeysStore.CreateJourney(ctx, store.Journey{
+		_, err := journeysStore.CreateJourney(ctx, journey.Journey{
 			ProjectID: projectID,
 			Name:      "Test Journey",
 		})
@@ -186,25 +182,23 @@ func TestGetJourney(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	config := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(config)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, config)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeysStore := store.NewJourneysStore(db)
+	journeysStore := journey.NewJourneysStore(db)
 	description := "Test Description"
-	journeyID, err := journeysStore.CreateJourney(ctx, store.Journey{
+	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID:   projectID,
 		Name:        "Test Journey",
 		Description: &description,
@@ -255,24 +249,22 @@ func TestUpdateJourney(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	config := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(config)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, config)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeysStore := store.NewJourneysStore(db)
-	journeyID, err := journeysStore.CreateJourney(ctx, store.Journey{
+	journeysStore := journey.NewJourneysStore(db)
+	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID: projectID,
 		Name:      "Original Journey",
 	})
@@ -344,24 +336,22 @@ func TestDeleteJourney(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	config := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(config)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, config)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeysStore := store.NewJourneysStore(db)
-	journeyID, err := journeysStore.CreateJourney(ctx, store.Journey{
+	journeysStore := journey.NewJourneysStore(db)
+	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID: projectID,
 		Name:      "Journey to Delete",
 	})

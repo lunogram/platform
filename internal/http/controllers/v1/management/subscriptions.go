@@ -10,6 +10,7 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
@@ -17,14 +18,14 @@ func NewSubscriptionsController(logger *zap.Logger, db *sqlx.DB) *SubscriptionsC
 	return &SubscriptionsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewState(db),
+		store:  management.NewState(db),
 	}
 }
 
 type SubscriptionsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.State
+	store  *management.State
 }
 
 func (srv *SubscriptionsController) CreateSubscription(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
@@ -39,7 +40,7 @@ func (srv *SubscriptionsController) CreateSubscription(w http.ResponseWriter, r 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("name", body.Name))
 	logger.Info("creating subscription type")
 
-	subscription := store.Subscription{
+	subscription := management.Subscription{
 		ProjectID: projectID,
 		Name:      body.Name,
 		Channel:   string(body.Channel),
