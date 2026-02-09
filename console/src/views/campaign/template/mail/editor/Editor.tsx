@@ -6,7 +6,6 @@ import { useContext, useEffect } from "react";
 import "@puckeditor/core/dist/index.css";
 import "./Editor.css";
 import { TemplateContext } from "@/contexts";
-import { Preview } from "./Overrides/Preview";
 import { Code2Icon } from "lucide-react";
 import { editorEvents } from "./editorEvents";
 
@@ -60,7 +59,7 @@ export default function Editor() {
               {children}
             </>
           ),
-          preview: ({ children }) => <StablePreview>{children}</StablePreview>,
+          preview: StablePreview,
         }}
       />
     </div>
