@@ -9,10 +9,9 @@ import (
 
 	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -22,19 +21,17 @@ func TestCreateLocale(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	cfg := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(cfg.Store)
+	err := management.Migrate(cfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, cfg.Store)
+	db, err := management.New(ctx, logger, cfg)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -90,23 +87,21 @@ func TestListLocales(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	cfg := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(cfg.Store)
+	err := management.Migrate(cfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, cfg.Store)
+	db, err := management.New(ctx, logger, cfg)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	localesStore := store.NewLocalesStore(db)
+	localesStore := management.NewLocalesStore(db)
 	locales := []struct {
 		key   string
 		label string
@@ -117,7 +112,7 @@ func TestListLocales(t *testing.T) {
 	}
 
 	for _, locale := range locales {
-		_, err = localesStore.CreateLocale(ctx, store.Locale{
+		_, err = localesStore.CreateLocale(ctx, management.Locale{
 			ProjectID: projectID,
 			Key:       locale.key,
 			Label:     locale.label,
@@ -180,24 +175,22 @@ func TestGetLocale(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	cfg := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(cfg.Store)
+	err := management.Migrate(cfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, cfg.Store)
+	db, err := management.New(ctx, logger, cfg)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	localesStore := store.NewLocalesStore(db)
-	localeID, err := localesStore.CreateLocale(ctx, store.Locale{
+	localesStore := management.NewLocalesStore(db)
+	localeID, err := localesStore.CreateLocale(ctx, management.Locale{
 		ProjectID: projectID,
 		Key:       "en",
 		Label:     "English",
@@ -250,24 +243,22 @@ func TestDeleteLocale(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	cfg := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(cfg.Store)
+	err := management.Migrate(cfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, cfg.Store)
+	db, err := management.New(ctx, logger, cfg)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	localesStore := store.NewLocalesStore(db)
-	localeID, err := localesStore.CreateLocale(ctx, store.Locale{
+	localesStore := management.NewLocalesStore(db)
+	localeID, err := localesStore.CreateLocale(ctx, management.Locale{
 		ProjectID: projectID,
 		Key:       "en",
 		Label:     "English",
@@ -292,16 +283,14 @@ func TestLocaleProjectNotFound(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	cfg := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(cfg.Store)
+	err := management.Migrate(cfg)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, cfg.Store)
+	db, err := management.New(ctx, logger, cfg)
 	require.NoError(t, err)
 
 	controller := NewLocalesController(logger, db)

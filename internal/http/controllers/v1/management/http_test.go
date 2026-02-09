@@ -1,8 +1,8 @@
 package v1
 
-import "github.com/lunogram/platform/internal/store"
+import "github.com/lunogram/platform/internal/store/management"
 
-var DefaultProject = store.Project{
+var DefaultProject = management.Project{
 	Name:     "Test Project",
 	Timezone: "UTC",
 	Locale:   "en-US",

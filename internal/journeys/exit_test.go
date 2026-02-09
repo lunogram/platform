@@ -8,7 +8,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,13 +25,13 @@ func TestHandleExit(t *testing.T) {
 	entranceUUID := "entrance-step"
 
 	type test struct {
-		state   store.JourneyUserState
+		state   journey.JourneyUserState
 		wantErr bool
 	}
 
 	tests := map[string]test{
 		"first time exit": {
-			state: store.JourneyUserState{
+			state: journey.JourneyUserState{
 				ID:             uuid.New(),
 				ProjectID:      projectID,
 				JourneyID:      journeyID,
@@ -43,7 +43,7 @@ func TestHandleExit(t *testing.T) {
 			wantErr: false,
 		},
 		"already completed": {
-			state: store.JourneyUserState{
+			state: journey.JourneyUserState{
 				ID:             uuid.New(),
 				ProjectID:      projectID,
 				JourneyID:      journeyID,
@@ -73,7 +73,7 @@ func TestHandleExit(t *testing.T) {
 					WillReturnResult(sqlmock.NewResult(0, 1))
 			}
 
-			step := store.JourneyVersionStep{
+			step := journey.JourneyVersionStep{
 				ID:         stepID,
 				Type:       "exit",
 				ExternalID: externalStepID,

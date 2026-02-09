@@ -10,7 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 )
 
 const (
@@ -36,11 +36,11 @@ type HandlerContext struct {
 	Publisher Publisher
 	ProjectID uuid.UUID
 	UserID    uuid.UUID
-	Step      store.JourneyVersionStep
+	Step      journey.JourneyVersionStep
 	Data      map[string]any
 }
 
-func Handle(parent context.Context, db *sqlx.DB, pub pubsub.Publisher, projectID, userID uuid.UUID, step store.JourneyVersionStep, state *store.JourneyUserState, data map[string]any) (store.JourneyUserState, store.JourneyVersionStepChildren, error) {
+func Handle(parent context.Context, db *sqlx.DB, pub pubsub.Publisher, projectID, userID uuid.UUID, step journey.JourneyVersionStep, state *journey.JourneyUserState, data map[string]any) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
 	ctx := HandlerContext{
 		Context:   parent,
 		DB:        db,
@@ -51,7 +51,7 @@ func Handle(parent context.Context, db *sqlx.DB, pub pubsub.Publisher, projectID
 		Data:      data,
 	}
 
-	var s store.JourneyUserState
+	var s journey.JourneyUserState
 	if state != nil {
 		s = *state
 	}
@@ -77,7 +77,7 @@ func Handle(parent context.Context, db *sqlx.DB, pub pubsub.Publisher, projectID
 		return HandleUpdate(ctx, step, s)
 	}
 
-	return store.JourneyUserState{}, nil, errors.New("unsupported step type")
+	return journey.JourneyUserState{}, nil, errors.New("unsupported step type")
 }
 
 func Now() *time.Time {
@@ -85,7 +85,7 @@ func Now() *time.Time {
 	return &t
 }
 
-func WithStateData[T any](state store.JourneyUserState, val T) (_ store.JourneyUserState, err error) {
+func WithStateData[T any](state journey.JourneyUserState, val T) (_ journey.JourneyUserState, err error) {
 	state.Data, err = EncodeStateData(val)
 	if err != nil {
 		return state, err

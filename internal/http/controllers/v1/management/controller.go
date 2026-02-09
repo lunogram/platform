@@ -25,6 +25,7 @@ func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage sto
 		DocumentsController:     NewDocumentsController(logger, db, storage, cfg.Storage.MaxUploadSize),
 		ProvidersController:     NewProvidersController(logger, db, registry),
 		SubscriptionsController: NewSubscriptionsController(logger, db),
+		ApiKeysController:       NewApiKeysController(logger, db),
 	}
 
 	controller.AuthController, err = NewAuthController(logger, db, cfg)
@@ -51,4 +52,5 @@ type Controller struct {
 	*ProvidersController
 	*SubscriptionsController
 	*AuthController
+	*ApiKeysController
 }

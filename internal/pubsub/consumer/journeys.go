@@ -8,14 +8,12 @@ import (
 	"github.com/lunogram/platform/internal/journeys"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
-func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) HandlerFunc {
-	journeyStore := store.NewJourneysStore(db)
-
+func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		event := schemas.JourneyStep{}
 		err := json.Unmarshal(msg.Data(), &event)
@@ -24,19 +22,19 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) H
 			return err
 		}
 
-		step, err := journeyStore.GetJourneyStep(ctx, event.JourneyID, event.ExternalStepID, event.VersionID)
+		step, err := jrny.GetJourneyStep(ctx, event.JourneyID, event.ExternalStepID, event.VersionID)
 		if err != nil {
 			logger.Error("failed to get journey step", zap.Error(err))
 			return err
 		}
 
-		data, err := journeyStore.GetJourneyEntryData(ctx, event.JourneyEntryID, event.UserID)
+		data, err := jrny.GetJourneyEntryData(ctx, event.JourneyEntryID, event.UserID)
 		if err != nil {
 			logger.Error("failed to get journey entry data", zap.Error(err))
 			return err
 		}
 
-		state := &store.JourneyUserState{
+		state := &journey.JourneyUserState{
 			JourneyID:       event.JourneyID,
 			JourneyEntryID:  event.JourneyEntryID,
 			UserID:          event.UserID,
@@ -45,7 +43,7 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) H
 		}
 
 		if event.StateID != nil {
-			state, err = journeyStore.GetJourneyStateByID(ctx, *event.StateID)
+			state, err = jrny.GetJourneyStateByID(ctx, *event.StateID)
 			if err != nil {
 				logger.Error("failed to get journey state by ID", zap.Error(err), zap.Stringer("state_id", *event.StateID))
 				return err
@@ -69,7 +67,7 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) H
 			logger.Info("journey completed")
 		}
 
-		next.ID, err = journeyStore.CreateUserJourneyState(ctx, next)
+		next.ID, err = jrny.CreateUserJourneyState(ctx, next)
 		if err != nil {
 			logger.Error("failed to create journey user state", zap.Error(err))
 			return err

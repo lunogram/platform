@@ -738,5 +738,11 @@
         }
       }
     }
+  },
+  "sidebar": {
+    "api_docs": {
+      "title": "API Documentation",
+      "description": "Explore the API"
+    }
   }
 }

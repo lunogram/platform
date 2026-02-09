@@ -5,19 +5,18 @@ import (
 	"time"
 
 	"github.com/cloudproud/graceful"
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 	"go.uber.org/zap"
 )
 
-func NewController(ctx graceful.Context, logger *zap.Logger, config config.Node, db *sqlx.DB, pub pubsub.Publisher) *Controller {
+func NewController(ctx graceful.Context, logger *zap.Logger, config config.Node, jrny *journey.State, pub pubsub.Publisher) *Controller {
 	return &Controller{
 		logger:   logger,
 		config:   config,
-		journeys: store.NewJourneysStore(db),
+		journeys: jrny.JourneysStore,
 		pub:      pub,
 	}
 }
@@ -25,7 +24,7 @@ func NewController(ctx graceful.Context, logger *zap.Logger, config config.Node,
 type Controller struct {
 	logger   *zap.Logger
 	config   config.Node
-	journeys *store.JourneysStore
+	journeys *journey.JourneysStore
 	pub      pubsub.Publisher
 }
 

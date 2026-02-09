@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/config"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
@@ -23,18 +23,18 @@ var (
 
 // AuthResult represents the result of a successful authentication
 type AuthResult struct {
-	Admin       *store.Admin
+	Admin       *management.Admin
 	AccessToken string
 	ExpiresAt   time.Time
 }
 
-func NewProvider(cfg config.Auth, stores *store.State, logger *zap.Logger) (Provider, error) {
+func NewProvider(cfg config.Auth, mgmt *management.State, logger *zap.Logger) (Provider, error) {
 	switch cfg.Driver {
 	case "basic":
 		generator := NewHMACJWTGenerator(cfg.JWTSecret, cfg.TokenLife)
-		return NewBasicProvider(cfg.Basic, stores, generator), nil
+		return NewBasicProvider(cfg.Basic, mgmt, generator), nil
 	case "clerk":
-		return NewClerkProvider(cfg.Clerk, stores, logger, cfg.JWKS.Unwrap())
+		return NewClerkProvider(cfg.Clerk, mgmt, logger, cfg.JWKS.Unwrap())
 	default:
 		return nil, ErrUnknownDriver
 	}

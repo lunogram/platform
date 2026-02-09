@@ -7,20 +7,21 @@ import (
 
 	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
-func setupRecomputeTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream) {
+func setupRecomputeTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream) {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -29,30 +30,28 @@ func setupRecomputeTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream)
 	natsURL := container.RunNATS(t)
 	postgresURI := container.RunPostgreSQL(t)
 
-	config := config.Node{
-		Store: store.Config{
-			URI: postgresURI,
-		},
+	cfg := config.Node{
 		Nats: config.Nats{
 			URL: natsURL,
 		},
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	jet, err := pubsub.New(ctx, config)
+	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	st := store.NewState(db)
+	mgmtState := management.NewState(db)
+	usersState := users.NewState(db)
 
-	orgID, err := st.OrganizationsStore.CreateOrganization(ctx, "Test Org")
+	orgID, err := mgmtState.OrganizationsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := st.ProjectsStore.CreateProject(ctx, store.Project{
+	projectID, err := mgmtState.ProjectsStore.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -60,7 +59,7 @@ func setupRecomputeTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream)
 	})
 	require.NoError(t, err)
 
-	return db, projectID, jet
+	return usersState, projectID, jet
 }
 
 func TestListsRecompute(t *testing.T) {
@@ -78,17 +77,15 @@ func TestListsRecompute(t *testing.T) {
 func TestRecomputeListHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupRecomputeTest(t)
+	st, projectID, jet := setupRecomputeTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	st := store.NewState(db)
-
 	email := "test@example.com"
-	userID, err := st.UsersStore.UpsertUser(ctx, projectID, store.UpsertUserParams{
+	userID, err := st.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
 		Email: &email,
 		Data: map[string]any{
 			"age": 25,
@@ -107,7 +104,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 		},
 	}
 
-	ruleID, err := st.RulesStore.CreateRule(ctx, store.Rule{
+	ruleID, err := st.RulesStore.CreateRule(ctx, users.Rule{
 		ProjectID:       projectID,
 		Rule:            store.JSONB[rules.RuleSet]{Data: ruleset},
 		DependsOnUsers:  true,
@@ -116,7 +113,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	listID, err := st.ListsStore.CreateList(ctx, store.List{
+	listID, err := st.ListsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
@@ -125,7 +122,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := RecomputeListHandler(logger, db, pub)
+	handler := RecomputeListHandler(logger, st, pub)
 
 	recompute := RecomputeList{
 		ID:        listID,
@@ -147,26 +144,24 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	users, total, err := st.ListsStore.SelectListUsers(ctx, projectID, listID, store.Pagination{Limit: 10, Offset: 0})
+	usrs, total, err := st.ListsStore.SelectListUsers(ctx, projectID, listID, store.Pagination{Limit: 10, Offset: 0})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
-	assert.Len(t, users, 1)
-	assert.Equal(t, userID, users[0].ID)
+	assert.Len(t, usrs, 1)
+	assert.Equal(t, userID, usrs[0].ID)
 }
 
 func TestRecomputeListHandlerNoRule(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupRecomputeTest(t)
+	st, projectID, jet := setupRecomputeTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	st := store.NewState(db)
-
-	listID, err := st.ListsStore.CreateList(ctx, store.List{
+	listID, err := st.ListsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List Without Rule",
 		Type:      "static",
@@ -175,7 +170,7 @@ func TestRecomputeListHandlerNoRule(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := RecomputeListHandler(logger, db, pub)
+	handler := RecomputeListHandler(logger, st, pub)
 
 	recompute := RecomputeList{
 		ID:        listID,
@@ -198,17 +193,15 @@ func TestRecomputeListHandlerNoRule(t *testing.T) {
 func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupRecomputeTest(t)
+	st, projectID, jet := setupRecomputeTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	st := store.NewState(db)
-
 	email := "test@example.com"
-	userID, err := st.UsersStore.UpsertUser(ctx, projectID, store.UpsertUserParams{
+	userID, err := st.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
 		Email: &email,
 		Data: map[string]any{
 			"age": 30,
@@ -227,7 +220,7 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 		},
 	}
 
-	ruleID, err := st.RulesStore.CreateRule(ctx, store.Rule{
+	ruleID, err := st.RulesStore.CreateRule(ctx, users.Rule{
 		ProjectID:       projectID,
 		Rule:            store.JSONB[rules.RuleSet]{Data: ruleset},
 		DependsOnUsers:  true,
@@ -236,7 +229,7 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	listID, err := st.ListsStore.CreateList(ctx, store.List{
+	listID, err := st.ListsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
@@ -245,7 +238,7 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := RecomputeListHandler(logger, db, pub)
+	handler := RecomputeListHandler(logger, st, pub)
 
 	recompute := RecomputeList{
 		ID:        listID,
@@ -299,10 +292,10 @@ func TestPublishListRecomputeEventsInserted(t *testing.T) {
 	listID := uuid.New()
 	userID := uuid.New()
 
-	recomputed := []store.Recomputed{
+	recomputed := []users.Recomputed{
 		{
 			UserID: userID,
-			Action: store.RecomputeActionInserted,
+			Action: users.RecomputeActionInserted,
 		},
 	}
 
@@ -328,10 +321,10 @@ func TestPublishListRecomputeEventsDeleted(t *testing.T) {
 	listID := uuid.New()
 	userID := uuid.New()
 
-	recomputed := []store.Recomputed{
+	recomputed := []users.Recomputed{
 		{
 			UserID: userID,
-			Action: store.RecomputeActionDeleted,
+			Action: users.RecomputeActionDeleted,
 		},
 	}
 
@@ -356,18 +349,18 @@ func TestPublishListRecomputeEventsMixed(t *testing.T) {
 	projectID := uuid.New()
 	listID := uuid.New()
 
-	recomputed := []store.Recomputed{
+	recomputed := []users.Recomputed{
 		{
 			UserID: uuid.New(),
-			Action: store.RecomputeActionInserted,
+			Action: users.RecomputeActionInserted,
 		},
 		{
 			UserID: uuid.New(),
-			Action: store.RecomputeActionDeleted,
+			Action: users.RecomputeActionDeleted,
 		},
 		{
 			UserID: uuid.New(),
-			Action: store.RecomputeActionInserted,
+			Action: users.RecomputeActionInserted,
 		},
 	}
 

@@ -12,7 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -114,19 +114,15 @@ func TestClerkProviderWebhookNotConfigured(t *testing.T) {
 func TestClerkProviderHandleUserCreated(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	nodeCfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := store.Migrate(nodeCfg.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, nodeCfg.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	stores := store.NewState(db)
+	stores := management.NewState(db)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
 	provider, err := NewClerkProvider(cfg, stores, logger, nil)
@@ -161,25 +157,21 @@ func TestClerkProviderHandleUserCreated(t *testing.T) {
 func TestClerkProviderHandleUserCreatedAlreadyExists(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	nodeCfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := store.Migrate(nodeCfg.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, nodeCfg.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	stores := store.NewState(db)
+	stores := management.NewState(db)
 
 	orgID, err := stores.CreateOrganization(ctx, "Existing Org")
 	require.NoError(t, err)
 
 	externalID := "user_existing"
-	_, err = stores.CreateAdmin(ctx, store.Admin{
+	_, err = stores.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		ExternalID:     &externalID,
 		Email:          "existing@example.com",
@@ -214,19 +206,15 @@ func TestClerkProviderHandleUserCreatedAlreadyExists(t *testing.T) {
 func TestClerkProviderHandleUserCreatedNoEmail(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	nodeCfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := store.Migrate(nodeCfg.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, nodeCfg.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	stores := store.NewState(db)
+	stores := management.NewState(db)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
 	provider, err := NewClerkProvider(cfg, stores, logger, nil)
@@ -247,19 +235,15 @@ func TestClerkProviderHandleUserCreatedNoEmail(t *testing.T) {
 func TestClerkProviderHandleUserUpdated(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	nodeCfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := store.Migrate(nodeCfg.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, nodeCfg.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	stores := store.NewState(db)
+	stores := management.NewState(db)
 
 	orgID, err := stores.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
@@ -267,7 +251,7 @@ func TestClerkProviderHandleUserUpdated(t *testing.T) {
 	externalID := "user_to_update"
 	firstName := "Old"
 	lastName := "Name"
-	_, err = stores.CreateAdmin(ctx, store.Admin{
+	_, err = stores.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		ExternalID:     &externalID,
 		Email:          "old@example.com",
@@ -307,19 +291,15 @@ func TestClerkProviderHandleUserUpdated(t *testing.T) {
 func TestClerkProviderHandleUserUpdatedNotFound(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	nodeCfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := store.Migrate(nodeCfg.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, nodeCfg.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	stores := store.NewState(db)
+	stores := management.NewState(db)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
 	provider, err := NewClerkProvider(cfg, stores, logger, nil)
@@ -344,25 +324,21 @@ func TestClerkProviderHandleUserUpdatedNotFound(t *testing.T) {
 func TestClerkProviderHandleUserDeleted(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	nodeCfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := store.Migrate(nodeCfg.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, nodeCfg.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	stores := store.NewState(db)
+	stores := management.NewState(db)
 
 	orgID, err := stores.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
 	externalID := "user_to_delete"
-	adminID, err := stores.CreateAdmin(ctx, store.Admin{
+	adminID, err := stores.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		ExternalID:     &externalID,
 		Email:          "delete@example.com",
@@ -393,19 +369,15 @@ func TestClerkProviderHandleUserDeleted(t *testing.T) {
 func TestClerkProviderHandleUserDeletedNotFound(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	nodeCfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := store.Migrate(nodeCfg.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, nodeCfg.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	stores := store.NewState(db)
+	stores := management.NewState(db)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
 	provider, err := NewClerkProvider(cfg, stores, logger, nil)
@@ -427,19 +399,15 @@ func TestClerkProviderHandleUserDeletedNotFound(t *testing.T) {
 func TestClerkProviderAuthenticateInvalidToken(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	nodeCfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := store.Migrate(nodeCfg.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, nodeCfg.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	stores := store.NewState(db)
+	stores := management.NewState(db)
 
 	keyFunc := func(token *jwt.Token) (interface{}, error) {
 		return []byte("test-secret"), nil

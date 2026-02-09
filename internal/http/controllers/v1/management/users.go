@@ -18,6 +18,9 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"go.uber.org/zap"
 )
 
@@ -25,7 +28,9 @@ func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, db *sqlx.DB, m
 	return &UsersController{
 		logger:        logger,
 		db:            db,
-		store:         store.NewState(db),
+		mgmt:          management.NewState(db),
+		users:         users.NewState(db),
+		journey:       journey.NewState(db),
 		pubsub:        pub,
 		maxUploadSize: maxUploadSize,
 	}
@@ -35,7 +40,9 @@ type UsersController struct {
 	logger        *zap.Logger
 	db            *sqlx.DB
 	pubsub        pubsub.Publisher
-	store         *store.State
+	mgmt          *management.State
+	users         *users.State
+	journey       *journey.State
 	maxUploadSize int64
 }
 
@@ -58,7 +65,7 @@ func (srv *UsersController) ListUsers(w http.ResponseWriter, r *http.Request, pr
 
 	logger.Info("listing users", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	users, total, err := srv.store.ListUsers(ctx, projectID, pagination, search)
+	users, total, err := srv.users.ListUsers(ctx, projectID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list users", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -116,9 +123,9 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	users := store.NewUsersStore(tx)
+	usersStore := users.NewUsersStore(tx)
 
-	params := store.UpsertUserParams{
+	params := users.UpsertUserParams{
 		AnonymousID: body.AnonymousId,
 		ExternalID:  body.ExternalId,
 		Email:       body.Email,
@@ -128,7 +135,7 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 		Data:        data,
 	}
 
-	user, err := users.IdentifyAndGetUser(ctx, projectID, params, true)
+	user, err := usersStore.IdentifyAndGetUser(ctx, projectID, params, true)
 	if err != nil {
 		logger.Error("failed to identify user", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -182,7 +189,7 @@ func (srv *UsersController) GetUser(w http.ResponseWriter, r *http.Request, proj
 
 	logger.Info("getting user")
 
-	user, err := srv.store.GetUser(ctx, projectID, userID)
+	user, err := srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -208,7 +215,7 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
-	_, err := srv.store.GetUser(ctx, projectID, userID)
+	_, err := srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -236,7 +243,7 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 
 	logger.Info("updating user")
 
-	update := store.UserUpdate{
+	update := users.UserUpdate{
 		Email:    body.Email,
 		Phone:    body.Phone,
 		Timezone: body.Timezone,
@@ -244,14 +251,14 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 		Data:     body.Data,
 	}
 
-	err = srv.store.UpdateUser(ctx, userID, update)
+	err = srv.users.UpdateUser(ctx, userID, update)
 	if err != nil {
 		logger.Error("failed to update user", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	updatedUser, err := srv.store.GetUser(ctx, projectID, userID)
+	updatedUser, err := srv.users.GetUser(ctx, projectID, userID)
 	if err != nil {
 		logger.Error("failed to get updated user", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -271,7 +278,7 @@ func (srv *UsersController) DeleteUser(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
-	_, err := srv.store.GetUser(ctx, projectID, userID)
+	_, err := srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -291,7 +298,7 @@ func (srv *UsersController) DeleteUser(w http.ResponseWriter, r *http.Request, p
 
 	logger.Info("deleting user")
 
-	err = srv.store.DeleteUser(ctx, projectID, userID)
+	err = srv.users.DeleteUser(ctx, projectID, userID)
 	if err != nil {
 		logger.Error("failed to delete user", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -311,7 +318,7 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	_, err := srv.store.GetUser(ctx, projectID, userID)
+	_, err := srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -336,7 +343,7 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 
 	logger.Info("listing user events", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	events, total, err := srv.store.ListUserEvents(ctx, projectID, userID, pagination)
+	events, total, err := srv.users.ListUserEvents(ctx, projectID, userID, pagination)
 	if err != nil {
 		logger.Error("failed to list user events", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -364,7 +371,7 @@ func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.
 		return
 	}
 
-	_, err := srv.store.GetUser(ctx, projectID, userID)
+	_, err := srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -389,7 +396,7 @@ func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.
 
 	logger.Info("listing user subscriptions", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	subscriptions, total, err := srv.store.GetUserSubscriptions(ctx, projectID, userID, pagination)
+	subscriptions, total, err := srv.mgmt.GetUserSubscriptions(ctx, projectID, userID, pagination)
 	if err != nil {
 		logger.Error("failed to list user subscriptions", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -417,7 +424,7 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 		return
 	}
 
-	_, err := srv.store.GetUser(ctx, projectID, userID)
+	_, err := srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -447,7 +454,7 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 
 	// Validate all subscriptions exist before starting transaction
 	for _, sub := range subscriptions {
-		_, err := srv.store.GetSubscription(ctx, projectID, sub.SubscriptionId)
+		_, err := srv.mgmt.GetSubscription(ctx, projectID, sub.SubscriptionId)
 		if errors.Is(err, sql.ErrNoRows) {
 			logger.Info("subscription not found", zap.String("subscription_id", sub.SubscriptionId.String()))
 			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("subscription not found")))
@@ -469,7 +476,7 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 	defer tx.Rollback() //nolint:errcheck
 
 	for _, sub := range subscriptions {
-		err = srv.store.SetSubscriptionState(ctx, tx, userID, sub.SubscriptionId, sub.State == "subscribed")
+		err = srv.mgmt.SetSubscriptionState(ctx, tx, userID, sub.SubscriptionId, sub.State == "subscribed")
 		if err != nil {
 			logger.Error("failed to update subscription", zap.Error(err))
 			oapi.WriteProblem(w, err)
@@ -483,7 +490,7 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 		return
 	}
 
-	user, err := srv.store.GetUser(ctx, projectID, userID)
+	user, err := srv.users.GetUser(ctx, projectID, userID)
 	if err != nil {
 		logger.Error("failed to get updated user", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -503,7 +510,7 @@ func (srv *UsersController) GetUserJourneys(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	_, err := srv.store.GetUser(ctx, projectID, userID)
+	_, err := srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -528,7 +535,7 @@ func (srv *UsersController) GetUserJourneys(w http.ResponseWriter, r *http.Reque
 
 	logger.Info("listing user journeys", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	journeys, total, err := srv.store.ListUserJourneyEntrances(ctx, projectID, userID, pagination)
+	journeys, total, err := srv.journey.ListUserJourneyEntrances(ctx, projectID, userID, pagination)
 	if err != nil {
 		logger.Error("failed to list user journeys", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -559,7 +566,7 @@ func (srv *UsersController) ListUserSchemas(w http.ResponseWriter, r *http.Reque
 	logger := srv.logger.With(zap.String("project_id", projectID.String()))
 	logger.Info("listing user schemas")
 
-	schemas, err := srv.store.ListUserSchemas(ctx, projectID)
+	schemas, err := srv.users.ListUserSchemas(ctx, projectID)
 	if err != nil {
 		logger.Error("failed to list user schemas", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -648,7 +655,7 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	stores := store.NewState(tx)
+	usersStore := users.NewState(tx)
 
 	for {
 		record, err := reader.Read()
@@ -666,7 +673,7 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 			return err
 		}
 
-		_, err = stores.UpsertUser(ctx, projectID, user)
+		_, err = usersStore.UpsertUser(ctx, projectID, user)
 		if err != nil {
 			logger.Warn("failed to upsert user", zap.Error(err))
 			return err

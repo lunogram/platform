@@ -14,6 +14,7 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
@@ -21,14 +22,14 @@ func NewProjectsController(logger *zap.Logger, db *sqlx.DB) *ProjectsController 
 	return &ProjectsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewState(db),
+		store:  management.NewState(db),
 	}
 }
 
 type ProjectsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.State
+	store  *management.State
 }
 
 func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Request, params oapi.ListProjectsParams) {
@@ -134,15 +135,15 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 
 	defer tx.Rollback() //nolint:errcheck
 
-	projects := store.NewProjectsStore(tx)
-	subscriptions := store.NewSubscriptionsStore(tx)
+	projects := management.NewProjectsStore(tx)
+	subscriptions := management.NewSubscriptionsStore(tx)
 
 	var tools pq.StringArray
 	if body.Tools != nil {
 		tools = pq.StringArray(*body.Tools)
 	}
 
-	projectID, err := projects.CreateProject(ctx, store.Project{
+	projectID, err := projects.CreateProject(ctx, management.Project{
 		OrganizationID:    &scope.OrganizationID,
 		Name:              body.Name,
 		Description:       body.Description,
@@ -181,7 +182,7 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 
 	// Create default subscriptions for each channel
 	for _, channel := range []string{"email", "sms", "push"} {
-		_, err = subscriptions.CreateSubscription(ctx, store.Subscription{
+		_, err = subscriptions.CreateSubscription(ctx, management.Subscription{
 			ProjectID: projectID,
 			Name:      "Default " + channel,
 			Channel:   channel,
@@ -237,7 +238,7 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		tools = pq.StringArray(*body.Tools)
 	}
 
-	update := store.ProjectUpdate{
+	update := management.ProjectUpdate{
 		Name:              body.Name,
 		Description:       body.Description,
 		Timezone:          body.Timezone,

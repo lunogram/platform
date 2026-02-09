@@ -10,7 +10,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
@@ -18,14 +18,14 @@ func NewOrganizationsController(logger *zap.Logger, db *sqlx.DB) *OrganizationsC
 	return &OrganizationsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewState(db),
+		store:  management.NewState(db),
 	}
 }
 
 type OrganizationsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.State
+	store  *management.State
 }
 
 func (srv *OrganizationsController) GetOrganization(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +79,7 @@ func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r 
 
 	logger.Info("updating organization")
 
-	update := store.OrganizationUpdate{
+	update := management.OrganizationUpdate{
 		TrackingDeeplinkMirrorURL: body.TrackingDeeplinkMirrorUrl,
 	}
 

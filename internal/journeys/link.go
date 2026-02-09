@@ -7,10 +7,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 )
 
-func HandleLink(ctx HandlerContext, step store.JourneyVersionStep, state store.JourneyUserState) (store.JourneyUserState, store.JourneyVersionStepChildren, error) {
+func HandleLink(ctx HandlerContext, step journey.JourneyVersionStep, state journey.JourneyUserState) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
 	config, err := DecodeStepData[oapi.LinkStepData](step.Data)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to decode link step data: %w", err)
@@ -21,7 +21,7 @@ func HandleLink(ctx HandlerContext, step store.JourneyVersionStep, state store.J
 		return state, nil, fmt.Errorf("invalid target_id: %w", err)
 	}
 
-	journeysStore := store.NewJourneysStore(ctx.DB)
+	journeysStore := journey.NewJourneysStore(ctx.DB)
 	version, err := journeysStore.GetCurrentVersion(ctx, targetJourneyID)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to get current version for target journey: %w", err)
@@ -32,7 +32,7 @@ func HandleLink(ctx HandlerContext, step store.JourneyVersionStep, state store.J
 		return state, nil, fmt.Errorf("failed to get version steps: %w", err)
 	}
 
-	var entrance *store.JourneyVersionStep
+	var entrance *journey.JourneyVersionStep
 	for _, s := range steps {
 		if s.Type == "entrance" {
 			entrance = &s
@@ -55,7 +55,7 @@ func HandleLink(ctx HandlerContext, step store.JourneyVersionStep, state store.J
 	}
 
 	completedAt := Now()
-	entryState := store.JourneyUserState{
+	entryState := journey.JourneyUserState{
 		JourneyID:       targetJourneyID,
 		JourneyEntryID:  entry,
 		PinnedVersionID: &version.ID,

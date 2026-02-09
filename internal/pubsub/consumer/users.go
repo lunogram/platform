@@ -4,19 +4,16 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rules"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
 // UsersHandler creates a handler that processes incoming users and stores them in the database.
-func UsersHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) HandlerFunc {
-	lists := store.NewListsStore(db)
-
+func UsersHandler(logger *zap.Logger, usrs *users.State, pub pubsub.Publisher) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		user := schemas.User{}
 		err := json.Unmarshal(msg.Data(), &user)
@@ -27,7 +24,7 @@ func UsersHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) Handler
 
 		logger.Info("incoming user", zap.Stringer("user_id", user.ID), zap.Stringer("project_id", user.ProjectID))
 
-		err = PublishUserRecomputeLists(ctx, logger, lists, pub, user)
+		err = PublishUserRecomputeLists(ctx, logger, usrs, pub, user)
 		if err != nil {
 			logger.Error("failed to publish user recompute lists", zap.Error(err))
 			return err
@@ -52,8 +49,8 @@ func UsersHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) Handler
 	}
 }
 
-func PublishUserRecomputeLists(ctx context.Context, logger *zap.Logger, lists *store.ListsStore, pub pubsub.Publisher, user schemas.User) error {
-	result, err := lists.SelectListUsersDependency(ctx, user.ProjectID)
+func PublishUserRecomputeLists(ctx context.Context, logger *zap.Logger, usrs *users.State, pub pubsub.Publisher, user schemas.User) error {
+	result, err := usrs.SelectListUsersDependency(ctx, user.ProjectID)
 	if err != nil {
 		logger.Error("failed to list rule user dependencies", zap.Error(err))
 		return err
@@ -97,9 +94,7 @@ func PublishUserEvents(ctx context.Context, logger *zap.Logger, pub pubsub.Publi
 }
 
 // UserSchemasHandler creates a handler that extracts and stores event schema information.
-func UserSchemasHandler(logger *zap.Logger, db *sqlx.DB) HandlerFunc {
-	users := store.NewUsersStore(db)
-
+func UserSchemasHandler(logger *zap.Logger, usrs *users.State) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		user := schemas.User{}
 		err := json.Unmarshal(msg.Data(), &user)
@@ -111,7 +106,7 @@ func UserSchemasHandler(logger *zap.Logger, db *sqlx.DB) HandlerFunc {
 		logger.Info("incoming user schema", zap.Stringer("user_id", user.ID), zap.Stringer("project_id", user.ProjectID))
 
 		paths := rules.ParsePaths(user.Data)
-		err = users.UpsertUserSchema(ctx, user.ProjectID, paths)
+		err = usrs.UpsertUserSchema(ctx, user.ProjectID, paths)
 		if err != nil {
 			logger.Error("failed to upsert user schema", zap.Error(err))
 			return err

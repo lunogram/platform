@@ -107,3 +107,5 @@ dist
 
 bin/
 build/
+
+uploads/documents/

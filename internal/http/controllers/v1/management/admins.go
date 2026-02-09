@@ -12,6 +12,7 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
@@ -19,14 +20,14 @@ func NewAdminsController(logger *zap.Logger, db *sqlx.DB) *AdminsController {
 	return &AdminsController{
 		logger: logger,
 		db:     db,
-		store:  store.NewState(db),
+		store:  management.NewState(db),
 	}
 }
 
 type AdminsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.State
+	store  *management.State
 }
 
 func (srv *AdminsController) GetProfile(w http.ResponseWriter, r *http.Request) {
@@ -211,7 +212,7 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 		email := string(body.Email)
 		role := string(body.Role)
 
-		update := store.AdminUpdate{
+		update := management.AdminUpdate{
 			Email:     &email,
 			FirstName: body.FirstName,
 			LastName:  body.LastName,
@@ -237,7 +238,7 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	newAdmin := store.Admin{
+	newAdmin := management.Admin{
 		OrganizationID: admin.OrganizationID,
 		Email:          string(body.Email),
 		FirstName:      body.FirstName,
@@ -389,7 +390,7 @@ func (srv *AdminsController) UpdateAdmin(w http.ResponseWriter, r *http.Request,
 		role = &roleStr
 	}
 
-	update := store.AdminUpdate{
+	update := management.AdminUpdate{
 		Email:     email,
 		FirstName: body.FirstName,
 		LastName:  body.LastName,
@@ -532,7 +533,7 @@ func (srv *AdminsController) ListProjectAdmins(w http.ResponseWriter, r *http.Re
 	logger.Info("project admins listed", zap.Int("total", total), zap.Int("count", len(projectAdmins)))
 
 	response := oapi.ProjectAdminList{
-		Results: store.ProjectAdmins(projectAdmins).OAPI(),
+		Results: management.ProjectAdmins(projectAdmins).OAPI(),
 		Total:   total,
 		Limit:   pagination.Limit,
 		Offset:  pagination.Offset,

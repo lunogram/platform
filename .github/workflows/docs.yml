@@ -1,38 +1,39 @@
-name: Docs
-
-on:
-  push:
-    branches:
-      - main
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
-
-jobs:
-  build:
-    name: Build for GitHub Pages
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./docs
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ vars.PNPM_VERSION }}
-      - name: Set-up Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ vars.NODEJS_VERSION }}
-          cache: 'pnpm'
-      - name: Install Dependencies
-        run: pnpm install
+# Workflow disabled - blog is unused atm
+# name: Docs
+# 
+# on:
+#   push:
+#     branches:
+#       - main
+# 
+# permissions:
+#   contents: read
+#   pages: write
+#   id-token: write
+# 
+# concurrency:
+#   group: "pages"
+#   cancel-in-progress: true
+# 
+# jobs:
+#   build:
+#     name: Build for GitHub Pages
+#     runs-on: ubuntu-latest
+#     defaults:
+#       run:
+#         working-directory: ./docs
+#     steps:
+#       - uses: actions/checkout@v5
+#       - uses: pnpm/action-setup@v4
+#         with:
+#           version: ${{ vars.PNPM_VERSION }}
+#       - name: Set-up Node
+#         uses: actions/setup-node@v5
+#         with:
+#           node-version: ${{ vars.NODEJS_VERSION }}
+#           cache: 'pnpm'
+#       - name: Install Dependencies
+#         run: pnpm install
 
       # - name: Setup Pages
       #   uses: actions/configure-pages@v3

@@ -11,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,8 +27,8 @@ func TestHandleLink(t *testing.T) {
 	entranceStepID := uuid.New()
 
 	type test struct {
-		step            store.JourneyVersionStep
-		state           store.JourneyUserState
+		step            journey.JourneyVersionStep
+		state           journey.JourneyUserState
 		data            map[string]any
 		expectedPublish int
 		wantErr         bool
@@ -36,7 +37,7 @@ func TestHandleLink(t *testing.T) {
 
 	tests := map[string]test{
 		"successfully links to target journey": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:         uuid.New(),
 				Type:       LinkStepType,
 				ExternalID: "link-1",
@@ -45,7 +46,7 @@ func TestHandleLink(t *testing.T) {
 					{ChildExternalID: "next-step"},
 				},
 			},
-			state: store.JourneyUserState{
+			state: journey.JourneyUserState{
 				ExternalStepID: "link-1",
 			},
 			data: map[string]any{
@@ -75,13 +76,13 @@ func TestHandleLink(t *testing.T) {
 			},
 		},
 		"target journey with no entrance step": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:         uuid.New(),
 				Type:       LinkStepType,
 				ExternalID: "link-1",
 				Data:       json.RawMessage(`{"target_id":"` + targetJourneyID.String() + `"}`),
 			},
-			state:           store.JourneyUserState{},
+			state:           journey.JourneyUserState{},
 			data:            map[string]any{},
 			expectedPublish: 0,
 			wantErr:         true,
@@ -101,33 +102,33 @@ func TestHandleLink(t *testing.T) {
 			},
 		},
 		"invalid target_id format": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:         uuid.New(),
 				Type:       LinkStepType,
 				ExternalID: "link-1",
 				Data:       json.RawMessage(`{"target_id":"invalid-uuid"}`),
 			},
-			state:           store.JourneyUserState{},
+			state:           journey.JourneyUserState{},
 			data:            map[string]any{},
 			expectedPublish: 0,
 			wantErr:         true,
 			mockSetup:       func(mock sqlmock.Sqlmock) {},
 		},
 		"missing target_id": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:         uuid.New(),
 				Type:       LinkStepType,
 				ExternalID: "link-1",
 				Data:       json.RawMessage(`{}`),
 			},
-			state:           store.JourneyUserState{},
+			state:           journey.JourneyUserState{},
 			data:            map[string]any{},
 			expectedPublish: 0,
 			wantErr:         true,
 			mockSetup:       func(mock sqlmock.Sqlmock) {},
 		},
 		"entrance with multiple children": {
-			step: store.JourneyVersionStep{
+			step: journey.JourneyVersionStep{
 				ID:         uuid.New(),
 				Type:       LinkStepType,
 				ExternalID: "link-1",
@@ -136,7 +137,7 @@ func TestHandleLink(t *testing.T) {
 					{ChildExternalID: "next-step"},
 				},
 			},
-			state:           store.JourneyUserState{},
+			state:           journey.JourneyUserState{},
 			data:            map[string]any{},
 			expectedPublish: 3,
 			wantErr:         false,

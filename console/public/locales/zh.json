@@ -1,4 +1,10 @@
 {
+  "sidebar": {
+    "api_docs": {
+      "title": "API 文档",
+      "description": "探索 API"
+    }
+  },
   "abort_campaign": "中止活动",
   "aborted": "已中止",
   "action": "操作",
