@@ -6,6 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      network: host
       args:
         VERSION: dev
         COMMIT: local
