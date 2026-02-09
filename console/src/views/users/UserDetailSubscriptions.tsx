@@ -103,7 +103,7 @@ export default function UserDetailSubscriptions() {
                             ) : results.results.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={3} className="text-center text-muted-foreground">
-                                        {t('No Results')}
+                                        {t('campaign.setup.channels.email.no_content_available')}
                                     </TableCell>
                                 </TableRow>
                             ) : (

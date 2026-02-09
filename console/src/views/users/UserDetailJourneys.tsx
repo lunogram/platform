@@ -83,7 +83,7 @@ export default function UserDetailJourneys() {
                             ) : results.results.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={3} className="text-center text-muted-foreground">
-                                        {t('No Results')}
+                                        {t('campaign.setup.channels.email.no_content_available')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -114,14 +114,22 @@ export default function UserDetailJourneys() {
                             {results.prevCursor && (
                                 <PaginationItem>
                                     <PaginationPrevious
-                                        onClick={() => setParams({ ...params, cursor: results.prevCursor!, page: 'prev' })}
+                                        href="#"
+                                        onClick={(event) => {
+                                            event.preventDefault()
+                                            setParams({ ...params, cursor: results.prevCursor!, page: 'prev' })
+                                        }}
                                     />
                                 </PaginationItem>
                             )}
                             {results.nextCursor && (
                                 <PaginationItem>
                                     <PaginationNext
-                                        onClick={() => setParams({ ...params, cursor: results.nextCursor!, page: 'next' })}
+                                        href="#"
+                                        onClick={(event) => {
+                                            event.preventDefault()
+                                            setParams({ ...params, cursor: results.nextCursor!, page: 'next' })
+                                        }}
                                     />
                                 </PaginationItem>
                             )}

@@ -1,9 +1,10 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { useForm } from 'react-hook-form'
 import api from '../../api'
 import { useSearchTableQueryState } from '../../ui/SearchTable'
 import { useRoute } from '../router'
+import { useDebounceControl } from '../../hooks'
 import { Input } from '@/components/ui/input'
 import {
     Form,
@@ -30,6 +31,14 @@ import {
 } from '@/components/ui/table'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination'
 import {
     Dialog,
     DialogContent,
@@ -78,6 +87,7 @@ export default function UserTabs() {
     const state = useSearchTableQueryState(useCallback(async params => {return await api.users.search(projectId, params)}, [projectId]))
     const [isBulkRemovalOpen, setIsBulkRemovalOpen] = useState(false)
     const [isCreateUserOpen, setIsCreateUserOpen] = useState(false)
+    const [search, setSearch] = useDebounceControl(state.params.q ?? '', q => state.setParams({ ...state.params, q }))
 
     const defaultUser: Pick<User, 'timezone' | 'locale' | 'data'> = {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -97,7 +107,6 @@ export default function UserTabs() {
                 : { data: user.data || {} }),
         }
 
-        console.log('Creating user with data:', newUser)
         await api.users.create(projectId, newUser)
         await state.reload()
 
@@ -134,8 +143,8 @@ export default function UserTabs() {
             <Input
                 type="search"
                 placeholder={t('search_users')}
-                value={state.params.q || ''}
-                onChange={(e) => state.setParams({ ...state.params, q: e.target.value })}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 className="max-w-sm"
             />
             <div className="rounded-md border">
@@ -151,7 +160,18 @@ export default function UserTabs() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {state.results?.results?.length ? (
+                        {state.results === null ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                </TableRow>
+                            ))
+                        ) : state.results.results.length ? (
                             state.results.results.map((user) => (
                                 <TableRow
                                     key={user.id}
@@ -176,6 +196,32 @@ export default function UserTabs() {
                     </TableBody>
                 </Table>
             </div>
+            {state.results && (
+                <Pagination className="mt-4">
+                    <PaginationContent>
+                        <PaginationItem>
+                            <PaginationPrevious
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    state.setParams({ ...state.params, cursor: state.results!.prevCursor, page: 'prev' })
+                                }}
+                                aria-disabled={!state.results.prevCursor}
+                                className={!state.results.prevCursor ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                            />
+                        </PaginationItem>
+                        <PaginationItem>
+                            <PaginationNext
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    state.setParams({ ...state.params, cursor: state.results!.nextCursor, page: 'next' })
+                                }}
+                                aria-disabled={!state.results.nextCursor}
+                                className={!state.results.nextCursor ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                            />
+                        </PaginationItem>
+                    </PaginationContent>
+                </Pagination>
+            )}
         </div>
         </div>
 
@@ -318,6 +364,7 @@ function BulkRemoveUsersForm({ onSubmit }: { onSubmit: (file: FileList) => Promi
     const { t } = useTranslation()
     const form = useForm<{ file: FileList }>()
     const [fileName, setFileName] = useState<string>('')
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     return (
         <Form {...form}>
@@ -335,24 +382,23 @@ function BulkRemoveUsersForm({ onSubmit }: { onSubmit: (file: FileList) => Promi
                             <FormLabel>{t('file')}</FormLabel>
                             <FormControl>
                                 <div className="flex items-center gap-3">
+                                    <Input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        className="sr-only"
+                                        onChange={(e) => {
+                                            field.onChange(e.target.files)
+                                            setFileName(e.target.files?.[0]?.name || '')
+                                        }}
+                                        required
+                                        accept=".csv"
+                                    />
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        className="relative"
-                                        onClick={() => document.getElementById('file-upload')?.click()}
+                                        onClick={() => fileInputRef.current?.click()}
                                     >
                                         {t('upload')}
-                                        <input
-                                            id="file-upload"
-                                            type="file"
-                                            className="sr-only"
-                                            onChange={(e) => {
-                                                field.onChange(e.target.files)
-                                                setFileName(e.target.files?.[0]?.name || '')
-                                            }}
-                                            required
-                                            accept=".csv"
-                                        />
                                     </Button>
                                     <span className="text-sm text-muted-foreground">
                                         {fileName}
