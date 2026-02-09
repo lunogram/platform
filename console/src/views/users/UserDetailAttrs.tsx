@@ -69,7 +69,7 @@ export default function UserDetail() {
                     disabled={!dirty || saving}
                     onClick={handleSave}
                 >
-                    {saving ? t('saving') : t('save')}
+                    {saving ? t('loading') : t('save')}
                 </Button>
             </CardFooter>
         </Card>

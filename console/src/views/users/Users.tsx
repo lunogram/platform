@@ -79,7 +79,7 @@ export default function UserTabs() {
     const [isBulkRemovalOpen, setIsBulkRemovalOpen] = useState(false)
     const [isCreateUserOpen, setIsCreateUserOpen] = useState(false)
 
-    const defaultUser = {
+    const defaultUser: Pick<User, 'timezone' | 'locale' | 'data'> = {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         locale,
         data: {},
@@ -203,7 +203,7 @@ export default function UserTabs() {
     </>
 }
 
-function CreateUserForm({ defaultUser, timeZones, onSubmit }: { defaultUser: any, timeZones: string[], onSubmit: (user: User) => Promise<void> }) {
+function CreateUserForm({ defaultUser, timeZones, onSubmit }: { defaultUser: Pick<User, 'timezone' | 'locale' | 'data'>, timeZones: string[], onSubmit: (user: User) => Promise<void> }) {
     const { t } = useTranslation()
     const [isLoading, setIsLoading] = useState(false)
     const form = useForm<User>({
@@ -216,9 +216,12 @@ function CreateUserForm({ defaultUser, timeZones, onSubmit }: { defaultUser: any
         try {
             console.log('Form data:', data)
             await onSubmit(data)
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error creating user:', error)
-            console.error('Error response:', error.response?.data)
+            if (error && typeof error === 'object' && 'response' in error) {
+                const errWithResponse = error as { response?: { data?: unknown } }
+                console.error('Error response:', errWithResponse.response?.data)
+            }
         } finally {
             setIsLoading(false)
         }

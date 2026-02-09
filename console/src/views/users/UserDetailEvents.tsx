@@ -89,7 +89,7 @@ export default function UserDetailEvents() {
                                 ) : results.results.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={2} className="text-center text-muted-foreground">
-                                            {t('no_results')}
+                                            {t('No Results')}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -114,14 +114,22 @@ export default function UserDetailEvents() {
                                 {results.prevCursor && (
                                     <PaginationItem>
                                         <PaginationPrevious
-                                            onClick={() => setParams({ ...params, cursor: results.prevCursor!, page: 'prev' })}
+                                            href="#"
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                setParams({ ...params, cursor: results.prevCursor!, page: 'prev' })
+                                            }}
                                         />
                                     </PaginationItem>
                                 )}
                                 {results.nextCursor && (
                                     <PaginationItem>
                                         <PaginationNext
-                                            onClick={() => setParams({ ...params, cursor: results.nextCursor!, page: 'next' })}
+                                            href="#"
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                setParams({ ...params, cursor: results.nextCursor!, page: 'next' })
+                                            }}
                                         />
                                     </PaginationItem>
                                 )}
