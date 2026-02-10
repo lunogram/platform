@@ -1,14 +1,15 @@
 import { Editor } from "@monaco-editor/react";
-import { useEditorRef } from "./editorRef";
-import { debouncedPublish } from "./debouncedPulish";
+import type CodeStore from "./CodeStore";
+import type CodeEditorEventListener from "./CodeEditorEventListener";
 
-export function CodeEditorPlugin() {
-  const editorRef = useEditorRef();
+export function CodeEditorPlugin(props: {
+  store?: typeof CodeStore;
+  eventListener?: typeof CodeEditorEventListener;
+}) {
+  const onChange = (value: string) => {
+    props.store?.setCode(value);
+    props.eventListener?.safeEmit("codeChange", value);
+  };
 
-  function onChange(value: string) {
-    editorRef.current = value;
-    debouncedPublish(value);
-  }
-
-  return <Editor onChange={(value) => onChange(value ?? "")} />;
+  return <Editor language="html" onChange={(value) => onChange(value ?? "")} />;
 }

@@ -1,27 +1,48 @@
-import parse from "html-react-parser";
-import { useContext, useEffect, useState } from "react";
-import { TemplateContext } from "@/contexts";
-import { editorEvents } from "../editorEvents";
+import { useEffect, useRef, useState } from "react";
+import type CodeEditorEventListener from "../CodeEditorPlugins/CodeEditorEventListener";
+import type CodeStore from "../CodeEditorPlugins/CodeStore";
 
-// @ts-expect-error don't worry about it :)
-export const Preview = ({ children }) => {
-  const [template] = useContext(TemplateContext);
-  const initialHtml = template.data.rawHtml ?? "";
-  const [rawHtml, setRawHtml] = useState(initialHtml);
+export const Preview = (props: {
+  children: unknown;
+  eventListener: typeof CodeEditorEventListener;
+  codeStore: typeof CodeStore;
+}) => {
+  const [rawHtml, setRawHtml] = useState("");
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    const currentHtml = editorEvents.getHtml();
-    if (currentHtml && currentHtml !== initialHtml) {
-      setRawHtml(currentHtml);
+    const handler = () => {
+      setRawHtml(props.codeStore.current);
+    };
+
+    props.eventListener.addEventListener("codeChange", handler);
+
+    return () => {
+      props.eventListener.removeEventListener("codeChange", handler);
+    };
+  }, [props.eventListener, props.codeStore]);
+
+  useEffect(() => {
+    if (iframeRef.current) {
+      const doc = iframeRef.current.contentDocument;
+      if (doc) {
+        doc.open();
+        doc.write(rawHtml);
+        doc.close();
+      }
     }
+  }, [rawHtml]);
 
-    const unsubscribe = editorEvents.subscribeHtml(setRawHtml);
-    return unsubscribe;
-  }, [initialHtml]);
-
-  if (!rawHtml) {
-    return <>{children}</>;
+  if (!rawHtml || rawHtml.trim() === "") {
+    return <>{props.children}</>;
   }
 
-  return <div className="w-full h-full overflow-auto">{parse(rawHtml)}</div>;
+  return (
+    <iframe
+      ref={iframeRef}
+      className="w-full h-full border-0"
+      sandbox="allow-scripts allow-same-origin"
+      title="Email Preview"
+    />
+  );
 };

@@ -7,19 +7,25 @@ import "@puckeditor/core/dist/index.css";
 import "./Editor.css";
 import { TemplateContext } from "@/contexts";
 import { Code2Icon } from "lucide-react";
-import { editorEvents } from "./editorEvents";
 
 import SaveHandler from "./Handlers/SaveHandler";
 import { config } from "./Handlers/ConfigHandler";
 import { CodeEditorPlugin } from "./CodeEditorPlugins/CodeEditorPlugin";
-import { StablePreview } from "./CodeEditorPlugins/StablePreview";
+import { Preview } from "./Overrides/Preview";
+import CodeEditorEventListener from "./CodeEditorPlugins/CodeEditorEventListener";
+import CodeStore from "./CodeEditorPlugins/CodeStore";
 
 const plugin: Plugin = {
   name: "raw-html",
   label: "Raw html",
   icon: <Code2Icon />,
   render: () => {
-    return <CodeEditorPlugin />;
+    return (
+      <CodeEditorPlugin
+        store={CodeStore}
+        eventListener={CodeEditorEventListener}
+      />
+    );
   },
 };
 
@@ -27,9 +33,10 @@ export default function Editor() {
   const [template] = useContext(TemplateContext);
   const data = template.data.editor ?? { content: [], root: {} };
 
-  useEffect(() => {
-    return () => editorEvents.reset();
-  }, []);
+  if (template.data.html) {
+    CodeStore.setCode(template.data.html);
+    CodeEditorEventListener.emit("codeChange", template.data.html);
+  }
 
   return (
     <div className="w-full h-full">
@@ -55,11 +62,23 @@ export default function Editor() {
           headerActions: ({ children }) => <></>,
           puck: ({ children }) => (
             <>
-              <SaveHandler />
+              <SaveHandler
+                eventListener={CodeEditorEventListener}
+                codeStore={CodeStore}
+              />
               {children}
             </>
           ),
-          preview: StablePreview,
+          preview: ({ children }) => {
+            return (
+              <Preview
+                eventListener={CodeEditorEventListener}
+                codeStore={CodeStore}
+              >
+                {children}
+              </Preview>
+            );
+          },
         }}
       />
     </div>

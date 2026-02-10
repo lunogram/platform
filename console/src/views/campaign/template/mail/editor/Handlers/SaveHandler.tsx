@@ -15,7 +15,8 @@ import { TemplateWorkflowContext } from "../../../contexts";
 import { CampaignContext, ProjectContext, TemplateContext } from "@/mod";
 import { config } from "./ConfigHandler";
 import api from "@/api";
-import { rawHtmlState } from "../editorEvents";
+import type CodeStore from "../CodeEditorPlugins/CodeStore";
+import type CodeEditorEventListener from "../CodeEditorPlugins/CodeEditorEventListener";
 
 const TAILWIND_CONFIG = {
   presets: [pixelBasedPreset],
@@ -26,7 +27,10 @@ const ROBOTO_FONT = {
   format: "woff2" as const,
 };
 
-export default function SaveHandler() {
+export default function SaveHandler(props: {
+  eventListener: typeof CodeEditorEventListener;
+  codeStore: typeof CodeStore;
+}) {
   const { onSubmit } = useContext(TemplateWorkflowContext);
   const [project] = useContext(ProjectContext);
   const [campaign] = useContext(CampaignContext);
@@ -35,12 +39,10 @@ export default function SaveHandler() {
 
   onSubmit(async () => {
     const { appState } = getPuck();
-
-    // If raw HTML has content, use that instead of drag-and-drop
-    const useRawHtml = rawHtmlState.html.trim().length > 0;
+    const useRawHtml = props.codeStore.current.trim().length > 0;
 
     const content = useRawHtml
-      ? rawHtmlState.html
+      ? props.codeStore.current
       : renderToString(<Render config={config} data={appState.data} />);
 
     const html = await render(
@@ -70,7 +72,7 @@ export default function SaveHandler() {
           ...template.data,
           // Clear editor data if using raw HTML, otherwise keep it
           editor: useRawHtml ? undefined : appState.data,
-          rawHtml: useRawHtml ? rawHtmlState.html : undefined,
+          rawHtml: useRawHtml ? content : undefined,
           html,
         },
       },
