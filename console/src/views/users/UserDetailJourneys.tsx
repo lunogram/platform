@@ -1,11 +1,12 @@
-import { useCallback, useContext, useState } from 'react'
+import { useCallback, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { Search } from 'lucide-react'
 import api from '../../api'
 import { ProjectContext, UserContext } from '../../contexts'
-import { useDebounceControl, useResolver } from '../../hooks'
-import type { SearchParams, JourneyUserStep } from '../../types'
+import { useDebounceControl } from '../../hooks'
+import type { JourneyUserStep } from '../../types'
+import { useSearchTableQueryState } from '../../ui/SearchTable'
 import { formatDate } from '../../utils'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import {
@@ -37,13 +38,11 @@ export default function UserDetailJourneys() {
     const projectId = project.id
     const userId = user.id
 
-    const [params, setParams] = useState<SearchParams>({
-        limit: 25,
-        q: '',
-    })
-    const [search, setSearch] = useDebounceControl(params.q ?? '', q => setParams({ ...params, q }))
+    const { results, params, setParams } = useSearchTableQueryState(
+        useCallback(async (params) => await api.users.journeys.search(projectId, userId, params), [projectId, userId])
+    )
 
-    const [results] = useResolver(useCallback(async () => await api.users.journeys.search(projectId, userId, params), [projectId, userId, params]))
+    const [search, setSearch] = useDebounceControl(params.q ?? '', q => setParams({ ...params, q }))
 
     return (
         <Card>
@@ -90,9 +89,17 @@ export default function UserDetailJourneys() {
                                 results.results.map((item: JourneyUserStep) => (
                                     <TableRow
                                         key={item.id}
-                                        className="cursor-pointer"
+                                                                                className="cursor-pointer"
+                                        role="button"
+                                        tabIndex={0}
                                         onClick={() => navigate(`../../entrances/${item.entrance_id}`)}
-                                    >
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter' || event.key === ' ') {
+                                                event.preventDefault()
+                                                navigate(`../../entrances/${item.entrance_id}`)
+                                            }
+                                        }}
+                                        >
                                         <TableCell>{item.journey?.name}</TableCell>
                                         <TableCell>{formatDate(preferences, item.created_at)}</TableCell>
                                         <TableCell>

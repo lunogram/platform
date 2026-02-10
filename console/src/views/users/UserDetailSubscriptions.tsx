@@ -1,9 +1,10 @@
-import { useCallback, useContext, useState } from 'react'
+import { useCallback, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import api from '../../api'
 import { ProjectContext, UserContext } from '../../contexts'
-import { useDebounceControl, useResolver } from '../../hooks'
-import type { SearchParams, SubscriptionParams, SubscriptionState, UserSubscription } from '../../types'
+import { useDebounceControl } from '../../hooks'
+import type { SubscriptionParams, SubscriptionState, UserSubscription } from '../../types'
+import { useSearchTableQueryState } from '../../ui/SearchTable'
 import { snakeToTitle } from '../../utils'
 import type { UUID } from '@/types/common'
 import {
@@ -31,13 +32,12 @@ export default function UserDetailSubscriptions() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const [user] = useContext(UserContext)
-    const [params, setParams] = useState<SearchParams>({
-        limit: 25,
-        q: '',
-    })
-    const [search, setSearch] = useDebounceControl(params.q ?? '', q => setParams({ ...params, q }))
 
-    const [results, , reload] = useResolver(useCallback(async () => await api.users.subscriptions(project.id, user.id, params), [project, user, params]))
+    const { results, params, setParams, reload } = useSearchTableQueryState(
+        useCallback(async (params) => await api.users.subscriptions(project.id, user.id, params), [project, user])
+    )
+
+    const [search, setSearch] = useDebounceControl(params.q ?? '', q => setParams({ ...params, q }))
 
     const updateSubscription = async (subscription_id: UUID, state: SubscriptionState) => {
         if (!confirm(t('users_change_subscription_status'))) return

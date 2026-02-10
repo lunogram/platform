@@ -197,7 +197,7 @@ export default function UserTabs() {
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={6} className="h-24 text-center">
-                                    {t('No Results')}
+                                    {t('campaign.setup.channels.email.no_content_available')}
                                 </TableCell>
                             </TableRow>
                         )}
@@ -209,6 +209,7 @@ export default function UserTabs() {
                     <PaginationContent>
                         <PaginationItem>
                             <PaginationPrevious
+                                href="#"
                                 onClick={(e) => {
                                     e.preventDefault()
                                     state.setParams({ ...state.params, cursor: state.results!.prevCursor, page: 'prev' })
@@ -219,6 +220,7 @@ export default function UserTabs() {
                         </PaginationItem>
                         <PaginationItem>
                             <PaginationNext
+                                href="#"
                                 onClick={(e) => {
                                     e.preventDefault()
                                     state.setParams({ ...state.params, cursor: state.results!.nextCursor, page: 'next' })
@@ -268,16 +270,9 @@ function CreateUserForm({ defaultUser, timeZones, onSubmit }: { defaultUser: Pic
         if (isLoading) return
         setIsLoading(true)
         try {
-            console.log('Form data:', data)
-            await onSubmit(data)
+                    await onSubmit(data)
         } catch (error: unknown) {
-            console.error('Error creating user:', error)
-            if (error && typeof error === 'object' && 'response' in error) {
-                const errWithResponse = error as { response?: { data?: unknown } }
-                console.error('Error response:', errWithResponse.response?.data)
-            }
-        } finally {
-            setIsLoading(false)
+            console.error('Error creating user')
         }
     }
 

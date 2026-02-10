@@ -97,7 +97,15 @@ export default function UserDetailEvents() {
                                         <TableRow
                                             key={item.id}
                                             className="cursor-pointer"
+                                            role="button"
+                                            tabIndex={0}
                                             onClick={() => setEvent(item)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault()
+                                                    setEvent(item)
+                                                }
+                                            }}
                                         >
                                             <TableCell>{item.name}</TableCell>
                                             <TableCell>{formatDate(preferences, item.created_at)}</TableCell>
