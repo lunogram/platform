@@ -177,6 +177,14 @@ export default function UserTabs() {
                                     key={user.id}
                                     className="cursor-pointer"
                                     onClick={() => route(`users/${user.id}`)}
+                                    tabIndex={0}
+                                    role="button"
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter' || event.key === ' ') {
+                                            event.preventDefault()
+                                            route(`users/${user.id}`)
+                                        }
+                                    }}
                                 >
                                     <TableCell>{user.data?.full_name || user.full_name || '-'}</TableCell>
                                     <TableCell>{user.external_id || '-'}</TableCell>
