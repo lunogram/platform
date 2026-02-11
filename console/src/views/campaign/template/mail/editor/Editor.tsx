@@ -1,111 +1,112 @@
-/* eslint-disable react-hooks/rules-of-hooks */
-import { Puck, type Plugin } from "@puckeditor/core";
-import { viewports } from "./viewport";
-import { useContext, useEffect } from "react";
+import { useContext, useState } from "react";
 
 import "@puckeditor/core/dist/index.css";
 import "./Editor.css";
 import { TemplateContext } from "@/contexts";
-import { Code2Icon } from "lucide-react";
 
-import SaveHandler from "./Handlers/SaveHandler";
-import { config } from "./Handlers/ConfigHandler";
-import { CodeEditorPlugin } from "./CodeEditorPlugins/CodeEditorPlugin";
-import { Preview } from "./Overrides/Preview";
-import CodeEditorEventListener from "./CodeEditorPlugins/CodeEditorEventListener";
 import CodeStore from "./CodeEditorPlugins/CodeStore";
+import { EditorWizard, type Template } from "./SelectionModals/EditorWizard";
+import { HtmlEditor } from "./HtmlEditor";
+import { BlockEditor } from "./BlockEditor";
 
-const plugin: Plugin = {
-  name: "raw-html",
-  label: "Raw html",
-  icon: <Code2Icon />,
-  render: () => {
-    return (
-      <CodeEditorPlugin
-        store={CodeStore}
-        eventListener={CodeEditorEventListener}
-      />
-    );
+const TESTING_TEMPLATES: Template[] = [
+  {
+    id: "welcome-email",
+    label: "Welcome Email",
+    description: "A professional welcome email template for new users",
+    thumbnail: undefined,
   },
-};
+  {
+    id: "promotional",
+    label: "Promotional Offer",
+    description: "Eye-catching template for promotional campaigns",
+    thumbnail: undefined,
+  },
+  {
+    id: "newsletter",
+    label: "Newsletter",
+    description: "Clean and simple newsletter layout",
+    thumbnail: undefined,
+  },
+  {
+    id: "confirmation",
+    label: "Order Confirmation",
+    description: "Template for order confirmation emails",
+    thumbnail: undefined,
+  },
+  {
+    id: "password-reset",
+    label: "Password Reset",
+    description: "Secure password reset request template",
+    thumbnail: undefined,
+  },
+  {
+    id: "discount-code",
+    label: "Discount Code",
+    description: "Exclusive discount offer for loyal customers",
+    thumbnail: undefined,
+  },
+  {
+    id: "event-invitation",
+    label: "Event Invitation",
+    description: "Professional event invitation template",
+    thumbnail: undefined,
+  },
+  {
+    id: "feedback-survey",
+    label: "Feedback Survey",
+    description: "Customer feedback and survey request",
+    thumbnail: undefined,
+  },
+  {
+    id: "re-engagement",
+    label: "Re-engagement Campaign",
+    description: "Win back inactive customers",
+    thumbnail: undefined,
+  },
+  {
+    id: "vip-exclusive",
+    label: "VIP Exclusive Offer",
+    description: "Premium offer for VIP members",
+    thumbnail: undefined,
+  },
+];
 
 export default function Editor() {
   const [template] = useContext(TemplateContext);
+  const [isWizardOpen, setIsWizardOpen] = useState(true);
+  const [editorMode, setEditorMode] = useState<"block" | "code" | null>(null);
+
+  const handleComplete = (type: "block" | "code") => {
+    setEditorMode(type);
+    setIsWizardOpen(false);
+  };
+
   const data = template.data.editor ?? { content: [], root: {} };
 
   if (template.data.html) {
-    // If you remove this it won't show up after reloading
-    // Don't ask me why, I don't understand either. :P
     CodeStore.setCode(template.data.html);
+    // handleComplete("code");
   }
-
-  useEffect(() => {
-    if (!template.data.html) return;
-
-    const handleInitialLoad = () => {
-      CodeEditorEventListener.emit("CODE_CHANGE");
-      CodeEditorEventListener.removeEventListener(
-        "INITIAL_CODE_LOAD",
-        handleInitialLoad,
-      );
-    };
-
-    CodeEditorEventListener.addEventListener(
-      "INITIAL_CODE_LOAD",
-      handleInitialLoad,
-    );
-
-    return () => {
-      CodeEditorEventListener.removeEventListener(
-        "INITIAL_CODE_LOAD",
-        handleInitialLoad,
-      );
-    };
-  }, [template.data.html]);
 
   return (
     <div className="w-full h-full">
-      <Puck
-        viewports={viewports}
-        config={config}
-        data={data}
-        plugins={[plugin]}
-        overrides={{
-          iframe: ({ children, document }) => {
-            useEffect(() => {
-              if (document) {
-                const script = document.createElement("script");
-                script.type = "module";
-                script.src = "https://cdn.skypack.dev/twind/shim";
-                document.head.appendChild(script);
-              }
-            }, [document]);
-
-            return <>{children}</>;
-          },
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          headerActions: ({ children }) => <></>,
-          puck: ({ children }) => (
-            <>
-              <SaveHandler
-                eventListener={CodeEditorEventListener}
-                codeStore={CodeStore}
-              />
-              {children}
-            </>
-          ),
-          preview: ({ children }) => {
-            return (
-              <Preview
-                eventListener={CodeEditorEventListener}
-                codeStore={CodeStore}
-              >
-                {children}
-              </Preview>
-            );
-          },
-        }}
+      <EditorWizard
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        templates={TESTING_TEMPLATES}
+        onComplete={handleComplete}
       />
+
+      {!isWizardOpen && (
+        <>
+          {editorMode === "code" ? (
+            <HtmlEditor data={data} html={template.data.html} />
+          ) : (
+            <BlockEditor data={data} />
+          )}
+        </>
+      )}
     </div>
   );
 }
