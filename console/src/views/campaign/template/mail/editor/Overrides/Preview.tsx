@@ -3,11 +3,11 @@ import type CodeEditorEventListener from "../CodeEditorPlugins/CodeEditorEventLi
 import type CodeStore from "../CodeEditorPlugins/CodeStore";
 
 export const Preview = (props: {
-  children: unknown;
+  children: React.ReactNode;
   eventListener: typeof CodeEditorEventListener;
   codeStore: typeof CodeStore;
 }) => {
-  const [rawHtml, setRawHtml] = useState("");
+  const [rawHtml, setRawHtml] = useState(props.codeStore.current);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -15,10 +15,10 @@ export const Preview = (props: {
       setRawHtml(props.codeStore.current);
     };
 
-    props.eventListener.addEventListener("codeChange", handler);
+    props.eventListener.addEventListener("CODE_CHANGE", handler);
 
     return () => {
-      props.eventListener.removeEventListener("codeChange", handler);
+      props.eventListener.removeEventListener("CODE_CHANGE", handler);
     };
   }, [props.eventListener, props.codeStore]);
 
@@ -38,11 +38,16 @@ export const Preview = (props: {
   }
 
   return (
-    <iframe
-      ref={iframeRef}
-      className="w-full h-full border-0"
-      sandbox="allow-scripts allow-same-origin"
-      title="Email Preview"
-    />
+    <>
+      <iframe
+        ref={iframeRef}
+        className="w-full h-full border-0"
+        sandbox="allow-scripts allow-same-origin"
+        title="Email Preview"
+      />
+      <div id="temp" className="hidden">
+        {props.children}
+      </div>
+    </>
   );
 };

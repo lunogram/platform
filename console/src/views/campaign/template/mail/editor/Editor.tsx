@@ -34,9 +34,34 @@ export default function Editor() {
   const data = template.data.editor ?? { content: [], root: {} };
 
   if (template.data.html) {
+    // If you remove this it won't show up after reloading
+    // Don't ask me why, I don't understand either. :P
     CodeStore.setCode(template.data.html);
-    CodeEditorEventListener.emit("codeChange", template.data.html);
   }
+
+  useEffect(() => {
+    if (!template.data.html) return;
+
+    const handleInitialLoad = () => {
+      CodeEditorEventListener.emit("CODE_CHANGE");
+      CodeEditorEventListener.removeEventListener(
+        "INITIAL_CODE_LOAD",
+        handleInitialLoad,
+      );
+    };
+
+    CodeEditorEventListener.addEventListener(
+      "INITIAL_CODE_LOAD",
+      handleInitialLoad,
+    );
+
+    return () => {
+      CodeEditorEventListener.removeEventListener(
+        "INITIAL_CODE_LOAD",
+        handleInitialLoad,
+      );
+    };
+  }, [template.data.html]);
 
   return (
     <div className="w-full h-full">

@@ -1,31 +1,10 @@
 import { useContext } from "react";
-import { Render, useGetPuck } from "@puckeditor/core";
-import {
-  Body,
-  Font,
-  Head,
-  Html,
-  Tailwind,
-  pixelBasedPreset,
-} from "@react-email/components";
-import { render } from "@react-email/render";
-import { renderToString } from "react-dom/server";
-import parse from "html-react-parser";
+import { useGetPuck } from "@puckeditor/core";
 import { TemplateWorkflowContext } from "../../../contexts";
 import { CampaignContext, ProjectContext, TemplateContext } from "@/mod";
-import { config } from "./ConfigHandler";
 import api from "@/api";
 import type CodeStore from "../CodeEditorPlugins/CodeStore";
 import type CodeEditorEventListener from "../CodeEditorPlugins/CodeEditorEventListener";
-
-const TAILWIND_CONFIG = {
-  presets: [pixelBasedPreset],
-};
-
-const ROBOTO_FONT = {
-  url: "https://fonts.gstatic.com/s/roboto/v27/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2",
-  format: "woff2" as const,
-};
 
 export default function SaveHandler(props: {
   eventListener: typeof CodeEditorEventListener;
@@ -41,28 +20,6 @@ export default function SaveHandler(props: {
     const { appState } = getPuck();
     const useRawHtml = props.codeStore.current.trim().length > 0;
 
-    const content = useRawHtml
-      ? props.codeStore.current
-      : renderToString(<Render config={config} data={appState.data} />);
-
-    const html = await render(
-      <Html lang={template.locale}>
-        <Head>
-          <Font
-            fontFamily="Roboto"
-            fallbackFontFamily="Verdana"
-            webFont={ROBOTO_FONT}
-            fontWeight={400}
-            fontStyle="normal"
-          />
-        </Head>
-        <Tailwind config={TAILWIND_CONFIG}>
-          <Body>{parse(content)}</Body>
-        </Tailwind>
-      </Html>,
-      { pretty: true },
-    );
-
     const updated = await api.campaigns.templates.update(
       project.id,
       campaign.id,
@@ -70,10 +27,9 @@ export default function SaveHandler(props: {
       {
         data: {
           ...template.data,
-          // Clear editor data if using raw HTML, otherwise keep it
           editor: useRawHtml ? undefined : appState.data,
-          rawHtml: useRawHtml ? content : undefined,
-          html,
+          rawHtml: useRawHtml ? props.codeStore.current : undefined,
+          html: useRawHtml ? props.codeStore.current : template.data.html,
         },
       },
     );
