@@ -209,6 +209,35 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+    delete:
+      summary: Delete campaign
+      description: Archives a campaign by setting its deleted_at timestamp
+      operationId: deleteCampaign
+      tags:
+        - Campaigns
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID
+      responses:
+        "204":
+          description: Campaign deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/campaigns/{campaignID}/templates:
     post:
       summary: Create template
