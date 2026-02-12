@@ -1,6 +1,6 @@
 import { useContext, useState } from 'react'
 import { ProjectContext, UserContext } from '../../contexts'
-import { Outlet, useNavigate, useLocation } from 'react-router'
+import { Outlet, useNavigate, useLocation, NavLink } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
     Card,
@@ -27,7 +27,7 @@ import { Badge } from '@/components/ui/badge'
 import { TrashIcon } from '../../components/icons'
 import api from '../../api'
 import { useTranslation } from 'react-i18next'
-import { NavLink } from 'react-router'
+
 export default function UserDetail() {
     const { t } = useTranslation()
     const navigate = useNavigate()
@@ -46,7 +46,7 @@ export default function UserDetail() {
         setIsDeleteDialogOpen(false)
     }
     const userInfo = [
-        { label: 'ID', value: external_id },
+        { label: t('external_id'), value: external_id },
         { label: t('email'), value: email },
         { label: t('phone'), value: phone },
         { label: t('timezone'), value: timezone },

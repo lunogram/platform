@@ -156,7 +156,21 @@ export default function UserTabs() {
                             <TableHead>{t('email')}</TableHead>
                             <TableHead>{t('phone')}</TableHead>
                             <TableHead>{t('locale.singular')}</TableHead>
-                            <TableHead>{t('created_at')}</TableHead>
+                                                        <TableHead
+                                className="cursor-pointer select-none"
+                                onClick={() =>
+                                    state.setParams({
+                                        ...state.params,
+                                        sort: 'created_at',
+                                        direction:
+                                            state.params.sort === 'created_at' && state.params.direction === 'asc'
+                                                ? 'desc'
+                                                : 'asc',
+                                    })
+                                }
+                            >
+                                {t('created_at')}
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -207,28 +221,30 @@ export default function UserTabs() {
             {state.results && (
                 <Pagination className="mt-4">
                     <PaginationContent>
-                        <PaginationItem>
-                            <PaginationPrevious
-                                href="#"
-                                onClick={(e) => {
-                                    e.preventDefault()
-                                    state.setParams({ ...state.params, cursor: state.results!.prevCursor, page: 'prev' })
-                                }}
-                                aria-disabled={!state.results.prevCursor}
-                                className={!state.results.prevCursor ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                            />
-                        </PaginationItem>
-                        <PaginationItem>
-                            <PaginationNext
-                                href="#"
-                                onClick={(e) => {
-                                    e.preventDefault()
-                                    state.setParams({ ...state.params, cursor: state.results!.nextCursor, page: 'next' })
-                                }}
-                                aria-disabled={!state.results.nextCursor}
-                                className={!state.results.nextCursor ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                            />
-                        </PaginationItem>
+                        {state.results.prevCursor && (
+                            <PaginationItem>
+                                <PaginationPrevious
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        state.setParams({ ...state.params, cursor: state.results!.prevCursor, page: 'prev' })
+                                    }}
+                                    className="cursor-pointer"
+                                />
+                            </PaginationItem>
+                        )}
+                        {state.results.nextCursor && (
+                            <PaginationItem>
+                                <PaginationNext
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        state.setParams({ ...state.params, cursor: state.results!.nextCursor, page: 'next' })
+                                    }}
+                                    className="cursor-pointer"
+                                />
+                            </PaginationItem>
+                        )}
                     </PaginationContent>
                 </Pagination>
             )}
@@ -270,9 +286,11 @@ function CreateUserForm({ defaultUser, timeZones, onSubmit }: { defaultUser: Pic
         if (isLoading) return
         setIsLoading(true)
         try {
-                    await onSubmit(data)
+            await onSubmit(data)
         } catch (error: unknown) {
-            console.error('Error creating user')
+            console.error('Error creating user', error)
+        } finally {
+            setIsLoading(false)
         }
     }
 
@@ -371,7 +389,12 @@ function BulkRemoveUsersForm({ onSubmit }: { onSubmit: (file: FileList) => Promi
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(data => onSubmit(data.file))} className="space-y-5">
+            <form
+                onSubmit={form.handleSubmit(async (data) => {
+                    await onSubmit(data.file)
+                })}
+                className="space-y-5"
+            >
                 <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4">
                     <p className="text-sm leading-relaxed text-amber-900 dark:text-amber-200">
                         {t('delete_users_instructions')}

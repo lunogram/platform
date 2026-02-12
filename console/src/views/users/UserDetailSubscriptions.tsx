@@ -114,7 +114,16 @@ export default function UserDetailSubscriptions() {
                                         <TableCell>
                                             <Switch
                                                 checked={item.state === 'subscribed'}
-                                                onCheckedChange={(checked) => updateSubscription(item.subscription_id, checked ? 'subscribed' : 'unsubscribed')}
+                                                onCheckedChange={async (checked) => {
+                                                    try {
+                                                        await updateSubscription(
+                                                            item.subscription_id,
+                                                            checked ? 'subscribed' : 'unsubscribed',
+                                                        )
+                                                    } catch (error) {
+                                                        console.error('Failed to update subscription', error)
+                                                    }
+                                                }}
                                             />
                                         </TableCell>
                                     </TableRow>

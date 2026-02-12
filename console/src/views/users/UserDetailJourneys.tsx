@@ -89,7 +89,7 @@ export default function UserDetailJourneys() {
                                 results.results.map((item: JourneyUserStep) => (
                                     <TableRow
                                         key={item.id}
-                                                                                className="cursor-pointer"
+                                        className="cursor-pointer"
                                         role="button"
                                         tabIndex={0}
                                         onClick={() => navigate(`../../entrances/${item.entrance_id}`)}
