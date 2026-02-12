@@ -2,11 +2,16 @@ import { useContext, useMemo } from "react";
 import { highlightSearch, usePopperSelectDropdown } from "../../../ui/utils";
 import type { RuleEditProps } from "./RuleHelpers";
 import { operatorTypes, VariablesContext, ruleTypes } from "./RuleHelpers";
-import { ButtonGroup } from "../../../ui";
-import { SingleSelect } from "../../../ui/form/SingleSelect";
-import { Combobox } from "../../../components/ui/combobox";
-import TextInput from "../../../ui/form/TextInput";
+import { Combobox } from "@/components/ui/combobox";
 import type { EventSchemaPath, RulePath } from "../../../types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 type PathOption = RulePath | EventSchemaPath;
 
@@ -45,7 +50,7 @@ export default function FilterRuleEdit({
     if (path) {
       let search = path.toLowerCase();
       if (search.startsWith(".")) search = "$" + search;
-      if (!search.startsWith("$.")) search = "$." + search;
+      if (!search.startsWith("$.")) search = "$" + search;
       paths = paths.filter((p) => p.path.toLowerCase().startsWith(search));
     }
     return paths;
@@ -55,22 +60,37 @@ export default function FilterRuleEdit({
     if ("types" in option) {
       return option.types[0] || "string";
     }
-  
+
     return option.data_type;
   };
 
+  const typeOption = ruleTypes.find((opt) => opt.key === rule?.type);
+  const operatorOption = operatorTypes[rule?.type]?.find(
+    (opt) => opt.key === rule?.operator
+  );
+
   return (
     <div className="rule">
-      <ButtonGroup className="ui-select">
-        <SingleSelect
+      <div className="inline-flex items-stretch">
+        <Select
           value={rule?.type}
-          onChange={(type) => setRule({ ...rule, type })}
-          options={ruleTypes}
-          required
-          hideLabel
-          size="small"
-          toValue={(x) => x.key as typeof rule.type}
-        />
+          onValueChange={(type) =>
+            setRule({ ...rule, type: type as typeof rule.type })
+          }
+        >
+          <SelectTrigger className="h-9 w-auto rounded-r-none border-r-0 text-sm">
+            <SelectValue placeholder={typeOption?.label}>
+              {typeOption?.label}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {ruleTypes.map((opt) => (
+              <SelectItem key={opt.key} value={opt.key}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Combobox
           value={rule?.path}
           onValueChange={(selectedPath: string) => {
@@ -90,7 +110,7 @@ export default function FilterRuleEdit({
           options={pathSuggestions}
           placeholder="Path"
           required
-          inputClassName="rounded-none border-l-0"
+          inputClassName="rounded-none"
           buttonClassName="rounded-none"
           renderOption={(option, search) => (
             <span
@@ -100,17 +120,27 @@ export default function FilterRuleEdit({
             />
           )}
         />
-        <SingleSelect
+        <Select
           value={rule?.operator}
-          onChange={(operator) => setRule({ ...rule, operator })}
-          options={operatorTypes[rule?.type] ?? []}
-          required
-          hideLabel
-          size="small"
-          toValue={(x) => x.key}
-        />
+          onValueChange={(operator) =>
+            setRule({ ...rule, operator: operator as typeof rule.operator })
+          }
+        >
+          <SelectTrigger className="h-9 w-auto rounded-none border-x-0 text-sm">
+            <SelectValue placeholder={operatorOption?.label}>
+              {operatorOption?.label}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {(operatorTypes[rule?.type] ?? []).map((opt) => (
+              <SelectItem key={opt.key} value={opt.key}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {hasValue && rule.type === "boolean" ? (
-          <SingleSelect
+          <Select
             value={
               rule.value === "true"
                 ? "true"
@@ -118,29 +148,27 @@ export default function FilterRuleEdit({
                   ? "false"
                   : undefined
             }
-            onChange={(value) => setRule({ ...rule, value })}
-            options={[
-              { key: "true", label: "True" },
-              { key: "false", label: "False" },
-            ]}
-            required
-            hideLabel
-            size="small"
-            toValue={(x) => x.key}
-          />
+            onValueChange={(value) => setRule({ ...rule, value })}
+          >
+            <SelectTrigger className="h-9 w-auto rounded-l-none text-sm">
+              <SelectValue placeholder="Value" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">True</SelectItem>
+              <SelectItem value="false">False</SelectItem>
+            </SelectContent>
+          </Select>
         ) : (
-          <TextInput
-            size="small"
+          <Input
             type="text"
-            name="value"
             placeholder="Value"
-            hideLabel={true}
-            value={rule?.value?.toString()}
-            onChange={(value) => setRule({ ...rule, value })}
+            value={rule?.value?.toString() ?? ""}
+            onChange={(e) => setRule({ ...rule, value: e.target.value })}
+            className="h-9 w-auto rounded-l-none border-l-0"
           />
         )}
         {controls}
-      </ButtonGroup>
+      </div>
     </div>
   );
 }

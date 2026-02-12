@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useController } from 'react-hook-form'
 import './RuleBuilder.css'
 import { useCallback, useContext, useMemo } from 'react'
+import { Label } from '@/components/ui/label'
 import { ProjectContext } from '../../../contexts'
 import { useResolver } from '../../../hooks'
 import api from '../../../api'
@@ -53,10 +54,10 @@ RuleBuilder.Field = function RuleBuilderField<X extends FieldValues, P extends F
 
     return <>
         <div className="rule-form-title">
-            <span>
+            <Label className="flex items-center gap-1">
                 {label ?? snakeToTitle(name)}
-                {required && <span style={{ color: 'red' }}>&nbsp;*</span>}
-            </span>
+                {required && <span className="text-destructive">*</span>}
+            </Label>
         </div>
         <RuleBuilder rule={field.value} setRule={async (rule) => {
             await field.onChange?.(rule)

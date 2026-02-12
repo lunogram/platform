@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { SingleSelect } from "../../../ui/form/SingleSelect";
 import { PlusIcon, TrashIcon } from "../../../components/icons";
 import { createUuid } from "../../../utils";
 import EventRuleEdit from "./EventRuleEdit";
@@ -8,6 +7,13 @@ import type { RuleEditProps } from "./RuleHelpers";
 import { createEventRule, isEventWrapper, operatorTypes } from "./RuleHelpers";
 import type { EventRule, WrapperRule } from "../../../types";
 import RuleEdit from "./RuleEdit";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function WrapperRuleEdit({
   rule,
@@ -28,6 +34,10 @@ export default function WrapperRuleEdit({
     });
   };
 
+  const operatorOption = operatorTypes.wrapper.find(
+    (opt) => opt.key === rule?.operator
+  );
+
   let ruleSet = (
     <div className="rule-set">
       <div className="rule-set-header">
@@ -36,21 +46,31 @@ export default function WrapperRuleEdit({
         ) : (
           <>
             {t("rule_include_users_matching")}
-            <SingleSelect
+            <Select
               value={rule?.operator}
-              onChange={(operator) => setRule({ ...rule, operator })}
-              options={operatorTypes.wrapper}
-              required
-              hideLabel
-              size="small"
-              toValue={(x) => x.key}
-            />
+              onValueChange={(operator) =>
+                setRule({ ...rule, operator: operator as "and" | "or" })
+              }
+            >
+              <SelectTrigger className="h-8 w-auto inline-flex text-sm">
+                <SelectValue placeholder={operatorOption?.label}>
+                  {operatorOption?.label}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {operatorTypes.wrapper.map((opt) => (
+                  <SelectItem key={opt.key} value={opt.key}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {t("rule_of_the_following")}
           </>
         )}
-        <div style={{ flexGrow: 1 }} />
+        <div className="flex-grow" />
         {isEventWrapper(rule) && controls && typeof controls === 'object' && 'props' in controls && (
-          <Button size="sm" variant="outline" onClick={controls.props.onClick}>
+          <Button size="sm" variant="outline" onClick={(controls as { props: { onClick: () => void } }).props.onClick}>
             <TrashIcon />
           </Button>
         )}
@@ -119,16 +139,17 @@ export default function WrapperRuleEdit({
             ? t("rule_add_condition")
             : t("rule_add_user_condition")}
         </Button>
-        {depth === 0 && (rule?.group === "user" || rule?.group === "parent") && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleAddEventWrapper()}
-          >
-            <PlusIcon />
-            {t("rule_add_event_condition")}
-          </Button>
-        )}
+        {depth === 0 &&
+          (rule?.group === "user" || rule?.group === "parent") && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleAddEventWrapper()}
+            >
+              <PlusIcon />
+              {t("rule_add_event_condition")}
+            </Button>
+          )}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { Combobox } from "../../../components/ui/combobox";
+import { Combobox } from "@/components/ui/combobox";
 import type { Rule, RulePath } from "../../../types";
 import { highlightSearch, usePopperSelectDropdown } from "../../../ui/utils";
 import { useContext } from "react";
