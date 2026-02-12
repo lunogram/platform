@@ -1,9 +1,8 @@
 import { useCallback } from 'react'
 import api from '../../../api'
 import type { JourneyStepType } from '../../../types'
-import { EntityIdPicker } from '../../../ui/form/EntityIdPicker'
 import { ActionStepIcon } from '../../../components/icons'
-import { CreateCampaign } from '@/views/campaign/CreateCampaign'
+import { CampaignSelect } from '@/components/campaign/select'
 import { useResolver } from '../../../hooks'
 import { useTranslation } from 'react-i18next'
 import { ChannelIcon } from '../../campaign/ChannelTag'
@@ -63,21 +62,16 @@ export const actionStep: JourneyStepType<ActionConfig> = {
     }) {
         const { t } = useTranslation()
         return (
-            <>
-                <EntityIdPicker
-                    label={t('campaign.singular')}
-                    subtitle={t('send_campaign_desc')}
-                    get={useCallback(async id => await api.campaigns.get(projectId, id), [projectId])}
-                    search={useCallback(async q => await api.campaigns.search(projectId, { q, limit: 50, filter: { type: 'trigger' } }), [projectId])}
+            <div className="grid gap-2">
+                <label className="text-sm font-medium">{t('campaign.singular')}</label>
+                <p className="text-sm text-muted-foreground">{t('send_campaign_desc')}</p>
+                <CampaignSelect
+                    projectId={projectId}
                     value={value.campaign_id}
                     onChange={campaign_id => onChange({ ...value, campaign_id: campaign_id ?? NIL as UUID })}
                     required
-                    createModalSize="large"
-                    renderCreateForm={() => (
-                        <CreateCampaign />
-                    )}
                 />
-            </>
+            </div>
         )
     },
     validate: ({ campaign_id }) => {

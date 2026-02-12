@@ -113,6 +113,12 @@
     "review": {
       "title": "Review",
       "description": "Review your campaign before sending."
+    },
+    "select": {
+      "placeholder": "Select campaign...",
+      "search_placeholder": "Search campaigns...",
+      "loading": "Loading...",
+      "no_campaign_found": "No campaign found."
     }
   },
   "channels": {

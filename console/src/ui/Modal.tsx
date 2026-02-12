@@ -1,6 +1,5 @@
-import { Dialog, Transition } from '@headlessui/react'
+import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Description, Transition, TransitionChild } from '@headlessui/react'
 import type { PropsWithChildren, ReactNode } from 'react';
-import { Fragment } from 'react'
 import { Button } from '@/components/ui/button'
 import { CloseIcon } from '../components/icons'
 import { useTranslation } from 'react-i18next'
@@ -31,15 +30,14 @@ export default function Modal({
 }: PropsWithChildren<ModalProps>) {
     const { t } = useTranslation()
     return (
-        <Transition.Root show={open} as={Fragment}>
+        <Transition show={open}>
             <Dialog
                 as="div"
                 className={`modal ${size ?? 'small'}`}
                 onClose={onClose}
                 style={{ zIndex }}
             >
-                <Transition.Child
-                    as={Fragment}
+                <TransitionChild
                     enter="transition-enter"
                     enterFrom="transition-enter-from"
                     enterTo="transition-enter-to"
@@ -47,11 +45,10 @@ export default function Modal({
                     leaveFrom="transition-leave-from"
                     leaveTo="transition-leave-to"
                 >
-                    <Dialog.Overlay className="modal-overlay" style={{ zIndex }} />
-                </Transition.Child>
+                    <DialogBackdrop className="modal-overlay" style={{ zIndex }} />
+                </TransitionChild>
                 <div className="modal-wrapper" style={{ zIndex: zIndex + 1 }}>
-                    <Transition.Child
-                        as={Fragment}
+                    <TransitionChild
                         enter="transition-enter"
                         enterFrom="transition-enter-from transition-enter-from-scale"
                         enterTo="transition-enter-to"
@@ -59,7 +56,7 @@ export default function Modal({
                         leaveFrom="transition-leave-from"
                         leaveTo="transition-leave-to"
                     >
-                        <Dialog.Panel className="modal-inner">
+                        <DialogPanel className="modal-inner">
                             <div className="modal-header">
                                 {
                                     size === 'fullscreen' && (
@@ -72,7 +69,7 @@ export default function Modal({
                                         </Button>
                                     )
                                 }
-                                <Dialog.Title as="h3">{title}</Dialog.Title>
+                                <DialogTitle as="h3">{title}</DialogTitle>
                                 {
                                     size === 'fullscreen' && actions && (
                                         <div className="modal-fullscreen-actions">
@@ -83,9 +80,9 @@ export default function Modal({
                             </div>
                             {
                                 description && (
-                                    <Dialog.Description className="modal-description">
+                                    <Description className="modal-description">
                                         {description}
-                                    </Dialog.Description>
+                                    </Description>
                                 )
                             }
                             <div className="modal-content">
@@ -110,10 +107,10 @@ export default function Modal({
                                     </Button>
                                 )
                             }
-                        </Dialog.Panel>
-                    </Transition.Child>
+                        </DialogPanel>
+                    </TransitionChild>
                 </div>
             </Dialog>
-        </Transition.Root>
+        </Transition>
     )
 }
