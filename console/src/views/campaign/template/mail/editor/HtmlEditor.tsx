@@ -17,7 +17,6 @@ export function HtmlEditor({
   data: Partial<Data | Data<Components, object>>;
   html?: string;
 }) {
-  // Transfer your specific initial load logic here
   useEffect(() => {
     if (!html) return;
     const handleInitialLoad = () => {
@@ -32,7 +31,6 @@ export function HtmlEditor({
       handleInitialLoad,
     );
 
-    // Trigger the load event for the plugin to pick up
     setTimeout(() => {
       CodeEditorEventListener.emit("INITIAL_CODE_LOAD");
     }, 200);
@@ -63,8 +61,8 @@ export function HtmlEditor({
       viewports={viewports}
       config={config}
       data={data}
-      plugins={[plugin]} // 'plugin' is your raw-html plugin
-      ui={{ leftSideBarVisible: false }} // Hides the tabs/outline
+      plugins={[plugin]} 
+      ui={{ leftSideBarVisible: false, rightSideBarVisible: false }}
       overrides={{
         iframe: ({ children, document }) => {
           useEffect(() => {

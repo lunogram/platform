@@ -4,7 +4,6 @@ import "@puckeditor/core/dist/index.css";
 import "./Editor.css";
 import { TemplateContext } from "@/contexts";
 
-import CodeStore from "./CodeEditorPlugins/CodeStore";
 import { EditorWizard, type Template } from "./SelectionModals/EditorWizard";
 import { HtmlEditor } from "./HtmlEditor";
 import { BlockEditor } from "./BlockEditor";
@@ -84,11 +83,6 @@ export default function Editor() {
 
   const data = template.data.editor ?? { content: [], root: {} };
 
-  if (template.data.html) {
-    CodeStore.setCode(template.data.html);
-    // handleComplete("code");
-  }
-
   return (
     <div className="w-full h-full">
       <EditorWizard
@@ -98,7 +92,7 @@ export default function Editor() {
         onComplete={handleComplete}
       />
 
-      {!isWizardOpen && (
+      {!isWizardOpen && editorMode && (
         <>
           {editorMode === "code" ? (
             <HtmlEditor data={data} html={template.data.html} />
