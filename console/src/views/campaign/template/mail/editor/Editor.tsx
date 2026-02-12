@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 
 import "@puckeditor/core/dist/index.css";
 import "./Editor.css";
@@ -73,15 +73,32 @@ const TESTING_TEMPLATES: Template[] = [
 
 export default function Editor() {
   const [template] = useContext(TemplateContext);
-  const [isWizardOpen, setIsWizardOpen] = useState(true);
-  const [editorMode, setEditorMode] = useState<"block" | "code" | null>(null);
+
+  const initialMode = template?.data?.html 
+    ? "code" 
+    : template?.data?.editor 
+      ? "block" 
+      : null;
+
+  const [editorMode, setEditorMode] = useState<"block" | "code" | null>(initialMode);
+  const [isWizardOpen, setIsWizardOpen] = useState(initialMode === null);
 
   const handleComplete = (type: "block" | "code") => {
     setEditorMode(type);
     setIsWizardOpen(false);
   };
 
-  const data = template.data.editor ?? { content: [], root: {} };
+  const data = template?.data?.editor ?? { content: [], root: {} };
+
+  useEffect(() => {
+    if (template?.data?.html) {
+      setEditorMode("code");
+      setIsWizardOpen(false);
+    } else if (template?.data?.editor && !editorMode) {
+      setEditorMode("block");
+      setIsWizardOpen(false);
+    }
+  }, [template, editorMode]);
 
   return (
     <div className="w-full h-full">

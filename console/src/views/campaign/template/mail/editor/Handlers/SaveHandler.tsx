@@ -34,6 +34,8 @@ export default function SaveHandler(props: {
       },
     );
 
+    props.codeStore.setCode("");
+
     setTemplate(updated);
     return true;
   });
