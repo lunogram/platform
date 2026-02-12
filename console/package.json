@@ -73,6 +73,7 @@
     "test:coverage": "vitest run --coverage --watch=false",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "analyze:bundle": "pnpm build && npx source-map-explorer './dist/assets/*.js'",
+    "generate": "pnpm run /^generate:/",
     "generate:openapi": "openapi-typescript ../oapi/webhooks.yml -o ./src/oapi/webhooks.generated.ts"
   },
   "types": "./lib/cjs/mod.d.ts",
