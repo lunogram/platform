@@ -44,40 +44,65 @@ export function CampaignSelect({ projectId, value, onChange, required }: Campaig
 
     // Fetch the selected campaign on mount if we have a value
     useEffect(() => {
+        let isCancelled = false;
+
         const fetchSelectedCampaign = async () => {
             if (value && value !== NIL) {
                 try {
                     const campaign = await api.campaigns.get(projectId, value);
-                    setSelectedCampaign(campaign);
+                    if (!isCancelled) {
+                        setSelectedCampaign(campaign);
+                    }
                 } catch {
-                    setSelectedCampaign(null);
+                    if (!isCancelled) {
+                        setSelectedCampaign(null);
+                    }
                 }
             } else {
-                setSelectedCampaign(null);
+                if (!isCancelled) {
+                    setSelectedCampaign(null);
+                }
             }
         };
 
         fetchSelectedCampaign();
+
+        return () => {
+            isCancelled = true;
+        };
     }, [projectId, value]);
 
     // Fetch campaigns when search query changes
     useEffect(() => {
+        let isCancelled = false;
+
         const fetchCampaigns = async () => {
             setIsLoading(true);
 
-            const { results } = await api.campaigns.search(projectId, {
-                q: searchQuery,
-                limit: 50,
-                filter: { type: 'trigger' }
-            });
+            try {
+                const { results } = await api.campaigns.search(projectId, {
+                    q: searchQuery,
+                    limit: 50,
+                    filter: { type: 'trigger' }
+                });
 
-            setCampaigns(results);
-            setIsLoading(false);
+                if (!isCancelled) {
+                    setCampaigns(results);
+                }
+            } finally {
+                if (!isCancelled) {
+                    setIsLoading(false);
+                }
+            }
         };
 
         // Debounce search
         const timeoutId = setTimeout(fetchCampaigns, 300);
-        return () => clearTimeout(timeoutId);
+
+        return () => {
+            isCancelled = true;
+            clearTimeout(timeoutId);
+        };
     }, [searchQuery, projectId]);
 
     const handleSelectChange = useCallback((campaignId: string) => {
