@@ -1,12 +1,12 @@
 // 1. Updated import source
 import type { ComponentConfig, Slot } from '@puckeditor/core'; 
 import { Container as EmailContainer, Section as EmailSection } from '@react-email/components';
-import { Layout, type LayoutProps, layoutClassMap } from '../fields/Layout';
+import { Layout, type LayoutProps, layoutClassMap } from '../../fields/Layout';
 import { cn } from '@/utils';
-import { Spacing, type SpacingProps, spacingClassMap } from '../fields/Spacing';
-import { Typography, type TypographyProps, typographyClassMap } from '../fields/Typography';
-import { Decoration, type DecorationProps, decorationClassMap } from '../fields/Decoration';
-import { generateTailwindClasses } from '../fields/unit';
+import { Spacing, type SpacingProps, spacingClassMap } from '../../fields/Spacing';
+import { Typography, type TypographyProps, typographyClassMap } from '../../fields/Typography';
+import { Decoration, type DecorationProps, decorationClassMap } from '../../fields/Decoration';
+import { generateTailwindClasses } from '../../fields/unit';
 
 export interface PricingEmphasisedProps {
     content: Slot;

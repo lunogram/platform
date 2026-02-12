@@ -11,7 +11,7 @@ import { Pricing, type PricingProps } from "../components/templates/Pricing";
 import {
   PricingEmphasised,
   type PricingEmphasisedProps,
-} from "../components/templates/PricingEmphasised";
+} from "../components/templates/PicingEmphasised/PricingEmphasised";
 
 import { Img, type ImgProps } from "../components/Image";
 import { Link, type LinkProps } from "../components/Link";
@@ -76,6 +76,7 @@ export const config: Config<Components> = {
     },
   },
   components: {
+    PricingEmphasised,
     Button,
     Container,
     Column,
@@ -83,7 +84,6 @@ export const config: Config<Components> = {
     Text,
     TextSection,
     Pricing,
-    PricingEmphasised,
     Img,
     Link,
     Heading,

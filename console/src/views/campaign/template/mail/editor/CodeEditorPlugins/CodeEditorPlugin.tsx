@@ -14,7 +14,7 @@ export function CodeEditorPlugin(props: {
   return (
     <Editor
       value={props.store.current}
-      language="html"
+      language="html"      
       onChange={(value) => onChange(value ?? "")}
     />
   );
