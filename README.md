@@ -12,6 +12,14 @@
 
 <p align="center">Engage your customers through effortless communication.</p>
 
+<p align="center">
+  <a href="https://docs.lunogram.com">Documentation</a> •
+  <a href="https://discord.gg/BpKZhwnq">Discord</a> •
+  <a href="#contributing">Contributing</a>
+</p>
+
+<p align="center">⭐️ Enjoying Lunogram? Please <a href="https://github.com/lunogram/platform">leave a star</a>!</p>
+
 <br />
 
 ## Features
@@ -50,4 +58,7 @@ For full documentation on the platform and more information on deployment, check
 **[Explore the Docs »](https://docs.lunogram.com)**
 
 ### Contributing
-You can report bugs, suggest features, or just say hi on [Github discussions](https://github.com/lunogram/platform/discussions/new/choose) 
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) to get started.
+
+Join our community on [Discord](https://discord.gg/BpKZhwnq) to connect with other users and contributors, report bugs, suggest features, or just say hi!
