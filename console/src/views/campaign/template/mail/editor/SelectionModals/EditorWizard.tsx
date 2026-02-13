@@ -18,11 +18,14 @@ import {
 import { ChoiceCard } from "./ChoiceCard";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/utils";
+import type { Template } from "../components/templates/PicingEmphasised/PricingEmphasised";
 
-export interface Template {
+export interface TemplateProps {
   id: string;
   label: string;
   description: string;
+  htmlComponent?: React.ReactNode;
+  puckTemplate?: Template;
   thumbnail?: string;
 }
 
@@ -30,7 +33,7 @@ interface EditorWizardProps {
   isOpen: boolean;
   onClose: () => void;
   onComplete: (type: "block" | "code", templateId: string) => void;
-  templates: Template[];
+  templates: TemplateProps[];
 }
 
 export const EditorWizard = ({

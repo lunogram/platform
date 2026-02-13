@@ -538,7 +538,47 @@ export const PricingEmphasised: ComponentConfig<PricingEmphasisedProps> = {
   },
 };
 
-export const PricingEmphasisedTemplate = {
+/**
+ * Pricing Emphasised email template configuration object.
+ *
+ * Defines the structure and styling for a two-tier pricing comparison email template
+ * featuring a "Hobby" plan ($29/month) and an "Enterprise" plan ($99/month).
+ *
+ * @type {Object} Template configuration with root properties, zones, and content array
+ * @property {Object} root - Root element configuration
+ * @property {Object} root.props - Root element properties
+ * @property {Object} zones - Template zones definition (empty)
+ * @property {Array<Object>} content - Array containing the main PricingEmphasised component
+ * @property {string} content[0].type - Component type identifier ("PricingEmphasised")
+ * @property {Object} content[0].props - Component properties including layout, spacing, decoration, and typography
+ * @property {Array<Object>} content[0].props.content - Nested content array with containers, columns, text, buttons, and dividers
+ *
+ * @constant
+ */
+type ContentItem = {
+  type: string;
+  props: {
+    id: string;
+    value?: string;
+    href?: string;
+    align?: "left" | "center" | "right";
+    layout?: LayoutProps;
+    spacing?: SpacingProps;
+    typography?: TypographyProps;
+    decoration?: DecorationProps;
+    content?: ContentItem[];
+  };
+};
+
+export type Template = {
+  root: {
+    props: {};
+  };
+  zones: {};
+  content: ContentItem[];
+};
+
+export const PricingEmphasisedTemplate: Template = {
   root: {
     props: {},
   },

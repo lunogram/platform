@@ -5,7 +5,7 @@ import "@puckeditor/core/dist/index.css";
 import "./Editor.css";
 import { TemplateContext } from "@/contexts";
 
-import { EditorWizard, type Template } from "./SelectionModals/EditorWizard";
+import { EditorWizard, type TemplateProps } from "./SelectionModals/EditorWizard";
 import { HtmlEditor } from "./HtmlEditor";
 import { BlockEditor } from "./BlockEditor";
 import CodeEditorEventListener from "./CodeEditorPlugins/CodeEditorEventListener";
@@ -13,11 +13,13 @@ import CodeStore from "./CodeEditorPlugins/CodeStore";
 import { PricingEmphasisedHtml } from "./components/templates/PicingEmphasised/PricingEmphasisedHtml";
 import { PricingEmphasisedTemplate } from "./components/templates/PicingEmphasised/PricingEmphasised";
 
-const TESTING_TEMPLATES: Template[] = [
+const EMAIL_TEMPLATES: TemplateProps[] = [
   {
     id: "pricing-emphasized",
     label: "Pricing Emphasized",
     description: "A professional dual-plan pricing section for emails.",
+    htmlComponent: <PricingEmphasisedHtml />,
+    puckTemplate: PricingEmphasisedTemplate,
     // You would put a screenshot of the component here
     thumbnail: undefined,
   },
@@ -25,7 +27,6 @@ const TESTING_TEMPLATES: Template[] = [
 
 export default function Editor() {
   const [template] = useContext(TemplateContext);
-  console.log("Current template data:", template?.data);
   const initialMode = template?.data?.rawHtml
     ? "code"
     : template?.data?.editor
@@ -35,21 +36,21 @@ export default function Editor() {
   const [editorMode, setEditorMode] = useState<"block" | "code" | null>(
     initialMode,
   );
+
   const [isWizardOpen, setIsWizardOpen] = useState(initialMode === null);
 
   const handleComplete = (type: "block" | "code", templateId: string) => {
     setEditorMode(type);
     setIsWizardOpen(false);
 
-    if (templateId === "pricing-emphasized") {
+    const selectedTemplate = EMAIL_TEMPLATES.find((t) => t.id === templateId);
+    if (selectedTemplate) {
       if (type === "code") {
-        template.data.html = renderToStaticMarkup(<PricingEmphasisedHtml />);
+        template.data.html = renderToStaticMarkup(selectedTemplate.htmlComponent);
         CodeStore.setCode(template.data.html);
         CodeEditorEventListener.emit("CODE_CHANGE");
       } else {
-        template.data.editor = PricingEmphasisedTemplate;
-
-        console.log("Set block editor data:", template.data.editor);
+        template.data.editor = selectedTemplate.puckTemplate;
       }
     }
   };
@@ -61,7 +62,7 @@ export default function Editor() {
       <EditorWizard
         isOpen={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
-        templates={TESTING_TEMPLATES}
+        templates={EMAIL_TEMPLATES}
         onComplete={handleComplete}
       />
 
