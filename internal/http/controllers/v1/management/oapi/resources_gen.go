@@ -1702,6 +1702,9 @@ type ClientInterface interface {
 
 	CreateCampaign(ctx context.Context, projectID openapi_types.UUID, body CreateCampaignJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteCampaign request
+	DeleteCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetCampaign request
 	GetCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2284,6 +2287,18 @@ func (c *Client) CreateCampaignWithBody(ctx context.Context, projectID openapi_t
 
 func (c *Client) CreateCampaign(ctx context.Context, projectID openapi_types.UUID, body CreateCampaignJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateCampaignRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteCampaignRequest(c.Server, projectID, campaignID)
 	if err != nil {
 		return nil, err
 	}
@@ -4350,6 +4365,47 @@ func NewCreateCampaignRequestWithBody(server string, projectID openapi_types.UUI
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteCampaignRequest generates requests for DeleteCampaign
+func NewDeleteCampaignRequest(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "campaignID", runtime.ParamLocationPath, campaignID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/campaigns/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -8102,6 +8158,9 @@ type ClientWithResponsesInterface interface {
 
 	CreateCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateCampaignJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCampaignResponse, error)
 
+	// DeleteCampaignWithResponse request
+	DeleteCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteCampaignResponse, error)
+
 	// GetCampaignWithResponse request
 	GetCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetCampaignResponse, error)
 
@@ -8832,6 +8891,28 @@ func (r CreateCampaignResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateCampaignResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteCampaignResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteCampaignResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteCampaignResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -10726,6 +10807,15 @@ func (c *ClientWithResponses) CreateCampaignWithResponse(ctx context.Context, pr
 	return ParseCreateCampaignResponse(rsp)
 }
 
+// DeleteCampaignWithResponse request returning *DeleteCampaignResponse
+func (c *ClientWithResponses) DeleteCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteCampaignResponse, error) {
+	rsp, err := c.DeleteCampaign(ctx, projectID, campaignID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteCampaignResponse(rsp)
+}
+
 // GetCampaignWithResponse request returning *GetCampaignResponse
 func (c *ClientWithResponses) GetCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetCampaignResponse, error) {
 	rsp, err := c.GetCampaign(ctx, projectID, campaignID, reqEditors...)
@@ -12193,6 +12283,32 @@ func ParseCreateCampaignResponse(rsp *http.Response) (*CreateCampaignResponse, e
 		}
 		response.JSON201 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteCampaignResponse parses an HTTP response from a DeleteCampaignWithResponse call
+func ParseDeleteCampaignResponse(rsp *http.Response) (*DeleteCampaignResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteCampaignResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -14539,6 +14655,9 @@ type ServerInterface interface {
 	// Create campaign
 	// (POST /api/admin/projects/{projectID}/campaigns)
 	CreateCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete campaign
+	// (DELETE /api/admin/projects/{projectID}/campaigns/{campaignID})
+	DeleteCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID)
 	// Get campaign by ID
 	// (GET /api/admin/projects/{projectID}/campaigns/{campaignID})
 	GetCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID)
@@ -14881,6 +15000,12 @@ func (_ Unimplemented) ListCampaigns(w http.ResponseWriter, r *http.Request, pro
 // Create campaign
 // (POST /api/admin/projects/{projectID}/campaigns)
 func (_ Unimplemented) CreateCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete campaign
+// (DELETE /api/admin/projects/{projectID}/campaigns/{campaignID})
+func (_ Unimplemented) DeleteCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15982,6 +16107,46 @@ func (siw *ServerInterfaceWrapper) CreateCampaign(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateCampaign(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteCampaign operation middleware
+func (siw *ServerInterfaceWrapper) DeleteCampaign(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "campaignID" -------------
+	var campaignID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignID", chi.URLParam(r, "campaignID"), &campaignID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteCampaign(w, r, projectID, campaignID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -19106,6 +19271,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/campaigns", wrapper.CreateCampaign)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}", wrapper.DeleteCampaign)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}", wrapper.GetCampaign)
