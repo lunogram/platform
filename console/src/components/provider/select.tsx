@@ -33,16 +33,13 @@ export function ProviderSelect({
       setIsLoading(true);
       try {
         const result = await api.providers.all(project.id);
-        setProviders(result.filter((provider) => provider.channel === channel));
+        const filteredProviders = result.filter((provider) => provider.channel === channel);
+        setProviders(filteredProviders);
 
-        if (providers.length > 0) {
+        if (filteredProviders.length > 0 && !value) {
           const defaultProvider =
-            result.find(
-              (provider) => provider.is_default && provider.channel === channel,
-            ) ?? providers[0];
-          if (!value) {
-            onChange?.(defaultProvider.id);
-          }
+            filteredProviders.find((provider) => provider.is_default) ?? filteredProviders[0];
+          onChange?.(defaultProvider.id);
         }
       } finally {
         setIsLoading(false);
