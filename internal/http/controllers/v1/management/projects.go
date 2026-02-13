@@ -1,12 +1,13 @@
 package v1
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
+	"sync"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/claim/rbac"
@@ -14,22 +15,46 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"go.uber.org/zap"
 )
 
-func NewProjectsController(logger *zap.Logger, db *sqlx.DB) *ProjectsController {
+func NewProjectsController(logger *zap.Logger, db *store.Connections) *ProjectsController {
 	return &ProjectsController{
-		logger: logger,
-		db:     db,
-		store:  management.NewState(db),
+		logger:  logger,
+		db:      db,
+		store:   management.NewState(db.Management),
+		journey: journey.NewState(db.Journey),
+		users:   users.NewState(db.Users),
 	}
 }
 
 type ProjectsController struct {
-	logger *zap.Logger
-	db     *sqlx.DB
-	store  *management.State
+	logger  *zap.Logger
+	db      *store.Connections
+	store   *management.State
+	journey *journey.State
+	users   *users.State
+}
+
+func (srv *ProjectsController) loadProjectCounts(ctx context.Context, project *management.Project) {
+	wg := sync.WaitGroup{}
+
+	wg.Go(func() {
+		project.JourneysCount, _ = srv.journey.CountJourneys(ctx, project.ID) //nolint:errcheck
+	})
+
+	wg.Go(func() {
+		project.UsersCount, _ = srv.users.CountUsers(ctx, project.ID) //nolint:errcheck
+	})
+
+	wg.Go(func() {
+		project.ListsCount, _ = srv.users.CountLists(ctx, project.ID) //nolint:errcheck
+	})
+
+	wg.Wait()
 }
 
 func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Request, params oapi.ListProjectsParams) {
@@ -102,6 +127,8 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	srv.loadProjectCounts(ctx, project)
+
 	logger.Info("project retrieved")
 	json.Write(w, http.StatusOK, project.OAPI())
 }
@@ -126,7 +153,7 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With()
 	logger.Info("creating project", zap.String("name", body.Name))
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.db.Management.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("unexpected error while attempting to start a transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -210,6 +237,8 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	srv.loadProjectCounts(ctx, project)
+
 	json.Write(w, http.StatusCreated, project.OAPI())
 }
 
@@ -263,6 +292,8 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		oapi.WriteProblem(w, err)
 		return
 	}
+
+	srv.loadProjectCounts(ctx, project)
 
 	logger.Info("project updated")
 	json.Write(w, http.StatusOK, project.OAPI())

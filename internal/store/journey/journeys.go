@@ -158,6 +158,13 @@ type JourneysStore struct {
 	db store.DB
 }
 
+func (s *JourneysStore) CountJourneys(ctx context.Context, projectID uuid.UUID) (int, error) {
+	var count int
+	err := s.db.GetContext(ctx, &count,
+		`SELECT COUNT(*) FROM journeys WHERE project_id = $1 AND deleted_at IS NULL`, projectID)
+	return count, err
+}
+
 func (s *JourneysStore) GetJourney(ctx context.Context, projectID, journeyID uuid.UUID) (*Journey, error) {
 	stmt := `
 	SELECT id, project_id, name, description, version_id, created_at, updated_at

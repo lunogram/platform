@@ -9,7 +9,6 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http"
 	"github.com/lunogram/platform/internal/http/auth"
@@ -22,6 +21,7 @@ import (
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/storage"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
 	"go.uber.org/zap"
@@ -33,9 +33,9 @@ var staticFiles embed.FS
 // NewServer constructs a unified HTTP server combining both management and client
 // API endpoints. Management endpoints use JWT+API Key auth, while client endpoints
 // use API Key only authentication.
-func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *sqlx.DB, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) (*http.Server, error) {
-	mgmtStores := management.NewState(db)
-	usersStore := users.NewState(db)
+func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) (*http.Server, error) {
+	mgmtStores := management.NewState(db.Management)
+	usersStore := users.NewState(db.Users)
 
 	// Load OpenAPI specs
 	mgmtSpec, err := mgmtoapi.Spec()

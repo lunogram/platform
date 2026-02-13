@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
@@ -24,13 +23,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, db *sqlx.DB, maxUploadSize int64) *UsersController {
+func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, db *store.Connections, maxUploadSize int64) *UsersController {
 	return &UsersController{
 		logger:        logger,
 		db:            db,
-		mgmt:          management.NewState(db),
-		users:         users.NewState(db),
-		journey:       journey.NewState(db),
+		mgmt:          management.NewState(db.Management),
+		users:         users.NewState(db.Users),
+		journey:       journey.NewState(db.Journey),
 		pubsub:        pub,
 		maxUploadSize: maxUploadSize,
 	}
@@ -38,7 +37,7 @@ func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, db *sqlx.DB, m
 
 type UsersController struct {
 	logger        *zap.Logger
-	db            *sqlx.DB
+	db            *store.Connections
 	pubsub        pubsub.Publisher
 	mgmt          *management.State
 	users         *users.State
@@ -115,7 +114,7 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 		data = *body.Data
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.db.Users.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
@@ -467,7 +466,7 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 		}
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.db.Users.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
@@ -648,7 +647,7 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	imported := 0
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.db.Users.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		return err

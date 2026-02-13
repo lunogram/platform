@@ -44,22 +44,26 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
-	mgmtConfig := management.Config{
-		URI: postgresURI,
-	}
 	cfg := config.Node{
-		Store: store.Config{
-			ManagementURI: postgresURI,
-		},
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := management.Migrate(mgmtConfig)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, mgmtConfig)
+	err = users.Migrate(postgresURI)
+	require.NoError(t, err)
+
+	err = journey.Migrate(postgresURI)
+	require.NoError(t, err)
+
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
@@ -70,11 +74,11 @@ func setupUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	orgsStore := management.NewOrganizationsStore(db)
+	orgsStore := management.NewOrganizationsStore(db.Management)
 	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectsStore := management.NewProjectsStore(db)
+	projectsStore := management.NewProjectsStore(db.Management)
 	projectID, err := projectsStore.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           DefaultProject.Name,
@@ -379,7 +383,7 @@ func TestGetUserSubscriptions(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = subscriptionsStore.Unsubscribe(ctx, controller.db, userID, subscriptionID1)
+	err = subscriptionsStore.Unsubscribe(ctx, controller.db.Users, userID, subscriptionID1)
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
@@ -811,22 +815,24 @@ func TestImportUsers(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			postgresURI := container.RunPostgreSQL(t)
-			mgmtConfig := management.Config{
-				URI: postgresURI,
-			}
 			cfg := config.Node{
 				Store: store.Config{
 					ManagementURI: postgresURI,
+					UsersURI:      postgresURI,
+					JourneyURI:    postgresURI,
 				},
 				Nats: config.Nats{
 					URL: container.RunNATS(t),
 				},
 			}
 
-			err := management.Migrate(mgmtConfig)
+			err := management.Migrate(postgresURI)
 			require.NoError(t, err)
 
-			db, err := management.New(ctx, logger, mgmtConfig)
+			err = users.Migrate(postgresURI)
+			require.NoError(t, err)
+
+			db, err := store.New(ctx, logger, cfg.Store)
 			require.NoError(t, err)
 
 			jet, err := pubsub.New(ctx, cfg)
@@ -837,11 +843,11 @@ func TestImportUsers(t *testing.T) {
 
 			pub := pubsub.NewPublisher(jet)
 
-			orgsStore := management.NewOrganizationsStore(db)
+			orgsStore := management.NewOrganizationsStore(db.Management)
 			orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
 			require.NoError(t, err)
 
-			projectsStore := management.NewProjectsStore(db)
+			projectsStore := management.NewProjectsStore(db.Management)
 			projectID, err := projectsStore.CreateProject(ctx, management.Project{
 				OrganizationID: &orgID,
 				Name:           DefaultProject.Name,
@@ -850,7 +856,7 @@ func TestImportUsers(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			usersStore := users.NewUsersStore(db)
+			usersStore := users.NewUsersStore(db.Users)
 			controller := NewUsersController(logger, pub, db, 32<<20)
 
 			body := &bytes.Buffer{}

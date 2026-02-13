@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -20,21 +21,23 @@ func TestSubscriptionCreation(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, config)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	subs := NewSubscriptionsController(logger, db)
+	subs := NewSubscriptionsController(logger, db.Management)
 
 	isPublicTrue := true
 	isPublicFalse := false
@@ -103,21 +106,23 @@ func TestListSubscriptions(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, config)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	subs := NewSubscriptionsController(logger, db)
+	subs := NewSubscriptionsController(logger, db.Management)
 
 	// Create some test subscriptions
 	isPublic := true
@@ -161,21 +166,23 @@ func TestUpdateSubscription(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, config)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	subs := NewSubscriptionsController(logger, db)
+	subs := NewSubscriptionsController(logger, db.Management)
 
 	// Create a subscription
 	isPublic := true
@@ -224,21 +231,23 @@ func TestGetSubscription(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, config)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	subs := NewSubscriptionsController(logger, db)
+	subs := NewSubscriptionsController(logger, db.Management)
 
 	// Create a subscription
 	isPublic := true

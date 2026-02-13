@@ -11,7 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -23,17 +25,21 @@ func TestCampaignCreation(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := NewCampaignsController(logger, db)
+	campaigns := NewCampaignsController(logger, db.Management)
 
 	type test struct {
 		body oapi.CreateCampaignJSONRequestBody
@@ -69,18 +75,22 @@ func TestListCampaigns(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := management.NewCampaignsStore(db)
-	templates := management.NewTemplatesStore(db)
+	campaigns := management.NewCampaignsStore(db.Management)
+	templates := management.NewTemplatesStore(db.Management)
 
 	// NOTE: create some test campaigns
 	for i := 0; i < 3; i++ {
@@ -95,7 +105,7 @@ func TestListCampaigns(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	controller := NewCampaignsController(logger, db)
+	controller := NewCampaignsController(logger, db.Management)
 
 	type test struct {
 		limit  int
@@ -158,18 +168,22 @@ func TestGetCampaign(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := management.NewCampaignsStore(db)
-	templates := management.NewTemplatesStore(db)
+	campaigns := management.NewCampaignsStore(db.Management)
+	templates := management.NewTemplatesStore(db.Management)
 
 	campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
 		ProjectID: projectID,
@@ -181,7 +195,7 @@ func TestGetCampaign(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, db)
+	controller := NewCampaignsController(logger, db.Management)
 
 	type test struct {
 		id   uuid.UUID
@@ -217,18 +231,22 @@ func TestUpdateCampaign(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := management.NewCampaignsStore(db)
-	templates := management.NewTemplatesStore(db)
+	campaigns := management.NewCampaignsStore(db.Management)
+	templates := management.NewTemplatesStore(db.Management)
 
 	campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
 		ProjectID: projectID,
@@ -240,7 +258,7 @@ func TestUpdateCampaign(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, db)
+	controller := NewCampaignsController(logger, db.Management)
 
 	tests := map[string]struct {
 		id   uuid.UUID
@@ -280,18 +298,22 @@ func TestDeleteCampaign(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := management.NewCampaignsStore(db)
-	templates := management.NewTemplatesStore(db)
+	campaigns := management.NewCampaignsStore(db.Management)
+	templates := management.NewTemplatesStore(db.Management)
 
 	campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
 		ProjectID: projectID,
@@ -303,7 +325,7 @@ func TestDeleteCampaign(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, db)
+	controller := NewCampaignsController(logger, db.Management)
 
 	tests := map[string]struct {
 		id   uuid.UUID
@@ -344,18 +366,22 @@ func TestDuplicateCampaign(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := management.NewCampaignsStore(db)
-	templates := management.NewTemplatesStore(db)
+	campaigns := management.NewCampaignsStore(db.Management)
+	templates := management.NewTemplatesStore(db.Management)
 
 	campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
 		ProjectID: projectID,
@@ -367,7 +393,7 @@ func TestDuplicateCampaign(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, db)
+	controller := NewCampaignsController(logger, db.Management)
 
 	tests := map[string]struct {
 		id   uuid.UUID
@@ -412,18 +438,25 @@ func TestGetCampaignUsers(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	err = users.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
+	require.NoError(t, err)
+
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := management.NewCampaignsStore(db)
-	templates := management.NewTemplatesStore(db)
+	campaigns := management.NewCampaignsStore(db.Management)
+	templates := management.NewTemplatesStore(db.Management)
 
 	campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
 		ProjectID: projectID,
@@ -435,7 +468,7 @@ func TestGetCampaignUsers(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, db)
+	controller := NewCampaignsController(logger, db.Management)
 
 	tests := map[string]struct {
 		id   uuid.UUID

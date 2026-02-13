@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -21,21 +22,23 @@ func TestTagCreation(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, config)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	tags := NewTagsController(logger, db)
+	tags := NewTagsController(logger, db.Management)
 
 	type test struct {
 		body oapi.CreateTagJSONRequestBody
@@ -85,21 +88,23 @@ func TestListTags(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, config)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	tagsStore := management.NewTagsStore(db)
+	tagsStore := management.NewTagsStore(db.Management)
 
 	// Create some test tags
 	tagNames := []string{"urgent", "important", "follow-up", "archived"}
@@ -108,7 +113,7 @@ func TestListTags(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	tags := NewTagsController(logger, db)
+	tags := NewTagsController(logger, db.Management)
 
 	type test struct {
 		params   oapi.ListTagsParams
@@ -162,25 +167,27 @@ func TestGetTag(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, config)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	tagsStore := management.NewTagsStore(db)
+	tagsStore := management.NewTagsStore(db.Management)
 	tagID, err := tagsStore.CreateTag(ctx, projectID, "test-tag")
 	require.NoError(t, err)
 
-	tags := NewTagsController(logger, db)
+	tags := NewTagsController(logger, db.Management)
 
 	type test struct {
 		tagID uuid.UUID
@@ -222,25 +229,27 @@ func TestUpdateTag(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, config)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	tagsStore := management.NewTagsStore(db)
+	tagsStore := management.NewTagsStore(db.Management)
 	tagID, err := tagsStore.CreateTag(ctx, projectID, "old-name")
 	require.NoError(t, err)
 
-	tags := NewTagsController(logger, db)
+	tags := NewTagsController(logger, db.Management)
 
 	type test struct {
 		tagID uuid.UUID
@@ -291,25 +300,27 @@ func TestDeleteTag(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, config)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	tagsStore := management.NewTagsStore(db)
+	tagsStore := management.NewTagsStore(db.Management)
 	tagID, err := tagsStore.CreateTag(ctx, projectID, "to-delete")
 	require.NoError(t, err)
 
-	tags := NewTagsController(logger, db)
+	tags := NewTagsController(logger, db.Management)
 
 	type test struct {
 		tagID uuid.UUID

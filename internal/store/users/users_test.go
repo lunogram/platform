@@ -26,17 +26,21 @@ func NewContainerStore(t *testing.T) (*State, *management.State) {
 
 	ctx := graceful.NewContext(t.Context())
 	uri := container.RunPostgreSQL(t)
-	config := management.Config{
-		URI: uri,
-	}
 
-	err := management.Migrate(config)
+	err := management.Migrate(uri)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, config)
+	err = Migrate(uri)
 	require.NoError(t, err)
 
-	return NewState(db), management.NewState(db)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: uri,
+		UsersURI:      uri,
+		JourneyURI:    uri,
+	})
+	require.NoError(t, err)
+
+	return NewState(db.Users), management.NewState(db.Management)
 }
 
 func SetupUsers(t *testing.T, mgmt *management.State) uuid.UUID {

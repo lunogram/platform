@@ -6,15 +6,71 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"fmt"
 
+	"github.com/cloudproud/graceful"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
 )
 
-// Config contains database connection settings for all stores.
+// Config contains database connection settings for all databases.
 type Config struct {
-	ManagementURI string `env:"POSTGRES_URI" envDefault:"postgres://postgres:password@postgres:5432/postgres?sslmode=disable"`
-	UsersURI      string `env:"USERS_POSTGRES_URI" envDefault:"postgres://postgres:password@postgres:5432/users?sslmode=disable"`
-	JourneyURI    string `env:"JOURNEY_POSTGRES_URI" envDefault:"postgres://postgres:password@postgres:5432/journey?sslmode=disable"`
+	ManagementURI string `env:"POSTGRES_MANAGEMENT_URI" envDefault:"postgres://postgres:password@postgres:5432/management?sslmode=disable"`
+	UsersURI      string `env:"POSTGRES_USERS_URI" envDefault:"postgres://postgres:password@postgres:5432/users?sslmode=disable"`
+	JourneyURI    string `env:"POSTGRES_JOURNEY_URI" envDefault:"postgres://postgres:password@postgres:5432/journey?sslmode=disable"`
+}
+
+// Connections holds all database connections.
+type Connections struct {
+	Management *sqlx.DB
+	Users      *sqlx.DB
+	Journey    *sqlx.DB
+}
+
+// New creates database connections for all databases.
+func New(ctx graceful.Context, logger *zap.Logger, config Config) (*Connections, error) {
+	logger.Info("connecting to PostgreSQL databases")
+
+	management, err := sqlx.Connect("pgx", config.ManagementURI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to management database: %w", err)
+	}
+
+	users, err := sqlx.Connect("pgx", config.UsersURI)
+	if err != nil {
+		management.Close()
+		return nil, fmt.Errorf("failed to connect to users database: %w", err)
+	}
+
+	journey, err := sqlx.Connect("pgx", config.JourneyURI)
+	if err != nil {
+		management.Close()
+		users.Close()
+		return nil, fmt.Errorf("failed to connect to journey database: %w", err)
+	}
+
+	conns := &Connections{
+		Management: management,
+		Users:      users,
+		Journey:    journey,
+	}
+
+	ctx.Closer(func() {
+		logger.Info("received close signal, closing database connections")
+
+		if err := management.Close(); err != nil {
+			logger.Error("failed to close management database connection", zap.Error(err))
+		}
+		if err := users.Close(); err != nil {
+			logger.Error("failed to close users database connection", zap.Error(err))
+		}
+		if err := journey.Close(); err != nil {
+			logger.Error("failed to close journey database connection", zap.Error(err))
+		}
+	})
+
+	return conns, nil
 }
 
 var ErrNoRows = sql.ErrNoRows

@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
@@ -24,17 +25,25 @@ func setupStore(t *testing.T) (*management.State, *users.State, *sqlx.DB) {
 	logger := zaptest.NewLogger(t)
 
 	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	uri := container.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
+	err := management.Migrate(uri)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, config)
+	err = users.Migrate(uri)
 	require.NoError(t, err)
 
-	return management.NewState(db), users.NewState(db), db
+	err = journey.Migrate(uri)
+	require.NoError(t, err)
+
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: uri,
+		UsersURI:      uri,
+		JourneyURI:    uri,
+	})
+	require.NoError(t, err)
+
+	return management.NewState(db.Management), users.NewState(db.Users), db.Users
 }
 
 func TestHandleUpdate(t *testing.T) {

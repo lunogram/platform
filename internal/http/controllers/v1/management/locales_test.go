@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -21,21 +22,23 @@ func TestCreateLocale(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(cfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, cfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	locales := NewLocalesController(logger, db)
+	locales := NewLocalesController(logger, db.Management)
 
 	type test struct {
 		body oapi.CreateLocaleJSONRequestBody
@@ -87,21 +90,23 @@ func TestListLocales(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(cfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, cfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	localesStore := management.NewLocalesStore(db)
+	localesStore := management.NewLocalesStore(db.Management)
 	locales := []struct {
 		key   string
 		label string
@@ -120,7 +125,7 @@ func TestListLocales(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	controller := NewLocalesController(logger, db)
+	controller := NewLocalesController(logger, db.Management)
 
 	type test struct {
 		params oapi.ListLocalesParams
@@ -175,21 +180,23 @@ func TestGetLocale(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(cfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, cfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	localesStore := management.NewLocalesStore(db)
+	localesStore := management.NewLocalesStore(db.Management)
 	localeID, err := localesStore.CreateLocale(ctx, management.Locale{
 		ProjectID: projectID,
 		Key:       "en",
@@ -197,7 +204,7 @@ func TestGetLocale(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewLocalesController(logger, db)
+	controller := NewLocalesController(logger, db.Management)
 
 	type test struct {
 		localeID string
@@ -243,21 +250,23 @@ func TestDeleteLocale(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(cfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, cfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	localesStore := management.NewLocalesStore(db)
+	localesStore := management.NewLocalesStore(db.Management)
 	localeID, err := localesStore.CreateLocale(ctx, management.Locale{
 		ProjectID: projectID,
 		Key:       "en",
@@ -265,7 +274,7 @@ func TestDeleteLocale(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewLocalesController(logger, db)
+	controller := NewLocalesController(logger, db.Management)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/v1/locales/"+localeID.String(), nil)
@@ -283,17 +292,19 @@ func TestLocaleProjectNotFound(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(cfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, cfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	controller := NewLocalesController(logger, db)
+	controller := NewLocalesController(logger, db.Management)
 	invalidProjectID := uuid.New()
 
 	t.Run("create locale - project not found", func(t *testing.T) {

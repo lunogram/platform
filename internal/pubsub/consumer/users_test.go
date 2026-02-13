@@ -36,16 +36,23 @@ func setupUsersTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream)
 		},
 	}
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	err = users.Migrate(postgresURI)
+	require.NoError(t, err)
+
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	mgmtState := management.NewState(db)
+	mgmtState := management.NewState(db.Management)
 
 	orgID, err := mgmtState.OrganizationsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
@@ -58,7 +65,7 @@ func setupUsersTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream)
 	})
 	require.NoError(t, err)
 
-	usersState := users.NewState(db)
+	usersState := users.NewState(db.Users)
 
 	return usersState, projectID, jet
 }

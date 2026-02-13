@@ -11,6 +11,7 @@ import (
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
@@ -24,17 +25,24 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	err = users.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	mgmt := management.NewState(db)
-	usrs := users.NewState(db)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
+	require.NoError(t, err)
+
+	mgmt := management.NewState(db.Management)
+	usrs := users.NewState(db.Users)
 
 	// Create project
-	projectsStore := management.NewProjectsStore(db)
+	projectsStore := management.NewProjectsStore(db.Management)
 	projectID, err := projectsStore.CreateProject(ctx, management.Project{
 		Name:     "Test Project",
 		Timezone: "UTC",
@@ -51,7 +59,7 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 	})
 	require.NoError(t, err)
 
-	controller, err := NewSubscriptionsController(logger, db, mgmt, usrs)
+	controller, err := NewSubscriptionsController(logger, db.Management, mgmt, usrs)
 	require.NoError(t, err)
 
 	return controller, projectID, userID
@@ -142,17 +150,24 @@ func TestEmailUnsubscribe(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	err = users.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	mgmt := management.NewState(db)
-	usrs := users.NewState(db)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
+	require.NoError(t, err)
+
+	mgmt := management.NewState(db.Management)
+	usrs := users.NewState(db.Users)
 
 	// Create project
-	projectsStore := management.NewProjectsStore(db)
+	projectsStore := management.NewProjectsStore(db.Management)
 	projectID, err := projectsStore.CreateProject(ctx, management.Project{
 		Name:     "Test Project",
 		Timezone: "UTC",
@@ -170,7 +185,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create subscription
-	subscriptionsStore := management.NewSubscriptionsStore(db)
+	subscriptionsStore := management.NewSubscriptionsStore(db.Management)
 	subscriptionID, err := subscriptionsStore.CreateSubscription(ctx, management.Subscription{
 		ProjectID: projectID,
 		Name:      "Test Subscription",
@@ -179,7 +194,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create campaign with subscription
-	campaignsStore := management.NewCampaignsStore(db)
+	campaignsStore := management.NewCampaignsStore(db.Management)
 	campaignID, err := campaignsStore.CreateCampaign(ctx, management.Campaign{
 		ProjectID:      projectID,
 		Name:           "Test Campaign",
@@ -188,7 +203,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller, err := NewSubscriptionsController(logger, db, mgmt, usrs)
+	controller, err := NewSubscriptionsController(logger, db.Management, mgmt, usrs)
 	require.NoError(t, err)
 
 	type test struct {

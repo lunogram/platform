@@ -12,6 +12,7 @@ import (
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	internalProviders "github.com/lunogram/platform/internal/providers"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -24,13 +25,17 @@ func TestListProviders(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -41,7 +46,7 @@ func TestListProviders(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, db, registry)
+	controller := NewProvidersController(logger, db.Management, registry)
 
 	type test struct {
 		params oapi.ListProvidersParams
@@ -82,13 +87,17 @@ func TestListAllProviders(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -99,7 +108,7 @@ func TestListAllProviders(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, db, registry)
+	controller := NewProvidersController(logger, db.Management, registry)
 
 	type test struct {
 		code int
@@ -135,13 +144,17 @@ func TestListProviderMeta(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -152,7 +165,7 @@ func TestListProviderMeta(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, db, registry)
+	controller := NewProvidersController(logger, db.Management, registry)
 
 	type test struct {
 		code int
@@ -188,13 +201,17 @@ func TestGetProvider(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -205,7 +222,7 @@ func TestGetProvider(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, db, registry)
+	controller := NewProvidersController(logger, db.Management, registry)
 
 	type test struct {
 		providerID uuid.UUID
@@ -237,13 +254,17 @@ func TestDeleteProvider(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -254,7 +275,7 @@ func TestDeleteProvider(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, db, registry)
+	controller := NewProvidersController(logger, db.Management, registry)
 
 	type test struct {
 		providerID uuid.UUID
@@ -286,13 +307,17 @@ func TestCreateProviderWithInvalidModule(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -303,7 +328,7 @@ func TestCreateProviderWithInvalidModule(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, db, registry)
+	controller := NewProvidersController(logger, db.Management, registry)
 
 	type test struct {
 		body oapi.CreateProviderJSONRequestBody
@@ -340,13 +365,17 @@ func TestUpdateProvider(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -357,7 +386,7 @@ func TestUpdateProvider(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, db, registry)
+	controller := NewProvidersController(logger, db.Management, registry)
 
 	type test struct {
 		body       oapi.UpdateProviderJSONRequestBody

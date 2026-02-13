@@ -12,6 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -116,13 +117,17 @@ func TestClerkProviderHandleUserCreated(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	stores := management.NewState(db)
+	stores := management.NewState(db.Management)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
 	provider, err := NewClerkProvider(cfg, stores, logger, nil)
@@ -159,13 +164,17 @@ func TestClerkProviderHandleUserCreatedAlreadyExists(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	stores := management.NewState(db)
+	stores := management.NewState(db.Management)
 
 	orgID, err := stores.CreateOrganization(ctx, "Existing Org")
 	require.NoError(t, err)
@@ -208,13 +217,17 @@ func TestClerkProviderHandleUserCreatedNoEmail(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	stores := management.NewState(db)
+	stores := management.NewState(db.Management)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
 	provider, err := NewClerkProvider(cfg, stores, logger, nil)
@@ -237,13 +250,17 @@ func TestClerkProviderHandleUserUpdated(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	stores := management.NewState(db)
+	stores := management.NewState(db.Management)
 
 	orgID, err := stores.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
@@ -293,13 +310,17 @@ func TestClerkProviderHandleUserUpdatedNotFound(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	stores := management.NewState(db)
+	stores := management.NewState(db.Management)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
 	provider, err := NewClerkProvider(cfg, stores, logger, nil)
@@ -326,13 +347,17 @@ func TestClerkProviderHandleUserDeleted(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	stores := management.NewState(db)
+	stores := management.NewState(db.Management)
 
 	orgID, err := stores.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
@@ -371,13 +396,17 @@ func TestClerkProviderHandleUserDeletedNotFound(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	stores := management.NewState(db)
+	stores := management.NewState(db.Management)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
 	provider, err := NewClerkProvider(cfg, stores, logger, nil)
@@ -401,13 +430,17 @@ func TestClerkProviderAuthenticateInvalidToken(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(management.Config{URI: postgresURI})
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	stores := management.NewState(db)
+	stores := management.NewState(db.Management)
 
 	keyFunc := func(token *jwt.Token) (interface{}, error) {
 		return []byte("test-secret"), nil

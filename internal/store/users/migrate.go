@@ -1,4 +1,4 @@
-package management
+package users
 
 import (
 	"database/sql"
@@ -30,7 +30,7 @@ func Migrate(uri string) error {
 	// Use a separate migrations table to avoid conflicts when running multiple
 	// migrations on the same database (e.g., in tests)
 	db, err := pgx.WithInstance(conn, &pgx.Config{
-		MigrationsTable: "schema_migrations_management",
+		MigrationsTable: "schema_migrations_users",
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create migration database instance: %w", err)

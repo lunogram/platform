@@ -18,6 +18,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/storage"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
@@ -53,31 +54,33 @@ func run() error {
 		return err
 	}
 
-	managementConfig := management.Config{URI: conf.Store.ManagementURI}
-
-	if migrate {
+	if migrate || conf.DatabaseMigrate {
 		logger.Info("running database migrations...")
-		return management.Migrate(managementConfig)
-	}
-
-	if conf.DatabaseMigrate {
-		logger.Info("running database migrations...")
-		if err := management.Migrate(managementConfig); err != nil {
-			return fmt.Errorf("auto-migrate failed: %w", err)
+		if err := management.Migrate(conf.Store.ManagementURI); err != nil {
+			return fmt.Errorf("management migration failed: %w", err)
+		}
+		if err := users.Migrate(conf.Store.UsersURI); err != nil {
+			return fmt.Errorf("users migration failed: %w", err)
+		}
+		if err := journey.Migrate(conf.Store.JourneyURI); err != nil {
+			return fmt.Errorf("journey migration failed: %w", err)
+		}
+		if migrate {
+			return nil
 		}
 	}
 
 	logger.Info("starting service...")
 	logger.Info("initializing database")
 
-	managementDB, err := management.New(ctx, logger, managementConfig)
+	db, err := store.New(ctx, logger, conf.Store)
 	if err != nil {
 		return err
 	}
 
-	managementStore := management.NewState(managementDB)
-	usersStore := users.NewState(managementDB)
-	journeyStore := journey.NewState(managementDB)
+	managementStore := management.NewState(db.Management)
+	usersStore := users.NewState(db.Users)
+	journeyStore := journey.NewState(db.Journey)
 
 	logger.Info("initializing block storage")
 
@@ -107,7 +110,7 @@ func run() error {
 	defer registry.Close(ctx)
 
 	pub := pubsub.NewPublisher(jet)
-	consumer.Serve(ctx, jet, logger, managementDB, managementStore, usersStore, journeyStore, registry)
+	consumer.Serve(ctx, jet, logger, db, managementStore, usersStore, journeyStore, registry)
 
 	logger.Info("initializing cluster")
 
@@ -125,7 +128,7 @@ func run() error {
 
 	logger.Info("starting http server")
 
-	server, err := v1.NewServer(ctx, logger, conf, managementDB, bucket, pub, registry)
+	server, err := v1.NewServer(ctx, logger, conf, db, bucket, pub, registry)
 	if err != nil {
 		return err
 	}

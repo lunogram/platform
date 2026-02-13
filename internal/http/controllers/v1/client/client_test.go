@@ -12,6 +12,7 @@ import (
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/assert"
@@ -35,14 +36,17 @@ func setupClientController(t *testing.T) *testClientController {
 			URL: container.RunNATS(t),
 		},
 	}
-	mgmtConfig := management.Config{
-		URI: uri,
-	}
-
-	err := management.Migrate(mgmtConfig)
+	err := management.Migrate(uri)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, mgmtConfig)
+	err = users.Migrate(uri)
+	require.NoError(t, err)
+
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: uri,
+		UsersURI:      uri,
+		JourneyURI:    uri,
+	})
 	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
@@ -52,12 +56,12 @@ func setupClientController(t *testing.T) *testClientController {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	usersState := users.NewState(db)
+	usersState := users.NewState(db.Users)
 
-	controller := NewClientController(logger, db, usersState, pub)
+	controller := NewClientController(logger, db.Users, usersState, pub)
 	return &testClientController{
 		ClientController: controller,
-		mgmt:             management.NewState(db),
+		mgmt:             management.NewState(db.Management),
 	}
 }
 

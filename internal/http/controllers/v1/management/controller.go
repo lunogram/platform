@@ -1,34 +1,34 @@
 package v1
 
 import (
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/storage"
+	"github.com/lunogram/platform/internal/store"
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) (_ *Controller, err error) {
+func NewController(logger *zap.Logger, db *store.Connections, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) (_ *Controller, err error) {
 	controller := &Controller{
 		ProjectsController:      NewProjectsController(logger, db),
-		CampaignsController:     NewCampaignsController(logger, db),
-		TemplatesController:     NewTemplatesController(logger, db),
-		AdminsController:        NewAdminsController(logger, db),
+		CampaignsController:     NewCampaignsController(logger, db.Management),
+		TemplatesController:     NewTemplatesController(logger, db.Management),
+		AdminsController:        NewAdminsController(logger, db.Management),
 		UsersController:         NewUsersController(logger, pub, db, cfg.Storage.MaxUploadSize),
-		EventsController:        NewEventsController(logger, db),
-		TagsController:          NewTagsController(logger, db),
-		LocalesController:       NewLocalesController(logger, db),
-		JourneysController:      NewJourneysController(logger, db),
-		OrganizationsController: NewOrganizationsController(logger, db),
+		EventsController:        NewEventsController(logger, db.Users),
+		TagsController:          NewTagsController(logger, db.Management),
+		LocalesController:       NewLocalesController(logger, db.Management),
+		JourneysController:      NewJourneysController(logger, db.Journey),
+		OrganizationsController: NewOrganizationsController(logger, db.Management),
 		ListsController:         NewListsController(logger, db, pub, cfg.Storage.MaxUploadSize),
-		DocumentsController:     NewDocumentsController(logger, db, storage, cfg.Storage.MaxUploadSize),
-		ProvidersController:     NewProvidersController(logger, db, registry),
-		SubscriptionsController: NewSubscriptionsController(logger, db),
-		ApiKeysController:       NewApiKeysController(logger, db),
+		DocumentsController:     NewDocumentsController(logger, db.Management, storage, cfg.Storage.MaxUploadSize),
+		ProvidersController:     NewProvidersController(logger, db.Management, registry),
+		SubscriptionsController: NewSubscriptionsController(logger, db.Management),
+		ApiKeysController:       NewApiKeysController(logger, db.Management),
 	}
 
-	controller.AuthController, err = NewAuthController(logger, db, cfg)
+	controller.AuthController, err = NewAuthController(logger, db.Management, cfg)
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,21 @@
+-- Down migration for users database
+
+DROP TABLE IF EXISTS campaign_sends CASCADE;
+DROP TABLE IF EXISTS list_users CASCADE;
+DROP TABLE IF EXISTS lists CASCADE;
+DROP TABLE IF EXISTS rules_events CASCADE;
+DROP TABLE IF EXISTS rules CASCADE;
+DROP TABLE IF EXISTS user_subscription CASCADE;
+DROP TABLE IF EXISTS user_events CASCADE;
+DROP TABLE IF EXISTS user_schemas CASCADE;
+DROP TABLE IF EXISTS event_schemas CASCADE;
+DROP TABLE IF EXISTS events CASCADE;
+DROP TABLE IF EXISTS devices CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+DROP TYPE IF EXISTS project_rule_paths_visibility;
+DROP TYPE IF EXISTS data_type;
+
+DROP FUNCTION IF EXISTS increment_version();
+DROP FUNCTION IF EXISTS set_updated_at();
+DROP EXTENSION IF EXISTS "uuid-ossp";

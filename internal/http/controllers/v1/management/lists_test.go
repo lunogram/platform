@@ -39,19 +39,24 @@ func TestListCreation(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	managementCfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := management.Migrate(managementCfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, managementCfg)
+	err = users.Migrate(postgresURI)
+	require.NoError(t, err)
+
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
@@ -62,7 +67,7 @@ func TestListCreation(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -117,19 +122,24 @@ func TestListLists(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	managementCfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := management.Migrate(managementCfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, managementCfg)
+	err = users.Migrate(postgresURI)
+	require.NoError(t, err)
+
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
@@ -140,11 +150,11 @@ func TestListLists(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(db)
+	listsStore := users.NewListsStore(db.Users)
 
 	testLists := []users.List{
 		{
@@ -229,19 +239,24 @@ func TestGetList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	managementCfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := management.Migrate(managementCfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, managementCfg)
+	err = users.Migrate(postgresURI)
+	require.NoError(t, err)
+
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
@@ -252,11 +267,11 @@ func TestGetList(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(db)
+	listsStore := users.NewListsStore(db.Users)
 	listID, err := listsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List",
@@ -284,19 +299,24 @@ func TestUpdateList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	managementCfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := management.Migrate(managementCfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, managementCfg)
+	err = users.Migrate(postgresURI)
+	require.NoError(t, err)
+
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
@@ -307,11 +327,11 @@ func TestUpdateList(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(db)
+	listsStore := users.NewListsStore(db.Users)
 	listID, err := listsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List",
@@ -345,19 +365,24 @@ func TestDeleteList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	managementCfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := management.Migrate(managementCfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, managementCfg)
+	err = users.Migrate(postgresURI)
+	require.NoError(t, err)
+
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
@@ -368,11 +393,11 @@ func TestDeleteList(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(db)
+	listsStore := users.NewListsStore(db.Users)
 	listID, err := listsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List",
@@ -397,19 +422,24 @@ func TestDuplicateList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	managementCfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
 
-	err := management.Migrate(managementCfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, managementCfg)
+	err = users.Migrate(postgresURI)
+	require.NoError(t, err)
+
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
@@ -420,11 +450,11 @@ func TestDuplicateList(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(db)
+	listsStore := users.NewListsStore(db.Users)
 	listID, err := listsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Original List",
@@ -480,19 +510,24 @@ func TestImportListUsers(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			managementCfg := management.Config{
-				URI: container.RunPostgreSQL(t),
-			}
+			postgresURI := container.RunPostgreSQL(t)
 			cfg := config.Node{
 				Nats: config.Nats{
 					URL: container.RunNATS(t),
 				},
 			}
 
-			err := management.Migrate(managementCfg)
+			err := management.Migrate(postgresURI)
 			require.NoError(t, err)
 
-			db, err := management.New(ctx, logger, managementCfg)
+			err = users.Migrate(postgresURI)
+			require.NoError(t, err)
+
+			db, err := store.New(ctx, logger, store.Config{
+				ManagementURI: postgresURI,
+				UsersURI:      postgresURI,
+				JourneyURI:    postgresURI,
+			})
 			require.NoError(t, err)
 
 			jet, err := pubsub.New(ctx, cfg)
@@ -503,12 +538,12 @@ func TestImportListUsers(t *testing.T) {
 
 			pub := pubsub.NewPublisher(jet)
 
-			projects := management.NewProjectsStore(db)
+			projects := management.NewProjectsStore(db.Management)
 			projectID, err := projects.CreateProject(ctx, DefaultProject)
 			require.NoError(t, err)
 
-			usersStore := users.NewUsersStore(db)
-			listsStore := users.NewListsStore(db)
+			usersStore := users.NewUsersStore(db.Users)
+			listsStore := users.NewListsStore(db.Users)
 
 			list := users.List{
 				ProjectID: projectID,

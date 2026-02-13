@@ -12,6 +12,7 @@ import (
 	"github.com/lunogram/platform/internal/claim/rbac"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -22,21 +23,23 @@ func TestCreateProject(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(cfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, cfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	orgs := management.NewOrganizationsStore(db)
+	orgs := management.NewOrganizationsStore(db.Management)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(db)
+	admins := management.NewAdminsStore(db.Management)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
@@ -118,21 +121,23 @@ func TestListProjects(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(cfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, cfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	orgs := management.NewOrganizationsStore(db)
+	orgs := management.NewOrganizationsStore(db.Management)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(db)
+	admins := management.NewAdminsStore(db.Management)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
@@ -143,7 +148,7 @@ func TestListProjects(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
-	projectStore := management.NewProjectsStore(db)
+	projectStore := management.NewProjectsStore(db.Management)
 	for i := 0; i < 3; i++ {
 		projectID, err := projectStore.CreateProject(ctx, management.Project{
 			OrganizationID: &orgID,
@@ -190,21 +195,23 @@ func TestGetProject(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(cfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, cfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	orgs := management.NewOrganizationsStore(db)
+	orgs := management.NewOrganizationsStore(db.Management)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(db)
+	admins := management.NewAdminsStore(db.Management)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
@@ -215,7 +222,7 @@ func TestGetProject(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
-	projectStore := management.NewProjectsStore(db)
+	projectStore := management.NewProjectsStore(db.Management)
 	projectID, err := projectStore.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
@@ -253,21 +260,23 @@ func TestUpdateProject(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := management.Migrate(cfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, cfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	orgs := management.NewOrganizationsStore(db)
+	orgs := management.NewOrganizationsStore(db.Management)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(db)
+	admins := management.NewAdminsStore(db.Management)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
@@ -278,7 +287,7 @@ func TestUpdateProject(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
-	projectStore := management.NewProjectsStore(db)
+	projectStore := management.NewProjectsStore(db.Management)
 	projectID, err := projectStore.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",

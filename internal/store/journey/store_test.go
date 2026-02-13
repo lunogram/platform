@@ -1,20 +1,22 @@
-package management
+package journey
 
 import (
 	"testing"
 
 	"github.com/cloudproud/graceful"
+	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/store"
-	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
-func ptr[T any](v T) *T {
-	return &v
-}
+var (
+	testDB   *store.Connections
+	testOnce bool
+)
 
 func NewContainerStore(t *testing.T) *State {
 	t.Helper()
@@ -24,14 +26,13 @@ func NewContainerStore(t *testing.T) *State {
 	ctx := graceful.NewContext(t.Context())
 	uri := container.RunPostgreSQL(t)
 
-	// Run all migrations since some management queries may join with other tables
-	err := Migrate(uri)
+	err := management.Migrate(uri)
 	require.NoError(t, err)
 
 	err = users.Migrate(uri)
 	require.NoError(t, err)
 
-	err = journey.Migrate(uri)
+	err = Migrate(uri)
 	require.NoError(t, err)
 
 	db, err := store.New(ctx, logger, store.Config{
@@ -41,5 +42,24 @@ func NewContainerStore(t *testing.T) *State {
 	})
 	require.NoError(t, err)
 
-	return NewState(db.Management)
+	testDB = db
+	testOnce = true
+
+	return NewState(db.Journey)
+}
+
+func ManagementStore(t *testing.T) *management.State {
+	t.Helper()
+	if !testOnce {
+		t.Fatal("must call NewContainerStore before ManagementStore")
+	}
+	return management.NewState(testDB.Management)
+}
+
+func DB(t *testing.T) *sqlx.DB {
+	t.Helper()
+	if !testOnce {
+		t.Fatal("must call NewContainerStore before DB")
+	}
+	return testDB.Journey
 }

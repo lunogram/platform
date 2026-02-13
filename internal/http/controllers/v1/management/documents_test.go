@@ -16,6 +16,7 @@ import (
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/storage"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -27,9 +28,7 @@ func TestDocumentUpload(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
-	mgmtCfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 	storageCfg := storage.Config{
 		Type:          "local",
 		MaxUploadSize: 10485760,
@@ -38,20 +37,24 @@ func TestDocumentUpload(t *testing.T) {
 		},
 	}
 
-	err := management.Migrate(mgmtCfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, mgmtCfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
 	storageBackend, err := storage.New(storageCfg)
 	require.NoError(t, err)
 
-	documents := NewDocumentsController(logger, db, storageBackend, storageCfg.MaxUploadSize)
+	documents := NewDocumentsController(logger, db.Management, storageBackend, storageCfg.MaxUploadSize)
 
 	type test struct {
 		filename    string
@@ -130,9 +133,7 @@ func TestListDocuments(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
-	mgmtCfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 	storageCfg := storage.Config{
 		Type:          "local",
 		MaxUploadSize: 10485760,
@@ -141,17 +142,21 @@ func TestListDocuments(t *testing.T) {
 		},
 	}
 
-	err := management.Migrate(mgmtCfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, mgmtCfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	documentsStore := management.NewDocumentsStore(db)
+	documentsStore := management.NewDocumentsStore(db.Management)
 
 	for i := 0; i < 3; i++ {
 		documentID := uuid.New()
@@ -168,7 +173,7 @@ func TestListDocuments(t *testing.T) {
 	storageBackend, err := storage.New(storageCfg)
 	require.NoError(t, err)
 
-	documents := NewDocumentsController(logger, db, storageBackend, storageCfg.MaxUploadSize)
+	documents := NewDocumentsController(logger, db.Management, storageBackend, storageCfg.MaxUploadSize)
 
 	type test struct {
 		params   oapi.ListDocumentsParams
@@ -236,9 +241,7 @@ func TestGetDocumentMetadata(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
-	mgmtCfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 	storageCfg := storage.Config{
 		Type:          "local",
 		MaxUploadSize: 10485760,
@@ -247,17 +250,21 @@ func TestGetDocumentMetadata(t *testing.T) {
 		},
 	}
 
-	err := management.Migrate(mgmtCfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, mgmtCfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	documentsStore := management.NewDocumentsStore(db)
+	documentsStore := management.NewDocumentsStore(db.Management)
 	documentID := uuid.New()
 	err = documentsStore.CreateDocument(ctx, projectID, documentID, management.CreateDocumentParams{
 		Name:        "test-document.jpg",
@@ -271,7 +278,7 @@ func TestGetDocumentMetadata(t *testing.T) {
 	storageBackend, err := storage.New(storageCfg)
 	require.NoError(t, err)
 
-	documents := NewDocumentsController(logger, db, storageBackend, storageCfg.MaxUploadSize)
+	documents := NewDocumentsController(logger, db.Management, storageBackend, storageCfg.MaxUploadSize)
 
 	type test struct {
 		documentID uuid.UUID
@@ -317,9 +324,7 @@ func TestGetDocument(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
-	mgmtCfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 	storageCfg := storage.Config{
 		Type:          "local",
 		MaxUploadSize: 10485760,
@@ -328,24 +333,28 @@ func TestGetDocument(t *testing.T) {
 		},
 	}
 
-	err := management.Migrate(mgmtCfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, mgmtCfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
 	storageBackend, err := storage.New(storageCfg)
 	require.NoError(t, err)
 
-	documents := NewDocumentsController(logger, db, storageBackend, storageCfg.MaxUploadSize)
+	documents := NewDocumentsController(logger, db.Management, storageBackend, storageCfg.MaxUploadSize)
 
 	testContent := []byte("fake document content")
 
-	documentsStore := management.NewDocumentsStore(db)
+	documentsStore := management.NewDocumentsStore(db.Management)
 	documentID := uuid.New()
 	key := fmt.Sprintf("%s.jpg", documentID)
 	err = documentsStore.CreateDocument(ctx, projectID, documentID, management.CreateDocumentParams{
@@ -400,9 +409,7 @@ func TestDeleteDocument(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 	uploadDir := t.TempDir()
-	mgmtCfg := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	postgresURI := container.RunPostgreSQL(t)
 	storageCfg := storage.Config{
 		Type:          "local",
 		MaxUploadSize: 10485760,
@@ -411,22 +418,26 @@ func TestDeleteDocument(t *testing.T) {
 		},
 	}
 
-	err := management.Migrate(mgmtCfg)
+	err := management.Migrate(postgresURI)
 	require.NoError(t, err)
 
-	db, err := management.New(ctx, logger, mgmtCfg)
+	db, err := store.New(ctx, logger, store.Config{
+		ManagementURI: postgresURI,
+		UsersURI:      postgresURI,
+		JourneyURI:    postgresURI,
+	})
 	require.NoError(t, err)
 
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db.Management)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
 	storageBackend, err := storage.New(storageCfg)
 	require.NoError(t, err)
 
-	documents := NewDocumentsController(logger, db, storageBackend, storageCfg.MaxUploadSize)
+	documents := NewDocumentsController(logger, db.Management, storageBackend, storageCfg.MaxUploadSize)
 
-	documentsStore := management.NewDocumentsStore(db)
+	documentsStore := management.NewDocumentsStore(db.Management)
 	documentID := uuid.New()
 	key := fmt.Sprintf("%s.jpg", documentID)
 	err = documentsStore.CreateDocument(ctx, projectID, documentID, management.CreateDocumentParams{

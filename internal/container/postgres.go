@@ -47,3 +47,24 @@ func RunPostgreSQL(t *testing.T) (uri string) {
 
 	return strings.Replace(adminURI, "/postgres?", "/"+database+"?", 1)
 }
+
+// AddSearchPath adds a search_path parameter to a PostgreSQL connection URI.
+// This allows isolating tables into separate schemas within the same database.
+func AddSearchPath(uri, schema string) string {
+	if strings.Contains(uri, "?") {
+		return uri + "&search_path=" + schema
+	}
+	return uri + "?search_path=" + schema
+}
+
+// CreateSchema creates a schema in the database if it doesn't exist.
+func CreateSchema(t *testing.T, uri, schema string) {
+	t.Helper()
+
+	db, err := sql.Open("pgx", uri)
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schema))
+	require.NoError(t, err)
+}
