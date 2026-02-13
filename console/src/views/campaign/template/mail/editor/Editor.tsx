@@ -11,7 +11,7 @@ import { BlockEditor } from "./BlockEditor";
 import CodeEditorEventListener from "./CodeEditorPlugins/CodeEditorEventListener";
 import CodeStore from "./CodeEditorPlugins/CodeStore";
 import { PricingEmphasisedHtml } from "./components/templates/PicingEmphasised/PricingEmphasisedHtml";
-import { PricingEmphasised } from "./components/templates/PicingEmphasised/PricingEmphasised";
+import { PricingEmphasisedTemplate } from "./components/templates/PicingEmphasised/PricingEmphasised";
 
 const TESTING_TEMPLATES: Template[] = [
   {
@@ -41,26 +41,17 @@ export default function Editor() {
     setEditorMode(type);
     setIsWizardOpen(false);
 
-    // if (templateId === "pricing-emphasized") {
-    //   if (type === "code") {
-    //     template.data.html = renderToStaticMarkup(<PricingEmphasisedHtml />);
-    //     CodeStore.setCode(template.data.html);
-    //     CodeEditorEventListener.emit("CODE_CHANGE");
-    //   } else {
-    //     template.data.editor = {
-    //       content: [
-    //         {
-    //           id: "pricing-emphasised",
-    //           type: "pricing-emphasised",
-    //           content: { ...PricingEmphasised.defaultProps },
-    //         },
-    //       ],
-    //       root: {},
-    //     };
+    if (templateId === "pricing-emphasized") {
+      if (type === "code") {
+        template.data.html = renderToStaticMarkup(<PricingEmphasisedHtml />);
+        CodeStore.setCode(template.data.html);
+        CodeEditorEventListener.emit("CODE_CHANGE");
+      } else {
+        template.data.editor = PricingEmphasisedTemplate;
 
-    //     console.log("Set block editor data:", template.data.editor);
-    //   }
-    // }
+        console.log("Set block editor data:", template.data.editor);
+      }
+    }
   };
 
   const data = template?.data?.editor ?? { content: [], root: {} };

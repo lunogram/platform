@@ -6,6 +6,7 @@ import { Puck, type Data } from "@puckeditor/core";
 import SaveHandler from "./Handlers/SaveHandler";
 import CodeEditorEventListener from "./CodeEditorPlugins/CodeEditorEventListener";
 import CodeStore from "./CodeEditorPlugins/CodeStore";
+import { Preview } from "./Overrides/Preview";
 
 export function BlockEditor({
   data,
@@ -30,6 +31,14 @@ export function BlockEditor({
           return <>{children}</>;
         },
         headerActions: () => <></>,
+        preview: ({ children }) => (
+          <Preview
+            eventListener={CodeEditorEventListener}
+            codeStore={CodeStore}
+          >
+            {children}
+          </Preview>
+        ),
         puck: ({ children }) => (
           <>
             <SaveHandler

@@ -7,9 +7,6 @@ import type CodeStore from "../CodeEditorPlugins/CodeStore";
 import type CodeEditorEventListener from "../CodeEditorPlugins/CodeEditorEventListener";
 import {
   Body,
-  Font,
-  Head,
-  Html,
   pixelBasedPreset,
   render,
   Tailwind,
@@ -36,6 +33,16 @@ export default function SaveHandler(props: {
       <Render config={config} data={appState.data} />,
     );
 
+    const tailwindConfig = {
+      presets: [pixelBasedPreset],
+    };
+
+    const html = await render(
+      <Tailwind config={tailwindConfig}>
+        <Body>{parse(content)}</Body>
+      </Tailwind>,
+    );
+
     const updated = await api.campaigns.templates.update(
       project.id,
       campaign.id,
@@ -45,11 +52,11 @@ export default function SaveHandler(props: {
           ...template.data,
           editor: useRawHtml ? undefined : appState.data,
           rawHtml: useRawHtml ? props.codeStore.current : undefined,
-          html: useRawHtml ? props.codeStore.current : content,
+          html: useRawHtml ? props.codeStore.current : html,
         },
       },
     );
-    
+
     props.codeStore.setCode("");
 
     setTemplate(updated);
