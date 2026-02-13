@@ -12,10 +12,20 @@ export function CodeEditorPlugin(props: {
   };
 
   return (
-    <Editor
-      value={props.store.current}
-      language="html"      
-      onChange={(value) => onChange(value ?? "")}
-    />
+    <div className="h-full w-full">
+      <Editor
+        value={props.store.current}
+        language="html"
+        // theme="vs-dark"
+        onChange={(value) => onChange(value ?? "")}
+        options={{
+          automaticLayout: true,
+          minimap: { enabled: false },
+          fontSize: 14,
+          wordWrap: "on",
+          scrollBeyondLastLine: false,
+        }}
+      />
+    </div>
   );
 }

@@ -10,6 +10,13 @@ import { Preview } from "./Overrides/Preview";
 import { CodeEditorPlugin } from "./CodeEditorPlugins/CodeEditorPlugin";
 import "./Editor.css";
 
+// 1. Import Resizable components
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+
 export function HtmlEditor({
   data,
   html,
@@ -72,24 +79,36 @@ export function HtmlEditor({
           headerActions: () => <></>,
           drawer: () => <></>,
           puck: ({ children }) => (
-            <div className="flex h-screen w-full overflow-hidden bg-background">
-              <div className="w-[450px] border-r flex flex-col bg-white">
-                <div className="h-16 px-6 flex items-center border-b bg-slate-50/50">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                    Developer Mode
-                  </h3>
-                </div>
+            // 2. Wrap the whole view in a ResizablePanelGroup
+            <ResizablePanelGroup orientation="horizontal" className="h-screen w-full bg-background">
+              
+              {/* 3. Left Side: Code Editor Panel */}
+              <ResizablePanel defaultSize={30} minSize={20}>
+                <div className="flex h-full flex-col bg-white">
+                  <div className="h-16 px-6 flex items-center border-b bg-slate-50/50 shrink-0">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                      Developer Mode
+                    </h3>
+                  </div>
 
-                <div className="flex-1 overflow-hidden">
-                  <CodeEditorPlugin
-                    store={CodeStore}
-                    eventListener={CodeEditorEventListener}
-                  />
+                  <div className="flex-1 overflow-hidden">
+                    <CodeEditorPlugin
+                      store={CodeStore}
+                      eventListener={CodeEditorEventListener}
+                    />
+                  </div>
                 </div>
-              </div>
+              </ResizablePanel>
 
-              {/* 2. PUCK AREA */}
-              <div className="flex-1 relative puck-container">{children}</div>
+              {/* 4. The Draggable Handle */}
+              <ResizableHandle withHandle />
+
+              {/* 5. Right Side: Puck Area Panel */}
+              <ResizablePanel defaultSize={70}>
+                <div className="flex-1 h-full relative puck-container overflow-hidden">
+                  {children}
+                </div>
+              </ResizablePanel>
 
               <style>
                 {`
@@ -98,14 +117,13 @@ export function HtmlEditor({
                     display: none !important;
                   }
 
-                  /* Ensure the preview area takes up the whole space */
                   .puck-container [class*="_PuckCanvas"] {
                     width: 100% !important;
                     max-width: 100% !important;
                   }
 
                   .puck-container [class*="_PuckLayout-inner"] {
-                  --puck-side-nav-width: 0px !important;
+                    --puck-side-nav-width: 0px !important;
                   }
                 `}
               </style>
@@ -114,7 +132,7 @@ export function HtmlEditor({
                 eventListener={CodeEditorEventListener}
                 codeStore={CodeStore}
               />
-            </div>
+            </ResizablePanelGroup>
           ),
           preview: ({ children }) => (
             <Preview
