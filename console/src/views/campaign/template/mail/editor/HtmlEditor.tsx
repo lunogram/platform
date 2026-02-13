@@ -91,7 +91,7 @@ export function HtmlEditor({
                     </h3>
                   </div>
 
-                  <div className="flex-1 overflow-hidden">
+                  <div className="flex-1 overflow-auto">
                     <CodeEditorPlugin
                       store={CodeStore}
                       eventListener={CodeEditorEventListener}

@@ -22,7 +22,6 @@ export function CodeEditorPlugin(props: {
           automaticLayout: true,
           minimap: { enabled: false },
           fontSize: 14,
-          wordWrap: "on",
           scrollBeyondLastLine: false,
         }}
       />
