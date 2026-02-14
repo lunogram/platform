@@ -1,0 +1,22 @@
+---
+title: Subscription Groups
+description: Manage user subscriptions and unsubscribe options
+---
+
+All communication happens through providers, but what messages users receive depends on their subscription state. You can create multiple subscription groups for different message types (e.g., promotions vs. weekly updates) and let users opt in or out of each one independently.
+
+## Unsubscribe
+
+In most jurisdictions you must provide users with a way to stop receiving communications from you. To provide these options for users, use one of the options below.
+
+### Preference Center
+
+There is a default preference center available for users to opt out of all communication channels. The URL for this center for a given user can be accessed inside of any message that is sent by using the Handlebars variable: `{{ preferencesUrl }}`
+
+### Email
+
+To unsubscribe from the subscription channel that a given email is coming from you can provide users with a one-click unsubscribe link. This can be accessed via the Handlebars variable `{{ unsubscribeEmailUrl }}`
+
+### SMS (Text Message)
+
+If you have properly setup inbound SMS with your given provider, a user can unsubscribe by messaging the word `STOP` to the number that they have received the text message from.

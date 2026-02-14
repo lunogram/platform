@@ -1,0 +1,214 @@
+---
+title: Step Types
+description: Learn about the different types of journey steps available in Lunogram
+---
+
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+Journeys are built by connecting steps together. Each step type serves a different purpose.
+
+| Step | Purpose |
+|------|---------|
+| [Entrance](#entrance) | Entry point triggered by events, schedules, or links |
+| [Send](#send) | Send a message (email, SMS, push, webhook) |
+| [Gate](#gate) | Split users based on conditions |
+| [Delay](#delay) | Wait before continuing |
+| [Experiment](#experiment) | A/B test different paths |
+| [Balancer](#balancer) | Rate limit and distribute traffic |
+| [Update](#update) | Modify user profile data |
+| [Event](#event) | Trigger an analytics event |
+| [Link](#link) | Jump to another journey |
+| [Exit](#exit) | Remove user from journey |
+
+---
+
+## Entrance
+
+Users start their journey with an entrance step. There are three trigger types:
+
+<Tabs items={['Event', 'Schedule', 'None']}>
+  <Tab value="Event">
+    A user enters when a specific event is triggered.
+
+    | Parameter | Description |
+    |-----------|-------------|
+    | Event Name | Which event triggers the entrance |
+    | Condition | Optional filter for the event |
+    | Multiple Entries | Allow users to run through the journey more than once |
+    | Simultaneous Entries | Allow re-entry before current pass completes |
+  </Tab>
+  <Tab value="Schedule">
+    All users from a list enter on a recurring schedule.
+
+    | Parameter | Description |
+    |-----------|-------------|
+    | Frequency | Daily or monthly |
+    | Start Date | When to start (can be scheduled for the future) |
+    | End Date | Optional end date |
+    | Interval | How often (e.g., every 2 days) |
+    | Days | Specific days to run on |
+  </Tab>
+  <Tab value="None">
+    No automatic trigger. Users only enter via a [Link](#link) step from another journey.
+  </Tab>
+</Tabs>
+
+---
+
+## Send
+
+Send a message to the user. This step wraps a campaign, giving you access to all campaign configuration options.
+
+| Parameter | Description |
+|-----------|-------------|
+| Name | Display name for the step |
+| Data Key | Unique key to reference the result in later steps ([learn more](data)) |
+| Campaign | The campaign to send (create new or use existing) |
+
+Webhook campaign responses are stored and can be accessed in subsequent steps:
+
+```handlebars
+{{ journey.my_webhook.response_field }}
+```
+
+---
+
+## Gate
+
+Split users between paths based on conditions. Uses the same rule builder as lists.
+
+![Journeys Gate](/img/journeys_gate.png)
+
+| Parameter | Description |
+|-----------|-------------|
+| Name | Display name for the step |
+| Rule | Conditions to evaluate |
+
+Matching users go to the **Yes** path, others go to **No**.
+
+Access user properties and journey data in conditions:
+
+```
+user.email                    # User's email address
+user.plan                     # Custom user property
+journey.webhook.updated       # Data from a previous step
+```
+
+---
+
+## Delay
+
+Pause the journey before continuing. Three delay types are available:
+
+<Tabs items={['Duration', 'Until Time', 'Until Date']}>
+  <Tab value="Duration">
+    Wait a fixed amount of time.
+
+    | Parameter | Description |
+    |-----------|-------------|
+    | Days | Number of days |
+    | Hours | Number of hours |
+    | Minutes | Number of minutes |
+  </Tab>
+  <Tab value="Until Time">
+    Wait until a specific time of day (in the user's timezone). If the time has passed today, waits until tomorrow.
+
+    | Parameter | Description |
+    |-----------|-------------|
+    | Time | Time to continue (user's timezone) |
+  </Tab>
+  <Tab value="Until Date">
+    Wait until a specific date (in the user's timezone).
+
+    | Parameter | Description |
+    |-----------|-------------|
+    | Date | Date to continue (user's timezone) |
+  </Tab>
+</Tabs>
+
+---
+
+## Experiment
+
+A/B test different paths by randomly splitting users. Connect multiple steps as variants.
+
+| Parameter | Description |
+|-----------|-------------|
+| Name | Display name for the step |
+| Ratio | Weight for each connected step (determines percentage split) |
+
+Example: Two variants with ratios 1 and 1 split traffic 50/50. Ratios of 3 and 1 split 75/25.
+
+---
+
+## Balancer
+
+Randomly distribute users across paths with optional rate limiting.
+
+| Parameter | Description |
+|-----------|-------------|
+| Name | Display name for the step |
+| Period | Rate limit window (minute, hour, day) |
+| Rate Limit | Max executions per period per path |
+
+Example: Rate limit of 5 per minute means each path processes at most 5 users per minute.
+
+---
+
+## Update
+
+Modify properties on the user's profile. Values are shallow-merged into existing data.
+
+| Parameter | Description |
+|-----------|-------------|
+| Name | Display name for the step |
+| Body | JSON object to merge into user properties |
+
+Use Handlebars to reference user data and journey step results:
+
+```json
+{
+  "full_name": "{{ journey.entrance.first_name }} {{ journey.entrance.last_name }}",
+  "last_viewed_product": "{{ journey.product.name }}",
+  "loyalty_points": "{{ journey.webhook.points }}"
+}
+```
+
+<Callout type="warn">
+The merge is shallow. Nested objects are fully replaced, not merged.
+</Callout>
+
+---
+
+## Event
+
+Trigger an analytics event (useful for external analytics providers like Segment).
+
+| Parameter | Description |
+|-----------|-------------|
+| Name | Display name for the step |
+| Event Name | Name of the event to trigger |
+| Event Body | JSON object with event properties (supports Handlebars) |
+
+---
+
+## Link
+
+Send users to another journey (or restart the current one).
+
+| Parameter | Description |
+|-----------|-------------|
+| Name | Display name for the step |
+| Target Journey | Journey to send the user to |
+| Delay | Required wait time before executing (prevents infinite loops) |
+
+---
+
+## Exit
+
+Remove a user from a journey. Useful for exit criteria (e.g., stop sending reminders after a purchase).
+
+| Parameter | Description |
+|-----------|-------------|
+| Event Name | Event that triggers the exit |
+| Entrance Flow | Which entrance flow to remove the user from |

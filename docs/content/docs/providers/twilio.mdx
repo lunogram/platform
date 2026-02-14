@@ -1,0 +1,77 @@
+---
+title: Twilio
+description: Configure Twilio for SMS and email messaging in Lunogram
+---
+
+# Twilio
+
+Twilio is a cloud communications platform that provides SMS and email (via SendGrid) capabilities for Lunogram.
+
+## Setup
+
+1. Create a [Twilio account](https://www.twilio.com/try-twilio) if you don't have one
+2. From the Twilio Console, note your **Account SID** and **Auth Token**
+
+## Configuration
+
+1. Open your Lunogram project settings
+2. Navigate to **Integrations** and click **Add Integration**
+3. Select **Twilio** from the list
+4. Enter your credentials:
+
+| Field | Description |
+|-------|-------------|
+| Account SID | Your Twilio Account SID (starts with `AC`) |
+| Auth Token | Your Twilio Auth Token |
+
+5. Click **Save** to create the integration
+
+## SMS Setup
+
+### Purchase a Phone Number
+
+If you don't already have a Twilio phone number:
+
+1. In the Twilio Console, go to **Phone Numbers > Manage > Buy a Number**
+2. Search for numbers in your desired area
+3. Ensure the number supports **SMS** capability
+4. Purchase the number
+
+### Configure SMS Settings
+
+When creating SMS campaigns in Lunogram, you'll specify the **From** phone number. Use the Twilio phone number you purchased.
+
+<Callout type="info">
+For high-volume SMS or toll-free numbers, you may need to complete carrier registration. See [Twilio's A2P 10DLC guide](https://www.twilio.com/docs/sms/a2p-10dlc).
+</Callout>
+
+## Inbound Webhooks
+
+To track SMS delivery status and handle opt-outs, configure inbound webhooks:
+
+### Delivery Status
+
+1. In Twilio Console, go to **Phone Numbers > Manage > Active Numbers**
+2. Select your phone number
+3. Under **Messaging Configuration**, find **A message comes in**
+4. Set the webhook URL to your Lunogram inbound endpoint (found in your integration settings)
+5. Set the HTTP method to **POST**
+
+### Opt-Out Handling
+
+Twilio automatically handles standard opt-out keywords (STOP, UNSUBSCRIBE, etc.) through [Advanced Opt-Out](https://www.twilio.com/docs/messaging/services/tutorials/opt-out-keywords). Lunogram receives these events through the inbound webhook.
+
+## Email via SendGrid
+
+Twilio owns SendGrid, and the Twilio provider can send emails through SendGrid's API.
+
+<Callout type="warn">
+Email support via Twilio SendGrid requires additional setup. For dedicated email functionality, consider using the [Resend provider](/providers/resend) instead.
+</Callout>
+
+## Related Links
+
+- [Twilio Console](https://console.twilio.com/)
+- [Twilio SMS API Reference](https://www.twilio.com/docs/sms/api/message-resource)
+- [A2P 10DLC Registration](https://www.twilio.com/docs/sms/a2p-10dlc)
+- [Twilio Opt-Out Management](https://www.twilio.com/docs/messaging/services/tutorials/opt-out-keywords)

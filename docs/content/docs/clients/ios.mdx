@@ -1,0 +1,428 @@
+---
+title: iOS (Swift)
+description: Install and use the Lunogram iOS SDK for user identification, push notifications, and tracking
+---
+
+# iOS SDK
+
+The Lunogram iOS SDK provides user identification, event tracking, push notification support, and deeplink handling for iOS and Mac Catalyst applications.
+
+## Requirements
+
+- iOS 12.0+ / Mac Catalyst 13.0+
+- Xcode 13.2.1 or newer
+- Swift 5.0+
+
+## Installation
+
+### Swift Package Manager (Recommended)
+
+1. In Xcode, go to **File > Add Packages...**
+2. Enter the repository URL:
+   ```
+   https://github.com/lunogram/ios-sdk
+   ```
+3. Select the version and add to your target
+
+### CocoaPods
+
+Add to your `Podfile`:
+
+```ruby
+pod 'Lunogram'
+```
+
+Then run:
+
+```bash
+pod install
+```
+
+## Getting Started
+
+### Import the SDK
+
+```swift
+import Lunogram
+```
+
+### Initialize
+
+Initialize the SDK as early as possible, typically in your `AppDelegate`:
+
+```swift
+@main
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+        
+        Lunogram.initialize(
+            apiKey: "pk_your_public_api_key",
+            urlEndpoint: "https://your-lunogram-instance.com/api"
+        )
+        
+        return true
+    }
+}
+```
+
+For SwiftUI apps:
+
+```swift
+@main
+struct MyApp: App {
+    init() {
+        Lunogram.initialize(
+            apiKey: "pk_your_public_api_key",
+            urlEndpoint: "https://your-lunogram-instance.com/api"
+        )
+    }
+    
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+```
+
+## User Identification
+
+### Identify
+
+Associate the current device/user with your internal user ID and store user attributes:
+
+```swift
+Lunogram.shared.identify(
+    id: "user_12345",
+    traits: [
+        "first_name": "John",
+        "last_name": "Doe",
+        "email": "john@example.com",
+        "plan": "premium"
+    ]
+)
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | String | Your internal user ID (external_id) |
+| `traits` | [String: Any] | Custom user attributes |
+
+<Callout type="info">
+Before calling `identify`, events are associated with an anonymous device ID. Once identified, the anonymous profile merges with the identified user.
+</Callout>
+
+### When to Identify
+
+Call `identify` when:
+
+- User logs in
+- User signs up
+- User profile is updated
+- App launches with a logged-in user
+
+```swift
+func onLoginSuccess(user: User) {
+    Lunogram.shared.identify(
+        id: user.id,
+        traits: [
+            "email": user.email,
+            "name": user.fullName,
+            "signup_date": user.createdAt.iso8601String
+        ]
+    )
+}
+```
+
+## Event Tracking
+
+### Track
+
+Record user actions and events:
+
+```swift
+Lunogram.shared.track(
+    event: "Product Purchased",
+    properties: [
+        "product_id": "prod_abc123",
+        "price": 49.99,
+        "currency": "USD",
+        "quantity": 1
+    ]
+)
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event` | String | Name of the event |
+| `properties` | [String: Any] | Event properties (optional) |
+
+### Common Events
+
+```swift
+// E-commerce
+Lunogram.shared.track(event: "Product Viewed", properties: ["product_id": "123"])
+Lunogram.shared.track(event: "Added to Cart", properties: ["product_id": "123", "quantity": 2])
+Lunogram.shared.track(event: "Order Completed", properties: ["order_id": "456", "total": 99.99])
+
+// Engagement
+Lunogram.shared.track(event: "Feature Used", properties: ["feature": "dark_mode"])
+Lunogram.shared.track(event: "Content Shared", properties: ["content_type": "article", "content_id": "789"])
+
+// App lifecycle
+Lunogram.shared.track(event: "App Opened")
+Lunogram.shared.track(event: "App Backgrounded")
+```
+
+## Push Notifications
+
+### Register for Notifications
+
+Request notification permissions and register the device token with Lunogram:
+
+```swift
+import UserNotifications
+
+func requestNotificationPermission() {
+    UNUserNotificationCenter.current().requestAuthorization(
+        options: [.alert, .badge, .sound]
+    ) { granted, error in
+        if granted {
+            DispatchQueue.main.async {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
+    }
+}
+```
+
+### Handle Device Token
+
+In your `AppDelegate`, pass the device token to Lunogram:
+
+```swift
+func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+) {
+    Lunogram.shared.register(token: deviceToken)
+}
+
+func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+) {
+    // Still register to capture device info without push token
+    Lunogram.shared.register(token: nil)
+}
+```
+
+### Register Without Token
+
+You can register device information even if the user declines push permissions:
+
+```swift
+// Register device characteristics without push token
+Lunogram.shared.register(token: nil)
+```
+
+## Deeplink Handling
+
+Lunogram wraps links in emails for click tracking. The SDK provides methods to unwrap these links and navigate to the correct destination.
+
+### Setup Associated Domains
+
+1. In Xcode, go to **Project > Target > Signing & Capabilities**
+2. Add the **Associated Domains** capability
+3. Add your Lunogram domain:
+   ```
+   applinks:your-lunogram-instance.com
+   ```
+
+### Handle Universal Links
+
+In your `AppDelegate`:
+
+```swift
+func application(
+    _ application: UIApplication,
+    continue userActivity: NSUserActivity,
+    restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+) -> Bool {
+    guard let url = userActivity.webpageURL else {
+        return false
+    }
+    
+    // Lunogram handles the link and returns true if it's a Lunogram URL
+    return Lunogram.shared.handle(universalLink: url)
+}
+```
+
+### SwiftUI
+
+For SwiftUI apps using `onOpenURL`:
+
+```swift
+@main
+struct MyApp: App {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .onOpenURL { url in
+                    _ = Lunogram.shared.handle(universalLink: url)
+                }
+        }
+    }
+}
+```
+
+### Custom Link Handling
+
+If you need to handle the unwrapped URL yourself:
+
+```swift
+if let unwrappedURL = Lunogram.shared.unwrap(url: wrappedURL) {
+    // Navigate to unwrappedURL in your app
+    router.navigate(to: unwrappedURL)
+}
+```
+
+## Complete Example
+
+```swift
+import UIKit
+import Lunogram
+import UserNotifications
+
+@main
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+        
+        // Initialize Lunogram
+        Lunogram.initialize(
+            apiKey: "pk_your_api_key",
+            urlEndpoint: "https://your-instance.com/api"
+        )
+        
+        // Request push notification permissions
+        requestNotificationPermission()
+        
+        // If user is already logged in, identify them
+        if let user = UserManager.shared.currentUser {
+            Lunogram.shared.identify(id: user.id, traits: [
+                "email": user.email,
+                "name": user.name
+            ])
+        }
+        
+        // Track app open
+        Lunogram.shared.track(event: "App Opened")
+        
+        return true
+    }
+    
+    func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(
+            options: [.alert, .badge, .sound]
+        ) { granted, _ in
+            if granted {
+                DispatchQueue.main.async {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+        }
+    }
+    
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        Lunogram.shared.register(token: deviceToken)
+    }
+    
+    func application(
+        _ application: UIApplication,
+        continue userActivity: NSUserActivity,
+        restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+    ) -> Bool {
+        guard let url = userActivity.webpageURL else { return false }
+        return Lunogram.shared.handle(universalLink: url)
+    }
+}
+```
+
+## Best Practices
+
+### 1. Initialize Early
+
+Always initialize the SDK in `application(_:didFinishLaunchingWithOptions:)` before any other Lunogram calls.
+
+### 2. Identify Promptly
+
+Identify users as soon as you know who they are to ensure all events are properly attributed.
+
+### 3. Use Meaningful Event Names
+
+Follow a consistent naming convention:
+
+```swift
+// Good
+"Product Viewed"
+"Order Completed"
+"Feature Used"
+
+// Avoid
+"product_viewed"
+"orderCompleted"
+"FEATURE_USED"
+```
+
+### 4. Handle Background Fetch
+
+If your app uses background fetch, you can still track events:
+
+```swift
+func application(
+    _ application: UIApplication,
+    performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+) {
+    Lunogram.shared.track(event: "Background Fetch")
+    completionHandler(.newData)
+}
+```
+
+## Troubleshooting
+
+### Push Notifications Not Received
+
+1. Verify APNs certificate is uploaded to Lunogram
+2. Check device token is being registered
+3. Ensure app has notification permissions
+4. Test with a development build first
+
+### Events Not Appearing
+
+1. Verify API key is correct (should start with `pk_`)
+2. Check network connectivity
+3. Ensure `urlEndpoint` is correct
+
+### Deeplinks Not Working
+
+1. Verify Associated Domains are configured correctly
+2. Check your `apple-app-site-association` file is accessible
+3. Ensure the domain matches your Lunogram instance
+
+## Example Project
+
+Explore our [example project](https://github.com/lunogram/ios-sdk/tree/main/Example) for a complete implementation.

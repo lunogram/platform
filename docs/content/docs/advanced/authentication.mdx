@@ -1,0 +1,212 @@
+---
+title: Authentication
+description: Configure authentication methods including Basic auth and Clerk SSO
+---
+
+# Authentication
+
+Lunogram supports multiple authentication methods:
+
+- **Basic** - Simple email/password authentication (default)
+- **Clerk** - Enterprise SSO with [Clerk](https://clerk.com/)
+
+## Configuration
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `AUTH_DRIVER` | `basic` \| `clerk` | `basic` | Authentication provider to use |
+| `AUTH_JWT_SECRET` | string | | Secret key for signing JWT tokens |
+| `AUTH_TOKEN_LIFE` | duration | `24h` | How long authentication tokens are valid |
+| `AUTH_JWKS_URL` | string | | JWKS endpoint URL (for Clerk) |
+
+## Basic Authentication
+
+Basic authentication is the default method, allowing a single admin user configured via environment variables. This is suitable for evaluation, development, or single-user deployments.
+
+### Configuration
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `AUTH_DRIVER` | `basic` | No | Set to `basic` (or omit, as it's the default) |
+| `AUTH_BASIC_EMAIL` | string | Yes | Admin user email |
+| `AUTH_BASIC_PASSWORD` | string | Yes | Admin user password |
+
+### Example
+
+```bash
+AUTH_DRIVER=basic
+AUTH_BASIC_EMAIL=admin@example.com
+AUTH_BASIC_PASSWORD=your-secure-password
+AUTH_JWT_SECRET=your-jwt-secret-key-min-32-chars
+```
+
+<Callout type="warning">
+Basic authentication only supports a single admin user. For multi-user access and enterprise SSO, use Clerk authentication.
+</Callout>
+
+## Clerk Authentication
+
+[Clerk](https://clerk.com/) provides enterprise-grade authentication with support for:
+
+- Multiple users and organizations
+- Social login (Google, GitHub, etc.)
+- SAML SSO
+- Multi-factor authentication
+- User management dashboard
+
+### Prerequisites
+
+1. Create a [Clerk account](https://clerk.com/)
+2. Create a new Clerk application
+3. Configure your sign-in methods (email, social, SSO)
+
+### Configuration
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `AUTH_DRIVER` | `clerk` | Yes | Enable Clerk authentication |
+| `AUTH_CLERK_SECRET_KEY` | string | Yes | Your Clerk secret key |
+| `AUTH_CLERK_WEBHOOK_SECRET` | string | No | Webhook signing secret for user sync |
+| `AUTH_JWKS_URL` | string | Yes | Clerk JWKS endpoint URL |
+
+### Example
+
+```bash
+AUTH_DRIVER=clerk
+AUTH_CLERK_SECRET_KEY=sk_live_xxxxx
+AUTH_CLERK_WEBHOOK_SECRET=whsec_xxxxx
+AUTH_JWKS_URL=https://your-app.clerk.accounts.dev/.well-known/jwks.json
+```
+
+### Setup Steps
+
+1. **Get your Clerk credentials**
+   
+   In your Clerk Dashboard, navigate to **API Keys** to find your secret key.
+
+2. **Configure the JWKS URL**
+   
+   Your JWKS URL follows this format:
+   ```
+   https://<your-clerk-frontend-api>/.well-known/jwks.json
+   ```
+   
+   Find your Frontend API URL in Clerk Dashboard under **API Keys**.
+
+3. **Set up webhooks (optional but recommended)**
+   
+   To keep user data synchronized, configure a webhook in Clerk:
+   
+   - Go to **Webhooks** in your Clerk Dashboard
+   - Add a new endpoint: `https://your-lunogram-instance.com/api/v1/auth/webhook/clerk`
+   - Select events: `user.created`, `user.updated`, `user.deleted`
+   - Copy the signing secret to `AUTH_CLERK_WEBHOOK_SECRET`
+
+4. **Configure your frontend**
+   
+   Your frontend application needs to use Clerk's SDK to authenticate users and pass the session token to Lunogram API requests.
+
+### Clerk Frontend Integration
+
+In your frontend application, use the Clerk session token in API requests:
+
+```typescript
+import { useAuth } from '@clerk/clerk-react';
+
+function useApi() {
+  const { getToken } = useAuth();
+  
+  async function fetchFromLunogram(endpoint: string) {
+    const token = await getToken();
+    
+    return fetch(`https://your-lunogram-instance.com/api/v1${endpoint}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+  
+  return { fetchFromLunogram };
+}
+```
+
+### User Synchronization
+
+When webhooks are configured, Lunogram automatically:
+
+- Creates admin users when they sign up in Clerk
+- Updates user information when profiles change
+- Removes access when users are deleted
+
+This ensures your Lunogram admin users stay in sync with your Clerk user directory.
+
+## Security Best Practices
+
+### 1. Use Strong Secrets
+
+Generate secure random strings for `AUTH_JWT_SECRET`:
+
+```bash
+openssl rand -base64 32
+```
+
+### 2. Use HTTPS
+
+Always deploy Lunogram behind HTTPS in production to protect authentication tokens.
+
+### 3. Rotate Credentials
+
+Periodically rotate your authentication credentials and JWT secrets.
+
+### 4. Limit Access
+
+Use Clerk's organization and permission features to control who can access your Lunogram instance.
+
+## Docker Compose Examples
+
+### Basic Authentication
+
+```yaml
+services:
+  lunogram:
+    image: lunogram/lunogram:latest
+    environment:
+      AUTH_DRIVER: basic
+      AUTH_BASIC_EMAIL: admin@example.com
+      AUTH_BASIC_PASSWORD: ${ADMIN_PASSWORD}
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+```
+
+### Clerk Authentication
+
+```yaml
+services:
+  lunogram:
+    image: lunogram/lunogram:latest
+    environment:
+      AUTH_DRIVER: clerk
+      AUTH_CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      AUTH_CLERK_WEBHOOK_SECRET: ${CLERK_WEBHOOK_SECRET}
+      AUTH_JWKS_URL: https://your-app.clerk.accounts.dev/.well-known/jwks.json
+```
+
+## Troubleshooting
+
+### "Invalid credentials" with Basic Auth
+
+1. Verify `AUTH_BASIC_EMAIL` and `AUTH_BASIC_PASSWORD` are set correctly
+2. Check for trailing whitespace in environment variables
+3. Ensure you're using the correct email format
+
+### "Token verification failed" with Clerk
+
+1. Verify `AUTH_JWKS_URL` is correct and accessible
+2. Check that `AUTH_CLERK_SECRET_KEY` matches your Clerk application
+3. Ensure your Clerk session is active and not expired
+
+### Webhook Events Not Processing
+
+1. Verify webhook endpoint is accessible from Clerk
+2. Check `AUTH_CLERK_WEBHOOK_SECRET` matches the secret in Clerk Dashboard
+3. Review Lunogram logs for webhook processing errors

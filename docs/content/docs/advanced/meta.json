@@ -1,0 +1,4 @@
+{
+  "title": "Advanced",
+  "pages": ["config", "architecture", "clustering", "authentication", "storage", "deeplinking"]
+}

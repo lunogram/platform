@@ -1,0 +1,56 @@
+---
+title: Segment
+description: Configure Segment for customer data routing and analytics
+---
+
+# Segment
+
+<Callout type="warn">
+Segment integration support is coming soon. This documentation describes the planned functionality.
+</Callout>
+
+[Segment](https://segment.com/) is a customer data platform that collects, cleans, and routes event data to various destinations.
+
+## Planned Features
+
+### Outbound (Lunogram → Segment)
+
+Send Lunogram events to Segment as a source:
+
+- User identified
+- Email sent/opened/clicked
+- SMS sent/delivered
+- Campaign events
+- Journey events
+
+These events can then be routed to any of Segment's 300+ destinations (data warehouses, analytics tools, CRMs).
+
+### Inbound (Segment → Lunogram)
+
+Receive events from Segment via webhook:
+
+- Track events
+- Identify events
+- Alias events
+
+This allows you to trigger Lunogram campaigns based on events from any Segment-connected source.
+
+## Setup (Coming Soon)
+
+### Outbound Setup
+
+1. Create a Segment source (HTTP API or Node.js)
+2. Get your Segment Write Key
+3. Configure in Lunogram under **Integrations > Add Integration > Segment**
+
+### Inbound Setup
+
+1. Create an API key in Lunogram
+2. Add a Webhook destination in Segment
+3. Point to your Lunogram Segment endpoint
+
+## Related Links
+
+- [Segment Documentation](https://segment.com/docs/)
+- [Segment Sources](https://segment.com/docs/connections/sources/)
+- [Segment Webhooks Destination](https://segment.com/docs/connections/destinations/catalog/webhooks/)

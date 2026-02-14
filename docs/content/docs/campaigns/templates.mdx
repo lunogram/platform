@@ -1,0 +1,73 @@
+---
+title: Templates
+description: Design your campaign content with the visual editor or code
+---
+
+import { Cards, Card } from 'fumadocs-ui/components/card';
+
+Each campaign has templates for your project's locales. After creating a campaign, navigate to the **Design** tab to edit your templates.
+
+![Design Campaign](/img/campaigns_design.png)
+
+## Locales
+
+A locale defines the user's language and region, from broad (`es` for Spanish) to specific (`en_PH` for English from the Philippines). When sending, Lunogram matches the user's locale to the appropriate template, falling back to your default locale if no match exists.
+
+## Email Templates
+
+Email templates offer the most flexibility. Choose between two editing modes:
+
+### Visual Editor
+
+The drag-and-drop interface lets you build emails without code. Drag building blocks from the sidebar and customize styles, layouts, and content for each block.
+
+![Design Campaign Visual](/img/campaigns_design_visual.png)
+
+### Code Editor
+
+For full control, use the code editor with syntax highlighting, code suggestions, and direct image imports. Write HTML and CSS with Handlebars for personalization.
+
+![Design Campaign Code](/img/campaigns_design_code.png)
+
+## SMS Templates
+
+SMS templates have a single body field. Use Handlebars to include user data.
+
+![Design Campaign Text](/img/campaigns_design_text.png)
+
+<Callout type="info">
+Messages over 160 characters are split into multiple segments. Lunogram automatically includes opt-out instructions in the first message sent to each user.
+</Callout>
+
+## Push Notification Templates
+
+Push templates include:
+
+| Field | Description |
+|-------|-------------|
+| Title | Bold headline text |
+| Body | Main message content |
+| Deeplink | URL to open when tapped |
+| Raw JSON | Custom data for your app to process |
+
+![Design Campaign Push](/img/campaigns_design_push.png)
+
+## Webhook Templates
+
+Webhook templates define HTTP requests to external services:
+
+| Field | Description |
+|-------|-------------|
+| URL | The endpoint to call |
+| Method | GET, POST, PUT, etc. |
+| Headers | Custom HTTP headers (supports Handlebars) |
+| Body | JSON request body (supports Handlebars) |
+
+<Cards>
+  <Card title="Personalization" href="personalization">
+    Access user data and event properties in your templates.
+  </Card>
+  <Card title="Helpers Reference" href="helpers">
+    String manipulation, date formatting, conditionals, and more.
+  </Card>
+</Cards>

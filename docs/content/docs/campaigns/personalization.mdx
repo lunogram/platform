@@ -1,0 +1,160 @@
+---
+title: Personalization
+description: Access user data and event properties in your templates
+---
+
+Templates use Handlebars syntax to insert dynamic content. Use double curly braces to access data:
+
+```handlebars
+Hello {{ user.first_name }},
+
+Thanks for your order!
+```
+
+## User Data
+
+Every template has access to the `user` object containing profile information:
+
+```handlebars
+{{ user.email }}
+{{ user.phone }}
+{{ user.first_name }}
+{{ user.last_name }}
+{{ user.timezone }}
+{{ user.locale }}
+```
+
+You can also access any custom properties you've set on users:
+
+```handlebars
+{{ user.plan }}
+{{ user.company_name }}
+{{ user.preferences.newsletter }}
+```
+
+Use dot notation for nested properties:
+
+```handlebars
+{{ user.address.city }}
+{{ user.metadata.signup_source }}
+```
+
+## Event Data
+
+When a template is triggered by a journey entrance or event, the `event` object contains the event properties:
+
+```handlebars
+{{!-- For an "Order Completed" event --}}
+Order #{{ event.order_id }}
+Total: {{ event.total }}
+Items: {{ event.item_count }}
+```
+
+<Callout type="info">
+The `event` object is only available when the campaign is triggered by an event (via journeys or API). For manual campaign sends, only `user` data is available.
+</Callout>
+
+## Conditionals
+
+Show content based on data values:
+
+```handlebars
+{{#if user.first_name}}
+  Hi {{ user.first_name }}!
+{{else}}
+  Hi there!
+{{/if}}
+```
+
+Compare values:
+
+```handlebars
+{{#if (eq user.plan "premium")}}
+  Thanks for being a premium member!
+{{/if}}
+
+{{#if (gte event.total 100)}}
+  You've earned free shipping!
+{{/if}}
+```
+
+Combine conditions:
+
+```handlebars
+{{#if (and (eq user.plan "premium") (gte user.orders_count 10))}}
+  You're one of our top customers!
+{{/if}}
+```
+
+## Loops
+
+Iterate over arrays:
+
+```handlebars
+{{#each event.items}}
+  - {{ this.name }}: {{ this.price }}
+{{/each}}
+```
+
+Access the index:
+
+```handlebars
+{{#each event.items}}
+  {{ @index }}. {{ this.name }}
+{{/each}}
+```
+
+## Default Values
+
+Provide fallbacks for missing data:
+
+```handlebars
+{{#if user.first_name}}{{ user.first_name }}{{else}}there{{/if}}
+```
+
+## Formatting
+
+Use [helpers](helpers) to format values:
+
+```handlebars
+{{!-- Format currency --}}
+{{ numberFormat event.total "en-US" "currency" "USD" }}
+
+{{!-- Format dates --}}
+{{ dateFormat user.created_at "MMMM d, yyyy" }}
+
+{{!-- Capitalize names --}}
+{{ capitalize user.first_name }}
+```
+
+## Subscription Links
+
+Include required unsubscribe links in emails:
+
+```handlebars
+<a href="{{ unsubscribeEmailUrl }}">Unsubscribe</a>
+
+<a href="{{ preferencesUrl }}">Manage email preferences</a>
+```
+
+## Example: Welcome Email
+
+```handlebars
+Hi {{ user.first_name }},
+
+Welcome to Lunogram! Your account was created on 
+{{ dateFormat user.created_at "MMMM d, yyyy" }}.
+
+{{#if (eq user.plan "premium")}}
+As a premium member, you have access to all features.
+{{else}}
+Upgrade to premium for additional features.
+{{/if}}
+
+Best,
+The Lunogram Team
+
+---
+<a href="{{ preferencesUrl }}">Email preferences</a> | 
+<a href="{{ unsubscribeEmailUrl }}">Unsubscribe</a>
+```

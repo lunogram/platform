@@ -1,0 +1,50 @@
+---
+title: PostHog
+description: Configure PostHog for analytics event tracking
+---
+
+# PostHog
+
+<Callout type="warn">
+PostHog integration support is coming soon. This documentation describes the planned functionality.
+</Callout>
+
+[PostHog](https://posthog.com/) is an open-source product analytics platform. The Lunogram integration sends campaign and user events to PostHog for analysis.
+
+## Planned Features
+
+- Send Lunogram events to PostHog
+- Track campaign performance alongside product analytics
+- Correlate marketing activities with user behavior
+
+## Events Sent to PostHog
+
+When configured, Lunogram will send events like:
+
+- `email_sent`
+- `email_opened`
+- `email_clicked`
+- `sms_sent`
+- `sms_delivered`
+- `campaign_triggered`
+- `journey_entered`
+- `journey_completed`
+
+## Setup (Coming Soon)
+
+1. Open [PostHog](https://app.posthog.com) and go to **Project Settings**
+2. Copy your **Project API Key**
+3. In Lunogram, go to **Integrations > Add Integration > PostHog**
+4. Enter your API key
+5. If self-hosting PostHog, enter your host URL (otherwise leave blank for `https://app.posthog.com`)
+6. Save the integration
+
+## Self-Hosted PostHog
+
+PostHog can be [self-hosted](https://posthog.com/docs/self-host). When using a self-hosted instance, provide your PostHog URL in the Host field (e.g., `https://posthog.yourcompany.com`).
+
+## Related Links
+
+- [PostHog Documentation](https://posthog.com/docs)
+- [PostHog Events](https://posthog.com/docs/data/events)
+- [PostHog Self-Hosting](https://posthog.com/docs/self-host)

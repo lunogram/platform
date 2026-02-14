@@ -1,0 +1,20 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "---Overview---",
+    "introduction",
+    "quick-start",
+    "---Guides---",
+    "campaigns",
+    "journeys",
+    "lists",
+    "users",
+    "settings",
+    "---Reference---",
+    "providers",
+    "clients",
+    "api",
+    "---Configuration---",
+    "advanced"
+  ]
+}

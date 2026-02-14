@@ -1,0 +1,120 @@
+---
+title: Accessing Data
+description: Use user data, events, and step results to personalize journeys
+---
+
+Journeys can access user profiles, triggering events, and data captured from previous steps. This data is available in templates, conditions, and user updates.
+
+## Data Structure
+
+```json
+{
+  "user": {
+    "id": "abc123",
+    "email": "chris@example.com",
+    "phone": "+01234567890",
+    "locale": "en",
+    "timezone": "America/Chicago",
+    "created_at": "2024-01-01T00:00:00Z",
+    "favorite_color": "green",
+    "plan": "premium"
+  },
+  "journey": {
+    "entrance": {
+      "event": {
+        "name": "Purchased Coffee",
+        "created_at": "2024-03-01T12:30:00Z",
+        "price": 3.00,
+        "size": "large"
+      }
+    },
+    "webhook_response": {
+      "loyalty_points": 300,
+      "tier": "gold"
+    }
+  }
+}
+```
+
+## Accessing User Data
+
+User properties are available under `user`:
+
+```handlebars
+{{ user.email }}
+{{ user.first_name }}
+{{ user.plan }}
+{{ user.custom_property }}
+```
+
+## Accessing Event Data
+
+When a journey is triggered by an event, the event data is stored under the entrance's data key:
+
+```handlebars
+{{ journey.entrance.event.name }}
+{{ journey.entrance.event.price }}
+{{ journey.entrance.event.custom_field }}
+```
+
+## Data Keys
+
+Each step can have a **Data Key** that makes its output available to later steps.
+
+![Journey Data Key Example](/img/journeys_data_key.png)
+
+### Webhook Responses
+
+When a Send step uses a webhook campaign, the response is stored under its data key:
+
+```handlebars
+{{ journey.my_webhook.loyalty_points }}
+{{ journey.my_webhook.api_response_field }}
+```
+
+### Using Data in Gates
+
+Gate conditions can reference journey data:
+
+```
+journey.webhook_response.loyalty_points >= 100
+user.plan == "premium"
+```
+
+![Journey Data Key Gate Example](/img/journeys_data_key_gates.png)
+
+### Using Data in User Updates
+
+Copy step data into user profiles:
+
+![Journey Data Key User Update Example](/img/journeys_data_key_user_updates.png)
+
+```json
+{
+  "loyalty_points": "{{ journey.webhook_response.loyalty_points }}",
+  "loyalty_tier": "{{ journey.webhook_response.tier }}"
+}
+```
+
+### Using Data in Campaigns
+
+Campaign templates can access all journey data:
+
+![Journey Data Key Campaigns Example](/img/journeys_data_key_campaigns.png)
+
+```handlebars
+Hi {{ user.first_name }},
+
+You now have {{ journey.webhook_response.loyalty_points }} points!
+```
+
+## Summary
+
+| Data | Path |
+|------|------|
+| User profile | `user.property_name` |
+| Entrance event | `journey.DATA_KEY.event.property` |
+| Webhook response | `journey.DATA_KEY.property` |
+| Any step output | `journey.DATA_KEY.property` |
+
+Replace `DATA_KEY` with the data key you configured on the step.

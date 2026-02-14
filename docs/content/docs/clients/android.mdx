@@ -1,0 +1,575 @@
+---
+title: Android (Kotlin)
+description: Install and use the Lunogram Android SDK for user identification, push notifications, and tracking
+---
+
+# Android SDK
+
+The Lunogram Android SDK provides user identification, event tracking, push notification support, and deeplink handling for Android applications.
+
+## Requirements
+
+- Android SDK 21+ (Android 5.0 Lollipop)
+- Kotlin 1.5+ or Java 8+
+- AndroidX
+
+## Installation
+
+### Gradle (JitPack)
+
+Add JitPack to your project's `settings.gradle.kts`:
+
+```kotlin
+dependencyResolutionManagement {
+    repositories {
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+```
+
+Or in `build.gradle` (Groovy):
+
+```groovy
+allprojects {
+    repositories {
+        maven { url 'https://jitpack.io' }
+    }
+}
+```
+
+Then add the dependency to your app's `build.gradle.kts`:
+
+```kotlin
+dependencies {
+    implementation("com.github.lunogram:android-sdk:0.1.4")
+}
+```
+
+Or in Groovy:
+
+```groovy
+dependencies {
+    implementation 'com.github.lunogram:android-sdk:0.1.4'
+}
+```
+
+## Getting Started
+
+### Initialize
+
+Initialize the SDK as early as possible, typically in your `Application` class:
+
+```kotlin
+import com.lunogram.sdk.Lunogram
+
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        
+        Lunogram.initialize(
+            context = this,
+            apiKey = "pk_your_public_api_key",
+            urlEndpoint = "https://your-lunogram-instance.com/api"
+        )
+    }
+}
+```
+
+Make sure to register your `Application` class in `AndroidManifest.xml`:
+
+```xml
+<application
+    android:name=".MyApplication"
+    ...>
+```
+
+### Get the SDK Instance
+
+After initialization, access the SDK via the returned instance or the shared singleton:
+
+```kotlin
+// Option 1: Use the returned instance
+val lunogram = Lunogram.initialize(context, apiKey, urlEndpoint)
+
+// Option 2: Access the shared instance later
+val lunogram = Lunogram.shared
+```
+
+## User Identification
+
+### Identify
+
+Associate the current device/user with your internal user ID and store user attributes:
+
+```kotlin
+lunogram.identify(
+    id = "user_12345",
+    traits = mapOf(
+        "first_name" to "John",
+        "last_name" to "Doe",
+        "email" to "john@example.com",
+        "plan" to "premium"
+    )
+)
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | String | Your internal user ID (external_id) |
+| `traits` | `Map<String, Any>` | Custom user attributes |
+
+<Callout type="info">
+Before calling `identify`, events are associated with an anonymous device ID. Once identified, the anonymous profile merges with the identified user.
+</Callout>
+
+### When to Identify
+
+Call `identify` when:
+
+- User logs in
+- User signs up
+- User profile is updated
+- App launches with a logged-in user
+
+```kotlin
+fun onLoginSuccess(user: User) {
+    Lunogram.shared.identify(
+        id = user.id,
+        traits = mapOf(
+            "email" to user.email,
+            "name" to user.fullName,
+            "signup_date" to user.createdAt.toIso8601()
+        )
+    )
+}
+```
+
+## Event Tracking
+
+### Track
+
+Record user actions and events:
+
+```kotlin
+lunogram.track(
+    event = "Product Purchased",
+    properties = mapOf(
+        "product_id" to "prod_abc123",
+        "price" to 49.99,
+        "currency" to "USD",
+        "quantity" to 1
+    )
+)
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `event` | String | Name of the event |
+| `properties` | `Map<String, Any>?` | Event properties (optional) |
+
+### Common Events
+
+```kotlin
+// E-commerce
+lunogram.track("Product Viewed", mapOf("product_id" to "123"))
+lunogram.track("Added to Cart", mapOf("product_id" to "123", "quantity" to 2))
+lunogram.track("Order Completed", mapOf("order_id" to "456", "total" to 99.99))
+
+// Engagement
+lunogram.track("Feature Used", mapOf("feature" to "dark_mode"))
+lunogram.track("Content Shared", mapOf("content_type" to "article", "content_id" to "789"))
+
+// App lifecycle
+lunogram.track("Application Opened")
+lunogram.track("Application Backgrounded")
+```
+
+## Push Notifications
+
+### Firebase Cloud Messaging Setup
+
+1. Add Firebase to your Android project following the [Firebase documentation](https://firebase.google.com/docs/android/setup)
+
+2. Add the Firebase Messaging dependency:
+
+```kotlin
+dependencies {
+    implementation("com.google.firebase:firebase-messaging:23.4.0")
+}
+```
+
+### Register Device Token
+
+Create a `FirebaseMessagingService` to handle token registration:
+
+```kotlin
+import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
+import com.lunogram.sdk.Lunogram
+
+class MyFirebaseMessagingService : FirebaseMessagingService() {
+    
+    override fun onNewToken(token: String) {
+        super.onNewToken(token)
+        
+        // Register the FCM token with Lunogram
+        Lunogram.shared.register(
+            token = token,
+            appBuild = BuildConfig.VERSION_CODE,
+            appVersion = BuildConfig.VERSION_NAME
+        )
+    }
+    
+    override fun onMessageReceived(remoteMessage: RemoteMessage) {
+        super.onMessageReceived(remoteMessage)
+        // Handle incoming push notification
+    }
+}
+```
+
+Register the service in `AndroidManifest.xml`:
+
+```xml
+<service
+    android:name=".MyFirebaseMessagingService"
+    android:exported="false">
+    <intent-filter>
+        <action android:name="com.google.firebase.MESSAGING_EVENT" />
+    </intent-filter>
+</service>
+```
+
+### Register on App Start
+
+Fetch and register the token when the app starts:
+
+```kotlin
+import com.google.firebase.messaging.FirebaseMessaging
+
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        
+        Lunogram.initialize(this, apiKey, urlEndpoint)
+        
+        // Get current FCM token
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result
+                Lunogram.shared.register(
+                    token = token,
+                    appBuild = BuildConfig.VERSION_CODE,
+                    appVersion = BuildConfig.VERSION_NAME
+                )
+            } else {
+                // Register without token to capture device info
+                Lunogram.shared.register(
+                    token = null,
+                    appBuild = BuildConfig.VERSION_CODE,
+                    appVersion = BuildConfig.VERSION_NAME
+                )
+            }
+        }
+    }
+}
+```
+
+### Register Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `token` | String? | FCM device token (null if push not available) |
+| `appBuild` | Int | App version code (BuildConfig.VERSION_CODE) |
+| `appVersion` | String | App version name (BuildConfig.VERSION_NAME) |
+
+## Deeplink Handling
+
+Lunogram wraps links in emails for click tracking. The SDK provides methods to unwrap these links and navigate to the correct destination.
+
+### Setup Intent Filter
+
+Add your Lunogram domain to your Activity's intent filter in `AndroidManifest.xml`:
+
+```xml
+<activity
+    android:name=".MainActivity"
+    android:launchMode="singleTask">
+    <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data
+            android:scheme="https"
+            android:host="your-lunogram-instance.com" />
+    </intent-filter>
+</activity>
+```
+
+### Handle Deeplinks in Activity
+
+Handle incoming deeplinks in your Activity:
+
+```kotlin
+import android.content.Intent
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+import com.lunogram.sdk.Lunogram
+
+class MainActivity : AppCompatActivity() {
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        
+        handleIntent(intent)
+    }
+    
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+    
+    private fun handleIntent(intent: Intent?) {
+        val uri = intent?.data ?: return
+        
+        // Unwrap Lunogram tracking URL and get the destination
+        val redirectUri = Lunogram.shared.getUriRedirect(uri)
+        
+        if (redirectUri != null) {
+            // Navigate to the unwrapped destination
+            navigateToDeeplink(redirectUri)
+        }
+    }
+    
+    private fun navigateToDeeplink(uri: android.net.Uri) {
+        // Implement your navigation logic
+        when (uri.path) {
+            "/product" -> navigateToProduct(uri.getQueryParameter("id"))
+            "/order" -> navigateToOrder(uri.getQueryParameter("id"))
+            else -> navigateToHome()
+        }
+    }
+}
+```
+
+### Jetpack Compose Navigation
+
+For Compose apps using the Navigation component:
+
+```kotlin
+import androidx.compose.runtime.LaunchedEffect
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.rememberNavController
+import com.lunogram.sdk.Lunogram
+
+@Composable
+fun MyApp() {
+    val navController = rememberNavController()
+    val context = LocalContext.current
+    
+    // Handle deeplinks
+    LaunchedEffect(Unit) {
+        val activity = context as? Activity
+        val uri = activity?.intent?.data
+        
+        if (uri != null) {
+            val redirectUri = Lunogram.shared.getUriRedirect(uri)
+            redirectUri?.let { handleDeeplink(navController, it) }
+        }
+    }
+    
+    NavHost(navController = navController, startDestination = "home") {
+        // Define your navigation graph
+    }
+}
+```
+
+## Complete Example
+
+```kotlin
+import android.app.Application
+import android.os.Bundle
+import android.content.Intent
+import androidx.appcompat.app.AppCompatActivity
+import com.google.firebase.messaging.FirebaseMessaging
+import com.lunogram.sdk.Lunogram
+
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        
+        // Initialize Lunogram
+        Lunogram.initialize(
+            context = this,
+            apiKey = "pk_your_api_key",
+            urlEndpoint = "https://your-instance.com/api"
+        )
+        
+        // Register for push notifications
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            val token = if (task.isSuccessful) task.result else null
+            Lunogram.shared.register(
+                token = token,
+                appBuild = BuildConfig.VERSION_CODE,
+                appVersion = BuildConfig.VERSION_NAME
+            )
+        }
+    }
+}
+
+class MainActivity : AppCompatActivity() {
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        
+        // If user is already logged in, identify them
+        UserManager.currentUser?.let { user ->
+            Lunogram.shared.identify(
+                id = user.id,
+                traits = mapOf(
+                    "email" to user.email,
+                    "name" to user.name
+                )
+            )
+        }
+        
+        // Track app open
+        Lunogram.shared.track("Application Opened")
+        
+        // Handle deeplinks
+        handleIntent(intent)
+    }
+    
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+    
+    private fun handleIntent(intent: Intent?) {
+        val uri = intent?.data ?: return
+        val redirectUri = Lunogram.shared.getUriRedirect(uri)
+        redirectUri?.let { navigateToDeeplink(it) }
+    }
+    
+    private fun navigateToDeeplink(uri: android.net.Uri) {
+        // Your navigation logic here
+    }
+}
+```
+
+## Java Support
+
+While Kotlin is recommended, the SDK works with Java:
+
+```java
+import com.lunogram.sdk.Lunogram;
+import java.util.HashMap;
+import java.util.Map;
+
+// Initialize
+Lunogram analytics = Lunogram.initialize(context, apiKey, urlEndpoint);
+
+// Identify
+Map<String, Object> traits = new HashMap<>();
+traits.put("first_name", "John");
+traits.put("email", "john@example.com");
+analytics.identify("user_123", traits);
+
+// Track
+Map<String, Object> properties = new HashMap<>();
+properties.put("product_id", "abc123");
+properties.put("price", 49.99);
+analytics.track("Product Purchased", properties);
+
+// Register device
+analytics.register(token, BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME);
+```
+
+## Best Practices
+
+### 1. Initialize Early
+
+Always initialize the SDK in your `Application.onCreate()` before any other Lunogram calls.
+
+### 2. Identify Promptly
+
+Identify users as soon as you know who they are to ensure all events are properly attributed.
+
+### 3. Use Meaningful Event Names
+
+Follow a consistent naming convention:
+
+```kotlin
+// Good
+"Product Viewed"
+"Order Completed"
+"Feature Used"
+
+// Avoid
+"product_viewed"
+"orderCompleted"
+"FEATURE_USED"
+```
+
+### 4. Handle Process Death
+
+Android may kill your app process. Re-identify the user when the app restarts:
+
+```kotlin
+class MainActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // Re-identify user if logged in
+        SessionManager.getCurrentUser()?.let { user ->
+            Lunogram.shared.identify(user.id, getUserTraits(user))
+        }
+    }
+}
+```
+
+### 5. Thread Safety
+
+All Lunogram SDK methods are thread-safe and can be called from any thread.
+
+## Troubleshooting
+
+### Push Notifications Not Received
+
+1. Verify FCM is configured correctly with valid `google-services.json`
+2. Check device token is being registered
+3. Ensure FCM server key is added to Lunogram project settings
+4. Test with a debug build first
+5. Check `adb logcat` for FCM-related errors
+
+### Events Not Appearing
+
+1. Verify API key is correct (should start with `pk_`)
+2. Check network connectivity
+3. Ensure `urlEndpoint` is correct and reachable
+4. Check Logcat for SDK errors
+
+### Deeplinks Not Working
+
+1. Verify intent filter is configured correctly
+2. Test with `adb shell am start -a android.intent.action.VIEW -d "https://your-domain.com/path"`
+3. Ensure the domain matches your Lunogram instance
+4. Check that `android:autoVerify="true"` is set for App Links
+
+### ProGuard/R8
+
+If using code shrinking, add these ProGuard rules:
+
+```text
+-keep class com.lunogram.sdk.** { *; }
+-keepclassmembers class com.lunogram.sdk.** { *; }
+```
+
+## Example Project
+
+Explore our [example project](https://github.com/lunogram/android-sdk/tree/main/samples/kotlin-android-app) for a complete implementation.

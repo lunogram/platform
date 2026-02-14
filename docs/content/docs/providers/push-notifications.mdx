@@ -1,0 +1,138 @@
+---
+title: Push Notifications
+description: Configure Apple Push Notifications (APNs) and Firebase Cloud Messaging for push notifications
+---
+
+# Push Notifications
+
+<Callout type="warn">
+Push notification provider support is coming soon. This documentation describes the planned functionality.
+</Callout>
+
+Lunogram supports sending push notifications to both major mobile platforms:
+
+- **APNs** - Apple Push Notification service for iOS devices
+- **FCM** - Firebase Cloud Messaging for Android devices
+
+Since push notifications are a unified message type, both services are configured in a single provider. If you only target one platform, leave the other section blank.
+
+## APNs (Apple Push Notifications)
+
+### Enable in Xcode
+
+Add the Push Notification capability to your app in Xcode. Follow Apple's guide: [Registering your app with APNs](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns).
+
+### Enable in Apple Developer Portal
+
+1. Sign in to the [Apple Developer Portal](https://developer.apple.com/)
+2. Navigate to **Certificates, IDs & Profiles > Identifiers**
+3. Select your app identifier
+4. Under Capabilities, enable **Push Notifications**
+5. Save your changes
+
+### Create Authentication Key
+
+Lunogram uses token-based authentication with a .p8 key file. This is Apple's recommended approach:
+
+- Works for both production and development
+- Does not expire
+- Single key for all your apps
+
+1. Follow Apple's guide: [Establishing a Token-Based Connection to APNs](https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/establishing_a_token-based_connection_to_apns)
+2. Download the .p8 key file
+
+### Configure in Lunogram
+
+1. Go to **Project Settings > Integrations > Add Integration**
+2. Select **APNs & FCM**
+3. Fill in the APNs fields:
+
+| Field | Description | Where to Find |
+|-------|-------------|---------------|
+| Key | Contents of your .p8 file | Open in text editor |
+| Key ID | 10-character identifier | Apple Developer > Keys |
+| Team ID | 10-character identifier | Apple Developer (top right) |
+| Bundle ID | Your app identifier | Apple Developer > Identifiers or Xcode |
+
+4. Save the integration
+
+## FCM (Firebase Cloud Messaging)
+
+### Setup Firebase
+
+Follow Google's guide to add Firebase to your Android app: [Add Firebase to your Android project](https://firebase.google.com/docs/android/setup).
+
+### Create Service Account
+
+1. Open [Firebase Console](https://console.firebase.google.com/)
+2. Click the gear icon > **Project Settings**
+3. Navigate to **Cloud Messaging**
+4. If Firebase Cloud Messaging API (V1) is disabled, click the menu and enable it
+5. Navigate to **Service Accounts**
+6. Click **Generate new private key**
+7. Save the downloaded JSON file
+
+### Configure in Lunogram
+
+1. Go to **Project Settings > Integrations > Add Integration**
+2. Select **APNs & FCM**
+3. Open the downloaded JSON file in a text editor
+4. Copy the entire contents into the **Service Account JSON** field
+5. Save the integration
+
+## Client SDK Integration
+
+### iOS
+
+Use the [Lunogram iOS SDK](/clients/ios) to register device tokens:
+
+```swift
+func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+) {
+    Lunogram.shared.register(token: deviceToken)
+}
+```
+
+### Android
+
+Use the [Lunogram Android SDK](/clients/android) to register FCM tokens:
+
+```kotlin
+class MyFirebaseMessagingService : FirebaseMessagingService() {
+    override fun onNewToken(token: String) {
+        Lunogram.shared.register(
+            token = token,
+            appBuild = BuildConfig.VERSION_CODE,
+            appVersion = BuildConfig.VERSION_NAME
+        )
+    }
+}
+```
+
+## Testing
+
+### iOS Simulator
+
+The iOS Simulator supports push notifications for testing. You can drag and drop an `.apns` file onto the simulator to trigger a notification.
+
+### Android Emulator
+
+Use the Firebase Console's **Cloud Messaging > Send test message** feature to test on emulators with Google Play Services.
+
+## Troubleshooting
+
+### iOS: Notifications not received
+
+1. Verify your .p8 key is valid and not revoked
+2. Check the Bundle ID matches your app
+3. Ensure the device token is being registered
+4. Test with a real device (some features don't work on simulator)
+
+### Android: Notifications not received
+
+1. Verify your service account JSON is complete
+2. Check that FCM is enabled in Firebase Console
+3. Ensure google-services.json is in your app
+4. Test with a real device or emulator with Google Play Services

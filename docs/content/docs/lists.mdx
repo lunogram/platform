@@ -1,0 +1,173 @@
+---
+title: Lists
+description: Segment users for targeting in campaigns and journeys
+---
+
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+Lists group users together for targeting. Use them to define campaign audiences, trigger journeys when users enter or leave, and segment your user base.
+
+| Type | Best For | Updates |
+|------|----------|---------|
+| **Dynamic** | Users matching rules (e.g., "premium users who purchased recently") | Automatic, real-time |
+| **Static** | Fixed audiences, newsletter subscribers, imported segments | Manual via CSV or API |
+
+---
+
+## Dynamic Lists
+
+Dynamic lists automatically include users who match your rules. When a user's properties change or new events are tracked, their list membership updates in real-time.
+
+{/* TODO: Add screenshot of dynamic list overview - /img/lists_dynamic.png */}
+
+### Building Rules
+
+Rules define who belongs to the list. You can combine two types of conditions:
+
+**User property rules** check values on the user profile:
+- `user.plan` equals "premium"
+- `user.country` is one of "US", "CA", "UK"
+- `user.created_at` is within the last 30 days
+
+**Event rules** check whether users performed actions within a time period:
+- User did "Order Completed" at least 3 times in the last 30 days
+- User did "Login" at least 1 time in the last 7 days
+- User did "Feature Used" with `feature = "reports"` at least 5 times in the last month
+
+Combine multiple conditions with AND/OR logic to create precise segments.
+
+{/* TODO: Add screenshot of rule builder with user and event conditions - /img/lists_rule_builder.png */}
+
+### Event Rule Conditions
+
+Event rules can include additional conditions to filter which events count:
+
+```
+User did "Order Completed" >= 2 times in last 30 days
+  WHERE total >= 100
+  AND currency = "USD"
+```
+
+This matches users who completed at least 2 orders over $100 USD in the past month.
+
+### Relative Dates
+
+For time-based segmentation, use Handlebars date helpers in your rules:
+
+```handlebars
+{{ now }}                        {{!-- Current time --}}
+{{ subDate "now" 30 "days" }}    {{!-- 30 days ago --}}
+{{ addDate "now" 7 "days" }}     {{!-- 7 days from now --}}
+```
+
+When your rules contain relative dates, Lunogram automatically recalculates membership daily.
+
+<Callout type="info">
+Rules with relative dates and a "before" operator require evaluating all non-members to find new matches. This may take longer for large user bases.
+</Callout>
+
+### List Membership Events
+
+When users enter or leave a dynamic list, Lunogram emits events that can trigger journeys:
+
+| Event | When |
+|-------|------|
+| `list.user.added` | User matches the rules and joins the list |
+| `list.user.removed` | User no longer matches and leaves the list |
+
+Both events include `list_id` in the event data, so you can build journeys that respond to specific lists.
+
+**Example journey triggers:**
+
+- **Re-engagement**: When users enter an "Inactive 30+ Days" list, start a win-back email sequence
+- **Churn prevention**: When users exit a "Highly Engaged" list, trigger an intervention flow
+- **Upsell**: When users enter a "Power Users on Free Plan" list, send upgrade prompts
+- **Onboarding complete**: When users exit a "New Users" list (because they're no longer new), send a milestone email
+
+To use these events, create a journey with an event-based entrance and select `list.user.added` or `list.user.removed` as the trigger.
+
+---
+
+## Static Lists
+
+Static lists contain a fixed set of users. Add users by uploading a CSV file or through the API.
+
+### When to Use Static Lists
+
+- **Newsletter subscribers**: Manage email lists where users subscribe via a form, updated through your API
+- **Event attendees**: Import attendee lists for targeted follow-ups
+- **Partner leads**: Upload leads from external sources
+- **Beta programs**: Manually curate participants
+- **Migration**: Bring segments from other marketing platforms
+
+### Importing via CSV
+
+Upload a CSV file with your user data. The file must include an `external_id` column.
+
+```csv
+external_id,email,first_name,company,source
+user_001,alice@example.com,Alice,Acme Inc,webinar
+user_002,bob@example.com,Bob,Globex,partner
+user_003,carol@example.com,Carol,Initech,organic
+```
+
+**Reserved columns** (mapped to standard fields): `external_id`, `email`, `phone`, `first_name`, `last_name`, `timezone`, `locale`
+
+All other columns become custom properties on the user.
+
+### Updating via API
+
+For newsletter signups or other integrations, use the Admin API to add users to a static list:
+
+```bash
+curl -X POST https://your-instance.com/api/admin/projects/{projectId}/lists/{listId}/users \
+  -H "Authorization: Bearer sk_..." \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@subscribers.csv"
+```
+
+This lets you sync subscribers from your signup forms, CRM, or other systems.
+
+---
+
+## Choosing Between Dynamic and Static
+
+<Tabs items={['Dynamic', 'Static']}>
+  <Tab value="Dynamic">
+    **Use dynamic lists when:**
+    - Membership should update automatically based on user behavior
+    - You want to trigger journeys when users enter or leave
+    - The segment is defined by properties or event patterns
+    - You need real-time audience targeting
+
+    **Examples:**
+    - Premium users who purchased in the last 30 days
+    - Users who viewed a product but didn't buy
+    - Inactive users (no login in 14+ days)
+  </Tab>
+  <Tab value="Static">
+    **Use static lists when:**
+    - You have a fixed audience from an external source
+    - Users explicitly subscribe (newsletters, updates)
+    - You're running a one-time campaign
+    - The list is managed by an external system via API
+
+    **Examples:**
+    - Email newsletter subscribers
+    - Conference attendees
+    - Imported leads from a partner
+  </Tab>
+</Tabs>
+
+---
+
+## Using Lists
+
+Once created, lists integrate with other Lunogram features:
+
+| Feature | How Lists Are Used |
+|---------|-------------------|
+| **Campaigns** | Target a list as your campaign audience |
+| **Journey entrances** | Use scheduled entrances to process all list members on a recurring basis |
+| **Journey triggers** | Start journeys when users enter or leave dynamic lists |
+| **Gates** | Check if a user belongs to a list as a condition in journey branching |

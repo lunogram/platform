@@ -1,0 +1,129 @@
+---
+title: Resend
+description: Configure Resend for email delivery in Lunogram
+---
+
+# Resend
+
+[Resend](https://resend.com) is a modern email API built for developers. It offers a simple, reliable way to send transactional and marketing emails with excellent deliverability.
+
+## Features
+
+- Simple API with great developer experience
+- Built-in email analytics and tracking
+- React Email support for building templates
+- Competitive pricing with generous free tier
+- Fast delivery with high deliverability rates
+
+## Setup
+
+### 1. Create a Resend Account
+
+Start by creating an account at [resend.com](https://resend.com). Resend offers a free tier that includes 3,000 emails per month.
+
+### 2. Verify Your Domain
+
+For production use, you'll want to verify your sending domain:
+
+1. Go to **Domains** in the Resend dashboard
+2. Click **Add Domain** and enter your domain name
+3. Add the DNS records Resend provides (SPF, DKIM, and optionally DMARC)
+4. Wait for verification (usually takes a few minutes)
+
+<Callout type="info">
+During development, you can use Resend's test domain to send emails to your own email address without domain verification.
+</Callout>
+
+### 3. Generate an API Key
+
+1. Go to **API Keys** in the Resend dashboard
+2. Click **Create API Key**
+3. Give it a descriptive name (e.g., "Lunogram Production")
+4. Copy the API key - you'll need it for the next step
+
+### 4. Configure in Lunogram
+
+1. Open your Lunogram project settings
+2. Navigate to **Integrations** and click **Add Integration**
+3. Select **Resend** from the list of providers
+4. Enter your configuration:
+   - **API Key**: Your Resend API key (starts with `re_`)
+   - **Default From Address** (optional): Default sender email address
+
+5. Click **Save** to create the provider
+
+## Configuration Options
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| API Key | Yes | Your Resend API key from the dashboard |
+| Default From Address | No | Default "from" email address for messages sent through this provider |
+
+## Usage
+
+Once configured, Resend will be available as an email provider when creating campaigns:
+
+1. Create a new campaign or edit an existing one
+2. Select **Resend** as the provider
+3. Configure your email template with subject, from address, and content
+4. The "from" address must use a verified domain (or the test domain during development)
+
+## Email Format
+
+Resend supports both HTML and plain text emails. When creating templates in Lunogram:
+
+- **HTML**: Rich formatted emails with images, buttons, and styling
+- **Plain Text**: Simple text fallback for email clients that don't support HTML
+
+## Best Practices
+
+### Use a Verified Domain
+
+While Resend allows sending from their test domain during development, always use a verified custom domain in production for:
+
+- Better deliverability
+- Professional appearance
+- Brand consistency
+
+### Set Up DMARC
+
+In addition to SPF and DKIM (which Resend requires), consider adding a DMARC record to further improve deliverability and protect against spoofing.
+
+### Monitor Your Sending Reputation
+
+Use Resend's dashboard to monitor:
+
+- Delivery rates
+- Bounce rates
+- Spam complaints
+
+High bounce or complaint rates can affect your sending reputation.
+
+## Troubleshooting
+
+### Emails Not Sending
+
+1. Verify your API key is correct and active
+2. Check that the "from" address uses a verified domain
+3. Review the Resend dashboard for any error messages
+
+### Emails Going to Spam
+
+1. Ensure your domain has proper SPF and DKIM records
+2. Consider adding a DMARC policy
+3. Avoid spam trigger words in subject lines
+4. Include an unsubscribe link in marketing emails
+
+### Rate Limits
+
+Resend has rate limits based on your plan. If you're hitting limits:
+
+1. Check your current plan limits in the Resend dashboard
+2. Consider upgrading your plan for higher limits
+3. Implement rate limiting in your journey designs
+
+## Resources
+
+- [Resend Documentation](https://resend.com/docs)
+- [Resend API Reference](https://resend.com/docs/api-reference)
+- [React Email](https://react.email) - Build email templates with React

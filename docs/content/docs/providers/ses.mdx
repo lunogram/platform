@@ -1,0 +1,39 @@
+---
+title: Amazon SES
+description: Configure Amazon Simple Email Service for sending emails
+---
+
+# Amazon SES
+
+<Callout type="warn">
+Amazon SES provider support is coming soon. This documentation describes the planned functionality.
+</Callout>
+
+[Amazon SES](https://aws.amazon.com/ses/) (Simple Email Service) is a cost-effective email service built on AWS infrastructure. It's ideal for high-volume email sending.
+
+## Planned Features
+
+- Email sending via SES API
+- SNS webhook integration for bounces and complaints
+- Domain and email verification
+- IAM credential support
+
+## Setup (Coming Soon)
+
+1. Enable SES in your [AWS Console](https://console.aws.amazon.com/ses/)
+2. Request production access (move out of sandbox)
+3. Verify your sending domain
+4. Create IAM credentials
+5. Configure the integration in Lunogram
+
+## Pricing
+
+Amazon SES is one of the most cost-effective email providers:
+- $0.10 per 1,000 emails sent
+- Free tier: 62,000 emails/month when sent from EC2
+
+## Related Links
+
+- [Amazon SES Documentation](https://docs.aws.amazon.com/ses/)
+- [SES Pricing](https://aws.amazon.com/ses/pricing/)
+- [Moving out of the SES Sandbox](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html)

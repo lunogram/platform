@@ -1,0 +1,21 @@
+---
+title: API Keys
+description: Create and manage API keys for accessing Lunogram APIs
+---
+
+To ingest data into Lunogram via the client libraries or modify data via admin endpoints, you first need to create an API Key. Each key is bound to a project and only allows interacting with data in that project.
+
+Lunogram has two types of API keys:
+
+| Type | Purpose |
+|------|---------|
+| **Public** | Used in client libraries for data ingestion only. Safe to expose in frontend code. |
+| **Secret** | Used for admin API access. Can perform destructive actions, create campaigns, trigger sends, etc. Supports role-based access control. |
+
+## Create an API Key
+
+To create an API key, navigate to `Settings -> API Keys` and click the `Create Key` button in the top right corner.
+
+![Create API Key](/img/api_keys_create_modal.png)
+
+In the dialog that opens, provide a name for the key as well as a scope based on what you are trying to accomplish then hit `Create`. The new key will be available to be copied from the table after creation.

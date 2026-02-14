@@ -1,0 +1,72 @@
+---
+title: Introduction
+description: Reach your users at the right moment, through the right channel
+---
+
+import { Cards, Card } from 'fumadocs-ui/components/card';
+
+Lunogram is an open source customer engagement platform. Send personalized emails, SMS, and push notifications, all from one place.
+
+<Cards>
+  <Card title="Quick Start" href="/quick-start">
+    Get up and running in minutes with Docker Compose.
+  </Card>
+  <Card title="Campaigns" href="/campaigns">
+    Learn about campaigns, journeys, lists, and more.
+  </Card>
+</Cards>
+
+## Why Lunogram?
+
+Customer engagement shouldn't require stitching together multiple tools or paying per-message fees. Lunogram gives you everything in one platform.
+
+### Open Source, Your Way
+
+Lunogram is fully open source. Run it yourself for complete control, or use Lunogram Cloud to get started in minutes.
+
+<Cards>
+  <Card title="Lunogram Cloud" href="https://lunogram.com">
+    Managed hosting with a marketplace of pre-built integrations. No infrastructure to manage.
+  </Card>
+  <Card title="Self-Hosted" href="/quick-start">
+    Deploy on your own infrastructure. Always free, no limits.
+  </Card>
+</Cards>
+
+## What You Can Do
+
+<Cards>
+  <Card title="Campaigns" href="campaigns">
+    Design emails visually, target specific users, and track engagement.
+  </Card>
+  <Card title="Journeys" href="journeys">
+    Build automated workflows that respond to user behavior in real-time.
+  </Card>
+  <Card title="Lists" href="lists">
+    Segment users dynamically based on attributes and events.
+  </Card>
+  <Card title="Multi-Channel" href="/providers">
+    Send via email, SMS, or push notifications through your preferred providers.
+  </Card>
+</Cards>
+
+## Connect Your App
+
+Integrate Lunogram with a few lines of code:
+
+```javascript
+import Lunogram from '@lunogram/javascript-sdk';
+
+const lunogram = new Lunogram({ apiKey: 'pk_your_key' });
+
+// Identify users
+lunogram.identify('user_123', { 
+  email: 'user@example.com',
+  plan: 'premium' 
+});
+
+// Track events
+lunogram.track('Order Completed', { total: 99.99 });
+```
+
+SDKs available for [JavaScript](/clients/javascript), [iOS](/clients/ios), and [Android](/clients/android).

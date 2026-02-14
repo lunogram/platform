@@ -1,0 +1,353 @@
+---
+title: Clustering
+description: Deploy Lunogram across multiple nodes for high availability
+---
+
+# Clustering
+
+Lunogram supports running multiple nodes for high availability and horizontal scaling. This guide covers how clustering works and how to deploy a multi-node setup.
+
+## Overview
+
+In a clustered deployment, multiple Lunogram nodes work together:
+
+- **Load Balancing** - HTTP requests are distributed across all nodes
+- **Leader Election** - One node is elected to run scheduled tasks
+- **Fault Tolerance** - If a node fails, others continue operating
+- **Automatic Failover** - Leadership transfers automatically on failure
+
+```
+                    ┌─────────────┐
+                    │   Load      │
+                    │  Balancer   │
+                    └──────┬──────┘
+                           │
+           ┌───────────────┼───────────────┐
+           │               │               │
+           ▼               ▼               ▼
+      ┌─────────┐    ┌─────────┐    ┌─────────┐
+      │ Node 1  │    │ Node 2  │    │ Node 3  │
+      │(Leader) │    │         │    │         │
+      └────┬────┘    └────┬────┘    └────┬────┘
+           │              │              │
+           └──────────────┼──────────────┘
+                          │
+           ┌──────────────┼──────────────┐
+           │              │              │
+           ▼              ▼              ▼
+      ┌─────────┐   ┌──────────┐   ┌─────────┐
+      │ Postgres│   │  Redis   │   │  NATS   │
+      └─────────┘   └──────────┘   └─────────┘
+```
+
+## How It Works
+
+### Node Registration
+
+When a Lunogram node starts, it:
+
+1. Generates or uses a configured `NODE_ID`
+2. Registers itself in Redis with a TTL
+3. Sends periodic heartbeats to maintain registration
+4. Participates in leader election
+
+### Leader Election
+
+Lunogram uses Redis-based distributed locks (Redlock algorithm) for leader election:
+
+1. All nodes attempt to acquire the leader lock
+2. Only one node succeeds and becomes the leader
+3. The leader extends the lock periodically
+4. If the leader fails to extend, another node takes over
+
+**Only the leader runs:**
+- Journey scheduling (evaluating when journeys should trigger)
+- Periodic maintenance tasks
+- Cluster reconciliation
+
+### Event Processing
+
+All nodes can process events from NATS JetStream:
+
+- Events are distributed across consumers
+- Each event is processed by exactly one node
+- Failed events are retried automatically
+- Consumer groups ensure load balancing
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NODE_ID` | (auto) | Unique identifier for this node |
+| `CLUSTER_RECONCILIATION_INTERVAL` | `1m` | How often to reconcile cluster state |
+| `CLUSTER_LEADER_CAMPAIGN_INTERVAL` | `5s` | How often to attempt leader election |
+| `CLUSTER_HEARTBEAT_INTERVAL` | `4s` | How often to send heartbeats |
+
+### Node ID
+
+Each node needs a unique identifier. If not configured, Lunogram generates one from the hostname:
+
+```bash
+# Explicit node ID
+NODE_ID=node-1
+
+# Or let it auto-generate from hostname
+# NODE_ID is left unset
+```
+
+<Callout type="info">
+In containerized environments, ensure each container has a unique hostname or set `NODE_ID` explicitly.
+</Callout>
+
+### Redis Key Prefix
+
+If multiple Lunogram clusters share a Redis instance, use key prefixes:
+
+```bash
+# Cluster 1
+REDIS_KEY_PREFIX=cluster1:
+
+# Cluster 2
+REDIS_KEY_PREFIX=cluster2:
+```
+
+## Deployment Patterns
+
+### Docker Compose (Development)
+
+For local development with multiple nodes:
+
+```yaml
+services:
+  lunogram-1:
+    image: lunogram/platform:latest
+    environment:
+      NODE_ID: node-1
+      POSTGRES_URI: postgres://...
+      REDIS_ADDRESS: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    ports:
+      - "8080:8080"
+
+  lunogram-2:
+    image: lunogram/platform:latest
+    environment:
+      NODE_ID: node-2
+      POSTGRES_URI: postgres://...
+      REDIS_ADDRESS: redis://redis:6379
+      NATS_URL: nats://nats:4222
+    ports:
+      - "8081:8080"
+
+  # ... shared infrastructure
+```
+
+### Kubernetes
+
+For production Kubernetes deployments:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lunogram
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: lunogram
+  template:
+    metadata:
+      labels:
+        app: lunogram
+    spec:
+      containers:
+      - name: lunogram
+        image: lunogram/platform:latest
+        env:
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POSTGRES_URI
+          valueFrom:
+            secretKeyRef:
+              name: lunogram-secrets
+              key: postgres-uri
+        - name: REDIS_ADDRESS
+          valueFrom:
+            secretKeyRef:
+              name: lunogram-secrets
+              key: redis-address
+        - name: NATS_URL
+          valueFrom:
+            secretKeyRef:
+              name: lunogram-secrets
+              key: nats-url
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lunogram
+spec:
+  selector:
+    app: lunogram
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
+```
+
+## Infrastructure Requirements
+
+### PostgreSQL
+
+All nodes connect to the same PostgreSQL databases:
+
+- Use connection pooling (PgBouncer) for many nodes
+- Consider read replicas for read-heavy workloads
+- Ensure sufficient connection limits
+
+### Redis
+
+Redis is critical for cluster coordination:
+
+- Use Redis Cluster or Redis Sentinel for HA
+- Ensure low latency between nodes and Redis
+- Monitor memory usage for key expiration
+
+### NATS
+
+NATS JetStream handles event streaming:
+
+- Deploy NATS in cluster mode for HA
+- Configure appropriate stream retention
+- Monitor consumer lag
+
+## Monitoring
+
+### Cluster Health
+
+Monitor these metrics across your cluster:
+
+| Metric | Description |
+|--------|-------------|
+| `lunogram_cluster_nodes` | Total number of registered nodes |
+| `lunogram_cluster_leader` | Whether this node is the leader (1 or 0) |
+| `lunogram_cluster_heartbeat_failures` | Heartbeat failures |
+
+### Leader Changes
+
+Frequent leader changes may indicate:
+
+- Network instability between nodes and Redis
+- Redis performance issues
+- Node resource constraints
+
+### Consumer Lag
+
+Monitor NATS consumer lag to ensure events are processed promptly:
+
+```bash
+nats consumer info EVENTS consumers
+```
+
+## Troubleshooting
+
+### No Leader Elected
+
+**Symptoms:** Scheduled journeys don't run, no node shows as leader.
+
+**Causes:**
+- Redis connectivity issues
+- Clock skew between nodes
+- All nodes failing health checks
+
+**Solutions:**
+1. Check Redis connectivity from all nodes
+2. Verify NTP synchronization
+3. Review node logs for errors
+
+### Split Brain
+
+**Symptoms:** Multiple nodes think they're the leader.
+
+**Causes:**
+- Network partition between nodes and Redis
+- Redis failover during leader election
+
+**Solutions:**
+1. Ensure reliable network connectivity
+2. Use Redis Sentinel or Cluster for HA
+3. Tune leader TTL and campaign intervals
+
+### Events Not Processing
+
+**Symptoms:** Events queue up in NATS, not being consumed.
+
+**Causes:**
+- All consumers crashed
+- NATS connectivity issues
+- Consumer group misconfiguration
+
+**Solutions:**
+1. Check node connectivity to NATS
+2. Verify consumer registrations
+3. Review consumer logs for errors
+
+## Best Practices
+
+### Node Count
+
+- **Minimum:** 2 nodes for basic HA
+- **Recommended:** 3+ nodes for production
+- **Consideration:** More nodes = more event processing capacity
+
+### Geographic Distribution
+
+For multi-region deployments:
+
+- Deploy nodes in each region
+- Use regional PostgreSQL read replicas
+- Consider latency impact on leader election
+
+### Graceful Shutdown
+
+Lunogram handles graceful shutdown:
+
+1. Node stops accepting new requests
+2. In-flight requests complete
+3. Leader releases lock if applicable
+4. Node deregisters from cluster
+
+Ensure your orchestrator allows sufficient shutdown time:
+
+```yaml
+# Kubernetes
+terminationGracePeriodSeconds: 30
+```
+
+### Rolling Updates
+
+When updating Lunogram:
+
+1. Update one node at a time
+2. Wait for the node to become healthy
+3. Proceed to the next node
+4. Leader will transfer automatically if needed
