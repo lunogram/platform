@@ -1,12 +1,12 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useEffect } from "react";
-import { config, type Components } from "./Handlers/ConfigHandler";
-import { viewports } from "./viewport";
+import { config, type Components } from "../handlers/ConfigHandler";
+import { viewports } from "../viewport";
 import { Puck, type Data } from "@puckeditor/core";
-import SaveHandler from "./Handlers/SaveHandler";
-import CodeEditorEventListener from "./CodeEditorPlugins/CodeEditorEventListener";
-import CodeStore from "./CodeEditorPlugins/CodeStore";
-import { Preview } from "./Overrides/Preview";
+import CodeEditorEventListener from "../codeEditorPlugins/CodeEditorEventListener";
+import CodeStore from "../codeEditorPlugins/CodeStore";
+import { Preview } from "../overrides/Preview";
+import BlockSaveHandler from "./BlockSaveHandler";
 
 export function BlockEditor({
   data,
@@ -41,10 +41,7 @@ export function BlockEditor({
         ),
         puck: ({ children }) => (
           <>
-            <SaveHandler
-              eventListener={CodeEditorEventListener}
-              codeStore={CodeStore}
-            />
+            <BlockSaveHandler />
             {children}
           </>
         ),

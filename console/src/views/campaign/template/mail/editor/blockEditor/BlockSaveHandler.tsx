@@ -3,22 +3,20 @@ import { Render, useGetPuck } from "@puckeditor/core";
 import { TemplateWorkflowContext } from "../../../contexts";
 import { CampaignContext, ProjectContext, TemplateContext } from "@/mod";
 import api from "@/api";
-import type CodeStore from "../codeEditorPlugins/CodeStore";
-import type CodeEditorEventListener from "../codeEditorPlugins/CodeEditorEventListener";
 import {
   Body,
+  Font,
+  Head,
+  Html,
   pixelBasedPreset,
   render,
   Tailwind,
 } from "@react-email/components";
 import parse from "html-react-parser";
 import { renderToString } from "react-dom/server";
-import { config } from "./ConfigHandler";
+import { config } from "../handlers/ConfigHandler";
 
-export default function SaveHandler(props: {
-  eventListener: typeof CodeEditorEventListener;
-  codeStore: typeof CodeStore;
-}) {
+export default function BlockSaveHandler() {
   const { onSubmit } = useContext(TemplateWorkflowContext);
   const [project] = useContext(ProjectContext);
   const [campaign] = useContext(CampaignContext);
@@ -27,8 +25,7 @@ export default function SaveHandler(props: {
 
   onSubmit(async () => {
     const { appState } = getPuck();
-    const isCodeEditor = props.codeStore.current.trim().length > 0;
-    
+
     const content = renderToString(
       <Render config={config} data={appState.data} />,
     );
@@ -38,9 +35,23 @@ export default function SaveHandler(props: {
     };
 
     const html = await render(
-      <Tailwind config={tailwindConfig}>
-        <Body>{parse(content)}</Body>
-      </Tailwind>,
+      <Html lang={template.locale}>
+        <Head>
+          <Font
+            fontFamily="Roboto"
+            fallbackFontFamily="Verdana"
+            webFont={{
+              url: "https://fonts.gstatic.com/s/roboto/v27/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2",
+              format: "woff2",
+            }}
+            fontWeight={400}
+            fontStyle="normal"
+          />
+        </Head>
+        <Tailwind config={tailwindConfig}>
+          <Body>{parse(content)}</Body>
+        </Tailwind>
+      </Html>,
     );
 
     const updated = await api.campaigns.templates.update(
@@ -50,9 +61,9 @@ export default function SaveHandler(props: {
       {
         data: {
           ...template.data,
-          editor: isCodeEditor ? undefined : appState.data,
-          html: isCodeEditor ? props.codeStore.current : html,
-          type: isCodeEditor ? "code" : "block",
+          editor: appState.data,
+          html: html,
+          type: "block",
         },
       },
     );

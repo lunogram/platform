@@ -1,21 +1,20 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useEffect } from "react";
-import CodeEditorEventListener from "./CodeEditorPlugins/CodeEditorEventListener";
+import CodeEditorEventListener from "../codeEditorPlugins/CodeEditorEventListener";
 import { Puck, type Data } from "@puckeditor/core";
-import { viewports } from "./viewport";
-import { config, type Components } from "./Handlers/ConfigHandler";
-import SaveHandler from "./Handlers/SaveHandler";
-import CodeStore from "./CodeEditorPlugins/CodeStore";
-import { Preview } from "./Overrides/Preview";
-import { CodeEditorPlugin } from "./CodeEditorPlugins/CodeEditorPlugin";
-import "./Editor.css";
+import { viewports } from "../viewport";
+import { config, type Components } from "../handlers/ConfigHandler";
+import CodeStore from "../codeEditorPlugins/CodeStore";
+import { Preview } from "../overrides/Preview";
+import { CodeEditorPlugin } from "../codeEditorPlugins/CodeEditorPlugin";
+import "./HtmlEditor.css";
 
-// 1. Import Resizable components
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import HtmlSaveHandler from "./HtmlSaveHandler";
 
 export function HtmlEditor({
   data,
@@ -28,8 +27,8 @@ export function HtmlEditor({
     if (!html) {
       CodeStore.setCode("");
       return;
-    };
-    
+    }
+
     const handleInitialLoad = () => {
       CodeStore.setCode(html);
       CodeEditorEventListener.emit("CODE_CHANGE");
@@ -38,6 +37,7 @@ export function HtmlEditor({
         handleInitialLoad,
       );
     };
+
     CodeEditorEventListener.addEventListener(
       "INITIAL_CODE_LOAD",
       handleInitialLoad,
@@ -79,10 +79,10 @@ export function HtmlEditor({
           headerActions: () => <></>,
           drawer: () => <></>,
           puck: ({ children }) => (
-            // 2. Wrap the whole view in a ResizablePanelGroup
-            <ResizablePanelGroup orientation="horizontal" className="h-screen w-full bg-background">
-              
-              {/* 3. Left Side: Code Editor Panel */}
+            <ResizablePanelGroup
+              orientation="horizontal"
+              className="h-screen w-full bg-background"
+            >
               <ResizablePanel defaultSize={30} minSize={20}>
                 <div className="flex h-full flex-col bg-white">
                   <div className="h-16 px-6 flex items-center border-b bg-slate-50/50 shrink-0">
@@ -100,10 +100,8 @@ export function HtmlEditor({
                 </div>
               </ResizablePanel>
 
-              {/* 4. The Draggable Handle */}
               <ResizableHandle withHandle />
 
-              {/* 5. Right Side: Puck Area Panel */}
               <ResizablePanel defaultSize={70}>
                 <div className="flex-1 h-full relative puck-container overflow-hidden">
                   {children}
@@ -128,7 +126,7 @@ export function HtmlEditor({
                 `}
               </style>
 
-              <SaveHandler
+              <HtmlSaveHandler
                 eventListener={CodeEditorEventListener}
                 codeStore={CodeStore}
               />

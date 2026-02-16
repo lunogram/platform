@@ -1,15 +1,17 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import "@puckeditor/core/dist/index.css";
-import "./Editor.css";
 import { TemplateContext } from "@/contexts";
 
-import { EditorWizard, type TemplateProps } from "./SelectionModals/EditorWizard";
-import { HtmlEditor } from "./HtmlEditor";
-import { BlockEditor } from "./BlockEditor";
-import CodeEditorEventListener from "./CodeEditorPlugins/CodeEditorEventListener";
-import CodeStore from "./CodeEditorPlugins/CodeStore";
+import {
+  EditorWizard,
+  type TemplateProps,
+} from "./selectionModals/EditorWizard";
+import { HtmlEditor } from "./htmlEditor/HtmlEditor";
+import { BlockEditor } from "./blockEditor/BlockEditor";
+import CodeEditorEventListener from "./codeEditorPlugins/CodeEditorEventListener";
+import CodeStore from "./codeEditorPlugins/CodeStore";
 import { PricingEmphasisedHtml } from "./components/templates/PicingEmphasised/PricingEmphasisedHtml";
 import { PricingEmphasisedTemplate } from "./components/templates/PicingEmphasised/PricingEmphasised";
 
@@ -39,6 +41,12 @@ export default function Editor() {
 
   const [isWizardOpen, setIsWizardOpen] = useState(initialMode === null);
 
+  useEffect(() => {
+    return () => {
+      CodeStore.setCode("");
+    };
+  }, []);
+
   const handleComplete = (type: "block" | "code", templateId: string) => {
     setEditorMode(type);
     setIsWizardOpen(false);
@@ -46,7 +54,9 @@ export default function Editor() {
     const selectedTemplate = EMAIL_TEMPLATES.find((t) => t.id === templateId);
     if (selectedTemplate) {
       if (type === "code") {
-        template.data.html = renderToStaticMarkup(selectedTemplate.htmlComponent);
+        template.data.html = renderToStaticMarkup(
+          selectedTemplate.htmlComponent,
+        );
         CodeStore.setCode(template.data.html);
         CodeEditorEventListener.emit("CODE_CHANGE");
       } else {
