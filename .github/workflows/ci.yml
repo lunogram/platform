@@ -4,8 +4,8 @@ on:
   push:
 
 permissions:
-  actions: read
-  contents: read
+  actions: write
+  contents: write
 
 jobs:
   lint:
@@ -92,6 +92,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ vars.PNPM_VERSION }}
+      - name: Set-up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ vars.NODEJS_VERSION }}
+          cache: "pnpm"
+          cache-dependency-path: console/pnpm-lock.yaml
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -105,6 +114,8 @@ jobs:
         with:
           path: bin
           key: ${{ runner.os }}-bin-${{ hashFiles('**/go.sum') }}
+      - name: Install Console Dependencies
+        run: cd console && pnpm install
       - name: Auto generate files
         run: make generate
       - name: Check for file changes

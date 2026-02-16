@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/providers/channels"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
@@ -16,11 +16,7 @@ import (
 	internalProviders "github.com/lunogram/platform/internal/providers"
 )
 
-func CampaignsSendHandler(logger *zap.Logger, db *sqlx.DB, registry *internalProviders.Registry) HandlerFunc {
-	campaigns := store.NewCampaignsStore(db)
-	users := store.NewUsersStore(db)
-	devices := store.NewDevicesStore(db)
-
+func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *users.State, registry *internalProviders.Registry) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		var event schemas.SendCampaign
 		if err := json.Unmarshal(msg.Data(), &event); err != nil {
@@ -31,13 +27,13 @@ func CampaignsSendHandler(logger *zap.Logger, db *sqlx.DB, registry *internalPro
 		logger = logger.With(zap.String("project_id", event.ProjectID.String()), zap.String("campaign_id", event.CampaignID.String()), zap.String("user_id", event.UserID.String()))
 		logger.Info("processing send campaign message")
 
-		campaign, err := campaigns.GetCampaign(ctx, event.ProjectID, event.CampaignID)
+		campaign, err := mgmt.GetCampaign(ctx, event.ProjectID, event.CampaignID)
 		if err != nil {
 			logger.Error("failed to get campaign", zap.Error(err))
 			return err
 		}
 
-		user, err := users.GetUser(ctx, event.ProjectID, event.UserID)
+		user, err := usrs.GetUser(ctx, event.ProjectID, event.UserID)
 		if err != nil {
 			logger.Error("failed to get user", zap.Error(err))
 			return err
@@ -57,7 +53,7 @@ func CampaignsSendHandler(logger *zap.Logger, db *sqlx.DB, registry *internalPro
 
 		var opts *channels.ComposeOptions
 		if providers.Channel(campaign.Channel) == providers.ChannelPush {
-			userDevices, err := devices.ListDevicesByUser(ctx, event.ProjectID, event.UserID)
+			userDevices, err := usrs.ListDevicesByUser(ctx, event.ProjectID, event.UserID)
 			if err != nil {
 				logger.Error("failed to get user devices", zap.Error(err))
 				return err

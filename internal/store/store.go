@@ -6,40 +6,20 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
-	"fmt"
 
-	"github.com/cloudproud/graceful"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
-	"go.uber.org/zap"
 )
+
+// Config contains database connection settings for all stores.
+type Config struct {
+	ManagementURI string `env:"POSTGRES_URI" envDefault:"postgres://postgres:password@postgres:5432/postgres?sslmode=disable"`
+	UsersURI      string `env:"USERS_POSTGRES_URI" envDefault:"postgres://postgres:password@postgres:5432/users?sslmode=disable"`
+	JourneyURI    string `env:"JOURNEY_POSTGRES_URI" envDefault:"postgres://postgres:password@postgres:5432/journey?sslmode=disable"`
+}
 
 var ErrNoRows = sql.ErrNoRows
 
-type Config struct {
-	URI string `env:"POSTGRES_URI" envDefault:"postgres://postgres:password@postgres:5432/postgres?sslmode=disable"`
-}
-
-func New(ctx graceful.Context, logger *zap.Logger, service Config) (*sqlx.DB, error) {
-	logger.Info("connecting to PostgreSQL database")
-
-	db, err := sqlx.Connect("pgx", service.URI)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
-	}
-
-	ctx.Closer(func() {
-		logger.Info("received close signal, closing store client")
-
-		err := db.Close()
-		if err != nil {
-			logger.Error("failed to close database connection", zap.Error(err))
-		}
-	})
-
-	return db, nil
-}
-
+// DB is the common database interface used by all store implementations.
 type DB interface {
 	sqlx.Ext
 	sqlx.ExtContext
@@ -53,58 +33,18 @@ type DB interface {
 	NamedExecContext(ctx context.Context, query string, arg any) (sql.Result, error)
 }
 
-func NewState(db DB) *State {
-	return &State{
-		AdminsStore:        NewAdminsStore(db),
-		ProjectsStore:      NewProjectsStore(db),
-		CampaignsStore:     NewCampaignsStore(db),
-		ProvidersStore:     NewProvidersStore(db),
-		TemplatesStore:     NewTemplatesStore(db),
-		UsersStore:         NewUsersStore(db),
-		SubscriptionsStore: NewSubscriptionsStore(db),
-		JourneysStore:      NewJourneysStore(db),
-		OrganizationsStore: NewOrganizationsStore(db),
-		DevicesStore:       NewDevicesStore(db),
-		TagsStore:          NewTagsStore(db),
-		LocalesStore:       NewLocalesStore(db),
-		ListsStore:         NewListsStore(db),
-		DocumentsStore:     NewDocumentsStore(db),
-		EventsStore:        NewEventsStore(db),
-		AuthStore:          NewAuthStore(db),
-		RulesStore:         NewRulesStore(db),
-	}
-}
-
-type State struct {
-	*AdminsStore
-	*ProjectsStore
-	*CampaignsStore
-	*ProvidersStore
-	*TemplatesStore
-	*UsersStore
-	*SubscriptionsStore
-	*JourneysStore
-	*OrganizationsStore
-	*DevicesStore
-	*TagsStore
-	*LocalesStore
-	*ListsStore
-	*DocumentsStore
-	*EventsStore
-	*AuthStore
-	*RulesStore
-}
-
+// Pagination contains limit and offset for paginated queries.
 type Pagination struct {
 	Limit  int
 	Offset int
 }
 
+// JSONB is a generic wrapper for JSONB database columns.
 type JSONB[T any] struct {
 	Data T
 }
 
-// Scan implements sql.Scanner for reading from database
+// Scan implements sql.Scanner for reading from database.
 func (j *JSONB[T]) Scan(value any) error {
 	if value == nil {
 		return nil
@@ -118,11 +58,12 @@ func (j *JSONB[T]) Scan(value any) error {
 	return json.Unmarshal(bytes, &j.Data)
 }
 
-// Value implements driver.Valuer for writing to database
+// Value implements driver.Valuer for writing to database.
 func (j JSONB[T]) Value() (driver.Value, error) {
 	return json.Marshal(j.Data)
 }
 
+// MarshalRaw returns the JSONB data as a json.RawMessage pointer.
 func (j *JSONB[T]) MarshalRaw() *json.RawMessage {
 	if j == nil {
 		return nil
@@ -136,6 +77,7 @@ func (j *JSONB[T]) MarshalRaw() *json.RawMessage {
 	return (*json.RawMessage)(&bytes)
 }
 
+// DataType represents the type of a data field.
 type DataType string
 
 const (
@@ -145,3 +87,30 @@ const (
 	DataTypeObject  DataType = "object"
 	DataTypeArray   DataType = "array"
 )
+
+// JourneyVersionStepChild represents a connection between journey steps.
+type JourneyVersionStepChild struct {
+	VersionID        string           `db:"version_id" json:"version_id"`
+	ParentExternalID string           `db:"parent_external_id" json:"parent_external_id"`
+	ChildExternalID  string           `db:"child_external_id" json:"child_external_id"`
+	Path             *string          `db:"path" json:"path,omitempty"`
+	Data             *json.RawMessage `db:"data" json:"data,omitempty"`
+}
+
+// JourneyVersionStepChildren is a slice of JourneyVersionStepChild.
+type JourneyVersionStepChildren []JourneyVersionStepChild
+
+// Scan implements sql.Scanner for reading JSON from database.
+func (steps *JourneyVersionStepChildren) Scan(value any) error {
+	if value == nil {
+		return nil
+	}
+	var buf []byte
+	switch v := value.(type) {
+	case []byte:
+		buf = v
+	case string:
+		buf = []byte(v)
+	}
+	return json.Unmarshal(buf, steps)
+}

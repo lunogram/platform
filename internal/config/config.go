@@ -10,18 +10,17 @@ import (
 )
 
 type Node struct {
-	NodeID                   string  `env:"NODE_ID" envDefault:""`
-	ManagementServiceAddress string  `env:"ADMIN_SERVICE_ADDRESS" envDefault:":8080"`
-	PublicServiceAddress     string  `env:"PUBLIC_SERVICE_ADDRESS" envDefault:":8081"`
-	DatabaseMigrate          bool    `env:"DATABASE_MIGRATE" envDefault:"true"`
-	Redis                    Redis   `envPrefix:"REDIS_"`
-	Cluster                  Cluster `envPrefix:"CLUSTER_"`
-	Auth                     Auth    `envPrefix:"AUTH_"`
-	Nats                     Nats    `envPrefix:"NATS_"`
-	WASM                     WASM    `envPrefix:"WASM_"`
-	HTTP                     http.Config
-	Store                    store.Config
-	Storage                  storage.Config
+	NodeID          string  `env:"NODE_ID" envDefault:""`
+	HTTPAddress     string  `env:"HTTP_ADDRESS" envDefault:":8080"`
+	DatabaseMigrate bool    `env:"DATABASE_MIGRATE" envDefault:"true"`
+	Redis           Redis   `envPrefix:"REDIS_"`
+	Cluster         Cluster `envPrefix:"CLUSTER_"`
+	Auth            Auth    `envPrefix:"AUTH_"`
+	Nats            Nats    `envPrefix:"NATS_"`
+	WASM            WASM    `envPrefix:"WASM_"`
+	HTTP            http.Config
+	Store           store.Config
+	Storage         storage.Config
 }
 
 type Auth struct {

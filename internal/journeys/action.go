@@ -5,10 +5,10 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
 )
 
-func HandleAction(ctx HandlerContext, step store.JourneyVersionStep, state store.JourneyUserState) (store.JourneyUserState, store.JourneyVersionStepChildren, error) {
+func HandleAction(ctx HandlerContext, step journey.JourneyVersionStep, state journey.JourneyUserState) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
 	config, err := DecodeStepData[oapi.ActionStepData](step.Data)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to decode link step data: %w", err)

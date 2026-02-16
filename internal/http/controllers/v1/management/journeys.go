@@ -11,6 +11,9 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"go.uber.org/zap"
 )
 
@@ -18,14 +21,18 @@ func NewJourneysController(logger *zap.Logger, db *sqlx.DB) *JourneysController 
 	return &JourneysController{
 		logger: logger,
 		db:     db,
-		store:  store.NewState(db),
+		mgmt:   management.NewState(db),
+		users:  users.NewState(db),
+		jrny:   journey.NewState(db),
 	}
 }
 
 type JourneysController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.State
+	mgmt   *management.State
+	users  *users.State
+	jrny   *journey.State
 }
 
 func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListJourneysParams) {
@@ -39,7 +46,7 @@ func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Reque
 
 	logger.Info("listing journeys", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	journeys, total, err := srv.store.ListJourneys(ctx, projectID, pagination)
+	journeys, total, err := srv.jrny.ListJourneys(ctx, projectID, pagination)
 	if err != nil {
 		logger.Error("failed to list journeys", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -52,7 +59,7 @@ func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Reque
 		journeyIDs = append(journeyIDs, j.ID)
 	}
 
-	versionInfoMap, err := srv.store.GetJourneyVersionInfoMap(ctx, journeyIDs)
+	versionInfoMap, err := srv.jrny.GetJourneyVersionInfoMap(ctx, journeyIDs)
 	if err != nil {
 		logger.Error("failed to get version info map", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -83,7 +90,7 @@ func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("name", body.Name))
 	logger.Info("creating journey")
 
-	project, err := srv.store.ProjectsStore.GetProject(ctx, projectID)
+	project, err := srv.mgmt.GetProject(ctx, projectID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
@@ -104,9 +111,9 @@ func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Requ
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	journeys := store.NewJourneysStore(tx)
+	journeys := journey.NewJourneysStore(tx)
 
-	journeyID, err := journeys.CreateJourney(ctx, store.Journey{
+	journeyID, err := journeys.CreateJourney(ctx, journey.Journey{
 		ProjectID:   project.ID,
 		Name:        body.Name,
 		Description: body.Description,
@@ -124,7 +131,7 @@ func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err = journeys.UpdateJourney(ctx, projectID, journeyID, store.JourneyUpdate{VersionID: &versionID})
+	err = journeys.UpdateJourney(ctx, projectID, journeyID, journey.JourneyUpdate{VersionID: &versionID})
 	if err != nil {
 		logger.Error("failed to link journey to version", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -149,7 +156,7 @@ func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	versionInfo, err := srv.store.GetJourneyVersionInfo(ctx, journeyID)
+	versionInfo, err := srv.jrny.GetJourneyVersionInfo(ctx, journeyID)
 	if err != nil {
 		logger.Error("failed to get journey version info", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -168,7 +175,7 @@ func (srv *JourneysController) GetJourney(w http.ResponseWriter, r *http.Request
 
 	logger.Info("getting journey")
 
-	journey, err := srv.store.GetJourney(ctx, projectID, journeyID)
+	jrn, err := srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -181,7 +188,7 @@ func (srv *JourneysController) GetJourney(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	versionInfo, err := srv.store.GetJourneyVersionInfo(ctx, journeyID)
+	versionInfo, err := srv.jrny.GetJourneyVersionInfo(ctx, journeyID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Error("failed to get version info", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -189,7 +196,7 @@ func (srv *JourneysController) GetJourney(w http.ResponseWriter, r *http.Request
 	}
 
 	logger.Info("journey retrieved")
-	json.Write(w, http.StatusOK, journey.OAPI(versionInfo))
+	json.Write(w, http.StatusOK, jrn.OAPI(versionInfo))
 }
 
 func (srv *JourneysController) UpdateJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
@@ -208,7 +215,7 @@ func (srv *JourneysController) UpdateJourney(w http.ResponseWriter, r *http.Requ
 
 	logger.Info("updating journey")
 
-	_, err = srv.store.GetJourney(ctx, projectID, journeyID)
+	_, err = srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -229,9 +236,9 @@ func (srv *JourneysController) UpdateJourney(w http.ResponseWriter, r *http.Requ
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	journeys := store.NewJourneysStore(tx)
+	journeys := journey.NewJourneysStore(tx)
 
-	updated := store.JourneyUpdate{
+	updated := journey.JourneyUpdate{
 		Name:        body.Name,
 		Description: body.Description,
 	}
@@ -257,7 +264,7 @@ func (srv *JourneysController) UpdateJourney(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	versionInfo, err := srv.store.GetJourneyVersionInfo(ctx, journeyID)
+	versionInfo, err := srv.jrny.GetJourneyVersionInfo(ctx, journeyID)
 	if err != nil {
 		logger.Error("failed to get journey version info", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -277,7 +284,7 @@ func (srv *JourneysController) DeleteJourney(w http.ResponseWriter, r *http.Requ
 
 	logger.Info("deleting journey")
 
-	_, err := srv.store.GetJourney(ctx, projectID, journeyID)
+	_, err := srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -290,7 +297,7 @@ func (srv *JourneysController) DeleteJourney(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err = srv.store.DeleteJourney(ctx, projectID, journeyID)
+	err = srv.jrny.DeleteJourney(ctx, projectID, journeyID)
 	if err != nil {
 		logger.Error("failed to delete journey", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -307,7 +314,7 @@ func (srv *JourneysController) GetJourneySteps(w http.ResponseWriter, r *http.Re
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("journey_id", journeyID))
 	logger.Info("getting journey steps")
 
-	_, err := srv.store.GetJourney(ctx, projectID, journeyID)
+	_, err := srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -320,7 +327,7 @@ func (srv *JourneysController) GetJourneySteps(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	versionID, err := srv.store.ResolveVersionID(ctx, journeyID)
+	versionID, err := srv.jrny.ResolveVersionID(ctx, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("no version exists, returning empty step map")
 		json.Write(w, http.StatusOK, oapi.JourneyStepMap{})
@@ -332,7 +339,7 @@ func (srv *JourneysController) GetJourneySteps(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	steps, err := srv.store.GetJourneyVersionSteps(ctx, versionID)
+	steps, err := srv.jrny.GetJourneyVersionSteps(ctx, versionID)
 	if err != nil {
 		logger.Error("failed to get journey steps with children", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -352,7 +359,7 @@ func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Re
 
 	logger.Info("setting journey steps")
 
-	_, err := srv.store.GetJourney(ctx, projectID, journeyID)
+	_, err := srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -380,8 +387,8 @@ func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Re
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	journeys := store.NewJourneysStore(tx)
-	events := store.NewEventsStore(tx)
+	journeys := journey.NewJourneysStore(tx)
+	events := users.NewEventsStore(tx)
 
 	versionID, err := journeys.EnsureDraftVersion(ctx, journeyID)
 	if err != nil {
@@ -440,7 +447,7 @@ func (srv *JourneysController) VersionJourney(w http.ResponseWriter, r *http.Req
 
 	logger.Info("creating journey draft version")
 
-	_, err := srv.store.GetJourney(ctx, projectID, journeyID)
+	_, err := srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -461,7 +468,7 @@ func (srv *JourneysController) VersionJourney(w http.ResponseWriter, r *http.Req
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	journeys := store.NewJourneysStore(tx)
+	journeys := journey.NewJourneysStore(tx)
 
 	// Create or get existing draft version
 	draftVersionID, err := journeys.EnsureDraftVersion(ctx, journeyID)
@@ -486,7 +493,7 @@ func (srv *JourneysController) VersionJourney(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	versionInfo, err := srv.store.GetJourneyVersionInfo(ctx, journeyID)
+	versionInfo, err := srv.jrny.GetJourneyVersionInfo(ctx, journeyID)
 	if err != nil {
 		logger.Error("failed to get journey version info", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -506,7 +513,7 @@ func (srv *JourneysController) DuplicateJourney(w http.ResponseWriter, r *http.R
 
 	logger.Info("duplicating journey")
 
-	journey, err := srv.store.GetJourney(ctx, projectID, journeyID)
+	jrn, err := srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -527,9 +534,9 @@ func (srv *JourneysController) DuplicateJourney(w http.ResponseWriter, r *http.R
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	journeys := store.NewJourneysStore(tx)
+	journeys := journey.NewJourneysStore(tx)
 
-	duplicateJourneyID, err := journeys.DuplicateJourney(ctx, journey, false)
+	duplicateJourneyID, err := journeys.DuplicateJourney(ctx, jrn, false)
 	if err != nil {
 		logger.Error("failed to duplicate journey", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -550,7 +557,7 @@ func (srv *JourneysController) DuplicateJourney(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	versionInfo, err := srv.store.GetJourneyVersionInfo(ctx, duplicateJourneyID)
+	versionInfo, err := srv.jrny.GetJourneyVersionInfo(ctx, duplicateJourneyID)
 	if err != nil {
 		logger.Error("failed to get journey version info", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -570,7 +577,7 @@ func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Req
 
 	logger.Info("publishing journey")
 
-	_, err := srv.store.GetJourney(ctx, projectID, journeyID)
+	_, err := srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -584,7 +591,7 @@ func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Req
 	}
 
 	// Get latest draft version
-	draftVersion, err := srv.store.GetLatestDraftVersion(ctx, journeyID)
+	draftVersion, err := srv.jrny.GetLatestDraftVersion(ctx, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("no draft version found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("no draft version found to publish")))
@@ -605,7 +612,7 @@ func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Req
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	journeys := store.NewJourneysStore(tx)
+	journeys := journey.NewJourneysStore(tx)
 
 	err = journeys.PublishVersion(ctx, journeyID, draftVersion.ID)
 	if err != nil {

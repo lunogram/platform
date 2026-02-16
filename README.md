@@ -29,19 +29,18 @@ You can run Lunogram locally or in the cloud easily using Docker.
 
 ### Docker Compose
 
-To get up and running quickly to try things out, copy our latest `docker-compose.yml` and `.env` file onto your machine and go!
+To get up and running quickly, clone the repository and start the services:
 ```
-mkdir lunogram && cd lunogram
-wget https://raw.githubusercontent.com/lunogram/platform/master/{.env.example,docker-compose.yml}
-mv .env.example .env
-docker compose up -d # run the Docker container
+git clone https://github.com/lunogram/platform.git
+cd platform
+docker compose up -d
 ```
 
-Login to the web app at http://localhost:3000 by entering the default credentials found in the copied `.env` file.
+Login to the web app at http://localhost:8080 using the default credentials:
 
 ```
-AUTH_BASIC_EMAIL=test@lunogram.com
-AUTH_BASIC_PASSWORD=password
+AUTH_BASIC_EMAIL=admin@localhost
+AUTH_BASIC_PASSWORD=admin
 ```
 
 **Note:** We would recommend changing these default credentials as well as your `APP_SECRET` before ever using Lunogram in production.

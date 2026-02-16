@@ -24,6 +24,12 @@ const (
 	HttpBearerAuthScopes = "HttpBearerAuth.Scopes"
 )
 
+// Defines values for ApiKeyScope.
+const (
+	Public ApiKeyScope = "public"
+	Secret ApiKeyScope = "secret"
+)
+
 // Defines values for CampaignUserStatus.
 const (
 	Aborted   CampaignUserStatus = "aborted"
@@ -167,6 +173,28 @@ type AdminList struct {
 	Total int `json:"total"`
 }
 
+// ApiKey defines model for ApiKey.
+type ApiKey struct {
+	CreatedAt   time.Time          `json:"created_at"`
+	Description *string            `json:"description,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	ProjectId   openapi_types.UUID `json:"project_id"`
+
+	// Role Role within a project
+	Role ProjectRole `json:"role"`
+
+	// Scope API key scope - public keys are safe to expose in client-side code
+	Scope     ApiKeyScope `json:"scope"`
+	UpdatedAt time.Time   `json:"updated_at"`
+
+	// Value The API key value
+	Value string `json:"value"`
+}
+
+// ApiKeyScope API key scope - public keys are safe to expose in client-side code
+type ApiKeyScope string
+
 // AuthCallbackRequest defines model for AuthCallbackRequest.
 type AuthCallbackRequest struct {
 	// Email Email address (required for basic auth)
@@ -219,6 +247,18 @@ type CreateAdmin struct {
 
 	// Role Role within an organization
 	Role OrganizationRole `json:"role"`
+}
+
+// CreateApiKey defines model for CreateApiKey.
+type CreateApiKey struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+
+	// Role Role within a project
+	Role *ProjectRole `json:"role,omitempty"`
+
+	// Scope API key scope - public keys are safe to expose in client-side code
+	Scope ApiKeyScope `json:"scope"`
 }
 
 // CreateCampaign defines model for CreateCampaign.
@@ -714,6 +754,15 @@ type UpdateAdmin struct {
 	Role *OrganizationRole `json:"role,omitempty"`
 }
 
+// UpdateApiKey defines model for UpdateApiKey.
+type UpdateApiKey struct {
+	Description *string `json:"description,omitempty"`
+	Name        *string `json:"name,omitempty"`
+
+	// Role Role within a project
+	Role *ProjectRole `json:"role,omitempty"`
+}
+
 // UpdateCampaign defines model for UpdateCampaign.
 type UpdateCampaign struct {
 	Name       *string             `json:"name,omitempty"`
@@ -917,6 +966,19 @@ type Offset = PaginationOffset
 // Search defines model for Search.
 type Search = PaginationSearch
 
+// ApiKeyListResponse defines model for ApiKeyListResponse.
+type ApiKeyListResponse struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int      `json:"offset"`
+	Results []ApiKey `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // CampaignListResponse defines model for CampaignListResponse.
 type CampaignListResponse struct {
 	// Limit Maximum number of items returned
@@ -1094,6 +1156,15 @@ type ListJourneysParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// ListApiKeysParams defines parameters for ListApiKeys.
+type ListApiKeysParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // ListListsParams defines parameters for ListLists.
 type ListListsParams struct {
 	// Limit Maximum number of items to return
@@ -1249,6 +1320,12 @@ type UpdateJourneyJSONRequestBody = UpdateJourney
 
 // SetJourneyStepsJSONRequestBody defines body for SetJourneySteps for application/json ContentType.
 type SetJourneyStepsJSONRequestBody = JourneyStepMap
+
+// CreateApiKeyJSONRequestBody defines body for CreateApiKey for application/json ContentType.
+type CreateApiKeyJSONRequestBody = CreateApiKey
+
+// UpdateApiKeyJSONRequestBody defines body for UpdateApiKey for application/json ContentType.
+type UpdateApiKeyJSONRequestBody = UpdateApiKey
 
 // CreateListJSONRequestBody defines body for CreateList for application/json ContentType.
 type CreateListJSONRequestBody = CreateList
@@ -1625,6 +1702,9 @@ type ClientInterface interface {
 
 	CreateCampaign(ctx context.Context, projectID openapi_types.UUID, body CreateCampaignJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteCampaign request
+	DeleteCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetCampaign request
 	GetCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1708,6 +1788,25 @@ type ClientInterface interface {
 
 	// VersionJourney request
 	VersionJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListApiKeys request
+	ListApiKeys(ctx context.Context, projectID openapi_types.UUID, params *ListApiKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateApiKeyWithBody request with any body
+	CreateApiKeyWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateApiKey(ctx context.Context, projectID openapi_types.UUID, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteApiKey request
+	DeleteApiKey(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiKey request
+	GetApiKey(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateApiKeyWithBody request with any body
+	UpdateApiKeyWithBody(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateApiKey(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLists request
 	ListLists(ctx context.Context, projectID openapi_types.UUID, params *ListListsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2198,6 +2297,18 @@ func (c *Client) CreateCampaign(ctx context.Context, projectID openapi_types.UUI
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteCampaignRequest(c.Server, projectID, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetCampaign(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCampaignRequest(c.Server, projectID, campaignID)
 	if err != nil {
@@ -2548,6 +2659,90 @@ func (c *Client) SetJourneySteps(ctx context.Context, projectID openapi_types.UU
 
 func (c *Client) VersionJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewVersionJourneyRequest(c.Server, projectID, journeyID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListApiKeys(ctx context.Context, projectID openapi_types.UUID, params *ListApiKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListApiKeysRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateApiKeyWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateApiKeyRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateApiKey(ctx context.Context, projectID openapi_types.UUID, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateApiKeyRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteApiKey(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiKeyRequest(c.Server, projectID, keyID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiKey(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiKeyRequest(c.Server, projectID, keyID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateApiKeyWithBody(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateApiKeyRequestWithBody(c.Server, projectID, keyID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateApiKey(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateApiKeyRequest(c.Server, projectID, keyID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4174,6 +4369,47 @@ func NewCreateCampaignRequestWithBody(server string, projectID openapi_types.UUI
 	return req, nil
 }
 
+// NewDeleteCampaignRequest generates requests for DeleteCampaign
+func NewDeleteCampaignRequest(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "campaignID", runtime.ParamLocationPath, campaignID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/campaigns/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetCampaignRequest generates requests for GetCampaign
 func NewGetCampaignRequest(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -5334,6 +5570,261 @@ func NewVersionJourneyRequest(server string, projectID openapi_types.UUID, journ
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListApiKeysRequest generates requests for ListApiKeys
+func NewListApiKeysRequest(server string, projectID openapi_types.UUID, params *ListApiKeysParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/keys", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateApiKeyRequest calls the generic CreateApiKey builder with application/json body
+func NewCreateApiKeyRequest(server string, projectID openapi_types.UUID, body CreateApiKeyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateApiKeyRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateApiKeyRequestWithBody generates requests for CreateApiKey with any type of body
+func NewCreateApiKeyRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/keys", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteApiKeyRequest generates requests for DeleteApiKey
+func NewDeleteApiKeyRequest(server string, projectID openapi_types.UUID, keyID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "keyID", runtime.ParamLocationPath, keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/keys/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetApiKeyRequest generates requests for GetApiKey
+func NewGetApiKeyRequest(server string, projectID openapi_types.UUID, keyID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "keyID", runtime.ParamLocationPath, keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/keys/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateApiKeyRequest calls the generic UpdateApiKey builder with application/json body
+func NewUpdateApiKeyRequest(server string, projectID openapi_types.UUID, keyID openapi_types.UUID, body UpdateApiKeyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateApiKeyRequestWithBody(server, projectID, keyID, "application/json", bodyReader)
+}
+
+// NewUpdateApiKeyRequestWithBody generates requests for UpdateApiKey with any type of body
+func NewUpdateApiKeyRequestWithBody(server string, projectID openapi_types.UUID, keyID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "keyID", runtime.ParamLocationPath, keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/keys/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -7667,6 +8158,9 @@ type ClientWithResponsesInterface interface {
 
 	CreateCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateCampaignJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCampaignResponse, error)
 
+	// DeleteCampaignWithResponse request
+	DeleteCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteCampaignResponse, error)
+
 	// GetCampaignWithResponse request
 	GetCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetCampaignResponse, error)
 
@@ -7750,6 +8244,25 @@ type ClientWithResponsesInterface interface {
 
 	// VersionJourneyWithResponse request
 	VersionJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*VersionJourneyResponse, error)
+
+	// ListApiKeysWithResponse request
+	ListApiKeysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListApiKeysParams, reqEditors ...RequestEditorFn) (*ListApiKeysResponse, error)
+
+	// CreateApiKeyWithBodyWithResponse request with any body
+	CreateApiKeyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
+
+	CreateApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error)
+
+	// DeleteApiKeyWithResponse request
+	DeleteApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error)
+
+	// GetApiKeyWithResponse request
+	GetApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetApiKeyResponse, error)
+
+	// UpdateApiKeyWithBodyWithResponse request with any body
+	UpdateApiKeyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
+
+	UpdateApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error)
 
 	// ListListsWithResponse request
 	ListListsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListListsParams, reqEditors ...RequestEditorFn) (*ListListsResponse, error)
@@ -8384,6 +8897,28 @@ func (r CreateCampaignResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteCampaignResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteCampaignResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteCampaignResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetCampaignResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -8938,6 +9473,120 @@ func (r VersionJourneyResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r VersionJourneyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListApiKeysResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApiKeyListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListApiKeysResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListApiKeysResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateApiKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ApiKey
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateApiKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateApiKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteApiKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteApiKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteApiKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetApiKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApiKey
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateApiKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApiKey
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateApiKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateApiKeyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -10158,6 +10807,15 @@ func (c *ClientWithResponses) CreateCampaignWithResponse(ctx context.Context, pr
 	return ParseCreateCampaignResponse(rsp)
 }
 
+// DeleteCampaignWithResponse request returning *DeleteCampaignResponse
+func (c *ClientWithResponses) DeleteCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteCampaignResponse, error) {
+	rsp, err := c.DeleteCampaign(ctx, projectID, campaignID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteCampaignResponse(rsp)
+}
+
 // GetCampaignWithResponse request returning *GetCampaignResponse
 func (c *ClientWithResponses) GetCampaignWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetCampaignResponse, error) {
 	rsp, err := c.GetCampaign(ctx, projectID, campaignID, reqEditors...)
@@ -10420,6 +11078,67 @@ func (c *ClientWithResponses) VersionJourneyWithResponse(ctx context.Context, pr
 		return nil, err
 	}
 	return ParseVersionJourneyResponse(rsp)
+}
+
+// ListApiKeysWithResponse request returning *ListApiKeysResponse
+func (c *ClientWithResponses) ListApiKeysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListApiKeysParams, reqEditors ...RequestEditorFn) (*ListApiKeysResponse, error) {
+	rsp, err := c.ListApiKeys(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListApiKeysResponse(rsp)
+}
+
+// CreateApiKeyWithBodyWithResponse request with arbitrary body returning *CreateApiKeyResponse
+func (c *ClientWithResponses) CreateApiKeyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error) {
+	rsp, err := c.CreateApiKeyWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateApiKeyResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeyResponse, error) {
+	rsp, err := c.CreateApiKey(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateApiKeyResponse(rsp)
+}
+
+// DeleteApiKeyWithResponse request returning *DeleteApiKeyResponse
+func (c *ClientWithResponses) DeleteApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteApiKeyResponse, error) {
+	rsp, err := c.DeleteApiKey(ctx, projectID, keyID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiKeyResponse(rsp)
+}
+
+// GetApiKeyWithResponse request returning *GetApiKeyResponse
+func (c *ClientWithResponses) GetApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetApiKeyResponse, error) {
+	rsp, err := c.GetApiKey(ctx, projectID, keyID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiKeyResponse(rsp)
+}
+
+// UpdateApiKeyWithBodyWithResponse request with arbitrary body returning *UpdateApiKeyResponse
+func (c *ClientWithResponses) UpdateApiKeyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error) {
+	rsp, err := c.UpdateApiKeyWithBody(ctx, projectID, keyID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateApiKeyResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateApiKeyWithResponse(ctx context.Context, projectID openapi_types.UUID, keyID openapi_types.UUID, body UpdateApiKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateApiKeyResponse, error) {
+	rsp, err := c.UpdateApiKey(ctx, projectID, keyID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateApiKeyResponse(rsp)
 }
 
 // ListListsWithResponse request returning *ListListsResponse
@@ -11576,6 +12295,32 @@ func ParseCreateCampaignResponse(rsp *http.Response) (*CreateCampaignResponse, e
 	return response, nil
 }
 
+// ParseDeleteCampaignResponse parses an HTTP response from a DeleteCampaignWithResponse call
+func ParseDeleteCampaignResponse(rsp *http.Response) (*DeleteCampaignResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteCampaignResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetCampaignResponse parses an HTTP response from a GetCampaignWithResponse call
 func ParseGetCampaignResponse(rsp *http.Response) (*GetCampaignResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -12339,6 +13084,164 @@ func ParseVersionJourneyResponse(rsp *http.Response) (*VersionJourneyResponse, e
 			return nil, err
 		}
 		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListApiKeysResponse parses an HTTP response from a ListApiKeysWithResponse call
+func ParseListApiKeysResponse(rsp *http.Response) (*ListApiKeysResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListApiKeysResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiKeyListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateApiKeyResponse parses an HTTP response from a CreateApiKeyWithResponse call
+func ParseCreateApiKeyResponse(rsp *http.Response) (*CreateApiKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateApiKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ApiKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteApiKeyResponse parses an HTTP response from a DeleteApiKeyWithResponse call
+func ParseDeleteApiKeyResponse(rsp *http.Response) (*DeleteApiKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteApiKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiKeyResponse parses an HTTP response from a GetApiKeyWithResponse call
+func ParseGetApiKeyResponse(rsp *http.Response) (*GetApiKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateApiKeyResponse parses an HTTP response from a UpdateApiKeyWithResponse call
+func ParseUpdateApiKeyResponse(rsp *http.Response) (*UpdateApiKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateApiKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
@@ -13752,6 +14655,9 @@ type ServerInterface interface {
 	// Create campaign
 	// (POST /api/admin/projects/{projectID}/campaigns)
 	CreateCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete campaign
+	// (DELETE /api/admin/projects/{projectID}/campaigns/{campaignID})
+	DeleteCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID)
 	// Get campaign by ID
 	// (GET /api/admin/projects/{projectID}/campaigns/{campaignID})
 	GetCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID)
@@ -13824,6 +14730,21 @@ type ServerInterface interface {
 	// Create journey version
 	// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/version)
 	VersionJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
+	// List API keys
+	// (GET /api/admin/projects/{projectID}/keys)
+	ListApiKeys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListApiKeysParams)
+	// Create API key
+	// (POST /api/admin/projects/{projectID}/keys)
+	CreateApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete API key
+	// (DELETE /api/admin/projects/{projectID}/keys/{keyID})
+	DeleteApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, keyID openapi_types.UUID)
+	// Get API key by ID
+	// (GET /api/admin/projects/{projectID}/keys/{keyID})
+	GetApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, keyID openapi_types.UUID)
+	// Update API key
+	// (PATCH /api/admin/projects/{projectID}/keys/{keyID})
+	UpdateApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, keyID openapi_types.UUID)
 	// List lists
 	// (GET /api/admin/projects/{projectID}/lists)
 	ListLists(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListListsParams)
@@ -14082,6 +15003,12 @@ func (_ Unimplemented) CreateCampaign(w http.ResponseWriter, r *http.Request, pr
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Delete campaign
+// (DELETE /api/admin/projects/{projectID}/campaigns/{campaignID})
+func (_ Unimplemented) DeleteCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Get campaign by ID
 // (GET /api/admin/projects/{projectID}/campaigns/{campaignID})
 func (_ Unimplemented) GetCampaign(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID) {
@@ -14223,6 +15150,36 @@ func (_ Unimplemented) SetJourneySteps(w http.ResponseWriter, r *http.Request, p
 // Create journey version
 // (POST /api/admin/projects/{projectID}/journeys/{journeyID}/version)
 func (_ Unimplemented) VersionJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List API keys
+// (GET /api/admin/projects/{projectID}/keys)
+func (_ Unimplemented) ListApiKeys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListApiKeysParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create API key
+// (POST /api/admin/projects/{projectID}/keys)
+func (_ Unimplemented) CreateApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete API key
+// (DELETE /api/admin/projects/{projectID}/keys/{keyID})
+func (_ Unimplemented) DeleteApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, keyID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get API key by ID
+// (GET /api/admin/projects/{projectID}/keys/{keyID})
+func (_ Unimplemented) GetApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, keyID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update API key
+// (PATCH /api/admin/projects/{projectID}/keys/{keyID})
+func (_ Unimplemented) UpdateApiKey(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, keyID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15150,6 +16107,46 @@ func (siw *ServerInterfaceWrapper) CreateCampaign(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateCampaign(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteCampaign operation middleware
+func (siw *ServerInterfaceWrapper) DeleteCampaign(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "campaignID" -------------
+	var campaignID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignID", chi.URLParam(r, "campaignID"), &campaignID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteCampaign(w, r, projectID, campaignID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -16149,6 +17146,207 @@ func (siw *ServerInterfaceWrapper) VersionJourney(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.VersionJourney(w, r, projectID, journeyID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListApiKeys operation middleware
+func (siw *ServerInterfaceWrapper) ListApiKeys(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListApiKeysParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListApiKeys(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateApiKey operation middleware
+func (siw *ServerInterfaceWrapper) CreateApiKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateApiKey(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteApiKey operation middleware
+func (siw *ServerInterfaceWrapper) DeleteApiKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "keyID" -------------
+	var keyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "keyID", chi.URLParam(r, "keyID"), &keyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "keyID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteApiKey(w, r, projectID, keyID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetApiKey operation middleware
+func (siw *ServerInterfaceWrapper) GetApiKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "keyID" -------------
+	var keyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "keyID", chi.URLParam(r, "keyID"), &keyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "keyID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApiKey(w, r, projectID, keyID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateApiKey operation middleware
+func (siw *ServerInterfaceWrapper) UpdateApiKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "keyID" -------------
+	var keyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "keyID", chi.URLParam(r, "keyID"), &keyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "keyID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateApiKey(w, r, projectID, keyID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -18075,6 +19273,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/campaigns", wrapper.CreateCampaign)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}", wrapper.DeleteCampaign)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}", wrapper.GetCampaign)
 	})
 	r.Group(func(r chi.Router) {
@@ -18145,6 +19346,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/version", wrapper.VersionJourney)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/keys", wrapper.ListApiKeys)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/keys", wrapper.CreateApiKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/keys/{keyID}", wrapper.DeleteApiKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/keys/{keyID}", wrapper.GetApiKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/keys/{keyID}", wrapper.UpdateApiKey)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/lists", wrapper.ListLists)

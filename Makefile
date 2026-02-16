@@ -29,9 +29,8 @@ $(BUILD_DIR):
 
 PROVIDER_MODULES := $(notdir $(wildcard ./modules/providers/*))
 
-$(PROVIDER_MODULES):
-	$(info $(M) building $@ module…)
-	$Q cd modules/providers/$@ && $(TINYGO) build -target=wasi -buildmode c-shared -opt=2 -no-debug -o ../../../internal/providers/modules/$@.wasm ./main.go
+
+
 # Tools
 $(BIN):
 	@mkdir -p $@
@@ -53,13 +52,19 @@ TAILWINDCSS = $(BIN)/tailwindcss
 
 TOOLCHAIN = $(STRINGER) $(MINIMOCK) $(OAPI_CODEGEN) $(TAILWINDCSS)
 
-.PHONY: build # Build all services
-build: $(PROVIDER_MODULES) console binary
-	@true
+.PHONY: build
+build: modules console lunogram ## Build all services
 
-.PHONY: binary
-binary: ; $(info $(M) building binary…)
+.PHONY: lunogram
+lunogram: ; $(info $(M) building lunogram…)
 	$Q CGO_ENABLED=0 $(GO) build -ldflags='$(LDFLAGS)' -o $(BIN)/lunogram ./cmd/lunogram
+
+.PHONY: modules
+modules: ; $(info $(M) building provider modules…) @ ## Build all provider modules
+	$Q for module in $(PROVIDER_MODULES); do \
+		echo "$(M) building $$module module…"; \
+		cd modules/providers/$$module && $(TINYGO) build -target=wasi -buildmode c-shared -opt=2 -no-debug -o ../../../internal/providers/modules/$$module.wasm ./main.go && cd ../../..; \
+	done
 
 .PHONY: console
 console: ; $(info $(M) building console…)
@@ -86,8 +91,9 @@ fmt: | $(EMBEDDED) ; $(info $(M) running go fmt…) @ ## Run gofmt on all source
 	$Q $(GO) fmt $(PKGS)
 
 .PHONY: generate
-generate: | $(EMBEDDED) $(TOOLCHAIN) ; $(info $(M) running go generate…) @ ## Run gogenerate on all source files
+generate: | $(EMBEDDED) $(TOOLCHAIN) ; $(info $(M) updating generated files…) @ ## Update all generated files
 	$Q $(GO) generate $(PKGS)
+	$Q cd console && $(PNPM) run generate
 	$Q $(MAKE) fmt
 
 .PHONY: clean

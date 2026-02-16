@@ -7,20 +7,21 @@ import (
 
 	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
-func setupUsersTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream) {
+func setupUsersTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream) {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -29,30 +30,27 @@ func setupUsersTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream) {
 	natsURL := container.RunNATS(t)
 	postgresURI := container.RunPostgreSQL(t)
 
-	config := config.Node{
-		Store: store.Config{
-			URI: postgresURI,
-		},
+	cfg := config.Node{
 		Nats: config.Nats{
 			URL: natsURL,
 		},
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	jet, err := pubsub.New(ctx, config)
+	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	st := store.NewState(db)
+	mgmtState := management.NewState(db)
 
-	orgID, err := st.OrganizationsStore.CreateOrganization(ctx, "Test Org")
+	orgID, err := mgmtState.OrganizationsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := st.ProjectsStore.CreateProject(ctx, store.Project{
+	projectID, err := mgmtState.ProjectsStore.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -60,7 +58,9 @@ func setupUsersTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream) {
 	})
 	require.NoError(t, err)
 
-	return db, projectID, jet
+	usersState := users.NewState(db)
+
+	return usersState, projectID, jet
 }
 
 func TestUsersProcess(t *testing.T) {
@@ -129,7 +129,7 @@ func TestUserEvent(t *testing.T) {
 func TestUsersHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
@@ -137,7 +137,7 @@ func TestUsersHandlerSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := UsersHandler(logger, db, pub)
+	handler := UsersHandler(logger, usersState, pub)
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -169,7 +169,7 @@ func TestUsersHandlerSuccess(t *testing.T) {
 func TestUsersHandlerPublishesUserCreatedEvent(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
@@ -177,7 +177,7 @@ func TestUsersHandlerPublishesUserCreatedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := UsersHandler(logger, db, pub)
+	handler := UsersHandler(logger, usersState, pub)
 
 	email := "new@example.com"
 	user := schemas.User{
@@ -218,7 +218,7 @@ func TestUsersHandlerPublishesUserCreatedEvent(t *testing.T) {
 func TestUsersHandlerPublishesUserUpdatedEvent(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
@@ -226,7 +226,7 @@ func TestUsersHandlerPublishesUserUpdatedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := UsersHandler(logger, db, pub)
+	handler := UsersHandler(logger, usersState, pub)
 
 	email := "existing@example.com"
 	user := schemas.User{
@@ -267,14 +267,12 @@ func TestUsersHandlerPublishesUserUpdatedEvent(t *testing.T) {
 func TestUsersHandlerWithListDependencies(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
-
-	st := store.NewState(db)
 
 	ruleset := rules.RuleSet{
 		Rule: rules.Rule{
@@ -287,7 +285,7 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 		},
 	}
 
-	ruleID, err := st.RulesStore.CreateRule(ctx, store.Rule{
+	ruleID, err := usersState.RulesStore.CreateRule(ctx, users.Rule{
 		ProjectID:       projectID,
 		Rule:            store.JSONB[rules.RuleSet]{Data: ruleset},
 		DependsOnUsers:  true,
@@ -296,7 +294,7 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = st.ListsStore.CreateList(ctx, store.List{
+	_, err = usersState.ListsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
@@ -305,7 +303,7 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := UsersHandler(logger, db, pub)
+	handler := UsersHandler(logger, usersState, pub)
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -345,7 +343,7 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 func TestUsersHandlerWithUserData(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
@@ -353,7 +351,7 @@ func TestUsersHandlerWithUserData(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := UsersHandler(logger, db, pub)
+	handler := UsersHandler(logger, usersState, pub)
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -395,7 +393,7 @@ func TestUsersHandlerWithUserData(t *testing.T) {
 func TestUsersHandlerWithoutData(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
@@ -403,7 +401,7 @@ func TestUsersHandlerWithoutData(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := UsersHandler(logger, db, pub)
+	handler := UsersHandler(logger, usersState, pub)
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -436,11 +434,9 @@ func TestUsersHandlerWithoutData(t *testing.T) {
 func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-
-	st := store.NewState(db)
 
 	ruleset := rules.RuleSet{
 		Rule: rules.Rule{
@@ -453,7 +449,7 @@ func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 		},
 	}
 
-	ruleID, err := st.RulesStore.CreateRule(ctx, store.Rule{
+	ruleID, err := usersState.RulesStore.CreateRule(ctx, users.Rule{
 		ProjectID:       projectID,
 		Rule:            store.JSONB[rules.RuleSet]{Data: ruleset},
 		DependsOnUsers:  true,
@@ -462,7 +458,7 @@ func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	listID, err := st.ListsStore.CreateList(ctx, store.List{
+	listID, err := usersState.ListsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Adult List",
 		Type:      "static",
@@ -489,8 +485,7 @@ func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 		Version: 0,
 	}
 
-	lists := store.NewListsStore(db)
-	err = PublishUserRecomputeLists(ctx, logger, lists, pub, user)
+	err = PublishUserRecomputeLists(ctx, logger, usersState, pub, user)
 	require.NoError(t, err)
 
 	stream, err := jet.Stream(ctx, StreamLists)
@@ -500,7 +495,7 @@ func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 	require.NoError(t, err)
 	assert.Greater(t, info.State.Msgs, uint64(0))
 
-	result, err := lists.SelectListUsersDependency(ctx, projectID)
+	result, err := usersState.ListsStore.SelectListUsersDependency(ctx, projectID)
 	require.NoError(t, err)
 	assert.Contains(t, result, listID)
 }
@@ -508,7 +503,7 @@ func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 func TestPublishUserRecomputeListsNoLists(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
@@ -531,8 +526,7 @@ func TestPublishUserRecomputeListsNoLists(t *testing.T) {
 		Version: 0,
 	}
 
-	lists := store.NewListsStore(db)
-	err = PublishUserRecomputeLists(ctx, logger, lists, pub, user)
+	err = PublishUserRecomputeLists(ctx, logger, usersState, pub, user)
 	require.NoError(t, err)
 }
 
@@ -601,14 +595,14 @@ func TestPublishUserEventsUserUpdated(t *testing.T) {
 func TestUserSchemasHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	handler := UserSchemasHandler(logger, db)
+	handler := UserSchemasHandler(logger, usersState)
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -647,14 +641,14 @@ func TestUserSchemasHandlerSuccess(t *testing.T) {
 func TestUserSchemasHandlerComplexData(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	handler := UserSchemasHandler(logger, db)
+	handler := UserSchemasHandler(logger, usersState)
 
 	email := "test@example.com"
 	user := schemas.User{

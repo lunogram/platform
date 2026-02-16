@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/rules/eval"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -29,9 +29,7 @@ type JourneyStep struct {
 }
 
 // EventsHandler creates a handler that processes incoming events and stores them in the database.
-func EventsHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) HandlerFunc {
-	state := store.NewState(db)
-
+func EventsHandler(logger *zap.Logger, usrs *users.State, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		event := schemas.Event{}
 		err := json.Unmarshal(msg.Data(), &event)
@@ -40,20 +38,9 @@ func EventsHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) Handle
 			return err
 		}
 
-		tx, err := db.BeginTxx(ctx, nil)
-		if err != nil {
-			logger.Error("failed to begin transaction", zap.Error(err))
-			return err
-		}
-
-		defer tx.Rollback() //nolint:errcheck
-
-		events := store.NewEventsStore(tx)
-		users := store.NewUsersStore(tx)
-
 		logger.Info("incoming event", zap.String("name", event.Name), zap.Stringer("project_id", event.ProjectID))
 
-		event.ID, err = events.UpsertEvent(ctx, event.ProjectID, event.Name)
+		event.ID, err = usrs.UpsertEvent(ctx, event.ProjectID, event.Name)
 		if err != nil {
 			logger.Error("failed to upsert event", zap.Error(err))
 			return err
@@ -62,29 +49,23 @@ func EventsHandler(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) Handle
 		if event.UserID == uuid.Nil {
 			logger.Info("looking up user ID", zap.Stringp("external_id", event.ExternalId), zap.Stringp("anonymous_id", event.AnonymousId))
 
-			event.UserID, err = users.LookupUserID(ctx, event.ProjectID, event.ExternalId, event.AnonymousId)
+			event.UserID, err = usrs.LookupUserID(ctx, event.ProjectID, event.ExternalId, event.AnonymousId)
 			if err != nil {
 				logger.Error("failed to lookup user ID", zap.Error(err))
 				return err
 			}
 		}
 
-		_, err = users.InsertUserEvent(ctx, event.UserID, event.ID, event.Data)
+		_, err = usrs.InsertUserEvent(ctx, event.UserID, event.ID, event.Data)
 		if err != nil {
 			logger.Error("failed to insert user event", zap.Error(err))
 			return err
 		}
 
-		err = tx.Commit()
-		if err != nil {
-			logger.Error("failed to commit transaction", zap.Error(err))
-			return err
-		}
-
 		wg, ctx := errgroup.WithContext(ctx)
 		wg.Go(PublishEventSchema(ctx, logger, pub, event))
-		wg.Go(PublishEventListDependencies(ctx, logger, state, pub, event))
-		wg.Go(PublishEventJourneyDependencies(ctx, logger, state, pub, event))
+		wg.Go(PublishEventListDependencies(ctx, logger, usrs, pub, event))
+		wg.Go(PublishEventJourneyDependencies(ctx, logger, usrs, jrny, pub, event))
 
 		err = wg.Wait()
 		if err != nil {
@@ -115,9 +96,9 @@ func PublishEventSchema(ctx context.Context, logger *zap.Logger, pub pubsub.Publ
 
 // PublishEventListDependencies returns a function that publishes recompute messages for all lists
 // that depend on the given event through rule conditions.
-func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, state *store.State, pub pubsub.Publisher, event schemas.Event) func() error {
+func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, usrs *users.State, pub pubsub.Publisher, event schemas.Event) func() error {
 	return func() error {
-		lists, err := state.ListEventListDependencies(ctx, event.ID)
+		lists, err := usrs.ListEventListDependencies(ctx, event.ID)
 		if err != nil {
 			logger.Error("failed to list rule event dependencies", zap.Error(err))
 			return err
@@ -142,11 +123,11 @@ func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, state
 
 // PublishEventJourneyDependencies returns a function that triggers journey entrance steps
 // for all journeys configured with event-based entrance conditions matching the given event.
-func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, state *store.State, pub pubsub.Publisher, event schemas.Event) func() error {
+func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, usrs *users.State, jrny *journey.State, pub pubsub.Publisher, event schemas.Event) func() error {
 	evaluator := eval.NewEvaluator()
 
 	return func() error {
-		deps, err := state.ListEventJourneyDependencies(ctx, event.ID)
+		deps, err := usrs.ListEventJourneyDependencies(ctx, event.ID)
 		if err != nil {
 			logger.Error("failed to list rule event dependencies", zap.Error(err))
 			return err
@@ -189,7 +170,7 @@ func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, st
 
 			// TODO: include support to pin to specific journey version
 			now := time.Now()
-			result := store.JourneyUserState{
+			result := journey.JourneyUserState{
 				JourneyID:      dep.JourneyID,
 				JourneyEntryID: entry,
 				UserID:         event.UserID,
@@ -198,7 +179,7 @@ func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, st
 				CompletedAt:    &now,
 			}
 
-			_, err = state.CreateUserJourneyState(ctx, result)
+			_, err = jrny.CreateUserJourneyState(ctx, result)
 			if err != nil {
 				logger.Error("failed to create journey user state", zap.Error(err))
 				return err
@@ -227,9 +208,7 @@ func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, st
 }
 
 // EventSchemasHandler creates a handler that extracts and stores event schema information.
-func EventSchemasHandler(logger *zap.Logger, db *sqlx.DB) HandlerFunc {
-	events := store.NewEventsStore(db)
-
+func EventSchemasHandler(logger *zap.Logger, usrs *users.State) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		event := schemas.Event{}
 		err := json.Unmarshal(msg.Data(), &event)
@@ -241,7 +220,7 @@ func EventSchemasHandler(logger *zap.Logger, db *sqlx.DB) HandlerFunc {
 		logger.Info("incoming event schema", zap.Stringer("event_id", event.ID), zap.Stringer("project_id", event.ProjectID))
 
 		paths := rules.ParsePaths(event.Data)
-		err = events.UpsertEventSchema(ctx, event.ProjectID, event.ID, paths)
+		err = usrs.UpsertEventSchema(ctx, event.ProjectID, event.ID, paths)
 		if err != nil {
 			logger.Error("failed to upsert event schema", zap.Error(err))
 			return err

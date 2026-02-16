@@ -8,10 +8,9 @@ import (
 
 	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -21,19 +20,17 @@ func TestSubscriptionCreation(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	config := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(config)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, config)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -106,19 +103,17 @@ func TestListSubscriptions(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	config := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(config)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, config)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -166,19 +161,17 @@ func TestUpdateSubscription(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	config := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(config)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, config)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
@@ -231,19 +224,17 @@ func TestGetSubscription(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	config := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
+	config := management.Config{
+		URI: container.RunPostgreSQL(t),
 	}
 
-	err := store.Migrate(config.Store)
+	err := management.Migrate(config)
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, config.Store)
+	db, err := management.New(ctx, logger, config)
 	require.NoError(t, err)
 
-	projects := store.NewProjectsStore(db)
+	projects := management.NewProjectsStore(db)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 

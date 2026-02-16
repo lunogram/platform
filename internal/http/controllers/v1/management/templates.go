@@ -10,7 +10,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
@@ -18,14 +18,14 @@ func NewTemplatesController(logger *zap.Logger, db *sqlx.DB) *TemplatesControlle
 	return &TemplatesController{
 		logger: logger,
 		db:     db,
-		store:  store.NewState(db),
+		store:  management.NewState(db),
 	}
 }
 
 type TemplatesController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.State
+	store  *management.State
 }
 
 func (srv *TemplatesController) GetTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
@@ -82,7 +82,7 @@ func (srv *TemplatesController) CreateTemplate(w http.ResponseWriter, r *http.Re
 	}
 
 	if body.Data != nil {
-		update := store.TemplateUpdate{
+		update := management.TemplateUpdate{
 			Data: body.Data,
 		}
 
@@ -158,7 +158,7 @@ func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	updated := store.TemplateUpdate{
+	updated := management.TemplateUpdate{
 		Data: body.Data,
 	}
 

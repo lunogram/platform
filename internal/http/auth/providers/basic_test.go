@@ -12,7 +12,7 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -102,24 +102,20 @@ func TestBasicProviderAuthenticateWithExistingAdmin(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := store.Migrate(cfg.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, cfg.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	stores := store.NewState(db)
+	stores := management.NewState(db)
 
 	orgID, err := stores.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	_, err = stores.CreateAdmin(ctx, store.Admin{
+	_, err = stores.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",
 		Role:           "owner",
@@ -152,19 +148,15 @@ func TestBasicProviderAuthenticateCreatesNewAdmin(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	cfg := config.Node{
-		Store: store.Config{
-			URI: container.RunPostgreSQL(t),
-		},
-	}
+	postgresURI := container.RunPostgreSQL(t)
 
-	err := store.Migrate(cfg.Store)
+	err := management.Migrate(management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	db, err := store.New(ctx, logger, cfg.Store)
+	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
 	require.NoError(t, err)
 
-	stores := store.NewState(db)
+	stores := management.NewState(db)
 
 	providerConfig := config.BasicAuth{
 		Email:    "newadmin@example.com",

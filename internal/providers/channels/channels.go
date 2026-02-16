@@ -3,15 +3,16 @@ package channels
 import (
 	"fmt"
 
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
 type ComposeOptions struct {
-	Devices store.Devices
+	Devices users.Devices
 }
 
-func Compose(channel providers.Channel, config map[string]any, template store.Template, user *store.User, opts *ComposeOptions) (*providers.SendRequest[map[string]any], error) {
+func Compose(channel providers.Channel, config map[string]any, template management.Template, user *users.User, opts *ComposeOptions) (*providers.SendRequest[map[string]any], error) {
 	switch channel {
 	case providers.ChannelEmail:
 		return ComposeEmail(config, template, user)

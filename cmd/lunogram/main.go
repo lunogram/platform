@@ -13,13 +13,14 @@ import (
 	"github.com/lunogram/platform/internal/cluster/leader"
 	"github.com/lunogram/platform/internal/cluster/scheduler"
 	"github.com/lunogram/platform/internal/config"
-	managementv1 "github.com/lunogram/platform/internal/http/controllers/v1/management"
-	publicv1 "github.com/lunogram/platform/internal/http/controllers/v1/public"
+	v1 "github.com/lunogram/platform/internal/http/controllers/v1"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/storage"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"go.uber.org/zap"
 )
 
@@ -52,14 +53,16 @@ func run() error {
 		return err
 	}
 
+	managementConfig := management.Config{URI: conf.Store.ManagementURI}
+
 	if migrate {
 		logger.Info("running database migrations...")
-		return store.Migrate(conf.Store)
+		return management.Migrate(managementConfig)
 	}
 
 	if conf.DatabaseMigrate {
 		logger.Info("running database migrations...")
-		if err := store.Migrate(conf.Store); err != nil {
+		if err := management.Migrate(managementConfig); err != nil {
 			return fmt.Errorf("auto-migrate failed: %w", err)
 		}
 	}
@@ -67,10 +70,14 @@ func run() error {
 	logger.Info("starting service...")
 	logger.Info("initializing database")
 
-	db, err := store.New(ctx, logger, conf.Store)
+	managementDB, err := management.New(ctx, logger, managementConfig)
 	if err != nil {
 		return err
 	}
+
+	managementStore := management.NewState(managementDB)
+	usersStore := users.NewState(managementDB)
+	journeyStore := journey.NewState(managementDB)
 
 	logger.Info("initializing block storage")
 
@@ -100,39 +107,31 @@ func run() error {
 	defer registry.Close(ctx)
 
 	pub := pubsub.NewPublisher(jet)
-	consumer.Serve(ctx, jet, logger, db, registry)
+	consumer.Serve(ctx, jet, logger, managementDB, managementStore, usersStore, journeyStore, registry)
 
 	logger.Info("initializing cluster")
 
-	scheduler := scheduler.NewController(ctx, logger, conf, db, pub)
-	leader := leader.NewHandler(scheduler)
-	consensus, err := consensus.NewCluster(ctx, logger, conf)
+	sched := scheduler.NewController(ctx, logger, conf, journeyStore, pub)
+	lead := leader.NewHandler(sched)
+	cons, err := consensus.NewCluster(ctx, logger, conf)
 	if err != nil {
 		return err
 	}
 
-	_, err = cluster.NewNode(ctx, logger, conf, consensus, leader)
+	_, err = cluster.NewNode(ctx, logger, conf, cons, lead)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("starting http servers")
+	logger.Info("starting http server")
 
-	mgmt, err := managementv1.NewServer(ctx, logger, conf, db, bucket, pub, registry)
+	server, err := v1.NewServer(ctx, logger, conf, managementDB, bucket, pub, registry)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("serving management http server")
-	go mgmt.Serve(ctx, conf.ManagementServiceAddress)
-
-	public, err := publicv1.NewServer(ctx, logger, conf, db, bucket, pub)
-	if err != nil {
-		return err
-	}
-
-	logger.Info("serving public http server")
-	go public.Serve(ctx, conf.PublicServiceAddress)
+	logger.Info("serving http server")
+	go server.Serve(ctx, conf.HTTPAddress)
 
 	logger.Info("service up and running!")
 	ctx.AwaitKillSignal()

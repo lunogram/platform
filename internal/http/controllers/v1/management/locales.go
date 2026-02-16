@@ -11,6 +11,7 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
@@ -18,14 +19,14 @@ func NewLocalesController(logger *zap.Logger, db *sqlx.DB) *LocalesController {
 	return &LocalesController{
 		logger: logger,
 		db:     db,
-		store:  store.NewState(db),
+		store:  management.NewState(db),
 	}
 }
 
 type LocalesController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *store.State
+	store  *management.State
 }
 
 func (srv *LocalesController) CreateLocale(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
@@ -53,7 +54,7 @@ func (srv *LocalesController) CreateLocale(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	localeID, err := srv.store.LocalesStore.CreateLocale(ctx, store.Locale{
+	localeID, err := srv.store.LocalesStore.CreateLocale(ctx, management.Locale{
 		ProjectID: projectID,
 		Key:       body.Key,
 		Label:     body.Label,

@@ -9,12 +9,12 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
 func NewAuthController(logger *zap.Logger, db *sqlx.DB, cfg config.Node) (*AuthController, error) {
-	stores := store.NewState(db)
+	stores := management.NewState(db)
 
 	provider, err := providers.NewProvider(cfg.Auth, stores, logger)
 	if err != nil {

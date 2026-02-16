@@ -4,21 +4,21 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/users"
 )
 
 var ErrMissingExternalID = errors.New("external_id column is required")
 
-var UserFieldMap = map[string]func(*store.UpsertUserParams, string){
-	"external_id": func(u *store.UpsertUserParams, v string) { u.ExternalID = &v },
-	"email":       func(u *store.UpsertUserParams, v string) { u.Email = &v },
-	"phone":       func(u *store.UpsertUserParams, v string) { u.Phone = &v },
-	"timezone":    func(u *store.UpsertUserParams, v string) { u.Timezone = &v },
-	"locale":      func(u *store.UpsertUserParams, v string) { u.Locale = &v },
+var UserFieldMap = map[string]func(*users.UpsertUserParams, string){
+	"external_id": func(u *users.UpsertUserParams, v string) { u.ExternalID = &v },
+	"email":       func(u *users.UpsertUserParams, v string) { u.Email = &v },
+	"phone":       func(u *users.UpsertUserParams, v string) { u.Phone = &v },
+	"timezone":    func(u *users.UpsertUserParams, v string) { u.Timezone = &v },
+	"locale":      func(u *users.UpsertUserParams, v string) { u.Locale = &v },
 }
 
 func NewUsers(headers []string) (*UserMapper, error) {
-	setters := make([]func(*store.UpsertUserParams, string), len(headers))
+	setters := make([]func(*users.UpsertUserParams, string), len(headers))
 	data := make([]string, len(headers))
 	hasExternalID := false
 
@@ -49,24 +49,24 @@ func NewUsers(headers []string) (*UserMapper, error) {
 }
 
 type UserMapper struct {
-	Setters []func(*store.UpsertUserParams, string)
+	Setters []func(*users.UpsertUserParams, string)
 	Data    []string
 	Headers []string
 }
 
-func (users *UserMapper) MapRecord(record []string) (store.UpsertUserParams, error) {
-	user := store.UpsertUserParams{}
+func (m *UserMapper) MapRecord(record []string) (users.UpsertUserParams, error) {
+	user := users.UpsertUserParams{}
 	user.Data = make(map[string]any)
 
 	for index, value := range record {
 		value = strings.TrimSpace(value)
 
-		if index < len(users.Setters) && users.Setters[index] != nil {
-			users.Setters[index](&user, value)
+		if index < len(m.Setters) && m.Setters[index] != nil {
+			m.Setters[index](&user, value)
 			continue
 		}
 
-		user.Data[users.Data[index]] = value
+		user.Data[m.Data[index]] = value
 	}
 
 	return user, nil

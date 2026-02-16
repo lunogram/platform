@@ -1,3 +1,13 @@
+FROM tinygo/tinygo:0.40.1 AS modules
+WORKDIR /src
+
+COPY go.mod go.sum ./
+COPY Makefile ./
+COPY modules/ ./modules/
+COPY pkg/ ./pkg/
+
+RUN mkdir -p internal/providers/modules && make modules
+
 FROM node:24-alpine AS console
 ARG VITE_CLERK_PUBLISHABLE_KEY
 
@@ -17,8 +27,9 @@ RUN apk add --no-cache git ca-certificates make bash
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
+COPY --from=modules /src/internal/providers/modules/*.wasm ./internal/providers/modules/
 COPY --from=console /src/console/dist ./internal/http/console/dist/
-RUN make binary VERSION=${VERSION} SHORT_COMMIT=${COMMIT}
+RUN VERSION=${VERSION} SHORT_COMMIT=${COMMIT} make lunogram
 
 FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app

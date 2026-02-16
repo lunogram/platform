@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/lunogram/platform/internal/store"
+	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/users"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
@@ -15,7 +16,7 @@ type PushTemplateData struct {
 	Data  map[string]any `json:"data,omitempty"`
 }
 
-func ComposePush(config map[string]any, template store.Template, user *store.User, devices store.Devices) (*providers.SendRequest[map[string]any], error) {
+func ComposePush(config map[string]any, template management.Template, user *users.User, devices users.Devices) (*providers.SendRequest[map[string]any], error) {
 	if !user.HasPushDevice {
 		return nil, fmt.Errorf("user has no push-enabled device")
 	}
