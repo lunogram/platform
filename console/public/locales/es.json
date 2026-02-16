@@ -78,6 +78,12 @@
         },
         "htmlEditor": {
           "developerMode": "Modo Desarrollador"
+        },
+        "components": {
+          "image": {
+            "title": "Imagen",
+            "upload_hint": "Haz clic para explorar y seleccionar una imagen"
+          }
         }
       }
     }

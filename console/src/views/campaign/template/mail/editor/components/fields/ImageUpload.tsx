@@ -60,8 +60,11 @@ export const ImageUpload: CustomField<ImageUploadProps> = {
       setIsUploading(true);
       try {
         const createResponse = await api.images.create(project.id, file);
-        const response = await api.images.get(project.id, createResponse.documents[0]);
-        const blob = response
+        const response = await api.images.get(
+          project.id,
+          createResponse.documents[0],
+        );
+        const blob = response;
 
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -87,7 +90,7 @@ export const ImageUpload: CustomField<ImageUploadProps> = {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-            {t("editor.fields.image.title")}
+            {t("campaign.template.editor.components.image.title")}
           </label>
           {hasImage && !isUploading && (
             <Button
@@ -114,7 +117,7 @@ export const ImageUpload: CustomField<ImageUploadProps> = {
               <div className="flex flex-col items-center justify-center pt-5 pb-6">
                 <Upload className="w-6 h-6 text-gray-400 mb-2" />
                 <p className="text-[10px] text-gray-500">
-                  {t("editor.fields.image.upload_hint")}
+                  {t("campaign.template.editor.components.image.upload_hint")}
                 </p>
               </div>
               <input

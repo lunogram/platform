@@ -88,6 +88,12 @@
         },
         "htmlEditor": {
           "developerMode": "开发者模式"
+        },
+        "components": {
+          "image": {
+            "title": "图像",
+            "upload_hint": "点击浏览并选择一个图像"
+          }
         }
       }
     }

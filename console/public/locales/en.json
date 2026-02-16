@@ -146,6 +146,12 @@
         },
         "htmlEditor": {
           "developerMode": "Developer Mode"
+        },
+        "components": {
+          "image": {
+            "title": "Image",
+            "upload_hint": "Click to browse and select an image"
+          }
         }
       }
     },
