@@ -41,7 +41,7 @@ export const ImageUpload: CustomField<ImageUploadProps> = {
 
     const viewport = appState.ui.viewports.current;
     const breakpoint = getViewportTailwindBreakpoint(
-      typeof viewport.width === "number" ? viewport.width : maxBreakpointWidth,
+      typeof viewport.width == "number" ? viewport.width : maxBreakpointWidth,
     );
 
     const config = value[breakpoint] || {};
