@@ -108,7 +108,46 @@
         "title": "Template Setup",
         "description": "Configure template-specific settings for this locale."
       },
-      "edit": "Edit Template"
+      "edit": "Edit Template",
+      "email": {
+        "templates": {
+          "pricingEmphasized": {
+            "label": "Pricing Emphasized",
+            "description": "A professional dual-plan pricing section for emails."
+          }
+        }
+      },
+      "editor": {
+        "selection": {
+          "title": "New Project",
+          "description": "Select your preferred editing experience.",
+          "visualBuilder": "Visual Builder",
+          "visualBuilderDesc": "Drag & drop blocks to design visually.",
+          "developerMode": "Developer Mode",
+          "developerModeDesc": "Write raw HTML for full control.",
+          "note": "Note: You can not toggle between these modes inside the editor."
+        },
+        "wizard": {
+          "step1": "Step 1: Environment",
+          "step2": "Step 2: Template",
+          "title": "Start a new project",
+          "description": "Select your workspace. You can toggle between these modes later in the editor.",
+          "visualBuilder": "Visual Builder",
+          "visualBuilderDesc": "Drag and drop blocks visually. Best for marketing and layout design.",
+          "developerMode": "Developer Mode",
+          "developerModeDesc": "Write raw HTML for full control. Best for custom logic and legacy code.",
+          "chooseTemplate": "Choose a template",
+          "configuring": "Configuring",
+          "blankSlate": "Blank Slate",
+          "noTemplate": "No template",
+          "autoSaveActive": "Auto-save active",
+          "cloudSync": "Cloud Sync",
+          "selectTemplate": "Select a template to continue"
+        },
+        "htmlEditor": {
+          "developerMode": "Developer Mode"
+        }
+      }
     },
     "review": {
       "title": "Review",

@@ -30,7 +30,20 @@ export const Img: ComponentConfig<ImgProps> = {
     src: "https://upload.wikimedia.org/wikipedia/commons/b/b6/Image_created_with_a_mobile_phone.png",
     alt: "Image",
     image: {},
-    layout: {},
+    layout: {
+      sm: {
+        maxHeight: "100%",
+        maxWidth: "100%",
+      },
+      md: {
+        maxHeight: "100%",
+        maxWidth: "100%",
+      },
+      xl: {
+        maxHeight: "100%",
+        maxWidth: "100%",
+      },
+    },
     spacing: {},
   },
   render: ({ src, alt, width, height, image, layout, spacing }) => {
@@ -39,12 +52,8 @@ export const Img: ComponentConfig<ImgProps> = {
       generateTailwindClasses(spacing, spacingClassMap),
     );
 
-    const imageUrl = 
-      image?.xl?.url || 
-      image?.md?.url || 
-      image?.sm?.url || 
-      src;
-    
+    const imageUrl = image?.xl?.url || image?.md?.url || image?.sm?.url || src;
+
     return (
       <EmailImg
         src={imageUrl}

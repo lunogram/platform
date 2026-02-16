@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -15,10 +16,10 @@ import {
   Plus,
   LayoutTemplate,
 } from "lucide-react";
-import { ChoiceCard } from "./ChoiceCard";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/utils";
 import type { Template } from "../components/templates/PicingEmphasised/PricingEmphasised";
+import { ChoiceCard } from "./ChoiceCard";
 
 export interface TemplateProps {
   id: string;
@@ -39,8 +40,10 @@ interface EditorWizardProps {
 export const EditorWizard = ({
   isOpen,
   onComplete,
+  onClose,
   templates,
 }: EditorWizardProps) => {
+  const { t } = useTranslation();
   const [step, setStep] = useState<"type" | "template">("type");
   const [selectedType, setSelectedType] = useState<"block" | "code" | null>(null);
 
@@ -55,7 +58,7 @@ export const EditorWizard = ({
   };
 
   return (
-    <Dialog open={isOpen}>
+    <Dialog onOpenChange={onClose} open={isOpen}>
       <DialogContent
         showClose={false}
         className="max-w-5xl h-[80vh] flex flex-col p-0 gap-0 overflow-hidden focus:ring-0 focus-visible:ring-0 focus:outline-none !border-none shadow-2xl"
@@ -81,7 +84,7 @@ export const EditorWizard = ({
           
           <div className="flex items-center gap-4">
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              {step === "type" ? "Step 1: Environment" : "Step 2: Template"}
+              {step === "type" ? t('campaign.template.editor.wizard.step1') : t('campaign.template.editor.wizard.step2')}
             </span>
           </div>
         </div>
@@ -92,25 +95,24 @@ export const EditorWizard = ({
               <div className="w-full max-w-3xl space-y-10">
                 <DialogHeader className="text-center space-y-3">
                   <DialogTitle className="text-4xl font-black tracking-tight">
-                    Start a new project
+                    {t('campaign.template.editor.wizard.title')}
                   </DialogTitle>
                   <DialogDescription className="text-base max-w-md">
-                    Select your workspace. You can toggle between these modes
-                    later in the editor.
+                    {t('campaign.template.editor.wizard.description')}
                   </DialogDescription>
                 </DialogHeader>
                 
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <ChoiceCard
-                    title="Visual Builder"
-                    description="Drag and drop blocks visually. Best for marketing and layout design."
+                    title={t('campaign.template.editor.wizard.visualBuilder')}
+                    description={t('campaign.template.editor.wizard.visualBuilderDesc')}
                     icon={<Layout className="h-10 w-10" />}
                     onClick={() => handleTypeSelect("block")}
                     className="h-72 border-2"
                   />
                   <ChoiceCard
-                    title="Developer Mode"
-                    description="Write raw HTML for full control. Best for custom logic and legacy code."
+                    title={t('campaign.template.editor.wizard.developerMode')}
+                    description={t('campaign.template.editor.wizard.developerModeDesc')}
                     icon={<Code2 className="h-10 w-10" />}
                     onClick={() => handleTypeSelect("code")}
                     className="h-72 border-2"
@@ -122,10 +124,10 @@ export const EditorWizard = ({
             <div className="flex flex-col h-full">
               <DialogHeader className="p-8 pb-4 text-center space-y-2 shrink-0">
                 <DialogTitle className="text-3xl font-black tracking-tight">
-                  Choose a template
+                  {t('campaign.template.editor.wizard.chooseTemplate')}
                 </DialogTitle>
                 <DialogDescription className="text-sm font-medium text-primary uppercase tracking-wider">
-                  Configuring {selectedType === "block" ? "Visual Builder" : "Developer Mode"}
+                  {t('campaign.template.editor.wizard.configuring')} {selectedType === "block" ? t('campaign.template.editor.wizard.visualBuilder') : t('campaign.template.editor.wizard.developerMode')}
                 </DialogDescription>
               </DialogHeader>
 
@@ -134,8 +136,8 @@ export const EditorWizard = ({
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto py-2">
                   <ChoiceCard
                     variant="dashed"
-                    title="Blank Slate"
-                    description="No template"
+                    title={t('campaign.template.editor.wizard.blankSlate')}
+                    description={t('campaign.template.editor.wizard.noTemplate')}
                     icon={<Plus />}
                     onClick={() => onComplete(selectedType!, "blank")}
                     className="aspect-square sm:aspect-auto sm:h-full"
@@ -173,18 +175,18 @@ export const EditorWizard = ({
           <div className="flex items-center gap-6 text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
             <div className="flex items-center gap-2">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Auto-save active
+              {t('campaign.template.editor.wizard.autoSaveActive')}
             </div>
             <div className="flex items-center gap-2">
               <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-              Cloud Sync
+              {t('campaign.template.editor.wizard.cloudSync')}
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             {step === "template" && (
               <span className="text-[10px] text-muted-foreground/60 font-bold italic">
-                Select a template to continue
+                {t('campaign.template.editor.wizard.selectTemplate')}
               </span>
             )}
           </div>

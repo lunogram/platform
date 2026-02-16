@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import CodeEditorEventListener from "../codeEditorPlugins/CodeEditorEventListener";
 import { Puck, type Data } from "@puckeditor/core";
 import { viewports } from "../viewport";
@@ -23,6 +24,8 @@ export function HtmlEditor({
   data: Partial<Data | Data<Components, object>>;
   html?: string;
 }) {
+  const { t } = useTranslation();
+
   useEffect(() => {
     if (!html) {
       CodeStore.setCode("");
@@ -87,7 +90,7 @@ export function HtmlEditor({
                 <div className="flex h-full flex-col bg-white">
                   <div className="h-16 px-6 flex items-center border-b bg-slate-50/50 shrink-0">
                     <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                      Developer Mode
+                      {t('campaign.template.editor.htmlEditor.developerMode')}
                     </h3>
                   </div>
 
