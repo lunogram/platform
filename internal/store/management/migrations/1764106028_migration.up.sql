@@ -84,6 +84,7 @@ CREATE TABLE project_admins (
 
 CREATE INDEX project_admins_project_id_idx ON project_admins(project_id);
 CREATE INDEX project_admins_admin_id_idx ON project_admins(admin_id);
+CREATE UNIQUE INDEX project_admins_project_admin_uniq ON project_admins(project_id, admin_id) WHERE deleted_at IS NULL;
 
 CREATE TRIGGER set_updated_at_project_admins BEFORE UPDATE ON project_admins FOR EACH ROW EXECUTE PROCEDURE set_updated_at();
 
