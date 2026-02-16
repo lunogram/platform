@@ -93,6 +93,7 @@ fmt: | $(EMBEDDED) ; $(info $(M) running go fmt…) @ ## Run gofmt on all source
 .PHONY: generate
 generate: | $(EMBEDDED) $(TOOLCHAIN) ; $(info $(M) updating generated files…) @ ## Update all generated files
 	$Q $(GO) generate $(PKGS)
+	$Q cd console && $(PNPM) run generate
 	$Q $(MAKE) fmt
 
 .PHONY: clean
