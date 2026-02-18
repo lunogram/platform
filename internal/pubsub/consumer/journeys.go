@@ -83,7 +83,7 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, pu
 				ExternalStepID: child.ChildExternalID,
 			}
 
-			err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, event.JourneyID), next)
+			err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, event.JourneyID, event.UserID), next)
 			if err != nil {
 				logger.Error("failed to publish next journey step", zap.Error(err))
 				return err

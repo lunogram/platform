@@ -105,6 +105,6 @@ func ListsRecompute(projectID uuid.UUID, listID uuid.UUID) Subject {
 }
 
 // JourneysAdvance returns the NATS subject for journey advancement.
-func JourneysAdvance(projectID uuid.UUID, journeyID uuid.UUID) Subject {
-	return Subject(fmt.Sprintf("journeys.advance.%s.%s", projectID, journeyID))
+func JourneysAdvance(projectID uuid.UUID, journeyID uuid.UUID, userID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("journeys.advance.%s.%s.%s", projectID, journeyID, userID))
 }

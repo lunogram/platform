@@ -10,6 +10,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/http/sse"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
@@ -17,10 +18,12 @@ import (
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
-func NewJourneysController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) *JourneysController {
+func NewJourneysController(logger *zap.Logger, db *sqlx.DB, jet jetstream.JetStream, pub pubsub.Publisher) *JourneysController {
 	return &JourneysController{
 		logger: logger,
 		db:     db,
@@ -28,6 +31,7 @@ func NewJourneysController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher
 		users:  users.NewState(db),
 		jrny:   journey.NewState(db),
 		pub:    pub,
+		jet:    jet,
 	}
 }
 
@@ -38,6 +42,7 @@ type JourneysController struct {
 	users  *users.State
 	jrny   *journey.State
 	pub    pubsub.Publisher
+	jet    jetstream.JetStream
 }
 
 func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListJourneysParams) {
@@ -313,6 +318,44 @@ func (srv *JourneysController) DeleteJourney(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (srv *JourneysController) FollowUserJourneyStatus(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
+	ctx := r.Context()
+	enc := sse.NewEncoder(w)
+
+	userID, err := uuid.Parse(r.URL.Query().Get("user_id"))
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid user_id format")))
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.Stringer("journey_id", journeyID),
+		zap.Stringer("user_id", userID),
+	)
+
+	logger.Info("following user journey status")
+
+	nconn := srv.jet.Conn()
+
+	handler := func(msg *nats.Msg) {
+		if ctx.Done() != nil {
+			logger.Info("stopping user journey status follow")
+			return
+		}
+
+		enc.WriteEvent("UserAdvanced", msg.Data)
+	}
+
+	subject := schemas.JourneysAdvance(projectID, journeyID, userID)
+	_, err = nconn.Subscribe(string(subject), handler)
+	if err != nil {
+		logger.Error("failed to subscribe to journey updates", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+}
+
 func (srv *JourneysController) RunJourneyForUser(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
 
@@ -398,7 +441,7 @@ func (srv *JourneysController) RunJourneyForUser(w http.ResponseWriter, r *http.
 			UserID:         userID,
 		}
 
-		err = srv.pub.Publish(ctx, schemas.JourneysAdvance(currJourney.ProjectID, step.JourneyID), step)
+		err = srv.pub.Publish(ctx, schemas.JourneysAdvance(currJourney.ProjectID, step.JourneyID, step.UserID), step)
 		if err != nil {
 			logger.Error("failed to publish journey state to project subject", zap.Error(err))
 			oapi.WriteProblem(w, err)

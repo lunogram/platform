@@ -194,7 +194,7 @@ func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, us
 					UserID:         event.UserID,
 				}
 
-				err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID), step)
+				err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID, event.UserID), step)
 				if err != nil {
 					logger.Error("failed to publish journey state to project subject", zap.Error(err))
 					return err

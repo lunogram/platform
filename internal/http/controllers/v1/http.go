@@ -20,10 +20,10 @@ import (
 	mgmtoapi "github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/scalar"
 	"github.com/lunogram/platform/internal/providers"
-	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
+	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
@@ -33,7 +33,7 @@ var staticFiles embed.FS
 // NewServer constructs a unified HTTP server combining both management and client
 // API endpoints. Management endpoints use JWT+API Key auth, while client endpoints
 // use API Key only authentication.
-func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *sqlx.DB, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) (*http.Server, error) {
+func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *sqlx.DB, storage storage.Storage, jet jetstream.JetStream, registry *providers.Registry) (*http.Server, error) {
 	mgmtStores := management.NewState(db)
 	usersStore := users.NewState(db)
 
@@ -49,13 +49,13 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *sq
 	}
 
 	// Create management controller
-	mgmtController, err := managementv1.NewController(logger, db, cfg, storage, pub, registry)
+	mgmtController, err := managementv1.NewController(logger, db, cfg, storage, jet, registry)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create management controller: %w", err)
 	}
 
 	// Create client controller
-	clientController, err := clientv1.NewController(logger, db, mgmtStores, usersStore, pub)
+	clientController, err := clientv1.NewController(logger, db, mgmtStores, usersStore, jet)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client controller: %w", err)
 	}

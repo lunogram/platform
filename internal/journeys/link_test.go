@@ -197,7 +197,7 @@ func TestHandleLink(t *testing.T) {
 
 			if tc.expectedPublish > 0 {
 				for _, event := range mockPub.publishedEvents {
-					assert.Equal(t, schemas.JourneysAdvance(projectID, targetJourneyID), event.subject)
+					assert.Equal(t, schemas.JourneysAdvance(projectID, targetJourneyID, userID), event.subject)
 					step, ok := event.data.(schemas.JourneyStep)
 					require.True(t, ok)
 					assert.Equal(t, projectID, step.ProjectID)

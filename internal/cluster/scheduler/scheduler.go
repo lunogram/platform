@@ -46,7 +46,7 @@ func (controller *Controller) ReconcileJourneyResumptions(ctx context.Context) {
 			StateID:        &state.ID,
 		}
 
-		err = controller.pub.Publish(ctx, schemas.JourneysAdvance(state.ProjectID, state.JourneyID), step)
+		err = controller.pub.Publish(ctx, schemas.JourneysAdvance(state.ProjectID, state.JourneyID, state.UserID), step)
 		if err != nil {
 			controller.logger.Error("failed to publish journey step", zap.Error(err), zap.Stringer("journey_id", state.JourneyID), zap.Stringer("journey_entry_id", state.JourneyEntryID))
 		}

@@ -1030,6 +1030,64 @@ paths:
           $ref: "#/components/responses/Error"
   
   /api/admin/projects/{projectID}/journeys/{journeyID}/users:
+    get:
+      summary: Get user journey status
+      description: Retrieves the current status and progress of a specific user in a journey in real-time
+      operationId: followUserJourneyStatus
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: userID
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID to check journey status for
+      responses:
+        "200":
+          description: User journey status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
+                    format: uuid
+                  journey_id:
+                    type: string
+                    format: uuid
+                  current_step_id:
+                    type: string
+                    nullable: true
+                  status:
+                    type: string
+                    enum: [active, completed, exited]
+                  started_at:
+                    type: string
+                    format: date-time
+                  updated_at:
+                    type: string
+                    format: date-time
+        default:
+          $ref: "#/components/responses/Error"
     post:
       summary: Manually runs a journey for a user
       description: Triggers a journey to run for a specific user, typically used for testing or manual overrides

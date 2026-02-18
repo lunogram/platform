@@ -5,10 +5,12 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
+	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, usrs *users.State, pub pubsub.Publisher) (*Controller, error) {
+func NewController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, usrs *users.State, jet jetstream.JetStream) (*Controller, error) {
+	pub := pubsub.NewPublisher(jet)
 	subsController, err := NewSubscriptionsController(logger, db, mgmt, usrs)
 	if err != nil {
 		return nil, err

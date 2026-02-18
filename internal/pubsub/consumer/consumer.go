@@ -23,13 +23,14 @@ const (
 
 // Consumer names for NATS JetStream subscribers.
 const (
-	ConsumerUsersProcess    = "users-process"
-	ConsumerUsersSchema     = "users-schema"
-	ConsumerEventsProcess   = "events-process"
-	ConsumerEventsSchema    = "events-schema"
-	ConsumerListsRecompute  = "lists-recompute"
-	ConsumerJourneysAdvance = "journeys-advance"
-	ConsumerCampaignsSend   = "campaigns-send"
+	ConsumerUsersProcess        = "users-process"
+	ConsumerUsersSchema         = "users-schema"
+	ConsumerEventsProcess       = "events-process"
+	ConsumerEventsSchema        = "events-schema"
+	ConsumerListsRecompute      = "lists-recompute"
+	ConsumerJourneysAdvance     = "journeys-advance"
+	ConsumerJourneysAdvanceUser = "journeys-advance-user"
+	ConsumerCampaignsSend       = "campaigns-send"
 )
 
 // Serve starts all JetStream consumers and registers their handlers.

@@ -125,7 +125,7 @@ func run() error {
 
 	logger.Info("starting http server")
 
-	server, err := v1.NewServer(ctx, logger, conf, managementDB, bucket, pub, registry)
+	server, err := v1.NewServer(ctx, logger, conf, managementDB, bucket, jet, registry)
 	if err != nil {
 		return err
 	}

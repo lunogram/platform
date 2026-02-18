@@ -6,10 +6,12 @@ import (
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/storage"
+	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) (_ *Controller, err error) {
+func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage storage.Storage, jet jetstream.JetStream, registry *providers.Registry) (_ *Controller, err error) {
+	pub := pubsub.NewPublisher(jet)
 	controller := &Controller{
 		ProjectsController:      NewProjectsController(logger, db),
 		CampaignsController:     NewCampaignsController(logger, db),
@@ -19,7 +21,7 @@ func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage sto
 		EventsController:        NewEventsController(logger, db),
 		TagsController:          NewTagsController(logger, db),
 		LocalesController:       NewLocalesController(logger, db),
-		JourneysController:      NewJourneysController(logger, db, pub),
+		JourneysController:      NewJourneysController(logger, db, jet, pub),
 		OrganizationsController: NewOrganizationsController(logger, db),
 		ListsController:         NewListsController(logger, db, pub, cfg.Storage.MaxUploadSize),
 		DocumentsController:     NewDocumentsController(logger, db, storage, cfg.Storage.MaxUploadSize),
