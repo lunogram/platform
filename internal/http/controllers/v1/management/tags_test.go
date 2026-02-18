@@ -11,6 +11,7 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -20,7 +21,7 @@ func TestTagCreation(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -76,7 +77,7 @@ func TestListTags(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -145,7 +146,7 @@ func TestGetTag(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -197,7 +198,7 @@ func TestUpdateTag(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -258,7 +259,7 @@ func TestDeleteTag(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)

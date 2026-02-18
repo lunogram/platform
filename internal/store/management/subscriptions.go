@@ -75,91 +75,128 @@ type SubscriptionsStore struct {
 	db store.DB
 }
 
-func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID, userID uuid.UUID, pagination store.Pagination) (UserSubscriptions, int, error) {
+func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, usersDB store.DB, projectID, userID uuid.UUID, pagination store.Pagination) (UserSubscriptions, int, error) {
+	// Query subscriptions from management DB
 	query := `
 	SELECT
 		s.id AS subscription_id,
 		s.name,
 		s.channel,
-		CASE
-			WHEN EXISTS (
-				SELECT 1 FROM user_subscription us
-				WHERE us.user_id = $2 AND us.subscription_id = s.id AND us.state = 1
-			) THEN 'unsubscribed'
-			ELSE 'subscribed'
-		END AS state,
 		COUNT(*) OVER () AS total_count
 	FROM subscriptions s
 	WHERE s.project_id = $1 AND s.is_public = true
 	ORDER BY s.name
-	LIMIT $3 OFFSET $4`
+	LIMIT $2 OFFSET $3`
 
-	type result struct {
+	type subscriptionResult struct {
 		SubscriptionID uuid.UUID `db:"subscription_id"`
 		Name           string    `db:"name"`
 		Channel        string    `db:"channel"`
-		State          string    `db:"state"`
 		TotalCount     int       `db:"total_count"`
 	}
 
-	var results []result
-	err := s.db.SelectContext(ctx, &results, query, projectID, userID, pagination.Limit, pagination.Offset)
+	var subResults []subscriptionResult
+	err := s.db.SelectContext(ctx, &subResults, query, projectID, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	if len(results) == 0 {
+	if len(subResults) == 0 {
 		return []UserSubscription{}, 0, nil
 	}
 
-	total := results[0].TotalCount
-	subscriptions := make([]UserSubscription, len(results))
+	total := subResults[0].TotalCount
 
-	for index, r := range results {
-		subscriptions[index] = UserSubscription{
+	// Query unsubscribed subscription IDs from users DB
+	unsubQuery := `
+	SELECT subscription_id
+	FROM user_subscription
+	WHERE user_id = $1 AND state = 1`
+
+	var unsubscribedIDs []uuid.UUID
+	err = usersDB.SelectContext(ctx, &unsubscribedIDs, unsubQuery, userID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Build lookup set for unsubscribed IDs
+	unsubscribedSet := make(map[uuid.UUID]bool, len(unsubscribedIDs))
+	for _, id := range unsubscribedIDs {
+		unsubscribedSet[id] = true
+	}
+
+	// Join results in application code
+	subscriptions := make([]UserSubscription, len(subResults))
+	for i, r := range subResults {
+		state := "subscribed"
+		if unsubscribedSet[r.SubscriptionID] {
+			state = "unsubscribed"
+		}
+		subscriptions[i] = UserSubscription{
 			SubscriptionID: r.SubscriptionID,
 			Name:           r.Name,
 			Channel:        r.Channel,
-			State:          r.State,
+			State:          state,
 		}
 	}
 
 	return subscriptions, total, nil
 }
 
-func (s *SubscriptionsStore) GetAllUserSubscriptions(ctx context.Context, projectID, userID uuid.UUID) (UserSubscriptions, error) {
+func (s *SubscriptionsStore) GetAllUserSubscriptions(ctx context.Context, usersDB store.DB, projectID, userID uuid.UUID) (UserSubscriptions, error) {
+	// Query subscriptions from management DB
 	query := `
 	SELECT
 		s.id AS subscription_id,
 		s.name,
-		s.channel,
-		CASE
-			WHEN EXISTS (
-				SELECT 1 FROM user_subscription us
-				WHERE us.user_id = $2 AND us.subscription_id = s.id AND us.state = 1
-			) THEN 'unsubscribed'
-			ELSE 'subscribed'
-		END AS state
+		s.channel
 	FROM subscriptions s
 	WHERE s.project_id = $1 AND s.is_public = true
 	ORDER BY s.name`
 
-	type result struct {
+	type subscriptionResult struct {
 		SubscriptionID uuid.UUID `db:"subscription_id"`
 		Name           string    `db:"name"`
 		Channel        string    `db:"channel"`
-		State          string    `db:"state"`
 	}
 
-	var results []result
-	err := s.db.SelectContext(ctx, &results, query, projectID, userID)
+	var subResults []subscriptionResult
+	err := s.db.SelectContext(ctx, &subResults, query, projectID)
 	if err != nil {
 		return nil, err
 	}
 
-	subscriptions := make([]UserSubscription, len(results))
-	for index, r := range results {
-		subscriptions[index] = UserSubscription(r)
+	// Query unsubscribed subscription IDs from users DB
+	unsubQuery := `
+	SELECT subscription_id
+	FROM user_subscription
+	WHERE user_id = $1 AND state = 1`
+
+	var unsubscribedIDs []uuid.UUID
+	err = usersDB.SelectContext(ctx, &unsubscribedIDs, unsubQuery, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build lookup set for unsubscribed IDs
+	unsubscribedSet := make(map[uuid.UUID]bool, len(unsubscribedIDs))
+	for _, id := range unsubscribedIDs {
+		unsubscribedSet[id] = true
+	}
+
+	// Join results in application code
+	subscriptions := make([]UserSubscription, len(subResults))
+	for i, r := range subResults {
+		state := "subscribed"
+		if unsubscribedSet[r.SubscriptionID] {
+			state = "unsubscribed"
+		}
+		subscriptions[i] = UserSubscription{
+			SubscriptionID: r.SubscriptionID,
+			Name:           r.Name,
+			Channel:        r.Channel,
+			State:          state,
+		}
 	}
 
 	return subscriptions, nil

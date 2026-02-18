@@ -16,14 +16,14 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 
 	controller := &Controller{
 		ProjectsController:      NewProjectsController(logger, managementDB, usersDB, journeyDB),
-		CampaignsController:     NewCampaignsController(logger, managementDB),
+		CampaignsController:     NewCampaignsController(logger, managementDB, usersDB),
 		TemplatesController:     NewTemplatesController(logger, managementDB),
 		AdminsController:        NewAdminsController(logger, managementDB),
 		UsersController:         NewUsersController(logger, pub, usersDB, journeyDB, mgmt, cfg.Storage.MaxUploadSize),
 		EventsController:        NewEventsController(logger, usersDB),
 		TagsController:          NewTagsController(logger, managementDB),
 		LocalesController:       NewLocalesController(logger, managementDB),
-		JourneysController:      NewJourneysController(logger, journeyDB),
+		JourneysController:      NewJourneysController(logger, journeyDB, mgmt),
 		OrganizationsController: NewOrganizationsController(logger, managementDB),
 		ListsController:         NewListsController(logger, usersDB, projects, pub, cfg.Storage.MaxUploadSize),
 		DocumentsController:     NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize),

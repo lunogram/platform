@@ -12,6 +12,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -21,7 +22,7 @@ func setupEventsController(t *testing.T) (*EventsController, uuid.UUID) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, usrs, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
 	orgsStore := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")

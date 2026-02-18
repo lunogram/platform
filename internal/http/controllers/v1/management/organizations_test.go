@@ -11,6 +11,7 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -20,7 +21,7 @@ func TestGetOrganization(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	orgs := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
@@ -79,7 +80,7 @@ func TestUpdateOrganization(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	orgs := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
@@ -153,7 +154,7 @@ func TestDeleteOrganization(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	orgs := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
@@ -211,7 +212,7 @@ func TestGetOrganizationIntegrations(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	orgs := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")

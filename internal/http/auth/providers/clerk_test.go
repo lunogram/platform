@@ -12,6 +12,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -113,7 +114,7 @@ func TestClerkProviderWebhookNotConfigured(t *testing.T) {
 func TestClerkProviderHandleUserCreated(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	stores := management.NewState(mgmt)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
@@ -149,7 +150,7 @@ func TestClerkProviderHandleUserCreated(t *testing.T) {
 func TestClerkProviderHandleUserCreatedAlreadyExists(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	stores := management.NewState(mgmt)
 
 	orgID, err := stores.CreateOrganization(ctx, "Existing Org")
@@ -191,7 +192,7 @@ func TestClerkProviderHandleUserCreatedAlreadyExists(t *testing.T) {
 func TestClerkProviderHandleUserCreatedNoEmail(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	stores := management.NewState(mgmt)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
@@ -213,7 +214,7 @@ func TestClerkProviderHandleUserCreatedNoEmail(t *testing.T) {
 func TestClerkProviderHandleUserUpdated(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	stores := management.NewState(mgmt)
 
 	orgID, err := stores.CreateOrganization(ctx, "Test Org")
@@ -262,7 +263,7 @@ func TestClerkProviderHandleUserUpdated(t *testing.T) {
 func TestClerkProviderHandleUserUpdatedNotFound(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	stores := management.NewState(mgmt)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
@@ -288,7 +289,7 @@ func TestClerkProviderHandleUserUpdatedNotFound(t *testing.T) {
 func TestClerkProviderHandleUserDeleted(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	stores := management.NewState(mgmt)
 
 	orgID, err := stores.CreateOrganization(ctx, "Test Org")
@@ -326,7 +327,7 @@ func TestClerkProviderHandleUserDeleted(t *testing.T) {
 func TestClerkProviderHandleUserDeletedNotFound(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	stores := management.NewState(mgmt)
 
 	cfg := config.ClerkAuth{SecretKey: "test"}
@@ -349,7 +350,7 @@ func TestClerkProviderHandleUserDeletedNotFound(t *testing.T) {
 func TestClerkProviderAuthenticateInvalidToken(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	stores := management.NewState(mgmt)
 
 	keyFunc := func(token *jwt.Token) (interface{}, error) {

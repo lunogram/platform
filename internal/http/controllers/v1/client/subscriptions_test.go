@@ -11,6 +11,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -21,7 +22,7 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmtDB, usrsDB, _ := runPostgreSQL(t)
+	mgmtDB, usrsDB, _ := teststore.RunPostgreSQL(t)
 
 	mgmt := management.NewState(mgmtDB)
 	usrs := users.NewState(usrsDB)
@@ -44,7 +45,7 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 	})
 	require.NoError(t, err)
 
-	controller, err := NewSubscriptionsController(logger, mgmtDB, mgmt, usrs)
+	controller, err := NewSubscriptionsController(logger, usrsDB, mgmt, usrs)
 	require.NoError(t, err)
 
 	return controller, projectID, userID
@@ -133,7 +134,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmtDB, usrsDB, _ := runPostgreSQL(t)
+	mgmtDB, usrsDB, _ := teststore.RunPostgreSQL(t)
 
 	mgmt := management.NewState(mgmtDB)
 	usrs := users.NewState(usrsDB)
@@ -175,7 +176,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller, err := NewSubscriptionsController(logger, mgmtDB, mgmt, usrs)
+	controller, err := NewSubscriptionsController(logger, usrsDB, mgmt, usrs)
 	require.NoError(t, err)
 
 	type test struct {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -20,13 +21,13 @@ func TestCampaignCreation(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := NewCampaignsController(logger, mgmt)
+	campaigns := NewCampaignsController(logger, mgmt, usrs)
 
 	type test struct {
 		body oapi.CreateCampaignJSONRequestBody
@@ -60,7 +61,7 @@ func TestListCampaigns(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -82,7 +83,7 @@ func TestListCampaigns(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	controller := NewCampaignsController(logger, mgmt)
+	controller := NewCampaignsController(logger, mgmt, usrs)
 
 	type test struct {
 		limit  int
@@ -143,7 +144,7 @@ func TestGetCampaign(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -162,7 +163,7 @@ func TestGetCampaign(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, mgmt)
+	controller := NewCampaignsController(logger, mgmt, usrs)
 
 	type test struct {
 		id   uuid.UUID
@@ -196,7 +197,7 @@ func TestUpdateCampaign(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -215,7 +216,7 @@ func TestUpdateCampaign(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, mgmt)
+	controller := NewCampaignsController(logger, mgmt, usrs)
 
 	tests := map[string]struct {
 		id   uuid.UUID
@@ -253,7 +254,7 @@ func TestDeleteCampaign(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -272,7 +273,7 @@ func TestDeleteCampaign(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, mgmt)
+	controller := NewCampaignsController(logger, mgmt, usrs)
 
 	tests := map[string]struct {
 		id   uuid.UUID
@@ -311,7 +312,7 @@ func TestDuplicateCampaign(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -330,7 +331,7 @@ func TestDuplicateCampaign(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, mgmt)
+	controller := NewCampaignsController(logger, mgmt, usrs)
 
 	tests := map[string]struct {
 		id   uuid.UUID
@@ -373,7 +374,7 @@ func TestGetCampaignUsers(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -392,7 +393,7 @@ func TestGetCampaignUsers(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, mgmt)
+	controller := NewCampaignsController(logger, mgmt, usrs)
 
 	tests := map[string]struct {
 		id   uuid.UUID

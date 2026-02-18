@@ -13,6 +13,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	internalProviders "github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -22,7 +23,7 @@ func TestListProviders(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -74,7 +75,7 @@ func TestListAllProviders(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -121,7 +122,7 @@ func TestListProviderMeta(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -168,7 +169,7 @@ func TestGetProvider(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -211,7 +212,7 @@ func TestDeleteProvider(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -254,7 +255,7 @@ func TestCreateProviderWithInvalidModule(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -302,7 +303,7 @@ func TestUpdateProvider(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)

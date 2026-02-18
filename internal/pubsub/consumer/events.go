@@ -127,7 +127,7 @@ func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, us
 	evaluator := eval.NewEvaluator()
 
 	return func() error {
-		deps, err := usrs.ListEventJourneyDependencies(ctx, event.ID)
+		deps, err := jrny.ListEventJourneyDependencies(ctx, event.ID)
 		if err != nil {
 			logger.Error("failed to list rule event dependencies", zap.Error(err))
 			return err

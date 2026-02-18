@@ -13,6 +13,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,7 @@ func setupClientController(t *testing.T) *testClientController {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, usrs, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),

@@ -396,7 +396,7 @@ func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.
 
 	logger.Info("listing user subscriptions", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	subscriptions, total, err := srv.mgmt.GetUserSubscriptions(ctx, projectID, userID, pagination)
+	subscriptions, total, err := srv.mgmt.GetUserSubscriptions(ctx, srv.usersDB, projectID, userID, pagination)
 	if err != nil {
 		logger.Error("failed to list user subscriptions", zap.Error(err))
 		oapi.WriteProblem(w, err)

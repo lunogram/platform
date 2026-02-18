@@ -12,6 +12,7 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -21,7 +22,7 @@ func TestCreateProject(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, usrs, jrny := runPostgreSQL(t)
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
 
 	orgs := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
@@ -109,7 +110,7 @@ func TestListProjects(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, usrs, jrny := runPostgreSQL(t)
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
 
 	orgs := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
@@ -173,7 +174,7 @@ func TestGetProject(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, usrs, jrny := runPostgreSQL(t)
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
 
 	orgs := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
@@ -228,7 +229,7 @@ func TestUpdateProject(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, usrs, jrny := runPostgreSQL(t)
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
 
 	orgs := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")

@@ -14,6 +14,7 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -23,7 +24,7 @@ func TestGetProfileWithInternalAdmin(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	orgsStore := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
@@ -75,7 +76,7 @@ func TestGetProfileWithExternalAdmin(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	orgsStore := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
@@ -138,7 +139,7 @@ func TestGetProfileErrors(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	admins := NewAdminsController(logger, mgmt)
 
@@ -209,7 +210,7 @@ func TestListProjectAdmins(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	organizations := management.NewOrganizationsStore(mgmt)
 	orgID, err := organizations.CreateOrganization(ctx, "Test Org")
@@ -304,7 +305,7 @@ func TestGetProjectAdmin(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	organizations := management.NewOrganizationsStore(mgmt)
 	orgID, err := organizations.CreateOrganization(ctx, "Test Org")
@@ -374,7 +375,7 @@ func TestUpdateProjectAdmin(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	organizations := management.NewOrganizationsStore(mgmt)
 	orgID, err := organizations.CreateOrganization(ctx, "Test Org")
@@ -450,7 +451,7 @@ func TestDeleteProjectAdmin(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	organizations := management.NewOrganizationsStore(mgmt)
 	orgID, err := organizations.CreateOrganization(ctx, "Test Org")

@@ -14,6 +14,7 @@ import (
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/lunogram/platform/internal/store/users"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,7 @@ func setupUsersTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream)
 	ctx := graceful.NewContext(t.Context())
 
 	natsURL := container.RunNATS(t)
-	mgmt, usrs, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
 	cfg := config.Node{
 		Nats: config.Nats{

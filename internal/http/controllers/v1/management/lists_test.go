@@ -18,6 +18,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -39,7 +40,7 @@ func TestListCreation(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, usrs, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
@@ -109,7 +110,7 @@ func TestListLists(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, usrs, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
@@ -213,7 +214,7 @@ func TestGetList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, usrs, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
@@ -260,7 +261,7 @@ func TestUpdateList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, usrs, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
@@ -313,7 +314,7 @@ func TestDeleteList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, usrs, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
@@ -357,7 +358,7 @@ func TestDuplicateList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	mgmt, usrs, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
@@ -431,7 +432,7 @@ func TestImportListUsers(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			mgmt, usrs, _ := runPostgreSQL(t)
+			mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 			ctx := graceful.NewContext(t.Context())
 			cfg := config.Node{
 				Nats: config.Nats{

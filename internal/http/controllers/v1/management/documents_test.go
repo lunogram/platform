@@ -16,6 +16,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -26,7 +27,7 @@ func TestDocumentUpload(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
 	uploadDir := t.TempDir()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	storageCfg := storage.Config{
 		Type:          "local",
 		MaxUploadSize: 10485760,
@@ -121,7 +122,7 @@ func TestListDocuments(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
 	uploadDir := t.TempDir()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	storageCfg := storage.Config{
 		Type:          "local",
 		MaxUploadSize: 10485760,
@@ -219,7 +220,7 @@ func TestGetDocumentMetadata(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
 	uploadDir := t.TempDir()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	storageCfg := storage.Config{
 		Type:          "local",
 		MaxUploadSize: 10485760,
@@ -292,7 +293,7 @@ func TestGetDocument(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
 	uploadDir := t.TempDir()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	storageCfg := storage.Config{
 		Type:          "local",
 		MaxUploadSize: 10485760,
@@ -367,7 +368,7 @@ func TestDeleteDocument(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
 	uploadDir := t.TempDir()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	storageCfg := storage.Config{
 		Type:          "local",
 		MaxUploadSize: 10485760,

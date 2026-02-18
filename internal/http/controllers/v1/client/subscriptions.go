@@ -76,7 +76,7 @@ func (srv *SubscriptionsController) GetPreferencesPage(w http.ResponseWriter, r 
 	}
 
 	// Get all subscriptions for user-facing page
-	subscriptions, err := srv.mgmt.GetAllUserSubscriptions(ctx, projectID, userID)
+	subscriptions, err := srv.mgmt.GetAllUserSubscriptions(ctx, srv.db, projectID, userID)
 	if err != nil {
 		logger.Error("failed to get user subscriptions", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
@@ -144,7 +144,7 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 		}
 	}
 
-	subscriptions, err := srv.mgmt.GetAllUserSubscriptions(ctx, projectID, userID)
+	subscriptions, err := srv.mgmt.GetAllUserSubscriptions(ctx, srv.db, projectID, userID)
 	if err != nil {
 		logger.Error("failed to get user subscriptions", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)

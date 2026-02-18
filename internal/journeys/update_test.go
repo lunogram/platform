@@ -11,6 +11,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,7 @@ import (
 func setupStore(t *testing.T) (*management.State, *users.State, *sqlx.DB) {
 	t.Helper()
 
-	mgmt, usrs, _ := runPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
 	return management.NewState(mgmt), users.NewState(usrs), usrs
 }

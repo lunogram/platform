@@ -12,6 +12,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -99,7 +100,7 @@ func TestBasicProviderAuthenticateWithExistingAdmin(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	stores := management.NewState(mgmt)
 
 	orgID, err := stores.CreateOrganization(ctx, "Test Org")
@@ -137,7 +138,7 @@ func TestBasicProviderAuthenticateCreatesNewAdmin(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	stores := management.NewState(mgmt)
 
 	providerConfig := config.BasicAuth{

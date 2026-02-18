@@ -14,6 +14,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/lunogram/platform/internal/store/users"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,7 @@ func setupEventsTest(t *testing.T) (mgmtDB, usrsDB, jrnyDB *sqlx.DB, projectID u
 	ctx := graceful.NewContext(t.Context())
 
 	natsURL := container.RunNATS(t)
-	mgmtDB, usrsDB, jrnyDB = runPostgreSQL(t)
+	mgmtDB, usrsDB, jrnyDB = teststore.RunPostgreSQL(t)
 
 	cfg := config.Node{
 		Nats: config.Nats{

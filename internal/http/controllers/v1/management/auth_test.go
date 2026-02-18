@@ -8,6 +8,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -16,7 +17,7 @@ func TestGetAuthMethods(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	cfg := config.Node{
 		Auth: config.Auth{
@@ -62,7 +63,7 @@ func TestAuthCallbackWithInvalidDriver(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	cfg := config.Node{
 		Auth: config.Auth{
@@ -103,7 +104,7 @@ func TestAuthWebhookWithInvalidDriver(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	mgmt, _, _ := runPostgreSQL(t)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	cfg := config.Node{
 		Auth: config.Auth{
