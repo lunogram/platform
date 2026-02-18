@@ -80,7 +80,7 @@ CREATE TABLE project_admins (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ,
-    UNIQUE (project_id, admin_id) 
+    UNIQUE (project_id, admin_id)
 );
 
 CREATE INDEX project_admins_project_id_idx ON project_admins(project_id);
@@ -152,6 +152,21 @@ CREATE TABLE subscriptions (
 CREATE INDEX subscriptions_project_id_idx ON subscriptions(project_id);
 
 CREATE TRIGGER set_updated_at_subscriptions BEFORE UPDATE ON subscriptions FOR EACH ROW EXECUTE PROCEDURE set_updated_at();
+
+-- User subscriptions table (tracks user opt-in/opt-out state)
+CREATE TABLE user_subscription (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    subscription_id UUID NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL,
+    state SMALLINT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX user_subscription_user_id_idx ON user_subscription(user_id);
+CREATE INDEX user_subscription_subscription_id_idx ON user_subscription(subscription_id);
+
+CREATE TRIGGER set_updated_at_user_subscription BEFORE UPDATE ON user_subscription FOR EACH ROW EXECUTE PROCEDURE set_updated_at();
 
 -- Campaigns table
 CREATE TABLE campaigns (

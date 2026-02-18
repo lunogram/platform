@@ -141,21 +141,6 @@ CREATE INDEX idx_user_events_created_at ON user_events(created_at);
 CREATE INDEX idx_user_events_user_event ON user_events(user_id, event_id);
 CREATE INDEX idx_user_events_data ON user_events USING GIN(data);
 
--- User subscription table
-CREATE TABLE user_subscription (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    subscription_id UUID NOT NULL,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    state SMALLINT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX user_subscription_user_id_idx ON user_subscription(user_id);
-CREATE INDEX user_subscription_subscription_id_idx ON user_subscription(subscription_id);
-
-CREATE TRIGGER set_updated_at_user_subscription BEFORE UPDATE ON user_subscription FOR EACH ROW EXECUTE PROCEDURE set_updated_at();
-
 -- Rules table
 CREATE TABLE rules (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

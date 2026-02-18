@@ -45,7 +45,7 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 	})
 	require.NoError(t, err)
 
-	controller, err := NewSubscriptionsController(logger, usrsDB, mgmt, usrs)
+	controller, err := NewSubscriptionsController(logger, mgmtDB, mgmt, usrs)
 	require.NoError(t, err)
 
 	return controller, projectID, userID
@@ -176,7 +176,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller, err := NewSubscriptionsController(logger, usrsDB, mgmt, usrs)
+	controller, err := NewSubscriptionsController(logger, mgmtDB, mgmt, usrs)
 	require.NoError(t, err)
 
 	type test struct {

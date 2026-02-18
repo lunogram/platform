@@ -52,10 +52,10 @@ func (us UserSubscriptions) OAPI() []oapi.UserSubscription {
 }
 
 type UserSubscription struct {
-	SubscriptionID uuid.UUID
-	Name           string
-	Channel        string
-	State          string
+	SubscriptionID uuid.UUID `db:"subscription_id"`
+	Name           string    `db:"name"`
+	Channel        string    `db:"channel"`
+	State          string    `db:"state"`
 }
 
 func (us *UserSubscription) OAPI() oapi.UserSubscription {
@@ -75,128 +75,68 @@ type SubscriptionsStore struct {
 	db store.DB
 }
 
-func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, usersDB store.DB, projectID, userID uuid.UUID, pagination store.Pagination) (UserSubscriptions, int, error) {
-	// Query subscriptions from management DB
+func (s *SubscriptionsStore) GetUserSubscriptions(ctx context.Context, projectID, userID uuid.UUID, pagination store.Pagination) (UserSubscriptions, int, error) {
 	query := `
 	SELECT
 		s.id AS subscription_id,
 		s.name,
 		s.channel,
+		CASE WHEN us.state = 1 THEN 'unsubscribed' ELSE 'subscribed' END AS state,
 		COUNT(*) OVER () AS total_count
 	FROM subscriptions s
+	LEFT JOIN user_subscription us ON us.subscription_id = s.id AND us.user_id = $2
 	WHERE s.project_id = $1 AND s.is_public = true
 	ORDER BY s.name
-	LIMIT $2 OFFSET $3`
+	LIMIT $3 OFFSET $4`
 
-	type subscriptionResult struct {
+	type result struct {
 		SubscriptionID uuid.UUID `db:"subscription_id"`
 		Name           string    `db:"name"`
 		Channel        string    `db:"channel"`
+		State          string    `db:"state"`
 		TotalCount     int       `db:"total_count"`
 	}
 
-	var subResults []subscriptionResult
-	err := s.db.SelectContext(ctx, &subResults, query, projectID, pagination.Limit, pagination.Offset)
+	var results []result
+	err := s.db.SelectContext(ctx, &results, query, projectID, userID, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	if len(subResults) == 0 {
+	if len(results) == 0 {
 		return []UserSubscription{}, 0, nil
 	}
 
-	total := subResults[0].TotalCount
-
-	// Query unsubscribed subscription IDs from users DB
-	unsubQuery := `
-	SELECT subscription_id
-	FROM user_subscription
-	WHERE user_id = $1 AND state = 1`
-
-	var unsubscribedIDs []uuid.UUID
-	err = usersDB.SelectContext(ctx, &unsubscribedIDs, unsubQuery, userID)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	// Build lookup set for unsubscribed IDs
-	unsubscribedSet := make(map[uuid.UUID]bool, len(unsubscribedIDs))
-	for _, id := range unsubscribedIDs {
-		unsubscribedSet[id] = true
-	}
-
-	// Join results in application code
-	subscriptions := make([]UserSubscription, len(subResults))
-	for i, r := range subResults {
-		state := "subscribed"
-		if unsubscribedSet[r.SubscriptionID] {
-			state = "unsubscribed"
-		}
+	total := results[0].TotalCount
+	subscriptions := make([]UserSubscription, len(results))
+	for i, r := range results {
 		subscriptions[i] = UserSubscription{
 			SubscriptionID: r.SubscriptionID,
 			Name:           r.Name,
 			Channel:        r.Channel,
-			State:          state,
+			State:          r.State,
 		}
 	}
 
 	return subscriptions, total, nil
 }
 
-func (s *SubscriptionsStore) GetAllUserSubscriptions(ctx context.Context, usersDB store.DB, projectID, userID uuid.UUID) (UserSubscriptions, error) {
-	// Query subscriptions from management DB
+func (s *SubscriptionsStore) GetAllUserSubscriptions(ctx context.Context, projectID, userID uuid.UUID) (UserSubscriptions, error) {
 	query := `
 	SELECT
 		s.id AS subscription_id,
 		s.name,
-		s.channel
+		s.channel,
+		CASE WHEN us.state = 1 THEN 'unsubscribed' ELSE 'subscribed' END AS state
 	FROM subscriptions s
+	LEFT JOIN user_subscription us ON us.subscription_id = s.id AND us.user_id = $2
 	WHERE s.project_id = $1 AND s.is_public = true
 	ORDER BY s.name`
 
-	type subscriptionResult struct {
-		SubscriptionID uuid.UUID `db:"subscription_id"`
-		Name           string    `db:"name"`
-		Channel        string    `db:"channel"`
-	}
-
-	var subResults []subscriptionResult
-	err := s.db.SelectContext(ctx, &subResults, query, projectID)
+	var subscriptions []UserSubscription
+	err := s.db.SelectContext(ctx, &subscriptions, query, projectID, userID)
 	if err != nil {
 		return nil, err
-	}
-
-	// Query unsubscribed subscription IDs from users DB
-	unsubQuery := `
-	SELECT subscription_id
-	FROM user_subscription
-	WHERE user_id = $1 AND state = 1`
-
-	var unsubscribedIDs []uuid.UUID
-	err = usersDB.SelectContext(ctx, &unsubscribedIDs, unsubQuery, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Build lookup set for unsubscribed IDs
-	unsubscribedSet := make(map[uuid.UUID]bool, len(unsubscribedIDs))
-	for _, id := range unsubscribedIDs {
-		unsubscribedSet[id] = true
-	}
-
-	// Join results in application code
-	subscriptions := make([]UserSubscription, len(subResults))
-	for i, r := range subResults {
-		state := "subscribed"
-		if unsubscribedSet[r.SubscriptionID] {
-			state = "unsubscribed"
-		}
-		subscriptions[i] = UserSubscription{
-			SubscriptionID: r.SubscriptionID,
-			Name:           r.Name,
-			Channel:        r.Channel,
-			State:          state,
-		}
 	}
 
 	return subscriptions, nil
@@ -237,18 +177,18 @@ func (s *SubscriptionsStore) CreateSubscription(ctx context.Context, subscriptio
 	return id, nil
 }
 
-func (s *SubscriptionsStore) Subscribe(ctx context.Context, db store.DB, userID, subscriptionID uuid.UUID) error {
+func (s *SubscriptionsStore) Subscribe(ctx context.Context, userID, subscriptionID uuid.UUID) error {
 	stmt := `
 	DELETE FROM user_subscription
 	WHERE user_id = $1 AND subscription_id = $2`
 
-	_, err := db.ExecContext(ctx, stmt, userID, subscriptionID)
+	_, err := s.db.ExecContext(ctx, stmt, userID, subscriptionID)
 	return err
 }
 
-func (s *SubscriptionsStore) Unsubscribe(ctx context.Context, db store.DB, userID, subscriptionID uuid.UUID) error {
+func (s *SubscriptionsStore) Unsubscribe(ctx context.Context, userID, subscriptionID uuid.UUID) error {
 	// Delete any existing record first
-	_, err := db.ExecContext(ctx, `
+	_, err := s.db.ExecContext(ctx, `
 		DELETE FROM user_subscription
 		WHERE user_id = $1 AND subscription_id = $2`, userID, subscriptionID)
 	if err != nil {
@@ -256,17 +196,17 @@ func (s *SubscriptionsStore) Unsubscribe(ctx context.Context, db store.DB, userI
 	}
 
 	// Insert unsubscribe record
-	_, err = db.ExecContext(ctx, `
+	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO user_subscription (user_id, subscription_id, state, created_at, updated_at)
 		VALUES ($1, $2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, userID, subscriptionID)
 	return err
 }
 
-func (s *SubscriptionsStore) SetSubscriptionState(ctx context.Context, db store.DB, userID, subscriptionID uuid.UUID, subscribed bool) error {
+func (s *SubscriptionsStore) SetSubscriptionState(ctx context.Context, userID, subscriptionID uuid.UUID, subscribed bool) error {
 	if subscribed {
-		return s.Subscribe(ctx, db, userID, subscriptionID)
+		return s.Subscribe(ctx, userID, subscriptionID)
 	}
-	return s.Unsubscribe(ctx, db, userID, subscriptionID)
+	return s.Unsubscribe(ctx, userID, subscriptionID)
 }
 
 func (s *SubscriptionsStore) ListSubscriptions(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Subscriptions, int, error) {

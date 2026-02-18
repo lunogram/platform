@@ -14,7 +14,6 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
@@ -40,7 +39,7 @@ var noExternalIDImportUsersCSV string
 //go:embed test/users/out-of-order.csv
 var outOfOrderImportUsersCSV string
 
-func TNewUsersController(t *testing.T) (*UsersController, uuid.UUID, *sqlx.DB) {
+func TNewUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -76,7 +75,7 @@ func TNewUsersController(t *testing.T) (*UsersController, uuid.UUID, *sqlx.DB) {
 
 	mgmt := management.NewState(mgmtDB)
 	controller := NewUsersController(logger, pub, usrsDB, jrnyDB, mgmt, 32<<20)
-	return controller, projectID, usrsDB
+	return controller, projectID
 }
 
 func validSession() claim.Session {
@@ -90,7 +89,7 @@ func validSession() claim.Session {
 func TestListUsers(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -121,7 +120,7 @@ func TestListUsers(t *testing.T) {
 func TestIdentifyUser(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 
 	body := oapi.IdentifyUser{
 		ExternalId: ptr("user_new_123"),
@@ -150,7 +149,7 @@ func TestIdentifyUser(t *testing.T) {
 func TestGetUser(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -180,7 +179,7 @@ func TestGetUser(t *testing.T) {
 func TestUpdateUser(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -224,7 +223,7 @@ func TestUpdateUser(t *testing.T) {
 func TestDeleteUser(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -250,7 +249,7 @@ func TestDeleteUser(t *testing.T) {
 func TestVersionIncrementsOnUpdate(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -287,7 +286,7 @@ func TestVersionIncrementsOnUpdate(t *testing.T) {
 func TestGetUserEvents(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -327,7 +326,7 @@ func TestGetUserEvents(t *testing.T) {
 func TestGetUserEventsNotFound(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 
 	nonExistentUserID := uuid.New()
 
@@ -343,7 +342,7 @@ func TestGetUserEventsNotFound(t *testing.T) {
 func TestGetUserSubscriptions(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, usrsDB := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -371,7 +370,7 @@ func TestGetUserSubscriptions(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = subscriptionsStore.Unsubscribe(ctx, usrsDB, userID, subscriptionID1)
+	err = subscriptionsStore.Unsubscribe(ctx, userID, subscriptionID1)
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
@@ -400,7 +399,7 @@ func TestGetUserSubscriptions(t *testing.T) {
 func TestUpdateUserSubscriptions(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, usrsDB := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -440,7 +439,7 @@ func TestUpdateUserSubscriptions(t *testing.T) {
 	require.Equal(t, 200, res.Code)
 
 	// Verify the subscription state changed to unsubscribed
-	subs, _, err := subscriptionsStore.GetUserSubscriptions(ctx, usrsDB, projectID, userID, store.Pagination{Limit: 10, Offset: 0})
+	subs, _, err := subscriptionsStore.GetUserSubscriptions(ctx, projectID, userID, store.Pagination{Limit: 10, Offset: 0})
 	require.NoError(t, err)
 	require.Len(t, subs, 1)
 	require.Equal(t, "unsubscribed", subs[0].State)
@@ -449,7 +448,7 @@ func TestUpdateUserSubscriptions(t *testing.T) {
 func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -484,7 +483,7 @@ func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 func TestGetUserJourneys(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -550,7 +549,7 @@ func TestGetUserJourneys(t *testing.T) {
 func TestGetUserJourneysPagination(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -622,7 +621,7 @@ func TestGetUserJourneysPagination(t *testing.T) {
 func TestListUserSchemas(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -667,7 +666,7 @@ func TestListUserSchemas(t *testing.T) {
 func TestListUserSchemasEmpty(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
@@ -688,7 +687,7 @@ func TestListUserSchemasEmpty(t *testing.T) {
 func TestListUserSchemasUnauthorized(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
@@ -701,7 +700,7 @@ func TestListUserSchemasUnauthorized(t *testing.T) {
 func TestListUserSchemasWithMultipleTypes(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID, _ := TNewUsersController(t)
+	controller, projectID := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore

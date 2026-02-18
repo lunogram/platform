@@ -396,7 +396,7 @@ func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.
 
 	logger.Info("listing user subscriptions", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	subscriptions, total, err := srv.mgmt.GetUserSubscriptions(ctx, srv.usersDB, projectID, userID, pagination)
+	subscriptions, total, err := srv.mgmt.GetUserSubscriptions(ctx, projectID, userID, pagination)
 	if err != nil {
 		logger.Error("failed to list user subscriptions", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -467,27 +467,13 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 		}
 	}
 
-	tx, err := srv.usersDB.BeginTxx(ctx, nil)
-	if err != nil {
-		logger.Error("failed to begin transaction", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal())
-		return
-	}
-	defer tx.Rollback() //nolint:errcheck
-
 	for _, sub := range subscriptions {
-		err = srv.mgmt.SetSubscriptionState(ctx, tx, userID, sub.SubscriptionId, sub.State == "subscribed")
+		err = srv.mgmt.SetSubscriptionState(ctx, userID, sub.SubscriptionId, sub.State == "subscribed")
 		if err != nil {
 			logger.Error("failed to update subscription", zap.Error(err))
 			oapi.WriteProblem(w, err)
 			return
 		}
-	}
-
-	if err = tx.Commit(); err != nil {
-		logger.Error("failed to commit transaction", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal())
-		return
 	}
 
 	user, err := srv.users.GetUser(ctx, projectID, userID)

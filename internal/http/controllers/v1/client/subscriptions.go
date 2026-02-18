@@ -76,7 +76,7 @@ func (srv *SubscriptionsController) GetPreferencesPage(w http.ResponseWriter, r 
 	}
 
 	// Get all subscriptions for user-facing page
-	subscriptions, err := srv.mgmt.GetAllUserSubscriptions(ctx, srv.db, projectID, userID)
+	subscriptions, err := srv.mgmt.GetAllUserSubscriptions(ctx, projectID, userID)
 	if err != nil {
 		logger.Error("failed to get user subscriptions", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
@@ -144,7 +144,7 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 		}
 	}
 
-	subscriptions, err := srv.mgmt.GetAllUserSubscriptions(ctx, srv.db, projectID, userID)
+	subscriptions, err := srv.mgmt.GetAllUserSubscriptions(ctx, projectID, userID)
 	if err != nil {
 		logger.Error("failed to get user subscriptions", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -159,9 +159,10 @@ func (srv *SubscriptionsController) UpdatePreferences(w http.ResponseWriter, r *
 	}
 	defer tx.Rollback() //nolint:errcheck
 
+	mgmtTx := management.NewState(tx)
 	for _, sub := range subscriptions {
 		subscribed := selected[sub.SubscriptionID]
-		err = srv.mgmt.SetSubscriptionState(ctx, tx, userID, sub.SubscriptionID, subscribed)
+		err = mgmtTx.SetSubscriptionState(ctx, userID, sub.SubscriptionID, subscribed)
 		if err != nil {
 			logger.Error("failed to update subscription", zap.Error(err))
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -241,7 +242,7 @@ func (srv *SubscriptionsController) EmailUnsubscribe(w http.ResponseWriter, r *h
 		return
 	}
 
-	err = srv.mgmt.Unsubscribe(ctx, srv.db, userID, *campaign.SubscriptionID)
+	err = srv.mgmt.Unsubscribe(ctx, userID, *campaign.SubscriptionID)
 	if err != nil {
 		logger.Error("failed to unsubscribe user", zap.Error(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
