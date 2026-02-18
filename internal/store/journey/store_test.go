@@ -1,30 +1,29 @@
-package management
+package journey
 
 import (
 	"testing"
 
 	"github.com/cloudproud/graceful"
+	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
-func NewContainerStore(t *testing.T) *State {
+func NewContainerStore(t *testing.T) (*State, *sqlx.DB) {
 	t.Helper()
 
 	uri := container.RunPostgreSQL(t)
-	mgmtURI := container.CreateSchema(t, uri, "management")
-	require.NoError(t, Migrate(mgmtURI))
+	journeyURI := container.CreateSchema(t, uri, "journey")
+
+	require.NoError(t, Migrate(journeyURI))
 
 	ctx := graceful.NewContext(t.Context())
 	logger := zaptest.NewLogger(t)
-	db, err := store.Connect(ctx, logger, mgmtURI)
+
+	journeyDB, err := store.Connect(ctx, logger, journeyURI)
 	require.NoError(t, err)
 
-	return NewState(db)
+	return NewState(journeyDB), journeyDB
 }

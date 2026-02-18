@@ -78,6 +78,13 @@ type ListsStore struct {
 	rules *RulesStore
 }
 
+func (s *ListsStore) CountLists(ctx context.Context, projectID uuid.UUID) (int, error) {
+	var count int
+	err := s.db.GetContext(ctx, &count,
+		`SELECT COUNT(*) FROM lists WHERE project_id = $1 AND deleted_at IS NULL`, projectID)
+	return count, err
+}
+
 func (s *ListsStore) CreateList(ctx context.Context, list List) (uuid.UUID, error) {
 	stmt := `
 	INSERT INTO lists (project_id, name, type, rule_id, version)

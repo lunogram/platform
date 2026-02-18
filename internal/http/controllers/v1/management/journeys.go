@@ -17,13 +17,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewJourneysController(logger *zap.Logger, db *sqlx.DB) *JourneysController {
+func NewJourneysController(logger *zap.Logger, journeyDB *sqlx.DB, mgmt *management.State) *JourneysController {
 	return &JourneysController{
 		logger: logger,
-		db:     db,
-		mgmt:   management.NewState(db),
-		users:  users.NewState(db),
-		jrny:   journey.NewState(db),
+		db:     journeyDB,
+		mgmt:   mgmt,
+		jrny:   journey.NewState(journeyDB),
 	}
 }
 
@@ -31,7 +30,6 @@ type JourneysController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	mgmt   *management.State
-	users  *users.State
 	jrny   *journey.State
 }
 

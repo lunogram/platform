@@ -13,6 +13,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,21 +30,12 @@ func setupClientController(t *testing.T) *testClientController {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	uri := container.RunPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
-	mgmtConfig := management.Config{
-		URI: uri,
-	}
-
-	err := management.Migrate(mgmtConfig)
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, mgmtConfig)
-	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
@@ -52,12 +44,12 @@ func setupClientController(t *testing.T) *testClientController {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	usersState := users.NewState(db)
+	usersState := users.NewState(usrs)
 
-	controller := NewClientController(logger, db, usersState, pub)
+	controller := NewClientController(logger, usrs, usersState, pub)
 	return &testClientController{
 		ClientController: controller,
-		mgmt:             management.NewState(db),
+		mgmt:             management.NewState(mgmt),
 	}
 }
 

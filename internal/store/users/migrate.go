@@ -1,4 +1,4 @@
-package management
+package users
 
 import (
 	"embed"

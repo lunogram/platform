@@ -44,7 +44,7 @@ export default function UserDetailJourneys() {
                         : <Tag variant="info">{t('running')}</Tag>,
                 },
             ]}
-            onSelectRow={async e => { await navigate(`../../entrances/${e.entrance_id}`) }}
+            onSelectRow={async e => { await navigate(`../../journeys/${e.journey?.id}`) }}
         />
     )
 }
