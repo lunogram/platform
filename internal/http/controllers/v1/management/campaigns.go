@@ -12,24 +12,23 @@ import (
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
 	"go.uber.org/zap"
 )
 
-func NewCampaignsController(logger *zap.Logger, db *sqlx.DB) *CampaignsController {
+func NewCampaignsController(logger *zap.Logger, managementDB, usersDB *sqlx.DB) *CampaignsController {
 	return &CampaignsController{
-		logger: logger,
-		db:     db,
-		mgmt:   management.NewState(db),
-		users:  users.NewState(db),
+		logger:  logger,
+		mgmtDB:  managementDB,
+		usersDB: usersDB,
+		mgmt:    management.NewState(managementDB),
 	}
 }
 
 type CampaignsController struct {
-	logger *zap.Logger
-	db     *sqlx.DB
-	mgmt   *management.State
-	users  *users.State
+	logger  *zap.Logger
+	mgmtDB  *sqlx.DB
+	usersDB *sqlx.DB
+	mgmt    *management.State
 }
 
 func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
@@ -75,7 +74,7 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.mgmtDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("unexpected error while attempting to start a transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -270,7 +269,7 @@ func (srv *CampaignsController) DuplicateCampaign(w http.ResponseWriter, r *http
 		return
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.mgmtDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("unexpected error while attempting to start a transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -346,7 +345,7 @@ func (srv *CampaignsController) GetCampaignUsers(w http.ResponseWriter, r *http.
 		Offset: params.Offset.ToInt(),
 	}
 
-	users, total, err := srv.mgmt.GetCampaignUsers(ctx, projectID, campaignID, pagination)
+	users, total, err := srv.mgmt.GetCampaignUsers(ctx, srv.usersDB, projectID, campaignID, pagination)
 	if err != nil {
 		logger.Error("failed to get campaign users", zap.Error(err))
 		oapi.WriteProblem(w, err)

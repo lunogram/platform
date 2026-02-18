@@ -6,13 +6,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/claim"
-	"github.com/lunogram/platform/internal/container"
+
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -21,22 +21,14 @@ func setupEventsController(t *testing.T) (*EventsController, uuid.UUID) {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	storeConfig := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	ctx := t.Context()
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
-	err := management.Migrate(storeConfig)
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, storeConfig)
-	require.NoError(t, err)
-
-	orgsStore := management.NewOrganizationsStore(db)
+	orgsStore := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectsStore := management.NewProjectsStore(db)
+	projectsStore := management.NewProjectsStore(mgmt)
 	projectID, err := projectsStore.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           DefaultProject.Name,
@@ -45,7 +37,7 @@ func setupEventsController(t *testing.T) (*EventsController, uuid.UUID) {
 	})
 	require.NoError(t, err)
 
-	controller := NewEventsController(logger, db)
+	controller := NewEventsController(logger, usrs)
 	return controller, projectID
 }
 

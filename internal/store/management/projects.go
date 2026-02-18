@@ -101,10 +101,7 @@ func (s *ProjectsStore) GetProject(ctx context.Context, id uuid.UUID) (*Project,
 	query := `
 	SELECT id, organization_id, name, description, timezone, text_opt_out_message, link_wrap_email, text_help_message, link_wrap_push, tools, locale, created_at, updated_at,
 		COALESCE(pr.integrations_count, 0) AS integrations_count,
-		COALESCE(ca.campaigns_count, 0)    AS campaigns_count,
-		COALESCE(j.journeys_count, 0)      AS journeys_count,
-		COALESCE(u.users_count, 0)         AS users_count,
-		COALESCE(l.lists_count, 0)         AS lists_count
+		COALESCE(ca.campaigns_count, 0)    AS campaigns_count
 	FROM projects
 	LEFT JOIN (
 		SELECT project_id, COUNT(*) AS integrations_count
@@ -118,23 +115,6 @@ func (s *ProjectsStore) GetProject(ctx context.Context, id uuid.UUID) (*Project,
 		WHERE deleted_at IS NULL
 		GROUP BY project_id
 	) ca ON ca.project_id = projects.id
-	LEFT JOIN (
-		SELECT project_id, COUNT(*) AS journeys_count
-		FROM journeys
-		WHERE deleted_at IS NULL
-		GROUP BY project_id
-	) j ON j.project_id = projects.id
-	LEFT JOIN (
-		SELECT project_id, COUNT(*) AS users_count
-		FROM users
-		GROUP BY project_id
-	) u ON u.project_id = projects.id
-	LEFT JOIN (
-		SELECT project_id, COUNT(*) AS lists_count
-		FROM lists
-		WHERE deleted_at IS NULL
-		GROUP BY project_id
-	) l ON l.project_id = projects.id
 	WHERE id = $1
 	AND deleted_at IS NULL`
 
