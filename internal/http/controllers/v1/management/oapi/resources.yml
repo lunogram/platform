@@ -1028,6 +1028,53 @@ paths:
           description: Journey deleted successfully
         default:
           $ref: "#/components/responses/Error"
+  
+  /api/admin/projects/{projectID}/journeys/{journeyID}/users:
+    post:
+      summary: Manually runs a journey for a user
+      description: Triggers a journey to run for a specific user, typically used for testing or manual overrides
+      operationId: runJourneyForUser
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userID
+                - journeyEntryID
+              properties:
+                userID:
+                  type: string
+                  description: The ID of the user to run the journey for
+                journeyEntryID:
+                  type: string
+                  description: The ID of the journey entry to run
+      responses:
+        "200":
+          description: Journey run successfully for user
+        default:
+          $ref: "#/components/responses/Error"
+
 
   /api/admin/projects/{projectID}/journeys/{journeyID}/steps:
     get:

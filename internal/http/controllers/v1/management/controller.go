@@ -19,7 +19,7 @@ func NewController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, storage sto
 		EventsController:        NewEventsController(logger, db),
 		TagsController:          NewTagsController(logger, db),
 		LocalesController:       NewLocalesController(logger, db),
-		JourneysController:      NewJourneysController(logger, db),
+		JourneysController:      NewJourneysController(logger, db, pub),
 		OrganizationsController: NewOrganizationsController(logger, db),
 		ListsController:         NewListsController(logger, db, pub, cfg.Storage.MaxUploadSize),
 		DocumentsController:     NewDocumentsController(logger, db, storage, cfg.Storage.MaxUploadSize),

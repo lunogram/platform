@@ -35,7 +35,7 @@ func TestCreateJourney(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeys := NewJourneysController(logger, db)
+	journeys := NewJourneysController(logger, db, nil)
 
 	type test struct {
 		body oapi.CreateJourneyJSONRequestBody
@@ -115,7 +115,7 @@ func TestListJourneys(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	journeys := NewJourneysController(logger, db)
+	journeys := NewJourneysController(logger, db, nil)
 
 	type test struct {
 		limit  int
@@ -205,7 +205,7 @@ func TestGetJourney(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	journeys := NewJourneysController(logger, db)
+	journeys := NewJourneysController(logger, db, nil)
 
 	type test struct {
 		journeyID uuid.UUID
@@ -270,7 +270,7 @@ func TestUpdateJourney(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	journeys := NewJourneysController(logger, db)
+	journeys := NewJourneysController(logger, db, nil)
 
 	type test struct {
 		body oapi.UpdateJourneyJSONRequestBody
@@ -357,7 +357,7 @@ func TestDeleteJourney(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	journeys := NewJourneysController(logger, db)
+	journeys := NewJourneysController(logger, db, nil)
 
 	type test struct {
 		journeyID uuid.UUID

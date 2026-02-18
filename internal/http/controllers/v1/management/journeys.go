@@ -10,6 +10,9 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/pubsub/consumer"
+	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
@@ -17,13 +20,14 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewJourneysController(logger *zap.Logger, db *sqlx.DB) *JourneysController {
+func NewJourneysController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher) *JourneysController {
 	return &JourneysController{
 		logger: logger,
 		db:     db,
 		mgmt:   management.NewState(db),
 		users:  users.NewState(db),
 		jrny:   journey.NewState(db),
+		pub:    pub,
 	}
 }
 
@@ -33,6 +37,7 @@ type JourneysController struct {
 	mgmt   *management.State
 	users  *users.State
 	jrny   *journey.State
+	pub    pubsub.Publisher
 }
 
 func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListJourneysParams) {
@@ -306,6 +311,103 @@ func (srv *JourneysController) DeleteJourney(w http.ResponseWriter, r *http.Requ
 
 	logger.Info("journey deleted")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *JourneysController) RunJourneyForUser(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
+	ctx := r.Context()
+
+	body := oapi.RunJourneyForUserJSONRequestBody{}
+	err := json.Decode(r.Body, &body)
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	userIDStr := body.UserID
+	journeyEntryIDStr := body.JourneyEntryID
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.Stringer("journey_id", journeyID),
+		zap.String("user_id", userIDStr),
+		zap.String("journey_entry_id", journeyEntryIDStr),
+	)
+
+	logger.Info("running journey for user")
+
+	journeys := journey.NewJourneysStore(srv.db)
+
+	currJourney, err := journeys.GetJourney(ctx, projectID, journeyID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("journey not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get journey", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		logger.Error("invalid user_id format", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid user_id format")))
+		return
+	}
+
+	journeyEntryID, err := uuid.Parse(journeyEntryIDStr)
+	if err != nil {
+		logger.Error("invalid journey_entry_id format", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid journey_entry_id format")))
+		return
+	}
+
+	stepId, err := journeys.CreateUserJourneyState(ctx, journey.JourneyUserState{
+		UserID:          userID,
+		JourneyID:       journeyID,
+		JourneyEntryID:  journeyEntryID,
+		PinnedVersionID: currJourney.VersionID,
+	})
+	if err != nil {
+		logger.Error("failed to create user journey state", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if currJourney.VersionID == nil {
+		logger.Info("no published version for journey, returning error")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("journey has no published version")))
+		return
+	}
+
+	step, err := srv.users.GetEventJourneyStep(ctx, stepId, *currJourney.VersionID)
+	if err != nil {
+		logger.Error("failed to get event journey step dependencies", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	for _, child := range step.Children {
+		step := consumer.JourneyStep{
+			ProjectID:      currJourney.ProjectID,
+			JourneyID:      step.JourneyID,
+			JourneyEntryID: journeyEntryID,
+			ExternalStepID: child.ChildExternalID,
+			UserID:         userID,
+		}
+
+		err = srv.pub.Publish(ctx, schemas.JourneysAdvance(currJourney.ProjectID, step.JourneyID), step)
+		if err != nil {
+			logger.Error("failed to publish journey state to project subject", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	}
+
+	logger.Info("journey run for user")
+	json.Write(w, http.StatusOK, "Journey run successfully for user")
 }
 
 func (srv *JourneysController) GetJourneySteps(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
