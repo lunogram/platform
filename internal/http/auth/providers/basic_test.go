@@ -9,13 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/config"
-	"github.com/lunogram/platform/internal/container"
-	"github.com/lunogram/platform/internal/store"
+
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
 func TestBasicProviderDriver(t *testing.T) {
@@ -101,21 +98,9 @@ func TestBasicProviderAuthenticate(t *testing.T) {
 func TestBasicProviderAuthenticateWithExistingAdmin(t *testing.T) {
 	t.Parallel()
 
-	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
-
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	stores := management.NewState(db.Management)
+	ctx := t.Context()
+	mgmt, _, _ := runPostgreSQL(t)
+	stores := management.NewState(mgmt)
 
 	orgID, err := stores.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
@@ -151,21 +136,9 @@ func TestBasicProviderAuthenticateWithExistingAdmin(t *testing.T) {
 func TestBasicProviderAuthenticateCreatesNewAdmin(t *testing.T) {
 	t.Parallel()
 
-	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
-
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	stores := management.NewState(db.Management)
+	ctx := t.Context()
+	mgmt, _, _ := runPostgreSQL(t)
+	stores := management.NewState(mgmt)
 
 	providerConfig := config.BasicAuth{
 		Email:    "newadmin@example.com",

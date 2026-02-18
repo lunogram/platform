@@ -7,8 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 
 	"github.com/cloudproud/graceful"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/pgx/v5"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
@@ -73,7 +77,60 @@ func New(ctx graceful.Context, logger *zap.Logger, config Config) (*Connections,
 	return conns, nil
 }
 
+// Connect creates a single database connection with graceful shutdown.
+func Connect(ctx graceful.Context, logger *zap.Logger, uri string) (*sqlx.DB, error) {
+	logger.Info("connecting to PostgreSQL database", zap.String("uri", uri))
+
+	db, err := sqlx.Connect("pgx", uri)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	ctx.Closer(func() {
+		logger.Info("received close signal, closing database connection")
+
+		err := db.Close()
+		if err != nil {
+			logger.Error("failed to close database connection", zap.Error(err))
+		}
+	})
+
+	return db, nil
+}
+
 var ErrNoRows = sql.ErrNoRows
+
+// Migrate applies all migrations from the given filesystem to the database.
+func Migrate(uri string, migrations fs.FS) error {
+	fsDriver, err := iofs.New(migrations, "migrations")
+	if err != nil {
+		return fmt.Errorf("failed to load embedded migration: %w", err)
+	}
+
+	conn, err := sql.Open("pgx", uri)
+	if err != nil {
+		return fmt.Errorf("failed to open database connection: %w", err)
+	}
+	defer conn.Close()
+
+	db, err := pgx.WithInstance(conn, &pgx.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to create migration database instance: %w", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	migrator, err := migrate.NewWithInstance("iofs", fsDriver, "pgx", db)
+	if err != nil {
+		return fmt.Errorf("failed to construct migrator: %w", err)
+	}
+
+	err = migrator.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("failed to run migration: %w", err)
+	}
+
+	return nil
+}
 
 // DB is the common database interface used by all store implementations.
 type DB interface {

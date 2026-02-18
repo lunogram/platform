@@ -6,8 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,20 +15,11 @@ func ptr[T any](v T) *T {
 }
 
 func TestJourneysStoreCreateJourney(t *testing.T) {
-	store := NewContainerStore(t)
-	mgmt := ManagementStore(t)
+	t.Parallel()
+
+	store, _ := NewContainerStore(t)
 	ctx := context.Background()
-
-	orgID, err := mgmt.CreateOrganization(ctx, "Test Org")
-	require.NoError(t, err)
-
-	projectID, err := mgmt.CreateProject(ctx, management.Project{
-		OrganizationID: &orgID,
-		Name:           "Test Project",
-		Timezone:       "UTC",
-		Locale:         "en-US",
-	})
-	require.NoError(t, err)
+	projectID := uuid.New()
 
 	t.Run("creates journey with initial draft version", func(t *testing.T) {
 		journeyID, err := store.CreateJourney(ctx, Journey{
@@ -45,26 +34,16 @@ func TestJourneysStoreCreateJourney(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "Onboarding Journey", journey.Name)
 		assert.Equal(t, "Welcome new users", *journey.Description)
-		assert.Nil(t, journey.VersionID) // No version yet
+		assert.Nil(t, journey.VersionID)
 	})
 }
 
 func TestJourneysStoreVersionWorkflow(t *testing.T) {
-	store := NewContainerStore(t)
-	mgmt := ManagementStore(t)
-	db := DB(t)
+	t.Parallel()
+
+	store, db := NewContainerStore(t)
 	ctx := context.Background()
-
-	orgID, err := mgmt.CreateOrganization(ctx, "Test Org")
-	require.NoError(t, err)
-
-	projectID, err := mgmt.CreateProject(ctx, management.Project{
-		OrganizationID: &orgID,
-		Name:           "Test Project",
-		Timezone:       "UTC",
-		Locale:         "en-US",
-	})
-	require.NoError(t, err)
+	projectID := uuid.New()
 
 	journeyID, err := store.CreateJourney(ctx, Journey{
 		ProjectID: projectID,
@@ -123,7 +102,6 @@ func TestJourneysStoreVersionWorkflow(t *testing.T) {
 		err = store.PublishVersion(ctx, journeyID, draftVersion.ID)
 		require.NoError(t, err)
 
-		// Old published version should be archived
 		query := `SELECT status FROM journey_versions WHERE journey_id = $1 AND version_number = 1`
 		var status string
 		err = db.GetContext(ctx, &status, query, journeyID)
@@ -133,20 +111,11 @@ func TestJourneysStoreVersionWorkflow(t *testing.T) {
 }
 
 func TestJourneysStoreSetJourneySteps(t *testing.T) {
-	store := NewContainerStore(t)
-	mgmt := ManagementStore(t)
+	t.Parallel()
+
+	store, _ := NewContainerStore(t)
 	ctx := context.Background()
-
-	orgID, err := mgmt.CreateOrganization(ctx, "Test Org")
-	require.NoError(t, err)
-
-	projectID, err := mgmt.CreateProject(ctx, management.Project{
-		OrganizationID: &orgID,
-		Name:           "Test Project",
-		Timezone:       "UTC",
-		Locale:         "en-US",
-	})
-	require.NoError(t, err)
+	projectID := uuid.New()
 
 	journeyID, err := store.CreateJourney(ctx, Journey{
 		ProjectID: projectID,
@@ -249,20 +218,11 @@ func TestJourneysStoreSetJourneySteps(t *testing.T) {
 }
 
 func TestJourneysStoreDuplicateJourney(t *testing.T) {
-	store := NewContainerStore(t)
-	mgmt := ManagementStore(t)
+	t.Parallel()
+
+	store, _ := NewContainerStore(t)
 	ctx := context.Background()
-
-	orgID, err := mgmt.CreateOrganization(ctx, "Test Org")
-	require.NoError(t, err)
-
-	projectID, err := mgmt.CreateProject(ctx, management.Project{
-		OrganizationID: &orgID,
-		Name:           "Test Project",
-		Timezone:       "UTC",
-		Locale:         "en-US",
-	})
-	require.NoError(t, err)
+	projectID := uuid.New()
 
 	journeyID, err := store.CreateJourney(ctx, Journey{
 		ProjectID:   projectID,
@@ -311,7 +271,6 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 		assert.Equal(t, "Copy of Original Journey", newJourney.Name)
 		assert.NotNil(t, newJourney.VersionID)
 
-		// Check steps were copied
 		steps, err := store.GetJourneyVersionSteps(ctx, *newJourney.VersionID)
 		require.NoError(t, err)
 		assert.Len(t, steps, 2)
@@ -322,12 +281,10 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, journeyID, newJourneyID)
 
-		// Should create new version
 		draftVersion, err := store.GetLatestDraftVersion(ctx, journeyID)
 		require.NoError(t, err)
 		assert.Equal(t, 2, draftVersion.VersionNumber)
 
-		// Check steps were copied
 		steps, err := store.GetJourneyVersionSteps(ctx, draftVersion.ID)
 		require.NoError(t, err)
 		assert.Len(t, steps, 2)
@@ -335,21 +292,11 @@ func TestJourneysStoreDuplicateJourney(t *testing.T) {
 }
 
 func TestJourneysStoreEventDependencies(t *testing.T) {
-	store := NewContainerStore(t)
-	mgmt := ManagementStore(t)
-	db := DB(t)
+	t.Parallel()
+
+	store, db := NewContainerStore(t)
 	ctx := context.Background()
-
-	orgID, err := mgmt.CreateOrganization(ctx, "Test Org")
-	require.NoError(t, err)
-
-	projectID, err := mgmt.CreateProject(ctx, management.Project{
-		OrganizationID: &orgID,
-		Name:           "Test Project",
-		Timezone:       "UTC",
-		Locale:         "en-US",
-	})
-	require.NoError(t, err)
+	projectID := uuid.New()
 
 	journeyID, err := store.CreateJourney(ctx, Journey{
 		ProjectID: projectID,
@@ -361,9 +308,6 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 	require.NoError(t, err)
 
 	eventID := uuid.New()
-	_, err = db.ExecContext(ctx, `INSERT INTO events (id, project_id, name) VALUES ($1, $2, $3)`,
-		eventID, projectID, "user_signup")
-	require.NoError(t, err)
 
 	t.Run("sets event dependencies for step", func(t *testing.T) {
 		stepMap := oapi.JourneyStepMap{
@@ -381,7 +325,6 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 		err = store.SetJourneyStepEventDependencies(ctx, versionID, "entrance-1", []uuid.UUID{eventID})
 		require.NoError(t, err)
 
-		// Verify dependency was created
 		var count int
 		err = db.GetContext(ctx, &count,
 			`SELECT COUNT(*) FROM journey_version_step_events WHERE version_id = $1 AND external_id = $2 AND event_id = $3`,
@@ -389,42 +332,15 @@ func TestJourneysStoreEventDependencies(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
 	})
-
-	t.Run("publishes version and queries entrance steps", func(t *testing.T) {
-		err := store.PublishVersion(ctx, journeyID, versionID)
-		require.NoError(t, err)
-
-		eventsStore := users.NewEventsStore(db)
-		entrances, err := eventsStore.ListEventJourneyDependencies(ctx, eventID)
-		require.NoError(t, err)
-		assert.Len(t, entrances, 1)
-		assert.Equal(t, journeyID, entrances[0].JourneyID)
-		assert.Equal(t, "entrance-1", entrances[0].ExternalID)
-		assert.Equal(t, "entrance", entrances[0].Type)
-	})
 }
 
 func TestJourneysStoreUserJourneyState(t *testing.T) {
-	store := NewContainerStore(t)
-	mgmt := ManagementStore(t)
-	db := DB(t)
+	t.Parallel()
+
+	store, _ := NewContainerStore(t)
 	ctx := context.Background()
-
-	orgID, err := mgmt.CreateOrganization(ctx, "Test Org")
-	require.NoError(t, err)
-
-	projectID, err := mgmt.CreateProject(ctx, management.Project{
-		OrganizationID: &orgID,
-		Name:           "Test Project",
-		Timezone:       "UTC",
-		Locale:         "en-US",
-	})
-	require.NoError(t, err)
-
-	userID := uuid.New()
-	_, err = db.ExecContext(ctx, `INSERT INTO users (id, project_id, external_id) VALUES ($1, $2, $3)`,
-		userID, projectID, "user-123")
-	require.NoError(t, err)
+	projectID := uuid.New()
+	davidID := uuid.New()
 
 	journeyID, err := store.CreateJourney(ctx, Journey{
 		ProjectID: projectID,
@@ -458,46 +374,32 @@ func TestJourneysStoreUserJourneyState(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("creates user journey state", func(t *testing.T) {
-		journeyEntryID := uuid.New()
+		davidEntryID := uuid.New()
 		stateID, err := store.CreateUserJourneyState(ctx, JourneyUserState{
 			JourneyID:      journeyID,
-			JourneyEntryID: journeyEntryID,
-			UserID:         userID,
+			JourneyEntryID: davidEntryID,
+			UserID:         davidID,
 			ExternalStepID: "entrance-1",
 		})
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, stateID)
 
-		state, err := store.GetUserJourneyState(ctx, journeyEntryID, "entrance-1")
+		state, err := store.GetUserJourneyState(ctx, davidEntryID, "entrance-1")
 		require.NoError(t, err)
 		assert.Equal(t, journeyID, state.JourneyID)
-		assert.Equal(t, userID, state.UserID)
+		assert.Equal(t, davidID, state.UserID)
 		assert.Equal(t, "entrance-1", state.ExternalStepID)
 		assert.Nil(t, state.PinnedVersionID)
 	})
 }
 
 func TestJourneysStoreVersionPinning(t *testing.T) {
-	store := NewContainerStore(t)
-	mgmt := ManagementStore(t)
-	db := DB(t)
+	t.Parallel()
+
+	store, _ := NewContainerStore(t)
 	ctx := context.Background()
-
-	orgID, err := mgmt.CreateOrganization(ctx, "Test Org")
-	require.NoError(t, err)
-
-	projectID, err := mgmt.CreateProject(ctx, management.Project{
-		OrganizationID: &orgID,
-		Name:           "Test Project",
-		Timezone:       "UTC",
-		Locale:         "en-US",
-	})
-	require.NoError(t, err)
-
-	userID := uuid.New()
-	_, err = db.ExecContext(ctx, `INSERT INTO users (id, project_id, external_id) VALUES ($1, $2, $3)`,
-		userID, projectID, "user-123")
-	require.NoError(t, err)
+	projectID := uuid.New()
+	johnID := uuid.New()
 
 	journeyID, err := store.CreateJourney(ctx, Journey{
 		ProjectID: projectID,
@@ -505,7 +407,6 @@ func TestJourneysStoreVersionPinning(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Create and publish version 1
 	version1ID, err := store.CreateJourneyVersion(ctx, journeyID, "draft")
 	require.NoError(t, err)
 
@@ -531,18 +432,16 @@ func TestJourneysStoreVersionPinning(t *testing.T) {
 	err = store.PublishVersion(ctx, journeyID, version1ID)
 	require.NoError(t, err)
 
-	// User enters journey on version 1 with pinning
-	journeyEntryID := uuid.New()
+	johnEntryID := uuid.New()
 	_, err = store.CreateUserJourneyState(ctx, JourneyUserState{
 		JourneyID:       journeyID,
-		JourneyEntryID:  journeyEntryID,
-		UserID:          userID,
+		JourneyEntryID:  johnEntryID,
+		UserID:          johnID,
 		ExternalStepID:  "step-1",
 		PinnedVersionID: &version1ID,
 	})
 	require.NoError(t, err)
 
-	// Create and publish version 2
 	version2ID, err := store.CreateJourneyVersion(ctx, journeyID, "draft")
 	require.NoError(t, err)
 
@@ -569,112 +468,91 @@ func TestJourneysStoreVersionPinning(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("pinned user stays on version 1", func(t *testing.T) {
-		state, err := store.GetUserJourneyState(ctx, journeyEntryID, "step-1")
+		state, err := store.GetUserJourneyState(ctx, johnEntryID, "step-1")
 		require.NoError(t, err)
 		assert.NotNil(t, state.PinnedVersionID)
 		assert.Equal(t, version1ID, *state.PinnedVersionID)
 	})
 
 	t.Run("non-pinned user uses latest version", func(t *testing.T) {
-		user2ID := uuid.New()
-		_, err := db.ExecContext(ctx, `INSERT INTO users (id, project_id, external_id) VALUES ($1, $2, $3)`,
-			user2ID, projectID, "user-456")
-		require.NoError(t, err)
+		oxanaID := uuid.New()
 
-		journeyEntry2ID := uuid.New()
-		_, err = store.CreateUserJourneyState(ctx, JourneyUserState{
+		oxanaEntryID := uuid.New()
+		_, err := store.CreateUserJourneyState(ctx, JourneyUserState{
 			JourneyID:       journeyID,
-			JourneyEntryID:  journeyEntry2ID,
-			UserID:          user2ID,
+			JourneyEntryID:  oxanaEntryID,
+			UserID:          oxanaID,
 			ExternalStepID:  "step-1",
-			PinnedVersionID: nil, // No pinning
+			PinnedVersionID: nil,
 		})
 		require.NoError(t, err)
 
-		state2, err := store.GetUserJourneyState(ctx, journeyEntry2ID, "step-1")
+		state, err := store.GetUserJourneyState(ctx, oxanaEntryID, "step-1")
 		require.NoError(t, err)
-		assert.Nil(t, state2.PinnedVersionID)
+		assert.Nil(t, state.PinnedVersionID)
 	})
 }
 
 func TestJourneysStoreEnsureDraftVersionCopiesSteps(t *testing.T) {
-	store := NewContainerStore(t)
-	db := DB(t)
+	t.Parallel()
+
+	store, _ := NewContainerStore(t)
 	ctx := context.Background()
 	projectID := uuid.New()
 
-	// Create project first
-	_, err := db.ExecContext(ctx, `INSERT INTO projects (id, name) VALUES ($1, 'Test Project')`, projectID)
-	require.NoError(t, err)
-
-	// Create journey with a published version that has steps
 	journeyID, err := store.CreateJourney(ctx, Journey{
 		ProjectID: projectID,
 		Name:      "Test Journey",
 	})
 	require.NoError(t, err)
 
-	// Create and publish a version with steps
 	versionID, err := store.CreateJourneyVersion(ctx, journeyID, "draft")
 	require.NoError(t, err)
 
-	// Add steps directly to database
-	_, err = db.ExecContext(ctx, `
-		INSERT INTO journey_version_steps (version_id, external_id, type, name, x, y)
-		VALUES
-			($1, 'step-1', 'entrance', 'Entrance', 100, 100),
-			($1, 'step-2', 'email', 'Send Email', 200, 200)
-	`, versionID)
+	stepMap := oapi.JourneyStepMap{
+		"step-1": {
+			Type: "entrance",
+			Name: ptr("Entrance"),
+			X:    100,
+			Y:    100,
+			Children: []oapi.JourneyStepChild{
+				{ExternalId: "step-2"},
+			},
+		},
+		"step-2": {
+			Type: "email",
+			Name: ptr("Send Email"),
+			X:    200,
+			Y:    200,
+		},
+	}
+
+	_, err = store.SetJourneySteps(ctx, versionID, stepMap)
 	require.NoError(t, err)
 
-	// Add a connection
-	_, err = db.ExecContext(ctx, `
-		INSERT INTO journey_version_step_children (version_id, parent_external_id, child_external_id)
-		VALUES ($1, 'step-2', 'step-1')
-	`, versionID)
-	require.NoError(t, err)
-
-	// Publish the version
 	err = store.PublishVersion(ctx, journeyID, versionID)
 	require.NoError(t, err)
 
-	// Now ensure draft version (should create new draft with copied steps)
 	newDraftID, err := store.EnsureDraftVersion(ctx, journeyID)
 	require.NoError(t, err)
 	assert.NotEqual(t, versionID, newDraftID, "should create a new draft version")
 
-	// Verify the new draft has the copied steps
 	draftSteps, err := store.GetJourneyVersionSteps(ctx, newDraftID)
 	require.NoError(t, err)
 	assert.Len(t, draftSteps, 2, "new draft should have copied steps from published version")
 
-	// Verify children were copied
 	draftChildren, err := store.GetJourneyVersionStepsChildren(ctx, newDraftID)
 	require.NoError(t, err)
 	assert.Len(t, draftChildren, 1, "connections should be copied to new draft")
 }
 
 func TestJourneysStoreMultiExecutionSteps(t *testing.T) {
-	store := NewContainerStore(t)
-	mgmt := ManagementStore(t)
-	db := DB(t)
+	t.Parallel()
+
+	store, _ := NewContainerStore(t)
 	ctx := context.Background()
-
-	orgID, err := mgmt.CreateOrganization(ctx, "Test Org")
-	require.NoError(t, err)
-
-	projectID, err := mgmt.CreateProject(ctx, management.Project{
-		OrganizationID: &orgID,
-		Name:           "Test Project",
-		Timezone:       "UTC",
-		Locale:         "en-US",
-	})
-	require.NoError(t, err)
-
-	userID := uuid.New()
-	_, err = db.ExecContext(ctx, `INSERT INTO users (id, project_id, external_id) VALUES ($1, $2, $3)`,
-		userID, projectID, "user-123")
-	require.NoError(t, err)
+	projectID := uuid.New()
+	emmaID := uuid.New()
 
 	journeyID, err := store.CreateJourney(ctx, Journey{
 		ProjectID: projectID,
@@ -685,49 +563,43 @@ func TestJourneysStoreMultiExecutionSteps(t *testing.T) {
 	journeyEntryID := uuid.New()
 
 	t.Run("creates multiple executions of same step", func(t *testing.T) {
-		// First execution
 		id1, err := store.CreateUserJourneyState(ctx, JourneyUserState{
 			JourneyID:      journeyID,
 			JourneyEntryID: journeyEntryID,
-			UserID:         userID,
+			UserID:         emmaID,
 			ExternalStepID: "gate-1",
 		})
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, id1)
 
-		// Second execution of the same step
 		id2, err := store.CreateUserJourneyState(ctx, JourneyUserState{
 			JourneyID:      journeyID,
 			JourneyEntryID: journeyEntryID,
-			UserID:         userID,
+			UserID:         emmaID,
 			ExternalStepID: "gate-1",
 		})
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, id2)
 
-		// IDs should be different (different execution instances)
 		assert.NotEqual(t, id1, id2)
 	})
 
 	t.Run("gets latest execution when no state_id specified", func(t *testing.T) {
-		// Get latest execution
 		latest, err := store.GetUserJourneyState(ctx, journeyEntryID, "gate-1")
 		require.NoError(t, err)
 		assert.Equal(t, "gate-1", latest.ExternalStepID)
-		assert.Equal(t, 2, latest.Occurrence) // Should be the second execution
+		assert.Equal(t, 2, latest.Occurrence)
 	})
 
 	t.Run("gets specific execution by state_id", func(t *testing.T) {
-		// Create third execution
 		id3, err := store.CreateUserJourneyState(ctx, JourneyUserState{
 			JourneyID:      journeyID,
 			JourneyEntryID: journeyEntryID,
-			UserID:         userID,
+			UserID:         emmaID,
 			ExternalStepID: "gate-1",
 		})
 		require.NoError(t, err)
 
-		// Get specific execution by ID
 		state, err := store.GetJourneyStateByID(ctx, id3)
 		require.NoError(t, err)
 		assert.Equal(t, id3, state.ID)
@@ -735,27 +607,23 @@ func TestJourneysStoreMultiExecutionSteps(t *testing.T) {
 	})
 
 	t.Run("updates existing state with ON CONFLICT", func(t *testing.T) {
-		// Create execution
 		id4, err := store.CreateUserJourneyState(ctx, JourneyUserState{
 			JourneyID:      journeyID,
 			JourneyEntryID: journeyEntryID,
-			UserID:         userID,
+			UserID:         emmaID,
 			ExternalStepID: "delay-1",
 		})
 		require.NoError(t, err)
 
-		// Load state and update it (simulating delay resume)
 		state, err := store.GetJourneyStateByID(ctx, id4)
 		require.NoError(t, err)
 		assert.Equal(t, id4, state.ID)
 
-		// Update by passing the same ID with new data
 		state.Data = []byte(`{"updated": true}`)
 		updatedID, err := store.CreateUserJourneyState(ctx, *state)
 		require.NoError(t, err)
 		assert.Equal(t, id4, updatedID)
 
-		// Verify state was updated, not duplicated
 		reloaded, err := store.GetJourneyStateByID(ctx, id4)
 		require.NoError(t, err)
 		assert.JSONEq(t, `{"updated": true}`, string(reloaded.Data))

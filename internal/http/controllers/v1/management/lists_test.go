@@ -39,25 +39,12 @@ func TestListCreation(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	mgmt, usrs, _ := runPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
-
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = users.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
@@ -67,11 +54,11 @@ func TestListCreation(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	lists := NewListsController(logger, db, pub, testMaxUploadSize)
+	lists := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
 
 	type test struct {
 		body oapi.CreateListJSONRequestBody
@@ -122,25 +109,12 @@ func TestListLists(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	mgmt, usrs, _ := runPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
-
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = users.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
@@ -150,11 +124,11 @@ func TestListLists(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(db.Users)
+	listsStore := users.NewListsStore(usrs)
 
 	testLists := []users.List{
 		{
@@ -179,7 +153,7 @@ func TestListLists(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	controller := NewListsController(logger, db, pub, testMaxUploadSize)
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
 
 	type test struct {
 		limit  int
@@ -239,25 +213,12 @@ func TestGetList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	mgmt, usrs, _ := runPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
-
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = users.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
@@ -267,11 +228,11 @@ func TestGetList(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(db.Users)
+	listsStore := users.NewListsStore(usrs)
 	listID, err := listsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List",
@@ -279,7 +240,7 @@ func TestGetList(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, db, pub, testMaxUploadSize)
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/v1/lists/"+listID.String(), nil)
@@ -299,25 +260,12 @@ func TestUpdateList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	mgmt, usrs, _ := runPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
-
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = users.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
@@ -327,11 +275,11 @@ func TestUpdateList(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(db.Users)
+	listsStore := users.NewListsStore(usrs)
 	listID, err := listsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List",
@@ -339,7 +287,7 @@ func TestUpdateList(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, db, pub, testMaxUploadSize)
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
 
 	body := oapi.UpdateListJSONRequestBody{
 		Name: "Updated List",
@@ -365,25 +313,12 @@ func TestDeleteList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	mgmt, usrs, _ := runPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
-
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = users.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
@@ -393,11 +328,11 @@ func TestDeleteList(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(db.Users)
+	listsStore := users.NewListsStore(usrs)
 	listID, err := listsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Test List",
@@ -405,7 +340,7 @@ func TestDeleteList(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, db, pub, testMaxUploadSize)
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/v1/lists/"+listID.String(), nil)
@@ -422,25 +357,12 @@ func TestDuplicateList(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	mgmt, usrs, _ := runPostgreSQL(t)
 	cfg := config.Node{
 		Nats: config.Nats{
 			URL: container.RunNATS(t),
 		},
 	}
-
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = users.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
 
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
@@ -450,11 +372,11 @@ func TestDuplicateList(t *testing.T) {
 
 	pub := pubsub.NewPublisher(jet)
 
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(db.Users)
+	listsStore := users.NewListsStore(usrs)
 	listID, err := listsStore.CreateList(ctx, users.List{
 		ProjectID: projectID,
 		Name:      "Original List",
@@ -462,7 +384,7 @@ func TestDuplicateList(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, db, pub, testMaxUploadSize)
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/v1/lists/"+listID.String()+"/duplicate", nil)
@@ -482,7 +404,6 @@ func TestImportListUsers(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
 
 	type test struct {
 		csv   string
@@ -510,25 +431,13 @@ func TestImportListUsers(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			postgresURI := container.RunPostgreSQL(t)
+			mgmt, usrs, _ := runPostgreSQL(t)
+			ctx := graceful.NewContext(t.Context())
 			cfg := config.Node{
 				Nats: config.Nats{
 					URL: container.RunNATS(t),
 				},
 			}
-
-			err := management.Migrate(postgresURI)
-			require.NoError(t, err)
-
-			err = users.Migrate(postgresURI)
-			require.NoError(t, err)
-
-			db, err := store.New(ctx, logger, store.Config{
-				ManagementURI: postgresURI,
-				UsersURI:      postgresURI,
-				JourneyURI:    postgresURI,
-			})
-			require.NoError(t, err)
 
 			jet, err := pubsub.New(ctx, cfg)
 			require.NoError(t, err)
@@ -538,12 +447,12 @@ func TestImportListUsers(t *testing.T) {
 
 			pub := pubsub.NewPublisher(jet)
 
-			projects := management.NewProjectsStore(db.Management)
+			projects := management.NewProjectsStore(mgmt)
 			projectID, err := projects.CreateProject(ctx, DefaultProject)
 			require.NoError(t, err)
 
-			usersStore := users.NewUsersStore(db.Users)
-			listsStore := users.NewListsStore(db.Users)
+			usersStore := users.NewUsersStore(usrs)
+			listsStore := users.NewListsStore(usrs)
 
 			list := users.List{
 				ProjectID: projectID,
@@ -554,7 +463,7 @@ func TestImportListUsers(t *testing.T) {
 			listID, err := listsStore.CreateList(ctx, list)
 			require.NoError(t, err)
 
-			controller := NewListsController(logger, db, pub, testMaxUploadSize)
+			controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
 
 			body := &bytes.Buffer{}
 			writer := multipart.NewWriter(body)

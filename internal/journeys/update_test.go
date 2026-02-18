@@ -5,45 +5,23 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/internal/container"
+
 	"github.com/lunogram/platform/internal/pubsub"
-	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
 func setupStore(t *testing.T) (*management.State, *users.State, *sqlx.DB) {
 	t.Helper()
 
-	logger := zaptest.NewLogger(t)
+	mgmt, usrs, _ := runPostgreSQL(t)
 
-	ctx := graceful.NewContext(t.Context())
-	uri := container.RunPostgreSQL(t)
-
-	err := management.Migrate(uri)
-	require.NoError(t, err)
-
-	err = users.Migrate(uri)
-	require.NoError(t, err)
-
-	err = journey.Migrate(uri)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: uri,
-		UsersURI:      uri,
-		JourneyURI:    uri,
-	})
-	require.NoError(t, err)
-
-	return management.NewState(db.Management), users.NewState(db.Users), db.Users
+	return management.NewState(mgmt), users.NewState(usrs), usrs
 }
 
 func TestHandleUpdate(t *testing.T) {

@@ -5,12 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/config"
-	"github.com/lunogram/platform/internal/container"
+
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
-	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -19,18 +16,7 @@ func TestGetAuthMethods(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
-
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
+	mgmt, _, _ := runPostgreSQL(t)
 
 	cfg := config.Node{
 		Auth: config.Auth{
@@ -41,7 +27,7 @@ func TestGetAuthMethods(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, db.Management, cfg)
+	controller, err := NewAuthController(logger, mgmt, cfg)
 	require.NoError(t, err)
 
 	type test struct {
@@ -76,18 +62,7 @@ func TestAuthCallbackWithInvalidDriver(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
-
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
+	mgmt, _, _ := runPostgreSQL(t)
 
 	cfg := config.Node{
 		Auth: config.Auth{
@@ -98,7 +73,7 @@ func TestAuthCallbackWithInvalidDriver(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, db.Management, cfg)
+	controller, err := NewAuthController(logger, mgmt, cfg)
 	require.NoError(t, err)
 
 	type test struct {
@@ -128,18 +103,7 @@ func TestAuthWebhookWithInvalidDriver(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
-
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
+	mgmt, _, _ := runPostgreSQL(t)
 
 	cfg := config.Node{
 		Auth: config.Auth{
@@ -150,7 +114,7 @@ func TestAuthWebhookWithInvalidDriver(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, db.Management, cfg)
+	controller, err := NewAuthController(logger, mgmt, cfg)
 	require.NoError(t, err)
 
 	type test struct {

@@ -1,7 +1,8 @@
 -- Management Database Initial Migration
 -- This database contains organization/project administration tables
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Create extension in public schema so it's visible to all schemas
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
 
 -- Helper function for updating timestamps
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger

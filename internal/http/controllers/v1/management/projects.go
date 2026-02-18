@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/claim/rbac"
@@ -21,22 +22,22 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewProjectsController(logger *zap.Logger, db *store.Connections) *ProjectsController {
+func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB) *ProjectsController {
 	return &ProjectsController{
-		logger:  logger,
-		db:      db,
-		store:   management.NewState(db.Management),
-		journey: journey.NewState(db.Journey),
-		users:   users.NewState(db.Users),
+		logger:       logger,
+		managementDB: managementDB,
+		store:        management.NewState(managementDB),
+		journey:      journey.NewState(journeyDB),
+		users:        users.NewState(usersDB),
 	}
 }
 
 type ProjectsController struct {
-	logger  *zap.Logger
-	db      *store.Connections
-	store   *management.State
-	journey *journey.State
-	users   *users.State
+	logger       *zap.Logger
+	managementDB *sqlx.DB
+	store        *management.State
+	journey      *journey.State
+	users        *users.State
 }
 
 func (srv *ProjectsController) loadProjectCounts(ctx context.Context, project *management.Project) {
@@ -153,7 +154,7 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With()
 	logger.Info("creating project", zap.String("name", body.Name))
 
-	tx, err := srv.db.Management.BeginTxx(ctx, nil)
+	tx, err := srv.managementDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("unexpected error while attempting to start a transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)

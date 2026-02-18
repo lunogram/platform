@@ -6,8 +6,6 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/store"
-	"github.com/lunogram/platform/internal/store/journey"
-	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -19,27 +17,14 @@ func ptr[T any](v T) *T {
 func NewContainerStore(t *testing.T) *State {
 	t.Helper()
 
-	logger := zaptest.NewLogger(t)
+	uri := container.RunPostgreSQL(t)
+	mgmtURI := container.CreateSchema(t, uri, "management")
+	require.NoError(t, Migrate(mgmtURI))
 
 	ctx := graceful.NewContext(t.Context())
-	uri := container.RunPostgreSQL(t)
-
-	// Run all migrations since some management queries may join with other tables
-	err := Migrate(uri)
+	logger := zaptest.NewLogger(t)
+	db, err := store.Connect(ctx, logger, mgmtURI)
 	require.NoError(t, err)
 
-	err = users.Migrate(uri)
-	require.NoError(t, err)
-
-	err = journey.Migrate(uri)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: uri,
-		UsersURI:      uri,
-		JourneyURI:    uri,
-	})
-	require.NoError(t, err)
-
-	return NewState(db.Management)
+	return NewState(db)
 }

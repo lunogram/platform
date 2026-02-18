@@ -22,12 +22,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewListsController(logger *zap.Logger, db *store.Connections, pub pubsub.Publisher, maxUploadSize int64) *ListsController {
+func NewListsController(logger *zap.Logger, usersDB *sqlx.DB, projects *management.ProjectsStore, pub pubsub.Publisher, maxUploadSize int64) *ListsController {
 	return &ListsController{
 		logger:        logger,
-		usersDB:       db.Users,
-		store:         users.NewState(db.Users),
-		projects:      management.NewProjectsStore(db.Management),
+		usersDB:       usersDB,
+		store:         users.NewState(usersDB),
+		projects:      projects,
 		maxUploadSize: maxUploadSize,
 		pub:           pub,
 	}

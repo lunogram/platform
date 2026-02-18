@@ -6,11 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/container"
+
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -20,24 +18,14 @@ func TestCreateApiKey(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, _ := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	controller := NewApiKeysController(logger, db.Management)
+	controller := NewApiKeysController(logger, mgmt)
 
 	type test struct {
 		body oapi.CreateApiKeyJSONRequestBody
@@ -108,31 +96,21 @@ func TestListApiKeys(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, _ := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	apiKeysStore := management.NewApiKeysStore(db.Management)
+	apiKeysStore := management.NewApiKeysStore(mgmt)
 
 	for i := 0; i < 3; i++ {
 		_, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
 		require.NoError(t, err)
 	}
 
-	controller := NewApiKeysController(logger, db.Management)
+	controller := NewApiKeysController(logger, mgmt)
 
 	type test struct {
 		params oapi.ListApiKeysParams
@@ -178,28 +156,18 @@ func TestGetApiKey(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, _ := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	apiKeysStore := management.NewApiKeysStore(db.Management)
+	apiKeysStore := management.NewApiKeysStore(mgmt)
 	apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
 	require.NoError(t, err)
 
-	controller := NewApiKeysController(logger, db.Management)
+	controller := NewApiKeysController(logger, mgmt)
 
 	type test struct {
 		keyID uuid.UUID
@@ -240,25 +208,15 @@ func TestUpdateApiKey(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, _ := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	apiKeysStore := management.NewApiKeysStore(db.Management)
-	controller := NewApiKeysController(logger, db.Management)
+	apiKeysStore := management.NewApiKeysStore(mgmt)
+	controller := NewApiKeysController(logger, mgmt)
 
 	type test struct {
 		body oapi.UpdateApiKeyJSONRequestBody
@@ -317,28 +275,18 @@ func TestDeleteApiKey(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, _ := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	apiKeysStore := management.NewApiKeysStore(db.Management)
+	apiKeysStore := management.NewApiKeysStore(mgmt)
 	apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
 	require.NoError(t, err)
 
-	controller := NewApiKeysController(logger, db.Management)
+	controller := NewApiKeysController(logger, mgmt)
 
 	type test struct {
 		code int

@@ -12,7 +12,6 @@ import (
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
@@ -22,51 +21,29 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func setupEventsTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream) {
+func setupEventsTest(t *testing.T) (mgmtDB, usrsDB, jrnyDB *sqlx.DB, projectID uuid.UUID, jet jetstream.JetStream) {
 	t.Helper()
 
-	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	natsURL := container.RunNATS(t)
-	postgresURI := container.RunPostgreSQL(t)
+	mgmtDB, usrsDB, jrnyDB = runPostgreSQL(t)
 
 	cfg := config.Node{
-		Store: store.Config{
-			ManagementURI: postgresURI,
-			UsersURI:      postgresURI,
-			JourneyURI:    postgresURI,
-		},
 		Nats: config.Nats{
 			URL: natsURL,
 		},
 	}
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = users.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = journey.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	mgmtState := management.NewState(db.Management)
+	mgmtState := management.NewState(mgmtDB)
 
 	orgID, err := mgmtState.OrganizationsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	projectID, err := mgmtState.ProjectsStore.CreateProject(ctx, management.Project{
+	projectID, err = mgmtState.ProjectsStore.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
@@ -74,21 +51,21 @@ func setupEventsTest(t *testing.T) (*sqlx.DB, uuid.UUID, jetstream.JetStream) {
 	})
 	require.NoError(t, err)
 
-	return db.Users, projectID, jet
+	return mgmtDB, usrsDB, jrnyDB, projectID, jet
 }
 
 func TestEventsProjectHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupEventsTest(t)
+	_, usrsDB, jrnyDB, projectID, jet := setupEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	usersState := users.NewState(db)
-	journeyState := journey.NewState(db)
+	usersState := users.NewState(usrsDB)
+	journeyState := journey.NewState(jrnyDB)
 	email := "test@example.com"
 	userID, err := usersState.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
 		Email: &email,
@@ -138,15 +115,15 @@ func TestEventsProjectHandlerSuccess(t *testing.T) {
 func TestEventsProjectHandlerWithoutData(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupEventsTest(t)
+	_, usrsDB, jrnyDB, projectID, jet := setupEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	usersState := users.NewState(db)
-	journeyState := journey.NewState(db)
+	usersState := users.NewState(usrsDB)
+	journeyState := journey.NewState(jrnyDB)
 	email := "test2@example.com"
 	userID, err := usersState.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
 		Email: &email,
@@ -188,15 +165,15 @@ func TestEventsProjectHandlerWithoutData(t *testing.T) {
 func TestEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupEventsTest(t)
+	_, usrsDB, jrnyDB, projectID, jet := setupEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	usersState := users.NewState(db)
-	journeyState := journey.NewState(db)
+	usersState := users.NewState(usrsDB)
+	journeyState := journey.NewState(jrnyDB)
 	externalID := "user_123"
 	anonymousID := "anon_abc"
 
@@ -235,14 +212,14 @@ func TestEventsProjectHandlerWithIdentifiers(t *testing.T) {
 func TestEventsSchemaHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupEventsTest(t)
+	_, usrsDB, _, projectID, jet := setupEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	usersState := users.NewState(db)
+	usersState := users.NewState(usrsDB)
 	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "test_event")
 	require.NoError(t, err)
 
@@ -280,14 +257,14 @@ func TestEventsSchemaHandlerSuccess(t *testing.T) {
 func TestEventsSchemaHandlerComplexNestedData(t *testing.T) {
 	t.Parallel()
 
-	db, projectID, jet := setupEventsTest(t)
+	_, usrsDB, _, projectID, jet := setupEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	usersState := users.NewState(db)
+	usersState := users.NewState(usrsDB)
 	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "complex_event")
 	require.NoError(t, err)
 

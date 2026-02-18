@@ -49,13 +49,13 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	}
 
 	// Create management controller
-	mgmtController, err := managementv1.NewController(logger, db, cfg, storage, pub, registry)
+	mgmtController, err := managementv1.NewController(logger, db.Management, db.Users, db.Journey, cfg, storage, pub, registry)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create management controller: %w", err)
 	}
 
 	// Create client controller
-	clientController, err := clientv1.NewController(logger, db, mgmtStores, usersStore, pub)
+	clientController, err := clientv1.NewController(logger, db.Users, mgmtStores, usersStore, pub)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client controller: %w", err)
 	}

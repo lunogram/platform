@@ -6,11 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/container"
+
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
@@ -21,27 +19,14 @@ func TestCreateJourney(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, jrny := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = journey.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeys := NewJourneysController(logger, db.Journey)
+	journeys := NewJourneysController(logger, jrny)
 
 	type test struct {
 		body oapi.CreateJourneyJSONRequestBody
@@ -96,27 +81,14 @@ func TestListJourneys(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, jrny := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = journey.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeysStore := journey.NewJourneysStore(db.Journey)
+	journeysStore := journey.NewJourneysStore(jrny)
 
 	for i := 0; i < 5; i++ {
 		_, err := journeysStore.CreateJourney(ctx, journey.Journey{
@@ -126,7 +98,7 @@ func TestListJourneys(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	journeys := NewJourneysController(logger, db.Journey)
+	journeys := NewJourneysController(logger, jrny)
 
 	type test struct {
 		limit  int
@@ -192,27 +164,14 @@ func TestGetJourney(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, jrny := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = journey.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeysStore := journey.NewJourneysStore(db.Journey)
+	journeysStore := journey.NewJourneysStore(jrny)
 	description := "Test Description"
 	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID:   projectID,
@@ -221,7 +180,7 @@ func TestGetJourney(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	journeys := NewJourneysController(logger, db.Journey)
+	journeys := NewJourneysController(logger, jrny)
 
 	type test struct {
 		journeyID uuid.UUID
@@ -264,34 +223,21 @@ func TestUpdateJourney(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, jrny := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = journey.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeysStore := journey.NewJourneysStore(db.Journey)
+	journeysStore := journey.NewJourneysStore(jrny)
 	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID: projectID,
 		Name:      "Original Journey",
 	})
 	require.NoError(t, err)
 
-	journeys := NewJourneysController(logger, db.Journey)
+	journeys := NewJourneysController(logger, jrny)
 
 	type test struct {
 		body oapi.UpdateJourneyJSONRequestBody
@@ -356,34 +302,21 @@ func TestDeleteJourney(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, jrny := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = journey.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeysStore := journey.NewJourneysStore(db.Journey)
+	journeysStore := journey.NewJourneysStore(jrny)
 	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID: projectID,
 		Name:      "Journey to Delete",
 	})
 	require.NoError(t, err)
 
-	journeys := NewJourneysController(logger, db.Journey)
+	journeys := NewJourneysController(logger, jrny)
 
 	type test struct {
 		journeyID uuid.UUID

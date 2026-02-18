@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/store"
-	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -19,53 +18,28 @@ func ptr[T any](v T) *T {
 }
 
 // NewContainerStore creates a test database and returns a users State
-func NewContainerStore(t *testing.T) (*State, *management.State) {
+func NewContainerStore(t *testing.T) *State {
 	t.Helper()
 
-	logger := zaptest.NewLogger(t)
+	uri := container.RunPostgreSQL(t)
+	usersURI := container.CreateSchema(t, uri, "users")
+
+	require.NoError(t, Migrate(usersURI))
 
 	ctx := graceful.NewContext(t.Context())
-	uri := container.RunPostgreSQL(t)
+	logger := zaptest.NewLogger(t)
 
-	err := management.Migrate(uri)
+	usersDB, err := store.Connect(ctx, logger, usersURI)
 	require.NoError(t, err)
 
-	err = Migrate(uri)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: uri,
-		UsersURI:      uri,
-		JourneyURI:    uri,
-	})
-	require.NoError(t, err)
-
-	return NewState(db.Users), management.NewState(db.Management)
-}
-
-func SetupUsers(t *testing.T, mgmt *management.State) uuid.UUID {
-	t.Helper()
-
-	ctx := t.Context()
-	organization, err := mgmt.CreateOrganization(ctx, "Test Org")
-	require.NoError(t, err)
-
-	project, err := mgmt.CreateProject(ctx, management.Project{
-		OrganizationID: &organization,
-		Name:           "Test Project",
-		Timezone:       "UTC",
-		Locale:         "en-US",
-	})
-	require.NoError(t, err)
-
-	return project
+	return NewState(usersDB)
 }
 
 func TestCreateUser(t *testing.T) {
 	t.Parallel()
 
-	db, mgmt := NewContainerStore(t)
-	projectID := SetupUsers(t, mgmt)
+	db := NewContainerStore(t)
+	projectID := uuid.New()
 	ctx := context.Background()
 
 	type test struct {
@@ -122,8 +96,8 @@ func TestCreateUser(t *testing.T) {
 func TestGetUserByExternalID(t *testing.T) {
 	t.Parallel()
 
-	db, mgmt := NewContainerStore(t)
-	projectID := SetupUsers(t, mgmt)
+	db := NewContainerStore(t)
+	projectID := uuid.New()
 	ctx := context.Background()
 
 	externalID := "user_external_123"
@@ -145,8 +119,8 @@ func TestGetUserByExternalID(t *testing.T) {
 func TestGetUserByAnonymousID(t *testing.T) {
 	t.Parallel()
 
-	db, mgmt := NewContainerStore(t)
-	projectID := SetupUsers(t, mgmt)
+	db := NewContainerStore(t)
+	projectID := uuid.New()
 	ctx := context.Background()
 
 	anonymousID := "anon_unique_123"
@@ -166,8 +140,8 @@ func TestGetUserByAnonymousID(t *testing.T) {
 func TestListUsersWithSearch(t *testing.T) {
 	t.Parallel()
 
-	db, mgmt := NewContainerStore(t)
-	projectID := SetupUsers(t, mgmt)
+	db := NewContainerStore(t)
+	projectID := uuid.New()
 	ctx := context.Background()
 
 	_, err := db.CreateUser(ctx, User{
@@ -243,8 +217,8 @@ func TestListUsersWithSearch(t *testing.T) {
 func TestListUsersWithPagination(t *testing.T) {
 	t.Parallel()
 
-	db, mgmt := NewContainerStore(t)
-	projectID := SetupUsers(t, mgmt)
+	db := NewContainerStore(t)
+	projectID := uuid.New()
 	ctx := context.Background()
 
 	for i := 0; i < 5; i++ {
@@ -299,8 +273,8 @@ func TestListUsersWithPagination(t *testing.T) {
 func TestUpsertUser(t *testing.T) {
 	t.Parallel()
 
-	db, mgmt := NewContainerStore(t)
-	projectID := SetupUsers(t, mgmt)
+	db := NewContainerStore(t)
+	projectID := uuid.New()
 	ctx := context.Background()
 
 	type test struct {
@@ -382,8 +356,8 @@ func TestUpsertUser(t *testing.T) {
 func TestUpdateUserWithDataMerge(t *testing.T) {
 	t.Parallel()
 
-	db, mgmt := NewContainerStore(t)
-	projectID := SetupUsers(t, mgmt)
+	db := NewContainerStore(t)
+	projectID := uuid.New()
 	ctx := context.Background()
 
 	initialData := json.RawMessage(`{"first_name":"John","age":30,"nested":{"key":"value"}}`)
@@ -443,8 +417,8 @@ func TestUpdateUserWithDataMerge(t *testing.T) {
 func TestDeleteUser(t *testing.T) {
 	t.Parallel()
 
-	db, mgmt := NewContainerStore(t)
-	projectID := SetupUsers(t, mgmt)
+	db := NewContainerStore(t)
+	projectID := uuid.New()
 	ctx := context.Background()
 
 	userID, err := db.CreateUser(ctx, User{
@@ -464,8 +438,8 @@ func TestDeleteUser(t *testing.T) {
 func TestVersionAutoIncrement(t *testing.T) {
 	t.Parallel()
 
-	db, mgmt := NewContainerStore(t)
-	projectID := SetupUsers(t, mgmt)
+	db := NewContainerStore(t)
+	projectID := uuid.New()
 	ctx := context.Background()
 
 	userID, err := db.CreateUser(ctx, User{
@@ -546,8 +520,8 @@ func TestUserOAPIConversionWithDevices(t *testing.T) {
 func TestGetUserWithDevices(t *testing.T) {
 	t.Parallel()
 
-	db, mgmt := NewContainerStore(t)
-	projectID := SetupUsers(t, mgmt)
+	db := NewContainerStore(t)
+	projectID := uuid.New()
 	ctx := context.Background()
 
 	// Create a user
@@ -588,8 +562,8 @@ func TestGetUserWithDevices(t *testing.T) {
 func TestListUsersWithDevices(t *testing.T) {
 	t.Parallel()
 
-	db, mgmt := NewContainerStore(t)
-	projectID := SetupUsers(t, mgmt)
+	db := NewContainerStore(t)
+	projectID := uuid.New()
 	ctx := context.Background()
 
 	// Create two users

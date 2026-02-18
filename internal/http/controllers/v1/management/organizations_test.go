@@ -7,11 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/claim/rbac"
-	"github.com/lunogram/platform/internal/container"
+
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -21,24 +19,14 @@ func TestGetOrganization(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, _ := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	orgs := management.NewOrganizationsStore(db.Management)
+	orgs := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(db.Management)
+	admins := management.NewAdminsStore(mgmt)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
@@ -49,7 +37,7 @@ func TestGetOrganization(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
-	organizations := NewOrganizationsController(logger, db.Management)
+	organizations := NewOrganizationsController(logger, mgmt)
 
 	type test struct {
 		code int
@@ -90,24 +78,14 @@ func TestUpdateOrganization(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, _ := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	orgs := management.NewOrganizationsStore(db.Management)
+	orgs := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(db.Management)
+	admins := management.NewAdminsStore(mgmt)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",
@@ -118,7 +96,7 @@ func TestUpdateOrganization(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
-	organizations := NewOrganizationsController(logger, db.Management)
+	organizations := NewOrganizationsController(logger, mgmt)
 
 	type test struct {
 		body oapi.UpdateOrganizationJSONRequestBody
@@ -174,24 +152,14 @@ func TestDeleteOrganization(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, _ := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	orgs := management.NewOrganizationsStore(db.Management)
+	orgs := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(db.Management)
+	admins := management.NewAdminsStore(mgmt)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "admin@example.com",
@@ -202,7 +170,7 @@ func TestDeleteOrganization(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
-	organizations := NewOrganizationsController(logger, db.Management)
+	organizations := NewOrganizationsController(logger, mgmt)
 
 	type test struct {
 		code int
@@ -242,24 +210,14 @@ func TestGetOrganizationIntegrations(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
+	ctx := t.Context()
+	mgmt, _, _ := runPostgreSQL(t)
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
-	orgs := management.NewOrganizationsStore(db.Management)
+	orgs := management.NewOrganizationsStore(mgmt)
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
-	admins := management.NewAdminsStore(db.Management)
+	admins := management.NewAdminsStore(mgmt)
 	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
@@ -271,7 +229,7 @@ func TestGetOrganizationIntegrations(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a project for this organization
-	projects := management.NewProjectsStore(db.Management)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, management.Project{
 		OrganizationID: &orgID,
 		Name:           "Test Project",
@@ -281,7 +239,7 @@ func TestGetOrganizationIntegrations(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a provider for this project
-	providers := management.NewProvidersStore(db.Management)
+	providers := management.NewProvidersStore(mgmt)
 	providerData := []byte(`{"api_key": "test"}`)
 	_, err = providers.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
@@ -293,7 +251,7 @@ func TestGetOrganizationIntegrations(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	organizations := NewOrganizationsController(logger, db.Management)
+	organizations := NewOrganizationsController(logger, mgmt)
 
 	type test struct {
 		code int

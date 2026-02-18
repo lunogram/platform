@@ -24,11 +24,10 @@ import (
 func setupRecomputeTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream) {
 	t.Helper()
 
-	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	natsURL := container.RunNATS(t)
-	postgresURI := container.RunPostgreSQL(t)
+	mgmt, usrs, _ := runPostgreSQL(t)
 
 	cfg := config.Node{
 		Nats: config.Nats{
@@ -36,24 +35,11 @@ func setupRecomputeTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStr
 		},
 	}
 
-	err := management.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	err = users.Migrate(postgresURI)
-	require.NoError(t, err)
-
-	db, err := store.New(ctx, logger, store.Config{
-		ManagementURI: postgresURI,
-		UsersURI:      postgresURI,
-		JourneyURI:    postgresURI,
-	})
-	require.NoError(t, err)
-
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	mgmtState := management.NewState(db.Management)
-	usersState := users.NewState(db.Users)
+	mgmtState := management.NewState(mgmt)
+	usersState := users.NewState(usrs)
 
 	orgID, err := mgmtState.OrganizationsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
