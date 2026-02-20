@@ -55,7 +55,7 @@ export default function UserDetail() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>{t('details')}</CardTitle>
+                <CardTitle>{t('user_details')}</CardTitle>
             </CardHeader>
             <CardContent>
                 <JsonPreview
@@ -69,7 +69,7 @@ export default function UserDetail() {
                     disabled={!dirty || saving}
                     onClick={handleSave}
                 >
-                    {saving ? t('loading') : t('save')}
+                    {saving ? t('user_saving') : t('user_save')}
                 </Button>
             </CardFooter>
         </Card>

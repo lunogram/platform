@@ -1,5 +1,6 @@
 import { useCallback, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'react-hot-toast/headless'
 import api from '../../api'
 import { ProjectContext, UserContext } from '../../contexts'
 import { useDebounceControl } from '../../hooks'
@@ -121,7 +122,7 @@ export default function UserDetailSubscriptions() {
                                                             checked ? 'subscribed' : 'unsubscribed',
                                                         )
                                                     } catch (error) {
-                                                        console.error('Failed to update subscription', error)
+                                                        toast.error(t('subscription_update_failed'))
                                                     }
                                                 }}
                                             />

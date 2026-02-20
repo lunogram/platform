@@ -1,6 +1,6 @@
-import { useContext, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { ProjectContext, UserContext } from '../../contexts'
-import { Outlet, useNavigate, useLocation, NavLink } from 'react-router'
+import { Outlet, useNavigate, useLocation } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
     Card,
@@ -35,22 +35,28 @@ export default function UserDetail() {
     const [project] = useContext(ProjectContext)
     const [{ id, external_id, email, phone, timezone, full_name }] = useContext(UserContext)
     
-    // Determine active tab from URL
-    const pathParts = location.pathname.split('/')
-    const lastPart = pathParts[pathParts.length - 1]
-    const activeTab = ['events', 'subscriptions', 'journeys'].includes(lastPart) ? lastPart : 'details'
+    type TabValue = 'details' | 'events' | 'subscriptions' | 'journeys'
+    const [activeTab, setActiveTab] = useState<TabValue>(() => {
+        const pathParts = location.pathname.split('/')
+        const lastPart = pathParts[pathParts.length - 1]
+        return ['events', 'subscriptions', 'journeys'].includes(lastPart) ? lastPart as TabValue : 'details'
+    })
+
+    useEffect(() => {
+        const newPath = activeTab === 'details' 
+            ? location.pathname.replace(/\/(events|subscriptions|journeys)$/, '')
+            : location.pathname.replace(/\/(events|subscriptions|journeys)$/, '') + `/${activeTab}`
+        if (newPath !== location.pathname) {
+            navigate(newPath, { replace: true })
+        }
+    }, [activeTab, location.pathname, navigate])
+
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
     const deleteUser = async () => {
         await api.users.delete(project.id, id)
         await navigate(`/projects/${project.id}/users`)
         setIsDeleteDialogOpen(false)
     }
-    const userInfo = [
-        { label: t('external_id'), value: external_id },
-        { label: t('email'), value: email },
-        { label: t('phone'), value: phone },
-        { label: t('timezone'), value: timezone },
-    ]
     return (
         <div className="py-8 px-8 space-y-6">
             <Card>
@@ -61,13 +67,26 @@ export default function UserDetail() {
                         </CardTitle>
                         <CardDescription>
                             <div className="flex flex-wrap gap-2 mt-2">
-                                {userInfo.map(({ label, value }) => (
-                                    value ? (
-                                        <Badge key={label} variant="secondary" className="text-xs">
-                                            {label}: {value}
-                                        </Badge>
-                                    ) : null
-                                ))}
+                                {external_id && (
+                                    <Badge variant="secondary" className="text-xs">
+                                        {t('external_id')}: {external_id}
+                                    </Badge>
+                                )}
+                                {email && (
+                                    <Badge variant="secondary" className="text-xs">
+                                        {t('email')}: {email}
+                                    </Badge>
+                                )}
+                                {phone && (
+                                    <Badge variant="secondary" className="text-xs">
+                                        {t('phone')}: {phone}
+                                    </Badge>
+                                )}
+                                {timezone && (
+                                    <Badge variant="secondary" className="text-xs">
+                                        {t('timezone')}: {timezone}
+                                    </Badge>
+                                )}
                             </div>
                         </CardDescription>
                     </div>
@@ -82,20 +101,12 @@ export default function UserDetail() {
                 </CardHeader>
                 <Separator />
                 <CardContent className="pt-6">
-                    <Tabs value={activeTab} className="w-full">
+                    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabValue)} className="w-full">
                         <TabsList>
-                            <TabsTrigger value="details" asChild>
-                                <NavLink to="" end>{t('details')}</NavLink>
-                            </TabsTrigger>
-                            <TabsTrigger value="events" asChild>
-                                <NavLink to="events">{t('events')}</NavLink>
-                            </TabsTrigger>
-                            <TabsTrigger value="subscriptions" asChild>
-                                <NavLink to="subscriptions">{t('subscriptions')}</NavLink>
-                            </TabsTrigger>
-                            <TabsTrigger value="journeys" asChild>
-                                <NavLink to="journeys">{t('journeys')}</NavLink>
-                            </TabsTrigger>
+                            <TabsTrigger value="details">{t('details')}</TabsTrigger>
+                            <TabsTrigger value="events">{t('events')}</TabsTrigger>
+                            <TabsTrigger value="subscriptions">{t('subscriptions')}</TabsTrigger>
+                            <TabsTrigger value="journeys">{t('journeys')}</TabsTrigger>
                         </TabsList>
                     </Tabs>
                     <div className="mt-6">

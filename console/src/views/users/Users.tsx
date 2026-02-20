@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { useForm } from 'react-hook-form'
+import { CreateUserForm } from './CreateUserForm'
+import { BulkRemoveUsersForm } from './BulkRemoveUsersForm'
 import api from '../../api'
 import { useSearchTableQueryState } from '../../ui/SearchTable'
 import { useRoute } from '../router'
@@ -78,7 +80,7 @@ export declare namespace Intl {
 }
 
 export default function UserTabs() {
-    const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
+    const { projectId = NIL } = useParams<{ projectId: UUID }>()
     const { t } = useTranslation()
     const route = useRoute()
     const timeZones = Intl.supportedValuesOf('timeZone')
@@ -156,20 +158,20 @@ export default function UserTabs() {
                             <TableHead>{t('email')}</TableHead>
                             <TableHead>{t('phone')}</TableHead>
                             <TableHead>{t('locale.singular')}</TableHead>
-                                                        <TableHead
+                            <TableHead
                                 className="cursor-pointer select-none"
                                 onClick={() =>
                                     state.setParams({
                                         ...state.params,
-                                        sort: 'created_at',
+                                        sort: 'name',
                                         direction:
-                                            state.params.sort === 'created_at' && state.params.direction === 'asc'
+                                            state.params.sort === 'name' && state.params.direction === 'asc'
                                                 ? 'desc'
                                                 : 'asc',
                                     })
                                 }
                             >
-                                {t('created_at')}
+                                {t('name')}
                             </TableHead>
                         </TableRow>
                     </TableHeader>
@@ -249,7 +251,6 @@ export default function UserTabs() {
                 </Pagination>
             )}
         </div>
-        </div>
 
         <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
             <DialogContent>
@@ -273,172 +274,4 @@ export default function UserTabs() {
             </DialogContent>
         </Dialog>
     </>
-}
-
-function CreateUserForm({ defaultUser, timeZones, onSubmit }: { defaultUser: Pick<User, 'timezone' | 'locale' | 'data'>, timeZones: string[], onSubmit: (user: User) => Promise<void> }) {
-    const { t } = useTranslation()
-    const [isLoading, setIsLoading] = useState(false)
-    const form = useForm<User>({
-        defaultValues: defaultUser,
-    })
-
-    const handleSubmit = async (data: User) => {
-        if (isLoading) return
-        setIsLoading(true)
-        try {
-            await onSubmit(data)
-        } catch (error: unknown) {
-            console.error('Error creating user', error)
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
-    return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <FormField
-                    control={form.control}
-                    name="full_name"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>{t('full_name')}</FormLabel>
-                            <FormControl>
-                                <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>{t('email')}</FormLabel>
-                            <FormControl>
-                                <Input {...field} type="email" />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>{t('phone')}</FormLabel>
-                            <FormControl>
-                                <Input {...field} type="tel" placeholder="+31612345678" />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="timezone"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>{t('timezone')}</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={t('timezone')} />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent side="bottom" className="max-h-[200px]">
-                                    {timeZones.map((tz) => (
-                                        <SelectItem key={tz} value={tz}>
-                                            {tz}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="locale"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>{t('locale.singular')}</FormLabel>
-                            <FormControl>
-                                <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? t('loading') : t('create')}
-                </Button>
-            </form>
-        </Form>
-    )
-}
-
-function BulkRemoveUsersForm({ onSubmit }: { onSubmit: (file: FileList) => Promise<void> }) {
-    const { t } = useTranslation()
-    const form = useForm<{ file: FileList }>()
-    const [fileName, setFileName] = useState<string>('')
-    const fileInputRef = useRef<HTMLInputElement>(null)
-
-    return (
-        <Form {...form}>
-            <form
-                onSubmit={form.handleSubmit(async (data) => {
-                    await onSubmit(data.file)
-                })}
-                className="space-y-5"
-            >
-                <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4">
-                    <p className="text-sm leading-relaxed text-amber-900 dark:text-amber-200">
-                        {t('delete_users_instructions')}
-                    </p>
-                </div>
-                <FormField
-                    control={form.control}
-                    name="file"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>{t('file')}</FormLabel>
-                            <FormControl>
-                                <div className="flex items-center gap-3">
-                                    <Input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        className="sr-only"
-                                        onChange={(e) => {
-                                            field.onChange(e.target.files)
-                                            setFileName(e.target.files?.[0]?.name || '')
-                                        }}
-                                        required
-                                        accept=".csv"
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => fileInputRef.current?.click()}
-                                    >
-                                        {t('upload')}
-                                    </Button>
-                                    <span className="text-sm text-muted-foreground">
-                                        {fileName}
-                                    </span>
-                                </div>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <Button type="submit" variant="destructive" className="w-full">
-                    {t('delete')}
-                </Button>
-            </form>
-        </Form>
-    )
 }

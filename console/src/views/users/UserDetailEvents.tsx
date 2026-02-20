@@ -49,7 +49,6 @@ export default function UserDetailEvents() {
     const [results] = useResolver(useCallback(async () => await api.users.events(projectId, userId, params), [projectId, userId, params]))
     const [event, setEvent] = useState<UserEvent>()
     const hasPreview = !!event?.data?.result?.message?.html
-    const isFullscreen = hasPreview
 
     return (
         <div className="space-y-4">
@@ -148,7 +147,7 @@ export default function UserDetailEvents() {
             </Card>
 
             <Dialog open={!!event} onOpenChange={(open) => !open && setEvent(undefined)}>
-                <DialogContent className={isFullscreen ? 'max-w-[95vw] w-[95vw] h-[90vh]' : 'max-w-3xl'}>
+                <DialogContent className={hasPreview ? 'max-w-[95vw] w-[95vw] h-[90vh]' : 'max-w-3xl'}>
                     <DialogHeader>
                         <DialogTitle>{event?.name}</DialogTitle>
                         {event && !hasPreview && (
