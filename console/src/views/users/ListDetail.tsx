@@ -17,7 +17,7 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal, Users } from 'lucide-react'
 import { useBlocker } from 'react-router'
 import {
     Dialog,
@@ -90,7 +90,7 @@ export default function ListDetail() {
     const [isSaving, setIsSaving] = useState(false)
     const [error, setError] = useState<string | undefined>()
     const [editName, setEditName] = useState(list.name)
-    const [uploadFile, setUploadFile] = useState<File | null>(null)
+    const [uploadFile, setUploadFile] = useState<File | undefined>(undefined)
 
     const state = useSearchTableState(useCallback(async params => await api.lists.users(project.id, list.id, params), [list, project]))
     const route = useRoute()
@@ -155,7 +155,7 @@ export default function ListDetail() {
         await api.lists.upload(project.id, list.id, uploadFile)
         refreshList()
         setIsUploadOpen(false)
-        setUploadFile(null)
+        setUploadFile(undefined)
     }
 
     const handleRecountList = async () => {
@@ -286,12 +286,6 @@ export default function ListDetail() {
                                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                     </TableRow>
                                 ))
-                            ) : state.results.results.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">
-                                        {t('loading')}...
-                                    </TableCell>
-                                </TableRow>
                             ) : (
                                 state.results.results.map((user) => (
                                     <TableRow
@@ -309,7 +303,18 @@ export default function ListDetail() {
                         </TableBody>
                     </Table>
                 </div>
-                {state.results && (
+                {state.results && state.results.results.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="rounded-full bg-muted p-4 mb-4">
+                            <Users className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">{t('no_users_title')}</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm">
+                            {t('no_users_description')}
+                        </p>
+                    </div>
+                )}
+                {state.results && state.results.results.length > 0 && (
                     <Pagination className="mt-4">
                         <PaginationContent>
                             <PaginationItem>
@@ -382,7 +387,7 @@ export default function ListDetail() {
                             </label>
                             <Input
                                 type="file"
-                                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                                onChange={(e) => setUploadFile(e.target.files?.[0] || undefined)}
                                 required
                             />
                         </Field>

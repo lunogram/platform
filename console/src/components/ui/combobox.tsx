@@ -100,7 +100,7 @@ export function Combobox<T extends PathOption>({
               required={required}
               disabled={disabled}
               placeholder={placeholder}
-              className={cn("h-8 rounded-l-md rounded-r-none shadow-none", inputClassName)}
+              className={cn("h-9 rounded-l-md rounded-r-none", inputClassName)}
             />
             <Button
               variant="outline"
@@ -109,7 +109,7 @@ export function Combobox<T extends PathOption>({
               type="button"
               disabled={disabled}
               className={cn(
-                "h-8 w-9 rounded-r-md rounded-l-none border-l-0 px-0 shadow-none",
+                "h-9 w-9 rounded-r-md rounded-l-none border-l-0 px-0",
                 buttonClassName
               )}
             >

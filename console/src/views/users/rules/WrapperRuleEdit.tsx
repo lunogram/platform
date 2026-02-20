@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { PlusIcon, TrashIcon } from "../../../components/icons";
 import { createUuid } from "../../../utils";
 import EventRuleEdit from "./EventRuleEdit";
-import type { RuleEditProps } from "./RuleHelpers";
+import type { ButtonControl, RuleEditProps } from "./RuleHelpers";
 import { createEventRule, isEventWrapper, operatorTypes } from "./RuleHelpers";
 import type { EventRule, WrapperRule } from "../../../types";
 import RuleEdit from "./RuleEdit";
@@ -69,8 +69,8 @@ export default function WrapperRuleEdit({
           </>
         )}
         <div className="flex-grow" />
-        {isEventWrapper(rule) && controls && typeof controls === 'object' && 'props' in controls && (
-          <Button size="sm" variant="outline" onClick={(controls as { props: { onClick: () => void } }).props.onClick}>
+        {isEventWrapper(rule) && controls && 'props' in (controls as ButtonControl) && (
+          <Button size="sm" variant="outline" onClick={(controls as ButtonControl).props.onClick}>
             <TrashIcon />
           </Button>
         )}

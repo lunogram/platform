@@ -1,7 +1,14 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { createContext } from 'react'
 import type { EventRule, Operator, Rule, RuleGroup, RuleType, VariableSuggestions, WrapperRule } from '../../../types'
 import { createUuid } from '../../../utils'
+
+export type ButtonControl = ReactElement<{
+  size?: string;
+  variant?: string;
+  className?: string;
+  onClick?: () => void;
+}>;
 
 export interface GroupedRule extends Omit<Rule, 'value'> {
     value?: string | string[]
@@ -163,6 +170,6 @@ export interface RuleEditProps<T extends Rule = Rule> {
     group: RuleGroup
     eventName?: string
     depth?: number
-    controls?: ReactNode
+    controls?: ReactNode | ButtonControl
     headerPrefix?: ReactNode
 }

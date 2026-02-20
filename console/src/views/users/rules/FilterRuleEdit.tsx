@@ -3,7 +3,7 @@ import { highlightSearch, usePopperSelectDropdown } from "../../../ui/utils";
 import type { RuleEditProps } from "./RuleHelpers";
 import { operatorTypes, VariablesContext, ruleTypes } from "./RuleHelpers";
 import { Combobox } from "@/components/ui/combobox";
-import type { EventSchemaPath, RulePath } from "../../../types";
+import type { EventSchemaPath, RulePath, RuleType, Operator } from "../../../types";
 import {
   Select,
   SelectContent,
@@ -56,12 +56,12 @@ export default function FilterRuleEdit({
     return paths;
   }, [suggestions, isEventGroup, eventName, path]);
 
-  const getOptionDataType = (option: PathOption): string => {
+  const getOptionDataType = (option: PathOption): RuleType => {
     if ("types" in option) {
-      return option.types[0] || "string";
+      return (option.types[0] || "string") as RuleType;
     }
 
-    return option.data_type;
+    return option.data_type as RuleType;
   };
 
   const typeOption = ruleTypes.find((opt) => opt.key === rule?.type);
@@ -74,8 +74,8 @@ export default function FilterRuleEdit({
       <div className="inline-flex items-stretch">
         <Select
           value={rule?.type}
-          onValueChange={(type) =>
-            setRule({ ...rule, type: type as typeof rule.type })
+          onValueChange={(type: RuleType) =>
+            setRule({ ...rule, type })
           }
         >
           <SelectTrigger className="h-9 w-auto rounded-r-none border-r-0 text-sm">
@@ -100,7 +100,7 @@ export default function FilterRuleEdit({
             if (suggestion) {
               setRule({
                 ...rule,
-                type: getOptionDataType(suggestion) as typeof rule.type,
+                type: getOptionDataType(suggestion),
                 path: suggestion.path,
               });
             } else {
@@ -122,8 +122,8 @@ export default function FilterRuleEdit({
         />
         <Select
           value={rule?.operator}
-          onValueChange={(operator) =>
-            setRule({ ...rule, operator: operator as typeof rule.operator })
+          onValueChange={(operator: Operator) =>
+            setRule({ ...rule, operator })
           }
         >
           <SelectTrigger className="h-9 w-auto rounded-none border-x-0 text-sm">
@@ -141,13 +141,7 @@ export default function FilterRuleEdit({
         </Select>
         {hasValue && rule.type === "boolean" ? (
           <Select
-            value={
-              rule.value === "true"
-                ? "true"
-                : rule.value === "false"
-                  ? "false"
-                  : undefined
-            }
+            value={rule.value === "true" || rule.value === "false" ? rule.value : undefined}
             onValueChange={(value) => setRule({ ...rule, value })}
           >
             <SelectTrigger className="h-9 w-auto rounded-l-none text-sm">

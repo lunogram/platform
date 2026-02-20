@@ -80,7 +80,7 @@ function ListTable({ search, selectedRow, onSelectRow, title }: ListTableParams)
     const route = useRoute()
     const { t } = useTranslation()
     const navigate = useNavigate()
-    const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
+    const { projectId = NIL } = useParams<{ projectId: UUID }>()
     const [preferences] = useContext(PreferencesContext)
     const [isCreateListOpen, setIsCreateListOpen] = useState(false)
 
@@ -154,12 +154,6 @@ function ListTable({ search, selectedRow, onSelectRow, title }: ListTableParams)
                                         <TableCell></TableCell>
                                     </TableRow>
                                 ))
-                            ) : state.results.results.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
-                                        {t('no_results')}
-                                    </TableCell>
-                                </TableRow>
                             ) : (
                                 state.results.results.map((list: List) => (
                                     <TableRow
@@ -169,7 +163,7 @@ function ListTable({ search, selectedRow, onSelectRow, title }: ListTableParams)
                                         tabIndex={0}
                                         role="button"
                                         onKeyDown={(event) => {
-                                            if (event.key === 'Enter' || event.key === ' ') {
+                                            if (event.key === 'Enter') {
                                                 event.preventDefault()
                                                 handleOnSelectRow(list)
                                             }
@@ -216,7 +210,18 @@ function ListTable({ search, selectedRow, onSelectRow, title }: ListTableParams)
                         </TableBody>
                     </Table>
                 </div>
-                {state.results && (
+                {state.results && state.results.results.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="rounded-full bg-muted p-4 mb-4">
+                            <Search className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">{t('no_results_title')}</h3>
+                        <p className="text-sm text-muted-foreground max-w-sm">
+                            {t('no_results_description')}
+                        </p>
+                    </div>
+                )}
+                {state.results && state.results.results.length > 0 && (
                     <Pagination className="mt-4">
                         <PaginationContent>
                             <PaginationItem>
@@ -264,7 +269,7 @@ function ListTable({ search, selectedRow, onSelectRow, title }: ListTableParams)
 }
 
 export default function Lists() {
-    const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
+    const { projectId = NIL } = useParams<{ projectId: UUID }>()
     const search = useCallback(async (params: SearchParams) => await api.lists.search(projectId, params), [projectId])
 
     return (

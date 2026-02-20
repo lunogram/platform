@@ -27,12 +27,12 @@ export default function EventRuleEdit({
   if (eventName) {
     if (rule.children?.length) {
       return (
-        <>
+      <>
           {t("rule_matching")}
           <Select
             value={rule.operator}
-            onValueChange={(operator) =>
-              setRule({ ...rule, operator: operator as "and" | "or" })
+            onValueChange={(operator: "and" | "or") =>
+              setRule({ ...rule, operator })
             }
           >
             <SelectTrigger className="h-8 w-auto inline-flex text-sm">
@@ -80,6 +80,21 @@ export default function EventRuleEdit({
     ? periodUnits.find((opt) => opt.key === rollingPeriod.unit)
     : undefined;
 
+  const updateRollingPeriod = (periodUpdate: Partial<typeof frequency.period>) => {
+    const period = frequency.period;
+    if (period.type !== "rolling") return;
+    setRule({
+      ...rule,
+      frequency: {
+        ...frequency,
+        period: {
+          ...period,
+          ...periodUpdate,
+        },
+      },
+    });
+  };
+
   return (
     <>
       {t("rule_did")}
@@ -89,12 +104,12 @@ export default function EventRuleEdit({
       <div className="inline-flex items-center gap-1 mx-1">
         <Select
           value={frequency.operator}
-          onValueChange={(operator) =>
+          onValueChange={(operator: EventRuleFrequency["operator"]) =>
             setRule({
               ...rule,
               frequency: {
                 ...(rule.frequency ?? frequency),
-                operator: operator as EventRuleFrequency["operator"],
+                operator,
               },
             })
           }
@@ -144,35 +159,13 @@ export default function EventRuleEdit({
               placeholder="Value"
               value={frequency.period.value.toString()}
               onChange={(e) => {
-                if (frequency.period.type !== "rolling") return;
-                const period = frequency.period;
-                setRule({
-                  ...rule,
-                  frequency: {
-                    ...frequency,
-                    period: {
-                      ...period,
-                      value: parseInt(e.target.value, 10) || 1,
-                    },
-                  },
-                });
+                updateRollingPeriod({ value: parseInt(e.target.value, 10) || 1 });
               }}
             />
             <Select
               value={frequency.period.unit}
-              onValueChange={(unit) => {
-                if (frequency.period.type !== "rolling") return;
-                const period = frequency.period;
-                setRule({
-                  ...rule,
-                  frequency: {
-                    ...frequency,
-                    period: {
-                      ...period,
-                      unit: unit as typeof period.unit,
-                    },
-                  },
-                });
+              onValueChange={(unit: typeof frequency.period.unit) => {
+                updateRollingPeriod({ unit });
               }}
             >
               <SelectTrigger className="h-8 w-auto text-sm">
@@ -196,8 +189,8 @@ export default function EventRuleEdit({
           {t("rule_matching")}
           <Select
             value={rule.operator}
-            onValueChange={(operator) =>
-              setRule({ ...rule, operator: operator as "and" | "or" })
+            onValueChange={(operator: "and" | "or") =>
+              setRule({ ...rule, operator })
             }
           >
             <SelectTrigger className="h-8 w-auto inline-flex text-sm">

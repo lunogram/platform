@@ -83,7 +83,7 @@ export function ListCreateForm({ onCreated }: ListCreateFormProps) {
                                     />
                                     <label
                                         htmlFor="dynamic"
-                                        className="flex items-center justify-center px-4 py-2 rounded-sm text-sm font-medium cursor-pointer transition-colors peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground"
+                                        className="flex items-center justify-center w-full px-4 py-2 rounded-md border bg-card text-sm font-medium cursor-pointer transition-colors hover:bg-muted peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:hover:bg-primary/90"
                                     >
                                         {t('dynamic')}
                                     </label>
@@ -96,7 +96,7 @@ export function ListCreateForm({ onCreated }: ListCreateFormProps) {
                                     />
                                     <label
                                         htmlFor="static"
-                                        className="flex items-center justify-center px-4 py-2 rounded-sm text-sm font-medium cursor-pointer transition-colors peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground"
+                                        className="flex items-center justify-center w-full px-4 py-2 rounded-md border bg-card text-sm font-medium cursor-pointer transition-colors hover:bg-muted peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:hover:bg-primary/90"
                                     >
                                         {t('static')}
                                     </label>
