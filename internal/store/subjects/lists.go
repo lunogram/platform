@@ -300,6 +300,44 @@ func (s *ListsStore) SelectListUsersDependency(ctx context.Context, projectID uu
 	return result, nil
 }
 
+// SelectListOrganizationsDependency returns list IDs that have rules depending on organization data.
+func (s *ListsStore) SelectListOrganizationsDependency(ctx context.Context, projectID uuid.UUID) ([]uuid.UUID, error) {
+	query := `
+	SELECT l.id
+	FROM lists l
+	JOIN rules r ON l.rule_id = r.id
+	WHERE l.project_id = $1
+	AND r.depends_on_organizations = TRUE
+	AND l.deleted_at IS NULL`
+
+	var result []uuid.UUID
+	err := s.db.SelectContext(ctx, &result, query, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// SelectListOrganizationUsersDependency returns list IDs that have rules depending on organization user data.
+func (s *ListsStore) SelectListOrganizationUsersDependency(ctx context.Context, projectID uuid.UUID) ([]uuid.UUID, error) {
+	query := `
+	SELECT l.id
+	FROM lists l
+	JOIN rules r ON l.rule_id = r.id
+	WHERE l.project_id = $1
+	AND r.depends_on_organization_users = TRUE
+	AND l.deleted_at IS NULL`
+
+	var result []uuid.UUID
+	err := s.db.SelectContext(ctx, &result, query, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 type RecomputeAction string
 
 const (

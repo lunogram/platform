@@ -75,7 +75,7 @@ func PublishUserRecomputeLists(ctx context.Context, logger *zap.Logger, usrs *su
 func PublishUserEvents(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, user schemas.User) (err error) {
 	// NOTE: the user is created, let's publish a different event
 	if user.Version == 0 {
-		err = pub.Publish(ctx, schemas.EventsProcess(user.ProjectID), user.Event(schemas.EventUserCreated))
+		err = pub.Publish(ctx, schemas.UserEventsProcess(user.ProjectID), user.UserEvent(schemas.EventUserCreated))
 		if err != nil {
 			logger.Error("failed to publish user created event", zap.Error(err))
 			return err
@@ -84,7 +84,7 @@ func PublishUserEvents(ctx context.Context, logger *zap.Logger, pub pubsub.Publi
 		return nil
 	}
 
-	err = pub.Publish(ctx, schemas.EventsProcess(user.ProjectID), user.Event(schemas.EventUserUpdated))
+	err = pub.Publish(ctx, schemas.UserEventsProcess(user.ProjectID), user.UserEvent(schemas.EventUserUpdated))
 	if err != nil {
 		logger.Error("failed to publish user updated event", zap.Error(err))
 		return err

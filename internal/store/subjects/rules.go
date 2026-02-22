@@ -10,15 +10,17 @@ import (
 )
 
 type Rule struct {
-	ID              uuid.UUID                  `db:"id"`
-	ProjectID       uuid.UUID                  `db:"project_id"`
-	Rule            store.JSONB[rules.RuleSet] `db:"rule"`
-	DependsOnEvents bool                       `db:"depends_on_events"`
-	DependsOnUsers  bool                       `db:"depends_on_users"`
-	Events          []uuid.UUID                `db:"events"`
-	Version         int                        `db:"version"`
-	CreatedAt       time.Time                  `db:"created_at"`
-	UpdatedAt       time.Time                  `db:"updated_at"`
+	ID                         uuid.UUID                  `db:"id"`
+	ProjectID                  uuid.UUID                  `db:"project_id"`
+	Rule                       store.JSONB[rules.RuleSet] `db:"rule"`
+	DependsOnEvents            bool                       `db:"depends_on_events"`
+	DependsOnUsers             bool                       `db:"depends_on_users"`
+	DependsOnOrganizations     bool                       `db:"depends_on_organizations"`
+	DependsOnOrganizationUsers bool                       `db:"depends_on_organization_users"`
+	Events                     []uuid.UUID                `db:"events"`
+	Version                    int                        `db:"version"`
+	CreatedAt                  time.Time                  `db:"created_at"`
+	UpdatedAt                  time.Time                  `db:"updated_at"`
 }
 
 func NewRulesStore(db store.DB) *RulesStore {
@@ -34,31 +36,35 @@ type RulesStore struct {
 func (s *RulesStore) CreateOrUpdateRule(ctx context.Context, projectID uuid.UUID, id *uuid.UUID, rule rules.RuleSet) (uuid.UUID, error) {
 	if id != nil {
 		err := s.UpdateRule(ctx, projectID, *id, RuleUpdate{
-			Rule:            &store.JSONB[rules.RuleSet]{Data: rule},
-			DependsOnEvents: rule.DependsOnEvents(),
-			DependsOnUsers:  rule.DependsOnUsers(),
+			Rule:                       &store.JSONB[rules.RuleSet]{Data: rule},
+			DependsOnEvents:            rule.DependsOnEvents(),
+			DependsOnUsers:             rule.DependsOnUsers(),
+			DependsOnOrganizations:     rule.DependsOnOrganizations(),
+			DependsOnOrganizationUsers: rule.DependsOnOrganizationUsers(),
 		})
 
 		return *id, err
 	}
 
 	return s.CreateRule(ctx, Rule{
-		ProjectID:       projectID,
-		Rule:            store.JSONB[rules.RuleSet]{Data: rule},
-		DependsOnEvents: rule.DependsOnEvents(),
-		DependsOnUsers:  rule.DependsOnUsers(),
-		Version:         1,
+		ProjectID:                  projectID,
+		Rule:                       store.JSONB[rules.RuleSet]{Data: rule},
+		DependsOnEvents:            rule.DependsOnEvents(),
+		DependsOnUsers:             rule.DependsOnUsers(),
+		DependsOnOrganizations:     rule.DependsOnOrganizations(),
+		DependsOnOrganizationUsers: rule.DependsOnOrganizationUsers(),
+		Version:                    1,
 	})
 }
 
 func (s *RulesStore) CreateRule(ctx context.Context, rule Rule) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO rules (project_id, rule, depends_on_events, depends_on_users, version)
-	VALUES ($1, $2, $3, $4, $5)
+	INSERT INTO rules (project_id, rule, depends_on_events, depends_on_users, depends_on_organizations, depends_on_organization_users, version)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
 	RETURNING id`
 
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, rule.ProjectID, rule.Rule, rule.DependsOnEvents, rule.DependsOnUsers, rule.Version)
+	err := s.db.GetContext(ctx, &id, stmt, rule.ProjectID, rule.Rule, rule.DependsOnEvents, rule.DependsOnUsers, rule.DependsOnOrganizations, rule.DependsOnOrganizationUsers, rule.Version)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -96,6 +102,8 @@ func (s *RulesStore) GetRule(ctx context.Context, projectID, ruleID uuid.UUID) (
 		r.rule,
 		r.depends_on_events,
 		r.depends_on_users,
+		r.depends_on_organizations,
+		r.depends_on_organization_users,
 		COALESCE(
 			(
 				SELECT array_agg(re.event_id)
@@ -121,9 +129,11 @@ func (s *RulesStore) GetRule(ctx context.Context, projectID, ruleID uuid.UUID) (
 }
 
 type RuleUpdate struct {
-	Rule            *store.JSONB[rules.RuleSet]
-	DependsOnEvents bool
-	DependsOnUsers  bool
+	Rule                       *store.JSONB[rules.RuleSet]
+	DependsOnEvents            bool
+	DependsOnUsers             bool
+	DependsOnOrganizations     bool
+	DependsOnOrganizationUsers bool
 }
 
 func (s *RulesStore) UpdateRule(ctx context.Context, projectID, id uuid.UUID, update RuleUpdate) error {
@@ -132,11 +142,13 @@ func (s *RulesStore) UpdateRule(ctx context.Context, projectID, id uuid.UUID, up
 	SET
 		rule = COALESCE($3, rule),
 		depends_on_events = $4,
-		depends_on_users = $5
+		depends_on_users = $5,
+		depends_on_organizations = $6,
+		depends_on_organization_users = $7
 	WHERE project_id = $1
 	AND id = $2`
 
-	_, err := s.db.ExecContext(ctx, query, projectID, id, update.Rule, update.DependsOnEvents, update.DependsOnUsers)
+	_, err := s.db.ExecContext(ctx, query, projectID, id, update.Rule, update.DependsOnEvents, update.DependsOnUsers, update.DependsOnOrganizations, update.DependsOnOrganizationUsers)
 	return err
 }
 

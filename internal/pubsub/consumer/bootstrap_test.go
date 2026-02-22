@@ -40,23 +40,23 @@ func TestBootstrapCreatesStreamsAndConsumers(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	stream, err := jet.Stream(ctx, StreamEvents)
+	stream, err := jet.Stream(ctx, StreamUserEvents)
 	require.NoError(t, err)
 	assert.NotNil(t, stream)
 
 	info, err := stream.Info(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, StreamEvents, info.Config.Name)
-	assert.Contains(t, info.Config.Subjects, "events.>")
+	assert.Equal(t, StreamUserEvents, info.Config.Name)
+	assert.Contains(t, info.Config.Subjects, "users.events.>")
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
+	consumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
 	require.NoError(t, err)
 	assert.NotNil(t, consumer)
 
 	consumerInfo, err := consumer.Info(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, ConsumerEventsProcess, consumerInfo.Name)
-	assert.Equal(t, "events.process.>", consumerInfo.Config.FilterSubject)
+	assert.Equal(t, ConsumerUserEventsProcess, consumerInfo.Name)
+	assert.Equal(t, "users.events.process.>", consumerInfo.Config.FilterSubject)
 }
 
 func TestBootstrapCreatesRecomputeStream(t *testing.T) {
@@ -96,8 +96,8 @@ func TestBootstrapCreatesAllConsumers(t *testing.T) {
 	}
 
 	consumers := []consumer{
-		{StreamEvents, ConsumerEventsProcess, "events.process.>"},
-		{StreamEvents, ConsumerEventsSchema, "events.schema.>"},
+		{StreamUserEvents, ConsumerUserEventsProcess, "users.events.process.>"},
+		{StreamUserEvents, ConsumerUserEventsSchema, "users.events.schema.>"},
 		{StreamJourneys, ConsumerJourneysAdvance, "journeys.advance.>"},
 		{StreamLists, ConsumerListsRecompute, "lists.recompute.>"},
 	}
@@ -126,7 +126,7 @@ func TestBootstrapIdempotent(t *testing.T) {
 	err = Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	stream, err := jet.Stream(ctx, StreamEvents)
+	stream, err := jet.Stream(ctx, StreamUserEvents)
 	require.NoError(t, err)
 	assert.NotNil(t, stream)
 }
@@ -194,7 +194,7 @@ func TestBootstrapperStreamRetention(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	stream, err := jet.Stream(ctx, StreamEvents)
+	stream, err := jet.Stream(ctx, StreamUserEvents)
 	require.NoError(t, err)
 
 	info, err := stream.Info(ctx)

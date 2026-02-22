@@ -104,7 +104,7 @@ func TestUserEvent(t *testing.T) {
 		Version: 5,
 	}
 
-	event := user.Event("test_event")
+	event := user.UserEvent("test_event")
 
 	assert.Equal(t, "test_event", event.Name)
 	assert.Equal(t, projectID, event.ProjectID)
@@ -196,13 +196,13 @@ func TestUsersHandlerPublishesUserCreatedEvent(t *testing.T) {
 	err = handler(ctx, msg)
 	require.NoError(t, err)
 
-	eventConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
+	eventConsumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
 	require.NoError(t, err)
 
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
 	require.NoError(t, err)
 
-	var receivedEvent schemas.Event
+	var receivedEvent schemas.UserEvent
 	err = json.Unmarshal(eventMsg.Data(), &receivedEvent)
 	require.NoError(t, err)
 	assert.Equal(t, schemas.EventUserCreated, receivedEvent.Name)
@@ -245,13 +245,13 @@ func TestUsersHandlerPublishesUserUpdatedEvent(t *testing.T) {
 	err = handler(ctx, msg)
 	require.NoError(t, err)
 
-	eventConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
+	eventConsumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
 	require.NoError(t, err)
 
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
 	require.NoError(t, err)
 
-	var receivedEvent schemas.Event
+	var receivedEvent schemas.UserEvent
 	err = json.Unmarshal(eventMsg.Data(), &receivedEvent)
 	require.NoError(t, err)
 	assert.Equal(t, schemas.EventUserUpdated, receivedEvent.Name)
@@ -532,8 +532,8 @@ func TestPublishUserEventsUserCreated(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamEvents,
-		Subjects: []string{"events.>"},
+		Name:     StreamUserEvents,
+		Subjects: []string{"users.events.>"},
 	})
 	require.NoError(t, err)
 
@@ -563,8 +563,8 @@ func TestPublishUserEventsUserUpdated(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamEvents,
-		Subjects: []string{"events.>"},
+		Name:     StreamUserEvents,
+		Subjects: []string{"users.events.>"},
 	})
 	require.NoError(t, err)
 

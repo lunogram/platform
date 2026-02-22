@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func setupEventsTest(t *testing.T) (mgmtDB, usrsDB, jrnyDB *sqlx.DB, projectID uuid.UUID, jet jetstream.JetStream) {
+func setupUserEventsTest(t *testing.T) (mgmtDB, usrsDB, jrnyDB *sqlx.DB, projectID uuid.UUID, jet jetstream.JetStream) {
 	t.Helper()
 
 	ctx := graceful.NewContext(t.Context())
@@ -55,10 +55,10 @@ func setupEventsTest(t *testing.T) (mgmtDB, usrsDB, jrnyDB *sqlx.DB, projectID u
 	return mgmtDB, usrsDB, jrnyDB, projectID, jet
 }
 
-func TestEventsProjectHandlerSuccess(t *testing.T) {
+func TestUserEventsProjectHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
-	_, usrsDB, jrnyDB, projectID, jet := setupEventsTest(t)
+	_, usrsDB, jrnyDB, projectID, jet := setupUserEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
@@ -74,9 +74,9 @@ func TestEventsProjectHandlerSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := EventsHandler(logger, usersState, journeyState, pub)
+	handler := UserEventsHandler(logger, usersState, journeyState, pub)
 
-	event := schemas.Event{
+	event := schemas.UserEvent{
 		Name:      "test_event",
 		ProjectID: projectID,
 		UserID:    userID,
@@ -85,10 +85,10 @@ func TestEventsProjectHandlerSuccess(t *testing.T) {
 		},
 	}
 
-	err = pub.Publish(ctx, schemas.Subject(schemas.EventsProcess(projectID)), event)
+	err = pub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
+	consumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -100,23 +100,23 @@ func TestEventsProjectHandlerSuccess(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	schemaConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsSchema)
+	schemaConsumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsSchema)
 	require.NoError(t, err)
 
 	schemaMsg, err := schemaConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
 	require.NoError(t, err)
 
-	var receivedEvent schemas.Event
+	var receivedEvent schemas.UserEvent
 	err = json.Unmarshal(schemaMsg.Data(), &receivedEvent)
 	require.NoError(t, err)
 	assert.NotEqual(t, uuid.Nil, receivedEvent.ID)
 	assert.Equal(t, "test_event", receivedEvent.Name)
 }
 
-func TestEventsProjectHandlerWithoutData(t *testing.T) {
+func TestUserEventsProjectHandlerWithoutData(t *testing.T) {
 	t.Parallel()
 
-	_, usrsDB, jrnyDB, projectID, jet := setupEventsTest(t)
+	_, usrsDB, jrnyDB, projectID, jet := setupUserEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
@@ -132,19 +132,19 @@ func TestEventsProjectHandlerWithoutData(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := EventsHandler(logger, usersState, journeyState, pub)
+	handler := UserEventsHandler(logger, usersState, journeyState, pub)
 
-	event := schemas.Event{
+	event := schemas.UserEvent{
 		Name:      "test_event_no_data",
 		ProjectID: projectID,
 		UserID:    userID,
 		Data:      nil,
 	}
 
-	err = pub.Publish(ctx, schemas.Subject(schemas.EventsProcess(projectID)), event)
+	err = pub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
+	consumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -156,17 +156,17 @@ func TestEventsProjectHandlerWithoutData(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	schemaConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsSchema)
+	schemaConsumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsSchema)
 	require.NoError(t, err)
 
 	_, err = schemaConsumer.Next(jetstream.FetchMaxWait(1 * time.Second))
 	assert.Error(t, err)
 }
 
-func TestEventsProjectHandlerWithIdentifiers(t *testing.T) {
+func TestUserEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	t.Parallel()
 
-	_, usrsDB, jrnyDB, projectID, jet := setupEventsTest(t)
+	_, usrsDB, jrnyDB, projectID, jet := setupUserEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
@@ -185,9 +185,9 @@ func TestEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	handler := EventsHandler(logger, usersState, journeyState, pub)
+	handler := UserEventsHandler(logger, usersState, journeyState, pub)
 
-	event := schemas.Event{
+	event := schemas.UserEvent{
 		Name:        "user_action",
 		ProjectID:   projectID,
 		ExternalId:  &externalID,
@@ -197,10 +197,10 @@ func TestEventsProjectHandlerWithIdentifiers(t *testing.T) {
 		},
 	}
 
-	err = pub.Publish(ctx, schemas.Subject(schemas.EventsProcess(projectID)), event)
+	err = pub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
+	consumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -210,10 +210,10 @@ func TestEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEventsSchemaHandlerSuccess(t *testing.T) {
+func TestUserEventsSchemaHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
-	_, usrsDB, _, projectID, jet := setupEventsTest(t)
+	_, usrsDB, _, projectID, jet := setupUserEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
@@ -224,9 +224,9 @@ func TestEventsSchemaHandlerSuccess(t *testing.T) {
 	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "test_event")
 	require.NoError(t, err)
 
-	handler := EventSchemasHandler(logger, usersState)
+	handler := UserEventSchemasHandler(logger, usersState)
 
-	event := schemas.Event{
+	event := schemas.UserEvent{
 		ID:        eventID,
 		Name:      "test_event",
 		ProjectID: projectID,
@@ -239,10 +239,10 @@ func TestEventsSchemaHandlerSuccess(t *testing.T) {
 		},
 	}
 
-	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.Subject(schemas.EventsSchema(projectID)), event)
+	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.Subject(schemas.UserEventsSchema(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsSchema)
+	consumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsSchema)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -255,10 +255,10 @@ func TestEventsSchemaHandlerSuccess(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEventsSchemaHandlerComplexNestedData(t *testing.T) {
+func TestUserEventsSchemaHandlerComplexNestedData(t *testing.T) {
 	t.Parallel()
 
-	_, usrsDB, _, projectID, jet := setupEventsTest(t)
+	_, usrsDB, _, projectID, jet := setupUserEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
@@ -269,9 +269,9 @@ func TestEventsSchemaHandlerComplexNestedData(t *testing.T) {
 	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "complex_event")
 	require.NoError(t, err)
 
-	handler := EventSchemasHandler(logger, usersState)
+	handler := UserEventSchemasHandler(logger, usersState)
 
-	event := schemas.Event{
+	event := schemas.UserEvent{
 		ID:        eventID,
 		Name:      "complex_event",
 		ProjectID: projectID,
@@ -290,10 +290,10 @@ func TestEventsSchemaHandlerComplexNestedData(t *testing.T) {
 		},
 	}
 
-	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.Subject(schemas.EventsSchema(projectID)), event)
+	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.Subject(schemas.UserEventsSchema(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsSchema)
+	consumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsSchema)
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
