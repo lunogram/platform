@@ -18,8 +18,8 @@ type Organization struct {
 	UpdatedAt                 time.Time  `db:"updated_at"`
 }
 
-func (o *Organization) OAPI() oapi.Organization {
-	return oapi.Organization{
+func (o *Organization) OAPI() oapi.Tenant {
+	return oapi.Tenant{
 		Id:                        o.ID,
 		Name:                      o.Name,
 		TrackingDeeplinkMirrorUrl: o.TrackingDeeplinkMirrorURL,

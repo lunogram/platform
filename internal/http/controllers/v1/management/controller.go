@@ -15,21 +15,22 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 	projects := management.NewProjectsStore(managementDB)
 
 	controller := &Controller{
-		ProjectsController:      NewProjectsController(logger, managementDB, usersDB, journeyDB),
-		CampaignsController:     NewCampaignsController(logger, managementDB, usersDB),
-		TemplatesController:     NewTemplatesController(logger, managementDB),
-		AdminsController:        NewAdminsController(logger, managementDB),
-		UsersController:         NewUsersController(logger, pub, usersDB, journeyDB, mgmt, cfg.Storage.MaxUploadSize),
-		EventsController:        NewEventsController(logger, usersDB),
-		TagsController:          NewTagsController(logger, managementDB),
-		LocalesController:       NewLocalesController(logger, managementDB),
-		JourneysController:      NewJourneysController(logger, journeyDB, mgmt),
-		OrganizationsController: NewOrganizationsController(logger, managementDB),
-		ListsController:         NewListsController(logger, usersDB, projects, pub, cfg.Storage.MaxUploadSize),
-		DocumentsController:     NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize),
-		ProvidersController:     NewProvidersController(logger, managementDB, registry),
-		SubscriptionsController: NewSubscriptionsController(logger, managementDB),
-		ApiKeysController:       NewApiKeysController(logger, managementDB),
+		ProjectsController:             NewProjectsController(logger, managementDB, usersDB, journeyDB),
+		CampaignsController:            NewCampaignsController(logger, managementDB, usersDB),
+		TemplatesController:            NewTemplatesController(logger, managementDB),
+		AdminsController:               NewAdminsController(logger, managementDB),
+		UsersController:                NewUsersController(logger, pub, usersDB, journeyDB, mgmt, cfg.Storage.MaxUploadSize),
+		EventsController:               NewEventsController(logger, usersDB),
+		TagsController:                 NewTagsController(logger, managementDB),
+		LocalesController:              NewLocalesController(logger, managementDB),
+		JourneysController:             NewJourneysController(logger, journeyDB, mgmt),
+		OrganizationsController:        NewOrganizationsController(logger, managementDB),
+		SubjectOrganizationsController: NewSubjectOrganizationsController(logger, usersDB, pub),
+		ListsController:                NewListsController(logger, usersDB, projects, pub, cfg.Storage.MaxUploadSize),
+		DocumentsController:            NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize),
+		ProvidersController:            NewProvidersController(logger, managementDB, registry),
+		SubscriptionsController:        NewSubscriptionsController(logger, managementDB),
+		ApiKeysController:              NewApiKeysController(logger, managementDB),
 	}
 
 	controller.AuthController, err = NewAuthController(logger, managementDB, cfg)
@@ -51,6 +52,7 @@ type Controller struct {
 	*LocalesController
 	*JourneysController
 	*OrganizationsController
+	*SubjectOrganizationsController
 	*ListsController
 	*DocumentsController
 	*ProvidersController
