@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
@@ -112,7 +113,9 @@ func PublishOrganizationEventListDependencies(ctx context.Context, logger *zap.L
 }
 
 // PublishOrganizationEventJourneyDependencies returns a function that triggers journey entrance steps
-// for all users in the organization when an organization event matches a journey entrance condition.
+// for users in the organization when an organization event matches a journey entrance condition.
+// It evaluates entrance.Rule against event data in-memory, and uses entrance.UserRule to filter
+// users in the database. Users are streamed to avoid loading all IDs into memory.
 func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher, event schemas.OrganizationEvent) func() error {
 	evaluator := eval.NewEvaluator()
 
@@ -127,18 +130,6 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 			return nil
 		}
 
-		// Get all users in the organization
-		userIDs, err := usrs.ListOrganizationUserIDs(ctx, event.OrganizationID)
-		if err != nil {
-			logger.Error("failed to list organization user IDs", zap.Error(err))
-			return err
-		}
-
-		if len(userIDs) == 0 {
-			logger.Info("no users in organization, skipping journey triggers", zap.Stringer("organization_id", event.OrganizationID))
-			return nil
-		}
-
 		for _, dep := range deps {
 			entrance := oapi.EntranceStepData{}
 			if dep.Data != nil {
@@ -148,6 +139,7 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 				}
 			}
 
+			// Evaluate event conditions in-memory
 			if entrance.Rule != nil {
 				match, err := evaluator.Evaluate(*entrance.Rule, event.Data)
 				if err != nil {
@@ -160,10 +152,7 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 				}
 			}
 
-			logger.Info("triggering journey entrance step for organization users",
-				zap.Stringer("journey_id", dep.JourneyID),
-				zap.Stringer("step_id", dep.StepID),
-				zap.Int("user_count", len(userIDs)))
+			logger.Info("triggering journey entrance step for organization users", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("step_id", dep.StepID))
 
 			data, err := json.Marshal(event.Data)
 			if err != nil {
@@ -171,10 +160,25 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 				return err
 			}
 
-			// Trigger journey for each user in the organization
-			for _, userID := range userIDs {
+			// Query users - either filtered by UserRule or all users in the organization
+			rows, err := queryUsers(ctx, usrs, event.ProjectID, event.OrganizationID, entrance.UserRule)
+			if err != nil {
+				logger.Error("failed to query organization user IDs", zap.Error(err))
+				return err
+			}
+
+			total := 0
+			for rows.Next() {
+				var userID uuid.UUID
+				if err := rows.Scan(&userID); err != nil {
+					rows.Close()
+					logger.Error("failed to scan user ID", zap.Error(err))
+					return err
+				}
+
 				entry, err := uuid.NewRandom()
 				if err != nil {
+					rows.Close()
 					logger.Error("failed to generate journey entry ID", zap.Error(err))
 					return err
 				}
@@ -191,6 +195,7 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 
 				_, err = jrny.CreateUserJourneyState(ctx, result)
 				if err != nil {
+					rows.Close()
 					logger.Error("failed to create journey user state", zap.Error(err), zap.Stringer("user_id", userID))
 					return err
 				}
@@ -206,15 +211,34 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 
 					err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID), step)
 					if err != nil {
+						rows.Close()
 						logger.Error("failed to publish journey state", zap.Error(err), zap.Stringer("user_id", userID))
 						return err
 					}
 				}
+
+				total++
 			}
+
+			rows.Close()
+			if err := rows.Err(); err != nil {
+				logger.Error("error iterating organization users", zap.Error(err))
+				return err
+			}
+
+			logger.Info("completed triggering journey entrance step", zap.Stringer("journey_id", dep.JourneyID), zap.Int("user_count", total))
 		}
 
 		return nil
 	}
+}
+
+func queryUsers(ctx context.Context, usrs *subjects.State, projectID, organizationID uuid.UUID, userRule *rules.RuleSet) (*sqlx.Rows, error) {
+	if userRule != nil {
+		return usrs.QueryOrganizationUsersMatchingRule(ctx, projectID, organizationID, *userRule)
+	}
+
+	return usrs.QueryOrganizationUserIDs(ctx, organizationID)
 }
 
 // OrganizationEventSchemasHandler creates a handler that extracts and stores organization event schema information.

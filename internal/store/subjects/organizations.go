@@ -3,11 +3,14 @@ package subjects
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/rules"
+	"github.com/lunogram/platform/internal/rules/query"
 	"github.com/lunogram/platform/internal/store"
 )
 
@@ -412,16 +415,47 @@ func (s *OrganizationsStore) LookupOrganizationID(ctx context.Context, projectID
 
 // ListOrganizationUserIDs returns all user IDs belonging to an organization.
 func (s *OrganizationsStore) ListOrganizationUserIDs(ctx context.Context, orgID uuid.UUID) ([]uuid.UUID, error) {
-	query := `
+	q := `
 	SELECT user_id
 	FROM organization_users
 	WHERE organization_id = $1`
 
 	var ids []uuid.UUID
-	err := s.db.SelectContext(ctx, &ids, query, orgID)
+	err := s.db.SelectContext(ctx, &ids, q, orgID)
 	if err != nil {
 		return nil, err
 	}
 
 	return ids, nil
+}
+
+// QueryOrganizationUserIDs returns a cursor for iterating over user IDs in an organization.
+// The caller is responsible for closing the rows.
+func (s *OrganizationsStore) QueryOrganizationUserIDs(ctx context.Context, orgID uuid.UUID) (*sqlx.Rows, error) {
+	q := `
+	SELECT user_id
+	FROM organization_users
+	WHERE organization_id = $1`
+
+	return s.db.QueryxContext(ctx, q, orgID)
+}
+
+// QueryOrganizationUsersMatchingRule returns a cursor for iterating over user IDs in an organization
+// that match the given ruleset. The caller is responsible for closing the rows.
+func (s *OrganizationsStore) QueryOrganizationUsersMatchingRule(ctx context.Context, projectID, orgID uuid.UUID, ruleset rules.RuleSet) (*sqlx.Rows, error) {
+	builder := query.NewQueryBuilder(projectID, nil)
+	result, err := builder.Query(ruleset)
+	if err != nil {
+		return nil, err
+	}
+
+	// Wrap the ruleset query to filter only users in the specified organization
+	q := fmt.Sprintf(`
+	SELECT u.id AS user_id
+	FROM organization_users ou
+	JOIN (%s) u ON u.id = ou.user_id
+	WHERE ou.organization_id = $%d`, result.SQL, len(result.Args)+1)
+
+	args := append(result.Args, orgID)
+	return s.db.QueryxContext(ctx, q, args...)
 }

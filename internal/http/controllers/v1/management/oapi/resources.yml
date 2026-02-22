@@ -3224,6 +3224,11 @@ components:
           description: Rule for filtering events
           additionalProperties: true
           x-go-type: rules.RuleSet
+        user_rule:
+          type: object
+          description: Rule for filtering users (used with organization events)
+          additionalProperties: true
+          x-go-type: rules.RuleSet
         multiple:
           type: boolean
           description: Allow multiple entries
