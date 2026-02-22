@@ -40,8 +40,6 @@ import type {
   Tag,
   Template,
   TemplateCreateParams,
-  TemplatePreviewParams,
-  TemplateProofParams,
   TemplateUpdateParams,
   User,
   UserEvent,
