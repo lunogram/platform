@@ -78,9 +78,9 @@ export default function Template() {
   const [localeState, setLocaleSelection] = useState<LocaleSelection>({
     allLocales: [],
   });
-  const [pageLoading, setPageLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [isNextLoading, setIsNextLoading] = useState(false);
-
+  const [canProceed, setCanProceed] = useState(true);
   const handler = useRef<(() => Promise<boolean> | boolean) | null>(null);
 
   const steps = useMemo(() => {
@@ -143,8 +143,8 @@ export default function Template() {
     [campaign.templates, templateId],
   );
   const workflowContextValue = useMemo(
-    () => ({ onSubmit, submit }),
-    [onSubmit, submit],
+    () => ({ onSubmit, submit, canProceed, setCanProceed }),
+    [onSubmit, submit, canProceed],
   );
 
   const publish = useCallback(async () => {
@@ -274,7 +274,7 @@ export default function Template() {
                 <Button
                   onClick={publish}
                   isLoading={isNextLoading}
-                  disabled={isNextLoading}
+                  disabled={isNextLoading || !canProceed}
                 >
                   {t("publish", "Publish")}
                 </Button>
@@ -282,7 +282,7 @@ export default function Template() {
                 <Button
                   onClick={submit}
                   isLoading={isNextLoading}
-                  disabled={isNextLoading}
+                  disabled={isNextLoading || !canProceed}
                 >
                   {t("next")}
                 </Button>

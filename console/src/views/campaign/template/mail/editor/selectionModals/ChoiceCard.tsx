@@ -23,18 +23,17 @@ export const ChoiceCard = ({
     role="button"
     onClick={onClick}
     className={cn(
-      "group relative flex cursor-pointer flex-col items-center justify-center p-6 text-center transition-all hover:border-primary hover:bg-accent",
-      variant === "dashed" && "border-dashed bg-muted/50",
-      className,
+      "group flex cursor-pointer flex-col items-center justify-center p-8 text-center transition-colors hover:border-primary hover:bg-accent aspect-4/3",
+      variant === "dashed" && "border-dashed",
+      className
     )}
   >
-    <div className="mb-4 rounded-full bg-secondary p-4 text-secondary-foreground group-hover:bg-primary group-hover:text-primary-foreground">
-      {React.cloneElement(
-        icon as React.ReactElement,
-        { size: 28 } as React.SVGProps<SVGSVGElement>,
-      )}
+    <div className="mb-4 rounded-lg bg-muted p-4 text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+      {React.cloneElement(icon as React.ReactElement, {
+        className: "h-6 w-6",
+      } as React.SVGProps<SVGSVGElement>)}
     </div>
-    <h3 className="font-bold tracking-tight">{title}</h3>
-    <p className="text-sm text-muted-foreground">{description}</p>
+    <p className="text-base font-medium">{title}</p>
+    <p className="text-sm text-muted-foreground mt-1.5">{description}</p>
   </Card>
 );

@@ -1,6 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import { useEffect } from "react";
-import { useTranslation } from "react-i18next";
+import { useEffect, useRef } from "react";
 import CodeEditorEventListener from "../codeEditorPlugins/CodeEditorEventListener";
 import { Puck, type Data } from "@puckeditor/core";
 import { viewports } from "../viewport";
@@ -8,6 +7,7 @@ import { config, type Components } from "../handlers/ConfigHandler";
 import CodeStore from "../codeEditorPlugins/CodeStore";
 import { Preview } from "../overrides/Preview";
 import { CodeEditorPlugin } from "../codeEditorPlugins/CodeEditorPlugin";
+import { HtmlEditorHeader } from "./HtmlEditorHeader";
 import "./HtmlEditor.css";
 
 import {
@@ -16,6 +16,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import HtmlSaveHandler from "./HtmlSaveHandler";
+import type { editor } from "monaco-editor";
 
 export function HtmlEditor({
   data,
@@ -24,7 +25,7 @@ export function HtmlEditor({
   data: Partial<Data | Data<Components, object>>;
   html?: string;
 }) {
-  const { t } = useTranslation();
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
   useEffect(() => {
     if (!html) {
@@ -58,7 +59,7 @@ export function HtmlEditor({
   }, [html]);
 
   return (
-    <div className="w-full h-full hide-puck-outline">
+    <div className="w-full h-full hide-puck-outline [&>div]:!h-full">
       <Puck
         viewports={viewports}
         config={config}
@@ -84,20 +85,19 @@ export function HtmlEditor({
           puck: ({ children }) => (
             <ResizablePanelGroup
               orientation="horizontal"
-              className="h-screen w-full bg-background"
+              className="h-full w-full bg-background"
             >
               <ResizablePanel defaultSize={30} minSize={20}>
-                <div className="flex h-full flex-col bg-white">
-                  <div className="h-16 px-6 flex items-center border-b bg-slate-50/50 shrink-0">
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                      {t('campaign.template.editor.htmlEditor.developerMode')}
-                    </h3>
-                  </div>
-
-                  <div className="flex-1 overflow-auto">
+                <div className="h-full flex flex-col">
+                  <HtmlEditorHeader
+                    editorRef={editorRef}
+                    codeStore={CodeStore}
+                  />
+                  <div className="flex-1 min-h-0">
                     <CodeEditorPlugin
                       store={CodeStore}
                       eventListener={CodeEditorEventListener}
+                      editorRef={editorRef}
                     />
                   </div>
                 </div>
@@ -106,7 +106,7 @@ export function HtmlEditor({
               <ResizableHandle withHandle />
 
               <ResizablePanel defaultSize={70}>
-                <div className="flex-1 h-full relative puck-container overflow-hidden">
+                <div className="flex-1 h-full relative puck-container overflow-scroll">
                   {children}
                 </div>
               </ResizablePanel>
