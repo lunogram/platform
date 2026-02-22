@@ -81,7 +81,7 @@ func (s *OrganizationsStore) UpsertOrganization(ctx context.Context, projectID u
 	ON CONFLICT (project_id, external_id)
 	DO UPDATE SET
 		name = COALESCE(EXCLUDED.name, organizations.name),
-		data = COALESCE(EXCLUDED.data, organizations.data)
+		data = organizations.data || EXCLUDED.data
 	RETURNING id`
 
 	var id uuid.UUID
