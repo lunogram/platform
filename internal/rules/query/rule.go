@@ -25,6 +25,11 @@ func (qb *QueryBuilder) buildRule(rule *rules.Rule) (string, error) {
 		return qb.buildEventRule(rule)
 	}
 
+	// Check if this is an organization wrapper (contains both org and org_user rules)
+	if rule.IsWrapper() && qb.isOrganizationWrapper(rule) {
+		return qb.buildOrganizationWrapperRule(rule)
+	}
+
 	if rule.IsWrapper() {
 		return qb.buildWrapper(rule)
 	}
@@ -34,9 +39,33 @@ func (qb *QueryBuilder) buildRule(rule *rules.Rule) (string, error) {
 		return qb.buildUserRule(rule)
 	case rules.RuleGroupEvent:
 		return qb.buildEventRule(rule)
+	case rules.RuleGroupOrganization:
+		return qb.buildOrganizationRule(rule)
+	case rules.RuleGroupOrganizationUser:
+		return qb.buildOrganizationUserRule(rule)
 	default:
 		return "", fmt.Errorf("unsupported rule group: %s", rule.Group)
 	}
+}
+
+// isOrganizationWrapper checks if a wrapper rule contains only organization-related rules
+// (RuleGroupOrganization and/or RuleGroupOrganizationUser)
+func (qb *QueryBuilder) isOrganizationWrapper(rule *rules.Rule) bool {
+	if !rule.HasChildren() {
+		return false
+	}
+
+	hasOrgRules := false
+	for _, child := range rule.Children {
+		if child.Group == rules.RuleGroupOrganization || child.Group == rules.RuleGroupOrganizationUser {
+			hasOrgRules = true
+		} else if child.Group != rules.RuleGroupParent {
+			// If there's a non-organization, non-parent rule, this is not a pure org wrapper
+			return false
+		}
+	}
+
+	return hasOrgRules
 }
 
 // buildWrapper builds SQL for wrapper nodes with logical operators

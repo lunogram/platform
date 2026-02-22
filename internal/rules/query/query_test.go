@@ -1148,3 +1148,207 @@ func TestQueryBuilderBuildQuery(t *testing.T) {
 		})
 	}
 }
+
+func TestQueryBuilderOrganizationRules(t *testing.T) {
+	type test struct {
+		name     string
+		ruleSet  rules.RuleSet
+		wantSQL  string
+		wantArgs []any
+		wantErr  bool
+	}
+
+	tests := map[string]test{
+		"simple organization attribute": {
+			name: "simple organization attribute",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeString,
+					Group:    rules.RuleGroupOrganization,
+					Path:     ".name",
+					Operator: rules.OperatorEquals,
+					Value:    "Acme Corp",
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $2 AND o.name = $1) e1 ON e1.user_id = u.id WHERE u.project_id = $3",
+			wantArgs: []any{"Acme Corp", testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"organization nested jsonb data": {
+			name: "organization nested jsonb data",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeString,
+					Group:    rules.RuleGroupOrganization,
+					Path:     ".data.tier",
+					Operator: rules.OperatorEquals,
+					Value:    "gold",
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $2 AND (o.data->>'tier')::text = $1) e1 ON e1.user_id = u.id WHERE u.project_id = $3",
+			wantArgs: []any{"gold", testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"organization user role": {
+			name: "organization user role",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeString,
+					Group:    rules.RuleGroupOrganizationUser,
+					Path:     ".data.role",
+					Operator: rules.OperatorEquals,
+					Value:    "admin",
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $2 AND (ou.data->>'role')::text = $1) e1 ON e1.user_id = u.id WHERE u.project_id = $3",
+			wantArgs: []any{"admin", testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"combined organization and organization user with AND": {
+			name: "combined organization and organization user with AND",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorAnd,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganization,
+							Path:     ".data.tier",
+							Operator: rules.OperatorEquals,
+							Value:    "gold",
+						},
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganizationUser,
+							Path:     ".data.role",
+							Operator: rules.OperatorEquals,
+							Value:    "admin",
+						},
+					},
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $3 AND ((o.data->>'tier')::text = $1 AND (ou.data->>'role')::text = $2)) e1 ON e1.user_id = u.id WHERE u.project_id = $4",
+			wantArgs: []any{"gold", "admin", testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"combined organization and organization user with OR": {
+			name: "combined organization and organization user with OR",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorOr,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganization,
+							Path:     ".data.tier",
+							Operator: rules.OperatorEquals,
+							Value:    "gold",
+						},
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganizationUser,
+							Path:     ".data.role",
+							Operator: rules.OperatorEquals,
+							Value:    "admin",
+						},
+					},
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $3 AND ((o.data->>'tier')::text = $1 OR (ou.data->>'role')::text = $2)) e1 ON e1.user_id = u.id WHERE u.project_id = $4",
+			wantArgs: []any{"gold", "admin", testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"user attribute AND organization attribute": {
+			name: "user attribute AND organization attribute",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorAnd,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupUser,
+							Path:     ".email",
+							Operator: rules.OperatorEndsWith,
+							Value:    "@enterprise.com",
+						},
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganization,
+							Path:     ".data.tier",
+							Operator: rules.OperatorEquals,
+							Value:    "enterprise",
+						},
+					},
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $3 AND (o.data->>'tier')::text = $2) e1 ON e1.user_id = u.id WHERE u.project_id = $4 AND u.email ILIKE $1",
+			wantArgs: []any{"%@enterprise.com", "enterprise", testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"multiple organization conditions": {
+			name: "multiple organization conditions",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorAnd,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganization,
+							Path:     ".data.tier",
+							Operator: rules.OperatorEquals,
+							Value:    "gold",
+						},
+						{
+							Type:     rules.RuleTypeNumber,
+							Group:    rules.RuleGroupOrganization,
+							Path:     ".data.seats",
+							Operator: rules.OperatorGreaterEqual,
+							Value:    10,
+						},
+					},
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $3 AND ((o.data->>'tier')::text = $1 AND (o.data->>'seats')::numeric >= $2)) e1 ON e1.user_id = u.id WHERE u.project_id = $4",
+			wantArgs: []any{"gold", 10, testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"organization with is set operator": {
+			name: "organization with is set operator",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeString,
+					Group:    rules.RuleGroupOrganization,
+					Path:     ".data.verified_at",
+					Operator: rules.OperatorIsSet,
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $1 AND (o.data->>'verified_at')::text IS NOT NULL) e1 ON e1.user_id = u.id WHERE u.project_id = $2",
+			wantArgs: []any{testProjectID, testProjectID},
+			wantErr:  false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			qb := NewQueryBuilder(testProjectID, nil)
+			result, err := qb.Query(tc.ruleSet)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantSQL, result.SQL)
+			assert.Equal(t, tc.wantArgs, result.Args)
+		})
+	}
+}
