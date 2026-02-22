@@ -11,8 +11,8 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
-	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/lunogram/platform/internal/store/subjects"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
