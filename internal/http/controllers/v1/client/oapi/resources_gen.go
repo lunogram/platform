@@ -73,7 +73,7 @@ type Organization struct {
 // OrganizationEvent defines model for OrganizationEvent.
 type OrganizationEvent struct {
 	// Data Event-specific data
-	Data *map[string]any `json:"data"`
+	Data *map[string]any `json:"data,omitempty"`
 
 	// Name The name of the event
 	Name string `json:"name"`
@@ -84,17 +84,17 @@ type OrganizationEvent struct {
 
 // OrganizationRequest defines model for OrganizationRequest.
 type OrganizationRequest struct {
-	Data *map[string]any `json:"data"`
+	Data *map[string]any `json:"data,omitempty"`
 
 	// ExternalId External identifier for the organization from your system
 	ExternalId string  `json:"external_id"`
-	Name       *string `json:"name"`
+	Name       *string `json:"name,omitempty"`
 }
 
 // OrganizationUserRequest defines model for OrganizationUserRequest.
 type OrganizationUserRequest struct {
 	// Data Organization-specific data for this user
-	Data *map[string]any `json:"data"`
+	Data *map[string]any `json:"data,omitempty"`
 
 	// OrganizationExternalId External identifier for the organization
 	OrganizationExternalId string `json:"organization_external_id"`

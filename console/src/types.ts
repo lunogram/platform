@@ -27,8 +27,10 @@ export interface CommonInputProps {
 
 export type ControlledInputProps<T> = ControlledProps<T> & CommonInputProps;
 
-export interface FieldProps<X extends FieldValues, P extends FieldPath<X>>
-  extends CommonInputProps {
+export interface FieldProps<
+  X extends FieldValues,
+  P extends FieldPath<X>,
+> extends CommonInputProps {
   form: UseFormReturn<X>;
   name: P;
 }
@@ -102,13 +104,13 @@ export type Rule = {
   operator: Operator;
   value?: string;
 } & (
-    | { type: "wrapper" }
-    | { type: "string" }
-    | { type: "number" }
-    | { type: "boolean" }
-    | { type: "date" }
-    | { type: "array" }
-  );
+  | { type: "wrapper" }
+  | { type: "string" }
+  | { type: "number" }
+  | { type: "boolean" }
+  | { type: "date" }
+  | { type: "array" }
+);
 
 export function defaultOperator(type: RuleType): Operator {
   switch (type) {
@@ -169,15 +171,15 @@ export type WrapperRule = Rule & { type: "wrapper"; children: Rule[] };
 
 export type EventRulePeriod =
   | {
-    type: "rolling";
-    unit: "minute" | "hour" | "day" | "week" | "month";
-    value: number;
-  }
+      type: "rolling";
+      unit: "minute" | "hour" | "day" | "week" | "month";
+      value: number;
+    }
   | {
-    type: "fixed";
-    start_date: string;
-    end_date?: string;
-  };
+      type: "fixed";
+      start_date: string;
+      end_date?: string;
+    };
 
 export interface EventRuleFrequency {
   period: EventRulePeriod;
@@ -353,6 +355,40 @@ export interface User {
   created_at?: Date;
 }
 
+export interface SubjectOrganization {
+  id: UUID;
+  project_id: UUID;
+  external_id: string;
+  name?: string;
+  data: Record<string, any>;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SubjectOrganizationCreateParams = Pick<
+  SubjectOrganization,
+  "external_id" | "name" | "data"
+>;
+export type SubjectOrganizationUpdateParams = Pick<
+  SubjectOrganization,
+  "name" | "data"
+>;
+
+export interface SubjectOrganizationMember {
+  user_id: UUID;
+  organization_id: UUID;
+  data: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+}
+
+export type SubjectOrganizationMemberParams = Pick<
+  SubjectOrganizationMember,
+  "data"
+> & { user_id: UUID };
+
 export interface Device {
   device_id: string;
   token?: string;
@@ -389,12 +425,12 @@ export type List = {
   created_at: string;
   updated_at: string;
 } & (
-    | {
+  | {
       type: "dynamic";
       rule: WrapperRule;
     }
-    | { type: "static" }
-  );
+  | { type: "static" }
+);
 
 export type DynamicList = List & { type: "dynamic" };
 
@@ -633,23 +669,23 @@ export type Template = {
   created_at: string;
   updated_at: string;
 } & (
-    | {
+  | {
       type: "email";
       data: EmailTemplateData;
     }
-    | {
+  | {
       type: "text";
       data: TextTemplateData;
     }
-    | {
+  | {
       type: "push";
       data: PushTemplateData;
     }
-    | {
+  | {
       type: "webhook";
       data: WebhookTemplateData;
     }
-  );
+);
 
 export type TemplateCreateParams = Pick<Template, "data" | "locale">;
 export type TemplateUpdateParams = Pick<Template, "data">;

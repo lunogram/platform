@@ -1288,9 +1288,6 @@ type ListOrganizationsParams struct {
 
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
-
-	// Search Search query string
-	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // ListOrganizationMembersParams defines parameters for ListOrganizationMembers.
@@ -6800,22 +6797,6 @@ func NewListOrganizationsRequest(server string, projectID openapi_types.UUID, pa
 		if params.Offset != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Search != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -19697,14 +19678,6 @@ func (siw *ServerInterfaceWrapper) ListOrganizations(w http.ResponseWriter, r *h
 	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
-		return
-	}
-
-	// ------------- Optional query parameter "search" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
 		return
 	}
 
