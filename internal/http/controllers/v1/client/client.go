@@ -11,11 +11,11 @@ import (
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
-func NewClientController(logger *zap.Logger, db *sqlx.DB, usrs *users.State, pub pubsub.Publisher) *ClientController {
+func NewClientController(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub pubsub.Publisher) *ClientController {
 	return &ClientController{
 		logger: logger,
 		db:     db,
@@ -27,7 +27,7 @@ func NewClientController(logger *zap.Logger, db *sqlx.DB, usrs *users.State, pub
 type ClientController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	users  *users.State
+	users  *subjects.State
 	pubsub pubsub.Publisher
 }
 
@@ -121,14 +121,14 @@ func (srv *ClientController) IdentifyUserClient(w http.ResponseWriter, r *http.R
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	usersStore := users.NewUsersStore(tx)
+	usersStore := subjects.NewUsersStore(tx)
 
 	var data map[string]any
 	if req.Data != nil {
 		data = *req.Data
 	}
 
-	params := users.UpsertUserParams{
+	params := subjects.UpsertUserParams{
 		AnonymousID: req.AnonymousId,
 		ExternalID:  req.ExternalId,
 		Email:       req.Email,

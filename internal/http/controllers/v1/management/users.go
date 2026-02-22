@@ -20,7 +20,7 @@ import (
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
@@ -29,7 +29,7 @@ func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, usersDB, journ
 		logger:        logger,
 		usersDB:       usersDB,
 		mgmt:          mgmt,
-		users:         users.NewState(usersDB),
+		users:         subjects.NewState(usersDB),
 		journey:       journey.NewState(journeyDB),
 		pubsub:        pub,
 		maxUploadSize: maxUploadSize,
@@ -41,7 +41,7 @@ type UsersController struct {
 	usersDB       *sqlx.DB
 	pubsub        pubsub.Publisher
 	mgmt          *management.State
-	users         *users.State
+	users         *subjects.State
 	journey       *journey.State
 	maxUploadSize int64
 }
@@ -123,9 +123,9 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	usersStore := users.NewUsersStore(tx)
+	usersStore := subjects.NewUsersStore(tx)
 
-	params := users.UpsertUserParams{
+	params := subjects.UpsertUserParams{
 		AnonymousID: body.AnonymousId,
 		ExternalID:  body.ExternalId,
 		Email:       body.Email,
@@ -243,7 +243,7 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 
 	logger.Info("updating user")
 
-	update := users.UserUpdate{
+	update := subjects.UserUpdate{
 		Email:    body.Email,
 		Phone:    body.Phone,
 		Timezone: body.Timezone,
@@ -641,7 +641,7 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	usersStore := users.NewState(tx)
+	usersStore := subjects.NewState(tx)
 
 	for {
 		record, err := reader.Read()

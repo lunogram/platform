@@ -18,7 +18,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
@@ -26,7 +26,7 @@ func NewListsController(logger *zap.Logger, usersDB *sqlx.DB, projects *manageme
 	return &ListsController{
 		logger:        logger,
 		usersDB:       usersDB,
-		store:         users.NewState(usersDB),
+		store:         subjects.NewState(usersDB),
 		projects:      projects,
 		maxUploadSize: maxUploadSize,
 		pub:           pub,
@@ -36,7 +36,7 @@ func NewListsController(logger *zap.Logger, usersDB *sqlx.DB, projects *manageme
 type ListsController struct {
 	logger        *zap.Logger
 	usersDB       *sqlx.DB
-	store         *users.State
+	store         *subjects.State
 	projects      *management.ProjectsStore
 	maxUploadSize int64
 	pub           pubsub.Publisher
@@ -75,9 +75,9 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	lists := users.NewListsStore(tx)
-	rules := users.NewRulesStore(tx)
-	events := users.NewEventsStore(tx)
+	lists := subjects.NewListsStore(tx)
+	rules := subjects.NewRulesStore(tx)
+	events := subjects.NewEventsStore(tx)
 
 	var ruleID *uuid.UUID
 
@@ -108,10 +108,10 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 		ruleID = &id
 	}
 
-	listID, err := lists.CreateList(ctx, users.List{
+	listID, err := lists.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      body.Name,
-		Type:      users.ListType(body.Type),
+		Type:      subjects.ListType(body.Type),
 		RuleID:    ruleID,
 	})
 	if err != nil {
@@ -220,11 +220,11 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 
 	defer tx.Rollback() //nolint:errcheck
 
-	lists := users.NewListsStore(tx)
-	rules := users.NewRulesStore(tx)
-	events := users.NewEventsStore(tx)
+	lists := subjects.NewListsStore(tx)
+	rules := subjects.NewRulesStore(tx)
+	events := subjects.NewEventsStore(tx)
 
-	update := users.ListUpdate{
+	update := subjects.ListUpdate{
 		Name: &body.Name,
 	}
 
@@ -380,7 +380,7 @@ func (srv *ListsController) ImportListUsers(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if list.Type != users.ListTypeStatic {
+	if list.Type != subjects.ListTypeStatic {
 		logger.Error("list is not static", zap.String("type", string(list.Type)))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("only static lists support user imports")))
 		return
@@ -437,7 +437,7 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	stores := users.NewState(tx)
+	stores := subjects.NewState(tx)
 
 	for {
 		record, err := reader.Read()

@@ -23,7 +23,7 @@ import (
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
@@ -35,7 +35,7 @@ var staticFiles embed.FS
 // use API Key only authentication.
 func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) (*http.Server, error) {
 	mgmtStores := management.NewState(db.Management)
-	usersStore := users.NewState(db.Users)
+	usersStore := subjects.NewState(db.Subjects)
 
 	// Load OpenAPI specs
 	mgmtSpec, err := mgmtoapi.Spec()
@@ -49,13 +49,13 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	}
 
 	// Create management controller
-	mgmtController, err := managementv1.NewController(logger, db.Management, db.Users, db.Journey, cfg, storage, pub, registry)
+	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storage, pub, registry)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create management controller: %w", err)
 	}
 
 	// Create client controller
-	clientController, err := clientv1.NewController(logger, db.Management, db.Users, mgmtStores, usersStore, pub)
+	clientController, err := clientv1.NewController(logger, db.Management, db.Subjects, mgmtStores, usersStore, pub)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client controller: %w", err)
 	}

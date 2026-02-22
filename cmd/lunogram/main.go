@@ -21,7 +21,7 @@ import (
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
@@ -59,8 +59,8 @@ func run() error {
 		if err := management.Migrate(conf.Store.ManagementURI); err != nil {
 			return fmt.Errorf("management migration failed: %w", err)
 		}
-		if err := users.Migrate(conf.Store.UsersURI); err != nil {
-			return fmt.Errorf("users migration failed: %w", err)
+		if err := subjects.Migrate(conf.Store.SubjectsURI); err != nil {
+			return fmt.Errorf("subjects migration failed: %w", err)
 		}
 		if err := journey.Migrate(conf.Store.JourneyURI); err != nil {
 			return fmt.Errorf("journey migration failed: %w", err)
@@ -79,7 +79,7 @@ func run() error {
 	}
 
 	managementStore := management.NewState(db.Management)
-	usersStore := users.NewState(db.Users)
+	usersStore := subjects.NewState(db.Subjects)
 	journeyStore := journey.NewState(db.Journey)
 
 	logger.Info("initializing block storage")

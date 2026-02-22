@@ -7,13 +7,13 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rules"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
 // UsersHandler creates a handler that processes incoming users and stores them in the database.
-func UsersHandler(logger *zap.Logger, usrs *users.State, pub pubsub.Publisher) HandlerFunc {
+func UsersHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		user := schemas.User{}
 		err := json.Unmarshal(msg.Data(), &user)
@@ -49,7 +49,7 @@ func UsersHandler(logger *zap.Logger, usrs *users.State, pub pubsub.Publisher) H
 	}
 }
 
-func PublishUserRecomputeLists(ctx context.Context, logger *zap.Logger, usrs *users.State, pub pubsub.Publisher, user schemas.User) error {
+func PublishUserRecomputeLists(ctx context.Context, logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher, user schemas.User) error {
 	result, err := usrs.SelectListUsersDependency(ctx, user.ProjectID)
 	if err != nil {
 		logger.Error("failed to list rule user dependencies", zap.Error(err))
@@ -94,7 +94,7 @@ func PublishUserEvents(ctx context.Context, logger *zap.Logger, pub pubsub.Publi
 }
 
 // UserSchemasHandler creates a handler that extracts and stores event schema information.
-func UserSchemasHandler(logger *zap.Logger, usrs *users.State) HandlerFunc {
+func UserSchemasHandler(logger *zap.Logger, usrs *subjects.State) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		user := schemas.User{}
 		err := json.Unmarshal(msg.Data(), &user)

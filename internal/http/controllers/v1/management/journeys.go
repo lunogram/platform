@@ -13,7 +13,7 @@ import (
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
@@ -386,7 +386,7 @@ func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Re
 	defer tx.Rollback() //nolint:errcheck
 
 	journeys := journey.NewJourneysStore(tx)
-	events := users.NewEventsStore(tx)
+	events := subjects.NewEventsStore(tx)
 
 	versionID, err := journeys.EnsureDraftVersion(ctx, journeyID)
 	if err != nil {

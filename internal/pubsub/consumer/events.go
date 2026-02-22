@@ -12,7 +12,7 @@ import (
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/rules/eval"
 	"github.com/lunogram/platform/internal/store/journey"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -29,7 +29,7 @@ type JourneyStep struct {
 }
 
 // EventsHandler creates a handler that processes incoming events and stores them in the database.
-func EventsHandler(logger *zap.Logger, usrs *users.State, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
+func EventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		event := schemas.Event{}
 		err := json.Unmarshal(msg.Data(), &event)
@@ -96,7 +96,7 @@ func PublishEventSchema(ctx context.Context, logger *zap.Logger, pub pubsub.Publ
 
 // PublishEventListDependencies returns a function that publishes recompute messages for all lists
 // that depend on the given event through rule conditions.
-func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, usrs *users.State, pub pubsub.Publisher, event schemas.Event) func() error {
+func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher, event schemas.Event) func() error {
 	return func() error {
 		lists, err := usrs.ListEventListDependencies(ctx, event.ID)
 		if err != nil {
@@ -123,7 +123,7 @@ func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, usrs 
 
 // PublishEventJourneyDependencies returns a function that triggers journey entrance steps
 // for all journeys configured with event-based entrance conditions matching the given event.
-func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, usrs *users.State, jrny *journey.State, pub pubsub.Publisher, event schemas.Event) func() error {
+func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher, event schemas.Event) func() error {
 	evaluator := eval.NewEvaluator()
 
 	return func() error {
@@ -208,7 +208,7 @@ func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, us
 }
 
 // EventSchemasHandler creates a handler that extracts and stores event schema information.
-func EventSchemasHandler(logger *zap.Logger, usrs *users.State) HandlerFunc {
+func EventSchemasHandler(logger *zap.Logger, usrs *subjects.State) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		event := schemas.Event{}
 		err := json.Unmarshal(msg.Data(), &event)

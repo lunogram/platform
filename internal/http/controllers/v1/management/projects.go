@@ -18,7 +18,7 @@ import (
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
@@ -28,7 +28,7 @@ func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB 
 		managementDB: managementDB,
 		store:        management.NewState(managementDB),
 		journey:      journey.NewState(journeyDB),
-		users:        users.NewState(usersDB),
+		users:        subjects.NewState(usersDB),
 	}
 }
 
@@ -37,7 +37,7 @@ type ProjectsController struct {
 	managementDB *sqlx.DB
 	store        *management.State
 	journey      *journey.State
-	users        *users.State
+	users        *subjects.State
 }
 
 func (srv *ProjectsController) loadProjectCounts(ctx context.Context, project *management.Project) {

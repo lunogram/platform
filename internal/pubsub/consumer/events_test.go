@@ -15,7 +15,7 @@ import (
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -65,10 +65,10 @@ func TestEventsProjectHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	usersState := users.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB)
 	journeyState := journey.NewState(jrnyDB)
 	email := "test@example.com"
-	userID, err := usersState.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
+	userID, err := usersState.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
 		Email: &email,
 	})
 	require.NoError(t, err)
@@ -123,10 +123,10 @@ func TestEventsProjectHandlerWithoutData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	usersState := users.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB)
 	journeyState := journey.NewState(jrnyDB)
 	email := "test2@example.com"
-	userID, err := usersState.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
+	userID, err := usersState.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
 		Email: &email,
 	})
 	require.NoError(t, err)
@@ -173,12 +173,12 @@ func TestEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	usersState := users.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB)
 	journeyState := journey.NewState(jrnyDB)
 	externalID := "user_123"
 	anonymousID := "anon_abc"
 
-	_, err = usersState.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
+	_, err = usersState.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
 		ExternalID:  &externalID,
 		AnonymousID: &anonymousID,
 	})
@@ -220,7 +220,7 @@ func TestEventsSchemaHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	usersState := users.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB)
 	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "test_event")
 	require.NoError(t, err)
 
@@ -265,7 +265,7 @@ func TestEventsSchemaHandlerComplexNestedData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	usersState := users.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB)
 	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "complex_event")
 	require.NoError(t, err)
 

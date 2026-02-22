@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
@@ -14,7 +14,7 @@ type SMSTemplateData struct {
 	Body string `json:"body"`
 }
 
-func ComposeSMS(config map[string]any, template management.Template, user *users.User) (*providers.SendRequest[map[string]any], error) {
+func ComposeSMS(config map[string]any, template management.Template, user *subjects.User) (*providers.SendRequest[map[string]any], error) {
 	if user.Phone == nil {
 		return nil, fmt.Errorf("user has no phone number")
 	}

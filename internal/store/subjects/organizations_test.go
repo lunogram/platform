@@ -1,0 +1,578 @@
+package subjects
+
+import (
+	"context"
+	"encoding/json"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/store"
+	"github.com/stretchr/testify/require"
+)
+
+func TestGetOrganizationByExternalID(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	externalID := "org_external_123"
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: externalID,
+		Name:       ptr("Test Organization"),
+	})
+	require.NoError(t, err)
+
+	org, err := db.GetOrganizationByExternalID(ctx, projectID, externalID)
+	require.NoError(t, err)
+	require.Equal(t, orgID, org.ID)
+	require.Equal(t, externalID, org.ExternalID)
+}
+
+func TestListOrganizations(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create multiple orgs
+	for i := 0; i < 5; i++ {
+		_, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+			ExternalID: uuid.New().String(),
+			Name:       ptr("Test Org"),
+		})
+		require.NoError(t, err)
+	}
+
+	type test struct {
+		pagination    store.Pagination
+		expectedCount int
+		expectedTotal int
+	}
+
+	tests := map[string]test{
+		"first page": {
+			pagination:    store.Pagination{Limit: 2, Offset: 0},
+			expectedCount: 2,
+			expectedTotal: 5,
+		},
+		"second page": {
+			pagination:    store.Pagination{Limit: 2, Offset: 2},
+			expectedCount: 2,
+			expectedTotal: 5,
+		},
+		"last page partial": {
+			pagination:    store.Pagination{Limit: 2, Offset: 4},
+			expectedCount: 1,
+			expectedTotal: 5,
+		},
+		"all orgs": {
+			pagination:    store.Pagination{Limit: 10, Offset: 0},
+			expectedCount: 5,
+			expectedTotal: 5,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			orgs, total, err := db.ListOrganizations(ctx, projectID, tt.pagination)
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedCount, len(orgs))
+			require.Equal(t, tt.expectedTotal, total)
+		})
+	}
+}
+
+func TestUpsertOrganization(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	type test struct {
+		setupOrg     *Organization
+		upsertData   UpsertOrganizationParams
+		expectedName *string
+		description  string
+	}
+
+	tests := map[string]test{
+		"insert new org": {
+			upsertData: UpsertOrganizationParams{
+				ExternalID: "new_org",
+				Name:       ptr("New Organization"),
+				Data:       map[string]any{"plan": "free"},
+			},
+			expectedName: ptr("New Organization"),
+			description:  "should create new org",
+		},
+		"update existing org by external_id": {
+			setupOrg: &Organization{
+				ProjectID:  projectID,
+				ExternalID: "existing_org",
+				Name:       ptr("Old Name"),
+			},
+			upsertData: UpsertOrganizationParams{
+				ExternalID: "existing_org",
+				Name:       ptr("Updated Name"),
+				Data:       map[string]any{},
+			},
+			expectedName: ptr("Updated Name"),
+			description:  "should update name on conflict",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			var existingOrgID uuid.UUID
+			if tt.setupOrg != nil {
+				var err error
+				existingOrgID, err = db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+					ExternalID: tt.setupOrg.ExternalID,
+					Name:       tt.setupOrg.Name,
+				})
+				require.NoError(t, err)
+			}
+
+			orgID, err := db.UpsertOrganization(ctx, projectID, tt.upsertData)
+			require.NoError(t, err)
+			require.NotEqual(t, uuid.Nil, orgID)
+
+			if tt.setupOrg != nil {
+				require.Equal(t, existingOrgID, orgID, "should return existing org ID on conflict")
+			}
+
+			org, err := db.GetOrganization(ctx, projectID, orgID)
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedName, org.Name, tt.description)
+		})
+	}
+}
+
+func TestUpdateOrganizationWithDataMerge(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_merge",
+		Data:       map[string]any{"plan": "free", "seats": 10},
+	})
+	require.NoError(t, err)
+
+	// Update with merged data
+	updateData := json.RawMessage(`{"seats":50,"feature_flags":["beta"]}`)
+	err = db.UpdateOrganization(ctx, projectID, orgID, OrganizationUpdate{
+		Data: &updateData,
+	})
+	require.NoError(t, err)
+
+	org, err := db.GetOrganization(ctx, projectID, orgID)
+	require.NoError(t, err)
+
+	var orgData map[string]any
+	err = json.Unmarshal(org.Data, &orgData)
+	require.NoError(t, err)
+
+	// Original key preserved
+	require.Equal(t, "free", orgData["plan"])
+	// Updated key changed
+	require.Equal(t, float64(50), orgData["seats"])
+	// New key added
+	require.NotNil(t, orgData["feature_flags"])
+}
+
+func TestDeleteOrganization(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_delete",
+	})
+	require.NoError(t, err)
+
+	err = db.DeleteOrganization(ctx, projectID, orgID)
+	require.NoError(t, err)
+
+	_, err = db.GetOrganization(ctx, projectID, orgID)
+	require.Error(t, err, "should return error when org is deleted")
+}
+
+func TestOrganizationVersionAutoIncrement(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_version",
+	})
+	require.NoError(t, err)
+
+	org, err := db.GetOrganization(ctx, projectID, orgID)
+	require.NoError(t, err)
+	initialVersion := org.Version
+
+	err = db.UpdateOrganization(ctx, projectID, orgID, OrganizationUpdate{
+		Name: ptr("Updated Name"),
+	})
+	require.NoError(t, err)
+
+	org, err = db.GetOrganization(ctx, projectID, orgID)
+	require.NoError(t, err)
+	require.Equal(t, initialVersion+1, org.Version, "version should auto-increment on update")
+}
+
+func TestUpsertOrganizationMember(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create org
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_membership",
+	})
+	require.NoError(t, err)
+
+	// Create user
+	userID, err := db.CreateUser(ctx, User{
+		ProjectID:   projectID,
+		AnonymousID: ptr("anon_org_member"),
+		Data:        json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	// Add user to org with org-specific data
+	err = db.UpsertOrganizationMember(ctx, orgID, userID, map[string]any{
+		"role":       "admin",
+		"department": "engineering",
+	})
+	require.NoError(t, err)
+
+	// Verify membership
+	members, total, err := db.ListOrganizationMembers(ctx, projectID, orgID, store.Pagination{Limit: 10, Offset: 0})
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Equal(t, 1, len(members))
+	require.Equal(t, userID, members[0].ID)
+
+	// Verify org-specific data
+	var orgData map[string]any
+	err = json.Unmarshal(members[0].OrganizationData, &orgData)
+	require.NoError(t, err)
+	require.Equal(t, "admin", orgData["role"])
+	require.Equal(t, "engineering", orgData["department"])
+}
+
+func TestUpsertOrganizationMemberMergesData(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create org and user
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_data_merge",
+	})
+	require.NoError(t, err)
+
+	userID, err := db.CreateUser(ctx, User{
+		ProjectID:   projectID,
+		AnonymousID: ptr("anon_data_merge"),
+		Data:        json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	// Add user with initial data
+	err = db.UpsertOrganizationMember(ctx, orgID, userID, map[string]any{
+		"role": "member",
+	})
+	require.NoError(t, err)
+
+	// Add user again with additional data (should merge)
+	err = db.UpsertOrganizationMember(ctx, orgID, userID, map[string]any{
+		"role":       "admin",
+		"department": "sales",
+	})
+	require.NoError(t, err)
+
+	// Verify data was merged
+	members, _, err := db.ListOrganizationMembers(ctx, projectID, orgID, store.Pagination{Limit: 10, Offset: 0})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(members))
+
+	var orgData map[string]any
+	err = json.Unmarshal(members[0].OrganizationData, &orgData)
+	require.NoError(t, err)
+	require.Equal(t, "admin", orgData["role"])
+	require.Equal(t, "sales", orgData["department"])
+}
+
+func TestRemoveUserFromOrganization(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create org and user
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_remove",
+	})
+	require.NoError(t, err)
+
+	userID, err := db.CreateUser(ctx, User{
+		ProjectID:   projectID,
+		AnonymousID: ptr("anon_remove"),
+		Data:        json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	// Add and then remove user
+	err = db.UpsertOrganizationMember(ctx, orgID, userID, nil)
+	require.NoError(t, err)
+
+	err = db.RemoveUserFromOrganization(ctx, orgID, userID)
+	require.NoError(t, err)
+
+	// Verify user is no longer a member
+	members, total, err := db.ListOrganizationMembers(ctx, projectID, orgID, store.Pagination{Limit: 10, Offset: 0})
+	require.NoError(t, err)
+	require.Equal(t, 0, total)
+	require.Equal(t, 0, len(members))
+}
+
+func TestListOrganizationMembersWithPagination(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create org
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_pagination",
+	})
+	require.NoError(t, err)
+
+	// Create and add multiple users
+	for i := 0; i < 5; i++ {
+		userID, err := db.CreateUser(ctx, User{
+			ProjectID:   projectID,
+			AnonymousID: ptr(uuid.New().String()),
+			Data:        json.RawMessage(`{}`),
+		})
+		require.NoError(t, err)
+		err = db.UpsertOrganizationMember(ctx, orgID, userID, nil)
+		require.NoError(t, err)
+	}
+
+	type test struct {
+		pagination    store.Pagination
+		expectedCount int
+		expectedTotal int
+	}
+
+	tests := map[string]test{
+		"first page": {
+			pagination:    store.Pagination{Limit: 2, Offset: 0},
+			expectedCount: 2,
+			expectedTotal: 5,
+		},
+		"second page": {
+			pagination:    store.Pagination{Limit: 2, Offset: 2},
+			expectedCount: 2,
+			expectedTotal: 5,
+		},
+		"all members": {
+			pagination:    store.Pagination{Limit: 10, Offset: 0},
+			expectedCount: 5,
+			expectedTotal: 5,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			members, total, err := db.ListOrganizationMembers(ctx, projectID, orgID, tt.pagination)
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedCount, len(members))
+			require.Equal(t, tt.expectedTotal, total)
+		})
+	}
+}
+
+func TestListUserOrganizations(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create user
+	userID, err := db.CreateUser(ctx, User{
+		ProjectID:   projectID,
+		AnonymousID: ptr("anon_multi_org"),
+		Data:        json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	// Create multiple orgs and add user to them
+	orgIDs := make([]uuid.UUID, 3)
+	for i := 0; i < 3; i++ {
+		orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+			ExternalID: uuid.New().String(),
+			Name:       ptr("Test Org"),
+		})
+		require.NoError(t, err)
+		orgIDs[i] = orgID
+		err = db.UpsertOrganizationMember(ctx, orgID, userID, nil)
+		require.NoError(t, err)
+	}
+
+	// List user's orgs
+	orgs, err := db.ListUserOrganizations(ctx, projectID, userID)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(orgs))
+
+	// Verify all orgs are returned
+	returnedIDs := make(map[uuid.UUID]bool)
+	for _, org := range orgs {
+		returnedIDs[org.ID] = true
+	}
+	for _, id := range orgIDs {
+		require.True(t, returnedIDs[id], "org should be in user's orgs list")
+	}
+}
+
+func TestCountOrganizationMembers(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create org
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_count",
+	})
+	require.NoError(t, err)
+
+	// Initially 0 members
+	count, err := db.CountOrganizationMembers(ctx, orgID)
+	require.NoError(t, err)
+	require.Equal(t, 0, count)
+
+	// Add users
+	for i := 0; i < 3; i++ {
+		userID, err := db.CreateUser(ctx, User{
+			ProjectID:   projectID,
+			AnonymousID: ptr(uuid.New().String()),
+			Data:        json.RawMessage(`{}`),
+		})
+		require.NoError(t, err)
+		err = db.UpsertOrganizationMember(ctx, orgID, userID, nil)
+		require.NoError(t, err)
+	}
+
+	count, err = db.CountOrganizationMembers(ctx, orgID)
+	require.NoError(t, err)
+	require.Equal(t, 3, count)
+}
+
+func TestUpdateOrganizationUserData(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create org and user
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_user_data",
+	})
+	require.NoError(t, err)
+
+	userID, err := db.CreateUser(ctx, User{
+		ProjectID:   projectID,
+		AnonymousID: ptr("anon_user_data"),
+		Data:        json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	// Add user with initial data
+	err = db.UpsertOrganizationMember(ctx, orgID, userID, map[string]any{
+		"role": "member",
+	})
+	require.NoError(t, err)
+
+	// Update org user data
+	updateData := json.RawMessage(`{"role":"admin","permissions":["read","write"]}`)
+	err = db.UpdateOrganizationUserData(ctx, orgID, userID, updateData)
+	require.NoError(t, err)
+
+	// Verify update
+	members, _, err := db.ListOrganizationMembers(ctx, projectID, orgID, store.Pagination{Limit: 10, Offset: 0})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(members))
+
+	var orgData map[string]any
+	err = json.Unmarshal(members[0].OrganizationData, &orgData)
+	require.NoError(t, err)
+	require.Equal(t, "admin", orgData["role"])
+	require.NotNil(t, orgData["permissions"])
+}
+
+func TestDeleteOrganizationCascadesMembers(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create org
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_cascade",
+	})
+	require.NoError(t, err)
+
+	// Create user and add to org
+	userID, err := db.CreateUser(ctx, User{
+		ProjectID:   projectID,
+		AnonymousID: ptr("anon_cascade"),
+		Data:        json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+	err = db.UpsertOrganizationMember(ctx, orgID, userID, nil)
+	require.NoError(t, err)
+
+	// Verify user is member
+	count, err := db.CountOrganizationMembers(ctx, orgID)
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+
+	// Delete org
+	err = db.DeleteOrganization(ctx, projectID, orgID)
+	require.NoError(t, err)
+
+	// User should still exist (not cascaded)
+	user, err := db.GetUser(ctx, projectID, userID)
+	require.NoError(t, err)
+	require.NotNil(t, user)
+
+	// User should no longer be in any orgs
+	orgs, err := db.ListUserOrganizations(ctx, projectID, userID)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(orgs))
+}

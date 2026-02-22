@@ -15,14 +15,14 @@ import (
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
-func setupUsersTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream) {
+func setupUsersTest(t *testing.T) (*subjects.State, uuid.UUID, jetstream.JetStream) {
 	t.Helper()
 
 	ctx := graceful.NewContext(t.Context())
@@ -52,7 +52,7 @@ func setupUsersTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream)
 	})
 	require.NoError(t, err)
 
-	usersState := users.NewState(usrs)
+	usersState := subjects.NewState(usrs)
 
 	return usersState, projectID, jet
 }
@@ -279,7 +279,7 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 		},
 	}
 
-	ruleID, err := usersState.RulesStore.CreateRule(ctx, users.Rule{
+	ruleID, err := usersState.RulesStore.CreateRule(ctx, subjects.Rule{
 		ProjectID:       projectID,
 		Rule:            store.JSONB[rules.RuleSet]{Data: ruleset},
 		DependsOnUsers:  true,
@@ -288,7 +288,7 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = usersState.ListsStore.CreateList(ctx, users.List{
+	_, err = usersState.ListsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
@@ -443,7 +443,7 @@ func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 		},
 	}
 
-	ruleID, err := usersState.RulesStore.CreateRule(ctx, users.Rule{
+	ruleID, err := usersState.RulesStore.CreateRule(ctx, subjects.Rule{
 		ProjectID:       projectID,
 		Rule:            store.JSONB[rules.RuleSet]{Data: ruleset},
 		DependsOnUsers:  true,
@@ -452,7 +452,7 @@ func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	listID, err := usersState.ListsStore.CreateList(ctx, users.List{
+	listID, err := usersState.ListsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Adult List",
 		Type:      "static",

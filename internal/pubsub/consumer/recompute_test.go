@@ -15,14 +15,14 @@ import (
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
 
-func setupRecomputeTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream) {
+func setupRecomputeTest(t *testing.T) (*subjects.State, uuid.UUID, jetstream.JetStream) {
 	t.Helper()
 
 	ctx := graceful.NewContext(t.Context())
@@ -40,7 +40,7 @@ func setupRecomputeTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStr
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	usersState := users.NewState(usrs)
+	usersState := subjects.NewState(usrs)
 
 	orgID, err := mgmtState.OrganizationsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
@@ -79,7 +79,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	email := "test@example.com"
-	userID, err := st.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
+	userID, err := st.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
 		Email: &email,
 		Data: map[string]any{
 			"age": 25,
@@ -98,7 +98,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 		},
 	}
 
-	ruleID, err := st.RulesStore.CreateRule(ctx, users.Rule{
+	ruleID, err := st.RulesStore.CreateRule(ctx, subjects.Rule{
 		ProjectID:       projectID,
 		Rule:            store.JSONB[rules.RuleSet]{Data: ruleset},
 		DependsOnUsers:  true,
@@ -107,7 +107,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	listID, err := st.ListsStore.CreateList(ctx, users.List{
+	listID, err := st.ListsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
@@ -155,7 +155,7 @@ func TestRecomputeListHandlerNoRule(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet)
 	require.NoError(t, err)
 
-	listID, err := st.ListsStore.CreateList(ctx, users.List{
+	listID, err := st.ListsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Test List Without Rule",
 		Type:      "static",
@@ -195,7 +195,7 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	email := "test@example.com"
-	userID, err := st.UsersStore.UpsertUser(ctx, projectID, users.UpsertUserParams{
+	userID, err := st.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
 		Email: &email,
 		Data: map[string]any{
 			"age": 30,
@@ -214,7 +214,7 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 		},
 	}
 
-	ruleID, err := st.RulesStore.CreateRule(ctx, users.Rule{
+	ruleID, err := st.RulesStore.CreateRule(ctx, subjects.Rule{
 		ProjectID:       projectID,
 		Rule:            store.JSONB[rules.RuleSet]{Data: ruleset},
 		DependsOnUsers:  true,
@@ -223,7 +223,7 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	listID, err := st.ListsStore.CreateList(ctx, users.List{
+	listID, err := st.ListsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
@@ -286,10 +286,10 @@ func TestPublishListRecomputeEventsInserted(t *testing.T) {
 	listID := uuid.New()
 	userID := uuid.New()
 
-	recomputed := []users.Recomputed{
+	recomputed := []subjects.Recomputed{
 		{
 			UserID: userID,
-			Action: users.RecomputeActionInserted,
+			Action: subjects.RecomputeActionInserted,
 		},
 	}
 
@@ -315,10 +315,10 @@ func TestPublishListRecomputeEventsDeleted(t *testing.T) {
 	listID := uuid.New()
 	userID := uuid.New()
 
-	recomputed := []users.Recomputed{
+	recomputed := []subjects.Recomputed{
 		{
 			UserID: userID,
-			Action: users.RecomputeActionDeleted,
+			Action: subjects.RecomputeActionDeleted,
 		},
 	}
 
@@ -343,18 +343,18 @@ func TestPublishListRecomputeEventsMixed(t *testing.T) {
 	projectID := uuid.New()
 	listID := uuid.New()
 
-	recomputed := []users.Recomputed{
+	recomputed := []subjects.Recomputed{
 		{
 			UserID: uuid.New(),
-			Action: users.RecomputeActionInserted,
+			Action: subjects.RecomputeActionInserted,
 		},
 		{
 			UserID: uuid.New(),
-			Action: users.RecomputeActionDeleted,
+			Action: subjects.RecomputeActionDeleted,
 		},
 		{
 			UserID: uuid.New(),
-			Action: users.RecomputeActionInserted,
+			Action: subjects.RecomputeActionInserted,
 		},
 	}
 

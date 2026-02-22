@@ -14,7 +14,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -44,7 +44,7 @@ func setupClientController(t *testing.T) *testClientController {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet)
-	usersState := users.NewState(usrs)
+	usersState := subjects.NewState(usrs)
 
 	controller := NewClientController(logger, usrs, usersState, pub)
 	return &testClientController{

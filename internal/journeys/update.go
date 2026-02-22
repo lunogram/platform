@@ -7,7 +7,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/osteele/liquid"
 )
 
@@ -36,8 +36,8 @@ func HandleUpdate(ctx HandlerContext, step journey.JourneyVersionStep, state jou
 
 	updated := json.RawMessage(rendered)
 
-	usersStore := users.NewUsersStore(ctx.DB)
-	err = usersStore.UpdateUser(ctx, ctx.UserID, users.UserUpdate{
+	usersStore := subjects.NewUsersStore(ctx.DB)
+	err = usersStore.UpdateUser(ctx, ctx.UserID, subjects.UserUpdate{
 		Data: &updated,
 	})
 	if err != nil {

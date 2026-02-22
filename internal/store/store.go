@@ -21,14 +21,14 @@ import (
 // Config contains database connection settings for all databases.
 type Config struct {
 	ManagementURI string `env:"POSTGRES_MANAGEMENT_URI" envDefault:"postgres://postgres:password@postgres:5432/management?sslmode=disable"`
-	UsersURI      string `env:"POSTGRES_USERS_URI" envDefault:"postgres://postgres:password@postgres:5432/users?sslmode=disable"`
+	SubjectsURI   string `env:"POSTGRES_SUBJECTS_URI" envDefault:"postgres://postgres:password@postgres:5432/subjects?sslmode=disable"`
 	JourneyURI    string `env:"POSTGRES_JOURNEY_URI" envDefault:"postgres://postgres:password@postgres:5432/journey?sslmode=disable"`
 }
 
 // Connections holds all database connections.
 type Connections struct {
 	Management *sqlx.DB
-	Users      *sqlx.DB
+	Subjects   *sqlx.DB
 	Journey    *sqlx.DB
 }
 
@@ -41,22 +41,22 @@ func New(ctx graceful.Context, logger *zap.Logger, config Config) (*Connections,
 		return nil, fmt.Errorf("failed to connect to management database: %w", err)
 	}
 
-	users, err := sqlx.Connect("pgx", config.UsersURI)
+	subjects, err := sqlx.Connect("pgx", config.SubjectsURI)
 	if err != nil {
 		management.Close()
-		return nil, fmt.Errorf("failed to connect to users database: %w", err)
+		return nil, fmt.Errorf("failed to connect to subjects database: %w", err)
 	}
 
 	journey, err := sqlx.Connect("pgx", config.JourneyURI)
 	if err != nil {
 		management.Close()
-		users.Close()
+		subjects.Close()
 		return nil, fmt.Errorf("failed to connect to journey database: %w", err)
 	}
 
 	conns := &Connections{
 		Management: management,
-		Users:      users,
+		Subjects:   subjects,
 		Journey:    journey,
 	}
 
@@ -66,8 +66,8 @@ func New(ctx graceful.Context, logger *zap.Logger, config Config) (*Connections,
 		if err := management.Close(); err != nil {
 			logger.Error("failed to close management database connection", zap.Error(err))
 		}
-		if err := users.Close(); err != nil {
-			logger.Error("failed to close users database connection", zap.Error(err))
+		if err := subjects.Close(); err != nil {
+			logger.Error("failed to close subjects database connection", zap.Error(err))
 		}
 		if err := journey.Close(); err != nil {
 			logger.Error("failed to close journey database connection", zap.Error(err))
