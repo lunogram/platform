@@ -2,9 +2,9 @@ package consumer
 
 import (
 	"github.com/cloudproud/graceful"
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
@@ -33,7 +33,7 @@ const (
 )
 
 // Serve starts all JetStream consumers and registers their handlers.
-func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, db *sqlx.DB, mgmt *management.State, usrs *users.State, jrny *journey.State, registry *providers.Registry) {
+func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, db *store.Connections, mgmt *management.State, usrs *users.State, jrny *journey.State, registry *providers.Registry) {
 	pub := pubsub.NewPublisher(jet)
 	router := NewRouter(ctx, jet, logger)
 
@@ -42,6 +42,6 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, db
 	router.Handle(StreamEvents, ConsumerEventsProcess, EventsHandler(logger, usrs, jrny, pub))
 	router.Handle(StreamEvents, ConsumerEventsSchema, EventSchemasHandler(logger, usrs))
 	router.Handle(StreamLists, ConsumerListsRecompute, RecomputeListHandler(logger, usrs, pub))
-	router.Handle(StreamJourneys, ConsumerJourneysAdvance, JourneyStepHandler(logger, db, jrny, pub))
+	router.Handle(StreamJourneys, ConsumerJourneysAdvance, JourneyStepHandler(logger, db.Users, jrny, pub))
 	router.Handle(StreamCampaigns, ConsumerCampaignsSend, CampaignsSendHandler(logger, mgmt, usrs, registry))
 }

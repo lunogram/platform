@@ -6,11 +6,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/container"
+
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -19,22 +19,14 @@ func TestSubscriptionCreation(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	ctx := t.Context()
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, config)
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	subs := NewSubscriptionsController(logger, db)
+	subs := NewSubscriptionsController(logger, mgmt)
 
 	isPublicTrue := true
 	isPublicFalse := false
@@ -102,22 +94,14 @@ func TestListSubscriptions(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	ctx := t.Context()
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, config)
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	subs := NewSubscriptionsController(logger, db)
+	subs := NewSubscriptionsController(logger, mgmt)
 
 	// Create some test subscriptions
 	isPublic := true
@@ -160,22 +144,14 @@ func TestUpdateSubscription(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	ctx := t.Context()
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, config)
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	subs := NewSubscriptionsController(logger, db)
+	subs := NewSubscriptionsController(logger, mgmt)
 
 	// Create a subscription
 	isPublic := true
@@ -223,22 +199,14 @@ func TestGetSubscription(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	ctx := t.Context()
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, config)
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	subs := NewSubscriptionsController(logger, db)
+	subs := NewSubscriptionsController(logger, mgmt)
 
 	// Create a subscription
 	isPublic := true

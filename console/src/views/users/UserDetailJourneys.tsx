@@ -92,11 +92,11 @@ export default function UserDetailJourneys() {
                                         className="cursor-pointer"
                                         role="button"
                                         tabIndex={0}
-                                        onClick={() => navigate(`../../entrances/${item.entrance_id}`)}
+                                        onClick={() => navigate(`../../journeys/${item.journey?.id}`)}
                                         onKeyDown={(event) => {
                                             if (event.key === 'Enter' || event.key === ' ') {
                                                 event.preventDefault()
-                                                navigate(`../../entrances/${item.entrance_id}`)
+                                                navigate(`../../journeys/${item.journey?.id}`)
                                             }
                                         }}
                                         >

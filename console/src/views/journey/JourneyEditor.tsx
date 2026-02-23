@@ -767,7 +767,7 @@ export default function JourneyEditor() {
                         </>
                         : <>
                             <Tag
-                                variant={journey.status === 'live' ? 'success' : 'plain'}
+                                variant={journey.status === 'published' ? 'success' : 'plain'}
                                 size="large">
                                 {t(journey.status)}
                             </Tag>
@@ -844,7 +844,7 @@ export default function JourneyEditor() {
                                                             setNodes([...nodes.map(n => ({ ...n, selected: false })), ...nodeCopies])
                                                             setEdges([...edges.map(e => ({ ...e, selected: false })), ...edgeCopies])
                                                         }}
-                                                        size="small"
+                                                        size="sm"
                                                     >
                                                         {`Duplicate Selected Steps (${selected.length})`}
                                                     </Button>
