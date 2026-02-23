@@ -224,22 +224,35 @@ func (user CampaignUser) OAPI() oapi.CampaignUser {
 	}
 }
 
-func (s *CampaignsStore) GetCampaignUsers(ctx context.Context, projectID, campaignID uuid.UUID, pagination store.Pagination) (CampaignUsers, int, error) {
+func (s *CampaignsStore) GetCampaignUsers(ctx context.Context, usersDB store.DB, projectID, campaignID uuid.UUID, pagination store.Pagination) (CampaignUsers, int, error) {
+	// First verify the campaign belongs to this project (management DB)
+	var exists bool
+	err := s.db.GetContext(ctx, &exists, `
+		SELECT EXISTS(
+			SELECT 1 FROM campaigns
+			WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL
+		)`, campaignID, projectID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if !exists {
+		return []CampaignUser{}, 0, nil
+	}
+
+	// Query campaign_sends from users DB
 	query := `
-	SELECT cs.id, cs.campaign_id, cs.user_id, cs.state, cs.sent_at, cs.created_at, cs.updated_at,
+	SELECT id, campaign_id, user_id, state, sent_at, created_at, updated_at,
 		COUNT(*) OVER () AS total_count
-	FROM campaign_sends cs
-	JOIN campaigns c ON c.id = cs.campaign_id
-	WHERE c.project_id = $1
-	AND cs.campaign_id = $2
-	ORDER BY cs.created_at DESC
-	LIMIT $3 OFFSET $4`
+	FROM campaign_sends
+	WHERE campaign_id = $1
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`
 
 	var results []struct {
 		CampaignUser
 		TotalCount int `db:"total_count"`
 	}
-	err := s.db.SelectContext(ctx, &results, query, projectID, campaignID, pagination.Limit, pagination.Offset)
+	err = usersDB.SelectContext(ctx, &results, query, campaignID, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}

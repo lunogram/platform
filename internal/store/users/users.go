@@ -68,6 +68,13 @@ type UsersStore struct {
 	db store.DB
 }
 
+func (s *UsersStore) CountUsers(ctx context.Context, projectID uuid.UUID) (int, error) {
+	var count int
+	err := s.db.GetContext(ctx, &count,
+		`SELECT COUNT(*) FROM users WHERE project_id = $1`, projectID)
+	return count, err
+}
+
 func (s *UsersStore) LookupUserID(ctx context.Context, projectID uuid.UUID, externalID, anonymousID *string) (uuid.UUID, error) {
 	// TODO: support traits lookups
 	query := `

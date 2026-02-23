@@ -5,11 +5,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/config"
-	"github.com/lunogram/platform/internal/container"
+
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -18,14 +17,7 @@ func TestGetAuthMethods(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
-
-	err := management.Migrate(management.Config{URI: postgresURI})
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
-	require.NoError(t, err)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	cfg := config.Node{
 		Auth: config.Auth{
@@ -36,7 +28,7 @@ func TestGetAuthMethods(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, db, cfg)
+	controller, err := NewAuthController(logger, mgmt, cfg)
 	require.NoError(t, err)
 
 	type test struct {
@@ -71,14 +63,7 @@ func TestAuthCallbackWithInvalidDriver(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
-
-	err := management.Migrate(management.Config{URI: postgresURI})
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
-	require.NoError(t, err)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	cfg := config.Node{
 		Auth: config.Auth{
@@ -89,7 +74,7 @@ func TestAuthCallbackWithInvalidDriver(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, db, cfg)
+	controller, err := NewAuthController(logger, mgmt, cfg)
 	require.NoError(t, err)
 
 	type test struct {
@@ -119,14 +104,7 @@ func TestAuthWebhookWithInvalidDriver(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	postgresURI := container.RunPostgreSQL(t)
-
-	err := management.Migrate(management.Config{URI: postgresURI})
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
-	require.NoError(t, err)
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
 	cfg := config.Node{
 		Auth: config.Auth{
@@ -137,7 +115,7 @@ func TestAuthWebhookWithInvalidDriver(t *testing.T) {
 		},
 	}
 
-	controller, err := NewAuthController(logger, db, cfg)
+	controller, err := NewAuthController(logger, mgmt, cfg)
 	require.NoError(t, err)
 
 	type test struct {

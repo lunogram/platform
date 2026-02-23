@@ -9,15 +9,15 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, usrs *users.State, jet jetstream.JetStream) (*Controller, error) {
+func NewController(logger *zap.Logger, mgmtDB, usersDB *sqlx.DB, mgmt *management.State, usrs *users.State, jet jetstream.JetStream) (*Controller, error) {
 	pub := pubsub.NewPublisher(jet)
-	subsController, err := NewSubscriptionsController(logger, db, mgmt, usrs)
+	subsController, err := NewSubscriptionsController(logger, mgmtDB, mgmt, usrs)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Controller{
-		ClientController:        NewClientController(logger, db, usrs, pub),
+		ClientController:        NewClientController(logger, usersDB, usrs, pub),
 		SubscriptionsController: subsController,
 	}, nil
 }

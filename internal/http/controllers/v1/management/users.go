@@ -24,13 +24,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, db *sqlx.DB, maxUploadSize int64) *UsersController {
+func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, usersDB, journeyDB *sqlx.DB, mgmt *management.State, maxUploadSize int64) *UsersController {
 	return &UsersController{
 		logger:        logger,
-		db:            db,
-		mgmt:          management.NewState(db),
-		users:         users.NewState(db),
-		journey:       journey.NewState(db),
+		usersDB:       usersDB,
+		mgmt:          mgmt,
+		users:         users.NewState(usersDB),
+		journey:       journey.NewState(journeyDB),
 		pubsub:        pub,
 		maxUploadSize: maxUploadSize,
 	}
@@ -38,7 +38,7 @@ func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, db *sqlx.DB, m
 
 type UsersController struct {
 	logger        *zap.Logger
-	db            *sqlx.DB
+	usersDB       *sqlx.DB
 	pubsub        pubsub.Publisher
 	mgmt          *management.State
 	users         *users.State
@@ -115,7 +115,7 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 		data = *body.Data
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.usersDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
@@ -467,27 +467,13 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 		}
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
-	if err != nil {
-		logger.Error("failed to begin transaction", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal())
-		return
-	}
-	defer tx.Rollback() //nolint:errcheck
-
 	for _, sub := range subscriptions {
-		err = srv.mgmt.SetSubscriptionState(ctx, tx, userID, sub.SubscriptionId, sub.State == "subscribed")
+		err = srv.mgmt.SetSubscriptionState(ctx, userID, sub.SubscriptionId, sub.State == "subscribed")
 		if err != nil {
 			logger.Error("failed to update subscription", zap.Error(err))
 			oapi.WriteProblem(w, err)
 			return
 		}
-	}
-
-	if err = tx.Commit(); err != nil {
-		logger.Error("failed to commit transaction", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal())
-		return
 	}
 
 	user, err := srv.users.GetUser(ctx, projectID, userID)
@@ -648,7 +634,7 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	imported := 0
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.usersDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		return err
