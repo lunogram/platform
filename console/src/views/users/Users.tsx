@@ -1,6 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useParams } from 'react-router'
-import { useForm } from 'react-hook-form'
 import { CreateUserForm } from './CreateUserForm'
 import { BulkRemoveUsersForm } from './BulkRemoveUsersForm'
 import api from '../../api'
@@ -8,21 +7,6 @@ import { useSearchTableQueryState } from '../../ui/SearchTable'
 import { useRoute } from '../router'
 import { useDebounceControl } from '../../hooks'
 import { Input } from '@/components/ui/input'
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '@/components/ui/form'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select'
 import {
     Table,
     TableBody,
@@ -60,9 +44,7 @@ export declare namespace Intl {
     function supportedValuesOf(input: Key): string[]
 
     interface DateTimeFormat {
-
         format(date?: Date | number): string
-
         resolvedOptions(): ResolvedDateTimeFormatOptions
     }
 
@@ -86,7 +68,7 @@ export default function UserTabs() {
     const timeZones = Intl.supportedValuesOf('timeZone')
     const locale = navigator.languages[0]?.split('-')[0] ?? 'en'
 
-    const state = useSearchTableQueryState(useCallback(async params => {return await api.users.search(projectId, params)}, [projectId]))
+    const state = useSearchTableQueryState(useCallback(async params => { return await api.users.search(projectId, params) }, [projectId]))
     const [isBulkRemovalOpen, setIsBulkRemovalOpen] = useState(false)
     const [isCreateUserOpen, setIsCreateUserOpen] = useState(false)
     const [search, setSearch] = useDebounceControl(state.params.q ?? '', q => state.setParams({ ...state.params, q }))
@@ -121,157 +103,160 @@ export default function UserTabs() {
         setIsBulkRemovalOpen(false)
     }
 
-    return <>
-        <div className="py-8 px-8 space-y-8">
-            <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                    <h2 className="text-3xl font-bold tracking-tight">{t('users')}</h2>
+    return (
+        <>
+            <div className="py-8 px-8 space-y-8">
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                        <h2 className="text-3xl font-bold tracking-tight">{t('users')}</h2>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            onClick={() => setIsBulkRemovalOpen(true)}
+                            variant="destructive">
+                            <TrashIcon />
+                            {t('delete_users')}
+                        </Button>
+                        <Button onClick={() => setIsCreateUserOpen(true)}>
+                            <PlusIcon />
+                            {t('create_user')}
+                        </Button>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button
-                        onClick={() => setIsBulkRemovalOpen(true)}
-                        variant="destructive">
-                        <TrashIcon />
-                        {t('delete_users')}
-                    </Button>
-                    <Button onClick={() => setIsCreateUserOpen(true)}>
-                        <PlusIcon />
-                        {t('create_user')}
-                    </Button>
-                </div>
-            </div>
-            
-            <div className="space-y-4">
-            <Input
-                type="search"
-                placeholder={t('search_users')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="max-w-sm"
-            />
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>{t('name')}</TableHead>
-                            <TableHead>{t('external_id')}</TableHead>
-                            <TableHead>{t('email')}</TableHead>
-                            <TableHead>{t('phone')}</TableHead>
-                            <TableHead>{t('locale.singular')}</TableHead>
-                            <TableHead
-                                className="cursor-pointer select-none"
-                                onClick={() =>
-                                    state.setParams({
-                                        ...state.params,
-                                        sort: 'name',
-                                        direction:
-                                            state.params.sort === 'name' && state.params.direction === 'asc'
-                                                ? 'desc'
-                                                : 'asc',
-                                    })
-                                }
-                            >
-                                {t('name')}
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {state.results === null ? (
-                            Array.from({ length: 5 }).map((_, i) => (
-                                <TableRow key={i}>
-                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-8" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                </TableRow>
-                            ))
-                        ) : state.results.results.length ? (
-                            state.results.results.map((user) => (
-                                <TableRow
-                                    key={user.id}
-                                    className="cursor-pointer"
-                                    onClick={() => route(`users/${user.id}`)}
-                                    tabIndex={0}
-                                    role="button"
-                                    onKeyDown={(event) => {
-                                        if (event.key === 'Enter' || event.key === ' ') {
-                                            event.preventDefault()
-                                            route(`users/${user.id}`)
+
+                <div className="space-y-4">
+                    <Input
+                        type="search"
+                        placeholder={t('search_users')}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="max-w-sm"
+                    />
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>{t('name')}</TableHead>
+                                    <TableHead>{t('external_id')}</TableHead>
+                                    <TableHead>{t('email')}</TableHead>
+                                    <TableHead>{t('phone')}</TableHead>
+                                    <TableHead>{t('locale.singular')}</TableHead>
+                                    <TableHead
+                                        className="cursor-pointer select-none"
+                                        onClick={() =>
+                                            state.setParams({
+                                                ...state.params,
+                                                sort: 'name',
+                                                direction:
+                                                    state.params.sort === 'name' && state.params.direction === 'asc'
+                                                        ? 'desc'
+                                                        : 'asc',
+                                            })
                                         }
-                                    }}
-                                >
-                                    <TableCell>{user.data?.full_name || user.full_name || '-'}</TableCell>
-                                    <TableCell>{user.external_id || '-'}</TableCell>
-                                    <TableCell>{user.email || '-'}</TableCell>
-                                    <TableCell>{user.data?.phone || user.phone || '-'}</TableCell>
-                                    <TableCell>{user.locale || '-'}</TableCell>
-                                    <TableCell>{user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</TableCell>
+                                    >
+                                        {t('name')}
+                                    </TableHead>
                                 </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center">
-                                    {t('campaign.setup.channels.email.no_content_available')}
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {state.results === null ? (
+                                    Array.from({ length: 5 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : state.results.results.length ? (
+                                    state.results.results.map((user) => (
+                                        <TableRow
+                                            key={user.id}
+                                            className="cursor-pointer"
+                                            onClick={() => route(`users/${user.id}`)}
+                                            tabIndex={0}
+                                            role="button"
+                                            onKeyDown={(event) => {
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                    event.preventDefault()
+                                                    route(`users/${user.id}`)
+                                                }
+                                            }}
+                                        >
+                                            <TableCell>{user.data?.full_name || user.full_name || '-'}</TableCell>
+                                            <TableCell>{user.external_id || '-'}</TableCell>
+                                            <TableCell>{user.email || '-'}</TableCell>
+                                            <TableCell>{user.data?.phone || user.phone || '-'}</TableCell>
+                                            <TableCell>{user.locale || '-'}</TableCell>
+                                            <TableCell>{user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="h-24 text-center">
+                                            {t('campaign.setup.channels.email.no_content_available')}
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    {state.results && (
+                        <Pagination className="mt-4">
+                            <PaginationContent>
+                                {state.results.prevCursor && (
+                                    <PaginationItem>
+                                        <PaginationPrevious
+                                            href="#"
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                state.setParams({ ...state.params, cursor: state.results!.prevCursor, page: 'prev' })
+                                            }}
+                                            className="cursor-pointer"
+                                        />
+                                    </PaginationItem>
+                                )}
+                                {state.results.nextCursor && (
+                                    <PaginationItem>
+                                        <PaginationNext
+                                            href="#"
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                state.setParams({ ...state.params, cursor: state.results!.nextCursor, page: 'next' })
+                                            }}
+                                            className="cursor-pointer"
+                                        />
+                                    </PaginationItem>
+                                )}
+                            </PaginationContent>
+                        </Pagination>
+                    )}
+                </div>
             </div>
-            {state.results && (
-                <Pagination className="mt-4">
-                    <PaginationContent>
-                        {state.results.prevCursor && (
-                            <PaginationItem>
-                                <PaginationPrevious
-                                    href="#"
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        state.setParams({ ...state.params, cursor: state.results!.prevCursor, page: 'prev' })
-                                    }}
-                                    className="cursor-pointer"
-                                />
-                            </PaginationItem>
-                        )}
-                        {state.results.nextCursor && (
-                            <PaginationItem>
-                                <PaginationNext
-                                    href="#"
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        state.setParams({ ...state.params, cursor: state.results!.nextCursor, page: 'next' })
-                                    }}
-                                    className="cursor-pointer"
-                                />
-                            </PaginationItem>
-                        )}
-                    </PaginationContent>
-                </Pagination>
-            )}
-        </div>
 
-        <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{t('create_user')}</DialogTitle>
-                </DialogHeader>
-                <CreateUserForm
-                    defaultUser={defaultUser}
-                    timeZones={timeZones}
-                    onSubmit={createUser}
-                />
-            </DialogContent>
-        </Dialog>
+            <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{t('create_user')}</DialogTitle>
+                    </DialogHeader>
+                    <CreateUserForm
+                        defaultUser={defaultUser}
+                        timeZones={timeZones}
+                        onSubmit={createUser}
+                    />
+                </DialogContent>
+            </Dialog>
 
-        <Dialog open={isBulkRemovalOpen} onOpenChange={setIsBulkRemovalOpen}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{t('delete_users')}</DialogTitle>
-                </DialogHeader>
-                <BulkRemoveUsersForm onSubmit={bulkRemoveUsers} />
-            </DialogContent>
-        </Dialog>
-    </>
+            <Dialog open={isBulkRemovalOpen} onOpenChange={setIsBulkRemovalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{t('delete_users')}</DialogTitle>
+                    </DialogHeader>
+                    <BulkRemoveUsersForm onSubmit={bulkRemoveUsers} />
+                </DialogContent>
+            </Dialog>
+        </>
+    )
 }
