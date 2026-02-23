@@ -1156,6 +1156,12 @@ type ListJourneysParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// FollowUserJourneyStatusParams defines parameters for FollowUserJourneyStatus.
+type FollowUserJourneyStatusParams struct {
+	// UserID The user ID to check journey status for
+	UserID openapi_types.UUID `form:"userID" json:"userID"`
+}
+
 // RunJourneyForUserJSONBody defines parameters for RunJourneyForUser.
 type RunJourneyForUserJSONBody struct {
 	// JourneyEntryID The ID of the journey entry to run
@@ -1797,6 +1803,9 @@ type ClientInterface interface {
 	SetJourneyStepsWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SetJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FollowUserJourneyStatus request
+	FollowUserJourneyStatus(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, params *FollowUserJourneyStatusParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RunJourneyForUserWithBody request with any body
 	RunJourneyForUserWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2664,6 +2673,18 @@ func (c *Client) SetJourneyStepsWithBody(ctx context.Context, projectID openapi_
 
 func (c *Client) SetJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetJourneyStepsRequest(c.Server, projectID, journeyID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FollowUserJourneyStatus(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, params *FollowUserJourneyStatusParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFollowUserJourneyStatusRequest(c.Server, projectID, journeyID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -5574,6 +5595,65 @@ func NewSetJourneyStepsRequestWithBody(server string, projectID openapi_types.UU
 	return req, nil
 }
 
+// NewFollowUserJourneyStatusRequest generates requests for FollowUserJourneyStatus
+func NewFollowUserJourneyStatusRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, params *FollowUserJourneyStatusParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "journeyID", runtime.ParamLocationPath, journeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "userID", runtime.ParamLocationQuery, params.UserID); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewRunJourneyForUserRequest calls the generic RunJourneyForUser builder with application/json body
 func NewRunJourneyForUserRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, body RunJourneyForUserJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -8337,6 +8417,9 @@ type ClientWithResponsesInterface interface {
 
 	SetJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetJourneyStepsResponse, error)
 
+	// FollowUserJourneyStatusWithResponse request
+	FollowUserJourneyStatusWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, params *FollowUserJourneyStatusParams, reqEditors ...RequestEditorFn) (*FollowUserJourneyStatusResponse, error)
+
 	// RunJourneyForUserWithBodyWithResponse request with any body
 	RunJourneyForUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RunJourneyForUserResponse, error)
 
@@ -9550,6 +9633,37 @@ func (r SetJourneyStepsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r SetJourneyStepsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type FollowUserJourneyStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		CurrentStepId *string                           `json:"current_step_id"`
+		JourneyId     *openapi_types.UUID               `json:"journey_id,omitempty"`
+		StartedAt     *time.Time                        `json:"started_at,omitempty"`
+		Status        *FollowUserJourneyStatus200Status `json:"status,omitempty"`
+		UpdatedAt     *time.Time                        `json:"updated_at,omitempty"`
+		UserId        *openapi_types.UUID               `json:"user_id,omitempty"`
+	}
+	JSONDefault *Error
+}
+type FollowUserJourneyStatus200Status string
+
+// Status returns HTTPResponse.Status
+func (r FollowUserJourneyStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FollowUserJourneyStatusResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11191,6 +11305,15 @@ func (c *ClientWithResponses) SetJourneyStepsWithResponse(ctx context.Context, p
 		return nil, err
 	}
 	return ParseSetJourneyStepsResponse(rsp)
+}
+
+// FollowUserJourneyStatusWithResponse request returning *FollowUserJourneyStatusResponse
+func (c *ClientWithResponses) FollowUserJourneyStatusWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, params *FollowUserJourneyStatusParams, reqEditors ...RequestEditorFn) (*FollowUserJourneyStatusResponse, error) {
+	rsp, err := c.FollowUserJourneyStatus(ctx, projectID, journeyID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFollowUserJourneyStatusResponse(rsp)
 }
 
 // RunJourneyForUserWithBodyWithResponse request with arbitrary body returning *RunJourneyForUserResponse
@@ -13203,6 +13326,46 @@ func ParseSetJourneyStepsResponse(rsp *http.Response) (*SetJourneyStepsResponse,
 	return response, nil
 }
 
+// ParseFollowUserJourneyStatusResponse parses an HTTP response from a FollowUserJourneyStatusWithResponse call
+func ParseFollowUserJourneyStatusResponse(rsp *http.Response) (*FollowUserJourneyStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FollowUserJourneyStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			CurrentStepId *string                           `json:"current_step_id"`
+			JourneyId     *openapi_types.UUID               `json:"journey_id,omitempty"`
+			StartedAt     *time.Time                        `json:"started_at,omitempty"`
+			Status        *FollowUserJourneyStatus200Status `json:"status,omitempty"`
+			UpdatedAt     *time.Time                        `json:"updated_at,omitempty"`
+			UserId        *openapi_types.UUID               `json:"user_id,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseRunJourneyForUserResponse parses an HTTP response from a RunJourneyForUserWithResponse call
 func ParseRunJourneyForUserResponse(rsp *http.Response) (*RunJourneyForUserResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -14892,6 +15055,9 @@ type ServerInterface interface {
 	// Set journey steps
 	// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/steps)
 	SetJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
+	// Get user journey status
+	// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users)
+	FollowUserJourneyStatus(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, params FollowUserJourneyStatusParams)
 	// Manually runs a journey for a user
 	// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/users)
 	RunJourneyForUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
@@ -15312,6 +15478,12 @@ func (_ Unimplemented) GetJourneySteps(w http.ResponseWriter, r *http.Request, p
 // Set journey steps
 // (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/steps)
 func (_ Unimplemented) SetJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get user journey status
+// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users)
+func (_ Unimplemented) FollowUserJourneyStatus(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, params FollowUserJourneyStatusParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17280,6 +17452,64 @@ func (siw *ServerInterfaceWrapper) SetJourneySteps(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetJourneySteps(w, r, projectID, journeyID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FollowUserJourneyStatus operation middleware
+func (siw *ServerInterfaceWrapper) FollowUserJourneyStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FollowUserJourneyStatusParams
+
+	// ------------- Required query parameter "userID" -------------
+
+	if paramValue := r.URL.Query().Get("userID"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "userID"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "userID", r.URL.Query(), &params.UserID)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FollowUserJourneyStatus(w, r, projectID, journeyID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -19557,6 +19787,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/steps", wrapper.SetJourneySteps)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users", wrapper.FollowUserJourneyStatus)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users", wrapper.RunJourneyForUser)

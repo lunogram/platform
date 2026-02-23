@@ -318,15 +318,11 @@ func (srv *JourneysController) DeleteJourney(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (srv *JourneysController) FollowUserJourneyStatus(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
+func (srv *JourneysController) FollowUserJourneyStatus(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, journeyID uuid.UUID, params oapi.FollowUserJourneyStatusParams) {
 	ctx := r.Context()
 	enc := sse.NewEncoder(w)
 
-	userID, err := uuid.Parse(r.URL.Query().Get("user_id"))
-	if err != nil {
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid user_id format")))
-		return
-	}
+	userID := params.UserID
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
@@ -348,7 +344,7 @@ func (srv *JourneysController) FollowUserJourneyStatus(w http.ResponseWriter, r 
 	}
 
 	subject := schemas.JourneysAdvance(projectID, journeyID, userID)
-	_, err = nconn.Subscribe(string(subject), handler)
+	_, err := nconn.Subscribe(string(subject), handler)
 	if err != nil {
 		logger.Error("failed to subscribe to journey updates", zap.Error(err))
 		oapi.WriteProblem(w, err)
