@@ -40,8 +40,6 @@ import type {
   Tag,
   Template,
   TemplateCreateParams,
-  TemplatePreviewParams,
-  TemplateProofParams,
   TemplateUpdateParams,
   User,
   UserEvent,
@@ -493,6 +491,10 @@ const api = {
       formData.append("file", file);
       await client.post(`${projectUrl(projectId)}/users/bulk/delete`, formData);
     },
+    list: async (projectId: UUID, params: SearchParams) =>
+      await client
+        .get<SearchResult<User>>(`${projectUrl(projectId)}/users`, { params })
+        .then((r) => r.data),
 
     journeys: {
       search: async (projectId: UUID, userId: UUID, params: SearchParams) =>
