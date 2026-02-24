@@ -1,508 +1,75 @@
-import type { DragEventHandler, ReactNode, SetStateAction } from "react";
+import type { DragEventHandler, ReactNode } from "react";
 import {
-  createElement,
-  Fragment,
-  memo,
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
+  createElement,
 } from "react";
 import { useBlocker, useNavigate } from "react-router";
 import type {
-  Connection,
-  Edge,
-  EdgeProps,
-  EdgeTypes,
-  Node,
-  NodeMouseHandler,
-  NodeProps,
-  NodeTypes,
-  OnEdgeUpdateFunc,
   ReactFlowInstance,
+  Connection,
+  NodeMouseHandler,
 } from "reactflow";
 import ReactFlow, {
   addEdge,
   Background,
   Controls,
-  EdgeLabelRenderer,
-  getBezierPath,
-  getConnectedEdges,
-  Handle,
-  MarkerType,
   MiniMap,
   Panel,
-  Position,
-  updateEdge,
-  useEdges,
   useEdgesState,
-  useNodes,
   useNodesState,
-  useReactFlow,
 } from "reactflow";
 import { JourneyContext, ProjectContext } from "../../contexts";
-import {
-  completedGettingStarted,
-  checkProjectRole,
-  createComparator,
-  createUuid,
-} from "../../utils";
+import { createComparator, createUuid } from "../../utils";
 import * as journeySteps from "./steps/index";
 import clsx from "clsx";
 import api from "../../api";
-import type {
-  JourneyStep,
-  JourneyStepMap,
-  JourneyStepType,
-  User,
-} from "../../types";
-
 import { Button } from "@/components/ui/button";
-import Alert from "../../ui/Alert";
 import Modal from "../../ui/Modal";
 import { toast } from "react-hot-toast/headless";
 import { JourneyForm } from "./JourneyForm";
-import {
-  ActionStepIcon,
-  CheckCircleIcon,
-  CloseIcon,
-  CopyIcon,
-  DelayStepIcon,
-  EntranceStepIcon,
-  ForbiddenIcon,
-  KeyIcon,
-} from "../../components/icons";
 import Tag from "../../ui/Tag";
 import TextInput from "../../ui/form/TextInput";
 import { useTranslation } from "react-i18next";
 import { JourneyStepUsers } from "./JourneyStepUsers";
 import { Menu, MenuItem } from "../../ui";
 import type { UUID } from "@/types/common";
+import type { User } from "../../types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { UserSelectionModal } from "./JourneyUserSelectionModal";
+
+import { JourneyStepNode } from "./editor/JourneyStepNode";
+import { JourneyStepEdge } from "./editor/JourneyStepEdge";
+import {
+  DATA_FORMAT,
+  STEP_STYLE,
+  statIcons,
+  stepCategoryColors,
+} from "./editor/JourneyEditor.constants";
+import type {
+  JourneyNode,
+  JourneyNodeData,
+} from "./editor/JourneyEditor.types";
+import {
+  cloneNodes,
+  getStepType,
+  nodesToSteps,
+  stepsToNodes,
+} from "./editor/JourneyEditor.utils";
 
 import "./JourneyEditor.css";
 import "reactflow/dist/style.css";
-import { UserSelectionModal } from "./JourneyUserSelectionModal";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-interface JourneyNodeData {
-  stepId?: string;
-  type: string;
-  name?: string;
-  data?: Record<string, unknown>;
-  data_key?: string;
-  stats?: Record<string, number>;
-  stats_at?: Date;
-  editing?: boolean;
-  setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void;
-}
-
-type JourneyNode = Node<JourneyNodeData, string | undefined>;
-
-const getStepType = (type: string) =>
-  (type
-    ? (journeySteps[type as keyof typeof journeySteps] as JourneyStepType)
-    : null) ?? null;
-
-const statIcons: Record<string, ReactNode> = {
-  action: <ActionStepIcon />,
-  delay: <DelayStepIcon />,
-  completed: <CheckCircleIcon />,
-  error: <ForbiddenIcon />,
-  entrance: <EntranceStepIcon />,
-  ended: <CloseIcon />,
-};
-
-// eslint-disable-next-line react-refresh/only-export-components
-export const stepCategoryColors = {
-  entrance: "red",
-  action: "blue",
-  flow: "green",
-  delay: "yellow",
-  exit: "red",
-  info: "purple",
-};
-
-function JourneyStepNode({
-  id,
-  data: {
-    stepId,
-    type: typeName,
-    name,
-    data,
-    data_key,
-    stats,
-    editing,
-    setViewUsersStep,
-  } = {},
-  selected,
-}: NodeProps) {
-  if (!stats) stats = {};
-
-  const { t } = useTranslation();
-  const [project] = useContext(ProjectContext);
-  const [journey] = useContext(JourneyContext);
-  const { getNode, getEdges } = useReactFlow();
-
-  const type = getStepType(typeName);
-
-  const validateConnection = useCallback(
-    (conn: Connection) => {
-      if (!type) return false;
-      if (type.multiChildSources) return true;
-      const sourceNode = conn.source && getNode(conn.source);
-      if (!sourceNode) return true;
-      const existing = getConnectedEdges([sourceNode], getEdges());
-      return (
-        existing.filter((e) => e.sourceHandle === conn.sourceHandle).length < 1
-      );
-    },
-    [type, getNode, getEdges],
-  );
-
-  if (!type) {
-    return <Alert variant="error" title="Invalid Step Type" />;
-  }
-
-  const isValid = type.validate ? type.validate(data) : true;
-
-  return (
-    <>
-      {!type.hideTopHandle && (
-        <Handle type="target" position={Position.Top} id={"t-" + id} />
-      )}
-      <div
-        className={clsx(
-          "journey-step",
-          type.category,
-          selected && "selected",
-          Array.isArray(type.sources) && "journey-step-labelled-sources",
-          isValid ? "" : "error",
-          editing && "editing",
-        )}
-      >
-        <div className="journey-step-header">
-          <span
-            className={clsx(
-              "step-header-icon",
-              stepCategoryColors[type.category],
-            )}
-          >
-            {type.icon}
-          </span>
-          <h4 className="legacy-typography step-header-title">
-            {name || t(type.name)}
-          </h4>
-          {type.category !== "info" && (
-            <div
-              className="step-header-stats"
-              onClickCapture={
-                stepId
-                  ? () => setViewUsersStep({ stepId, stepType: typeName })
-                  : undefined
-              }
-            >
-              <span className="stat">
-                {(stats.completed ?? 0).toLocaleString()}
-                {statIcons.completed}
-              </span>
-              {(typeName === "delay" || !!stats.delay) && (
-                <span className="stat">
-                  {(stats.delay ?? 0).toLocaleString()}
-                  {statIcons.delay}
-                </span>
-              )}
-              {(typeName === "action" || !!stats.action) && (
-                <span className="stat">
-                  {(stats.action ?? 0).toLocaleString()}
-                  {statIcons.action}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="journey-step-body">
-          {type.Describe &&
-            createElement(type.Describe, {
-              project,
-              journey,
-              value: data,
-              onChange: () => {},
-            })}
-          {!!data_key && (
-            <div
-              className="data-key"
-              style={{ marginTop: type.Describe ? 10 : undefined }}
-            >
-              <KeyIcon />
-              {data_key}
-            </div>
-          )}
-        </div>
-      </div>
-      {!type.hideBottomHandle &&
-        (Array.isArray(type.sources) ? type.sources : [""]).map(
-          (key, index, arr) => {
-            const left = ((index + 1) / (arr.length + 1)) * 100 + "%";
-            return (
-              <Fragment key={key}>
-                {key && (
-                  <span
-                    className="step-handle-label"
-                    style={{
-                      left,
-                    }}
-                  >
-                    {key}
-                  </span>
-                )}
-                <Handle
-                  type="source"
-                  position={Position.Bottom}
-                  id={key + "-s-" + id}
-                  isValidConnection={validateConnection}
-                  style={{
-                    left,
-                  }}
-                />
-              </Fragment>
-            );
-          },
-        )}
-    </>
-  );
-}
-
-function JourneyStepEdge({
-  id,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  sourcePosition,
-  targetPosition,
-  source,
-  sourceHandleId,
-  targetHandleId,
-  data = {},
-}: EdgeProps) {
-  const [project] = useContext(ProjectContext);
-  const [journey] = useContext(JourneyContext);
-  const nodes = useNodes();
-  const edges = useEdges();
-  const siblingData = useMemo(
-    () =>
-      edges
-        .filter(
-          (e) =>
-            e.sourceHandle === sourceHandleId &&
-            e.targetHandle !== targetHandleId,
-        )
-        .map((e) => e.data ?? {}),
-    [edges, sourceHandleId, targetHandleId],
-  );
-
-  const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-  });
-
-  const { setEdges } = useReactFlow();
-
-  const onChangeData = useCallback(
-    (data: Record<string, unknown>) =>
-      setEdges((edges) => edges.map((e) => (e.id === id ? { ...e, data } : e))),
-    [id, setEdges],
-  );
-
-  const sourceNode = nodes.find((n) => n.id === source) as
-    | JourneyNode
-    | undefined;
-  const sourceType = sourceNode?.data?.type
-    ? getStepType(sourceNode.data.type)
-    : null;
-
-  return (
-    <>
-      <path id={id} className="react-flow__edge-path" d={edgePath} />
-      {!!(sourceNode && sourceType?.EditEdge) && (
-        <EdgeLabelRenderer>
-          <div
-            style={{
-              position: "absolute",
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-            }}
-            className="nodrag nopan journey-step-edge"
-          >
-            {createElement(sourceType.EditEdge, {
-              value: data,
-              onChange: onChangeData,
-              stepData: sourceNode.data.data,
-              siblingData,
-              journey,
-              project,
-            })}
-          </div>
-        </EdgeLabelRenderer>
-      )}
-    </>
-  );
-}
-
-const nodeTypes: NodeTypes = {
-  step: memo(JourneyStepNode),
-};
-
-const edgeTypes: EdgeTypes = {
-  step: memo(JourneyStepEdge),
-};
-
-const DATA_FORMAT = "application/lunogram-journey-step";
-const STEP_STYLE = "smoothstep";
-
-interface CreateEdgeParams {
-  sourceId: string;
-  targetId: string;
-  data: Record<string, unknown>;
-  path?: string;
-}
-
-function createEdge({
-  data,
-  sourceId,
-  targetId,
-  path,
-}: CreateEdgeParams): Edge {
-  return {
-    id: "e-" + sourceId + "__" + targetId,
-    source: sourceId,
-    sourceHandle: (path ?? "") + "-s-" + sourceId,
-    target: targetId,
-    targetHandle: "t-" + targetId,
-    data,
-    type: STEP_STYLE,
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-    },
-  };
-}
-
-function stepsToNodes(
-  stepMap: JourneyStepMap,
-  actions: {
-    setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void;
-  },
-) {
-  const nodes: JourneyNode[] = [];
-  const edges: Edge[] = [];
-
-  for (const [
-    id,
-    { x, y, type, data, name, data_key, children, stats, stats_at, id: stepId },
-  ] of Object.entries(stepMap)) {
-    nodes.push({
-      id,
-      position: {
-        x,
-        y,
-      },
-      type: "step",
-      data: {
-        type,
-        name,
-        data_key,
-        data,
-        stats,
-        stats_at,
-        stepId,
-        ...actions,
-      },
-    });
-    children?.forEach(({ external_id, path, data }) =>
-      edges.push(
-        createEdge({
-          sourceId: id,
-          targetId: external_id,
-          data,
-          path,
-        }),
-      ),
-    );
-  }
-
-  return { nodes, edges };
-}
-
-const getSourcePath = (handleId: string) =>
-  handleId.substring(0, handleId.indexOf("-s-"));
-
-function nodesToSteps(nodes: Node[], edges: Edge[]) {
-  return nodes.reduce<JourneyStepMap>(
-    (
-      a,
-      {
-        id,
-        data: { type, name = "", data_key, data = {} },
-        position: { x, y },
-      },
-    ) => {
-      a[id] = {
-        type,
-        data,
-        name,
-        data_key,
-        x,
-        y,
-        children: edges
-          .filter((e) => e.source === id)
-          .map(({ data = {}, sourceHandle, target }) => ({
-            external_id: target,
-            path: getSourcePath(sourceHandle!),
-            data,
-          })),
-      };
-      return a;
-    },
-    {},
-  );
-}
-
-function cloneNodes(edges: Edge[], targets: Node[]) {
-  const mapping: { [prev: string]: string } = {};
-  const nodeCopies: Node[] = [];
-  for (const node of targets) {
-    const id = createUuid();
-    mapping[node.id] = id;
-    nodeCopies.push({
-      ...node,
-      data: {
-        ...(node.data ?? {}),
-        name: node.data.name ? node.data.name + " (Copy)" : undefined,
-      },
-      id,
-      position: {
-        x: node.position.x + 50,
-        y: node.position.y + 50,
-      },
-    });
-  }
-  const edgeCopies = getConnectedEdges(targets, edges)
-    .filter((edge) => edge.source in mapping && edge.target in mapping)
-    .map((edge) =>
-      createEdge({
-        sourceId: mapping[edge.source],
-        targetId: mapping[edge.target],
-        data: edge.data ?? {},
-        path: getSourcePath(edge.sourceHandle!),
-      }),
-    );
-  return { nodeCopies, edgeCopies };
-}
+const nodeTypes = { step: JourneyStepNode };
+const edgeTypes = { step: JourneyStepEdge };
 
 export default function JourneyEditor() {
   const navigate = useNavigate();
@@ -515,29 +82,13 @@ export default function JourneyEditor() {
   const [project] = useContext(ProjectContext);
   const [journey, setJourney] = useContext(JourneyContext);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<JourneyNodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  const journeyId = journey.id;
   const isDeleted = !!journey.deleted_at;
   const isDraft = journey.status === "draft" && !isDeleted;
   const draftId = journey.draft_id;
   const parentId = journey.parent_id;
-
-  const loadSteps = useCallback(async () => {
-    const steps = await api.journeys.steps.get(project.id, journeyId);
-
-    const { edges, nodes } = stepsToNodes(steps, {
-      setViewUsersStep,
-    });
-
-    setNodes(nodes);
-    setEdges(edges);
-  }, [project, journeyId, setNodes, setEdges]);
-
-  useEffect(() => {
-    void loadSteps();
-  }, [loadSteps]);
 
   const [publishing, setPublishing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -546,6 +97,28 @@ export default function JourneyEditor() {
     stepId: UUID;
     stepType: string;
   }>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+
+  const handleSetNodes = useCallback(
+    (nds: JourneyNode[]) => {
+      setHasUnsavedChanges(true);
+      setNodes(nds);
+    },
+    [setNodes],
+  );
+
+  const loadSteps = useCallback(async () => {
+    const steps = await api.journeys.steps.get(project.id, journey.id);
+    const { edges, nodes } = stepsToNodes(steps, { setViewUsersStep });
+    setNodes(nodes);
+    setEdges(edges);
+  }, [project.id, journey.id, setNodes, setEdges]);
+
+  useEffect(() => {
+    void loadSteps();
+  }, [loadSteps]);
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -553,21 +126,11 @@ export default function JourneyEditor() {
   );
 
   useEffect(() => {
-    if (blocker.state !== "blocked") return;
-    if (confirm(t("confirm_unsaved_changes"))) {
-      blocker.proceed();
-    } else {
-      blocker.reset();
+    if (blocker.state === "blocked") {
+      if (confirm(t("confirm_unsaved_changes"))) blocker.proceed();
+      else blocker.reset();
     }
   }, [blocker, t]);
-
-  const handleSetNodes = useCallback(
-    (nodes: SetStateAction<JourneyNode[]>) => {
-      setHasUnsavedChanges(true);
-      setNodes(nodes);
-    },
-    [setNodes],
-  );
 
   const saveDraft = useCallback(async () => {
     const stepMap = await api.journeys.steps.set(
@@ -575,11 +138,7 @@ export default function JourneyEditor() {
       journey.id,
       nodesToSteps(nodes, edges),
     );
-
-    const refreshed = stepsToNodes(stepMap, {
-      setViewUsersStep,
-    });
-
+    const refreshed = stepsToNodes(stepMap, { setViewUsersStep });
     setNodes(refreshed.nodes);
     setEdges(refreshed.edges);
   }, [project, journey, nodes, edges, setNodes, setEdges]);
@@ -589,163 +148,109 @@ export default function JourneyEditor() {
     try {
       await saveDraft();
       toast.success(t("journey_saved"));
-    } catch (error: unknown) {
-      toast.error(`Unable to save: ${error}`);
+    } catch (e) {
+      toast.error(`Error: ${e}`);
     } finally {
       setHasUnsavedChanges(false);
       setSaving(false);
     }
   }, [saveDraft, t]);
 
-  const createDraft = async () => {
-    setSaving(true);
-    try {
-      const newDraft = await api.journeys.version(project.id, journey.id);
-      setJourney(newDraft);
-      editDraft(newDraft.id);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const editDraft = (id: UUID) => {
-    window.location.href = `/projects/${project.id}/journeys/${id}`;
-  };
-
   const publishJourney = async () => {
     if (!confirm(t("journey_publish_confirmation"))) return;
-
-    // NOTE: we have to save the draft before publishing
-    if (hasUnsavedChanges) {
-      await saveDraft();
-    }
-
+    if (hasUnsavedChanges) await saveDraft();
     setPublishing(true);
     try {
       await api.journeys.publish(project.id, journey.id);
       window.location.href = `/projects/${project.id}/journeys/${journey.parent_id ?? journey.id}`;
-      toast.success(t("journey_published"));
     } finally {
       setPublishing(false);
     }
   };
 
+  const createDraft = async () => {
+    setSaving(true);
+    try {
+      const newDraft = await api.journeys.version(project.id, journey.id);
+      setJourney(newDraft);
+      window.location.href = `/projects/${project.id}/journeys/${newDraft.id}`;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 5. FLOW HANDLERS
   const onConnect = useCallback(
-    async (connection: Connection) => {
-      const sourceNode = nodes.find((n) => n.id === connection.source);
-      const data =
-        (await getStepType(sourceNode?.data.type)?.newEdgeData?.()) ?? {};
-      setEdges((edges) =>
-        addEdge(
-          {
-            ...connection,
-            type: STEP_STYLE,
-            data,
-          },
-          edges,
-        ),
-      );
+    async (conn: Connection) => {
+      const sourceNode = nodes.find((n) => n.id === conn.source);
+      const stepType = sourceNode?.data.type;
+      const data = stepType
+        ? ((await getStepType(stepType)?.newEdgeData?.()) ?? {})
+        : {};
+      setEdges((eds) => addEdge({ ...conn, type: STEP_STYLE, data }, eds));
     },
     [nodes, setEdges],
   );
-
-  const onEdgeUpdate = useCallback<OnEdgeUpdateFunc>(
-    (prev, next) => {
-      setEdges((edges) => updateEdge(prev, next, edges));
-    },
-    [setEdges],
-  );
-
-  const onDragOver = useCallback<DragEventHandler>((event) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  }, []);
 
   const onDrop = useCallback<DragEventHandler>(
     async (event) => {
       event.preventDefault();
       if (!wrapper.current || !flowInstance) return;
-
       const bounds = wrapper.current.getBoundingClientRect();
-      const payload: {
-        type: string;
-        x: number;
-        y: number;
-      } = JSON.parse(event.dataTransfer.getData(DATA_FORMAT));
+      const payload = JSON.parse(event.dataTransfer.getData(DATA_FORMAT));
       const type = getStepType(payload.type);
-
       if (!type) return;
-
       const { x, y } = flowInstance.project({
         x: event.clientX - bounds.left - (payload.x ?? 0),
         y: event.clientY - bounds.top - (payload.y ?? 0),
       });
-
-      const newStep = {
-        id: createUuid(),
-        position: {
-          x,
-          y,
-        },
-        type: "step",
-        data: {
-          type: payload.type,
-          data: (await type.newData?.()) ?? {},
-        },
-      };
-
-      handleSetNodes((nds) => nds.concat(newStep));
+      handleSetNodes(
+        (await (async (nds: JourneyNode[]) =>
+          nds.concat({
+            id: createUuid(),
+            position: { x, y },
+            type: "step",
+            data: {
+              type: payload.type,
+              data: type.newData ? await type.newData() : {},
+            },
+          }))(nodes)) as JourneyNode[],
+      );
     },
-    [flowInstance, handleSetNodes],
+    [flowInstance, handleSetNodes, nodes],
   );
-
-  const [editOpen, setEditOpen] = useState(false);
-  const selected = nodes.filter((n) => n.selected);
-  const editNode = nodes.find((n) => n.data.editing);
 
   const onNodeDoubleClick = useCallback<NodeMouseHandler>(
     (_, n) => {
       setNodes((nds) =>
         nds.map((x) =>
           x.id === n.id
-            ? {
-                ...n,
-                data: {
-                  ...n.data,
-                  editing: true,
-                },
-              }
-            : x,
+            ? { ...x, data: { ...x.data, editing: true } }
+            : { ...x, data: { ...x.data, editing: false } },
         ),
       );
-      const x = n.position.x + (n.width ?? 120) / 2;
-      const y = n.position.y + (n.height ?? 120) / 2;
-      setTimeout(() => flowInstance?.setCenter(x, y, { zoom: 1 }), 10);
+      setTimeout(
+        () =>
+          flowInstance?.setCenter(n.position.x + 60, n.position.y + 60, {
+            zoom: 1,
+          }),
+        10,
+      );
     },
     [flowInstance, setNodes],
   );
 
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
+  const selected = nodes.filter((n) => n.selected);
+  const editNode = nodes.find((n) => n.data.editing);
 
   useEffect(() => {
     if (users.length > 0 || !isUserModalOpen) return;
-    async function fetchUsers() {
-      try {
-        const result = await api.users.list(project.id, {
-          limit: 100,
-        });
-        setUsers(result.results);
-      } catch (error) {
-        toast.error(`Unable to load users: ${error}`);
-      }
-    }
-    void fetchUsers();
-  }, [isUserModalOpen, viewUsersStep, project.id, users.length]);
+    api.users.list(project.id, { limit: 100 }).then((r) => setUsers(r.results));
+  }, [isUserModalOpen, project.id, users.length]);
 
   let stepEdit: ReactNode = null;
   if (editNode) {
-    const type = getStepType(editNode.data.type);
+    const type = editNode.data.type ? getStepType(editNode.data.type) : null;
     if (type) {
       const stats = editNode.data.stats ?? {};
       stepEdit = (
@@ -754,7 +259,9 @@ export default function JourneyEditor() {
             <span
               className={clsx(
                 "step-header-icon",
-                stepCategoryColors[type.category],
+                stepCategoryColors[
+                  type.category as keyof typeof stepCategoryColors
+                ],
               )}
             >
               {type.icon}
@@ -764,89 +271,59 @@ export default function JourneyEditor() {
             </h4>
             <div
               className="step-header-stats"
-              role={editNode.data.stepId ? "button" : undefined}
               onClick={
                 editNode.data.stepId
                   ? () =>
                       setViewUsersStep({
-                        stepId: editNode.data.stepId,
-                        stepType: editNode.data.type,
+                        stepId: editNode.data.stepId!,
+                        stepType: editNode.data.type!,
                       })
                   : undefined
               }
-              style={{
-                cursor: editNode.data.stepId ? "cursor" : undefined,
-              }}
             >
               <span className="stat">
-                {stats.completed ?? 0}
-                {statIcons.completed}
+                {stats.completed ?? 0} {statIcons.completed}
               </span>
               {(editNode.data.type === "delay" || !!stats.delay) && (
                 <span className="stat">
-                  {stats.delay ?? 0}
-                  {statIcons.delay}
+                  {stats.delay ?? 0} {statIcons.delay}
                 </span>
               )}
               {(editNode.data.type === "action" || !!stats.action) && (
                 <span className="stat">
-                  {stats.action ?? 0}
-                  {statIcons.action}
+                  {stats.action ?? 0} {statIcons.action}
                 </span>
               )}
             </div>
             {editNode.data.type === "entrance" && (
-              <>
-                <TooltipProvider>
-                  <Tooltip delayDuration={300}>
-                    <TooltipTrigger asChild>
-                      <div
-                        className="step-header-stats"
-                        role={editNode.data.stepId ? "button" : undefined}
-                        onClick={() => {
-                          if (!hasUnsavedChanges) {
-                            setIsUserModalOpen(true);
-                          }
-                        }}
-                        style={{
-                          cursor: hasUnsavedChanges
-                            ? "not-allowed"
-                            : editNode.data.stepId
-                              ? "pointer"
-                              : undefined,
-                        }}
-                      >
-                        <span className="stat">Run</span>
-                      </div>
-                    </TooltipTrigger>
-
-                    {hasUnsavedChanges && (
-                      <TooltipContent
-                        side="top"
-                        className="z-1000"
-                      >
-                        <p>You must save your changes before running the journey.</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
-                <UserSelectionModal
-                  users={users}
-                  isOpen={isUserModalOpen}
-                  onClose={() => setIsUserModalOpen(false)}
-                  onSelect={(user) => {
-                    setIsUserModalOpen(false);
-                    console.log("Selected user:", user);
-                    console.log("SelectedNode:", editNode);
-                  }}
-                />
-              </>
+              <TooltipProvider>
+                <Tooltip delayDuration={300}>
+                  <TooltipTrigger asChild>
+                    <div
+                      className="step-header-stats"
+                      onClick={() =>
+                        !hasUnsavedChanges && setIsUserModalOpen(true)
+                      }
+                      style={{
+                        cursor: hasUnsavedChanges ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      <span className="stat">Run</span>
+                    </div>
+                  </TooltipTrigger>
+                  {hasUnsavedChanges && (
+                    <TooltipContent side="top">
+                      <p>Save changes before running.</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             )}
             <Menu size="min">
               <MenuItem
                 onClick={() =>
-                  handleSetNodes((nds) =>
-                    nds.filter((item) => item.id !== editNode.id),
+                  handleSetNodes(
+                    nodes.filter((item) => item.id !== editNode.id),
                   )
                 }
               >
@@ -856,12 +333,12 @@ export default function JourneyEditor() {
           </div>
           <div className="journey-options-edit">
             <TextInput
+              name="stepName"
               label={t("name")}
-              name="name"
               value={editNode.data.name ?? ""}
               onChange={(name) =>
-                handleSetNodes((nds) =>
-                  nds.map((n) =>
+                handleSetNodes(
+                  nodes.map((n) =>
                     n.id === editNode.id
                       ? { ...n, data: { ...n.data, name } }
                       : n,
@@ -871,13 +348,12 @@ export default function JourneyEditor() {
             />
             {type.hasDataKey && (
               <TextInput
+                name="dataKey"
                 label={t("data_key")}
-                subtitle={t("data_key_description")}
-                name="data_key"
                 value={editNode.data.data_key}
                 onChange={(data_key) =>
-                  handleSetNodes((nds) =>
-                    nds.map((n) =>
+                  handleSetNodes(
+                    nodes.map((n) =>
                       n.id === editNode.id
                         ? { ...n, data: { ...n.data, data_key } }
                         : n,
@@ -889,17 +365,11 @@ export default function JourneyEditor() {
             {type.Edit &&
               createElement(type.Edit, {
                 value: editNode.data.data ?? {},
-                onChange: (data) =>
-                  handleSetNodes((nds) =>
-                    nds.map((n) =>
+                onChange: (data: Record<string, unknown>) =>
+                  handleSetNodes(
+                    nodes.map((n) =>
                       n.id === editNode.id
-                        ? {
-                            ...editNode,
-                            data: {
-                              ...editNode.data,
-                              data,
-                            },
-                          }
+                        ? { ...n, data: { ...n.data, data } }
                         : n,
                     ),
                   ),
@@ -919,14 +389,7 @@ export default function JourneyEditor() {
       size="fullscreen"
       title={journey.name}
       open={true}
-      onClose={async () => {
-        if (!completedGettingStarted(project)) {
-          await navigate("../getting-started");
-          return;
-        }
-
-        await navigate("../journeys");
-      }}
+      onClose={() => navigate("../journeys")}
       actions={
         isDeleted ? (
           <Tag variant="error" size="large">
@@ -934,21 +397,17 @@ export default function JourneyEditor() {
           </Tag>
         ) : isDraft ? (
           <>
-            {!parentId && (
-              <Button variant="secondary" onClick={() => setEditOpen(true)}>
-                {t("edit_details")}
-              </Button>
-            )}
-            {checkProjectRole("publisher", project.role) && (
-              <Button
-                onClick={publishJourney}
-                isLoading={publishing}
-                variant="secondary"
-              >
-                {t("publish")}
-              </Button>
-            )}
-            <Button onClick={saveSteps} isLoading={saving} variant="default">
+            <Button variant="secondary" onClick={() => setEditOpen(true)}>
+              {t("edit_details")}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={publishJourney}
+              isLoading={publishing}
+            >
+              {t("publish")}
+            </Button>
+            <Button onClick={saveSteps} isLoading={saving}>
               {t("journey_draft_save")}
             </Button>
           </>
@@ -965,18 +424,14 @@ export default function JourneyEditor() {
             </Button>
             {draftId ? (
               <Button
-                onClick={() => editDraft(draftId)}
-                isLoading={publishing}
-                variant="default"
+                onClick={() =>
+                  (window.location.href = `/projects/${project.id}/journeys/${draftId}`)
+                }
               >
                 {t("journey_draft_edit")}
               </Button>
             ) : (
-              <Button
-                onClick={createDraft}
-                isLoading={saving}
-                variant="default"
-              >
+              <Button onClick={createDraft} isLoading={saving}>
                 {t("journey_draft_create")}
               </Button>
             )}
@@ -994,10 +449,15 @@ export default function JourneyEditor() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
-            onEdgeUpdate={onEdgeUpdate}
             onInit={setFlowInstance}
             onNodeDoubleClick={onNodeDoubleClick}
+            onDrop={onDrop}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+            }}
             onClick={() => {
+              // THIS FIXES CLICKING AWAY TO RESET SIDEBAR
               if (editNode) {
                 setNodes((nds) =>
                   nds.map((n) =>
@@ -1010,29 +470,23 @@ export default function JourneyEditor() {
             }}
             nodesDraggable={isDraft}
             nodesConnectable={isDraft}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
             panOnScroll
             selectNodesOnDrag
             fitView
-            maxZoom={1}
-            minZoom={0.1}
-            zoomOnDoubleClick={false}
           >
             <Background className="internal-canvas" />
             {!editNode && (
               <>
                 <Controls showInteractive={isDraft} />
                 <MiniMap
-                  nodeClassName={({ data }: Node<JourneyStep>) =>
-                    `journey-minimap ${getStepType(data.type)?.category ?? "unknown"}`
+                  nodeClassName={(n) =>
+                    `journey-minimap ${getStepType(n.data.type)?.category ?? "unknown"}`
                   }
                 />
                 {isDraft && (
                   <Panel position="top-left">
                     {selected.length ? (
                       <Button
-                        icon={<CopyIcon />}
                         onClick={() => {
                           const { nodeCopies, edgeCopies } = cloneNodes(
                             edges,
@@ -1060,6 +514,7 @@ export default function JourneyEditor() {
             )}
           </ReactFlow>
         </div>
+
         {isDraft && (
           <div className="journey-options">
             {stepEdit ?? (
@@ -1084,7 +539,6 @@ export default function JourneyEditor() {
                             y: event.clientY - rect.top,
                           }),
                         );
-                        event.dataTransfer.effectAllowed = "move";
                       }}
                     >
                       <span className={clsx("component-handle", type.category)}>
@@ -1101,6 +555,17 @@ export default function JourneyEditor() {
           </div>
         )}
       </div>
+
+      <UserSelectionModal
+        users={users}
+        isOpen={isUserModalOpen}
+        onClose={() => setIsUserModalOpen(false)}
+        onSelect={(u) => {
+          setIsUserModalOpen(false);
+          console.log("Selected user for entrance step:", u);
+        }}
+      />
+
       <Modal
         open={editOpen}
         onClose={setEditOpen}
@@ -1108,12 +573,13 @@ export default function JourneyEditor() {
       >
         <JourneyForm
           journey={journey}
-          onSaved={async (journey) => {
+          onSaved={async (j) => {
             setEditOpen(false);
-            setJourney(journey);
+            setJourney(j);
           }}
         />
       </Modal>
+
       {!!viewUsersStep && (
         <JourneyStepUsers
           open={!!viewUsersStep}
