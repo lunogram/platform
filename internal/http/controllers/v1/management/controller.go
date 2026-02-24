@@ -25,7 +25,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		EventsController:        NewEventsController(logger, usersDB),
 		TagsController:          NewTagsController(logger, managementDB),
 		LocalesController:       NewLocalesController(logger, managementDB),
-		JourneysController:      NewJourneysController(logger, journeyDB, mgmt, jet, pub),
+		JourneysController:      NewJourneysController(logger, journeyDB, mgmt, pub, jet),
 		OrganizationsController: NewOrganizationsController(logger, managementDB),
 		ListsController:         NewListsController(logger, usersDB, projects, pub, cfg.Storage.MaxUploadSize),
 		DocumentsController:     NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize),

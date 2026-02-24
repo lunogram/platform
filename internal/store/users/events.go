@@ -2,6 +2,7 @@ package users
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -18,6 +19,17 @@ type Event struct {
 	ID     uuid.UUID `db:"id"`
 	Name   string    `db:"name"`
 	Schema []EventSchemaPath
+}
+
+type JourneyEntranceStep struct {
+	JourneyID  uuid.UUID                        `db:"journey_id"`
+	VersionID  uuid.UUID                        `db:"version_id"`
+	StepID     uuid.UUID                        `db:"step_id"`
+	ExternalID string                           `db:"external_id"`
+	Type       string                           `db:"type"`
+	DataKey    *string                          `db:"data_key"`
+	Data       *json.RawMessage                 `db:"data"`
+	Children   store.JourneyVersionStepChildren `db:"children"`
 }
 
 func NewEventsStore(db store.DB) *EventsStore {

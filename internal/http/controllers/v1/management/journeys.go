@@ -29,6 +29,7 @@ func NewJourneysController(logger *zap.Logger, journeyDB *sqlx.DB, mgmt *managem
 		db:     journeyDB,
 		mgmt:   mgmt,
 		jrny:   journey.NewState(journeyDB),
+		users:  users.NewState(journeyDB),
 		pub:    pub,
 		jet:    jet,
 	}
@@ -38,6 +39,7 @@ type JourneysController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	mgmt   *management.State
+	users  *users.State
 	jrny   *journey.State
 	pub    pubsub.Publisher
 	jet    jetstream.JetStream

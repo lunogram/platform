@@ -101,7 +101,7 @@ func TestListJourneys(t *testing.T) {
 	}
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, mgmtState)
+	journeys := NewJourneysController(logger, jrny, mgmtState, nil, nil)
 
 	type test struct {
 		limit  int
@@ -184,7 +184,7 @@ func TestGetJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, mgmtState)
+	journeys := NewJourneysController(logger, jrny, mgmtState, nil, nil)
 
 	type test struct {
 		journeyID uuid.UUID
@@ -242,7 +242,7 @@ func TestUpdateJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, mgmtState)
+	journeys := NewJourneysController(logger, jrny, mgmtState, nil, nil)
 
 	type test struct {
 		body oapi.UpdateJourneyJSONRequestBody
@@ -322,7 +322,7 @@ func TestDeleteJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, mgmtState)
+	journeys := NewJourneysController(logger, jrny, mgmtState, nil, nil)
 
 	type test struct {
 		journeyID uuid.UUID
