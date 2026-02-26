@@ -1164,8 +1164,8 @@ type FollowUserJourneyStatusParams struct {
 
 // RunJourneyForUserJSONBody defines parameters for RunJourneyForUser.
 type RunJourneyForUserJSONBody struct {
-	// JourneyEntryID The ID of the journey entry to run
-	JourneyEntryID string `json:"journeyEntryID"`
+	// ExternalStepID The ID of the journey entry to run
+	ExternalStepID string `json:"externalStepID"`
 
 	// UserID The ID of the user to run the journey for
 	UserID string `json:"userID"`

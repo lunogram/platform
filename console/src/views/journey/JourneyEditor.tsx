@@ -562,7 +562,19 @@ export default function JourneyEditor() {
         onClose={() => setIsUserModalOpen(false)}
         onSelect={(u) => {
           setIsUserModalOpen(false);
+          if (!editNode || !editNode.id) return;
+
+          api.journeys.users
+            .trigger(project.id, journey.id, editNode.id, u.id)
+            .then(() => {
+              toast.success(t("user_triggered"));
+            })
+            .catch((e) => {
+              toast.error(`Error: ${e}`);
+            });
+
           console.log("Selected user for entrance step:", u);
+          console.log("Step ID:", editNode);
         }}
       />
 

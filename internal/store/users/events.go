@@ -179,7 +179,7 @@ func (s *EventsStore) ListEventJourneyDependencies(ctx context.Context, eventID 
 	return entrances, err
 }
 
-func (s *EventsStore) GetEventJourneyStep(ctx context.Context, stepID uuid.UUID, versionID uuid.UUID) (JourneyEntranceStep, error) {
+func (s *EventsStore) GetEventJourneyStep(ctx context.Context, externalStepID string, versionID uuid.UUID) (JourneyEntranceStep, error) {
 	query := `
 	SELECT
 		j.id AS journey_id,
@@ -199,12 +199,12 @@ func (s *EventsStore) GetEventJourneyStep(ctx context.Context, stepID uuid.UUID,
 	LEFT JOIN journey_version_step_children c ON jvs.version_id = c.version_id 
 		AND jvs.external_id = c.parent_external_id
 	WHERE jv.id = $2
-		AND jvs.id = $1
+		AND jvs.external_id = $1
 		AND j.deleted_at IS NULL
 		AND jvs.type = 'entrance'
 	GROUP BY j.id, jv.id, jvs.id`
 
 	var entrances JourneyEntranceStep
-	err := s.db.SelectContext(ctx, &entrances, query, stepID, versionID)
+	err := s.db.GetContext(ctx, &entrances, query, externalStepID, versionID)
 	return entrances, err
 }

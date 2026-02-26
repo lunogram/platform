@@ -409,15 +409,15 @@ const api = {
       trigger: async (
         projectId: UUID,
         journeyId: UUID,
-        entranceId: UUID,
-        user: User,
+        externalId: UUID,
+        userId: UUID,
       ) =>
         await client
           .post<JourneyEntranceDetail>(
-            `${projectUrl(projectId)}/journeys/${journeyId}/trigger`,
+            `${projectUrl(projectId)}/journeys/${journeyId}/users`,
             {
-              entrance_id: entranceId,
-              user: { external_id: user.external_id },
+              externalStepID: externalId,
+              userID: userId,
             },
           )
           .then((r) => r.data),

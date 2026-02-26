@@ -1119,12 +1119,12 @@ paths:
               type: object
               required:
                 - userID
-                - journeyEntryID
+                - externalStepID
               properties:
                 userID:
                   type: string
                   description: The ID of the user to run the journey for
-                journeyEntryID:
+                externalStepID:
                   type: string
                   description: The ID of the journey entry to run
       responses:

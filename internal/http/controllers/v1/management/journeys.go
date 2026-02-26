@@ -363,13 +363,13 @@ func (srv *JourneysController) RunJourneyForUser(w http.ResponseWriter, r *http.
 	}
 
 	userIDStr := body.UserID
-	journeyEntryIDStr := body.JourneyEntryID
+	externalStepIDStr := body.ExternalStepID
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
 		zap.Stringer("journey_id", journeyID),
 		zap.String("user_id", userIDStr),
-		zap.String("journey_entry_id", journeyEntryIDStr),
+		zap.String("external_step_id", externalStepIDStr),
 	)
 
 	logger.Info("running journey for user")
@@ -396,19 +396,13 @@ func (srv *JourneysController) RunJourneyForUser(w http.ResponseWriter, r *http.
 		return
 	}
 
-	journeyEntryID, err := uuid.Parse(journeyEntryIDStr)
-	if err != nil {
-		logger.Error("invalid journey_entry_id format", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid journey_entry_id format")))
-		return
-	}
-
-	stepId, err := journeys.CreateUserJourneyState(ctx, journey.JourneyUserState{
+	_, err = journeys.CreateUserJourneyState(ctx, journey.JourneyUserState{
 		UserID:          userID,
 		JourneyID:       journeyID,
-		JourneyEntryID:  journeyEntryID,
+		ExternalStepID:  externalStepIDStr,
 		PinnedVersionID: currJourney.VersionID,
 	})
+
 	if err != nil {
 		logger.Error("failed to create user journey state", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -421,7 +415,7 @@ func (srv *JourneysController) RunJourneyForUser(w http.ResponseWriter, r *http.
 		return
 	}
 
-	step, err := srv.users.GetEventJourneyStep(ctx, stepId, *currJourney.VersionID)
+	step, err := srv.users.GetEventJourneyStep(ctx, externalStepIDStr, *currJourney.VersionID)
 	if err != nil {
 		logger.Error("failed to get event journey step dependencies", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -432,7 +426,6 @@ func (srv *JourneysController) RunJourneyForUser(w http.ResponseWriter, r *http.
 		step := consumer.JourneyStep{
 			ProjectID:      currJourney.ProjectID,
 			JourneyID:      step.JourneyID,
-			JourneyEntryID: journeyEntryID,
 			ExternalStepID: child.ChildExternalID,
 			UserID:         userID,
 		}
