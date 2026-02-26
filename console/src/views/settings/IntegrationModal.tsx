@@ -1,7 +1,6 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import api from "../../api";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { oapiClient } from "@/oapi/client";
 import { ProjectContext } from "../../contexts";
-import { useResolver } from "../../hooks";
 import type {
   Project,
   Provider,
@@ -47,15 +46,18 @@ export function IntegrationForm({
   const channel = meta.group;
   useEffect(() => {
     if (defaultProvider) {
-      api.providers
-        .get(
-          project.id,
-          defaultProvider.channel,
-          defaultProvider.module,
-          defaultProvider.id,
-        )
-        .then((provider) => {
-          setProvider(provider);
+      oapiClient.GET("/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}", {
+        params: {
+          path: {
+            projectID: project.id,
+            group: defaultProvider.channel,
+            type: defaultProvider.module,
+            providerID: defaultProvider.id,
+          },
+        },
+      })
+        .then((res) => {
+          setProvider(res.data);
         })
         .catch(() => {});
     }
@@ -67,10 +69,42 @@ export function IntegrationForm({
     rate_interval,
     data = {},
   }: ProviderCreateParams | ProviderUpdateParams) {
-    const params = { name, data, rate_limit, rate_interval, module, channel };
-    const value = provider?.id
-      ? await api.providers.update(project.id, provider?.id, params)
-      : await api.providers.create(project.id, params);
+    const params = { name, data, rate_limit, rate_interval };
+    let value: Provider;
+
+    if (provider?.id) {
+      const res = await oapiClient.PATCH("/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}", {
+        params: {
+          path: {
+            projectID: project.id,
+            group: channel,
+            type: module,
+            providerID: provider.id,
+          },
+        },        
+        body: params,
+      });
+      if (!res.data) {
+        throw new Error("Failed to update provider");
+      }
+      value = res.data;
+    } else {
+      const res = await oapiClient.POST("/api/admin/projects/{projectID}/providers/{group}/{type}", {
+        params: {
+          path: {
+            projectID: project.id,
+            group: channel,
+            type: module,
+          },
+        
+        body: params,
+        },
+      });
+      if (!res.data) {
+        throw new Error("Failed to create provider");
+      }
+      value = res.data;
+    }
 
     onChange(value);
   }
@@ -85,7 +119,7 @@ export function IntegrationForm({
         <>
           {provider?.id ? (
             <>
-              {provider.setup.length > 0 && (
+              {provider.setup?.length > 0 && (
                 <h4 className="legacy-typography">Details</h4>
               )}
               {provider.setup?.map((item) => {
@@ -148,9 +182,28 @@ export default function IntegrationModal({
   ...props
 }: IntegrationModalProps) {
   const [project] = useContext(ProjectContext);
-  const [options] = useResolver(
-    useCallback(async () => await api.providers.options(project.id), [project]),
-  );
+  const [options, setOptions] = useState<ProviderMeta[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchOptions = async () => {
+      if (!project?.id) return;
+      try {
+        const res = await oapiClient.GET("/api/admin/projects/{projectID}/providers/meta", {
+          params: {
+            path: {
+              projectID: project.id,
+            },
+          },
+        });
+        setOptions(res.data ?? []);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchOptions();
+  }, [project?.id]);
+
   const [meta, setMeta] = useState<ProviderMeta | undefined>();
 
   const derivedMeta = useMemo(

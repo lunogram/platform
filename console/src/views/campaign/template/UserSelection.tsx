@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import type { User } from "@/types";
 import { cn } from "@/utils";
-import api from "@/api";
+import { oapiClient } from "@/oapi/client";
 
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,12 +37,18 @@ export function UserSelection({
     const [users, setUsers] = useState<User[]>([]);
 
     const fetchUsers = useCallback(async () => {
-        const users = await api.users.search(projectId, {
-            q: search,
-            limit: 50,
+        const users = await oapiClient.GET("/api/admin/projects/{projectID}/users", {
+            params: {
+                path: {
+                    projectID: projectId,
+                },
+                query: {
+                    q: search,
+                    limit: 50,
+                }
+            },
         });
-
-        setUsers(users.results);
+        setUsers(users.results || []);
     }, [projectId, search]);
 
     useEffect(() => {
@@ -78,7 +84,7 @@ export function UserSelection({
                     <CommandList>
                         <CommandEmpty>No user found.</CommandEmpty>
                         <CommandGroup>
-                            {users.map((user) => (
+                            {users?.map((user) => (
                                 <CommandItem
                                     key={user.id}
                                     value={user.email}

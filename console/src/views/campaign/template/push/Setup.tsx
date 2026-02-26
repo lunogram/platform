@@ -7,7 +7,7 @@ import { useContext, useState, useEffect } from "react";
 import { ProjectContext, TemplateContext } from "@/contexts";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
-import api from "@/api";
+import { oapiClient } from "@/oapi/client";
 import * as z from "zod";
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -124,8 +124,14 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
     useEffect(() => {
         const fetchLocales = async () => {
             if (project?.id) {
-                const result = await api.locales.search(project.id, { limit: 100 });
-                setLocales(result.results);
+                const result = await oapiClient.GET("/api/admin/projects/{projectID}/locales", {
+                    params: {
+                        path: {
+                            projectID: project.id,
+                        },
+                    },
+                });
+                setLocales(result.data?.results || []);
             }
         };
         fetchLocales();
@@ -143,7 +149,7 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
 
     const handleLocaleChange = async (locale: string) => {
         setSelectedLocale(locale);
-        const newTemplate = campaign.templates.find(t => t.locale === locale);
+        const newTemplate = campaign.templates?.find(t => t.locale === locale);
         if (!newTemplate) {
             return
         }
@@ -167,8 +173,8 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {campaign.templates.map((t) => {
-                                    const locale = locales.find(l => l.key === t.locale);
+                                {campaign.templates?.map((t) => {
+                                    const locale = locales?.find(l => l.key === t.locale);
                                     return (
                                         <SelectItem key={t.id} value={t.locale}>
                                             {locale?.label || t.locale}

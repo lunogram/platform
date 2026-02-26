@@ -1,7 +1,7 @@
 import { useContext } from "react";
 import { CampaignContext, ProjectContext, TemplateContext as CurrentTemplateContext } from "@/contexts";
 import { useTranslation } from "react-i18next";
-import api from "@/api";
+import { oapiClient } from "@/oapi/client";
 
 import { channels } from "./channels";
 import { TemplateWorkflowContext } from "./contexts";
@@ -40,11 +40,24 @@ export default function TemplateContent() {
         }
 
         const data = form.getValues();
-        const updated = await api.campaigns.templates.update(project.id, campaign.id, template.id, {
-            data: { ...template.data, ...data },
+        const updated = await oapiClient.PATCH("/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}", {
+            params: {
+                path: {
+                    projectID: project.id,
+                    campaignID: campaign.id,
+                    templateID: template.id,
+                }
+            },
+            body: {
+                data: data,
+            }
         });
 
-        setTemplate(updated)
+        if (!updated.data) {
+            return false;
+        }
+
+        setTemplate(updated.data)
         return true;
     });
 

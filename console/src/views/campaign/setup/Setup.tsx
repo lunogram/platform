@@ -2,7 +2,7 @@ import { Controller, useForm } from "react-hook-form";
 import { useContext, useState } from "react";
 import { CampaignContext, ProjectContext } from "@/contexts";
 import { useTranslation } from "react-i18next";
-import api from "@/api";
+import { oapiClient } from "@/oapi/client";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -37,27 +37,48 @@ export default function CampaignSetup() {
     const onSubmit = async (data: FormData) => {
         setIsSubmitting(true);
         try {
-            const updated = await api.campaigns.update(project.id, campaign.id, {
-                name: data.name,
-                provider_id: data.provider_id,
+            const updated = await oapiClient.PATCH("/api/admin/projects/{projectID}/campaigns/{campaignID}", {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        campaignID: campaign.id,
+                    }
+                },
+                body: {
+                    name: data.name,
+                    provider_id: data.provider_id,
+                }
             });
 
-            setCampaign(updated);
-
-            if (campaign.templates?.length === 0) {
-                const template = await api.campaigns.templates.create(project.id, campaign.id, {
-                    locale: project.locale,
-                    data: {}
-                });
-
-                setCampaign({
-                    ...campaign,
-                    templates: [template]
-                });
+            if (!updated.data) {
+                return;
             }
 
-            const template = campaign.templates.find((template) => template.locale === project.locale) ?? campaign.templates[0];
-            await navigate(`/projects/${project.id}/campaigns/${campaign.id.toString()}/templates/${template.id.toString()}`)
+            setCampaign(updated.data);
+
+            
+
+            if (updated.data.templates?.length === 0) {
+                const template = await oapiClient.POST("/api/admin/projects/{projectID}/campaigns/{campaignID}/templates", {
+                    params: {
+                        path: {
+                            projectID: project.id,
+                            campaignID: campaign.id,
+                        }
+                    },
+                    body: {
+                        name: "Default Template",
+                        locale: project.locale,
+                    }
+                });
+                if (template.data?.id) {
+                    navigate(`/projects/${project.id}/campaigns/${campaign.id.toString()}/templates/${template.data.id.toString()}`);
+                }
+                return;
+            }
+
+            const template = updated.data.templates.find((template) => template.locale === project.locale) ?? updated.data.templates[0];
+            navigate(`/projects/${project.id}/campaigns/${campaign.id.toString()}/templates/${template.id.toString()}`);
         } finally {
             setIsSubmitting(false);
         }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from "react";
 import { ProjectContext } from "@/contexts";
-import api from "@/api";
+import { oapiClient } from "@/oapi/client";
 import type { Provider, ProviderGroup } from "@/types";
 import { useTranslation } from "react-i18next";
 
@@ -32,8 +32,17 @@ export function ProviderSelect({
     const fetchProviders = async () => {
       setIsLoading(true);
       try {
-        const result = await api.providers.all(project.id);
-        const filteredProviders = result.filter((provider) => provider.channel === channel);
+        const result = await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
+          params: {
+              path: {
+                projectID: project.id,
+              },
+            },
+          });
+          
+        const filteredProviders = (result.data?.results ?? []).filter(
+          (provider) => provider.channel === channel
+        );
         setProviders(filteredProviders);
 
         if (filteredProviders.length > 0 && !value) {

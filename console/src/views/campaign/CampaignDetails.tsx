@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import api from "@/api";
+import { oapiClient } from "@/oapi/client";
 
 import { channels } from "./template/channels";
 
@@ -50,12 +50,25 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
 
         setIsSubmitting(true);
         try {
-            const updatedCampaign = await api.campaigns.update(project.id, campaign.id, {
-                name: data.name,
-                provider_id: data.provider_id,
+            const res = await oapiClient.PATCH('/api/admin/projects/{projectID}/campaigns/{campaignID}', {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        campaignID: campaign.id,
+                    }
+                },
+                body: {
+                    name: data.name,
+                    provider_id: data.provider_id,
+                }
             });
 
-            setCampaign(updatedCampaign);
+            if (!res.response.ok) {
+                // Handle error, e.g. show notification
+                return;
+            }
+
+            setCampaign(res.data);
         } finally {
             setIsSubmitting(false);
         }
@@ -146,13 +159,22 @@ export default function CampaignDetails() {
 
     useEffect(() => {
         if (!selectedUser && project?.id) {
-            api.users.search(project.id, { limit: 1 }).then(result => {
-                if (result.results && result.results.length > 0) {
-                    setSelectedUser(result.results[0]);
+            oapiClient.GET('/api/admin/projects/{projectID}/users', {
+                params: {
+                    path: {
+                        projectID: project.id,
+                    },
+                    query: {
+                        limit: 25,
+                    }
                 }
-            })
+            }).then(result => {
+                if (result.data?.results && result.data.results.length > 0) {
+                    setSelectedUser(result.data.results[0]);
+                }
+            });
         }
-    }, [project?.id, selectedUser]);
+    }, [project?.id]);
 
     useEffect(() => {
         if (!campaign || campaign.templates.length === 0) {

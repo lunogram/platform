@@ -3184,7 +3184,7 @@ components:
   schemas:
     Channel:
       type: string
-      enum: [email, text, push]
+      enum: [email, text, push, webhook]
       description: Communication channel type
       example: email
 

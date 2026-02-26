@@ -5,7 +5,6 @@ import { useContext, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Mail, MessageSquareDot, PlusIcon, Smartphone, Webhook } from "lucide-react"
-import type { ChannelType } from "@/types"
 
 import {
     Item,
@@ -25,10 +24,10 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 
 interface Channel {
-    key: ChannelType;
+    key: "email" | "text" | "push" | "webhook";
     color: string;
     icon: JSX.Element;
     title: string;
@@ -45,12 +44,21 @@ export function CreateCampaign({ open = false }: CreateCampaignProps) {
     const { t } = useTranslation()
     const [isOpen, setIsOpen] = useState(open);
 
-    async function create(channel: ChannelType) {
-        const campaign = await api.campaigns.create(project.id, {
-            name: generateProjectName(),
-            channel: channel,
+    async function create(channel: "email" | "text" | "push" | "webhook") {
+        const campaign = await oapiClient.POST("/api/admin/projects/{projectID}/campaigns", {
+            params: {
+                path: {
+                    projectID: project?.id ?? "",
+                }
+             },
+             body: {
+                name: generateProjectName(),
+                channel: channel,
+             },
         })
-        await navigate(`/projects/${project.id}/campaigns/${campaign.id}/setup`)
+        if (campaign.data?.id) {
+            navigate(`/projects/${project?.id}/campaigns/${campaign.data.id}/setup`)
+        }
     }
 
     const channels: Array<Channel> = [
@@ -83,6 +91,7 @@ export function CreateCampaign({ open = false }: CreateCampaignProps) {
             description: t('channels.webhook.description'),
         },
     ]
+
 
     return (
         <Dialog open={isOpen} onOpenChange={() => setIsOpen(!isOpen)}>

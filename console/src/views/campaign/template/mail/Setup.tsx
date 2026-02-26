@@ -5,7 +5,7 @@ import type { Campaign, Template, User, Locale } from "@/types";
 import { useTranslation } from "react-i18next";
 import { ProjectContext, TemplateContext } from "@/contexts";
 import { useNavigate } from "react-router";
-import api from "@/api";
+import { oapiClient } from "@/oapi/client";
 import * as z from "zod";
 import { Render } from "@/renderTemplates";
 
@@ -339,7 +339,14 @@ export function EmailContentPreview({
   useEffect(() => {
     const fetchLocales = async () => {
       if (project?.id) {
-        const result = await api.locales.search(project.id, { limit: 100 });
+        const result = await oapiClient.GET("/api/admin/projects/{projectID}/locales", { 
+          params: {
+            path: {
+              projectID: project.id,
+            }
+          }
+        });
+
         setLocales(result.results);
       }
     };
@@ -370,7 +377,7 @@ export function EmailContentPreview({
 
   const handleLocaleChange = async (locale: string) => {
     setSelectedLocale(locale);
-    const newTemplate = campaign.templates.find((t) => t.locale === locale);
+    const newTemplate = campaign.templates?.find((t) => t.locale === locale);
     if (!newTemplate) {
       return;
     }
@@ -394,8 +401,8 @@ export function EmailContentPreview({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {campaign.templates.map((t) => {
-                  const locale = locales.find((l) => l.key === t.locale);
+                {campaign.templates?.map((t) => {
+                  const locale = locales?.find((l) => l.key === t.locale);
                   return (
                     <SelectItem key={t.id} value={t.locale}>
                       {locale?.label || t.locale}

@@ -21,7 +21,7 @@ import { PricingEmphasised, type PricingEmphasisedProps } from "./components/tem
 import "@measured/puck/puck.css";
 import "./Editor.css";
 import { ProjectContext, TemplateContext, CampaignContext } from "@/contexts";
-import api from "@/api";
+import { oapiClient } from "@/oapi/client";
 
 interface Components {
     Button: ButtonProps
@@ -100,14 +100,26 @@ function SaveHandler() {
             </Html>
         );
 
-        const updated = await api.campaigns.templates.update(project.id, campaign.id, template.id, {
-            data: {
-                ...template.data,
-                editor: appState.data,
-                html,
+        const updated = await oapiClient.PATCH("/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}", {
+            params: {
+                path: {
+                    projectID: project.id,
+                    campaignID: campaign.id,
+                    templateID: template.id,
+                }
+            },
+            body: {
+                data: {
+                    editor: appState.data,
+                    html: html,
+                },
             }
         });
 
+        if (!updated.data) {
+            return false;
+        }
+        
         setTemplate(updated);
         return true
     });

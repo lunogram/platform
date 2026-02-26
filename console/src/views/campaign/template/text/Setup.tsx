@@ -4,7 +4,7 @@ import { Ellipsis, UserRound } from 'lucide-react';
 import type { Campaign, Template, User, Locale } from "@/types";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import api from "@/api";
+import { oapiClient } from "@/oapi/client";
 import * as z from "zod";
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -87,8 +87,14 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
     useEffect(() => {
         const fetchLocales = async () => {
             if (project?.id) {
-                const result = await api.locales.search(project.id, { limit: 100 });
-                setLocales(result.results);
+                const result = await oapiClient.GET("/api/admin/projects/{projectID}/locales", {
+                    params: {
+                        path: {
+                            projectID: project.id,
+                        },
+                    },            
+                });
+                setLocales(result.data?.results ?? []);
             }
         };
         fetchLocales();
@@ -103,7 +109,7 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
 
     const handleLocaleChange = async (locale: string) => {
         setSelectedLocale(locale);
-        const newTemplate = campaign.templates.find(t => t.locale === locale);
+        const newTemplate = campaign.templates?.find(t => t.locale === locale);
         if (!newTemplate) {
             return
         }
@@ -128,8 +134,8 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {campaign.templates.map((t) => {
-                                        const locale = locales.find(l => l.key === t.locale);
+                                    {campaign.templates?.map((t) => {
+                                        const locale = locales?.find(l => l.key === t.locale);
                                         return (
                                             <SelectItem key={t.id} value={t.locale}>
                                                 {locale?.label || t.locale}
