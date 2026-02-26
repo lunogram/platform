@@ -42,9 +42,10 @@ const (
 
 // Defines values for Channel.
 const (
-	Email Channel = "email"
-	Push  Channel = "push"
-	Text  Channel = "text"
+	Email   Channel = "email"
+	Push    Channel = "push"
+	Text    Channel = "text"
+	Webhook Channel = "webhook"
 )
 
 // Defines values for CreateListType.
