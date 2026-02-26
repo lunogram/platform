@@ -66,11 +66,11 @@ export default function TemplateReview() {
                 path: {
                     projectID: project.id,
                     campaignID: campaign.id,
-                }
+                },
             },
             body: {
                 state: "running",
-            }
+            },
         })
 
         return true
