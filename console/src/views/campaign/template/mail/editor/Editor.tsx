@@ -120,7 +120,7 @@ function SaveHandler() {
             return false;
         }
         
-        setTemplate(updated);
+        setTemplate(updated.data);
         return true
     });
 

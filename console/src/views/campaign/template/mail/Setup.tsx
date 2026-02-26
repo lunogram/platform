@@ -347,7 +347,7 @@ export function EmailContentPreview({
           }
         });
 
-        setLocales(result.results);
+        setLocales(result.data?.results ?? []);
       }
     };
     fetchLocales();

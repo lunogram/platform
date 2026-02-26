@@ -57,17 +57,17 @@ export default function TemplateReview() {
             return false;
         }
 
-        await oapiClient.PATCH("/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}", {
+        await oapiClient.PATCH("/api/admin/projects/{projectID}/campaigns/{campaignID}", {
             params: {
                 path: {
                     projectID: project.id,
                     campaignID: campaign.id,
-                    templateID: template.id,
-                }
+                },
             },
             body: {
-                data: form.getValues(),
-            }
+                    name: campaign.name,
+                    provider_id: campaign.provider?.id,
+            },
         });
 
         return true;

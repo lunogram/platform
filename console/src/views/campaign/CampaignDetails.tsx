@@ -63,7 +63,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                 }
             });
 
-            if (!res.response.ok) {
+            if (!res.error || !res.data) {
                 // Handle error, e.g. show notification
                 return;
             }
