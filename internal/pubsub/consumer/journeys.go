@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
+func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, userDB *sqlx.DB, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		event := schemas.JourneyStep{}
 		err := json.Unmarshal(msg.Data(), &event)
@@ -28,7 +28,7 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, pu
 			return err
 		}
 
-		data, err := jrny.GetJourneyEntryData(ctx, event.JourneyEntryID, event.UserID)
+		data, err := jrny.GetJourneyEntryData(ctx, userDB, event.JourneyEntryID, event.UserID)
 		if err != nil {
 			logger.Error("failed to get journey entry data", zap.Error(err))
 			return err

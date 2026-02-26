@@ -396,9 +396,17 @@ func (srv *JourneysController) RunJourneyForUser(w http.ResponseWriter, r *http.
 		return
 	}
 
+	journeyStep, err := journeys.GetJourneyStep(ctx, journeyID, externalStepIDStr, currJourney.VersionID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("journey step not found", zap.String("external_step_id", externalStepIDStr))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey step not found")))
+		return
+	}
+
 	_, err = journeys.CreateUserJourneyState(ctx, journey.JourneyUserState{
 		UserID:          userID,
 		JourneyID:       journeyID,
+		JourneyEntryID:  journeyStep.ID,
 		ExternalStepID:  externalStepIDStr,
 		PinnedVersionID: currJourney.VersionID,
 	})
@@ -426,8 +434,10 @@ func (srv *JourneysController) RunJourneyForUser(w http.ResponseWriter, r *http.
 		step := consumer.JourneyStep{
 			ProjectID:      currJourney.ProjectID,
 			JourneyID:      step.JourneyID,
+			JourneyEntryID: journeyStep.ID,
 			ExternalStepID: child.ChildExternalID,
 			UserID:         userID,
+			VersionID:      currJourney.VersionID,
 		}
 
 		err = srv.pub.Publish(ctx, schemas.JourneysAdvance(currJourney.ProjectID, step.JourneyID, step.UserID), step)

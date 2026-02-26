@@ -959,55 +959,53 @@ func (s *JourneysStore) GetUserJourneyState(ctx context.Context, journeyEntryID 
 	return &state, nil
 }
 
-func (s *JourneysStore) GetJourneyEntryData(ctx context.Context, journeyEntryID, userID uuid.UUID) (map[string]any, error) {
-	query := `
-	WITH user_json AS (
-		SELECT to_jsonb(u) AS user_data
-		FROM users u
-		WHERE u.id = $2
-	),
+func (s *JourneysStore) GetJourneyEntryData(ctx context.Context, usersDB store.DB, journeyEntryID, userID uuid.UUID) (map[string]any, error) {
+	userQuery := `
+	SELECT to_jsonb(u)
+	FROM users u
+	WHERE u.id = $1`
 
-	journey_state AS (
+	var userRaw json.RawMessage
+	err := usersDB.GetContext(ctx, &userRaw, userQuery, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	journeyQuery := `
+	WITH journey_state AS (
 		SELECT step.data_key, jus.data AS state_data
 		FROM journey_user_state jus
 		JOIN journeys j ON j.id = jus.journey_id
 		JOIN journey_version_steps step ON step.external_id = jus.external_step_id AND step.version_id = COALESCE(jus.pinned_version_id, j.version_id)
 		WHERE jus.journey_entry_id = $1
 		AND step.data_key IS NOT NULL
-	),
-
-	journey_json AS (
-		SELECT
-			COALESCE(
-			jsonb_object_agg(js.data_key, js.state_data),
-			'{}'::jsonb
-			) AS journey_data
-		FROM journey_state js
 	)
+	SELECT COALESCE(jsonb_object_agg(js.data_key, js.state_data), '{}'::jsonb)
+	FROM journey_state js`
 
-	SELECT jsonb_build_object(
-		'user', uj.user_data,
-		'journey', jj.journey_data
-	)
-	FROM user_json uj
-	CROSS JOIN journey_json jj`
-
-	var rawResult json.RawMessage
-	err := s.db.GetContext(ctx, &rawResult, query, journeyEntryID, userID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-
+	var journeyRaw json.RawMessage
+	err = s.db.GetContext(ctx, &journeyRaw, journeyQuery, journeyEntryID)
 	if err != nil {
 		return nil, err
 	}
 
-	var result map[string]any
-	if err := json.Unmarshal(rawResult, &result); err != nil {
+	var userData map[string]any
+	if err := json.Unmarshal(userRaw, &userData); err != nil {
 		return nil, err
 	}
 
-	return result, nil
+	var journeyData map[string]any
+	if err := json.Unmarshal(journeyRaw, &journeyData); err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"user":    userData,
+		"journey": journeyData,
+	}, nil
 }
 
 type UserJourneyEntrances []UserJourneyEntrance

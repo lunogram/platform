@@ -43,6 +43,6 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, db
 	router.Handle(StreamEvents, ConsumerEventsProcess, EventsHandler(logger, usrs, jrny, pub))
 	router.Handle(StreamEvents, ConsumerEventsSchema, EventSchemasHandler(logger, usrs))
 	router.Handle(StreamLists, ConsumerListsRecompute, RecomputeListHandler(logger, usrs, pub))
-	router.Handle(StreamJourneys, ConsumerJourneysAdvance, JourneyStepHandler(logger, db.Users, jrny, pub))
+	router.Handle(StreamJourneys, ConsumerJourneysAdvance, JourneyStepHandler(logger, db.Journey, db.Users, jrny, pub))
 	router.Handle(StreamCampaigns, ConsumerCampaignsSend, CampaignsSendHandler(logger, mgmt, usrs, registry))
 }
