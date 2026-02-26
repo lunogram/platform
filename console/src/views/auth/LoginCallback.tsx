@@ -1,7 +1,7 @@
 import { useParams, useSearchParams } from "react-router"
 import { useEffect, useState } from "react"
 import { useClerk } from "@clerk/clerk-react"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { AUTH_DRIVERS } from "../../types"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { useTranslation } from "react-i18next"
@@ -30,7 +30,10 @@ export default function LoginCallback() {
                             return
                         }
                         // Call our backend to complete the auth flow
-                        await api.auth.clerkAuth(token, redirect)
+                        await oapiClient.POST("/api/auth/login/{driver}/callback", {
+                            params: { path: { driver: "clerk" } },
+                            body: { redirect },
+                        })
                         break
                     }
                     default:

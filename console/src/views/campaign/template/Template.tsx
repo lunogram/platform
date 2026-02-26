@@ -2,7 +2,7 @@ import { ChevronRight, Loader2 } from "lucide-react"
 import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router"
 import { useCallback, useContext, useMemo, memo, useState, useEffect, useRef } from "react"
 import { CampaignContext, LocaleContext, ProjectContext, type LocaleSelection } from "@/contexts"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 
@@ -10,6 +10,7 @@ import { LocaleSelect } from "@/components/locale/select"
 import { Button } from "@/components/ui/button"
 import { TemplateWorkflowContext } from "./contexts"
 import { t } from "i18next"
+import { set } from "date-fns"
 
 interface CampaignStepProps {
     steps: Array<{ name: string; href: string }>
@@ -150,17 +151,27 @@ export default function Template() {
             }
 
             setPageLoading(true)
-            const template = await api.campaigns.templates.create(project.id, campaign.id, {
-                locale: localeKey,
-                data: {},
+            const template = await oapiClient.POST("/api/admin/projects/{projectID}/campaigns/{campaignID}/templates", {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        campaignID: campaign.id,
+                    }
+                },
+                body: {
+                    locale: localeKey,
+                    data: {},
+                }
             })
 
-            setCampaign({
-                ...campaign,
-                templates: [...campaign.templates, template],
-            })
+            if (template.data) {
+                setCampaign({
+                    ...campaign,
+                    templates: [...campaign.templates, template.data],
+                })
 
-            navigateToTemplate(template.id)
+                navigateToTemplate(template.data.id)
+            }
             setPageLoading(false)
         },
         [campaign, project?.id, setCampaign, navigateToTemplate],
@@ -173,35 +184,47 @@ export default function Template() {
 
             setPageLoading(true)
 
-            const allLocalesResult = await api.locales.search(project.id, {
-                limit: 5,
-            })
-            if (currentTemplate) {
-                try {
-                    const selectedLocale = await api.locales.getByKey(
-                        project.id,
-                        currentTemplate.locale,
-                    )
+            try {
+                const allLocalesResult = await oapiClient.GET("/api/admin/projects/{projectID}/locales", {
+                    params: {
+                        path: {
+                            projectID: project.id,
+                        }
+                    }
+                })
+                if (currentTemplate) {
+                    try {
+                        const selectedLocale = await oapiClient.GET("/api/admin/projects/{projectID}/locales/{localeID}", {
+                            params: {
+                                path: {
+                                    projectID: project.id,
+                                    localeID: currentTemplate.locale,
+                                }
+                            }
+                        })
+                        setLocaleSelection({
+                            currentLocale: selectedLocale.data,
+                            allLocales: allLocalesResult.data?.results ?? [],
+                        })
+                    } catch {
+                        // Locale not found, use default or first available locale
+                        console.warn(`Locale ${currentTemplate.locale} not found, using default`)
+                        setLocaleSelection({
+                            currentLocale: allLocalesResult.data?.results?.[0],
+                            allLocales: allLocalesResult.data?.results ?? [],
+                        })
+                    }
+                } else {
                     setLocaleSelection({
-                        currentLocale: selectedLocale,
-                        allLocales: allLocalesResult.results,
-                    })
-                } catch {
-                    // Locale not found, use default or first available locale
-                    console.warn(`Locale ${currentTemplate.locale} not found, using default`)
-                    setLocaleSelection({
-                        currentLocale: allLocalesResult.results[0],
-                        allLocales: allLocalesResult.results,
+                        currentLocale: undefined,
+                        allLocales: allLocalesResult.data?.results ?? [],
                     })
                 }
-            } else {
-                setLocaleSelection({
-                    currentLocale: undefined,
-                    allLocales: allLocalesResult.results,
-                })
+            } catch (error) {
+                console.error("Failed to fetch locales:", error)
+            } finally {
+                setPageLoading(false)
             }
-
-            setPageLoading(false)
         }
 
         fetchLocales()

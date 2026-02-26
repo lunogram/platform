@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import { Loader2, Mail, Lock, ArrowLeft } from "lucide-react"
 import { useForm } from "react-hook-form"
 
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { type AuthDriver, AUTH_DRIVERS } from "../../types"
 
 import { Button } from "@/components/ui/button"
@@ -57,7 +57,10 @@ export default function Login() {
 
         setIsSubmitting(true)
         try {
-            await api.auth.basicAuth(data.email, data.password)
+            await oapiClient.POST("/api/auth/login/{driver}/callback", {
+                params: { path: { driver: AUTH_DRIVERS.BASIC } },
+                body: { email: data.email, password: data.password },
+            })
             window.location.href = redirect
         } catch (err) {
             console.error("Basic auth failed:", err)
@@ -67,9 +70,10 @@ export default function Login() {
     }
 
     useEffect(() => {
-        api.auth
-            .methods()
-            .then((methods) => {
+        oapiClient
+            .GET("/api/auth/methods")
+            .then((result) => {
+                const methods = result.data ?? []
                 const supportedDrivers = methods.filter((driver) =>
                     SUPPORTED_DRIVERS.includes(driver),
                 )

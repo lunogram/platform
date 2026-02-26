@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { ChevronLeft } from "lucide-react"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
@@ -44,14 +44,17 @@ export function IntegrationForm({
 
     useEffect(() => {
         if (defaultProvider) {
-            api.providers
-                .get(
-                    project.id,
-                    defaultProvider.channel,
-                    defaultProvider.module,
-                    defaultProvider.id,
-                )
-                .then((provider) => setProvider(provider))
+            oapiClient.GET("/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}", {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        group: defaultProvider.channel,
+                        type: defaultProvider.module,
+                        providerID: defaultProvider.id,
+                    },
+                },
+            })
+                .then((res) => setProvider(res.data))
                 .catch(() => {})
         }
     }, [project.id, defaultProvider])
@@ -71,9 +74,41 @@ export function IntegrationForm({
         setIsSaving(true)
         try {
             const params = { ...values, module, channel }
-            const result = provider?.id
-                ? await api.providers.update(project.id, provider.id, params)
-                : await api.providers.create(project.id, params)
+            let result: Provider
+
+            if (provider?.id) {
+                const res = await oapiClient.PATCH("/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}", {
+                    params: {
+                        path: {
+                            projectID: project.id,
+                            group: channel,
+                            type: module,
+                            providerID: provider.id,
+                        },
+                    },
+                    body: params,
+                })
+                if (!res.data) {
+                    throw new Error("Failed to update provider")
+                }
+                result = res.data
+            } else {
+                const res = await oapiClient.POST("/api/admin/projects/{projectID}/providers/{group}/{type}", {
+                    params: {
+                        path: {
+                            projectID: project.id,
+                            group: channel,
+                            type: module,
+                        },
+                    },
+                    body: params,
+                })
+                if (!res.data) {
+                    throw new Error("Failed to create provider")
+                }
+                result = res.data
+            }
+
             onChange(result)
         } finally {
             setIsSaving(false)
@@ -154,7 +189,16 @@ export default function IntegrationModal({
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const [options] = useResolver(
-        useCallback(async () => await api.providers.options(project.id), [project]),
+        useCallback(async () => {
+            const res = await oapiClient.GET("/api/admin/projects/{projectID}/providers/meta", {
+                params: {
+                    path: {
+                        projectID: project.id,
+                    },
+                },
+            })
+            return res.data ?? []
+        }, [project]),
     )
     const [meta, setMeta] = useState<ProviderMeta | undefined>()
 

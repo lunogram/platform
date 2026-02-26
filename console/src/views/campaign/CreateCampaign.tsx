@@ -25,7 +25,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 
 interface Channel {
     key: ChannelType
@@ -51,11 +51,20 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
         if (onBeforeCreate) {
             await onBeforeCreate()
         }
-        const campaign = await api.campaigns.create(project.id, {
-            name: generateProjectName(),
-            channel: channel,
+        const campaign = await oapiClient.POST("/api/admin/projects/{projectID}/campaigns", {
+            params: {
+                path: {
+                    projectID: project?.id ?? "",
+                }
+            },
+            body: {
+                name: generateProjectName(),
+                channel: channel,
+            },
         })
-        await navigate(`/projects/${project.id}/campaigns/${campaign.id}/setup`)
+        if (campaign.data?.id) {
+            navigate(`/projects/${project?.id}/campaigns/${campaign.data.id}/setup`)
+        }
     }
 
     const channels: Array<Channel> = [
@@ -81,6 +90,7 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
             description: t("channels.push.description"),
         },
     ]
+
 
     return (
         <Dialog open={isOpen} onOpenChange={() => setIsOpen(!isOpen)}>

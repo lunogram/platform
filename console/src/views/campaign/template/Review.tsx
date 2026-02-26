@@ -6,7 +6,7 @@ import {
 } from "@/contexts"
 import type { User } from "@/types"
 import { useTranslation } from "react-i18next"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 
 import { channels } from "./channels"
 
@@ -24,9 +24,19 @@ export default function TemplateReview() {
 
     useEffect(() => {
         if (!selectedUser && project?.id) {
-            api.users.search(project.id, { limit: 1 }).then((result) => {
-                if (result.results && result.results.length > 0) {
-                    setSelectedUser(result.results[0])
+            oapiClient.GET("/api/admin/projects/{projectID}/users", {
+                params: {
+                    path: {
+                        projectID: project.id,
+                    },
+                    query: {
+                        limit: 1,
+                    },
+                },
+            }).then((res) => {
+                const users = res.data?.results || []
+                if (users.length > 0) {
+                    setSelectedUser(users[0])
                 }
             })
         }
@@ -51,8 +61,16 @@ export default function TemplateReview() {
             return false
         }
 
-        await api.campaigns.update(project.id, campaign.id, {
-            state: "running",
+        await oapiClient.PATCH("/api/admin/projects/{projectID}/campaigns/{campaignID}", {
+            params: {
+                path: {
+                    projectID: project.id,
+                    campaignID: campaign.id,
+                }
+            },
+            body: {
+                state: "running",
+            }
         })
 
         return true
