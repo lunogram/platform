@@ -8,7 +8,7 @@ import { PreferencesContext } from "../../ui/PreferencesContext";
 import * as stepTypes from "./steps";
 import clsx from "clsx";
 import { useTranslation } from "react-i18next";
-import { stepCategoryColors } from "./editor/JourneyEditor.constants";
+import { stepCategoryColors } from "./hooks/JourneyEditor.constants";
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const typeVariants: Record<string, TagProps["variant"]> = {

@@ -1,9 +1,9 @@
 import type { Edge, Node } from "reactflow";
 import { MarkerType, getConnectedEdges } from "reactflow";
-import * as journeySteps from "./../steps/index";
+import * as journeySteps from "../steps/index";
 import { createUuid } from "@/utils";
 import type { JourneyStepMap, JourneyStepType } from "@/types";
-import { STEP_STYLE } from "./JourneyEditor.constants";
+import { STEP_STYLE } from "../hooks/JourneyEditor.constants";
 import type { JourneyNode, JourneyNodeData } from "./JourneyEditor.types";
 import type { UUID } from "@/types/common";
 

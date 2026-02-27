@@ -8,8 +8,8 @@ import {
   useReactFlow,
 } from "reactflow";
 import { ProjectContext, JourneyContext } from "@/contexts";
-import { getStepType } from "./JourneyEditor.utils";
-import type { JourneyNode } from "./JourneyEditor.types";
+import { getStepType } from "../editor/JourneyEditor.utils";
+import type { JourneyNode } from "../editor/JourneyEditor.types";
 
 import "reactflow/dist/style.css";
 import "../JourneyEditor.css";

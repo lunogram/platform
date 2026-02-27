@@ -6,8 +6,8 @@ import clsx from "clsx";
 import { ProjectContext, JourneyContext } from "@/contexts";
 import Alert from "@/ui/Alert";
 import { KeyIcon } from "@/components/icons";
-import { getStepType } from "./JourneyEditor.utils";
-import { statIcons, stepCategoryColors } from "./JourneyEditor.constants";
+import { getStepType } from "../editor/JourneyEditor.utils";
+import { statIcons, stepCategoryColors } from "../hooks/JourneyEditor.constants";
 
 import "reactflow/dist/style.css";
 import "../JourneyEditor.css";

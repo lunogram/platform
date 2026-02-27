@@ -2,7 +2,7 @@ import { useState, useContext } from 'react'
 import { JourneyContext } from '../../contexts'
 import { Button } from '@/components/ui/button'
 import PageContent from '../../ui/PageContent'
-import JourneyEditor from './JourneyEditor'
+import JourneyEditor from './editor/JourneyEditor'
 import { useTranslation } from 'react-i18next'
 
 export default function JourneyDetail() {
