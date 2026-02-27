@@ -34,7 +34,7 @@ import { JourneyStepEdge } from "../components/JourneyStepEdge";
 import {
   DATA_FORMAT,
 } from "../hooks/JourneyEditor.constants";
-import type { JourneyNodeData } from "../JourneyEditor.types";
+import type { JourneyNodeData } from "./JourneyEditor.types";
 import {
   cloneNodes,
   getStepType,
