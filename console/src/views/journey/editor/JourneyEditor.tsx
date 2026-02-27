@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import type { ReactFlowInstance } from "reactflow";
 import ReactFlow, {
@@ -31,15 +25,9 @@ import { UserSelectionModal } from "../JourneyUserSelectionModal";
 
 import { JourneyStepNode } from "../components/JourneyStepNode";
 import { JourneyStepEdge } from "../components/JourneyStepEdge";
-import {
-  DATA_FORMAT,
-} from "../hooks/JourneyEditor.constants";
+import { DATA_FORMAT } from "../hooks/JourneyEditor.constants";
 import type { JourneyNodeData } from "./JourneyEditor.types";
-import {
-  cloneNodes,
-  getStepType,
-  stepsToNodes,
-} from "./JourneyEditor.utils";
+import { cloneNodes, getStepType, stepsToNodes } from "./JourneyEditor.utils";
 
 import "./JourneyEditor.css";
 import "reactflow/dist/style.css";
@@ -48,6 +36,7 @@ import { useJourneyFlowHandlers } from "../hooks/useJourneyFlowHandlers";
 import { useUserSelection } from "../hooks/useUserSelection";
 import { useStepEditing } from "../hooks/useStepEditing";
 import { JourneyStepSidebar } from "../components/JourneyStepSidebar";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 
 const nodeTypes = { step: JourneyStepNode };
 const edgeTypes = { step: JourneyStepEdge };
@@ -116,6 +105,15 @@ export default function JourneyEditor() {
         nodes.map((n) => ({ ...n, data: { ...n.data, editing: false } })),
       );
   }, [editNode, nodes, setNodes]);
+
+  useKeyboardShortcuts({
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    onNodesUpdated: () => setHasUnsavedChanges(true),
+    enabled: journey.status === "draft",
+  });
 
   return (
     <Modal
@@ -195,6 +193,7 @@ export default function JourneyEditor() {
             onClick={onPaneClick}
             nodesDraggable={journey.status === "draft"}
             nodesConnectable={journey.status === "draft"}
+            deleteKeyCode={["Backspace", "Delete"]}
             panOnScroll
             selectNodesOnDrag
             fitView
@@ -252,7 +251,9 @@ export default function JourneyEditor() {
                 onUpdate={updateEditNode}
                 onDelete={deleteNode}
                 onOpenUserModal={() => setIsUserModalOpen(true)}
-                onViewUsers={(stepId, stepType) => setViewUsersStep({ stepId, stepType })}
+                onViewUsers={(stepId, stepType) =>
+                  setViewUsersStep({ stepId, stepType })
+                }
               />
             ) : (
               <>

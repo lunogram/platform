@@ -12,7 +12,7 @@ import { getStepType } from "../editor/JourneyEditor.utils";
 import type { JourneyNode } from "../editor/JourneyEditor.types";
 
 import "reactflow/dist/style.css";
-import "../JourneyEditor.css";
+import "../editor/JourneyEditor.css";
 
 export const JourneyStepEdge = memo(
   ({

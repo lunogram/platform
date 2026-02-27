@@ -10,7 +10,7 @@ import { getStepType } from "../editor/JourneyEditor.utils";
 import { statIcons, stepCategoryColors } from "../hooks/JourneyEditor.constants";
 
 import "reactflow/dist/style.css";
-import "../JourneyEditor.css";
+import "../editor/JourneyEditor.css";
 
 export const JourneyStepNode = memo(
   ({

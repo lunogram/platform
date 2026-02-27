@@ -11,7 +11,7 @@ import {
 export const DATA_FORMAT = "application/lunogram-journey-step";
 export const STEP_STYLE = "smoothstep";
 
-import "../JourneyEditor.css";
+import "../editor/JourneyEditor.css";
 
 export const statIcons: Record<string, ReactNode> = {
   action: <ActionStepIcon />,
