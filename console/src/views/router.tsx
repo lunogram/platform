@@ -1,10 +1,11 @@
 import type { RouteObject } from 'react-router';
 import { createBrowserRouter, Outlet, redirect, useNavigate, useParams } from 'react-router'
 import api from '../api'
+import oapiClient from '../oapi/client'
 
 import ErrorPage from './ErrorPage'
 import { LoaderContextProvider, StatefulLoaderContextProvider } from './LoaderContextProvider'
-import { AdminContext, CampaignContext, TemplateContext, JourneyContext, ListContext, ProjectContext, UserContext } from '../contexts'
+import { AdminContext, CampaignContext, TemplateContext, JourneyContext, ListContext, ProjectContext, UserContext, OrganizationContext } from '../contexts'
 import ApiKeys from './settings/ApiKeys'
 import Lists from './users/Lists'
 import ListDetail from './users/ListDetail'
@@ -31,7 +32,7 @@ import Login from './auth/Login'
 import LoginCallback from './auth/LoginCallback'
 import Onboarding from './auth/Onboarding'
 import OnboardingProject from './auth/OnboardingProject'
-import { CampaignsIcon, CheckCircleIcon, JourneysIcon, ListsIcon, SettingsIcon, UsersIcon } from '@/components/icons'
+import { BuildingIcon, CampaignsIcon, CheckCircleIcon, JourneysIcon, ListsIcon, SettingsIcon, UsersIcon } from '@/components/icons'
 import { Projects } from './project/Projects'
 import { completedGettingStarted } from '../utils'
 import Settings from './settings/Settings'
@@ -44,7 +45,13 @@ import ProjectOnboardingTools from './project/ProjectOnboardingTools'
 import Locales from './settings/Locales'
 import JourneyUserEntrances from './journey/JourneyUserEntrances'
 import UserDetailJourneys from './users/UserDetailJourneys'
+import UserDetailOrganizations from './users/UserDetailOrganizations'
 import EntranceDetails from './journey/EntranceDetails'
+import Organizations from './organizations/Organizations'
+import OrganizationDetail from './organizations/OrganizationDetail'
+import OrganizationDetailAttrs from './organizations/OrganizationDetailAttrs'
+import OrganizationDetailEvents from './organizations/OrganizationDetailEvents'
+import OrganizationDetailMembers from './organizations/OrganizationDetailMembers'
 import { Translation } from 'react-i18next'
 import type { UUID } from '@/types/common'
 import type { Project } from '../types'
@@ -180,6 +187,12 @@ export const createRouter = ({
                                         children: <Translation>{t => t('journeys')}</Translation>,
                                         icon: <JourneysIcon />,
                                         minRole: 'editor',
+                                    },
+                                    {
+                                        key: 'organizations',
+                                        to: 'organizations',
+                                        children: <Translation>{t => t('organizations')}</Translation>,
+                                        icon: <BuildingIcon />,
                                     },
                                     {
                                         key: 'users',
@@ -341,6 +354,10 @@ export const createRouter = ({
                                         path: 'journeys',
                                         element: <UserDetailJourneys />,
                                     },
+                                    {
+                                        path: 'organizations',
+                                        element: <UserDetailOrganizations />,
+                                    },
                                 ],
                             }),
                             createStatefulRoute({
@@ -355,6 +372,44 @@ export const createRouter = ({
                                 context: ListContext,
                                 element: <ListDetail />,
                             }),
+                            {
+                                path: 'organizations',
+                                element: <Organizations />,
+                            },
+                            {
+                                path: 'organizations/:organizationId',
+                                loader: async ({ params }) => {
+                                    const { data, error } = await oapiClient.GET('/api/admin/projects/{projectID}/subjects/organizations/{organizationID}', {
+                                        params: {
+                                            path: {
+                                                projectID: params.projectId!,
+                                                organizationID: params.organizationId!
+                                            }
+                                        }
+                                    })
+                                    if (error) throw new Error('Organization not found')
+                                    return data
+                                },
+                                element: (
+                                    <StatefulLoaderContextProvider context={OrganizationContext}>
+                                        <OrganizationDetail />
+                                    </StatefulLoaderContextProvider>
+                                ),
+                                children: [
+                                    {
+                                        index: true,
+                                        element: <OrganizationDetailAttrs />,
+                                    },
+                                    {
+                                        path: 'events',
+                                        element: <OrganizationDetailEvents />,
+                                    },
+                                    {
+                                        path: 'members',
+                                        element: <OrganizationDetailMembers />,
+                                    },
+                                ],
+                            },
                             {
                                 path: 'entrances/:entranceId',
                                 loader: async ({ params }) => await api.journeys.entrances.log(params.projectId! as UUID, params.entranceId! as UUID),

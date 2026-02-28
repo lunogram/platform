@@ -6,6 +6,15 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.60.0",
     "@clerk/types": "^4.101.14",
+    "@codemirror/autocomplete": "^6.20.0",
+    "@codemirror/commands": "^6.10.2",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/language": "^6.12.2",
+    "@codemirror/lint": "^6.9.4",
+    "@codemirror/state": "^6.5.4",
+    "@codemirror/view": "^6.39.15",
+    "@fsegurai/codemirror-theme-github-dark": "^6.2.3",
+    "@fsegurai/codemirror-theme-github-light": "^6.2.3",
     "@headlessui/react": "^2.2.9",
     "@hookform/resolvers": "^5.2.2",
     "@measured/puck": "0.21.0-canary.72e4fcca",
@@ -35,6 +44,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "codemirror": "^6.0.2",
     "color": "^5.0.3",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
@@ -74,7 +84,7 @@
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "analyze:bundle": "pnpm build && npx source-map-explorer './dist/assets/*.js'",
     "generate": "pnpm run /^generate:/",
-    "generate:openapi": "openapi-typescript ../oapi/webhooks.yml -o ./src/oapi/webhooks.generated.ts"
+    "generate:oapi": "openapi-typescript ../internal/http/controllers/v1/management/oapi/resources.yml -o ./src/oapi/management.generated.ts"
   },
   "types": "./lib/cjs/mod.d.ts",
   "main": "./lib/cjs/mod.js",

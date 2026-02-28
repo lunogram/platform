@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { createContext } from 'react'
-import type { EventRule, Operator, Rule, RuleGroup, RuleType, VariableSuggestions, WrapperRule } from '../../../types'
+import type { EventRule, Operator, OrganizationEventRule, OrganizationRule, OrganizationUserMatch, Rule, RuleGroup, RuleType, VariableSuggestions, WrapperRule } from '../../../types'
 import { createUuid } from '../../../utils'
 
 export interface GroupedRule extends Omit<Rule, 'value'> {
@@ -14,9 +14,19 @@ export const isEventWrapper = (rule: Rule): rule is EventRule => {
         && (rule?.path === '.name' || rule?.path === 'name')
 }
 
+export const isOrganizationEventWrapper = (rule: Rule): rule is OrganizationEventRule => {
+    return rule?.group === 'organization_event'
+        && (rule?.path === '.name' || rule?.path === 'name')
+}
+
+export const isOrganizationWrapper = (rule: Rule): rule is OrganizationRule => {
+    return rule?.group === 'organization'
+        && rule?.type === 'wrapper'
+}
+
 export const isWrapper = (rule: Rule | GroupedRule): rule is WrapperRule => {
     return rule?.type === 'wrapper'
-        && (rule?.group === 'parent' || rule?.group === 'event')
+        && (rule?.group === 'parent' || rule?.group === 'event' || rule?.group === 'organization_event' || rule?.group === 'organization')
 }
 
 export const createWrapperRule = (): WrapperRule => ({
@@ -26,6 +36,18 @@ export const createWrapperRule = (): WrapperRule => ({
     group: 'parent',
     operator: 'and',
     children: [],
+})
+
+// Create an initial member condition for the wrapper
+export const createInitialMemberCondition = (wrapperRule: WrapperRule): Rule => ({
+    uuid: createUuid(),
+    root_uuid: wrapperRule.uuid,
+    parent_uuid: wrapperRule.uuid,
+    path: '',
+    type: 'string',
+    group: 'user',
+    value: '',
+    operator: '=',
 })
 
 export const createEventRule = (parent?: Rule, value = ''): EventRule => {
@@ -67,9 +89,76 @@ export const createSimpleEventRule = (value = ''): WrapperRule => ({
     children: [],
 })
 
+export const createSimpleOrganizationEventRule = (value = '', user_match?: OrganizationUserMatch): OrganizationEventRule => ({
+    uuid: createUuid(),
+    path: '',
+    type: 'wrapper',
+    group: 'organization_event',
+    value,
+    operator: 'and',
+    children: [],
+    user_match: user_match ?? createDefaultUserMatch(),
+})
+
+export const createDefaultUserMatch = (): OrganizationUserMatch => ({
+    type: 'all',
+})
+
+export const createOrganizationEventRule = (parent?: Rule, value = ''): OrganizationEventRule => {
+    const base: OrganizationEventRule = {
+        uuid: createUuid(),
+        path: '.name',
+        type: 'wrapper',
+        group: 'organization_event',
+        value,
+        operator: 'and',
+        children: [],
+        frequency: {
+            period: {
+                type: 'rolling',
+                unit: 'day',
+                value: 30,
+            },
+            operator: '>=',
+            count: 1,
+        },
+        user_match: createDefaultUserMatch(),
+    }
+    if (parent) {
+        return {
+            ...base,
+            root_uuid: parent.root_uuid ?? parent.uuid,
+            parent_uuid: parent.uuid,
+        }
+    }
+    return base
+}
+
+export const createOrganizationRule = (parent?: Rule): OrganizationRule => {
+    const base: OrganizationRule = {
+        uuid: createUuid(),
+        path: '',
+        type: 'wrapper',
+        group: 'organization',
+        operator: 'and',
+        children: [],
+        user_match: createDefaultUserMatch(),
+    }
+    if (parent) {
+        return {
+            ...base,
+            root_uuid: parent.root_uuid ?? parent.uuid,
+            parent_uuid: parent.uuid,
+        }
+    }
+    return base
+}
+
 export const emptySuggestions: VariableSuggestions = {
     userPaths: [],
     eventPaths: [],
+    organizationUserPaths: [],
+    organizationPaths: [],
 }
 
 export const VariablesContext = createContext<{
@@ -154,6 +243,11 @@ export const periodUnits: Array<{ key: 'minute' | 'hour' | 'day' | 'week' | 'mon
     { key: 'day', label: 'Days' },
     { key: 'week', label: 'Weeks' },
     { key: 'month', label: 'Months' },
+]
+
+export const userMatchTypes: Array<{ key: 'all' | 'conditions', label: string, description: string }> = [
+    { key: 'all', label: 'All members', description: 'Include all users in matching organizations' },
+    { key: 'conditions', label: 'Members matching conditions', description: 'Include members matching property conditions' },
 ]
 
 export interface RuleEditProps<T extends Rule = Rule> {

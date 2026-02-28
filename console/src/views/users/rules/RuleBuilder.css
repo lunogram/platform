@@ -114,3 +114,108 @@
 .rule-form-title span {
     font-weight: 500;
 }
+
+/* Organization Event Rule Styles */
+.organization-event-rule {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.organization-event-rule-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.organization-event-rule-user-match {
+    margin-left: 20px;
+    padding: 10px;
+    background: var(--color-bg-soft);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--color-grey);
+}
+
+.organization-event-rule-user-match .user-match-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.organization-event-rule-user-match .user-match-conditions {
+    margin-top: 10px;
+}
+
+.organization-event-rule-user-match .member-conditions-label {
+    font-weight: 500;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+    color: var(--color-text-soft);
+}
+
+.organization-event-rule-conditions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Organization Property Rule Styles */
+.organization-rule-user-match {
+    margin-left: 20px;
+    padding: 10px;
+    background: var(--color-bg-soft);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--color-grey);
+}
+
+.organization-rule-user-match .user-match-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.organization-rule-user-match .user-match-conditions {
+    margin-top: 10px;
+}
+
+.organization-rule-user-match .member-conditions-label {
+    font-weight: 500;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+    color: var(--color-text-soft);
+}
+
+/* Member Conditions Builder Styles */
+.member-conditions-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.member-conditions-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.9em;
+}
+
+.member-conditions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-left: 10px;
+    padding-left: 10px;
+    border-left: 1px solid var(--color-grey);
+}
+
+.member-conditions-actions {
+    margin-left: 20px;
+}
+
+.member-condition {
+    display: flex;
+    align-items: center;
+}

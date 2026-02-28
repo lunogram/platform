@@ -1,13 +1,54 @@
 import type { ReactNode } from 'react'
-import type { Operator, Preferences, Rule } from '../../../types'
+import type { Operator, OrganizationEventRule, OrganizationRule, Preferences, Rule } from '../../../types'
 import type { GroupedRule } from './RuleHelpers';
-import { isEventWrapper, isWrapper, operatorTypes, trimPathDisplay } from './RuleHelpers'
+import { isEventWrapper, isOrganizationEventWrapper, isOrganizationWrapper, isWrapper, operatorTypes, trimPathDisplay } from './RuleHelpers'
 import { formatDate } from '../../../utils'
 
 export function ruleDescription(preferences: Preferences, rule: Rule | GroupedRule, nodes: ReactNode[] = [], wrapperOperator?: Operator): ReactNode {
     const root = nodes.length === 0
     if (isWrapper(rule)) {
-        if (isEventWrapper(rule)) {
+        if (isOrganizationEventWrapper(rule)) {
+            const orgRule = rule as OrganizationEventRule
+            if (!root) {
+                nodes.push(
+                    'organization has done ',
+                    <strong key={nodes.length}>
+                        {orgRule.value ?? ''}
+                    </strong>,
+                )
+            } else {
+                nodes.push(
+                    'Organization event: ',
+                    <strong key={nodes.length}>
+                        {orgRule.value ?? ''}
+                    </strong>,
+                )
+            }
+            // Add user match description
+            if (orgRule.user_match) {
+                const matchType = orgRule.user_match.type
+                if (matchType === 'all') {
+                    nodes.push(' (all members)')
+                } else if (matchType === 'conditions') {
+                    nodes.push(' (members matching conditions)')
+                }
+            }
+            if (orgRule.children?.length) {
+                nodes.push(' where ')
+            }
+        } else if (isOrganizationWrapper(rule)) {
+            const orgRule = rule as OrganizationRule
+            nodes.push('Organizations where ')
+            // Add user match description
+            if (orgRule.user_match) {
+                const matchType = orgRule.user_match.type
+                if (matchType === 'all') {
+                    nodes.push('(all members) ')
+                } else if (matchType === 'conditions') {
+                    nodes.push('(members matching conditions) ')
+                }
+            }
+        } else if (isEventWrapper(rule)) {
             if (!root) {
                 nodes.push(
                     'has user done ',
@@ -57,6 +98,12 @@ export function ruleDescription(preferences: Preferences, rule: Rule | GroupedRu
         }
         if (isEventWrapper(rule) && rule.frequency) {
             nodes.push(` ${rule.frequency.operator} ${rule.frequency.count} times`)
+        }
+        if (isOrganizationEventWrapper(rule)) {
+            const orgRule = rule as OrganizationEventRule
+            if (orgRule.frequency) {
+                nodes.push(` ${orgRule.frequency.operator} ${orgRule.frequency.count} times`)
+            }
         }
     } else {
         if (rule.group === 'event' && (rule.path === '$.name' || rule.path === 'name')) {

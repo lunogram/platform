@@ -1,7 +1,7 @@
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { useNavigate } from "react-router";
 import type { Project } from "@/types";
-import { getRandomColor, getRandomIcon } from "@/lib/projects";
+import { getRandomColor, getRandomIcon } from "@/lib/colors";
 
 import {
   DropdownMenu,

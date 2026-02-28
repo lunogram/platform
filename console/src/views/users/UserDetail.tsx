@@ -64,6 +64,11 @@ export default function UserDetail() {
                     to: 'journeys',
                     children: t('journeys'),
                 },
+                {
+                    key: 'organizations',
+                    to: 'organizations',
+                    children: t('organizations'),
+                },
             ]} />
             <Outlet />
         </PageContent>

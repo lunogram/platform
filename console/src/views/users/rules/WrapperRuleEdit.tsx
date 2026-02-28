@@ -4,9 +4,11 @@ import { SingleSelect } from "../../../ui/form/SingleSelect";
 import { PlusIcon, TrashIcon } from "../../../components/icons";
 import { createUuid } from "../../../utils";
 import EventRuleEdit from "./EventRuleEdit";
+import OrganizationEventRuleEdit from "./OrganizationEventRuleEdit";
+import OrganizationRuleEdit from "./OrganizationRuleEdit";
 import type { RuleEditProps } from "./RuleHelpers";
-import { createEventRule, isEventWrapper, operatorTypes } from "./RuleHelpers";
-import type { EventRule, WrapperRule } from "../../../types";
+import { createEventRule, createOrganizationEventRule, createOrganizationRule, isEventWrapper, isOrganizationEventWrapper, isOrganizationWrapper, operatorTypes } from "./RuleHelpers";
+import type { EventRule, OrganizationEventRule, OrganizationRule, WrapperRule } from "../../../types";
 import RuleEdit from "./RuleEdit";
 
 export default function WrapperRuleEdit({
@@ -28,10 +30,32 @@ export default function WrapperRuleEdit({
     });
   };
 
+  const handleAddOrganizationEventWrapper = () => {
+    const children = rule?.children ?? [];
+    const newRule: OrganizationEventRule = createOrganizationEventRule(rule);
+    setRule({
+      ...rule,
+      children: [...children, newRule],
+    });
+  };
+
+  const handleAddOrganizationWrapper = () => {
+    const children = rule?.children ?? [];
+    const newRule: OrganizationRule = createOrganizationRule(rule);
+    setRule({
+      ...rule,
+      children: [...children, newRule],
+    });
+  };
+
   let ruleSet = (
     <div className="rule-set">
       <div className="rule-set-header">
-        {isEventWrapper(rule) ? (
+        {isOrganizationWrapper(rule) ? (
+          <OrganizationRuleEdit rule={rule} setRule={setRule} showUserMatch={false} />
+        ) : isOrganizationEventWrapper(rule) ? (
+          <OrganizationEventRuleEdit rule={rule} setRule={setRule} eventName={eventName} />
+        ) : isEventWrapper(rule) ? (
           <EventRuleEdit rule={rule} setRule={setRule} eventName={eventName} />
         ) : (
           <>
@@ -49,12 +73,12 @@ export default function WrapperRuleEdit({
           </>
         )}
         <div style={{ flexGrow: 1 }} />
-        {isEventWrapper(rule) && controls && typeof controls === 'object' && 'props' in controls && (
+        {(isEventWrapper(rule) || isOrganizationEventWrapper(rule) || isOrganizationWrapper(rule)) && controls && typeof controls === 'object' && 'props' in controls && (
           <Button size="sm" variant="outline" onClick={controls.props.onClick}>
             <TrashIcon />
           </Button>
         )}
-        {!isEventWrapper(rule) && controls}
+        {!isEventWrapper(rule) && !isOrganizationEventWrapper(rule) && !isOrganizationWrapper(rule) && controls}
       </div>
       <div className="rule-set-rules">
         {rule?.children?.map((child, index, arr) => (
@@ -91,11 +115,23 @@ export default function WrapperRuleEdit({
           />
         ))}
       </div>
+      {/* User match section for organization rules - rendered after children */}
+      {isOrganizationWrapper(rule) && (
+        <OrganizationRuleEdit rule={rule} setRule={setRule} showUserMatch={true} />
+      )}
       <div className="rule-set-actions">
         <Button
           size="sm"
           variant="outline"
-          onClick={() =>
+          onClick={() => {
+            // Determine the group for the new child rule
+            let childGroup: "user" | "event" | "organization_event" | "organization" = "user";
+            if (rule?.group === "event" || rule?.group === "organization_event") {
+              childGroup = rule.group;
+            } else if (rule?.group === "organization") {
+              childGroup = "organization";
+            }
+            
             setRule({
               ...rule,
               children: [
@@ -106,28 +142,48 @@ export default function WrapperRuleEdit({
                   parent_uuid: rule?.uuid,
                   path: "",
                   type: "string",
-                  group: rule?.group === "event" ? "event" : "user",
+                  group: childGroup,
                   value: "",
                   operator: "=",
                 },
               ],
-            })
-          }
+            });
+          }}
         >
           <PlusIcon />
-          {rule?.group === "event"
+          {rule?.group === "event" || rule?.group === "organization_event"
             ? t("rule_add_condition")
-            : t("rule_add_user_condition")}
+            : rule?.group === "organization"
+              ? t("rule_add_org_property_condition")
+              : t("rule_add_user_condition")}
         </Button>
         {depth === 0 && (rule?.group === "user" || rule?.group === "parent") && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleAddEventWrapper()}
-          >
-            <PlusIcon />
-            {t("rule_add_event_condition")}
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleAddEventWrapper()}
+            >
+              <PlusIcon />
+              {t("rule_add_event_condition")}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleAddOrganizationEventWrapper()}
+            >
+              <PlusIcon />
+              {t("rule_add_org_event_condition")}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleAddOrganizationWrapper()}
+            >
+              <PlusIcon />
+              {t("rule_add_org_condition")}
+            </Button>
+          </>
         )}
       </div>
     </div>

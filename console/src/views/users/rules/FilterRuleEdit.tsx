@@ -6,9 +6,9 @@ import { ButtonGroup } from "../../../ui";
 import { SingleSelect } from "../../../ui/form/SingleSelect";
 import { Combobox } from "../../../components/ui/combobox";
 import TextInput from "../../../ui/form/TextInput";
-import type { EventSchemaPath, RulePath } from "../../../types";
+import type { EventSchemaPath, OrganizationSchemaPath, RulePath } from "../../../types";
 
-type PathOption = RulePath | EventSchemaPath;
+type PathOption = RulePath | EventSchemaPath | OrganizationSchemaPath;
 
 export default function FilterRuleEdit({
   rule,
@@ -25,11 +25,17 @@ export default function FilterRuleEdit({
     !["is set", "is not set", "empty"].includes(rule?.operator);
 
   const isEventGroup = group === "event";
+  const isOrganizationEventGroup = group === "organization_event";
+  const isOrganizationGroup = group === "organization";
 
   const pathSuggestions = useMemo<PathOption[]>(() => {
-    if (isEventGroup) {
+    if (isEventGroup || isOrganizationEventGroup) {
       if (!eventName) return [];
-      const event = suggestions.eventPaths.find((e) => e.name === eventName);
+      // Use organization event paths if available for organization events
+      const eventSource = isOrganizationEventGroup && suggestions.organizationEventPaths
+        ? suggestions.organizationEventPaths
+        : suggestions.eventPaths;
+      const event = eventSource.find((e) => e.name === eventName);
       if (!event) return [];
       let schemaPaths = event.schema;
       if (path) {
@@ -41,6 +47,18 @@ export default function FilterRuleEdit({
       return schemaPaths;
     }
 
+    // Organization property conditions
+    if (isOrganizationGroup) {
+      let orgPaths = suggestions.organizationPaths ?? [];
+      if (path) {
+        const search = path.toLowerCase();
+        orgPaths = orgPaths.filter((p) =>
+          p.path.toLowerCase().includes(search)
+        );
+      }
+      return orgPaths;
+    }
+
     let paths = suggestions.userPaths;
     if (path) {
       let search = path.toLowerCase();
@@ -49,7 +67,7 @@ export default function FilterRuleEdit({
       paths = paths.filter((p) => p.path.toLowerCase().startsWith(search));
     }
     return paths;
-  }, [suggestions, isEventGroup, eventName, path]);
+  }, [suggestions, isEventGroup, isOrganizationEventGroup, isOrganizationGroup, eventName, path]);
 
   const getOptionDataType = (option: PathOption): string => {
     if ("types" in option) {

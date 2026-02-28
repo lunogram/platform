@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { createContext } from 'react'
-import type { Admin, Campaign, Journey, List, LocaleOption, Organization, Project, Template, User, UseStateContext } from './types'
+import type { Admin, Campaign, Journey, List, LocaleOption, Project, Template, User, UseStateContext } from './types'
+import type { Organization } from './oapi/client'
 
 export const AdminContext = createContext<null | Admin>(null)
 
