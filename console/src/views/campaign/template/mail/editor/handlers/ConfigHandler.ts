@@ -7,12 +7,6 @@ import { Divider, type DividerProps } from "../components/Divider";
 import { Text, type TextProps } from "../components/Text";
 import { TextSection, type TextSectionProps } from "../components/TextSection";
 
-import { Pricing, type PricingProps } from "../components/templates/Pricing";
-import {
-  PricingEmphasised,
-  type PricingEmphasisedProps,
-} from "../components/templates/PicingEmphasised/PricingEmphasised";
-
 import { Img, type ImgProps } from "../components/Image";
 import { Link, type LinkProps } from "../components/Link";
 import { Heading, type HeadingProps } from "../components/Heading";
@@ -29,8 +23,6 @@ export interface Components {
   Divider: DividerProps;
   Text: TextProps;
   TextSection: TextSectionProps;
-  Pricing: PricingProps;
-  PricingEmphasised: PricingEmphasisedProps;
   Img: ImgProps;
   Link: LinkProps;
   Heading: HeadingProps;
@@ -59,7 +51,6 @@ export const config: Config<Components> = {
         "CodeInline",
       ],
     },
-    templates: { components: ["Pricing", "PricingEmphasised"] },
   },
   root: {
     fields: {
@@ -76,14 +67,12 @@ export const config: Config<Components> = {
     },
   },
   components: {
-    PricingEmphasised,
     Button,
     Container,
     Column,
     Divider,
     Text,
     TextSection,
-    Pricing,
     Img,
     Link,
     Heading,
