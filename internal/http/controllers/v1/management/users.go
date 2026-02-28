@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/csv"
-	stdjson "encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -244,6 +243,25 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 
 	logger.Info("updating user")
 
+	var data map[string]any
+	if body.Data != nil {
+		err = json.Unmarshal(*body.Data, &data)
+		if err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("data must be a JSON object")))
+			return
+		}
+	}
+
+	tx, err := srv.usersDB.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+	users := subjects.NewUsersStore(tx)
+
 	update := subjects.UserUpdate{
 		Email:    body.Email,
 		Phone:    body.Phone,
@@ -252,14 +270,14 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 		Data:     body.Data,
 	}
 
-	err = srv.users.UpdateUser(ctx, userID, update)
+	err = users.UpdateUser(ctx, userID, update)
 	if err != nil {
 		logger.Error("failed to update user", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	updatedUser, err := srv.users.GetUser(ctx, projectID, userID)
+	updatedUser, err := users.GetUser(ctx, projectID, userID)
 	if err != nil {
 		logger.Error("failed to get updated user", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -267,15 +285,6 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 	}
 
 	// Publish to pubsub for recomputation and schema extraction
-	var data map[string]any
-	if updatedUser.Data != nil {
-		if err := stdjson.Unmarshal(updatedUser.Data, &data); err != nil {
-			logger.Error("failed to unmarshal user data", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrInternal())
-			return
-		}
-	}
-
 	msg := schemas.User{
 		ProjectID:   projectID,
 		ID:          updatedUser.ID,
@@ -292,6 +301,13 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 	err = srv.pubsub.Publish(ctx, schemas.UsersProcess(projectID), msg)
 	if err != nil {
 		logger.Error("failed to publish user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}

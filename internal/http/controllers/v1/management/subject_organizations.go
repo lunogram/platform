@@ -2,7 +2,6 @@ package v1
 
 import (
 	"database/sql"
-	stdjson "encoding/json"
 	"errors"
 	"net/http"
 
@@ -231,19 +230,38 @@ func (srv *SubjectOrganizationsController) UpdateOrganization(w http.ResponseWri
 
 	logger.Info("updating subject organization")
 
+	var data map[string]any
+	if body.Data != nil {
+		err = json.Unmarshal(*body.Data, &data)
+		if err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("data must be a JSON object")))
+			return
+		}
+	}
+
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+	organizations := subjects.NewOrganizationsStore(tx)
+
 	update := subjects.OrganizationUpdate{
 		Name: body.Name,
 		Data: body.Data,
 	}
 
-	err = srv.orgs.UpdateOrganization(ctx, projectID, organizationID, update)
+	err = organizations.UpdateOrganization(ctx, projectID, organizationID, update)
 	if err != nil {
 		logger.Error("failed to update organization", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	updatedOrg, err := srv.orgs.GetOrganization(ctx, projectID, organizationID)
+	updatedOrg, err := organizations.GetOrganization(ctx, projectID, organizationID)
 	if err != nil {
 		logger.Error("failed to get updated organization", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -251,15 +269,6 @@ func (srv *SubjectOrganizationsController) UpdateOrganization(w http.ResponseWri
 	}
 
 	// Publish to pubsub for recomputation and schema extraction
-	var data map[string]any
-	if updatedOrg.Data != nil {
-		if err := stdjson.Unmarshal(updatedOrg.Data, &data); err != nil {
-			logger.Error("failed to unmarshal organization data", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrInternal())
-			return
-		}
-	}
-
 	msg := schemas.Organization{
 		ID:         updatedOrg.ID,
 		ProjectID:  projectID,
@@ -272,6 +281,13 @@ func (srv *SubjectOrganizationsController) UpdateOrganization(w http.ResponseWri
 	err = srv.pubsub.Publish(ctx, schemas.OrganizationsProcess(projectID), msg)
 	if err != nil {
 		logger.Error("failed to publish organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
