@@ -96,7 +96,7 @@ CREATE UNIQUE INDEX idx_events_project_name ON events(project_id, name);
 CREATE TRIGGER set_updated_at_events BEFORE UPDATE ON events FOR EACH ROW EXECUTE PROCEDURE set_updated_at();
 
 -- Event schemas table
-CREATE TABLE event_schemas (
+CREATE TABLE user_event_schemas (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     path VARCHAR(255) NOT NULL,
@@ -106,10 +106,10 @@ CREATE TABLE event_schemas (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_event_schemas_event_id ON event_schemas(event_id);
-CREATE UNIQUE INDEX idx_event_schemas_event_path ON event_schemas(event_id, path, data_type);
+CREATE INDEX idx_user_event_schemas_event_id ON user_event_schemas(event_id);
+CREATE UNIQUE INDEX idx_user_event_schemas_event_path ON user_event_schemas(event_id, path, data_type);
 
-CREATE TRIGGER set_updated_at_event_schemas BEFORE UPDATE ON event_schemas FOR EACH ROW EXECUTE PROCEDURE set_updated_at();
+CREATE TRIGGER set_updated_at_user_event_schemas BEFORE UPDATE ON user_event_schemas FOR EACH ROW EXECUTE PROCEDURE set_updated_at();
 
 -- User schemas table
 CREATE TABLE user_schemas (

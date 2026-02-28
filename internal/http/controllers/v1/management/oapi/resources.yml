@@ -1454,7 +1454,7 @@ paths:
       description: Retrieves a paginated list of users in a project
       operationId: listUsers
       tags:
-        - Subjects > Users
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1483,7 +1483,7 @@ paths:
       description: Creates or updates a user by anonymous_id or external_id
       operationId: identifyUser
       tags:
-        - Subjects > Users
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1516,7 +1516,7 @@ paths:
       description: Imports multiple users from a CSV file
       operationId: importUsers
       tags:
-        - Subjects > Users
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1552,7 +1552,7 @@ paths:
       description: Retrieves a specific user
       operationId: getUser
       tags:
-        - Subjects > Users
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1585,7 +1585,7 @@ paths:
       description: Updates user properties
       operationId: updateUser
       tags:
-        - Subjects > Users
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1624,7 +1624,7 @@ paths:
       description: Deletes a user from the project
       operationId: deleteUser
       tags:
-        - Subjects > Users
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1654,7 +1654,7 @@ paths:
       description: Retrieves events for a specific user
       operationId: getUserEvents
       tags:
-        - Subjects > Users
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1690,7 +1690,7 @@ paths:
       description: Retrieves subscriptions for a specific user
       operationId: getUserSubscriptions
       tags:
-        - Subjects > Users
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1725,7 +1725,7 @@ paths:
       description: Updates subscription states for a user
       operationId: updateUserSubscriptions
       tags:
-        - Subjects > Users
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1765,7 +1765,7 @@ paths:
       description: Retrieves journey entrances for a specific user
       operationId: getUserJourneys
       tags:
-        - Subjects > Users
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1795,13 +1795,13 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/subjects/events/schema:
+  /api/admin/projects/{projectID}/subjects/user/events/schema:
     get:
-      summary: List events with schemas
-      description: Retrieves all events and their schema paths for a project
-      operationId: listEvents
+      summary: List user event schemas
+      description: Retrieves all user events and their schema paths for a project
+      operationId: listUserEventSchemas
       tags:
-        - Subjects > Events
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1824,7 +1824,7 @@ paths:
       description: Retrieves all user data schema paths for a project
       operationId: listUserSchemas
       tags:
-        - Subjects > Users
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1858,7 +1858,7 @@ paths:
       description: Retrieves a paginated list of organizations (subjects) in a project
       operationId: listOrganizations
       tags:
-        - Subjects > Organizations
+        - Organizations
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1871,6 +1871,7 @@ paths:
           description: The project ID
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
         "200":
           description: Organizations retrieved successfully
@@ -1886,7 +1887,7 @@ paths:
       description: Creates or updates an organization (subject) by external_id
       operationId: upsertOrganization
       tags:
-        - Subjects > Organizations
+        - Organizations
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1919,7 +1920,7 @@ paths:
       description: Retrieves a specific organization (subject)
       operationId: getOrganization
       tags:
-        - Subjects > Organizations
+        - Organizations
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1952,7 +1953,7 @@ paths:
       description: Updates organization properties
       operationId: updateOrganization
       tags:
-        - Subjects > Organizations
+        - Organizations
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1991,7 +1992,7 @@ paths:
       description: Deletes an organization and removes all user memberships
       operationId: deleteOrganization
       tags:
-        - Subjects > Organizations
+        - Organizations
       security:
         - HttpBearerAuth: []
       parameters:
@@ -2021,7 +2022,7 @@ paths:
       description: Retrieves users belonging to an organization with their org-specific data
       operationId: listOrganizationMembers
       tags:
-        - Subjects > Organizations
+        - Organizations
       security:
         - HttpBearerAuth: []
       parameters:
@@ -2056,7 +2057,7 @@ paths:
       description: Adds a user to an organization with optional org-specific data
       operationId: addOrganizationMember
       tags:
-        - Subjects > Organizations
+        - Organizations
       security:
         - HttpBearerAuth: []
       parameters:
@@ -2092,7 +2093,7 @@ paths:
       description: Removes a user from an organization
       operationId: removeOrganizationMember
       tags:
-        - Subjects > Organizations
+        - Organizations
       security:
         - HttpBearerAuth: []
       parameters:
@@ -2123,13 +2124,72 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events:
+    get:
+      summary: Get organization events
+      description: Retrieves events for a specific organization
+      operationId: getOrganizationEvents
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Organization events retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationEventList"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organization/events/schema:
+    get:
+      summary: List organization event schemas
+      description: Retrieves all organization events and their schema paths for a project
+      operationId: listOrganizationEventSchemas
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        "200":
+          $ref: "#/components/responses/EventListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/subjects/organizations/schema:
     get:
       summary: List organization schemas
       description: Retrieves all organization data schema paths for a project
       operationId: listOrganizationSchemas
       tags:
-        - Subjects > Organizations
+        - Organizations
       security:
         - HttpBearerAuth: []
       parameters:
@@ -2163,7 +2223,7 @@ paths:
       description: Retrieves all organization user data schema paths for a project
       operationId: listOrganizationMemberSchemas
       tags:
-        - Subjects > Organizations
+        - Organizations
       security:
         - HttpBearerAuth: []
       parameters:
@@ -2197,7 +2257,7 @@ paths:
       description: Retrieves all organizations a user belongs to
       operationId: getUserOrganizations
       tags:
-        - Subjects > Users
+        - Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -4844,6 +4904,54 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/Organization"
+
+    OrganizationEvent:
+      type: object
+      required:
+        - id
+        - project_id
+        - organization_id
+        - name
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        organization_id:
+          type: string
+          format: uuid
+          example: "7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b"
+        name:
+          type: string
+          example: "subscription_upgraded"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          example:
+            plan: "enterprise"
+            seats: 50
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.000Z"
+
+    OrganizationEventList:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          required:
+            - results
+          properties:
+            results:
+              type: array
+              items:
+                $ref: "#/components/schemas/OrganizationEvent"
 
     UpsertOrganization:
       type: object

@@ -90,28 +90,14 @@ func (qb *QueryBuilder) buildFrequencyRule(rule *rules.Rule) (string, error) {
 		}
 	}
 
-	// Use JOINs if enabled, otherwise use subquery in WHERE
+	// Build HAVING clause based on frequency operator
+	havingClause, err := qb.buildHavingClause(freq)
+	if err != nil {
+		return "", err
+	}
+
 	// Generate a unique alias for this frequency join
 	alias := qb.nextJoinAlias()
-
-	// Build HAVING clause based on frequency operator
-	var havingClause string
-	switch freq.Operator {
-	case rules.OperatorGreaterThan:
-		havingClause = fmt.Sprintf("COUNT(*) > %s", qb.arg(freq.Count))
-	case rules.OperatorGreaterEqual:
-		havingClause = fmt.Sprintf("COUNT(*) >= %s", qb.arg(freq.Count))
-	case rules.OperatorLessThan:
-		havingClause = fmt.Sprintf("COUNT(*) < %s", qb.arg(freq.Count))
-	case rules.OperatorLessEqual:
-		havingClause = fmt.Sprintf("COUNT(*) <= %s", qb.arg(freq.Count))
-	case rules.OperatorEquals:
-		havingClause = fmt.Sprintf("COUNT(*) = %s", qb.arg(freq.Count))
-	case rules.OperatorNotEquals:
-		havingClause = fmt.Sprintf("COUNT(*) != %s", qb.arg(freq.Count))
-	default:
-		return "", fmt.Errorf("unsupported frequency operator: %s", freq.Operator)
-	}
 
 	// Build the JOIN clause with subquery using GROUP BY and HAVING
 	joinClause := fmt.Sprintf(

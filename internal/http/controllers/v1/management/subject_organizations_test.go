@@ -550,7 +550,7 @@ func TestListOrganizationMembers(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = tc.usersDB.OrganizationsStore.UpsertOrganizationMember(ctx, orgID, userID, map[string]any{"role": "member"})
+		_, err = tc.usersDB.OrganizationsStore.UpsertAndGetOrganizationMember(ctx, orgID, userID, map[string]any{"role": "member"})
 		require.NoError(t, err)
 	}
 
@@ -767,7 +767,7 @@ func TestRemoveOrganizationMember(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = tc.usersDB.OrganizationsStore.UpsertOrganizationMember(ctx, orgID, userID, nil)
+	_, err = tc.usersDB.OrganizationsStore.UpsertAndGetOrganizationMember(ctx, orgID, userID, nil)
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()

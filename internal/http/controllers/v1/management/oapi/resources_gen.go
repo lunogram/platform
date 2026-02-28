@@ -564,6 +564,29 @@ type Organization struct {
 	Version    int32              `json:"version"`
 }
 
+// OrganizationEvent defines model for OrganizationEvent.
+type OrganizationEvent struct {
+	CreatedAt      time.Time          `json:"created_at"`
+	Data           *json.RawMessage   `json:"data,omitempty"`
+	Id             openapi_types.UUID `json:"id"`
+	Name           string             `json:"name"`
+	OrganizationId openapi_types.UUID `json:"organization_id"`
+	ProjectId      openapi_types.UUID `json:"project_id"`
+}
+
+// OrganizationEventList defines model for OrganizationEventList.
+type OrganizationEventList struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int                 `json:"offset"`
+	Results []OrganizationEvent `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // OrganizationList defines model for OrganizationList.
 type OrganizationList struct {
 	// Limit Maximum number of items returned
@@ -1288,6 +1311,18 @@ type ListOrganizationsParams struct {
 
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// GetOrganizationEventsParams defines parameters for GetOrganizationEvents.
+type GetOrganizationEventsParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // ListOrganizationMembersParams defines parameters for ListOrganizationMembers.
@@ -1949,8 +1984,8 @@ type ClientInterface interface {
 	// DeleteProvider request
 	DeleteProvider(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListEvents request
-	ListEvents(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListOrganizationEventSchemas request
+	ListOrganizationEventSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOrganizations request
 	ListOrganizations(ctx context.Context, projectID openapi_types.UUID, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1977,6 +2012,9 @@ type ClientInterface interface {
 
 	UpdateOrganization(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetOrganizationEvents request
+	GetOrganizationEvents(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListOrganizationMembers request
 	ListOrganizationMembers(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *ListOrganizationMembersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1987,6 +2025,9 @@ type ClientInterface interface {
 
 	// RemoveOrganizationMember request
 	RemoveOrganizationMember(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListUserEventSchemas request
+	ListUserEventSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListUsers request
 	ListUsers(ctx context.Context, projectID openapi_types.UUID, params *ListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3025,8 +3066,8 @@ func (c *Client) DeleteProvider(ctx context.Context, projectID openapi_types.UUI
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListEvents(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListEventsRequest(c.Server, projectID)
+func (c *Client) ListOrganizationEventSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOrganizationEventSchemasRequest(c.Server, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -3145,6 +3186,18 @@ func (c *Client) UpdateOrganization(ctx context.Context, projectID openapi_types
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetOrganizationEvents(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrganizationEventsRequest(c.Server, projectID, organizationID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListOrganizationMembers(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *ListOrganizationMembersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListOrganizationMembersRequest(c.Server, projectID, organizationID, params)
 	if err != nil {
@@ -3183,6 +3236,18 @@ func (c *Client) AddOrganizationMember(ctx context.Context, projectID openapi_ty
 
 func (c *Client) RemoveOrganizationMember(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRemoveOrganizationMemberRequest(c.Server, projectID, organizationID, userID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListUserEventSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListUserEventSchemasRequest(c.Server, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -6715,8 +6780,8 @@ func NewDeleteProviderRequest(server string, projectID openapi_types.UUID, provi
 	return req, nil
 }
 
-// NewListEventsRequest generates requests for ListEvents
-func NewListEventsRequest(server string, projectID openapi_types.UUID) (*http.Request, error) {
+// NewListOrganizationEventSchemasRequest generates requests for ListOrganizationEventSchemas
+func NewListOrganizationEventSchemasRequest(server string, projectID openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -6731,7 +6796,7 @@ func NewListEventsRequest(server string, projectID openapi_types.UUID) (*http.Re
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/events/schema", pathParam0)
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organization/events/schema", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -6797,6 +6862,22 @@ func NewListOrganizationsRequest(server string, projectID openapi_types.UUID, pa
 		if params.Offset != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -7072,6 +7153,85 @@ func NewUpdateOrganizationRequestWithBody(server string, projectID openapi_types
 	return req, nil
 }
 
+// NewGetOrganizationEventsRequest generates requests for GetOrganizationEvents
+func NewGetOrganizationEventsRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationEventsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "organizationID", runtime.ParamLocationPath, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/events", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListOrganizationMembersRequest generates requests for ListOrganizationMembers
 func NewListOrganizationMembersRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *ListOrganizationMembersParams) (*http.Request, error) {
 	var err error
@@ -7246,6 +7406,40 @@ func NewRemoveOrganizationMemberRequest(server string, projectID openapi_types.U
 	}
 
 	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListUserEventSchemasRequest generates requests for ListUserEventSchemas
+func NewListUserEventSchemasRequest(server string, projectID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/user/events/schema", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -9157,8 +9351,8 @@ type ClientWithResponsesInterface interface {
 	// DeleteProviderWithResponse request
 	DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error)
 
-	// ListEventsWithResponse request
-	ListEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListEventsResponse, error)
+	// ListOrganizationEventSchemasWithResponse request
+	ListOrganizationEventSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListOrganizationEventSchemasResponse, error)
 
 	// ListOrganizationsWithResponse request
 	ListOrganizationsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*ListOrganizationsResponse, error)
@@ -9185,6 +9379,9 @@ type ClientWithResponsesInterface interface {
 
 	UpdateOrganizationWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body UpdateOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrganizationResponse, error)
 
+	// GetOrganizationEventsWithResponse request
+	GetOrganizationEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationEventsParams, reqEditors ...RequestEditorFn) (*GetOrganizationEventsResponse, error)
+
 	// ListOrganizationMembersWithResponse request
 	ListOrganizationMembersWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *ListOrganizationMembersParams, reqEditors ...RequestEditorFn) (*ListOrganizationMembersResponse, error)
 
@@ -9195,6 +9392,9 @@ type ClientWithResponsesInterface interface {
 
 	// RemoveOrganizationMemberWithResponse request
 	RemoveOrganizationMemberWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*RemoveOrganizationMemberResponse, error)
+
+	// ListUserEventSchemasWithResponse request
+	ListUserEventSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListUserEventSchemasResponse, error)
 
 	// ListUsersWithResponse request
 	ListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListUsersParams, reqEditors ...RequestEditorFn) (*ListUsersResponse, error)
@@ -10689,7 +10889,7 @@ func (r DeleteProviderResponse) StatusCode() int {
 	return 0
 }
 
-type ListEventsResponse struct {
+type ListOrganizationEventSchemasResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *EventListResponse
@@ -10697,7 +10897,7 @@ type ListEventsResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListEventsResponse) Status() string {
+func (r ListOrganizationEventSchemasResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -10705,7 +10905,7 @@ func (r ListEventsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListEventsResponse) StatusCode() int {
+func (r ListOrganizationEventSchemasResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -10876,6 +11076,29 @@ func (r UpdateOrganizationResponse) StatusCode() int {
 	return 0
 }
 
+type GetOrganizationEventsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *OrganizationEventList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrganizationEventsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrganizationEventsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListOrganizationMembersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10937,6 +11160,29 @@ func (r RemoveOrganizationMemberResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r RemoveOrganizationMemberResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListUserEventSchemasResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EventListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListUserEventSchemasResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListUserEventSchemasResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -12389,13 +12635,13 @@ func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, pr
 	return ParseDeleteProviderResponse(rsp)
 }
 
-// ListEventsWithResponse request returning *ListEventsResponse
-func (c *ClientWithResponses) ListEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListEventsResponse, error) {
-	rsp, err := c.ListEvents(ctx, projectID, reqEditors...)
+// ListOrganizationEventSchemasWithResponse request returning *ListOrganizationEventSchemasResponse
+func (c *ClientWithResponses) ListOrganizationEventSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListOrganizationEventSchemasResponse, error) {
+	rsp, err := c.ListOrganizationEventSchemas(ctx, projectID, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListEventsResponse(rsp)
+	return ParseListOrganizationEventSchemasResponse(rsp)
 }
 
 // ListOrganizationsWithResponse request returning *ListOrganizationsResponse
@@ -12477,6 +12723,15 @@ func (c *ClientWithResponses) UpdateOrganizationWithResponse(ctx context.Context
 	return ParseUpdateOrganizationResponse(rsp)
 }
 
+// GetOrganizationEventsWithResponse request returning *GetOrganizationEventsResponse
+func (c *ClientWithResponses) GetOrganizationEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationEventsParams, reqEditors ...RequestEditorFn) (*GetOrganizationEventsResponse, error) {
+	rsp, err := c.GetOrganizationEvents(ctx, projectID, organizationID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrganizationEventsResponse(rsp)
+}
+
 // ListOrganizationMembersWithResponse request returning *ListOrganizationMembersResponse
 func (c *ClientWithResponses) ListOrganizationMembersWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *ListOrganizationMembersParams, reqEditors ...RequestEditorFn) (*ListOrganizationMembersResponse, error) {
 	rsp, err := c.ListOrganizationMembers(ctx, projectID, organizationID, params, reqEditors...)
@@ -12510,6 +12765,15 @@ func (c *ClientWithResponses) RemoveOrganizationMemberWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseRemoveOrganizationMemberResponse(rsp)
+}
+
+// ListUserEventSchemasWithResponse request returning *ListUserEventSchemasResponse
+func (c *ClientWithResponses) ListUserEventSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListUserEventSchemasResponse, error) {
+	rsp, err := c.ListUserEventSchemas(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListUserEventSchemasResponse(rsp)
 }
 
 // ListUsersWithResponse request returning *ListUsersResponse
@@ -14798,15 +15062,15 @@ func ParseDeleteProviderResponse(rsp *http.Response) (*DeleteProviderResponse, e
 	return response, nil
 }
 
-// ParseListEventsResponse parses an HTTP response from a ListEventsWithResponse call
-func ParseListEventsResponse(rsp *http.Response) (*ListEventsResponse, error) {
+// ParseListOrganizationEventSchemasResponse parses an HTTP response from a ListOrganizationEventSchemasWithResponse call
+func ParseListOrganizationEventSchemasResponse(rsp *http.Response) (*ListOrganizationEventSchemasResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListEventsResponse{
+	response := &ListOrganizationEventSchemasResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -15059,6 +15323,39 @@ func ParseUpdateOrganizationResponse(rsp *http.Response) (*UpdateOrganizationRes
 	return response, nil
 }
 
+// ParseGetOrganizationEventsResponse parses an HTTP response from a GetOrganizationEventsWithResponse call
+func ParseGetOrganizationEventsResponse(rsp *http.Response) (*GetOrganizationEventsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrganizationEventsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OrganizationEventList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListOrganizationMembersResponse parses an HTTP response from a ListOrganizationMembersWithResponse call
 func ParseListOrganizationMembersResponse(rsp *http.Response) (*ListOrganizationMembersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -15132,6 +15429,39 @@ func ParseRemoveOrganizationMemberResponse(rsp *http.Response) (*RemoveOrganizat
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListUserEventSchemasResponse parses an HTTP response from a ListUserEventSchemasWithResponse call
+func ParseListUserEventSchemasResponse(rsp *http.Response) (*ListUserEventSchemasResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListUserEventSchemasResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EventListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -16400,9 +16730,9 @@ type ServerInterface interface {
 	// Delete provider
 	// (DELETE /api/admin/projects/{projectID}/providers/{providerID})
 	DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, providerID openapi_types.UUID)
-	// List events with schemas
-	// (GET /api/admin/projects/{projectID}/subjects/events/schema)
-	ListEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// List organization event schemas
+	// (GET /api/admin/projects/{projectID}/subjects/organization/events/schema)
+	ListOrganizationEventSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// List subject organizations
 	// (GET /api/admin/projects/{projectID}/subjects/organizations)
 	ListOrganizations(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListOrganizationsParams)
@@ -16424,6 +16754,9 @@ type ServerInterface interface {
 	// Update subject organization
 	// (PATCH /api/admin/projects/{projectID}/subjects/organizations/{organizationID})
 	UpdateOrganization(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID)
+	// Get organization events
+	// (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events)
+	GetOrganizationEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params GetOrganizationEventsParams)
 	// List organization users
 	// (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users)
 	ListOrganizationMembers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params ListOrganizationMembersParams)
@@ -16433,6 +16766,9 @@ type ServerInterface interface {
 	// Remove user from organization
 	// (DELETE /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users/{userID})
 	RemoveOrganizationMember(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, userID openapi_types.UUID)
+	// List user event schemas
+	// (GET /api/admin/projects/{projectID}/subjects/user/events/schema)
+	ListUserEventSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// List users
 	// (GET /api/admin/projects/{projectID}/subjects/users)
 	ListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListUsersParams)
@@ -16895,9 +17231,9 @@ func (_ Unimplemented) DeleteProvider(w http.ResponseWriter, r *http.Request, pr
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// List events with schemas
-// (GET /api/admin/projects/{projectID}/subjects/events/schema)
-func (_ Unimplemented) ListEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+// List organization event schemas
+// (GET /api/admin/projects/{projectID}/subjects/organization/events/schema)
+func (_ Unimplemented) ListOrganizationEventSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -16943,6 +17279,12 @@ func (_ Unimplemented) UpdateOrganization(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Get organization events
+// (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events)
+func (_ Unimplemented) GetOrganizationEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params GetOrganizationEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List organization users
 // (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users)
 func (_ Unimplemented) ListOrganizationMembers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params ListOrganizationMembersParams) {
@@ -16958,6 +17300,12 @@ func (_ Unimplemented) AddOrganizationMember(w http.ResponseWriter, r *http.Requ
 // Remove user from organization
 // (DELETE /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users/{userID})
 func (_ Unimplemented) RemoveOrganizationMember(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List user event schemas
+// (GET /api/admin/projects/{projectID}/subjects/user/events/schema)
+func (_ Unimplemented) ListUserEventSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -19611,8 +19959,8 @@ func (siw *ServerInterfaceWrapper) DeleteProvider(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
-// ListEvents operation middleware
-func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Request) {
+// ListOrganizationEventSchemas operation middleware
+func (siw *ServerInterfaceWrapper) ListOrganizationEventSchemas(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -19632,7 +19980,7 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListEvents(w, r, projectID)
+		siw.Handler.ListOrganizationEventSchemas(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -19678,6 +20026,14 @@ func (siw *ServerInterfaceWrapper) ListOrganizations(w http.ResponseWriter, r *h
 	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
 		return
 	}
 
@@ -19905,6 +20261,65 @@ func (siw *ServerInterfaceWrapper) UpdateOrganization(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetOrganizationEvents operation middleware
+func (siw *ServerInterfaceWrapper) GetOrganizationEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetOrganizationEventsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrganizationEvents(w, r, projectID, organizationID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListOrganizationMembers operation middleware
 func (siw *ServerInterfaceWrapper) ListOrganizationMembers(w http.ResponseWriter, r *http.Request) {
 
@@ -20044,6 +20459,37 @@ func (siw *ServerInterfaceWrapper) RemoveOrganizationMember(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RemoveOrganizationMember(w, r, projectID, organizationID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListUserEventSchemas operation middleware
+func (siw *ServerInterfaceWrapper) ListUserEventSchemas(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUserEventSchemas(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -21568,7 +22014,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/providers/{providerID}", wrapper.DeleteProvider)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/events/schema", wrapper.ListEvents)
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organization/events/schema", wrapper.ListOrganizationEventSchemas)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations", wrapper.ListOrganizations)
@@ -21592,6 +22038,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}", wrapper.UpdateOrganization)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events", wrapper.GetOrganizationEvents)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users", wrapper.ListOrganizationMembers)
 	})
 	r.Group(func(r chi.Router) {
@@ -21599,6 +22048,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users/{userID}", wrapper.RemoveOrganizationMember)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/user/events/schema", wrapper.ListUserEventSchemas)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users", wrapper.ListUsers)

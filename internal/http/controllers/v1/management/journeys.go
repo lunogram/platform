@@ -410,7 +410,7 @@ func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Re
 	}
 
 	for externalID, eventName := range dependencies {
-		eventID, err := events.UpsertEvent(ctx, projectID, eventName)
+		eventID, err := events.UpsertEvent(ctx, projectID, eventName, subjects.SubjectTypeUser)
 		if err != nil {
 			logger.Error("failed to upsert event", zap.String("event", eventName), zap.Error(err))
 			oapi.WriteProblem(w, err)

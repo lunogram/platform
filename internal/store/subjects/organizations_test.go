@@ -233,7 +233,7 @@ func TestOrganizationVersionAutoIncrement(t *testing.T) {
 	require.Equal(t, initialVersion+1, org.Version, "version should auto-increment on update")
 }
 
-func TestUpsertOrganizationMember(t *testing.T) {
+func TestUpsertAndGetOrganizationMember(t *testing.T) {
 	t.Parallel()
 
 	db := NewContainerStore(t)
@@ -255,11 +255,12 @@ func TestUpsertOrganizationMember(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add user to org with org-specific data
-	err = db.UpsertOrganizationMember(ctx, orgID, userID, map[string]any{
+	orgUser, err := db.UpsertAndGetOrganizationMember(ctx, orgID, userID, map[string]any{
 		"role":       "admin",
 		"department": "engineering",
 	})
 	require.NoError(t, err)
+	require.Equal(t, int32(0), orgUser.Version, "first insert should have version 0")
 
 	// Verify membership
 	members, total, err := db.ListOrganizationMembers(ctx, projectID, orgID, store.Pagination{Limit: 10, Offset: 0})
@@ -276,7 +277,7 @@ func TestUpsertOrganizationMember(t *testing.T) {
 	require.Equal(t, "engineering", orgData["department"])
 }
 
-func TestUpsertOrganizationMemberMergesData(t *testing.T) {
+func TestUpsertAndGetOrganizationMemberMergesData(t *testing.T) {
 	t.Parallel()
 
 	db := NewContainerStore(t)
@@ -297,17 +298,19 @@ func TestUpsertOrganizationMemberMergesData(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add user with initial data
-	err = db.UpsertOrganizationMember(ctx, orgID, userID, map[string]any{
+	orgUser, err := db.UpsertAndGetOrganizationMember(ctx, orgID, userID, map[string]any{
 		"role": "member",
 	})
 	require.NoError(t, err)
+	require.Equal(t, int32(0), orgUser.Version, "first insert should have version 0")
 
 	// Add user again with additional data (should merge)
-	err = db.UpsertOrganizationMember(ctx, orgID, userID, map[string]any{
+	orgUser, err = db.UpsertAndGetOrganizationMember(ctx, orgID, userID, map[string]any{
 		"role":       "admin",
 		"department": "sales",
 	})
 	require.NoError(t, err)
+	require.Greater(t, orgUser.Version, int32(0), "second insert should have version > 0")
 
 	// Verify data was merged
 	members, _, err := db.ListOrganizationMembers(ctx, projectID, orgID, store.Pagination{Limit: 10, Offset: 0})
@@ -342,7 +345,7 @@ func TestRemoveUserFromOrganization(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add and then remove user
-	err = db.UpsertOrganizationMember(ctx, orgID, userID, nil)
+	_, err = db.UpsertAndGetOrganizationMember(ctx, orgID, userID, nil)
 	require.NoError(t, err)
 
 	err = db.RemoveUserFromOrganization(ctx, orgID, userID)
@@ -376,7 +379,7 @@ func TestListOrganizationMembersWithPagination(t *testing.T) {
 			Data:        json.RawMessage(`{}`),
 		})
 		require.NoError(t, err)
-		err = db.UpsertOrganizationMember(ctx, orgID, userID, nil)
+		_, err = db.UpsertAndGetOrganizationMember(ctx, orgID, userID, nil)
 		require.NoError(t, err)
 	}
 
@@ -438,7 +441,7 @@ func TestListUserOrganizations(t *testing.T) {
 		})
 		require.NoError(t, err)
 		orgIDs[i] = orgID
-		err = db.UpsertOrganizationMember(ctx, orgID, userID, nil)
+		_, err = db.UpsertAndGetOrganizationMember(ctx, orgID, userID, nil)
 		require.NoError(t, err)
 	}
 
@@ -483,7 +486,7 @@ func TestCountOrganizationMembers(t *testing.T) {
 			Data:        json.RawMessage(`{}`),
 		})
 		require.NoError(t, err)
-		err = db.UpsertOrganizationMember(ctx, orgID, userID, nil)
+		_, err = db.UpsertAndGetOrganizationMember(ctx, orgID, userID, nil)
 		require.NoError(t, err)
 	}
 
@@ -513,7 +516,7 @@ func TestUpdateOrganizationUserData(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add user with initial data
-	err = db.UpsertOrganizationMember(ctx, orgID, userID, map[string]any{
+	_, err = db.UpsertAndGetOrganizationMember(ctx, orgID, userID, map[string]any{
 		"role": "member",
 	})
 	require.NoError(t, err)
@@ -555,7 +558,7 @@ func TestDeleteOrganizationCascadesMembers(t *testing.T) {
 		Data:        json.RawMessage(`{}`),
 	})
 	require.NoError(t, err)
-	err = db.UpsertOrganizationMember(ctx, orgID, userID, nil)
+	_, err = db.UpsertAndGetOrganizationMember(ctx, orgID, userID, nil)
 	require.NoError(t, err)
 
 	// Verify user is member
@@ -901,7 +904,7 @@ func TestInsertOrganizationEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create an event
-	eventID, err := db.UpsertEvent(ctx, projectID, "subscription.upgraded")
+	eventID, err := db.UpsertEvent(ctx, projectID, "subscription.upgraded", SubjectTypeOrganization)
 	require.NoError(t, err)
 
 	// Insert organization event with data
@@ -929,7 +932,7 @@ func TestInsertOrganizationEventWithNilData(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create an event
-	eventID, err := db.UpsertEvent(ctx, projectID, "org.created")
+	eventID, err := db.UpsertEvent(ctx, projectID, "org.created", SubjectTypeOrganization)
 	require.NoError(t, err)
 
 	// Insert organization event with nil data
@@ -952,7 +955,7 @@ func TestInsertMultipleOrganizationEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create an event
-	eventID, err := db.UpsertEvent(ctx, projectID, "user.joined")
+	eventID, err := db.UpsertEvent(ctx, projectID, "user.joined", SubjectTypeOrganization)
 	require.NoError(t, err)
 
 	// Insert multiple events for the same organization
@@ -1001,7 +1004,7 @@ func TestListOrganizationUserIDs(t *testing.T) {
 		require.NoError(t, err)
 		expectedUserIDs[i] = userID
 
-		err = db.UpsertOrganizationMember(ctx, orgID, userID, nil)
+		_, err = db.UpsertAndGetOrganizationMember(ctx, orgID, userID, nil)
 		require.NoError(t, err)
 	}
 

@@ -27,7 +27,7 @@ type EventsController struct {
 	store  *subjects.State
 }
 
-func (srv *EventsController) ListEvents(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+func (srv *EventsController) ListUserEventSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 	_, ok := claim.FromContext(ctx)
 	if !ok {
@@ -37,9 +37,9 @@ func (srv *EventsController) ListEvents(w http.ResponseWriter, r *http.Request, 
 	}
 
 	logger := srv.logger.With(zap.String("project_id", projectID.String()))
-	logger.Info("listing events")
+	logger.Info("listing user event schemas")
 
-	events, err := srv.store.ListEvents(ctx, projectID)
+	events, err := srv.store.ListEventSchemas(ctx, projectID, subjects.SubjectTypeUser)
 	if err != nil {
 		logger.Error("failed to list events", zap.Error(err))
 		oapi.WriteProblem(w, err)

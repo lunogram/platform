@@ -1352,3 +1352,322 @@ func TestQueryBuilderOrganizationRules(t *testing.T) {
 		})
 	}
 }
+
+func TestQueryBuilderOrganizationPathNormalization(t *testing.T) {
+	// These tests verify that organization/organization-user paths without the .data prefix
+	// are correctly normalized to access the JSONB data column.
+	// For example: ".tier" should become ".data.tier" -> (o.data->>'tier')::text
+	// This is important because the UI/schema may provide paths like ".tier" without the data prefix.
+	type test struct {
+		name     string
+		ruleSet  rules.RuleSet
+		wantSQL  string
+		wantArgs []any
+		wantErr  bool
+	}
+
+	tests := map[string]test{
+		"organization path without data prefix": {
+			name: "organization path without data prefix",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeString,
+					Group:    rules.RuleGroupOrganization,
+					Path:     ".tier",
+					Operator: rules.OperatorEquals,
+					Value:    "gold",
+				},
+			},
+			// Path ".tier" should be normalized to ".data.tier" -> (o.data->>'tier')::text
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $2 AND (o.data->>'tier')::text = $1) e1 ON e1.user_id = u.id WHERE u.project_id = $3",
+			wantArgs: []any{"gold", testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"organization path with data prefix unchanged": {
+			name: "organization path with data prefix unchanged",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeString,
+					Group:    rules.RuleGroupOrganization,
+					Path:     ".data.tier",
+					Operator: rules.OperatorEquals,
+					Value:    "gold",
+				},
+			},
+			// Path ".data.tier" should remain unchanged
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $2 AND (o.data->>'tier')::text = $1) e1 ON e1.user_id = u.id WHERE u.project_id = $3",
+			wantArgs: []any{"gold", testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"organization user path without data prefix": {
+			name: "organization user path without data prefix",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeString,
+					Group:    rules.RuleGroupOrganizationUser,
+					Path:     ".role",
+					Operator: rules.OperatorEquals,
+					Value:    "admin",
+				},
+			},
+			// Path ".role" should be normalized to ".data.role" -> (ou.data->>'role')::text
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $2 AND (ou.data->>'role')::text = $1) e1 ON e1.user_id = u.id WHERE u.project_id = $3",
+			wantArgs: []any{"admin", testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"organization user path with data prefix unchanged": {
+			name: "organization user path with data prefix unchanged",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeString,
+					Group:    rules.RuleGroupOrganizationUser,
+					Path:     ".data.role",
+					Operator: rules.OperatorEquals,
+					Value:    "admin",
+				},
+			},
+			// Path ".data.role" should remain unchanged
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $2 AND (ou.data->>'role')::text = $1) e1 ON e1.user_id = u.id WHERE u.project_id = $3",
+			wantArgs: []any{"admin", testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"nested organization path without data prefix": {
+			name: "nested organization path without data prefix",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeNumber,
+					Group:    rules.RuleGroupOrganization,
+					Path:     ".subscription.seats",
+					Operator: rules.OperatorGreaterEqual,
+					Value:    10,
+				},
+			},
+			// Path ".subscription.seats" should be normalized to ".data.subscription.seats"
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $2 AND (o.data->'subscription'->>'seats')::numeric >= $1) e1 ON e1.user_id = u.id WHERE u.project_id = $3",
+			wantArgs: []any{10, testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"wrapper with mixed org and org-user paths without data prefix": {
+			name: "wrapper with mixed org and org-user paths without data prefix",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorAnd,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganization,
+							Path:     ".tier",
+							Operator: rules.OperatorEquals,
+							Value:    "enterprise",
+						},
+						{
+							Type:     rules.RuleTypeBoolean,
+							Group:    rules.RuleGroupOrganizationUser,
+							Path:     ".admin",
+							Operator: rules.OperatorEquals,
+							Value:    true,
+						},
+					},
+				},
+			},
+			// Both paths should be normalized: ".tier" -> ".data.tier", ".admin" -> ".data.admin"
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $3 AND ((o.data->>'tier')::text = $1 AND (ou.data->>'admin')::boolean = $2)) e1 ON e1.user_id = u.id WHERE u.project_id = $4",
+			wantArgs: []any{"enterprise", true, testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"organization property wrapper with paths without data prefix": {
+			name: "organization property wrapper with paths without data prefix",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupOrganization,
+					Operator: rules.OperatorAnd,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganization,
+							Path:     ".tier",
+							Operator: rules.OperatorEquals,
+							Value:    "gold",
+						},
+						{
+							Type:     rules.RuleTypeNumber,
+							Group:    rules.RuleGroupOrganization,
+							Path:     ".seats",
+							Operator: rules.OperatorGreaterThan,
+							Value:    5,
+						},
+					},
+				},
+			},
+			// Both paths should be normalized
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $3 AND ((o.data->>'tier')::text = $1 AND (o.data->>'seats')::numeric > $2)) e1 ON e1.user_id = u.id WHERE u.project_id = $4",
+			wantArgs: []any{"gold", 5, testProjectID, testProjectID},
+			wantErr:  false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			qb := NewQueryBuilder(testProjectID, nil)
+			result, err := qb.Query(tc.ruleSet)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantSQL, result.SQL)
+			assert.Equal(t, tc.wantArgs, result.Args)
+		})
+	}
+}
+
+func TestQueryBuilderOrganizationEventWithOrConditions(t *testing.T) {
+	type test struct {
+		name     string
+		ruleSet  rules.RuleSet
+		wantSQL  string
+		wantArgs []any
+		wantErr  bool
+	}
+
+	tests := map[string]test{
+		"or with organization event and organization property": {
+			name: "or with organization event and organization property",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorOr,
+					Children: []rules.Rule{
+						{
+							Type:  rules.RuleTypeWrapper,
+							Group: rules.RuleGroupOrganizationEvent,
+							Path:  "",
+							Value: "organization.user.updated",
+							Frequency: &rules.Frequency{
+								Count:    1,
+								Operator: rules.OperatorGreaterEqual,
+								Period: rules.Period{
+									Type:  rules.PeriodTypeRolling,
+									Unit:  rules.PeriodUnitDay,
+									Value: 30,
+								},
+							},
+							UserMatch: &rules.UserMatch{
+								Type: rules.UserMatchConditions,
+								MemberConditions: &rules.Rule{
+									Type:     rules.RuleTypeWrapper,
+									Group:    rules.RuleGroupParent,
+									Operator: rules.OperatorAnd,
+									Children: []rules.Rule{
+										{
+											Type:     rules.RuleTypeBoolean,
+											Group:    rules.RuleGroupOrganizationUser,
+											Path:     ".admin",
+											Operator: rules.OperatorEquals,
+											Value:    true,
+										},
+									},
+								},
+							},
+							Children: []rules.Rule{
+								{
+									Type:     rules.RuleTypeNumber,
+									Group:    rules.RuleGroupOrganizationEvent,
+									Path:     ".version",
+									Operator: rules.OperatorGreaterThan,
+									Value:    0,
+								},
+							},
+						},
+						{
+							Type:     rules.RuleTypeWrapper,
+							Group:    rules.RuleGroupOrganization,
+							Operator: rules.OperatorAnd,
+							Children: []rules.Rule{
+								{
+									Type:     rules.RuleTypeString,
+									Group:    rules.RuleGroupOrganization,
+									Path:     ".tier",
+									Operator: rules.OperatorEquals,
+									Value:    "gold",
+								},
+							},
+						},
+					},
+				},
+			},
+			// The query should combine both conditions with UNION to achieve OR semantics
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN (SELECT oe.organization_id FROM organization_events oe JOIN events e ON e.id = oe.event_id WHERE oe.created_at >= NOW() - $1::interval AND e.name = $2 AND (oe.data->>'version')::numeric > $3 GROUP BY oe.organization_id HAVING COUNT(*) >= $4) matching_orgs ON matching_orgs.organization_id = ou.organization_id WHERE (ou.data->>'admin')::boolean = $5 UNION SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $7 AND (o.data->>'tier')::text = $6) e3 ON e3.user_id = u.id WHERE u.project_id = $8",
+			wantArgs: []any{"30 days", "organization.user.updated", 0, 1, true, "gold", testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"or with two organization events": {
+			name: "or with two organization events",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorOr,
+					Children: []rules.Rule{
+						{
+							Type:  rules.RuleTypeWrapper,
+							Group: rules.RuleGroupOrganizationEvent,
+							Path:  "",
+							Value: "subscription.created",
+							Frequency: &rules.Frequency{
+								Count:    1,
+								Operator: rules.OperatorGreaterEqual,
+								Period: rules.Period{
+									Type:  rules.PeriodTypeRolling,
+									Unit:  rules.PeriodUnitDay,
+									Value: 7,
+								},
+							},
+						},
+						{
+							Type:  rules.RuleTypeWrapper,
+							Group: rules.RuleGroupOrganizationEvent,
+							Path:  "",
+							Value: "trial.started",
+							Frequency: &rules.Frequency{
+								Count:    1,
+								Operator: rules.OperatorGreaterEqual,
+								Period: rules.Period{
+									Type:  rules.PeriodTypeRolling,
+									Unit:  rules.PeriodUnitDay,
+									Value: 14,
+								},
+							},
+						},
+					},
+				},
+			},
+			// The query should combine both event conditions with UNION
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN (SELECT oe.organization_id FROM organization_events oe JOIN events e ON e.id = oe.event_id WHERE oe.created_at >= NOW() - $1::interval AND e.name = $2 GROUP BY oe.organization_id HAVING COUNT(*) >= $3) matching_orgs ON matching_orgs.organization_id = ou.organization_id UNION SELECT DISTINCT ou.user_id FROM organization_users ou JOIN (SELECT oe.organization_id FROM organization_events oe JOIN events e ON e.id = oe.event_id WHERE oe.created_at >= NOW() - $4::interval AND e.name = $5 GROUP BY oe.organization_id HAVING COUNT(*) >= $6) matching_orgs ON matching_orgs.organization_id = ou.organization_id) e3 ON e3.user_id = u.id WHERE u.project_id = $7",
+			wantArgs: []any{"7 days", "subscription.created", 1, "14 days", "trial.started", 1, testProjectID},
+			wantErr:  false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			qb := NewQueryBuilder(testProjectID, nil)
+			result, err := qb.Query(tc.ruleSet)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantSQL, result.SQL)
+			assert.Equal(t, tc.wantArgs, result.Args)
+		})
+	}
+}

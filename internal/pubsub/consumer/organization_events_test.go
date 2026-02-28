@@ -196,7 +196,7 @@ func TestOrganizationEventSchemasHandlerSuccess(t *testing.T) {
 	usersState := subjects.NewState(usrsDB)
 
 	// First, create the event in the database
-	eventID, err := usersState.UpsertEvent(ctx, projectID, "org.contract.signed")
+	eventID, err := usersState.UpsertEvent(ctx, projectID, "org.contract.signed", subjects.SubjectTypeOrganization)
 	require.NoError(t, err)
 
 	handler := OrganizationEventSchemasHandler(logger, usersState)
@@ -244,7 +244,7 @@ func TestOrganizationEventSchemasHandlerComplexNestedData(t *testing.T) {
 	usersState := subjects.NewState(usrsDB)
 
 	// Create event
-	eventID, err := usersState.UpsertEvent(ctx, projectID, "org.deal.closed")
+	eventID, err := usersState.UpsertEvent(ctx, projectID, "org.deal.closed", subjects.SubjectTypeOrganization)
 	require.NoError(t, err)
 
 	handler := OrganizationEventSchemasHandler(logger, usersState)

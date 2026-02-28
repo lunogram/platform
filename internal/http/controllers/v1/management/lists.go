@@ -83,7 +83,7 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 
 	if body.Type == oapi.CreateListTypeDynamic && body.Rule != nil {
 		for _, event := range body.Rule.Events() {
-			_, err := events.UpsertEvent(ctx, projectID, event)
+			_, err := events.UpsertEvent(ctx, projectID, event, subjects.SubjectTypeUser)
 			if err != nil {
 				logger.Error("failed to upsert event", zap.String("event", event), zap.Error(err))
 				oapi.WriteProblem(w, err)
@@ -230,7 +230,7 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 
 	if body.Rule != nil {
 		for _, event := range body.Rule.Events() {
-			_, err := events.UpsertEvent(ctx, projectID, event)
+			_, err := events.UpsertEvent(ctx, projectID, event, subjects.SubjectTypeUser)
 			if err != nil {
 				logger.Error("failed to upsert event", zap.String("event", event), zap.Error(err))
 				oapi.WriteProblem(w, err)

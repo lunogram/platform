@@ -346,21 +346,20 @@ func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r 
 		data = *req.Data
 	}
 
-	err = orgsStore.UpsertOrganizationMember(ctx, orgID, userID, data)
+	orgUser, err := orgsStore.UpsertAndGetOrganizationMember(ctx, orgID, userID, data)
 	if err != nil {
 		logger.Error("failed to add user to organization", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
 
-	// Publish to pubsub for schema extraction
 	msg := schemas.OrganizationUser{
 		OrganizationID:         orgID,
 		OrganizationExternalID: req.OrganizationExternalId,
 		UserID:                 userID,
 		ProjectID:              projectID,
 		Data:                   data,
-		Version:                1,
+		Version:                orgUser.Version,
 	}
 
 	err = srv.pubsub.Publish(ctx, schemas.OrganizationUsersProcess(projectID), msg)
