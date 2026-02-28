@@ -108,7 +108,46 @@
         "title": "Template Setup",
         "description": "Configure template-specific settings for this locale."
       },
-      "edit": "Edit Template"
+      "edit": "Edit Template",
+      "email": {
+        "templates": {
+          "pricingEmphasized": {
+            "label": "Pricing Emphasized",
+            "description": "A professional dual-plan pricing section for emails."
+          }
+        }
+      },
+      "editor": {
+        "selection": {
+          "title": "New Project",
+          "description": "Select your preferred editing experience.",
+          "visualBuilder": "Visual Builder",
+          "visualBuilderDesc": "Drag & drop blocks to design visually.",
+          "developerMode": "Developer Mode",
+          "developerModeDesc": "Write raw HTML for full control.",
+          "note": "Note: You can not toggle between these modes inside the editor."
+        },
+        "wizard": {
+          "title": "Create a template",
+          "description": "Select your editing mode. You can switch between these later.",
+          "visualBuilder": "Visual Builder",
+          "visualBuilderDesc": "Drag and drop blocks visually.",
+          "developerMode": "Developer Mode",
+          "developerModeDesc": "Write raw HTML for full control.",
+          "chooseTemplate": "Choose a template",
+          "blankSlate": "Blank Slate",
+          "noTemplate": "Start from scratch"
+        },
+        "htmlEditor": {
+          "developerMode": "Developer Mode"
+        },
+        "components": {
+          "image": {
+            "title": "Image",
+            "upload_hint": "Click to browse and select an image"
+          }
+        }
+      }
     },
     "review": {
       "title": "Review",

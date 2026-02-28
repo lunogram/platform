@@ -11,7 +11,7 @@ import type { ModalProps } from '../../ui/Modal'
 import type { JourneyUserStep, User } from '../../types'
 import { EditIcon, TrashIcon } from '../../components/icons'
 import type { DataTableCol } from '../../ui/DataTable'
-import type { UUID } from 'uuid'
+import type { UUID } from '@/types/common'
 
 interface StepUsersProps extends Omit<ModalProps, 'title'> {
     stepId: UUID
@@ -19,12 +19,12 @@ interface StepUsersProps extends Omit<ModalProps, 'title'> {
 }
 
 export function JourneyStepUsers({ open, onClose, stepType, stepId }: StepUsersProps) {
-
     const { t } = useTranslation()
     const [{ id: projectId }] = useContext(ProjectContext)
     const [{ id: journeyId }] = useContext(JourneyContext)
     const [isUserLookupOpen, setIsUserLookupOpen] = useState(false)
     const isEntrance = stepType === 'entrance'
+    
     const options: Array<DataTableCol<JourneyUserStep>> = stepType === 'delay'
         ? [{
             key: 'options',
