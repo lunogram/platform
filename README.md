@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://docs.lunogram.com">Documentation</a> •
-  <a href="https://discord.gg/BpKZhwnq">Discord</a> •
+  <a href="https://github.com/lunogram/platform/discussions">Discussions</a> •
   <a href="#contributing">Contributing</a>
 </p>
 
@@ -61,4 +61,4 @@ For full documentation on the platform and more information on deployment, check
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) to get started.
 
-Join our community on [Discord](https://discord.gg/BpKZhwnq) to connect with other users and contributors, report bugs, suggest features, or just say hi!
+Join our community on [GitHub Discussions](https://github.com/lunogram/platform/discussions) to connect with other users and contributors, report bugs, suggest features, or just say hi!
