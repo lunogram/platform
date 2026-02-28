@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/csv"
+	stdjson "encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -262,6 +263,36 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 	if err != nil {
 		logger.Error("failed to get updated user", zap.Error(err))
 		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// Publish to pubsub for recomputation and schema extraction
+	var data map[string]any
+	if updatedUser.Data != nil {
+		if err := stdjson.Unmarshal(updatedUser.Data, &data); err != nil {
+			logger.Error("failed to unmarshal user data", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+
+	msg := schemas.User{
+		ProjectID:   projectID,
+		ID:          updatedUser.ID,
+		AnonymousID: updatedUser.AnonymousID,
+		ExternalID:  updatedUser.ExternalID,
+		Email:       updatedUser.Email,
+		Phone:       updatedUser.Phone,
+		Timezone:    updatedUser.Timezone,
+		Locale:      updatedUser.Locale,
+		Data:        data,
+		Version:     updatedUser.Version,
+	}
+
+	err = srv.pubsub.Publish(ctx, schemas.UsersProcess(projectID), msg)
+	if err != nil {
+		logger.Error("failed to publish user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
 

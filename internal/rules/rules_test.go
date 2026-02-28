@@ -129,6 +129,126 @@ func TestRuleEvents(t *testing.T) {
 	}
 }
 
+func TestRuleOrganizationEvents(t *testing.T) {
+	t.Parallel()
+
+	type test struct {
+		rule     Rule
+		expected []string
+	}
+
+	tests := map[string]test{
+		"single organization event rule": {
+			rule: Rule{
+				Type:  RuleTypeWrapper,
+				Group: RuleGroupOrganizationEvent,
+				Value: "org.created",
+			},
+			expected: []string{"org.created"},
+		},
+		"multiple organization event rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupOrganizationEvent,
+						Value: "org.created",
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupOrganizationEvent,
+						Value: "org.updated",
+					},
+				},
+			},
+			expected: []string{"org.created", "org.updated"},
+		},
+		"nested organization event rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupOrganizationEvent,
+						Value: "subscription.created",
+					},
+					{
+						Type:     RuleTypeWrapper,
+						Group:    RuleGroupParent,
+						Operator: OperatorOr,
+						Children: []Rule{
+							{
+								Type:  RuleTypeWrapper,
+								Group: RuleGroupOrganizationEvent,
+								Value: "payment.completed",
+							},
+							{
+								Type:  RuleTypeWrapper,
+								Group: RuleGroupOrganizationEvent,
+								Value: "payment.failed",
+							},
+						},
+					},
+				},
+			},
+			expected: []string{"subscription.created", "payment.completed", "payment.failed"},
+		},
+		"no organization events": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeString,
+						Group:    RuleGroupOrganization,
+						Path:     "name",
+						Operator: OperatorContains,
+						Value:    "example",
+					},
+				},
+			},
+			expected: nil,
+		},
+		"mixed organization event and user event rules": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupOrganizationEvent,
+						Value: "org.purchase.completed",
+					},
+					{
+						Type:  RuleTypeWrapper,
+						Group: RuleGroupEvent,
+						Value: "user.login",
+					},
+				},
+			},
+			expected: []string{"org.purchase.completed"},
+		},
+		"empty rule": {
+			rule:     Rule{},
+			expected: nil,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			events := test.rule.OrganizationEvents()
+			assert.Equal(t, test.expected, events)
+		})
+	}
+}
+
 func TestRuleDependsOnEvents(t *testing.T) {
 	t.Parallel()
 

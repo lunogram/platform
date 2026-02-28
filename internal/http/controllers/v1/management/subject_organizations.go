@@ -2,6 +2,7 @@ package v1
 
 import (
 	"database/sql"
+	stdjson "encoding/json"
 	"errors"
 	"net/http"
 
@@ -246,6 +247,32 @@ func (srv *SubjectOrganizationsController) UpdateOrganization(w http.ResponseWri
 	if err != nil {
 		logger.Error("failed to get updated organization", zap.Error(err))
 		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// Publish to pubsub for recomputation and schema extraction
+	var data map[string]any
+	if updatedOrg.Data != nil {
+		if err := stdjson.Unmarshal(updatedOrg.Data, &data); err != nil {
+			logger.Error("failed to unmarshal organization data", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+
+	msg := schemas.Organization{
+		ID:         updatedOrg.ID,
+		ProjectID:  projectID,
+		ExternalID: updatedOrg.ExternalID,
+		Name:       updatedOrg.Name,
+		Data:       data,
+		Version:    updatedOrg.Version,
+	}
+
+	err = srv.pubsub.Publish(ctx, schemas.OrganizationsProcess(projectID), msg)
+	if err != nil {
+		logger.Error("failed to publish organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
 

@@ -198,6 +198,21 @@ func (r Rule) Events() (result []string) {
 	return result
 }
 
+func (r Rule) OrganizationEvents() (result []string) {
+	if r.Group == RuleGroupOrganizationEvent && r.Type == RuleTypeWrapper {
+		result = append(result, r.Value.(string))
+	}
+
+	for _, child := range r.Children {
+		events := child.OrganizationEvents()
+		if len(events) > 0 {
+			result = append(result, events...)
+		}
+	}
+
+	return result
+}
+
 func (r Rule) DependsOnEvents() bool {
 	if r.Group == RuleGroupEvent {
 		return true

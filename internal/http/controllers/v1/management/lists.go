@@ -91,6 +91,15 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 			}
 		}
 
+		for _, event := range body.Rule.OrganizationEvents() {
+			_, err := events.UpsertEvent(ctx, projectID, event, subjects.SubjectTypeOrganization)
+			if err != nil {
+				logger.Error("failed to upsert organization event", zap.String("event", event), zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
+		}
+
 		id, err := rules.CreateOrUpdateRule(ctx, projectID, nil, *body.Rule)
 		if err != nil {
 			logger.Error("failed to create rule", zap.Error(err))
@@ -98,7 +107,8 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 			return
 		}
 
-		err = rules.SetRuleEventDependencies(ctx, projectID, id, body.Rule.Events())
+		allEvents := append(body.Rule.Events(), body.Rule.OrganizationEvents()...)
+		err = rules.SetRuleEventDependencies(ctx, projectID, id, allEvents)
 		if err != nil {
 			logger.Error("failed to set rule event dependencies", zap.Error(err))
 			oapi.WriteProblem(w, err)
@@ -238,6 +248,15 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 			}
 		}
 
+		for _, event := range body.Rule.OrganizationEvents() {
+			_, err := events.UpsertEvent(ctx, projectID, event, subjects.SubjectTypeOrganization)
+			if err != nil {
+				logger.Error("failed to upsert organization event", zap.String("event", event), zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
+		}
+
 		id, err := rules.CreateOrUpdateRule(ctx, projectID, list.RuleID, *body.Rule)
 		if err != nil {
 			logger.Error("failed to create or update rule", zap.Error(err))
@@ -245,7 +264,8 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 			return
 		}
 
-		err = rules.SetRuleEventDependencies(ctx, projectID, id, body.Rule.Events())
+		allEvents := append(body.Rule.Events(), body.Rule.OrganizationEvents()...)
+		err = rules.SetRuleEventDependencies(ctx, projectID, id, allEvents)
 		if err != nil {
 			logger.Error("failed to set rule event dependencies", zap.Error(err))
 			oapi.WriteProblem(w, err)
