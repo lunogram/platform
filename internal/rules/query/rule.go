@@ -25,9 +25,10 @@ var validKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_. -]+$`)
 // vs ".data.tier" (already normalized, unchanged).
 func normalizeDataPath(path string) string {
 	// Check if path already starts with ".data"
-	if strings.HasPrefix(path, ".data") {
+	if path == ".data" || strings.HasPrefix(path, ".data.") || strings.HasPrefix(path, ".data[") {
 		return path
 	}
+
 	return ".data" + path
 }
 
