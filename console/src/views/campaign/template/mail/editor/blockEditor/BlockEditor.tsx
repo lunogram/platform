@@ -8,6 +8,8 @@ import CodeStore from "../codeEditorPlugins/CodeStore";
 import { Preview } from "../overrides/Preview";
 import BlockSaveHandler from "./BlockSaveHandler";
 
+import "./Editor.css";
+
 export function BlockEditor({
   data,
 }: {
