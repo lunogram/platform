@@ -48,7 +48,7 @@ export default function ProjectOnboarding() {
       <h1 className="legacy-typography">{t("getting-started")}</h1>
 
       <section className="selection">
-        <div onClick={createOnboardingJourney}>
+        <button onClick={createOnboardingJourney}>
           {!isJourneyLoading && (
             <>
               <CampaignsIcon />
@@ -56,11 +56,11 @@ export default function ProjectOnboarding() {
             </>
           )}
           {isJourneyLoading && <div className="is-loading"></div>}
-        </div>
-        <div onClick={createCampaign}>
+        </button>
+        <button onClick={createCampaign}>
           <JourneysIcon />
           <span>{t("onboarding_project-getting-started_campaign")}</span>
-        </div>
+        </button>
       </section>
 
       <div className="flex gap-2 mt-4">
