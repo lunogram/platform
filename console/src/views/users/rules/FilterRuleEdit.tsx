@@ -2,29 +2,13 @@ import { useContext, useMemo } from "react";
 import { highlightSearch, usePopperSelectDropdown } from "../../../ui/utils";
 import type { RuleEditProps } from "./RuleHelpers";
 import { operatorTypes, VariablesContext, ruleTypes } from "./RuleHelpers";
-import { Combobox } from "@/components/ui/combobox";
-import type { EventSchemaPath, RulePath, RuleType, Operator } from "../../../types";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { ButtonGroup } from "../../../ui";
+import { SingleSelect } from "../../../ui/form/SingleSelect";
+import { Combobox } from "../../../components/ui/combobox";
+import TextInput from "../../../ui/form/TextInput";
+import type { EventSchemaPath, RulePath } from "../../../types";
 
 type PathOption = RulePath | EventSchemaPath;
-
-function isRuleType(value: string): value is RuleType {
-  return (
-    value === "wrapper" ||
-    value === "string" ||
-    value === "number" ||
-    value === "boolean" ||
-    value === "date" ||
-    value === "array"
-  );
-}
 
 export default function FilterRuleEdit({
   rule,
@@ -61,48 +45,32 @@ export default function FilterRuleEdit({
     if (path) {
       let search = path.toLowerCase();
       if (search.startsWith(".")) search = "$" + search;
-      if (!search.startsWith("$.")) search = "$" + search;
+      if (!search.startsWith("$.")) search = "$." + search;
       paths = paths.filter((p) => p.path.toLowerCase().startsWith(search));
     }
     return paths;
   }, [suggestions, isEventGroup, eventName, path]);
 
-  const getOptionDataType = (option: PathOption): RuleType => {
+  const getOptionDataType = (option: PathOption): string => {
     if ("types" in option) {
-      const firstType = option.types[0];
-      return firstType && isRuleType(firstType) ? firstType : "string";
+      return option.types[0] || "string";
     }
-
+  
     return option.data_type;
   };
 
-  const typeOption = ruleTypes.find((opt) => opt.key === rule?.type);
-  const operatorOption = operatorTypes[rule?.type]?.find(
-    (opt) => opt.key === rule?.operator
-  );
-
   return (
     <div className="rule">
-      <div className="inline-flex items-stretch">
-        <Select
+      <ButtonGroup className="ui-select">
+        <SingleSelect
           value={rule?.type}
-          onValueChange={(type: RuleType) =>
-            setRule({ ...rule, type })
-          }
-        >
-          <SelectTrigger className="h-9 w-auto rounded-r-none border-r-0 text-sm">
-            <SelectValue placeholder={typeOption?.label}>
-              {typeOption?.label}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {ruleTypes.map((opt) => (
-              <SelectItem key={opt.key} value={opt.key}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onChange={(type) => setRule({ ...rule, type })}
+          options={ruleTypes}
+          required
+          hideLabel
+          size="small"
+          toValue={(x) => x.key as typeof rule.type}
+        />
         <Combobox
           value={rule?.path}
           onValueChange={(selectedPath: string) => {
@@ -112,7 +80,7 @@ export default function FilterRuleEdit({
             if (suggestion) {
               setRule({
                 ...rule,
-                type: getOptionDataType(suggestion),
+                type: getOptionDataType(suggestion) as typeof rule.type,
                 path: suggestion.path,
               });
             } else {
@@ -122,7 +90,7 @@ export default function FilterRuleEdit({
           options={pathSuggestions}
           placeholder="Path"
           required
-          inputClassName="rounded-none"
+          inputClassName="rounded-none border-l-0"
           buttonClassName="rounded-none"
           renderOption={(option, search) => (
             <span
@@ -132,49 +100,47 @@ export default function FilterRuleEdit({
             />
           )}
         />
-        <Select
+        <SingleSelect
           value={rule?.operator}
-          onValueChange={(operator: Operator) =>
-            setRule({ ...rule, operator })
-          }
-        >
-          <SelectTrigger className="h-9 w-auto rounded-none border-x-0 text-sm">
-            <SelectValue placeholder={operatorOption?.label}>
-              {operatorOption?.label}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {(operatorTypes[rule?.type] ?? []).map((opt) => (
-              <SelectItem key={opt.key} value={opt.key}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onChange={(operator) => setRule({ ...rule, operator })}
+          options={operatorTypes[rule?.type] ?? []}
+          required
+          hideLabel
+          size="small"
+          toValue={(x) => x.key}
+        />
         {hasValue && rule.type === "boolean" ? (
-          <Select
-            value={rule.value === "true" || rule.value === "false" ? rule.value : undefined}
-            onValueChange={(value) => setRule({ ...rule, value })}
-          >
-            <SelectTrigger className="h-9 w-auto rounded-l-none text-sm">
-              <SelectValue placeholder="Value" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="true">True</SelectItem>
-              <SelectItem value="false">False</SelectItem>
-            </SelectContent>
-          </Select>
+          <SingleSelect
+            value={
+              rule.value === "true"
+                ? "true"
+                : rule.value === "false"
+                  ? "false"
+                  : undefined
+            }
+            onChange={(value) => setRule({ ...rule, value })}
+            options={[
+              { key: "true", label: "True" },
+              { key: "false", label: "False" },
+            ]}
+            required
+            hideLabel
+            size="small"
+            toValue={(x) => x.key}
+          />
         ) : (
-          <Input
+          <TextInput
+            size="small"
             type="text"
+            name="value"
             placeholder="Value"
-            value={rule?.value?.toString() ?? ""}
-            onChange={(e) => setRule({ ...rule, value: e.target.value })}
-            className="h-9 w-auto rounded-l-none border-l-0"
+            hideLabel={true}
+            value={rule?.value?.toString()}
+            onChange={(value) => setRule({ ...rule, value })}
           />
         )}
         {controls}
-      </div>
+      </ButtonGroup>
     </div>
   );
 }
