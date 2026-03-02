@@ -85,6 +85,9 @@
           "no_content_available": "No content available"
         },
         "text": {
+          "from": {
+            "label": "From"
+          },
           "message": {
             "label": "Message"
           },
@@ -375,7 +378,7 @@
   "entrance_simultaneous_entries": "Simultaneous Entries",
   "entrance_simultaneous_entries_desc": "If enabled, user could join this journey multiple times before finishing previous ones.",
   "entrance_trigger": "Trigger Entrance",
-  "entrance_trigger_desc": "This entrance can be triggered directly via API. An example request is available below. Data from the <1>event<\/1> field will be available for use in the journey and campaign templates under <1>journey.DATA_KEY_OF_THIS_STEP.*<\/1>(for example, <1>journey.my_entrance.purchaseAmount<\/1>).",
+  "entrance_trigger_desc": "This entrance can be triggered directly via API. An example request is available below. Data from the <1>event</1> field will be available for use in the journey and campaign templates under <1>journey.DATA_KEY_OF_THIS_STEP.*</1>(for example, <1>journey.my_entrance.purchaseAmount</1>).",
   "event_name": "Event Name",
   "events": "Events",
   "exclusion_lists": "Exclusion Lists",
