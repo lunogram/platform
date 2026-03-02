@@ -27,6 +27,7 @@ export const JourneyStepEdge = memo(
     sourceHandleId,
     targetHandleId,
     data = {},
+    style = {},
   }: EdgeProps) => {
     const [project] = useContext(ProjectContext);
     const [journey] = useContext(JourneyContext);
@@ -70,7 +71,12 @@ export const JourneyStepEdge = memo(
 
     return (
       <>
-        <path id={id} className="react-flow__edge-path" d={edgePath} />
+        <path
+          id={id}
+          className="react-flow__edge-path"
+          style={style}
+          d={edgePath}
+        />
         {!!(sourceNode && sourceType?.EditEdge) && (
           <EdgeLabelRenderer>
             <div

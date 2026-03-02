@@ -4,7 +4,7 @@ import { toast } from "react-hot-toast/headless";
 import { useTranslation } from "react-i18next";
 import type { User } from "@/types";
 
-export function useUserSelection(projectId: string, journeyId: string, isOpen: boolean) {
+export function useUserSelection(projectId: string, journeyId: string, isOpen: boolean, onUserEnteredNode: (external_id: string) => void) {
   const { t } = useTranslation();
   const [users, setUsers] = useState<User[]>([]);
 
@@ -16,7 +16,6 @@ export function useUserSelection(projectId: string, journeyId: string, isOpen: b
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const followUser = useCallback((userId: string) => {
-    // Close existing connection if any
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
     }
@@ -27,13 +26,12 @@ export function useUserSelection(projectId: string, journeyId: string, isOpen: b
     );
 
     es.addEventListener("message", e => console.log("message:", e.data));
-    es.addEventListener("step", e => console.log("step:", e.data));
-
-    es.onopen = () => console.log("SSE connected");
-    es.onerror = e => console.log("SSE error", e);
+    es.addEventListener("step", e => {
+      onUserEnteredNode(JSON.parse(JSON.parse(e.data)).external_step_id);
+    });
 
     eventSourceRef.current = es;
-  }, [projectId, journeyId]);
+  }, [projectId, journeyId, onUserEnteredNode]);
 
   const triggerUser = useCallback(async (stepId: string, userId: string) => {
     try {

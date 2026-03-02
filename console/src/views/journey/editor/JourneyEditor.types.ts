@@ -9,6 +9,8 @@ export interface JourneyNodeData {
   data_key?: string;
   stats?: Record<string, number>;
   stats_at?: Date;
+  visited?: boolean;
+  active?: boolean;
   editing?: boolean;
   setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void;
 }

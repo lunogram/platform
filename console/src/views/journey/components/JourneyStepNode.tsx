@@ -1,13 +1,24 @@
-import { memo, useCallback, useContext, Fragment, createElement } from "react";
+import {
+  memo,
+  useCallback,
+  useContext,
+  Fragment,
+  createElement,
+  useEffect,
+} from "react";
 import type { Connection, NodeProps } from "reactflow";
 import { Handle, Position, useReactFlow, getConnectedEdges } from "reactflow";
 import { useTranslation } from "react-i18next";
 import clsx from "clsx";
+import { User } from "lucide-react";
 import { ProjectContext, JourneyContext } from "@/contexts";
 import Alert from "@/ui/Alert";
 import { KeyIcon } from "@/components/icons";
 import { getStepType } from "../editor/JourneyEditor.utils";
-import { statIcons, stepCategoryColors } from "../hooks/JourneyEditor.constants";
+import {
+  statIcons,
+  stepCategoryColors,
+} from "../hooks/JourneyEditor.constants";
 
 import "reactflow/dist/style.css";
 import "../editor/JourneyEditor.css";
@@ -24,15 +35,35 @@ export const JourneyStepNode = memo(
       stats = {},
       editing,
       setViewUsersStep,
+      visited = false,
+      active = false,
     } = {},
     selected,
-  }: NodeProps) => {
+  }: NodeProps & { active?: boolean }) => {
     const { t } = useTranslation();
     const [project] = useContext(ProjectContext);
     const [journey] = useContext(JourneyContext);
-    const { getNode, getEdges } = useReactFlow();
+
+    const { getNode, getEdges, setNodes } = useReactFlow();
 
     const type = getStepType(typeName);
+
+    useEffect(() => {
+      const isExit = typeName === "exit" || name?.toLowerCase() === "exit";
+      if (active && isExit) {
+        const timer = setTimeout(() => {
+          setNodes((nds) =>
+            nds.map((node) => {
+              return {
+                ...node,
+                data: { ...node.data, active: false, visited: false },
+              };
+            }),
+          );
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
+    }, [active, id, setNodes, name, typeName]);
 
     const validateConnection = useCallback(
       (conn: Connection) => {
@@ -50,21 +81,41 @@ export const JourneyStepNode = memo(
     );
 
     if (!type) return <Alert variant="error" title="Invalid Step Type" />;
-
     const isValid = type.validate ? type.validate(data) : true;
 
     return (
       <>
+        {active && (
+          <div
+            className={clsx(
+              "absolute -top-4 -right-4 z-50 flex h-8 w-8 items-center justify-center rounded-full text-white shadow-xl animate-in zoom-in-75 fade-in duration-200 border-2 border-white",
+              stepCategoryColors[
+                type.category as keyof typeof stepCategoryColors
+              ],
+            )}
+            style={{ pointerEvents: "none" }}
+          >
+            <User size={16} fill="currentColor" />
+          </div>
+        )}
+
         {!type.hideTopHandle && (
           <Handle type="target" position={Position.Top} id={"t-" + id} />
         )}
+
         <div
           className={clsx(
-            "journey-step",
+            "journey-step transition-all duration-300",
             type.category,
             selected && "selected",
-            Array.isArray(type.sources) && "journey-step-labelled-sources",
-            isValid ? "" : "error",
+
+            !isValid
+              ? "error border-red-500 ring-2 ring-red-200"
+              : active
+                ? "border-[3px] border-orange-500 shadow-lg scale-105"
+                : visited
+                  ? "border-[3px] border-green-500"
+                  : "border border-gray-200",
             editing && "editing",
           )}
         >
@@ -131,6 +182,7 @@ export const JourneyStepNode = memo(
             )}
           </div>
         </div>
+
         {!type.hideBottomHandle &&
           (Array.isArray(type.sources) ? type.sources : [""]).map(
             (key, index, arr) => {

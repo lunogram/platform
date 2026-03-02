@@ -60,6 +60,72 @@ export default function JourneyEditor() {
   const [editOpen, setEditOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
+  const onUserEnteredNode = useCallback(
+    (nodeId: string) => {
+      setNodes((prevNodes) =>
+        prevNodes.map((node) => {
+          const isBecomingActive = node.id === nodeId;
+          const wasActive = node.data.active;
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              visited: node.data.visited || wasActive,
+              active: isBecomingActive,
+            },
+          };
+        }),
+      );
+
+      setEdges((prevEdges) =>
+        prevEdges.map((edge) => {
+          const isNextLine = edge.source === nodeId;
+
+          return {
+            ...edge,
+            animated: isNextLine,
+            style: {
+              ...edge.style,
+              stroke: isNextLine
+                ? "#f97316"
+                : edge.style?.stroke === "#22c55e" || edge.source === nodeId
+                  ? "#22c55e"
+                  : "#b1b1b7",
+              strokeWidth:
+                isNextLine || edge.style?.stroke === "#22c55e" ? 3 : 1,
+            },
+          };
+        }),
+      );
+    },
+    [setNodes, setEdges],
+  );
+
+  useEffect(() => {
+    setEdges((eds) =>
+      eds.map((edge) => {
+        const sourceNode = nodes.find((n) => n.id === edge.source);
+        const targetNode = nodes.find((n) => n.id === edge.target);
+
+        const isOrange = sourceNode?.data.active;
+        const isGreen =
+          sourceNode?.data.visited &&
+          (targetNode?.data.visited || targetNode?.data.active);
+
+        return {
+          ...edge,
+          animated: isOrange,
+          style: {
+            ...edge.style,
+            stroke: isOrange ? "#f97316" : isGreen ? "#22c55e" : "#b1b1b7",
+            strokeWidth: isOrange || isGreen ? 3 : 1,
+          },
+        };
+      }),
+    );
+  }, [nodes, setEdges]);
+
   const {
     saving,
     publishing,
@@ -86,9 +152,9 @@ export default function JourneyEditor() {
     project.id,
     journey.id,
     isUserModalOpen,
+    onUserEnteredNode,
   );
 
-  // Load initial data
   useEffect(() => {
     const load = async () => {
       const steps = await api.journeys.steps.get(project.id, journey.id);
@@ -301,6 +367,7 @@ export default function JourneyEditor() {
         onSelect={(u) => {
           setIsUserModalOpen(false);
           if (editNode?.id) triggerUser(editNode.id, u.id);
+          onUserEnteredNode(editNode?.id ?? "");
         }}
       />
 

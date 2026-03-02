@@ -13,6 +13,26 @@
     flex-grow: 1;
 }
 
+.journey-step.error {
+  border: 3px solid #ef4444 !important;
+  background-color: #fef2f2;
+}
+
+.border-orange-500 {
+  animation: busy-pulse 2s infinite;
+}
+
+.border-green-500 {
+    border-color: var(--color-green)!important;
+}
+
+@keyframes busy-pulse {
+  0% { border-color: rgba(249, 115, 22, 1); box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); }
+  70% { border-color: rgba(249, 115, 22, 1); box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); }
+  100% { border-color: rgba(249, 115, 22, 1); box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+}
+
+
 .journey-options {
     max-width: 300px;
     border-color: var(--color-grey);

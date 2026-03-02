@@ -330,6 +330,8 @@ func (srv *JourneysController) FollowUserJourneyStatus(
 	ctx := r.Context()
 	enc := sse.NewEncoder(w)
 	enc.WriteEvent("message", "connected")
+	rc := http.NewResponseController(w)
+	rc.SetWriteDeadline(time.Time{}) // Zero time = no deadline
 
 	userID := params.UserID
 	logger := srv.logger.With(
@@ -354,18 +356,18 @@ func (srv *JourneysController) FollowUserJourneyStatus(
 
 	fmt.Println("passing sub!!!")
 
-	go func() {
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				enc.WriteEvent("hello", "world")
-			}
-		}
-	}()
+	// go func() {
+	// 	ticker := time.NewTicker(1 * time.Second)
+	// 	defer ticker.Stop()
+	// 	for {
+	// 		select {
+	// 		case <-ctx.Done():
+	// 			return
+	// 		case <-ticker.C:
+	// 			enc.WriteEvent("hello", "world")
+	// 		}
+	// 	}
+	// }()
 
 	<-ctx.Done()
 	logger.Info("client disconnected")
