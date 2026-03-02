@@ -26,8 +26,8 @@ func ComposeSMS(config map[string]any, template management.Template, user *users
 	}
 
 	providerData, _ := config["data"].(map[string]any)
-	defaultFrom, _ := providerData["default_from"].(string)
-	defaultFromLocked, _ := providerData["default_from_locked"].(bool)
+	defaultFrom, _ := providerData[ProviderKeyDefaultFrom].(string)
+	defaultFromLocked, _ := providerData[ProviderKeyDefaultFromLocked].(bool)
 
 	fromNumber := data.From
 

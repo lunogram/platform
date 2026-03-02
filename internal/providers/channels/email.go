@@ -39,9 +39,9 @@ func ComposeEmail(config map[string]any, template management.Template, user *use
 	}
 
 	providerData, _ := config["data"].(map[string]any)
-	defaultFrom, _ := providerData["default_from"].(string)
-	defaultFromName, _ := providerData["default_from_name"].(string)
-	defaultFromLocked, _ := providerData["default_from_locked"].(bool)
+	defaultFrom, _ := providerData[ProviderKeyDefaultFrom].(string)
+	defaultFromName, _ := providerData[ProviderKeyDefaultFromName].(string)
+	defaultFromLocked, _ := providerData[ProviderKeyDefaultFromLocked].(bool)
 
 	fromAddress := data.From.Email
 	fromName := data.From.Name
