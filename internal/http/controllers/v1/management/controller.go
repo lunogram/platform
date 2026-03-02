@@ -7,6 +7,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/webhook"
 	"go.uber.org/zap"
 )
 
@@ -14,8 +15,11 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 	mgmt := management.NewState(managementDB)
 	projects := management.NewProjectsStore(managementDB)
 
+	// Create webhook caller for project creation notifications
+	webhookCaller := webhook.NewCaller(logger.Named("webhook"), cfg.Webhook)
+
 	controller := &Controller{
-		ProjectsController:      NewProjectsController(logger, managementDB, usersDB, journeyDB),
+		ProjectsController:      NewProjectsController(logger, managementDB, usersDB, journeyDB, webhookCaller),
 		CampaignsController:     NewCampaignsController(logger, managementDB, usersDB),
 		TemplatesController:     NewTemplatesController(logger, managementDB),
 		AdminsController:        NewAdminsController(logger, managementDB),

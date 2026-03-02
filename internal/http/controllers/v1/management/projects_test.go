@@ -39,7 +39,7 @@ func TestCreateProject(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny)
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil)
 
 	type test struct {
 		body oapi.CreateProjectJSONRequestBody
@@ -141,7 +141,7 @@ func TestListProjects(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny)
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects", nil)
@@ -203,7 +203,7 @@ func TestGetProject(t *testing.T) {
 	err = projectStore.AddProjectAdmin(ctx, projectID, adminID, "admin")
 	require.NoError(t, err)
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny)
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String(), nil)
@@ -258,7 +258,7 @@ func TestUpdateProject(t *testing.T) {
 	err = projectStore.AddProjectAdmin(ctx, projectID, adminID, "admin")
 	require.NoError(t, err)
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny)
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil)
 
 	type test struct {
 		body oapi.UpdateProjectJSONRequestBody
