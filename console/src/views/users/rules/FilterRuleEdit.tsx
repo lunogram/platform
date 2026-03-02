@@ -15,6 +15,17 @@ import { Input } from "@/components/ui/input";
 
 type PathOption = RulePath | EventSchemaPath;
 
+function isRuleType(value: string): value is RuleType {
+  return (
+    value === "wrapper" ||
+    value === "string" ||
+    value === "number" ||
+    value === "boolean" ||
+    value === "date" ||
+    value === "array"
+  );
+}
+
 export default function FilterRuleEdit({
   rule,
   setRule,
@@ -58,10 +69,11 @@ export default function FilterRuleEdit({
 
   const getOptionDataType = (option: PathOption): RuleType => {
     if ("types" in option) {
-      return (option.types[0] || "string") as RuleType;
+      const firstType = option.types[0];
+      return firstType && isRuleType(firstType) ? firstType : "string";
     }
 
-    return option.data_type as RuleType;
+    return option.data_type;
   };
 
   const typeOption = ruleTypes.find((opt) => opt.key === rule?.type);
