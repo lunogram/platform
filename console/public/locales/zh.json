@@ -47,6 +47,57 @@
   "campaign_name": "活动名称",
   "campaigns": "活动",
   "campaign": "活动",
+  "campaign_obj": {
+    "plural": "活动",
+    "singular": "活动",
+    "template": {
+      "email": {
+        "templates": {
+          "pricingEmphasized": {
+            "label": "强调价格",
+            "description": "用于电子邮件的专业双计划定价部分。"
+          }
+        }
+      },
+      "editor": {
+        "selection": {
+          "title": "新项目",
+          "description": "选择您偏好的编辑体验。",
+          "visualBuilder": "可视化生成器",
+          "visualBuilderDesc": "拖放块进行可视化设计。",
+          "developerMode": "开发者模式",
+          "developerModeDesc": "编写原始HTML以完全控制。",
+          "note": "注意：您无法在编辑器内的这些模式之间切换。"
+        },
+        "wizard": {
+          "step1": "步骤1：环境",
+          "step2": "步骤2：模板",
+          "title": "开始一个新项目",
+          "description": "选择您的工作区。您可以稍后在编辑器中的这些模式之间切换。",
+          "visualBuilder": "可视化生成器",
+          "visualBuilderDesc": "以可视方式拖放块。最适合营销和布局设计。",
+          "developerMode": "开发者模式",
+          "developerModeDesc": "编写原始HTML以完全控制。最适合自定义逻辑和遗留代码。",
+          "chooseTemplate": "选择一个模板",
+          "configuring": "配置中",
+          "blankSlate": "空白板",
+          "noTemplate": "无模板",
+          "autoSaveActive": "自动保存激活",
+          "cloudSync": "云同步",
+          "selectTemplate": "选择模板继续"
+        },
+        "htmlEditor": {
+          "developerMode": "开发者模式"
+        },
+        "components": {
+          "image": {
+            "title": "图像",
+            "upload_hint": "点击浏览并选择一个图像"
+          }
+        }
+      }
+    }
+  },
   "cancel": "取消",
   "cc": "抄送",
   "change_schedule": "更改日程",

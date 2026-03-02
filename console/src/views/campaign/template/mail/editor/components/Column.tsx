@@ -1,4 +1,4 @@
-import type { ComponentConfig, Slot } from '@measured/puck';
+import type { ComponentConfig, Slot } from '@puckeditor/core'; 
 import { Row as EmailRow, Column as EmailColumn } from '@react-email/components';
 import { Layout, type LayoutProps, layoutClassMap } from './fields/Layout';
 import { cn } from '@/utils';
@@ -9,7 +9,7 @@ import { generateTailwindClasses } from './fields/unit';
 
 export interface ColumnProps {
     align: 'left' | 'center' | 'right';
-    content: Slot;
+    content: Slot; 
     layout: LayoutProps;
     spacing: SpacingProps;
     typography: TypographyProps;

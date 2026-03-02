@@ -376,7 +376,7 @@ export function EmailContentPreview({
     }
     setTemplate(newTemplate);
   };
-
+  
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-4">
