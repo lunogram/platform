@@ -3,7 +3,9 @@ package v1
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -318,38 +320,55 @@ func (srv *JourneysController) DeleteJourney(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (srv *JourneysController) FollowUserJourneyStatus(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, journeyID uuid.UUID, params oapi.FollowUserJourneyStatusParams) {
+func (srv *JourneysController) FollowUserJourneyStatus(
+	w http.ResponseWriter,
+	r *http.Request,
+	projectID uuid.UUID,
+	journeyID uuid.UUID,
+	params oapi.FollowUserJourneyStatusParams,
+) {
 	ctx := r.Context()
 	enc := sse.NewEncoder(w)
+	enc.WriteEvent("message", "connected")
 
 	userID := params.UserID
-
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
 		zap.Stringer("journey_id", journeyID),
 		zap.Stringer("user_id", userID),
 	)
-
 	logger.Info("following user journey status")
 
 	nconn := srv.jet.Conn()
-
-	handler := func(msg *nats.Msg) {
-		if ctx.Done() != nil {
-			logger.Info("stopping user journey status follow")
-			return
-		}
-
-		enc.WriteEvent("UserAdvanced", msg.Data)
-	}
-
 	subject := schemas.JourneysAdvance(projectID, journeyID, userID)
-	_, err := nconn.Subscribe(string(subject), handler)
+
+	sub, err := nconn.Subscribe(string(subject), func(msg *nats.Msg) {
+		fmt.Println("incoming message!!!")
+		enc.WriteEvent("step", string(msg.Data))
+	})
 	if err != nil {
-		logger.Error("failed to subscribe to journey updates", zap.Error(err))
-		oapi.WriteProblem(w, err)
+		logger.Error("subscribe failed", zap.Error(err))
 		return
 	}
+	defer sub.Unsubscribe()
+
+	fmt.Println("passing sub!!!")
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				enc.WriteEvent("hello", "world")
+			}
+		}
+	}()
+
+	<-ctx.Done()
+	logger.Info("client disconnected")
 }
 
 func (srv *JourneysController) RunJourneyForUser(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
