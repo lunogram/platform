@@ -32,12 +32,10 @@ func TestComposeEmail(t *testing.T) {
 		{
 			name: "uses template from when provider unlocked and template specifies",
 			config: map[string]any{
-				"data": map[string]any{
-					"apiKey":                     "test-api-key",
-					ProviderKeyDefaultFrom:       "default@example.com",
-					ProviderKeyDefaultFromName:   "Default Name",
-					ProviderKeyDefaultFromLocked: false,
-				},
+				"apiKey":                     "test-api-key",
+				ProviderKeyDefaultFrom:       "default@example.com",
+				ProviderKeyDefaultFromName:   "Default Name",
+				ProviderKeyDefaultFromLocked: false,
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{
@@ -54,12 +52,10 @@ func TestComposeEmail(t *testing.T) {
 		{
 			name: "uses provider default_from when template empty",
 			config: map[string]any{
-				"data": map[string]any{
-					"apiKey":                     "test-api-key",
-					ProviderKeyDefaultFrom:       "default@example.com",
-					ProviderKeyDefaultFromName:   "Default Name",
-					ProviderKeyDefaultFromLocked: false,
-				},
+				"apiKey":                     "test-api-key",
+				ProviderKeyDefaultFrom:       "default@example.com",
+				ProviderKeyDefaultFromName:   "Default Name",
+				ProviderKeyDefaultFromLocked: false,
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{
@@ -76,12 +72,10 @@ func TestComposeEmail(t *testing.T) {
 		{
 			name: "uses provider default_from when locked (ignores template)",
 			config: map[string]any{
-				"data": map[string]any{
-					"apiKey":                     "test-api-key",
-					ProviderKeyDefaultFrom:       "locked@example.com",
-					ProviderKeyDefaultFromName:   "Locked Name",
-					ProviderKeyDefaultFromLocked: true,
-				},
+				"apiKey":                     "test-api-key",
+				ProviderKeyDefaultFrom:       "locked@example.com",
+				ProviderKeyDefaultFromName:   "Locked Name",
+				ProviderKeyDefaultFromLocked: true,
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{
@@ -98,9 +92,7 @@ func TestComposeEmail(t *testing.T) {
 		{
 			name: "errors when no from address available",
 			config: map[string]any{
-				"data": map[string]any{
-					"apiKey": "test-api-key",
-				},
+				"apiKey": "test-api-key",
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{
@@ -116,10 +108,8 @@ func TestComposeEmail(t *testing.T) {
 		{
 			name: "errors when user has no email",
 			config: map[string]any{
-				"data": map[string]any{
-					"apiKey":               "test-api-key",
-					ProviderKeyDefaultFrom: "default@example.com",
-				},
+				"apiKey":               "test-api-key",
+				ProviderKeyDefaultFrom: "default@example.com",
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{
@@ -135,10 +125,8 @@ func TestComposeEmail(t *testing.T) {
 		{
 			name: "uses template from with no name when provider has no default_from_name",
 			config: map[string]any{
-				"data": map[string]any{
-					"apiKey":               "test-api-key",
-					ProviderKeyDefaultFrom: "default@example.com",
-				},
+				"apiKey":               "test-api-key",
+				ProviderKeyDefaultFrom: "default@example.com",
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{
@@ -155,10 +143,8 @@ func TestComposeEmail(t *testing.T) {
 		{
 			name: "uses provider default_from_name fallback when template name is empty",
 			config: map[string]any{
-				"data": map[string]any{
-					"apiKey":                   "test-api-key",
-					ProviderKeyDefaultFromName: "Fallback Name",
-				},
+				"apiKey":                   "test-api-key",
+				ProviderKeyDefaultFromName: "Fallback Name",
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{

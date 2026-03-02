@@ -27,12 +27,10 @@ func TestComposeSMS(t *testing.T) {
 		{
 			name: "uses template from when provider unlocked and template specifies",
 			config: map[string]any{
-				"data": map[string]any{
-					"accountSid":                 "test-sid",
-					"authToken":                  "test-token",
-					ProviderKeyDefaultFrom:       "+10000000000",
-					ProviderKeyDefaultFromLocked: false,
-				},
+				"accountSid":                 "test-sid",
+				"authToken":                  "test-token",
+				ProviderKeyDefaultFrom:       "+10000000000",
+				ProviderKeyDefaultFromLocked: false,
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{
@@ -47,12 +45,10 @@ func TestComposeSMS(t *testing.T) {
 		{
 			name: "uses provider default_from when template empty",
 			config: map[string]any{
-				"data": map[string]any{
-					"accountSid":                 "test-sid",
-					"authToken":                  "test-token",
-					ProviderKeyDefaultFrom:       "+10000000000",
-					ProviderKeyDefaultFromLocked: false,
-				},
+				"accountSid":                 "test-sid",
+				"authToken":                  "test-token",
+				ProviderKeyDefaultFrom:       "+10000000000",
+				ProviderKeyDefaultFromLocked: false,
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{
@@ -67,12 +63,10 @@ func TestComposeSMS(t *testing.T) {
 		{
 			name: "uses provider default_from when locked (ignores template)",
 			config: map[string]any{
-				"data": map[string]any{
-					"accountSid":                 "test-sid",
-					"authToken":                  "test-token",
-					ProviderKeyDefaultFrom:       "+10000000000",
-					ProviderKeyDefaultFromLocked: true,
-				},
+				"accountSid":                 "test-sid",
+				"authToken":                  "test-token",
+				ProviderKeyDefaultFrom:       "+10000000000",
+				ProviderKeyDefaultFromLocked: true,
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{
@@ -87,10 +81,8 @@ func TestComposeSMS(t *testing.T) {
 		{
 			name: "errors when no from number available",
 			config: map[string]any{
-				"data": map[string]any{
-					"accountSid": "test-sid",
-					"authToken":  "test-token",
-				},
+				"accountSid": "test-sid",
+				"authToken":  "test-token",
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{
@@ -104,11 +96,9 @@ func TestComposeSMS(t *testing.T) {
 		{
 			name: "errors when user has no phone",
 			config: map[string]any{
-				"data": map[string]any{
-					"accountSid":           "test-sid",
-					"authToken":            "test-token",
-					ProviderKeyDefaultFrom: "+10000000000",
-				},
+				"accountSid":           "test-sid",
+				"authToken":            "test-token",
+				ProviderKeyDefaultFrom: "+10000000000",
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{
@@ -123,11 +113,9 @@ func TestComposeSMS(t *testing.T) {
 		{
 			name: "uses provider default when template has no from field at all",
 			config: map[string]any{
-				"data": map[string]any{
-					"accountSid":           "test-sid",
-					"authToken":            "test-token",
-					ProviderKeyDefaultFrom: "+10000000000",
-				},
+				"accountSid":           "test-sid",
+				"authToken":            "test-token",
+				ProviderKeyDefaultFrom: "+10000000000",
 			},
 			template: management.Template{
 				Data: json.RawMessage(`{

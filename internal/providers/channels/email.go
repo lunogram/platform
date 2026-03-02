@@ -38,10 +38,9 @@ func ComposeEmail(config map[string]any, template management.Template, user *use
 		return nil, fmt.Errorf("failed to parse email template data: %w", err)
 	}
 
-	providerData, _ := config["data"].(map[string]any)
-	defaultFrom, _ := providerData[ProviderKeyDefaultFrom].(string)
-	defaultFromName, _ := providerData[ProviderKeyDefaultFromName].(string)
-	defaultFromLocked, _ := providerData[ProviderKeyDefaultFromLocked].(bool)
+	defaultFrom, _ := config[ProviderKeyDefaultFrom].(string)
+	defaultFromName, _ := config[ProviderKeyDefaultFromName].(string)
+	defaultFromLocked, _ := config[ProviderKeyDefaultFromLocked].(bool)
 
 	fromAddress := data.From.Email
 	fromName := data.From.Name

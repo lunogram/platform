@@ -25,9 +25,8 @@ func ComposeSMS(config map[string]any, template management.Template, user *users
 		return nil, fmt.Errorf("failed to unmarshal SMS template data: %w", err)
 	}
 
-	providerData, _ := config["data"].(map[string]any)
-	defaultFrom, _ := providerData[ProviderKeyDefaultFrom].(string)
-	defaultFromLocked, _ := providerData[ProviderKeyDefaultFromLocked].(bool)
+	defaultFrom, _ := config[ProviderKeyDefaultFrom].(string)
+	defaultFromLocked, _ := config[ProviderKeyDefaultFromLocked].(bool)
 
 	fromNumber := data.From
 
