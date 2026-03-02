@@ -80,6 +80,22 @@ export default function UserTabs() {
     }
 
     const createUser = async (user: User) => {
+        const email = user.email?.trim()
+        const phone = user.phone?.trim()
+        const externalId = user.external_id?.trim()
+
+        if (!email && !phone && !externalId) {
+            throw new Error('At least one of email, phone, or external ID must be provided')
+        }
+
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            throw new Error('Invalid email address')
+        }
+
+        if (phone && !/^\+[1-9]\d{6,14}$/.test(phone)) {
+            throw new Error('Invalid phone number (must be E.164 format, e.g. +31612345678)')
+        }
+
         const { full_name, ...rest } = user
         const newUser: User = {
             ...rest,
