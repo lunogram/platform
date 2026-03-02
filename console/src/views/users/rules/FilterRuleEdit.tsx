@@ -1,12 +1,12 @@
 import { useContext, useMemo } from "react";
-import { highlightSearch, usePopperSelectDropdown } from "../../../ui/utils";
+import { highlightSearch, usePopperSelectDropdown } from "@/ui/utils";
 import type { RuleEditProps } from "./RuleHelpers";
 import { operatorTypes, VariablesContext, ruleTypes } from "./RuleHelpers";
-import { ButtonGroup } from "../../../ui";
-import { SingleSelect } from "../../../ui/form/SingleSelect";
-import { Combobox } from "../../../components/ui/combobox";
-import TextInput from "../../../ui/form/TextInput";
-import type { EventSchemaPath, RulePath } from "../../../types";
+import { ButtonGroup } from "@/ui";
+import { SingleSelect } from "@/ui/form/SingleSelect";
+import { Combobox } from "@/components/ui/combobox";
+import TextInput from "@/ui/form/TextInput";
+import type { EventSchemaPath, RulePath } from "@/types";
 
 type PathOption = RulePath | EventSchemaPath;
 

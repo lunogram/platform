@@ -387,7 +387,7 @@ export default function ListDetail() {
                             </label>
                             <Input
                                 type="file"
-                                onChange={(e) => setUploadFile(e.target.files?.[0] || undefined)}
+                                onChange={(e) => setUploadFile(e.target.files?.[0])}
                                 required
                             />
                         </Field>
