@@ -201,7 +201,7 @@ export interface RulePath {
 
 export interface EventSchemaPath {
   path: string;
-  types: string[];
+  types: RulePath["data_type"][];
 }
 
 export interface EventSchema {

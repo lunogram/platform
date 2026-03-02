@@ -51,9 +51,9 @@ export default function FilterRuleEdit({
     return paths;
   }, [suggestions, isEventGroup, eventName, path]);
 
-  const getOptionDataType = (option: PathOption): string => {
+  const getOptionDataType = (option: PathOption): RulePath["data_type"] => {
     if ("types" in option) {
-      return option.types[0] || "string";
+      return option.types[0];
     }
   
     return option.data_type;
@@ -69,7 +69,7 @@ export default function FilterRuleEdit({
           required
           hideLabel
           size="small"
-          toValue={(x) => x.key as typeof rule.type}
+          toValue={(x) => x.key}
         />
         <Combobox
           value={rule?.path}
@@ -80,7 +80,7 @@ export default function FilterRuleEdit({
             if (suggestion) {
               setRule({
                 ...rule,
-                type: getOptionDataType(suggestion) as typeof rule.type,
+                type: getOptionDataType(suggestion),
                 path: suggestion.path,
               });
             } else {
