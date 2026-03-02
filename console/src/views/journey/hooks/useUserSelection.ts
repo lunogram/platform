@@ -14,8 +14,10 @@ export function useUserSelection(projectId: string, journeyId: string, isOpen: b
     }
   }, [isOpen, projectId, users.length]);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const activeUserIdRef = useRef<string | null>(null);
 
   const followUser = useCallback((userId: string) => {
+    activeUserIdRef.current = userId;
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
     }
@@ -30,6 +32,13 @@ export function useUserSelection(projectId: string, journeyId: string, isOpen: b
       onUserEnteredNode(JSON.parse(JSON.parse(e.data)).external_step_id);
     });
 
+    es.onerror = (e) => {
+      console.error("EventSource error:", e);
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+
     eventSourceRef.current = es;
   }, [projectId, journeyId, onUserEnteredNode]);
 
@@ -43,5 +52,23 @@ export function useUserSelection(projectId: string, journeyId: string, isOpen: b
     }
   }, [projectId, journeyId, t, followUser]);
 
-  return { users, triggerUser, followUser };
+  const skipDelay = useCallback(async (stepId: string, userId: string) => {
+    try {
+      await api.journeys.users.skipDelay(projectId, journeyId, userId, stepId);
+      toast.success(t("user_skipped"));
+    } catch (e) {
+      toast.error(`Error: ${e}`);
+    }
+  }, [projectId, journeyId, t]);
+
+  const skipDelayForActiveUser = useCallback(async (stepId: string) => {
+    const userId = activeUserIdRef.current;
+    if (!userId) {
+      toast.error("No active user selected");
+      return;
+    }
+    await skipDelay(stepId, userId);
+  }, [skipDelay]);
+
+  return { users, triggerUser, followUser, skipDelay, skipDelayForActiveUser };
 }

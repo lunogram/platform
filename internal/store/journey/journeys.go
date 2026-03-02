@@ -1154,3 +1154,24 @@ func (s *JourneysStore) ListEventJourneyDependencies(ctx context.Context, eventI
 	err := s.db.SelectContext(ctx, &entrances, query, eventID)
 	return entrances, err
 }
+
+func (s *JourneysStore) SkipUserJourneyStep(ctx context.Context, journeyID uuid.UUID, userID uuid.UUID, externalStepID string) ([]JourneyUserState, error) {
+	stmt := `
+	WITH updated AS (
+		UPDATE journey_user_state
+		SET resume_at = now()
+		WHERE journey_id = $1 AND user_id = $2 AND external_step_id = $3 AND completed_at IS NULL
+		RETURNING id, journey_id, journey_entry_id, user_id, external_step_id, pinned_version_id, occurrence, entered_at, resume_at, completed_at, COALESCE(data, '{}'::jsonb) AS data, updated_at
+	)
+	SELECT u.id, j.project_id, u.journey_id, u.user_id, u.pinned_version_id, u.occurrence, u.entered_at, u.resume_at, u.completed_at, u.data, u.updated_at, u.journey_entry_id, u.external_step_id
+	FROM updated u
+	JOIN journeys j ON j.id = u.journey_id`
+
+	var states []JourneyUserState
+	err := s.db.SelectContext(ctx, &states, stmt, journeyID, userID, externalStepID)
+	if err != nil {
+		return nil, err
+	}
+
+	return states, nil
+}

@@ -1171,6 +1171,15 @@ type RunJourneyForUserJSONBody struct {
 	UserID string `json:"userID"`
 }
 
+// SkipUserStepJSONBody defines parameters for SkipUserStep.
+type SkipUserStepJSONBody struct {
+	// ExternalStepID The external ID of the current step to skip
+	ExternalStepID string `json:"externalStepID"`
+
+	// UserID The ID of the user whose current step should be skipped
+	UserID string `json:"userID"`
+}
+
 // ListApiKeysParams defines parameters for ListApiKeys.
 type ListApiKeysParams struct {
 	// Limit Maximum number of items to return
@@ -1338,6 +1347,9 @@ type SetJourneyStepsJSONRequestBody = JourneyStepMap
 
 // RunJourneyForUserJSONRequestBody defines body for RunJourneyForUser for application/json ContentType.
 type RunJourneyForUserJSONRequestBody RunJourneyForUserJSONBody
+
+// SkipUserStepJSONRequestBody defines body for SkipUserStep for application/json ContentType.
+type SkipUserStepJSONRequestBody SkipUserStepJSONBody
 
 // CreateApiKeyJSONRequestBody defines body for CreateApiKey for application/json ContentType.
 type CreateApiKeyJSONRequestBody = CreateApiKey
@@ -1811,6 +1823,11 @@ type ClientInterface interface {
 	RunJourneyForUserWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	RunJourneyForUser(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body RunJourneyForUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SkipUserStepWithBody request with any body
+	SkipUserStepWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SkipUserStep(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SkipUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// VersionJourney request
 	VersionJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2709,6 +2726,30 @@ func (c *Client) RunJourneyForUserWithBody(ctx context.Context, projectID openap
 
 func (c *Client) RunJourneyForUser(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body RunJourneyForUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRunJourneyForUserRequest(c.Server, projectID, journeyID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SkipUserStepWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSkipUserStepRequestWithBody(c.Server, projectID, journeyID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SkipUserStep(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SkipUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSkipUserStepRequest(c.Server, projectID, journeyID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5708,6 +5749,60 @@ func NewRunJourneyForUserRequestWithBody(server string, projectID openapi_types.
 	return req, nil
 }
 
+// NewSkipUserStepRequest calls the generic SkipUserStep builder with application/json body
+func NewSkipUserStepRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SkipUserStepJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSkipUserStepRequestWithBody(server, projectID, journeyID, "application/json", bodyReader)
+}
+
+// NewSkipUserStepRequestWithBody generates requests for SkipUserStep with any type of body
+func NewSkipUserStepRequestWithBody(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "journeyID", runtime.ParamLocationPath, journeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewVersionJourneyRequest generates requests for VersionJourney
 func NewVersionJourneyRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -8425,6 +8520,11 @@ type ClientWithResponsesInterface interface {
 
 	RunJourneyForUserWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body RunJourneyForUserJSONRequestBody, reqEditors ...RequestEditorFn) (*RunJourneyForUserResponse, error)
 
+	// SkipUserStepWithBodyWithResponse request with any body
+	SkipUserStepWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SkipUserStepResponse, error)
+
+	SkipUserStepWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SkipUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*SkipUserStepResponse, error)
+
 	// VersionJourneyWithResponse request
 	VersionJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*VersionJourneyResponse, error)
 
@@ -9686,6 +9786,28 @@ func (r RunJourneyForUserResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r RunJourneyForUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SkipUserStepResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SkipUserStepResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SkipUserStepResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11331,6 +11453,23 @@ func (c *ClientWithResponses) RunJourneyForUserWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseRunJourneyForUserResponse(rsp)
+}
+
+// SkipUserStepWithBodyWithResponse request with arbitrary body returning *SkipUserStepResponse
+func (c *ClientWithResponses) SkipUserStepWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SkipUserStepResponse, error) {
+	rsp, err := c.SkipUserStepWithBody(ctx, projectID, journeyID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSkipUserStepResponse(rsp)
+}
+
+func (c *ClientWithResponses) SkipUserStepWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SkipUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*SkipUserStepResponse, error) {
+	rsp, err := c.SkipUserStep(ctx, projectID, journeyID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSkipUserStepResponse(rsp)
 }
 
 // VersionJourneyWithResponse request returning *VersionJourneyResponse
@@ -13392,6 +13531,32 @@ func ParseRunJourneyForUserResponse(rsp *http.Response) (*RunJourneyForUserRespo
 	return response, nil
 }
 
+// ParseSkipUserStepResponse parses an HTTP response from a SkipUserStepWithResponse call
+func ParseSkipUserStepResponse(rsp *http.Response) (*SkipUserStepResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SkipUserStepResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseVersionJourneyResponse parses an HTTP response from a VersionJourneyWithResponse call
 func ParseVersionJourneyResponse(rsp *http.Response) (*VersionJourneyResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -15061,6 +15226,9 @@ type ServerInterface interface {
 	// Manually runs a journey for a user
 	// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/users)
 	RunJourneyForUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
+	// Skip current user step
+	// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/users)
+	SkipUserStep(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
 	// Create journey version
 	// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/version)
 	VersionJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
@@ -15490,6 +15658,12 @@ func (_ Unimplemented) FollowUserJourneyStatus(w http.ResponseWriter, r *http.Re
 // Manually runs a journey for a user
 // (POST /api/admin/projects/{projectID}/journeys/{journeyID}/users)
 func (_ Unimplemented) RunJourneyForUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Skip current user step
+// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/users)
+func (_ Unimplemented) SkipUserStep(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17550,6 +17724,46 @@ func (siw *ServerInterfaceWrapper) RunJourneyForUser(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RunJourneyForUser(w, r, projectID, journeyID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SkipUserStep operation middleware
+func (siw *ServerInterfaceWrapper) SkipUserStep(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SkipUserStep(w, r, projectID, journeyID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -19793,6 +20007,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users", wrapper.RunJourneyForUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users", wrapper.SkipUserStep)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/version", wrapper.VersionJourney)

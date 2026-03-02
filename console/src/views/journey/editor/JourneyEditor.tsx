@@ -148,7 +148,7 @@ export default function JourneyEditor() {
     () => setHasUnsavedChanges(true),
   );
 
-  const { users, triggerUser } = useUserSelection(
+  const { users, triggerUser, skipDelayForActiveUser } = useUserSelection(
     project.id,
     journey.id,
     isUserModalOpen,
@@ -158,12 +158,15 @@ export default function JourneyEditor() {
   useEffect(() => {
     const load = async () => {
       const steps = await api.journeys.steps.get(project.id, journey.id);
-      const { edges, nodes } = stepsToNodes(steps, { setViewUsersStep });
+      const { edges, nodes } = stepsToNodes(steps, {
+        setViewUsersStep,
+        skipDelay: skipDelayForActiveUser,
+      });
       setNodes(nodes);
       setEdges(edges);
     };
     void load();
-  }, [project.id, journey.id, setNodes, setEdges]);
+  }, [project.id, journey.id, setNodes, setEdges, skipDelayForActiveUser]);
 
   const onPaneClick = useCallback(() => {
     if (editNode)

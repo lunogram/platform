@@ -36,7 +36,10 @@ export function createEdge({ data, sourceId, targetId, path }: CreateEdgeParams)
 
 export function stepsToNodes(
   stepMap: JourneyStepMap,
-  actions: { setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void }
+  actions: {
+    setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void;
+    skipDelay?: (stepId: string) => Promise<void>;
+  }
 ) {
   const nodes: JourneyNode[] = [];
   const edges: Edge[] = [];
@@ -46,7 +49,7 @@ export function stepsToNodes(
       id,
       position: { x, y },
       type: "step",
-      data: { type, name, data_key, data, stats, stats_at, stepId, ...actions },
+      data: { type, name, data_key, data, stats, stats_at, stepId: stepId ?? id, ...actions },
     });
     children?.forEach(({ external_id, path, data }) =>
       edges.push(createEdge({ sourceId: id, targetId: external_id, data, path }))

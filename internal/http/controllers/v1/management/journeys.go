@@ -3,7 +3,6 @@ package v1
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -331,7 +330,7 @@ func (srv *JourneysController) FollowUserJourneyStatus(
 	enc := sse.NewEncoder(w)
 	enc.WriteEvent("message", "connected")
 	rc := http.NewResponseController(w)
-	rc.SetWriteDeadline(time.Time{}) // Zero time = no deadline
+	rc.SetWriteDeadline(time.Time{})
 
 	userID := params.UserID
 	logger := srv.logger.With(
@@ -345,7 +344,6 @@ func (srv *JourneysController) FollowUserJourneyStatus(
 	subject := schemas.JourneysAdvance(projectID, journeyID, userID)
 
 	sub, err := nconn.Subscribe(string(subject), func(msg *nats.Msg) {
-		fmt.Println("incoming message!!!")
 		enc.WriteEvent("step", string(msg.Data))
 	})
 	if err != nil {
@@ -353,21 +351,6 @@ func (srv *JourneysController) FollowUserJourneyStatus(
 		return
 	}
 	defer sub.Unsubscribe()
-
-	fmt.Println("passing sub!!!")
-
-	// go func() {
-	// 	ticker := time.NewTicker(1 * time.Second)
-	// 	defer ticker.Stop()
-	// 	for {
-	// 		select {
-	// 		case <-ctx.Done():
-	// 			return
-	// 		case <-ticker.C:
-	// 			enc.WriteEvent("hello", "world")
-	// 		}
-	// 	}
-	// }()
 
 	<-ctx.Done()
 	logger.Info("client disconnected")
@@ -471,6 +454,63 @@ func (srv *JourneysController) RunJourneyForUser(w http.ResponseWriter, r *http.
 
 	logger.Info("journey run for user")
 	json.Write(w, http.StatusOK, "Journey run successfully for user")
+}
+
+func (srv *JourneysController) SkipUserStep(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
+	ctx := r.Context()
+
+	body := oapi.SkipUserStepJSONRequestBody{}
+	err := json.Decode(r.Body, &body)
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	userIDStr := body.UserID
+	externalStepIDStr := body.ExternalStepID
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.Stringer("journey_id", journeyID),
+		zap.String("user_id", userIDStr),
+		zap.String("external_step_id", externalStepIDStr),
+	)
+	logger.Info("skipping user journey step")
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		logger.Error("invalid user_id format", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid user_id format")))
+		return
+	}
+
+	states, err := srv.jrny.SkipUserJourneyStep(ctx, journeyID, userID, externalStepIDStr)
+	if err != nil {
+		logger.Error("failed to skip user journey step", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	for _, state := range states {
+		step := schemas.JourneyStep{
+			ProjectID:      projectID,
+			JourneyID:      state.JourneyID,
+			JourneyEntryID: state.JourneyEntryID,
+			VersionID:      state.PinnedVersionID,
+			UserID:         state.UserID,
+			ExternalStepID: state.ExternalStepID,
+			StateID:        &state.ID,
+		}
+
+		err = srv.pub.Publish(ctx, schemas.JourneysAdvance(projectID, state.JourneyID, state.UserID), step)
+		if err != nil {
+			logger.Error("failed to publish skipped journey step", zap.Error(err), zap.Stringer("state_id", state.ID))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	}
+
+	json.Write(w, http.StatusOK, "User journey step skipped")
 }
 
 func (srv *JourneysController) GetJourneySteps(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {

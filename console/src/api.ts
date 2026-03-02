@@ -428,8 +428,12 @@ const api = {
         stepId: UUID,
       ) =>
         await client
-          .post<JourneyEntranceDetail>(
-            `${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/steps/${stepId}/resume`,
+          .put<JourneyEntranceDetail>(
+            `${projectUrl(projectId)}/journeys/${journeyId}/users`,
+            {
+              externalStepID: stepId,
+              userID: userId,
+            },
           )
           .then((r) => r.data),
       removeFromJourney: async (

@@ -1132,6 +1132,50 @@ paths:
           description: Journey run successfully for user
         default:
           $ref: "#/components/responses/Error"
+    put:
+      summary: Skip current user step
+      description: Skips the current step for a user in a journey and moves to the next step
+      operationId: skipUserStep
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userID
+                - externalStepID
+              properties:
+                userID:
+                  type: string
+                  description: The ID of the user whose current step should be skipped
+                externalStepID:
+                  type: string
+                  description: The external ID of the current step to skip
+      responses:
+        "200":
+          description: Current step skipped successfully
+        default:
+          $ref: "#/components/responses/Error"
 
 
   /api/admin/projects/{projectID}/journeys/{journeyID}/steps:

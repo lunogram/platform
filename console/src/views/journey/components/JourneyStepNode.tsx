@@ -10,15 +10,12 @@ import type { Connection, NodeProps } from "reactflow";
 import { Handle, Position, useReactFlow, getConnectedEdges } from "reactflow";
 import { useTranslation } from "react-i18next";
 import clsx from "clsx";
-import { User } from "lucide-react";
+import { FastForward, User } from "lucide-react";
 import { ProjectContext, JourneyContext } from "@/contexts";
 import Alert from "@/ui/Alert";
 import { KeyIcon } from "@/components/icons";
 import { getStepType } from "../editor/JourneyEditor.utils";
-import {
-  statIcons,
-  stepCategoryColors,
-} from "../hooks/JourneyEditor.constants";
+import { stepCategoryColors } from "../hooks/JourneyEditor.constants";
 
 import "reactflow/dist/style.css";
 import "../editor/JourneyEditor.css";
@@ -32,9 +29,8 @@ export const JourneyStepNode = memo(
       name,
       data,
       data_key,
-      stats = {},
       editing,
-      setViewUsersStep,
+      skipDelay,
       visited = false,
       active = false,
     } = {},
@@ -47,9 +43,12 @@ export const JourneyStepNode = memo(
     const { getNode, getEdges, setNodes } = useReactFlow();
 
     const type = getStepType(typeName);
+    const isExit = typeName === "exit" || name?.toLowerCase() === "exit";
+    const isActiveVisual = active && !isExit;
+    const isExitCompletedVisual = isExit && active;
+    const isVisitedVisual = visited && !isExit;
 
     useEffect(() => {
-      const isExit = typeName === "exit" || name?.toLowerCase() === "exit";
       if (active && isExit) {
         const timer = setTimeout(() => {
           setNodes((nds) =>
@@ -63,7 +62,7 @@ export const JourneyStepNode = memo(
         }, 2000);
         return () => clearTimeout(timer);
       }
-    }, [active, id, setNodes, name, typeName]);
+    }, [active, isExit, setNodes]);
 
     const validateConnection = useCallback(
       (conn: Connection) => {
@@ -81,17 +80,17 @@ export const JourneyStepNode = memo(
     );
 
     if (!type) return <Alert variant="error" title="Invalid Step Type" />;
-    const isValid = type.validate ? type.validate(data) : true;
+    const categoryColorClass =
+      stepCategoryColors[type.category as keyof typeof stepCategoryColors];
+    const isValid = isExit ? true : type.validate ? type.validate(data) : true;
 
     return (
       <>
-        {active && (
+        {isActiveVisual && (
           <div
             className={clsx(
               "absolute -top-4 -right-4 z-50 flex h-8 w-8 items-center justify-center rounded-full text-white shadow-xl animate-in zoom-in-75 fade-in duration-200 border-2 border-white",
-              stepCategoryColors[
-                type.category as keyof typeof stepCategoryColors
-              ],
+              categoryColorClass,
             )}
             style={{ pointerEvents: "none" }}
           >
@@ -111,54 +110,37 @@ export const JourneyStepNode = memo(
 
             !isValid
               ? "error border-red-500 ring-2 ring-red-200"
-              : active
+              : isActiveVisual
                 ? "border-[3px] border-orange-500 shadow-lg scale-105"
-                : visited
-                  ? "border-[3px] border-green-500"
-                  : "border border-gray-200",
+                : isExitCompletedVisual
+                  ? "border-[3px] border-green-500 shadow-lg"
+                  : isVisitedVisual
+                    ? "border-[3px] border-green-500"
+                    : "border border-gray-200",
             editing && "editing",
           )}
         >
           <div className="journey-step-header">
-            <span
-              className={clsx(
-                "step-header-icon",
-                stepCategoryColors[
-                  type.category as keyof typeof stepCategoryColors
-                ],
-              )}
-            >
+            <span className={clsx("step-header-icon", categoryColorClass)}>
               {type.icon}
             </span>
             <h4 className="legacy-typography step-header-title">
               {name || t(type.name)}
             </h4>
             {type.category !== "info" && (
-              <div
-                className="step-header-stats"
-                onClickCapture={
-                  stepId
-                    ? () =>
-                        setViewUsersStep?.({
-                          stepId: stepId,
-                          stepType: typeName,
-                        })
-                    : undefined
-                }
-              >
-                <span className="stat">
-                  {(stats.completed ?? 0).toLocaleString()}{" "}
-                  {statIcons.completed}
-                </span>
-                {(typeName === "delay" || !!stats.delay) && (
-                  <span className="stat">
-                    {(stats.delay ?? 0).toLocaleString()} {statIcons.delay}
-                  </span>
-                )}
-                {(typeName === "action" || !!stats.action) && (
-                  <span className="stat">
-                    {(stats.action ?? 0).toLocaleString()} {statIcons.action}
-                  </span>
+              <div className="step-header-stats">
+                {typeName === "delay" && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const targetStepId = stepId ?? id;
+                      if (targetStepId) skipDelay?.(targetStepId);
+                    }}
+                    className="skip-delay-btn"
+                  >
+                    <FastForward size={14} className="fill-current" />
+                    <span>{t("Skip")}</span>
+                  </button>
                 )}
               </div>
             )}

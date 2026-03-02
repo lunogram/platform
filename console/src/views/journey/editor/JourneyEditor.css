@@ -233,9 +233,12 @@
     opacity: 1;
 }
 
-.journey-step.entrance.selected,
-.journey-step.exit.selected {
+.journey-step.entrance.selected {
     border-color: var(--color-red-hard);
+}
+
+.journey-step.exit.selected {
+    border-color: var(--color-grey-hard);
 }
 
 .journey-step.flow.selected {
@@ -459,4 +462,48 @@
     display: flex;
     gap: 10px;
     flex-direction: column;
+}
+
+/* 1. Target the stats container specifically inside a delay step */
+.journey-step.delay .step-header-stats {
+    background-color: var(--color-yellow-soft);
+    border: 1px solid var(--color-yellow-soft); /* Match bg to remove 'border' look */
+    padding: 0; /* We move padding to the button for a better click area */
+    transition: all 0.2s ease;
+    overflow: hidden;
+}
+
+/* 2. Hover effect for the container */
+.journey-step.delay .step-header-stats:hover {
+    background-color: var(--color-yellow-soft);
+    border-color: var(--color-yellow-hard);
+    transform: translateY(-1px);
+}
+
+/* 3. Style the button inside the stats container */
+.journey-step.delay .step-header-stats button {
+    background: transparent;
+    border: none;
+    color: var(--color-yellow-hard);
+    padding: 6px 10px; /* Standard internal padding */
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* 4. Ensure the icon matches the text color */
+.journey-step.delay .step-header-stats button svg {
+    fill: var(--color-yellow-hard);
+    color: var(--color-yellow-hard);
+}
+
+/* 5. Optional: Active/Pressed state */
+.journey-step.delay .step-header-stats:active {
+    transform: translateY(0px);
+    filter: brightness(0.95);
 }
