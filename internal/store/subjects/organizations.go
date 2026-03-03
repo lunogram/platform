@@ -297,7 +297,8 @@ func (s *OrganizationsStore) UpsertOrganizationSchema(ctx context.Context, proje
 	VALUES ($1, $2, $3)
 	ON CONFLICT (project_id, path, data_type) DO NOTHING`
 
-	// TODO: optimize with batch insert
+	// TODO: consider batch insert if path count becomes large enough to impact performance.
+	// Current usage suggests path counts are small (typically <50 paths per schema update).
 	for _, path := range paths {
 		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type)
 		if err != nil {
@@ -345,7 +346,8 @@ func (s *OrganizationsStore) UpsertOrganizationUserSchema(ctx context.Context, p
 	VALUES ($1, $2, $3)
 	ON CONFLICT (project_id, path, data_type) DO NOTHING`
 
-	// TODO: optimize with batch insert
+	// TODO: consider batch insert if path count becomes large enough to impact performance.
+	// Current usage suggests path counts are small (typically <50 paths per schema update).
 	for _, path := range paths {
 		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type)
 		if err != nil {
