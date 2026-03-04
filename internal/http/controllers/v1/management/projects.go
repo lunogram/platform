@@ -19,16 +19,19 @@ import (
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/webhook"
+	webhookoapi "github.com/lunogram/platform/oapi"
 	"go.uber.org/zap"
 )
 
-func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB) *ProjectsController {
+func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, webhookCaller *webhook.Caller) *ProjectsController {
 	return &ProjectsController{
 		logger:       logger,
 		managementDB: managementDB,
 		store:        management.NewState(managementDB),
 		journey:      journey.NewState(journeyDB),
 		users:        users.NewState(usersDB),
+		webhook:      webhookCaller,
 	}
 }
 
@@ -38,6 +41,7 @@ type ProjectsController struct {
 	store        *management.State
 	journey      *journey.State
 	users        *users.State
+	webhook      *webhook.Caller
 }
 
 func (srv *ProjectsController) loadProjectCounts(ctx context.Context, project *management.Project) {
@@ -239,6 +243,20 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	}
 
 	srv.loadProjectCounts(ctx, project)
+
+	err = srv.webhook.ProjectCreated(ctx, r, webhookoapi.ProjectDetails{
+		Id:             project.ID,
+		OrganizationId: *project.OrganizationID,
+		Name:           project.Name,
+		Timezone:       &project.Timezone,
+		Locale:         &project.Locale,
+		CreatedAt:      project.CreatedAt,
+	})
+	if err != nil {
+		logger.Error("failed to call project created webhook", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	json.Write(w, http.StatusCreated, project.OAPI())
 }
