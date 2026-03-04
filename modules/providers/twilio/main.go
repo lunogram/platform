@@ -36,8 +36,11 @@ func Manifest() int32 {
 					"data": {
 						Type: "object",
 						Properties: map[string]*modules.JSONSchema{
-							"accountSid": {Type: "string", Title: "Account SID"},
-							"authToken":  {Type: "string", Title: "Auth Token", Format: "password"},
+							"accountSid":          {Type: "string", Title: "Account SID"},
+							"authToken":           {Type: "string", Title: "Auth Token", Format: "password"},
+							"default_from":        {Type: "string", Title: "Default From Number", Description: "Default sender phone number (for SMS) or email address (for email)"},
+							"default_from_name":   {Type: "string", Title: "Default From Name", Description: "Default sender display name (email only)"},
+							"default_from_locked": {Type: "boolean", Title: "Lock From", Description: "Prevent templates from overriding the from value"},
 						},
 						Required: []string{"accountSid", "authToken"},
 					},

@@ -712,12 +712,18 @@ const api = {
   },
 
   images: {
-    ...createProjectEntityPath<Image>("images"),
+    ...createProjectEntityPath<Image>("documents"),
     create: async (projectId: UUID, image: File) => {
       const formData = new FormData();
-      formData.append("image", image);
-      await client.post(`${projectUrl(projectId)}/images`, formData);
+      formData.append("files", image);
+      return await client.post(`${projectUrl(projectId)}/documents`, formData).then((r) => r.data);
     },
+    get: async (projectId: UUID, id: UUID) =>
+      await client
+        .get<Blob>(`${projectUrl(projectId)}/documents/${id}`, {
+          responseType: "blob",
+        })
+        .then((r) => r.data),
   },
 
   resources: {

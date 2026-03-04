@@ -14,11 +14,15 @@
 
 <p align="center">
   <a href="https://docs.lunogram.com">Documentation</a> •
-  <a href="https://discord.gg/BpKZhwnq">Discord</a> •
+  <a href="https://github.com/lunogram/platform/discussions">Discussions</a> •
   <a href="#contributing">Contributing</a>
 </p>
 
 <p align="center">⭐️ Enjoying Lunogram? Please <a href="https://github.com/lunogram/platform">leave a star</a>!</p>
+
+<p align="center">
+  <em>Lunogram is a fork of <a href="https://github.com/parcelvoy/platform">Parcelvoy</a></em>
+</p>
 
 <br />
 
@@ -61,4 +65,8 @@ For full documentation on the platform and more information on deployment, check
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) to get started.
 
-Join our community on [Discord](https://discord.gg/BpKZhwnq) to connect with other users and contributors, report bugs, suggest features, or just say hi!
+Join our community on [GitHub Discussions](https://github.com/lunogram/platform/discussions) to connect with other users and contributors, report bugs, suggest features, or just say hi!
+
+## Acknowledgments
+
+Lunogram is a fork of [Parcelvoy](https://github.com/parcelvoy/platform), an open-source customer engagement platform that was publicly archived by its maintainers. We're grateful to the Parcelvoy team for their foundational work and are committed to continuing the project's development as an open-source solution.

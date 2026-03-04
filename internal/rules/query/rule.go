@@ -20,11 +20,15 @@ var validKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9_. -]+$`)
 
 // normalizeDataPath ensures a path accesses the JSONB data column.
 // Paths like ".tier" become ".data.tier" to access the JSONB data column,
-// while paths already starting with ".data" are returned unchanged.
+// while paths already starting with ".data" as the first segment are returned unchanged.
+// This correctly handles paths like ".database" (normalized to ".data.database")
+// vs ".data.tier" (already normalized, unchanged).
 func normalizeDataPath(path string) string {
-	if strings.HasPrefix(path, ".data") {
+	// Check if path already starts with ".data"
+	if path == ".data" || strings.HasPrefix(path, ".data.") || strings.HasPrefix(path, ".data[") {
 		return path
 	}
+
 	return ".data" + path
 }
 
@@ -131,23 +135,21 @@ func (qb *QueryBuilder) buildRule(rule *rules.Rule) (string, error) {
 }
 
 // isOrganizationWrapper checks if a wrapper rule contains only organization-related rules
-// (RuleGroupOrganization and/or RuleGroupOrganizationUser)
+// (RuleGroupOrganization and/or RuleGroupOrganizationUser). Nested wrappers (RuleGroupParent)
+// are not allowed here - they should be handled by buildWrapper which recurses properly.
 func (qb *QueryBuilder) isOrganizationWrapper(rule *rules.Rule) bool {
 	if !rule.HasChildren() {
 		return false
 	}
 
-	hasOrgRules := false
 	for _, child := range rule.Children {
-		if child.Group == rules.RuleGroupOrganization || child.Group == rules.RuleGroupOrganizationUser {
-			hasOrgRules = true
-		} else if child.Group != rules.RuleGroupParent {
-			// If there's a non-organization, non-parent rule, this is not a pure org wrapper
+		if child.Group != rules.RuleGroupOrganization && child.Group != rules.RuleGroupOrganizationUser {
+			// If there's any non-organization rule (including nested wrappers), this is not a pure org wrapper
 			return false
 		}
 	}
 
-	return hasOrgRules
+	return true
 }
 
 // buildWrapper builds SQL for wrapper nodes with logical operators
@@ -222,12 +224,12 @@ func (qb *QueryBuilder) isJoinProducingRule(rule *rules.Rule) bool {
 }
 
 // buildOrWrapper builds SQL for OR wrapper with join-producing children
-// It combines joins using UNION inside a single JOIN to achieve OR semantics
+// It combines all children into user_id subqueries and UNIONs them to achieve true OR semantics.
+// This ensures users matching ANY branch are included, regardless of whether the branch
+// produces a JOIN or a WHERE condition.
 func (qb *QueryBuilder) buildOrWrapper(rule *rules.Rule) (string, error) {
-	// Collect subqueries from join-producing children
+	// Collect all subqueries (both from join-producing and non-join-producing children)
 	subqueries := []string{}
-	// Collect WHERE conditions from non-join-producing children
-	conditions := []string{}
 
 	// Save current join count to detect new joins
 	startJoinCount := len(qb.joins)
@@ -253,12 +255,16 @@ func (qb *QueryBuilder) buildOrWrapper(rule *rules.Rule) (string, error) {
 				}
 			}
 		} else {
+			// For non-join-producing rules (e.g., user attributes), convert to a subquery
+			// so it can be UNIONed with join-producing subqueries
 			condition, err := qb.buildRule(child)
 			if err != nil {
 				return "", err
 			}
 			if condition != "" {
-				conditions = append(conditions, condition)
+				// Build a subquery that returns user_id for users matching this condition
+				subquery := fmt.Sprintf("SELECT u.id AS user_id FROM users u WHERE u.project_id = %s AND %s", qb.arg(qb.projectID), condition)
+				subqueries = append(subqueries, subquery)
 			}
 		}
 	}
@@ -266,7 +272,7 @@ func (qb *QueryBuilder) buildOrWrapper(rule *rules.Rule) (string, error) {
 	// Remove all joins that were added by children (we'll combine them)
 	qb.joins = qb.joins[:startJoinCount]
 
-	// If we have subqueries, combine them with UNION into a single JOIN
+	// Combine all subqueries with UNION into a single JOIN
 	if len(subqueries) > 0 {
 		alias := qb.nextJoinAlias()
 		unionQuery := strings.Join(subqueries, " UNION ")
@@ -274,8 +280,8 @@ func (qb *QueryBuilder) buildOrWrapper(rule *rules.Rule) (string, error) {
 		qb.joins = append(qb.joins, joinClause)
 	}
 
-	// Return the WHERE conditions combined with OR
-	return joinConditions(conditions, "OR"), nil
+	// No WHERE conditions needed - all branches are in the UNION
+	return "", nil
 }
 
 // extractSubqueryFromJoin extracts the subquery part from a JOIN clause

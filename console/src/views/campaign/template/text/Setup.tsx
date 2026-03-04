@@ -9,6 +9,7 @@ import * as z from "zod";
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
     Select,
@@ -22,15 +23,21 @@ import { useContext, useState, useEffect } from "react";
 import { ProjectContext, TemplateContext } from "@/contexts";
 
 const textSetupFormSchema = z.object({
+    from: z.string().optional(),
     message: z.string("Message is required").min(1, "Message is required"),
 });
 
-export function TextForm(_campaign: Campaign, template?: Template) {
-    const formSchema = textSetupFormSchema.extend({});
+export function TextForm(campaign: Campaign, template?: Template) {
+    const formSchema = textSetupFormSchema.extend({
+        from: campaign?.provider?.data.default_from
+            ? z.string().optional()
+            : z.string("From number is required").min(1),
+    });
 
     return useForm({
         resolver: zodResolver(formSchema),
         defaultValues: {
+            from: template?.data.from ?? "",
             message: template?.data.message,
         },
     });
@@ -42,11 +49,30 @@ interface TextFormControlProps {
     disabled?: boolean;
 }
 
-export function TextFormControl({ form, disabled = false }: TextFormControlProps) {
+export function TextFormControl({ campaign, form, disabled = false }: TextFormControlProps) {
     const { t } = useTranslation();
 
     return (
         <FieldGroup className="mt-7">
+            <Controller
+                name="from"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid} className="gap-2">
+                        <FieldLabel htmlFor="form-rhf-demo-from">{t('campaign.setup.channels.text.from.label')}</FieldLabel>
+                        <Input
+                            {...field}
+                            id="form-rhf-demo-from"
+                            aria-invalid={fieldState.invalid}
+                            placeholder={campaign?.provider?.data.default_from || ""}
+                            disabled={disabled || campaign?.provider?.data.default_from_locked}
+                            readOnly={disabled}
+                            autoComplete="off"
+                        />
+                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
+                )}
+            />
             <Controller
                 name="message"
                 control={form.control}

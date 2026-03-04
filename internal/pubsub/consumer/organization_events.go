@@ -161,7 +161,7 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 			}
 
 			// Query users - either filtered by UserRule or all users in the organization
-			rows, err := queryUsers(ctx, usrs, event.ProjectID, event.OrganizationID, entrance.UserRule)
+			rows, err := queryOrganizationMembers(ctx, usrs, event.ProjectID, event.OrganizationID, entrance.UserRule)
 			if err != nil {
 				logger.Error("failed to query organization user IDs", zap.Error(err))
 				return err
@@ -233,7 +233,9 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 	}
 }
 
-func queryUsers(ctx context.Context, usrs *subjects.State, projectID, organizationID uuid.UUID, userRule *rules.RuleSet) (*sqlx.Rows, error) {
+// queryOrganizationMembers returns user IDs for members of the given organization.
+// If a userRule is provided, it filters users matching the rule; otherwise returns all members.
+func queryOrganizationMembers(ctx context.Context, usrs *subjects.State, projectID, organizationID uuid.UUID, userRule *rules.RuleSet) (*sqlx.Rows, error) {
 	if userRule != nil {
 		return usrs.QueryOrganizationUsersMatchingRule(ctx, projectID, organizationID, *userRule)
 	}
