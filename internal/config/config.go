@@ -18,6 +18,7 @@ type Node struct {
 	Auth            Auth    `envPrefix:"AUTH_"`
 	Nats            Nats    `envPrefix:"NATS_"`
 	WASM            WASM    `envPrefix:"WASM_"`
+	Webhook         Webhook `envPrefix:"WEBHOOK_"`
 	HTTP            http.Config
 	Store           store.Config
 	Storage         storage.Config
@@ -59,4 +60,11 @@ type Cluster struct {
 
 type WASM struct {
 	CallTimeout time.Duration `env:"CALL_TIMEOUT" envDefault:"30s"`
+}
+
+type Webhook struct {
+	// ProjectCreatedURL is the webhook URL called after project creation
+	ProjectCreatedURL string `env:"PROJECT_CREATED_URL"`
+	// ProjectCreatedTimeout is the HTTP timeout for the webhook call
+	ProjectCreatedTimeout time.Duration `env:"PROJECT_CREATED_TIMEOUT" envDefault:"30s"`
 }
