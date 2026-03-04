@@ -1,16 +1,34 @@
-import { ChevronRight, Loader2 } from "lucide-react"
-import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router"
-import { useCallback, useContext, useMemo, memo, useState, useEffect, useRef } from "react"
-import { CampaignContext, LocaleContext, ProjectContext, type LocaleSelection } from "@/contexts"
-import { oapiClient } from "@/oapi/client"
+import { ChevronRight, Loader2 } from "lucide-react";
+import {
+  Link,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router";
+import {
+  useCallback,
+  useContext,
+  useMemo,
+  memo,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
+import {
+  CampaignContext,
+  LocaleContext,
+  ProjectContext,
+  type LocaleSelection,
+} from "@/contexts";
+import { oapiClient } from "@/oapi/client";
 
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 
-import { LocaleSelect } from "@/components/locale/select"
-import { Button } from "@/components/ui/button"
-import { TemplateWorkflowContext } from "./contexts"
-import { t } from "i18next"
-import { set } from "date-fns"
+import { LocaleSelect } from "@/components/locale/select";
+import { Button } from "@/components/ui/button";
+import { TemplateWorkflowContext } from "./contexts";
+import { t } from "i18next";
 
 interface CampaignStepProps {
     steps: Array<{ name: string; href: string }>
@@ -68,164 +86,184 @@ export default function Template() {
 
         const navSteps = [{ name: "Content", href: basePath }]
 
-        if (campaign.channel === "email") {
-            navSteps.push({ name: "Editor", href: `${basePath}/email/editor` })
+    if (campaign.channel === "email") {
+      navSteps.push({ name: "Editor", href: `${basePath}/email/editor` });
+    }
+
+    navSteps.push({ name: "Review", href: `${basePath}/review` });
+
+    return navSteps;
+  }, [
+    project.id,
+    campaign.id,
+    campaign.channel,
+    campaign.templates,
+    project.locale,
+    templateId,
+  ]);
+
+  const nextStep = useMemo(() => {
+    const currentIndex = steps.findIndex(
+      (step) => step.href === location.pathname,
+    );
+    return currentIndex !== -1 && currentIndex < steps.length - 1
+      ? steps[currentIndex + 1]
+      : undefined;
+  }, [steps, location.pathname]);
+
+  const onSubmit = useCallback((fn: () => Promise<boolean> | boolean) => {
+    handler.current = fn;
+    return () => {
+      if (handler.current === fn) handler.current = null;
+    };
+  }, []);
+
+  const submit = useCallback(async () => {
+    if (!handler.current) return;
+
+    setIsNextLoading(true);
+    try {
+      const next = await handler.current();
+      if (next && nextStep) navigate(nextStep.href);
+    } finally {
+      setIsNextLoading(false);
+    }
+  }, [navigate, nextStep]);
+
+  const currentTemplate = useMemo(
+    () => campaign.templates?.find((t) => t.id === templateId),
+    [campaign.templates, templateId],
+  );
+  const workflowContextValue = useMemo(
+    () => ({ onSubmit, submit, canProceed, setCanProceed }),
+    [onSubmit, submit, canProceed],
+  );
+
+  const publish = useCallback(async () => {
+    if (!handler.current) return;
+
+    setIsNextLoading(true);
+    try {
+      await handler.current();
+      navigate(`/projects/${project.id}/campaigns`);
+    } finally {
+      setIsNextLoading(false);
+    }
+  }, [project.id, navigate]);
+
+  const navigateToTemplate = useCallback(
+    (templateId: string) => {
+      const basePath = `/projects/${project.id}/campaigns/${campaign.id}/templates/${templateId}`;
+      const suffix = location.pathname.split(/\/templates\/[^/]+/)[1] ?? "";
+      navigate(basePath + suffix);
+    },
+    [project.id, campaign.id, location.pathname, navigate],
+  );
+
+  const handleLocaleChange = useCallback(
+    async (localeKey: string) => {
+      if (handler.current) {
+        const next = await handler.current();
+        if (!next) {
+          return;
         }
+      }
 
-        navSteps.push({ name: "Review", href: `${basePath}/review` })
+      const selectedTemplate = campaign.templates.find(
+        (template) => template.locale === localeKey,
+      );
+      if (selectedTemplate) {
+        navigateToTemplate(selectedTemplate.id);
+        return;
+      }
 
-        return navSteps
-    }, [project.id, campaign.id, campaign.channel, campaign.templates, project.locale, templateId])
-
-    const nextStep = useMemo(() => {
-        const currentIndex = steps.findIndex((step) => step.href === location.pathname)
-        return currentIndex !== -1 && currentIndex < steps.length - 1
-            ? steps[currentIndex + 1]
-            : undefined
-    }, [steps, location.pathname])
-
-    const onSubmit = useCallback((fn: () => Promise<boolean> | boolean) => {
-        handler.current = fn
-        return () => {
-            if (handler.current === fn) handler.current = null
-        }
-    }, [])
-
-    const submit = useCallback(async () => {
-        if (!handler.current) return
-
-        setIsNextLoading(true)
-        try {
-            const next = await handler.current()
-            if (next && nextStep) navigate(nextStep.href)
-        } finally {
-            setIsNextLoading(false)
-        }
-    }, [navigate, nextStep])
-
-    const currentTemplate = useMemo(
-        () => campaign.templates?.find((t) => t.id === templateId),
-        [campaign.templates, templateId],
-    )
-    const workflowContextValue = useMemo(
-        () => ({ onSubmit, submit, canProceed, setCanProceed }),
-        [onSubmit, submit, canProceed],
-    )
-
-    const publish = useCallback(async () => {
-        if (!handler.current) return
-
-        setIsNextLoading(true)
-        try {
-            await handler.current()
-            navigate(`/projects/${project.id}/campaigns`)
-        } finally {
-            setIsNextLoading(false)
-        }
-    }, [project.id, navigate])
-
-    const navigateToTemplate = useCallback(
-        (templateId: string) => {
-            const basePath = `/projects/${project.id}/campaigns/${campaign.id}/templates/${templateId}`
-            const suffix = location.pathname.split(/\/templates\/[^/]+/)[1] ?? ""
-            navigate(basePath + suffix)
+      setPageLoading(true);
+      const template = await oapiClient.POST(
+        "/api/admin/projects/{projectID}/campaigns/{campaignID}/templates",
+        {
+          params: {
+            path: {
+              projectID: project.id,
+              campaignID: campaign.id,
+            },
+          },
+          body: {
+            locale: localeKey,
+            data: {},
+          },
         },
-        [project.id, campaign.id, location.pathname, navigate],
-    )
+      );
 
-    const handleLocaleChange = useCallback(
-        async (localeKey: string) => {
-            if (handler.current) {
-                const next = await handler.current()
-                if (!next) {
-                    return
-                }
-            }
+      if (template.data) {
+        setCampaign({
+          ...campaign,
+          templates: [...campaign.templates, template.data],
+        });
 
-            const selectedTemplate = campaign.templates.find(
-                (template) => template.locale === localeKey,
-            )
-            if (selectedTemplate) {
-                navigateToTemplate(selectedTemplate.id)
-                return
-            }
+        navigateToTemplate(template.data.id);
+      }
+      setPageLoading(false);
+    },
+    [campaign, project?.id, setCampaign, navigateToTemplate],
+  );
 
-            setPageLoading(true)
-            const template = await oapiClient.POST("/api/admin/projects/{projectID}/campaigns/{campaignID}/templates", {
+  // Fetch locales when template changes
+  useEffect(() => {
+    const fetchLocales = async () => {
+      if (!project?.id) return;
+
+      setPageLoading(true);
+
+      try {
+        const allLocalesResult = await oapiClient.GET(
+          "/api/admin/projects/{projectID}/locales",
+          {
+            params: {
+              path: {
+                projectID: project.id,
+              },
+            },
+          },
+        );
+        if (currentTemplate) {
+          try {
+            const selectedLocale = await oapiClient.GET(
+              "/api/admin/projects/{projectID}/locales/{localeID}",
+              {
                 params: {
-                    path: {
-                        projectID: project.id,
-                        campaignID: campaign.id,
-                    }
+                  path: {
+                    projectID: project.id,
+                    localeID: currentTemplate.locale,
+                  },
                 },
-                body: {
-                    locale: localeKey,
-                    data: {},
-                }
-            })
-
-            if (template.data) {
-                setCampaign({
-                    ...campaign,
-                    templates: [...campaign.templates, template.data],
-                })
-
-                navigateToTemplate(template.data.id)
-            }
-            setPageLoading(false)
-        },
-        [campaign, project?.id, setCampaign, navigateToTemplate],
-    )
-
-    // Fetch locales when template changes
-    useEffect(() => {
-        const fetchLocales = async () => {
-            if (!project?.id) return
-
-            setPageLoading(true)
-
-            try {
-                const allLocalesResult = await oapiClient.GET("/api/admin/projects/{projectID}/locales", {
-                    params: {
-                        path: {
-                            projectID: project.id,
-                        }
-                    }
-                })
-                if (currentTemplate) {
-                    try {
-                        const selectedLocale = await oapiClient.GET("/api/admin/projects/{projectID}/locales/{localeID}", {
-                            params: {
-                                path: {
-                                    projectID: project.id,
-                                    localeID: currentTemplate.locale,
-                                }
-                            }
-                        })
-                        setLocaleSelection({
-                            currentLocale: selectedLocale.data,
-                            allLocales: allLocalesResult.data?.results ?? [],
-                        })
-                    } catch {
-                        // Locale not found, use default or first available locale
-                        console.warn(`Locale ${currentTemplate.locale} not found, using default`)
-                        setLocaleSelection({
-                            currentLocale: allLocalesResult.data?.results?.[0],
-                            allLocales: allLocalesResult.data?.results ?? [],
-                        })
-                    }
-                } else {
-                    setLocaleSelection({
-                        currentLocale: undefined,
-                        allLocales: allLocalesResult.data?.results ?? [],
-                    })
-                }
-            } catch (error) {
-                console.error("Failed to fetch locales:", error)
-            } finally {
-                setPageLoading(false)
-            }
+              },
+            );
+            setLocaleSelection({
+              currentLocale: selectedLocale.data,
+              allLocales: allLocalesResult.data?.results ?? [],
+            });
+          } catch {
+            // Locale not found, use default or first available locale
+            console.warn(
+              `Locale ${currentTemplate.locale} not found, using default`,
+            );
+            setLocaleSelection({
+              currentLocale: allLocalesResult.data?.results?.[0],
+              allLocales: allLocalesResult.data?.results ?? [],
+            });
+          }
+        } else {
+          setLocaleSelection({
+            currentLocale: undefined,
+            allLocales: allLocalesResult.data?.results ?? [],
+          });
         }
+      } catch (error) {
+        console.error("Failed to fetch locales:", error);
+      } finally {
+        setPageLoading(false);
+      }
+    };
 
         fetchLocales()
     }, [project?.id, currentTemplate])
