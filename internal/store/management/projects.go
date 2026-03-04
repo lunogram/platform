@@ -195,6 +195,16 @@ func (s *ProjectsStore) UpdateProject(ctx context.Context, projectID uuid.UUID, 
 	return err
 }
 
+func (s *ProjectsStore) DeleteProject(ctx context.Context, projectID uuid.UUID) error {
+	query := `
+	UPDATE projects
+	SET deleted_at = NOW()
+	WHERE id = $1 AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, query, projectID)
+	return err
+}
+
 func (s *ProjectsStore) GetProjectRole(ctx context.Context, projectID, adminID uuid.UUID) (string, error) {
 	query := `
 	SELECT role

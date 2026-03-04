@@ -1784,6 +1784,9 @@ type ClientInterface interface {
 
 	CreateProject(ctx context.Context, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteProject request
+	DeleteProject(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetProject request
 	GetProject(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2192,6 +2195,18 @@ func (c *Client) CreateProjectWithBody(ctx context.Context, contentType string, 
 
 func (c *Client) CreateProject(ctx context.Context, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateProjectRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteProject(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteProjectRequest(c.Server, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -3942,6 +3957,40 @@ func NewCreateProjectRequestWithBody(server string, contentType string, body io.
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteProjectRequest generates requests for DeleteProject
+func NewDeleteProjectRequest(server string, projectID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -9151,6 +9200,9 @@ type ClientWithResponsesInterface interface {
 
 	CreateProjectWithResponse(ctx context.Context, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error)
 
+	// DeleteProjectWithResponse request
+	DeleteProjectWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProjectResponse, error)
+
 	// GetProjectWithResponse request
 	GetProjectWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProjectResponse, error)
 
@@ -9584,6 +9636,28 @@ func (r CreateProjectResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateProjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteProjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteProjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteProjectResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -12003,6 +12077,15 @@ func (c *ClientWithResponses) CreateProjectWithResponse(ctx context.Context, bod
 	return ParseCreateProjectResponse(rsp)
 }
 
+// DeleteProjectWithResponse request returning *DeleteProjectResponse
+func (c *ClientWithResponses) DeleteProjectWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProjectResponse, error) {
+	rsp, err := c.DeleteProject(ctx, projectID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteProjectResponse(rsp)
+}
+
 // GetProjectWithResponse request returning *GetProjectResponse
 func (c *ClientWithResponses) GetProjectWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProjectResponse, error) {
 	rsp, err := c.GetProject(ctx, projectID, reqEditors...)
@@ -13257,6 +13340,32 @@ func ParseCreateProjectResponse(rsp *http.Response) (*CreateProjectResponse, err
 		}
 		response.JSON201 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteProjectResponse parses an HTTP response from a DeleteProjectWithResponse call
+func ParseDeleteProjectResponse(rsp *http.Response) (*DeleteProjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteProjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -16562,6 +16671,9 @@ type ServerInterface interface {
 	// Create project
 	// (POST /api/admin/projects)
 	CreateProject(w http.ResponseWriter, r *http.Request)
+	// Delete project
+	// (DELETE /api/admin/projects/{projectID})
+	DeleteProject(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// Get project by ID
 	// (GET /api/admin/projects/{projectID})
 	GetProject(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
@@ -16892,6 +17004,12 @@ func (_ Unimplemented) ListProjects(w http.ResponseWriter, r *http.Request, para
 // Create project
 // (POST /api/admin/projects)
 func (_ Unimplemented) CreateProject(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete project
+// (DELETE /api/admin/projects/{projectID})
+func (_ Unimplemented) DeleteProject(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17602,6 +17720,37 @@ func (siw *ServerInterfaceWrapper) CreateProject(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateProject(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProject operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProject(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -21844,6 +21993,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects", wrapper.CreateProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}", wrapper.DeleteProject)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}", wrapper.GetProject)

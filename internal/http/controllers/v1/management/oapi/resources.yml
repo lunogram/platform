@@ -870,6 +870,28 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+    delete:
+      summary: Delete project
+      description: Soft deletes a project by setting its deleted_at timestamp
+      operationId: deleteProject
+      tags:
+        - Projects
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        "204":
+          description: Project deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/journeys:
     get:
       summary: List journeys

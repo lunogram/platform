@@ -317,3 +317,40 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 	logger.Info("project updated")
 	json.Write(w, http.StatusOK, project.OAPI())
 }
+
+func (srv *ProjectsController) DeleteProject(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+	ctx := r.Context()
+
+	scope := rbac.FromContext(ctx)
+	if scope == nil {
+		srv.logger.Error("admin not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID))
+	logger.Info("deleting project")
+
+	_, err := srv.store.GetProject(ctx, projectID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("project not found", zap.Stringer("project_id", projectID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get project", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	err = srv.store.DeleteProject(ctx, projectID)
+	if err != nil {
+		logger.Error("failed to delete project", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("project deleted")
+	w.WriteHeader(http.StatusNoContent)
+}
