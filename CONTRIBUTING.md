@@ -87,7 +87,7 @@ AUTH_BASIC_PASSWORD=admin
 
 ### Reporting Bugs
 
-If you find a bug, please open a [GitHub Issue](https://github.com/lunogram/platform/issues/new) or let us know on [Discord](https://discord.gg/BpKZhwnq) with:
+If you find a bug, please open a [GitHub Issue](https://github.com/lunogram/platform/issues/new) or let us know on [GitHub Discussions](https://github.com/lunogram/platform/discussions) with:
 
 - A clear, descriptive title
 - Steps to reproduce the issue
@@ -96,7 +96,7 @@ If you find a bug, please open a [GitHub Issue](https://github.com/lunogram/plat
 
 ### Suggesting Features
 
-We'd love to hear your ideas! Open a [GitHub Issue](https://github.com/lunogram/platform/issues/new) or share on [Discord](https://discord.gg/BpKZhwnq) and describe:
+We'd love to hear your ideas! Open a [GitHub Issue](https://github.com/lunogram/platform/issues/new) or share on [GitHub Discussions](https://github.com/lunogram/platform/discussions) and describe:
 
 - The problem you're trying to solve
 - Your proposed solution
@@ -119,11 +119,11 @@ We'd love to hear your ideas! Open a [GitHub Issue](https://github.com/lunogram/
 
 ## Questions?
 
-If you have any questions or need help getting started, don't hesitate to reach out on [Discord](https://discord.gg/BpKZhwnq). We're happy to help!
+If you have any questions or need help getting started, don't hesitate to reach out on [GitHub Discussions](https://github.com/lunogram/platform/discussions). We're happy to help!
 
 ## Community
 
-- Join our [Discord](https://discord.gg/BpKZhwnq) to chat with other contributors
+- Join our [GitHub Discussions](https://github.com/lunogram/platform/discussions) to chat with other contributors
 - Be respectful and inclusive
 - Help others when you can
 
