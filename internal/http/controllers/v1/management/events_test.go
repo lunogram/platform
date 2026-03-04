@@ -12,6 +12,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -41,7 +42,7 @@ func setupEventsController(t *testing.T) (*EventsController, uuid.UUID) {
 	return controller, projectID
 }
 
-func TestListEvents(t *testing.T) {
+func TestListUserEventSchemas(t *testing.T) {
 	t.Parallel()
 
 	controller, projectID := setupEventsController(t)
@@ -49,7 +50,7 @@ func TestListEvents(t *testing.T) {
 
 	eventsStore := controller.store.EventsStore
 
-	eventID1, err := eventsStore.UpsertEvent(ctx, projectID, "purchase_completed")
+	eventID1, err := eventsStore.UpsertEvent(ctx, projectID, "purchase_completed", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 
 	paths1 := rules.Paths{
@@ -60,7 +61,7 @@ func TestListEvents(t *testing.T) {
 	err = eventsStore.UpsertEventSchema(ctx, projectID, eventID1, paths1)
 	require.NoError(t, err)
 
-	eventID2, err := eventsStore.UpsertEvent(ctx, projectID, "page_viewed")
+	eventID2, err := eventsStore.UpsertEvent(ctx, projectID, "page_viewed", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 
 	paths2 := rules.Paths{
@@ -70,14 +71,14 @@ func TestListEvents(t *testing.T) {
 	err = eventsStore.UpsertEventSchema(ctx, projectID, eventID2, paths2)
 	require.NoError(t, err)
 
-	_, err = eventsStore.UpsertEvent(ctx, projectID, "user_logout")
+	_, err = eventsStore.UpsertEvent(ctx, projectID, "user_logout", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events/schema", nil)
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/subjects/user/events/schema", nil)
 	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
 
-	controller.ListEvents(res, req, projectID)
+	controller.ListUserEventSchemas(res, req, projectID)
 
 	require.Equal(t, 200, res.Code)
 
@@ -132,16 +133,16 @@ func TestListEvents(t *testing.T) {
 	require.Empty(t, logoutEvent.Schema)
 }
 
-func TestListEventsEmpty(t *testing.T) {
+func TestListUserEventSchemasEmpty(t *testing.T) {
 	t.Parallel()
 
 	controller, projectID := setupEventsController(t)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events/schema", nil)
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/subjects/user/events/schema", nil)
 	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
 
-	controller.ListEvents(res, req, projectID)
+	controller.ListUserEventSchemas(res, req, projectID)
 
 	require.Equal(t, 200, res.Code)
 
@@ -153,20 +154,20 @@ func TestListEventsEmpty(t *testing.T) {
 	require.Empty(t, response.Results)
 }
 
-func TestListEventsUnauthorized(t *testing.T) {
+func TestListUserEventSchemasUnauthorized(t *testing.T) {
 	t.Parallel()
 
 	controller, projectID := setupEventsController(t)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events/schema", nil)
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/subjects/user/events/schema", nil)
 
-	controller.ListEvents(res, req, projectID)
+	controller.ListUserEventSchemas(res, req, projectID)
 
 	require.Equal(t, 401, res.Code)
 }
 
-func TestListEventsWithMultipleTypes(t *testing.T) {
+func TestListUserEventSchemasWithMultipleTypes(t *testing.T) {
 	t.Parallel()
 
 	controller, projectID := setupEventsController(t)
@@ -174,7 +175,7 @@ func TestListEventsWithMultipleTypes(t *testing.T) {
 
 	eventsStore := controller.store.EventsStore
 
-	eventID, err := eventsStore.UpsertEvent(ctx, projectID, "user_action")
+	eventID, err := eventsStore.UpsertEvent(ctx, projectID, "user_action", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 
 	// Insert the same path with different types to simulate real-world scenarios
@@ -190,10 +191,10 @@ func TestListEventsWithMultipleTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	res := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/events/schema", nil)
+	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/subjects/user/events/schema", nil)
 	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
 
-	controller.ListEvents(res, req, projectID)
+	controller.ListUserEventSchemas(res, req, projectID)
 
 	require.Equal(t, 200, res.Code)
 

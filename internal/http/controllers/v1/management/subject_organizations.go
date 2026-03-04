@@ -23,6 +23,7 @@ func NewSubjectOrganizationsController(logger *zap.Logger, db *sqlx.DB, pub pubs
 		logger: logger,
 		db:     db,
 		orgs:   subjects.NewState(db),
+		events: subjects.NewEventsStore(db),
 		pubsub: pub,
 	}
 }
@@ -31,6 +32,7 @@ type SubjectOrganizationsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	orgs   *subjects.State
+	events *subjects.EventsStore
 	pubsub pubsub.Publisher
 }
 
@@ -411,21 +413,23 @@ func (srv *SubjectOrganizationsController) AddOrganizationMember(w http.Response
 	defer tx.Rollback() //nolint:errcheck
 	orgsStore := subjects.NewOrganizationsStore(tx)
 
-	err = orgsStore.UpsertOrganizationMember(ctx, organizationID, body.UserId, data)
+	orgUser, err := orgsStore.UpsertAndGetOrganizationMember(ctx, organizationID, body.UserId, data)
 	if err != nil {
 		logger.Error("failed to add user to organization", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	// Publish to pubsub for schema extraction
+	// Publish to pubsub for schema extraction and event firing
+	// Version 0 means new membership (will fire organization.user.added)
+	// Version > 0 means existing membership (will fire organization.user.updated)
 	msg := schemas.OrganizationUser{
 		OrganizationID:         organizationID,
 		OrganizationExternalID: org.ExternalID,
 		UserID:                 body.UserId,
 		ProjectID:              projectID,
 		Data:                   data,
-		Version:                1,
+		Version:                orgUser.Version,
 	}
 
 	err = srv.pubsub.Publish(ctx, schemas.OrganizationUsersProcess(projectID), msg)
@@ -485,6 +489,59 @@ func (srv *SubjectOrganizationsController) RemoveOrganizationMember(w http.Respo
 
 	logger.Info("user removed from organization")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *SubjectOrganizationsController) GetOrganizationEvents(w http.ResponseWriter, r *http.Request, projectID, organizationID uuid.UUID, params oapi.GetOrganizationEventsParams) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	_, err := srv.orgs.GetOrganization(ctx, projectID, organizationID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("organization not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get organization", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("organization_id", organizationID.String()),
+	)
+
+	pagination := store.Pagination{
+		Limit:  params.Limit.ToInt(),
+		Offset: params.Offset.ToInt(),
+	}
+
+	logger.Info("listing organization events", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
+
+	events, total, err := srv.orgs.ListOrganizationEvents(ctx, projectID, organizationID, pagination)
+	if err != nil {
+		logger.Error("failed to list organization events", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("organization events listed", zap.Int("total", total), zap.Int("count", len(events)))
+
+	response := oapi.OrganizationEventList{
+		Results: events.OAPI(),
+		Total:   total,
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+	}
+
+	json.Write(w, http.StatusOK, response)
 }
 
 func (srv *SubjectOrganizationsController) ListOrganizationSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
@@ -561,4 +618,47 @@ func (srv *SubjectOrganizationsController) ListOrganizationMemberSchemas(w http.
 	}
 
 	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *SubjectOrganizationsController) ListOrganizationEventSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	logger := srv.logger.With(zap.String("project_id", projectID.String()))
+	logger.Info("listing organization event schemas")
+
+	events, err := srv.events.ListEventSchemas(ctx, projectID, subjects.SubjectTypeOrganization)
+	if err != nil {
+		logger.Error("failed to list organization event schemas", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("organization event schemas listed", zap.Int("count", len(events)))
+
+	results := make([]oapi.EventWithSchema, len(events))
+	for i, event := range events {
+		schema := make([]oapi.SchemaPath, len(event.Schema))
+		for j, s := range event.Schema {
+			schema[j] = oapi.SchemaPath{
+				Path:  s.Path,
+				Types: []string(s.Types),
+			}
+		}
+
+		results[i] = oapi.EventWithSchema{
+			Id:     event.ID,
+			Name:   event.Name,
+			Schema: schema,
+		}
+	}
+
+	json.Write(w, http.StatusOK, oapi.EventListResponse{
+		Results: results,
+	})
 }

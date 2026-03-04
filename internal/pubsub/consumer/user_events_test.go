@@ -221,7 +221,7 @@ func TestUserEventsSchemaHandlerSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrsDB)
-	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "test_event")
+	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "test_event", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 
 	handler := UserEventSchemasHandler(logger, usersState)
@@ -266,7 +266,7 @@ func TestUserEventsSchemaHandlerComplexNestedData(t *testing.T) {
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrsDB)
-	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "complex_event")
+	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "complex_event", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 
 	handler := UserEventSchemasHandler(logger, usersState)

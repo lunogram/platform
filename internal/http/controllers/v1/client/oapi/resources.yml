@@ -487,10 +487,12 @@ components:
           description: External identifier for the organization from your system
         name:
           type: string
+          nullable: true
           example: "Acme Corp"
         data:
           type: object
           additionalProperties: true
+          nullable: true
           x-go-type: map[string]any
           example:
             industry: "technology"
@@ -513,6 +515,7 @@ components:
         data:
           type: object
           additionalProperties: true
+          nullable: true
           x-go-type: map[string]any
           example:
             role: "admin"
@@ -557,6 +560,7 @@ components:
         data:
           type: object
           additionalProperties: true
+          nullable: true
           x-go-type: map[string]any
           example:
             plan: "enterprise"

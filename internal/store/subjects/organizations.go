@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/rules/query"
@@ -191,12 +190,14 @@ type OrganizationUser struct {
 	OrganizationID uuid.UUID       `db:"organization_id"`
 	UserID         uuid.UUID       `db:"user_id"`
 	Data           json.RawMessage `db:"data"`
+	Version        int32           `db:"version"`
 	CreatedAt      time.Time       `db:"created_at"`
 	UpdatedAt      time.Time       `db:"updated_at"`
 }
 
-// UpsertOrganizationMember adds or updates a user's membership in an organization with optional org-specific data.
-func (s *OrganizationsStore) UpsertOrganizationMember(ctx context.Context, orgID, userID uuid.UUID, data map[string]any) error {
+// UpsertAndGetOrganizationMember adds or updates a user's membership in an organization with optional org-specific data.
+// Returns the full organization user record including the version (version 0 = newly created, version > 0 = updated).
+func (s *OrganizationsStore) UpsertAndGetOrganizationMember(ctx context.Context, orgID, userID uuid.UUID, data map[string]any) (*OrganizationUser, error) {
 	if data == nil {
 		data = make(map[string]any)
 	}
@@ -205,10 +206,16 @@ func (s *OrganizationsStore) UpsertOrganizationMember(ctx context.Context, orgID
 	INSERT INTO organization_users (organization_id, user_id, data)
 	VALUES ($1, $2, $3)
 	ON CONFLICT (organization_id, user_id) DO UPDATE SET
-		data = organization_users.data || EXCLUDED.data`
+		data = organization_users.data || EXCLUDED.data
+	RETURNING id, organization_id, user_id, data, version, created_at, updated_at`
 
-	_, err := s.db.ExecContext(ctx, stmt, orgID, userID, data)
-	return err
+	var user OrganizationUser
+	err := s.db.GetContext(ctx, &user, stmt, orgID, userID, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }
 
 // RemoveUserFromOrganization removes a user from an organization.
@@ -341,68 +348,28 @@ func (s *OrganizationsStore) CountOrganizationMembers(ctx context.Context, orgID
 
 // UpsertOrganizationSchema inserts or updates schema paths for organization data.
 func (s *OrganizationsStore) UpsertOrganizationSchema(ctx context.Context, projectID uuid.UUID, paths rules.Paths) error {
-	if len(paths) == 0 {
-		return nil
-	}
-
-	stmt := `
-	INSERT INTO organization_schemas (project_id, path, data_type)
-	VALUES ($1, $2, $3)
-	ON CONFLICT (project_id, path, data_type) DO NOTHING`
-
-	// TODO: consider batch insert if path count becomes large enough to impact performance.
-	// Current usage suggests path counts are small (typically <50 paths per schema update).
-	for _, path := range paths {
-		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// OrganizationSchema represents a schema path for organization data.
-type OrganizationSchema struct {
-	Path  string         `db:"path"`
-	Types pq.StringArray `db:"types"`
-}
-
-// ListOrganizationSchemas returns all schema paths for organizations in a project.
-func (s *OrganizationsStore) ListOrganizationSchemas(ctx context.Context, projectID uuid.UUID) ([]OrganizationSchema, error) {
-	stmt := `
-	SELECT
-		path,
-		array_agg(DISTINCT data_type ORDER BY data_type) as types
-	FROM organization_schemas
-	WHERE project_id = $1
-	GROUP BY path
-	ORDER BY path`
-
-	var schemas []OrganizationSchema
-	err := s.db.SelectContext(ctx, &schemas, stmt, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	return schemas, nil
+	return s.upsertSubjectSchema(ctx, projectID, SubjectTypeOrganization, paths)
 }
 
 // UpsertOrganizationUserSchema inserts or updates schema paths for organization user data.
 func (s *OrganizationsStore) UpsertOrganizationUserSchema(ctx context.Context, projectID uuid.UUID, paths rules.Paths) error {
+	return s.upsertSubjectSchema(ctx, projectID, SubjectTypeOrganizationUser, paths)
+}
+
+func (s *OrganizationsStore) upsertSubjectSchema(ctx context.Context, projectID uuid.UUID, subjectType SubjectType, paths rules.Paths) error {
 	if len(paths) == 0 {
 		return nil
 	}
 
 	stmt := `
-	INSERT INTO organization_user_schemas (project_id, path, data_type)
-	VALUES ($1, $2, $3)
-	ON CONFLICT (project_id, path, data_type) DO NOTHING`
+	INSERT INTO subject_schemas (project_id, path, data_type, subject_type)
+	VALUES ($1, $2, $3, $4)
+	ON CONFLICT (project_id, path, data_type, subject_type) DO NOTHING`
 
 	// TODO: consider batch insert if path count becomes large enough to impact performance.
 	// Current usage suggests path counts are small (typically <50 paths per schema update).
 	for _, path := range paths {
-		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type)
+		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type, subjectType)
 		if err != nil {
 			return err
 		}
@@ -411,25 +378,34 @@ func (s *OrganizationsStore) UpsertOrganizationUserSchema(ctx context.Context, p
 	return nil
 }
 
-// OrganizationUserSchema represents a schema path for organization user data.
-type OrganizationUserSchema struct {
-	Path  string         `db:"path"`
-	Types pq.StringArray `db:"types"`
+// OrganizationSchema is an alias for SubjectSchema for backwards compatibility
+type OrganizationSchema = SubjectSchema
+
+// OrganizationUserSchema is an alias for SubjectSchema for backwards compatibility
+type OrganizationUserSchema = SubjectSchema
+
+// ListOrganizationSchemas returns all schema paths for organizations in a project.
+func (s *OrganizationsStore) ListOrganizationSchemas(ctx context.Context, projectID uuid.UUID) ([]SubjectSchema, error) {
+	return s.listSubjectSchemas(ctx, projectID, SubjectTypeOrganization)
 }
 
 // ListOrganizationUserSchemas returns all schema paths for organization users in a project.
-func (s *OrganizationsStore) ListOrganizationUserSchemas(ctx context.Context, projectID uuid.UUID) ([]OrganizationUserSchema, error) {
+func (s *OrganizationsStore) ListOrganizationUserSchemas(ctx context.Context, projectID uuid.UUID) ([]SubjectSchema, error) {
+	return s.listSubjectSchemas(ctx, projectID, SubjectTypeOrganizationUser)
+}
+
+func (s *OrganizationsStore) listSubjectSchemas(ctx context.Context, projectID uuid.UUID, subjectType SubjectType) ([]SubjectSchema, error) {
 	stmt := `
 	SELECT
 		path,
 		array_agg(DISTINCT data_type ORDER BY data_type) as types
-	FROM organization_user_schemas
-	WHERE project_id = $1
+	FROM subject_schemas
+	WHERE project_id = $1 AND subject_type = $2
 	GROUP BY path
 	ORDER BY path`
 
-	var schemas []OrganizationUserSchema
-	err := s.db.SelectContext(ctx, &schemas, stmt, projectID)
+	var schemas []SubjectSchema
+	err := s.db.SelectContext(ctx, &schemas, stmt, projectID, subjectType)
 	if err != nil {
 		return nil, err
 	}
@@ -451,6 +427,76 @@ func (s *OrganizationsStore) InsertOrganizationEvent(ctx context.Context, organi
 	}
 
 	return id, nil
+}
+
+// OrganizationEvent represents an event occurrence for an organization.
+type OrganizationEvent struct {
+	ID             uuid.UUID       `db:"id"`
+	ProjectID      uuid.UUID       `db:"project_id"`
+	OrganizationID uuid.UUID       `db:"organization_id"`
+	EventID        uuid.UUID       `db:"event_id"`
+	Name           string          `db:"name"`
+	Data           json.RawMessage `db:"data"`
+	CreatedAt      time.Time       `db:"created_at"`
+}
+
+func (e *OrganizationEvent) OAPI() oapi.OrganizationEvent {
+	return oapi.OrganizationEvent{
+		Id:             e.ID,
+		ProjectId:      e.ProjectID,
+		OrganizationId: e.OrganizationID,
+		Name:           e.Name,
+		Data:           &e.Data,
+		CreatedAt:      e.CreatedAt,
+	}
+}
+
+type OrganizationEvents []OrganizationEvent
+
+func (e OrganizationEvents) OAPI() []oapi.OrganizationEvent {
+	results := make([]oapi.OrganizationEvent, len(e))
+	for i, event := range e {
+		results[i] = event.OAPI()
+	}
+	return results
+}
+
+// ListOrganizationEvents retrieves events for an organization with pagination.
+func (s *OrganizationsStore) ListOrganizationEvents(ctx context.Context, projectID, organizationID uuid.UUID, pagination store.Pagination) (OrganizationEvents, int, error) {
+	query := `
+	SELECT
+		oe.id, o.project_id, oe.organization_id, oe.event_id, e.name, oe.data, oe.created_at,
+		COUNT(*) OVER () AS total_count
+	FROM organization_events oe
+	INNER JOIN organizations o ON oe.organization_id = o.id
+	INNER JOIN events e ON oe.event_id = e.id
+	WHERE o.project_id = $1 AND oe.organization_id = $2
+	ORDER BY oe.created_at DESC
+	LIMIT $3 OFFSET $4`
+
+	type result struct {
+		OrganizationEvent
+		TotalCount int `db:"total_count"`
+	}
+
+	var results []result
+	err := s.db.SelectContext(ctx, &results, query, projectID, organizationID, pagination.Limit, pagination.Offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(results) == 0 {
+		return []OrganizationEvent{}, 0, nil
+	}
+
+	total := results[0].TotalCount
+	events := make([]OrganizationEvent, len(results))
+
+	for index, result := range results {
+		events[index] = result.OrganizationEvent
+	}
+
+	return events, total, nil
 }
 
 // LookupOrganizationID looks up an organization's internal ID by external ID.

@@ -36,11 +36,12 @@ func (rt RuleType) SQL() string {
 type RuleGroup string
 
 const (
-	RuleGroupParent           RuleGroup = "parent"
-	RuleGroupUser             RuleGroup = "user"
-	RuleGroupEvent            RuleGroup = "event"
-	RuleGroupOrganization     RuleGroup = "organization"
-	RuleGroupOrganizationUser RuleGroup = "organization_user"
+	RuleGroupParent            RuleGroup = "parent"
+	RuleGroupUser              RuleGroup = "user"
+	RuleGroupEvent             RuleGroup = "event"
+	RuleGroupOrganization      RuleGroup = "organization"
+	RuleGroupOrganizationUser  RuleGroup = "organization_user"
+	RuleGroupOrganizationEvent RuleGroup = "organization_event"
 )
 
 // Operator defines logical and comparison operators
@@ -144,6 +145,24 @@ type Frequency struct {
 	Operator Operator `json:"operator"`
 }
 
+// UserMatchType defines how to match users in organization event rules
+type UserMatchType string
+
+const (
+	// UserMatchAll includes all members of organizations matching the event criteria
+	UserMatchAll UserMatchType = "all"
+	// UserMatchConditions includes only members matching specific property conditions
+	UserMatchConditions UserMatchType = "conditions"
+)
+
+// UserMatch defines how to match users within organizations for organization event rules
+type UserMatch struct {
+	// Type defines how to select users: "all" or "conditions"
+	Type UserMatchType `json:"type"`
+	// MemberConditions defines filter rules for organization user properties (when Type is "conditions")
+	MemberConditions *Rule `json:"member_conditions,omitempty"`
+}
+
 // Rule represents a rule node in the rules tree
 type Rule struct {
 	Path       string     `json:"path"`
@@ -156,6 +175,8 @@ type Rule struct {
 	Frequency  *Frequency `json:"frequency,omitempty"`
 	RootUUID   *uuid.UUID `json:"root_uuid,omitempty"`
 	ParentUUID *uuid.UUID `json:"parent_uuid,omitempty"`
+	// UserMatch defines how to match users for organization event rules
+	UserMatch *UserMatch `json:"user_match,omitempty"`
 }
 
 func (r Rule) IsWrapper() bool {

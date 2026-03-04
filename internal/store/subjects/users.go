@@ -436,7 +436,7 @@ func (s *UsersStore) ListUserEvents(ctx context.Context, projectID, userID uuid.
 func (s *UsersStore) CreateUserEvent(ctx context.Context, event UserEvent) (uuid.UUID, error) {
 	// First, get the event_id for this event name
 	eventsStore := NewEventsStore(s.db)
-	eventID, err := eventsStore.UpsertEvent(ctx, event.ProjectID, event.Name)
+	eventID, err := eventsStore.UpsertEvent(ctx, event.ProjectID, event.Name, SubjectTypeUser)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -460,19 +460,23 @@ func (s *UsersStore) CreateUserEvent(ctx context.Context, event UserEvent) (uuid
 }
 
 func (s *UsersStore) UpsertUserSchema(ctx context.Context, projectID uuid.UUID, paths rules.Paths) error {
+	return s.UpsertSubjectSchema(ctx, projectID, SubjectTypeUser, paths)
+}
+
+func (s *UsersStore) UpsertSubjectSchema(ctx context.Context, projectID uuid.UUID, subjectType SubjectType, paths rules.Paths) error {
 	if len(paths) == 0 {
 		return nil
 	}
 
 	stmt := `
-	INSERT INTO user_schemas (project_id, path, data_type)
-	VALUES ($1, $2, $3)
-	ON CONFLICT (project_id, path, data_type) DO NOTHING
+	INSERT INTO subject_schemas (project_id, path, data_type, subject_type)
+	VALUES ($1, $2, $3, $4)
+	ON CONFLICT (project_id, path, data_type, subject_type) DO NOTHING
 	`
 
 	// TODO: optimize with batch insert
 	for _, path := range paths {
-		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type)
+		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type, subjectType)
 		if err != nil {
 			return err
 		}
@@ -481,23 +485,30 @@ func (s *UsersStore) UpsertUserSchema(ctx context.Context, projectID uuid.UUID, 
 	return nil
 }
 
-type UserSchema struct {
+type SubjectSchema struct {
 	Path  string         `db:"path"`
 	Types pq.StringArray `db:"types"`
 }
 
-func (s *UsersStore) ListUserSchemas(ctx context.Context, projectID uuid.UUID) ([]UserSchema, error) {
+// UserSchema is an alias for SubjectSchema for backwards compatibility
+type UserSchema = SubjectSchema
+
+func (s *UsersStore) ListUserSchemas(ctx context.Context, projectID uuid.UUID) ([]SubjectSchema, error) {
+	return s.ListSubjectSchemas(ctx, projectID, SubjectTypeUser)
+}
+
+func (s *UsersStore) ListSubjectSchemas(ctx context.Context, projectID uuid.UUID, subjectType SubjectType) ([]SubjectSchema, error) {
 	stmt := `
 	SELECT
 		path,
 		array_agg(DISTINCT data_type ORDER BY data_type) as types
-	FROM user_schemas
-	WHERE project_id = $1
+	FROM subject_schemas
+	WHERE project_id = $1 AND subject_type = $2
 	GROUP BY path
 	ORDER BY path`
 
-	var schemas []UserSchema
-	err := s.db.SelectContext(ctx, &schemas, stmt, projectID)
+	var schemas []SubjectSchema
+	err := s.db.SelectContext(ctx, &schemas, stmt, projectID, subjectType)
 	if err != nil {
 		return nil, err
 	}

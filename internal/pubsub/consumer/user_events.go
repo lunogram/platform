@@ -40,7 +40,7 @@ func UserEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.S
 
 		logger.Info("incoming event", zap.String("name", event.Name), zap.Stringer("project_id", event.ProjectID))
 
-		event.ID, err = usrs.UpsertEvent(ctx, event.ProjectID, event.Name)
+		event.ID, err = usrs.UpsertEvent(ctx, event.ProjectID, event.Name, subjects.SubjectTypeUser)
 		if err != nil {
 			logger.Error("failed to upsert event", zap.Error(err))
 			return err

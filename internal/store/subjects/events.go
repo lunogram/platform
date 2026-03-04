@@ -9,15 +9,25 @@ import (
 	"github.com/lunogram/platform/internal/store"
 )
 
+// SubjectType represents the type of subject for events and schemas
+type SubjectType string
+
+const (
+	SubjectTypeUser             SubjectType = "user"
+	SubjectTypeOrganization     SubjectType = "organization"
+	SubjectTypeOrganizationUser SubjectType = "organization_user"
+)
+
 type EventSchemaPath struct {
 	Path  string         `db:"path"`
 	Types pq.StringArray `db:"types"`
 }
 
 type Event struct {
-	ID     uuid.UUID `db:"id"`
-	Name   string    `db:"name"`
-	Schema []EventSchemaPath
+	ID          uuid.UUID   `db:"id"`
+	Name        string      `db:"name"`
+	SubjectType SubjectType `db:"subject_type"`
+	Schema      []EventSchemaPath
 }
 
 func NewEventsStore(db store.DB) *EventsStore {
@@ -28,17 +38,17 @@ type EventsStore struct {
 	db store.DB
 }
 
-func (s *EventsStore) UpsertEvent(ctx context.Context, projectID uuid.UUID, name string) (uuid.UUID, error) {
+func (s *EventsStore) UpsertEvent(ctx context.Context, projectID uuid.UUID, name string, subjectType SubjectType) (uuid.UUID, error) {
 	// NOTE: we have to execute DO UPDATE SET to ensure the id is returned in case of conflict
 	stmt := `
-	INSERT INTO events (project_id, name)
-	VALUES ($1, $2)
-	ON CONFLICT (project_id, name)
+	INSERT INTO events (project_id, name, subject_type)
+	VALUES ($1, $2, $3)
+	ON CONFLICT (project_id, name, subject_type)
 	DO UPDATE SET name = EXCLUDED.name, deleted_at = NULL
 	RETURNING id`
 
 	var eventID uuid.UUID
-	err := s.db.GetContext(ctx, &eventID, stmt, projectID, name)
+	err := s.db.GetContext(ctx, &eventID, stmt, projectID, name, subjectType)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -64,10 +74,11 @@ func (s *EventsStore) UpsertEventSchema(ctx context.Context, projectID, eventID 
 }
 
 type eventSchemaRow struct {
-	ID    uuid.UUID      `db:"id"`
-	Name  string         `db:"name"`
-	Path  *string        `db:"path"`
-	Types pq.StringArray `db:"types"`
+	ID          uuid.UUID      `db:"id"`
+	Name        string         `db:"name"`
+	SubjectType SubjectType    `db:"subject_type"`
+	Path        *string        `db:"path"`
+	Types       pq.StringArray `db:"types"`
 }
 
 type eventSchemaRows []eventSchemaRow
@@ -81,9 +92,10 @@ func (rows eventSchemaRows) ToEvents() []Event {
 		if !has {
 			lookup[row.ID] = len(results)
 			results = append(results, Event{
-				ID:     row.ID,
-				Name:   row.Name,
-				Schema: []EventSchemaPath{},
+				ID:          row.ID,
+				Name:        row.Name,
+				SubjectType: row.SubjectType,
+				Schema:      []EventSchemaPath{},
 			})
 			index = lookup[row.ID]
 		}
@@ -99,21 +111,22 @@ func (rows eventSchemaRows) ToEvents() []Event {
 	return results
 }
 
-func (s *EventsStore) ListEvents(ctx context.Context, projectID uuid.UUID) ([]Event, error) {
+func (s *EventsStore) ListEventSchemas(ctx context.Context, projectID uuid.UUID, subjectType SubjectType) ([]Event, error) {
 	stmt := `
 	SELECT
 		e.id,
 		e.name,
+		e.subject_type,
 		es.path,
 		COALESCE(array_agg(DISTINCT es.data_type ORDER BY es.data_type) FILTER (WHERE es.data_type IS NOT NULL), '{}') as types
 	FROM events e
 	LEFT JOIN event_schemas es ON e.id = es.event_id
-	WHERE e.project_id = $1
-	GROUP BY e.id, e.name, es.path
+	WHERE e.project_id = $1 AND e.subject_type = $2
+	GROUP BY e.id, e.name, e.subject_type, es.path
 	ORDER BY e.name, es.path`
 
 	var rows eventSchemaRows
-	err := s.db.SelectContext(ctx, &rows, stmt, projectID)
+	err := s.db.SelectContext(ctx, &rows, stmt, projectID, subjectType)
 	if err != nil {
 		return nil, err
 	}

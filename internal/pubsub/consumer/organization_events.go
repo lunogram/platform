@@ -32,7 +32,7 @@ func OrganizationEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *j
 
 		logger.Info("incoming organization event", zap.String("name", event.Name), zap.Stringer("project_id", event.ProjectID))
 
-		event.ID, err = usrs.UpsertEvent(ctx, event.ProjectID, event.Name)
+		event.ID, err = usrs.UpsertEvent(ctx, event.ProjectID, event.Name, subjects.SubjectTypeOrganization)
 		if err != nil {
 			logger.Error("failed to upsert event", zap.Error(err))
 			return err
