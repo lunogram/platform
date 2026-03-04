@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TestGetOrganization(t *testing.T) {
+func TestGetTenant(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
@@ -53,19 +53,19 @@ func TestGetOrganization(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "/api/admin/organizations", nil)
+			req := httptest.NewRequest("GET", "/api/admin/tenant", nil)
 
 			claimAdmin := &rbac.Scope{
 				OrganizationID: admin.OrganizationID,
 			}
 			req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
 
-			organizations.GetOrganization(res, req)
+			organizations.GetTenant(res, req)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
 
 			if res.Code == http.StatusOK {
-				var org oapi.Organization
+				var org oapi.Tenant
 				err := json.NewDecoder(res.Body).Decode(&org)
 				require.NoError(t, err)
 				require.Equal(t, orgID, org.Id)
@@ -75,7 +75,7 @@ func TestGetOrganization(t *testing.T) {
 	}
 }
 
-func TestUpdateOrganization(t *testing.T) {
+func TestUpdateTenant(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
@@ -100,19 +100,19 @@ func TestUpdateOrganization(t *testing.T) {
 	organizations := NewOrganizationsController(logger, mgmt)
 
 	type test struct {
-		body oapi.UpdateOrganizationJSONRequestBody
+		body oapi.UpdateTenantJSONRequestBody
 		code int
 	}
 
 	tests := map[string]test{
 		"success with tracking url": {
-			body: oapi.UpdateOrganizationJSONRequestBody{
+			body: oapi.UpdateTenantJSONRequestBody{
 				TrackingDeeplinkMirrorUrl: ptr("https://example.com/track"),
 			},
 			code: http.StatusOK,
 		},
 		"success with empty body": {
-			body: oapi.UpdateOrganizationJSONRequestBody{},
+			body: oapi.UpdateTenantJSONRequestBody{},
 			code: http.StatusOK,
 		},
 	}
@@ -123,19 +123,19 @@ func TestUpdateOrganization(t *testing.T) {
 			require.NoError(t, err)
 
 			res := httptest.NewRecorder()
-			req := httptest.NewRequest("PATCH", "/api/admin/organizations", bytes.NewReader(bb))
+			req := httptest.NewRequest("PATCH", "/api/admin/tenant", bytes.NewReader(bb))
 
 			claimAdmin := &rbac.Scope{
 				OrganizationID: admin.OrganizationID,
 			}
 			req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
 
-			organizations.UpdateOrganization(res, req)
+			organizations.UpdateTenant(res, req)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
 
 			if res.Code == http.StatusOK {
-				var org oapi.Organization
+				var org oapi.Tenant
 				err := json.NewDecoder(res.Body).Decode(&org)
 				require.NoError(t, err)
 				require.Equal(t, orgID, org.Id)
@@ -149,7 +149,7 @@ func TestUpdateOrganization(t *testing.T) {
 	}
 }
 
-func TestDeleteOrganization(t *testing.T) {
+func TestDeleteTenant(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
@@ -186,14 +186,14 @@ func TestDeleteOrganization(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
-			req := httptest.NewRequest("DELETE", "/api/admin/organizations", nil)
+			req := httptest.NewRequest("DELETE", "/api/admin/tenant", nil)
 
 			claimAdmin := &rbac.Scope{
 				OrganizationID: admin.OrganizationID,
 			}
 			req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
 
-			organizations.DeleteOrganization(res, req)
+			organizations.DeleteTenant(res, req)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
 
@@ -207,7 +207,7 @@ func TestDeleteOrganization(t *testing.T) {
 	}
 }
 
-func TestGetOrganizationIntegrations(t *testing.T) {
+func TestGetTenantIntegrations(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
@@ -267,14 +267,14 @@ func TestGetOrganizationIntegrations(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "/api/admin/organizations/integrations", nil)
+			req := httptest.NewRequest("GET", "/api/admin/tenant/integrations", nil)
 
 			claimAdmin := &rbac.Scope{
 				OrganizationID: admin.OrganizationID,
 			}
 			req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
 
-			organizations.GetOrganizationIntegrations(res, req)
+			organizations.GetTenantIntegrations(res, req)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
 

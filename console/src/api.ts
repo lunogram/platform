@@ -36,6 +36,11 @@ import type {
   Subscription,
   SubscriptionCreateParams,
   SubscriptionParams,
+  SubjectOrganization,
+  SubjectOrganizationCreateParams,
+  SubjectOrganizationMember,
+  SubjectOrganizationMemberParams,
+  SubjectOrganizationUpdateParams,
   SubscriptionUpdateParams,
   Tag,
   Template,
@@ -213,11 +218,9 @@ const api = {
   },
 
   admins: {
-    ...createEntityPath<Admin>("/admin/organizations/admins"),
+    ...createEntityPath<Admin>("/admin/tenant/admins"),
     whoami: async () =>
-      await client
-        .get<Admin>("/admin/organizations/whoami")
-        .then((r) => r.data),
+      await client.get<Admin>("/admin/tenant/whoami").then((r) => r.data),
   },
 
   projects: {
@@ -228,7 +231,9 @@ const api = {
         .then((r) => r.data),
     pathSuggestions: async (projectId: UUID) => {
       let eventSuggestions = await client
-        .get<{ results: VariableSuggestions['eventPaths'] }>(`${projectUrl(projectId)}/events/schema`)
+        .get<{
+          results: VariableSuggestions["eventPaths"];
+        }>(`${projectUrl(projectId)}/subjects/events/schema`)
         .then((r) => r.data.results);
 
       eventSuggestions = eventSuggestions.map((event) => {
@@ -236,22 +241,24 @@ const api = {
         event.schema = event.schema.map((schemaPath) => {
           return {
             ...schemaPath,
-            path: `.data${schemaPath.path}`
-          }
-        })
+            path: `.data${schemaPath.path}`,
+          };
+        });
 
         return event;
-      })
+      });
 
       const userSuggestions = await client
-        .get<{ results: VariableSuggestions['userPaths'] }>(`${projectUrl(projectId)}/users/schema`)
+        .get<{
+          results: VariableSuggestions["userPaths"];
+        }>(`${projectUrl(projectId)}/subjects/users/schema`)
         .then((r) => r.data.results);
 
       return {
         eventPaths: eventSuggestions,
         userPaths: userSuggestions,
-      }
-    }
+      };
+    },
   },
 
   data: {
@@ -447,18 +454,18 @@ const api = {
   },
 
   users: {
-    ...createProjectEntityPath<User>("users"),
+    ...createProjectEntityPath<User>("subjects/users"),
     lists: async (projectId: UUID, userId: UUID, params: SearchParams) =>
       await client
         .get<
           SearchResult<List>
-        >(`${projectUrl(projectId)}/users/${userId}/lists`, { params })
+        >(`${projectUrl(projectId)}/subjects/users/${userId}/lists`, { params })
         .then((r) => r.data),
     events: async (projectId: UUID, userId: UUID, params: SearchParams) =>
       await client
         .get<
           SearchResult<UserEvent>
-        >(`${projectUrl(projectId)}/users/${userId}/events`, { params })
+        >(`${projectUrl(projectId)}/subjects/users/${userId}/events`, { params })
         .then((r) => r.data),
     subscriptions: async (
       projectId: UUID,
@@ -468,7 +475,7 @@ const api = {
       await client
         .get<
           SearchResult<UserSubscription>
-        >(`${projectUrl(projectId)}/users/${userId}/subscriptions`, { params })
+        >(`${projectUrl(projectId)}/subjects/users/${userId}/subscriptions`, { params })
         .then((r) => r.data),
     updateSubscriptions: async (
       projectId: UUID,
@@ -477,19 +484,25 @@ const api = {
     ) =>
       await client
         .patch(
-          `${projectUrl(projectId)}/users/${userId}/subscriptions`,
+          `${projectUrl(projectId)}/subjects/users/${userId}/subscriptions`,
           subscriptions,
         )
         .then((r) => r.data),
     addImport: async (projectId: UUID, file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      await client.post(`${projectUrl(projectId)}/users/import`, formData);
+      await client.post(
+        `${projectUrl(projectId)}/subjects/users/import`,
+        formData,
+      );
     },
     deleteImport: async (projectId: UUID, file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      await client.post(`${projectUrl(projectId)}/users/bulk/delete`, formData);
+      await client.post(
+        `${projectUrl(projectId)}/subjects/users/bulk/delete`,
+        formData,
+      );
     },
 
     journeys: {
@@ -497,7 +510,44 @@ const api = {
         await client
           .get<
             SearchResult<JourneyUserStep>
-          >(`${projectUrl(projectId)}/users/${userId}/journeys`, { params })
+          >(`${projectUrl(projectId)}/subjects/users/${userId}/journeys`, { params })
+          .then((r) => r.data),
+    },
+  },
+
+  organizations: {
+    ...createProjectEntityPath<
+      SubjectOrganization,
+      SubjectOrganizationCreateParams,
+      SubjectOrganizationUpdateParams
+    >("subjects/organizations"),
+    members: {
+      search: async (
+        projectId: UUID,
+        organizationId: UUID,
+        params: SearchParams,
+      ) =>
+        await client
+          .get<
+            SearchResult<SubjectOrganizationMember>
+          >(`${projectUrl(projectId)}/subjects/organizations/${organizationId}/members`, { params })
+          .then((r) => r.data),
+      add: async (
+        projectId: UUID,
+        organizationId: UUID,
+        params: SubjectOrganizationMemberParams,
+      ) =>
+        await client
+          .post(
+            `${projectUrl(projectId)}/subjects/organizations/${organizationId}/members`,
+            params,
+          )
+          .then((r) => r.data),
+      remove: async (projectId: UUID, organizationId: UUID, userId: UUID) =>
+        await client
+          .delete(
+            `${projectUrl(projectId)}/subjects/organizations/${organizationId}/members/${userId}`,
+          )
           .then((r) => r.data),
     },
   },
@@ -667,17 +717,15 @@ const api = {
         .then((r) => r.data),
   },
 
-  organizations: {
+  tenant: {
     get: async () =>
-      await client
-        .get<Organization>("/admin/organizations")
-        .then((r) => r.data),
+      await client.get<Organization>("/admin/tenant").then((r) => r.data),
     update: async (id: UUID, params: OrganizationUpdateParams) =>
       await client
-        .patch<Organization>(`/admin/organizations/${id}`, params)
+        .patch<Organization>(`/admin/tenant`, params)
         .then((r) => r.data),
     delete: async () =>
-      await client.delete("/admin/organizations").then((r) => r.data),
+      await client.delete("/admin/tenant").then((r) => r.data),
   },
 
   locales: {

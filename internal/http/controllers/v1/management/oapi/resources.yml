@@ -1223,7 +1223,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/organizations/admins:
+  /api/admin/tenant/admins:
     get:
       summary: List organization admins
       description: Retrieves a paginated list of admins in the organization
@@ -1270,7 +1270,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/organizations/admins/{adminID}:
+  /api/admin/tenant/admins/{adminID}:
     get:
       summary: Get admin by ID
       description: Retrieves a specific admin
@@ -1351,7 +1351,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/organizations/whoami:
+  /api/admin/tenant/whoami:
     get:
       summary: Get current admin
       description: Retrieves the currently authenticated admin's information
@@ -1370,31 +1370,31 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/organizations:
+  /api/admin/tenant:
     get:
-      summary: Get current organization
-      description: Retrieves the current organization for the authenticated admin
-      operationId: getOrganization
+      summary: Get current tenant
+      description: Retrieves the current tenant for the authenticated admin
+      operationId: getTenant
       tags:
-        - Organizations
+        - Tenant
       security:
         - HttpBearerAuth: []
       responses:
         "200":
-          description: Organization retrieved successfully
+          description: Tenant retrieved successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Organization"
+                $ref: "#/components/schemas/Tenant"
         default:
           $ref: "#/components/responses/Error"
 
     patch:
-      summary: Update organization
-      description: Updates organization properties (requires owner role)
-      operationId: updateOrganization
+      summary: Update tenant
+      description: Updates tenant properties (requires owner role)
+      operationId: updateTenant
       tags:
-        - Organizations
+        - Tenant
       security:
         - HttpBearerAuth: []
       requestBody:
@@ -1402,38 +1402,38 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateOrganization"
+              $ref: "#/components/schemas/UpdateTenant"
       responses:
         "200":
-          description: Organization updated successfully
+          description: Tenant updated successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Organization"
+                $ref: "#/components/schemas/Tenant"
         default:
           $ref: "#/components/responses/Error"
 
     delete:
-      summary: Delete organization
-      description: Soft deletes the current organization (requires owner role)
-      operationId: deleteOrganization
+      summary: Delete tenant
+      description: Soft deletes the current tenant (requires owner role)
+      operationId: deleteTenant
       tags:
-        - Organizations
+        - Tenant
       security:
         - HttpBearerAuth: []
       responses:
         "204":
-          description: Organization deleted successfully
+          description: Tenant deleted successfully
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/organizations/integrations:
+  /api/admin/tenant/integrations:
     get:
-      summary: Get organization integrations
-      description: Retrieves all provider integrations for the organization
-      operationId: getOrganizationIntegrations
+      summary: Get tenant integrations
+      description: Retrieves all provider integrations for the tenant
+      operationId: getTenantIntegrations
       tags:
-        - Organizations
+        - Tenant
       security:
         - HttpBearerAuth: []
       responses:
@@ -1448,13 +1448,13 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/users:
+  /api/admin/projects/{projectID}/subjects/users:
     get:
       summary: List users
       description: Retrieves a paginated list of users in a project
       operationId: listUsers
       tags:
-        - Users
+        - Subjects > Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1483,7 +1483,7 @@ paths:
       description: Creates or updates a user by anonymous_id or external_id
       operationId: identifyUser
       tags:
-        - Users
+        - Subjects > Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1510,13 +1510,13 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/users/import:
+  /api/admin/projects/{projectID}/subjects/users/import:
     post:
       summary: Bulk import users
       description: Imports multiple users from a CSV file
       operationId: importUsers
       tags:
-        - Users
+        - Subjects > Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1546,13 +1546,13 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/users/{userID}:
+  /api/admin/projects/{projectID}/subjects/users/{userID}:
     get:
       summary: Get user by ID
       description: Retrieves a specific user
       operationId: getUser
       tags:
-        - Users
+        - Subjects > Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1585,7 +1585,7 @@ paths:
       description: Updates user properties
       operationId: updateUser
       tags:
-        - Users
+        - Subjects > Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1624,7 +1624,7 @@ paths:
       description: Deletes a user from the project
       operationId: deleteUser
       tags:
-        - Users
+        - Subjects > Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1648,13 +1648,13 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/users/{userID}/events:
+  /api/admin/projects/{projectID}/subjects/users/{userID}/events:
     get:
       summary: Get user events
       description: Retrieves events for a specific user
       operationId: getUserEvents
       tags:
-        - Users
+        - Subjects > Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1684,13 +1684,13 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/users/{userID}/subscriptions:
+  /api/admin/projects/{projectID}/subjects/users/{userID}/subscriptions:
     get:
       summary: Get user subscriptions
       description: Retrieves subscriptions for a specific user
       operationId: getUserSubscriptions
       tags:
-        - Users
+        - Subjects > Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1725,7 +1725,7 @@ paths:
       description: Updates subscription states for a user
       operationId: updateUserSubscriptions
       tags:
-        - Users
+        - Subjects > Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1759,13 +1759,13 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/users/{userID}/journeys:
+  /api/admin/projects/{projectID}/subjects/users/{userID}/journeys:
     get:
       summary: Get user journeys
       description: Retrieves journey entrances for a specific user
       operationId: getUserJourneys
       tags:
-        - Users
+        - Subjects > Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1795,13 +1795,13 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/events/schema:
+  /api/admin/projects/{projectID}/subjects/events/schema:
     get:
       summary: List events with schemas
       description: Retrieves all events and their schema paths for a project
       operationId: listEvents
       tags:
-        - Events
+        - Subjects > Events
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1818,13 +1818,13 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/users/schema:
+  /api/admin/projects/{projectID}/subjects/users/schema:
     get:
       summary: List user schemas
       description: Retrieves all user data schema paths for a project
       operationId: listUserSchemas
       tags:
-        - Users
+        - Subjects > Users
       security:
         - HttpBearerAuth: []
       parameters:
@@ -1849,6 +1849,386 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/SchemaPath"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations:
+    get:
+      summary: List subject organizations
+      description: Retrieves a paginated list of organizations (subjects) in a project
+      operationId: listOrganizations
+      tags:
+        - Subjects > Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Organizations retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationList"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      summary: Create or update subject organization
+      description: Creates or updates an organization (subject) by external_id
+      operationId: upsertOrganization
+      tags:
+        - Subjects > Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertOrganization"
+      responses:
+        "200":
+          description: Organization upserted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}:
+    get:
+      summary: Get subject organization by ID
+      description: Retrieves a specific organization (subject)
+      operationId: getOrganization
+      tags:
+        - Subjects > Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+      responses:
+        "200":
+          description: Organization retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        default:
+          $ref: "#/components/responses/Error"
+
+    patch:
+      summary: Update subject organization
+      description: Updates organization properties
+      operationId: updateOrganization
+      tags:
+        - Subjects > Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrganization"
+      responses:
+        "200":
+          description: Organization updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      summary: Delete subject organization
+      description: Deletes an organization and removes all user memberships
+      operationId: deleteOrganization
+      tags:
+        - Subjects > Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+      responses:
+        "204":
+          description: Organization deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users:
+    get:
+      summary: List organization users
+      description: Retrieves users belonging to an organization with their org-specific data
+      operationId: listOrganizationMembers
+      tags:
+        - Subjects > Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Organization users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationMemberList"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      summary: Add user to organization
+      description: Adds a user to an organization with optional org-specific data
+      operationId: addOrganizationMember
+      tags:
+        - Subjects > Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddOrganizationMember"
+      responses:
+        "200":
+          description: User added to organization successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users/{userID}:
+    delete:
+      summary: Remove user from organization
+      description: Removes a user from an organization
+      operationId: removeOrganizationMember
+      tags:
+        - Subjects > Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        "204":
+          description: User removed from organization successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/schema:
+    get:
+      summary: List organization schemas
+      description: Retrieves all organization data schema paths for a project
+      operationId: listOrganizationSchemas
+      tags:
+        - Subjects > Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        "200":
+          description: Organization schemas retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SchemaPath"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/users/schema:
+    get:
+      summary: List organization user schemas
+      description: Retrieves all organization user data schema paths for a project
+      operationId: listOrganizationMemberSchemas
+      tags:
+        - Subjects > Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        "200":
+          description: Organization user schemas retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SchemaPath"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/users/{userID}/subject-organizations:
+    get:
+      summary: Get user organizations
+      description: Retrieves all organizations a user belongs to
+      operationId: getUserOrganizations
+      tags:
+        - Subjects > Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        "200":
+          description: User organizations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Organization"
         default:
           $ref: "#/components/responses/Error"
 
@@ -4237,7 +4617,7 @@ components:
           type: string
           example: "Smith"
 
-    Organization:
+    Tenant:
       type: object
       required:
         - id
@@ -4267,7 +4647,7 @@ components:
           format: date-time
           example: "2025-11-23T17:20:00.021Z"
 
-    UpdateOrganization:
+    UpdateTenant:
       type: object
       properties:
         tracking_deeplink_mirror_url:
@@ -4406,6 +4786,204 @@ components:
           example:
             first_name: "Jane"
             last_name: "Smith"
+
+    Organization:
+      type: object
+      required:
+        - id
+        - project_id
+        - external_id
+        - data
+        - version
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        external_id:
+          type: string
+          example: "org_123"
+          description: External identifier for the organization from your system
+        name:
+          type: string
+          example: "Acme Corp"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          example:
+            industry: "technology"
+            size: "enterprise"
+        version:
+          type: integer
+          example: 1
+          x-go-type: int32
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    OrganizationList:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          required:
+            - results
+          properties:
+            results:
+              type: array
+              items:
+                $ref: "#/components/schemas/Organization"
+
+    UpsertOrganization:
+      type: object
+      required:
+        - external_id
+      properties:
+        external_id:
+          type: string
+          example: "org_123"
+          description: External identifier for the organization from your system
+        name:
+          type: string
+          example: "Acme Corp"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: map[string]any
+          example:
+            industry: "technology"
+            size: "enterprise"
+
+    UpdateOrganization:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Acme Corporation"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          example:
+            industry: "technology"
+            size: "enterprise"
+
+    OrganizationMember:
+      type: object
+      required:
+        - id
+        - project_id
+        - anonymous_id
+        - data
+        - has_push_device
+        - version
+        - created_at
+        - updated_at
+        - organization_data
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        anonymous_id:
+          type: string
+          example: "anon_abc123xyz"
+        external_id:
+          type: string
+          example: "user_123"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+          x-go-type: string
+        phone:
+          type: string
+          example: "+1234567890"
+          format: phone
+          x-go-type: string
+          description: E.164 formatted phone number
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          example:
+            first_name: "John"
+            last_name: "Doe"
+        timezone:
+          type: string
+          example: "America/New_York"
+        locale:
+          type: string
+          example: "en-US"
+        has_push_device:
+          type: boolean
+          example: false
+        version:
+          type: integer
+          example: 1
+          x-go-type: int32
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+        organization_data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          example:
+            role: "admin"
+            department: "engineering"
+          description: Organization-specific data for this user
+
+    OrganizationMemberList:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          required:
+            - results
+          properties:
+            results:
+              type: array
+              items:
+                $ref: "#/components/schemas/OrganizationMember"
+
+    AddOrganizationMember:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+          description: The user ID to add to the organization
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: map[string]any
+          example:
+            role: "member"
+            department: "sales"
+          description: Organization-specific data for this user
 
     UserEvent:
       type: object

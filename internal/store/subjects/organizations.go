@@ -9,12 +9,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/rules/query"
 	"github.com/lunogram/platform/internal/store"
 )
 
 type Organizations []Organization
+
+func (o Organizations) OAPI() []oapi.Organization {
+	results := make([]oapi.Organization, len(o))
+	for i, org := range o {
+		results[i] = org.OAPI()
+	}
+	return results
+}
 
 type Organization struct {
 	ID         uuid.UUID       `db:"id"`
@@ -25,6 +34,19 @@ type Organization struct {
 	Version    int32           `db:"version"`
 	CreatedAt  time.Time       `db:"created_at"`
 	UpdatedAt  time.Time       `db:"updated_at"`
+}
+
+func (o *Organization) OAPI() oapi.Organization {
+	return oapi.Organization{
+		Id:         o.ID,
+		ProjectId:  o.ProjectID,
+		ExternalId: o.ExternalID,
+		Name:       o.Name,
+		Data:       o.Data,
+		Version:    o.Version,
+		CreatedAt:  o.CreatedAt,
+		UpdatedAt:  o.UpdatedAt,
+	}
 }
 
 func NewOrganizationsStore(db store.DB) *OrganizationsStore {
@@ -213,7 +235,38 @@ type OrganizationMember struct {
 	OrganizationData json.RawMessage `db:"org_data"`
 }
 
+func (m *OrganizationMember) OAPI() oapi.OrganizationMember {
+	anonID := ""
+	if m.AnonymousID != nil {
+		anonID = *m.AnonymousID
+	}
+	return oapi.OrganizationMember{
+		Id:               m.ID,
+		ProjectId:        m.ProjectID,
+		AnonymousId:      anonID,
+		ExternalId:       m.ExternalID,
+		Email:            m.Email,
+		Phone:            m.Phone,
+		Data:             m.Data,
+		Timezone:         m.Timezone,
+		Locale:           m.Locale,
+		HasPushDevice:    m.HasPushDevice,
+		Version:          m.Version,
+		CreatedAt:        m.CreatedAt,
+		UpdatedAt:        m.UpdatedAt,
+		OrganizationData: m.OrganizationData,
+	}
+}
+
 type OrganizationMembers []OrganizationMember
+
+func (m OrganizationMembers) OAPI() []oapi.OrganizationMember {
+	results := make([]oapi.OrganizationMember, len(m))
+	for i, member := range m {
+		results[i] = member.OAPI()
+	}
+	return results
+}
 
 // ListOrganizationMembers lists all users belonging to an organization with pagination.
 func (s *OrganizationsStore) ListOrganizationMembers(ctx context.Context, projectID, orgID uuid.UUID, pagination store.Pagination) (OrganizationMembers, int, error) {

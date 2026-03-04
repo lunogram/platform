@@ -671,3 +671,50 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 	logger.Info("import completed", zap.Int("users_imported", imported))
 	return tx.Commit()
 }
+
+func (srv *UsersController) GetUserOrganizations(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	_, err := srv.users.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("user_id", userID.String()),
+	)
+
+	logger.Info("listing user organizations")
+
+	orgs, err := srv.users.ListUserOrganizations(ctx, projectID, userID)
+	if err != nil {
+		logger.Error("failed to list user organizations", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("user organizations listed", zap.Int("count", len(orgs)))
+
+	response := struct {
+		Results []oapi.Organization `json:"results"`
+	}{
+		Results: subjects.Organizations(orgs).OAPI(),
+	}
+
+	json.Write(w, http.StatusOK, response)
+}

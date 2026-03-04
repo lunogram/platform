@@ -56,8 +56,58 @@ type IdentifyRequest struct {
 	Timezone *string `json:"timezone"`
 }
 
+// Organization defines model for Organization.
+type Organization struct {
+	CreatedAt time.Time      `json:"created_at"`
+	Data      map[string]any `json:"data"`
+
+	// ExternalId External identifier for the organization from your system
+	ExternalId string             `json:"external_id"`
+	Id         openapi_types.UUID `json:"id"`
+	Name       *string            `json:"name,omitempty"`
+	ProjectId  openapi_types.UUID `json:"project_id"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+	Version    int32              `json:"version"`
+}
+
+// OrganizationEvent defines model for OrganizationEvent.
+type OrganizationEvent struct {
+	// Data Event-specific data
+	Data *map[string]any `json:"data,omitempty"`
+
+	// Name The name of the event
+	Name string `json:"name"`
+
+	// OrganizationExternalId External identifier for the organization
+	OrganizationExternalId string `json:"organization_external_id"`
+}
+
+// OrganizationRequest defines model for OrganizationRequest.
+type OrganizationRequest struct {
+	Data *map[string]any `json:"data,omitempty"`
+
+	// ExternalId External identifier for the organization from your system
+	ExternalId string  `json:"external_id"`
+	Name       *string `json:"name,omitempty"`
+}
+
+// OrganizationUserRequest defines model for OrganizationUserRequest.
+type OrganizationUserRequest struct {
+	// Data Organization-specific data for this user
+	Data *map[string]any `json:"data,omitempty"`
+
+	// OrganizationExternalId External identifier for the organization
+	OrganizationExternalId string `json:"organization_external_id"`
+
+	// UserExternalId External identifier for the user
+	UserExternalId string `json:"user_external_id"`
+}
+
 // PostEventsRequest defines model for PostEventsRequest.
 type PostEventsRequest = []Event
+
+// PostOrganizationEventsRequest defines model for PostOrganizationEventsRequest.
+type PostOrganizationEventsRequest = []OrganizationEvent
 
 // Problem defines model for Problem.
 type Problem struct {
@@ -66,6 +116,15 @@ type Problem struct {
 
 	// Title A short summary of the problem type. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
 	Title string `json:"title"`
+}
+
+// RemoveOrganizationUserRequest defines model for RemoveOrganizationUserRequest.
+type RemoveOrganizationUserRequest struct {
+	// OrganizationExternalId External identifier for the organization
+	OrganizationExternalId string `json:"organization_external_id"`
+
+	// UserExternalId External identifier for the user
+	UserExternalId string `json:"user_external_id"`
 }
 
 // User defines model for User.
@@ -107,6 +166,18 @@ type PostEventsJSONRequestBody = PostEventsRequest
 
 // IdentifyUserClientJSONRequestBody defines body for IdentifyUserClient for application/json ContentType.
 type IdentifyUserClientJSONRequestBody = IdentifyRequest
+
+// UpsertOrganizationClientJSONRequestBody defines body for UpsertOrganizationClient for application/json ContentType.
+type UpsertOrganizationClientJSONRequestBody = OrganizationRequest
+
+// PostOrganizationEventsClientJSONRequestBody defines body for PostOrganizationEventsClient for application/json ContentType.
+type PostOrganizationEventsClientJSONRequestBody = PostOrganizationEventsRequest
+
+// RemoveOrganizationUserClientJSONRequestBody defines body for RemoveOrganizationUserClient for application/json ContentType.
+type RemoveOrganizationUserClientJSONRequestBody = RemoveOrganizationUserRequest
+
+// AddOrganizationUserClientJSONRequestBody defines body for AddOrganizationUserClient for application/json ContentType.
+type AddOrganizationUserClientJSONRequestBody = OrganizationUserRequest
 
 // UpdatePreferencesFormdataRequestBody defines body for UpdatePreferences for application/x-www-form-urlencoded ContentType.
 type UpdatePreferencesFormdataRequestBody UpdatePreferencesFormdataBody
@@ -194,6 +265,26 @@ type ClientInterface interface {
 
 	IdentifyUserClient(ctx context.Context, body IdentifyUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// UpsertOrganizationClientWithBody request with any body
+	UpsertOrganizationClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpsertOrganizationClient(ctx context.Context, body UpsertOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostOrganizationEventsClientWithBody request with any body
+	PostOrganizationEventsClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostOrganizationEventsClient(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemoveOrganizationUserClientWithBody request with any body
+	RemoveOrganizationUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RemoveOrganizationUserClient(ctx context.Context, body RemoveOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddOrganizationUserClientWithBody request with any body
+	AddOrganizationUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AddOrganizationUserClient(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetPreferencesPage request
 	GetPreferencesPage(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -244,6 +335,102 @@ func (c *Client) IdentifyUserClientWithBody(ctx context.Context, contentType str
 
 func (c *Client) IdentifyUserClient(ctx context.Context, body IdentifyUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewIdentifyUserClientRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertOrganizationClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertOrganizationClientRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertOrganizationClient(ctx context.Context, body UpsertOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertOrganizationClientRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOrganizationEventsClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationEventsClientRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOrganizationEventsClient(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOrganizationEventsClientRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RemoveOrganizationUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveOrganizationUserClientRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RemoveOrganizationUserClient(ctx context.Context, body RemoveOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveOrganizationUserClientRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddOrganizationUserClientWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddOrganizationUserClientRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AddOrganizationUserClient(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddOrganizationUserClientRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -363,6 +550,166 @@ func NewIdentifyUserClientRequestWithBody(server string, contentType string, bod
 	}
 
 	operationPath := fmt.Sprintf("/api/client/identify")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUpsertOrganizationClientRequest calls the generic UpsertOrganizationClient builder with application/json body
+func NewUpsertOrganizationClientRequest(server string, body UpsertOrganizationClientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpsertOrganizationClientRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewUpsertOrganizationClientRequestWithBody generates requests for UpsertOrganizationClient with any type of body
+func NewUpsertOrganizationClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/organizations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostOrganizationEventsClientRequest calls the generic PostOrganizationEventsClient builder with application/json body
+func NewPostOrganizationEventsClientRequest(server string, body PostOrganizationEventsClientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostOrganizationEventsClientRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostOrganizationEventsClientRequestWithBody generates requests for PostOrganizationEventsClient with any type of body
+func NewPostOrganizationEventsClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/organizations/events")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRemoveOrganizationUserClientRequest calls the generic RemoveOrganizationUserClient builder with application/json body
+func NewRemoveOrganizationUserClientRequest(server string, body RemoveOrganizationUserClientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRemoveOrganizationUserClientRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRemoveOrganizationUserClientRequestWithBody generates requests for RemoveOrganizationUserClient with any type of body
+func NewRemoveOrganizationUserClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/organizations/users")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAddOrganizationUserClientRequest calls the generic AddOrganizationUserClient builder with application/json body
+func NewAddOrganizationUserClientRequest(server string, body AddOrganizationUserClientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddOrganizationUserClientRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAddOrganizationUserClientRequestWithBody generates requests for AddOrganizationUserClient with any type of body
+func NewAddOrganizationUserClientRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/organizations/users")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -575,6 +922,26 @@ type ClientWithResponsesInterface interface {
 
 	IdentifyUserClientWithResponse(ctx context.Context, body IdentifyUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*IdentifyUserClientResponse, error)
 
+	// UpsertOrganizationClientWithBodyWithResponse request with any body
+	UpsertOrganizationClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationClientResponse, error)
+
+	UpsertOrganizationClientWithResponse(ctx context.Context, body UpsertOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationClientResponse, error)
+
+	// PostOrganizationEventsClientWithBodyWithResponse request with any body
+	PostOrganizationEventsClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error)
+
+	PostOrganizationEventsClientWithResponse(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error)
+
+	// RemoveOrganizationUserClientWithBodyWithResponse request with any body
+	RemoveOrganizationUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error)
+
+	RemoveOrganizationUserClientWithResponse(ctx context.Context, body RemoveOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error)
+
+	// AddOrganizationUserClientWithBodyWithResponse request with any body
+	AddOrganizationUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error)
+
+	AddOrganizationUserClientWithResponse(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error)
+
 	// GetPreferencesPageWithResponse request
 	GetPreferencesPageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetPreferencesPageResponse, error)
 
@@ -626,6 +993,95 @@ func (r IdentifyUserClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r IdentifyUserClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpsertOrganizationClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Organization
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpsertOrganizationClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpsertOrganizationClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostOrganizationEventsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PostOrganizationEventsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostOrganizationEventsClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RemoveOrganizationUserClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r RemoveOrganizationUserClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemoveOrganizationUserClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AddOrganizationUserClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AddOrganizationUserClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddOrganizationUserClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -729,6 +1185,74 @@ func (c *ClientWithResponses) IdentifyUserClientWithResponse(ctx context.Context
 	return ParseIdentifyUserClientResponse(rsp)
 }
 
+// UpsertOrganizationClientWithBodyWithResponse request with arbitrary body returning *UpsertOrganizationClientResponse
+func (c *ClientWithResponses) UpsertOrganizationClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertOrganizationClientResponse, error) {
+	rsp, err := c.UpsertOrganizationClientWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertOrganizationClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpsertOrganizationClientWithResponse(ctx context.Context, body UpsertOrganizationClientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertOrganizationClientResponse, error) {
+	rsp, err := c.UpsertOrganizationClient(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertOrganizationClientResponse(rsp)
+}
+
+// PostOrganizationEventsClientWithBodyWithResponse request with arbitrary body returning *PostOrganizationEventsClientResponse
+func (c *ClientWithResponses) PostOrganizationEventsClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error) {
+	rsp, err := c.PostOrganizationEventsClientWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOrganizationEventsClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostOrganizationEventsClientWithResponse(ctx context.Context, body PostOrganizationEventsClientJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOrganizationEventsClientResponse, error) {
+	rsp, err := c.PostOrganizationEventsClient(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOrganizationEventsClientResponse(rsp)
+}
+
+// RemoveOrganizationUserClientWithBodyWithResponse request with arbitrary body returning *RemoveOrganizationUserClientResponse
+func (c *ClientWithResponses) RemoveOrganizationUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error) {
+	rsp, err := c.RemoveOrganizationUserClientWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemoveOrganizationUserClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) RemoveOrganizationUserClientWithResponse(ctx context.Context, body RemoveOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*RemoveOrganizationUserClientResponse, error) {
+	rsp, err := c.RemoveOrganizationUserClient(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemoveOrganizationUserClientResponse(rsp)
+}
+
+// AddOrganizationUserClientWithBodyWithResponse request with arbitrary body returning *AddOrganizationUserClientResponse
+func (c *ClientWithResponses) AddOrganizationUserClientWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error) {
+	rsp, err := c.AddOrganizationUserClientWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddOrganizationUserClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) AddOrganizationUserClientWithResponse(ctx context.Context, body AddOrganizationUserClientJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOrganizationUserClientResponse, error) {
+	rsp, err := c.AddOrganizationUserClient(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddOrganizationUserClientResponse(rsp)
+}
+
 // GetPreferencesPageWithResponse request returning *GetPreferencesPageResponse
 func (c *ClientWithResponses) GetPreferencesPageWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetPreferencesPageResponse, error) {
 	rsp, err := c.GetPreferencesPage(ctx, projectID, userID, reqEditors...)
@@ -823,6 +1347,117 @@ func ParseIdentifyUserClientResponse(rsp *http.Response) (*IdentifyUserClientRes
 	return response, nil
 }
 
+// ParseUpsertOrganizationClientResponse parses an HTTP response from a UpsertOrganizationClientWithResponse call
+func ParseUpsertOrganizationClientResponse(rsp *http.Response) (*UpsertOrganizationClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpsertOrganizationClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Organization
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostOrganizationEventsClientResponse parses an HTTP response from a PostOrganizationEventsClientWithResponse call
+func ParsePostOrganizationEventsClientResponse(rsp *http.Response) (*PostOrganizationEventsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostOrganizationEventsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRemoveOrganizationUserClientResponse parses an HTTP response from a RemoveOrganizationUserClientWithResponse call
+func ParseRemoveOrganizationUserClientResponse(rsp *http.Response) (*RemoveOrganizationUserClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemoveOrganizationUserClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddOrganizationUserClientResponse parses an HTTP response from a AddOrganizationUserClientWithResponse call
+func ParseAddOrganizationUserClientResponse(rsp *http.Response) (*AddOrganizationUserClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddOrganizationUserClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetPreferencesPageResponse parses an HTTP response from a GetPreferencesPageWithResponse call
 func ParseGetPreferencesPageResponse(rsp *http.Response) (*GetPreferencesPageResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -879,6 +1514,18 @@ type ServerInterface interface {
 	// Identify user
 	// (POST /api/client/identify)
 	IdentifyUserClient(w http.ResponseWriter, r *http.Request)
+	// Upsert organization
+	// (POST /api/client/organizations)
+	UpsertOrganizationClient(w http.ResponseWriter, r *http.Request)
+	// Post organization events
+	// (POST /api/client/organizations/events)
+	PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request)
+	// Remove user from organization
+	// (DELETE /api/client/organizations/users)
+	RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request)
+	// Add user to organization
+	// (POST /api/client/organizations/users)
+	AddOrganizationUserClient(w http.ResponseWriter, r *http.Request)
 	// Subscription preferences page
 	// (GET /preferences/{projectID}/{userID})
 	GetPreferencesPage(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
@@ -903,6 +1550,30 @@ func (_ Unimplemented) PostEvents(w http.ResponseWriter, r *http.Request) {
 // Identify user
 // (POST /api/client/identify)
 func (_ Unimplemented) IdentifyUserClient(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Upsert organization
+// (POST /api/client/organizations)
+func (_ Unimplemented) UpsertOrganizationClient(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Post organization events
+// (POST /api/client/organizations/events)
+func (_ Unimplemented) PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove user from organization
+// (DELETE /api/client/organizations/users)
+func (_ Unimplemented) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Add user to organization
+// (POST /api/client/organizations/users)
+func (_ Unimplemented) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -964,6 +1635,86 @@ func (siw *ServerInterfaceWrapper) IdentifyUserClient(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.IdentifyUserClient(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpsertOrganizationClient operation middleware
+func (siw *ServerInterfaceWrapper) UpsertOrganizationClient(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpsertOrganizationClient(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostOrganizationEventsClient operation middleware
+func (siw *ServerInterfaceWrapper) PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostOrganizationEventsClient(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveOrganizationUserClient operation middleware
+func (siw *ServerInterfaceWrapper) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveOrganizationUserClient(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddOrganizationUserClient operation middleware
+func (siw *ServerInterfaceWrapper) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddOrganizationUserClient(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1193,6 +1944,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/client/identify", wrapper.IdentifyUserClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/organizations", wrapper.UpsertOrganizationClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/organizations/events", wrapper.PostOrganizationEventsClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/client/organizations/users", wrapper.RemoveOrganizationUserClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/organizations/users", wrapper.AddOrganizationUserClient)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/preferences/{projectID}/{userID}", wrapper.GetPreferencesPage)
