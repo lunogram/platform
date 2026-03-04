@@ -78,7 +78,7 @@ func TestListOrganizations(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			orgs, total, err := db.ListOrganizations(ctx, projectID, tt.pagination)
+			orgs, total, err := db.ListOrganizations(ctx, projectID, tt.pagination, "")
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedCount, len(orgs))
 			require.Equal(t, tt.expectedTotal, total)
@@ -500,9 +500,10 @@ func TestListUserOrganizations(t *testing.T) {
 	}
 
 	// List user's orgs
-	orgs, err := db.ListUserOrganizations(ctx, projectID, userID)
+	orgs, total, err := db.ListUserOrganizations(ctx, projectID, userID, store.Pagination{Limit: 100, Offset: 0}, "")
 	require.NoError(t, err)
 	require.Equal(t, 3, len(orgs))
+	require.Equal(t, 3, total)
 
 	// Verify all orgs are returned
 	returnedIDs := make(map[uuid.UUID]bool)
@@ -630,9 +631,10 @@ func TestDeleteOrganizationCascadesMembers(t *testing.T) {
 	require.NotNil(t, user)
 
 	// User should no longer be in any orgs
-	orgs, err := db.ListUserOrganizations(ctx, projectID, userID)
+	orgs, total, err := db.ListUserOrganizations(ctx, projectID, userID, store.Pagination{Limit: 100, Offset: 0}, "")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(orgs))
+	require.Equal(t, 0, total)
 }
 
 func TestUpsertOrganizationSchema(t *testing.T) {

@@ -138,7 +138,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	usrs, total, err := st.ListsStore.SelectListUsers(ctx, projectID, listID, store.Pagination{Limit: 10, Offset: 0})
+	usrs, total, err := st.ListsStore.SelectListUsers(ctx, projectID, listID, store.Pagination{Limit: 10, Offset: 0}, "")
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 	assert.Len(t, usrs, 1)

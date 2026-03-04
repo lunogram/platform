@@ -396,7 +396,7 @@ func (e *UserEvent) OAPI() oapi.UserEvent {
 	}
 }
 
-func (s *UsersStore) ListUserEvents(ctx context.Context, projectID, userID uuid.UUID, pagination store.Pagination) (UserEvents, int, error) {
+func (s *UsersStore) ListUserEvents(ctx context.Context, projectID, userID uuid.UUID, pagination store.Pagination, search string) (UserEvents, int, error) {
 	query := `
 	SELECT
 		ue.id, u.project_id, ue.user_id, ue.event_id, e.name, ue.data, ue.created_at,
@@ -405,6 +405,10 @@ func (s *UsersStore) ListUserEvents(ctx context.Context, projectID, userID uuid.
 	INNER JOIN users u ON ue.user_id = u.id
 	INNER JOIN events e ON ue.event_id = e.id
 	WHERE u.project_id = $1 AND ue.user_id = $2
+	AND (
+		$5 = '' OR
+		e.name ILIKE '%' || $5 || '%'
+	)
 	ORDER BY ue.created_at DESC
 	LIMIT $3 OFFSET $4`
 
@@ -414,7 +418,7 @@ func (s *UsersStore) ListUserEvents(ctx context.Context, projectID, userID uuid.
 	}
 
 	var results []result
-	err := s.db.SelectContext(ctx, &results, query, projectID, userID, pagination.Limit, pagination.Offset)
+	err := s.db.SelectContext(ctx, &results, query, projectID, userID, pagination.Limit, pagination.Offset, search)
 	if err != nil {
 		return nil, 0, err
 	}

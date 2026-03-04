@@ -1218,6 +1218,9 @@ type ListCampaignsParams struct {
 
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // GetCampaignUsersParams defines parameters for GetCampaignUsers.
@@ -1251,6 +1254,9 @@ type ListJourneysParams struct {
 
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // ListApiKeysParams defines parameters for ListApiKeys.
@@ -1269,6 +1275,9 @@ type ListListsParams struct {
 
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // GetListUsersParams defines parameters for GetListUsers.
@@ -1278,6 +1287,9 @@ type GetListUsersParams struct {
 
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // ImportListUsersMultipartBody defines parameters for ImportListUsers.
@@ -1359,6 +1371,9 @@ type GetUserEventsParams struct {
 
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // GetUserJourneysParams defines parameters for GetUserJourneys.
@@ -1368,6 +1383,18 @@ type GetUserJourneysParams struct {
 
 	// Offset Number of items to skip
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetUserOrganizationsParams defines parameters for GetUserOrganizations.
+type GetUserOrganizationsParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // GetUserSubscriptionsParams defines parameters for GetUserSubscriptions.
@@ -2064,7 +2091,7 @@ type ClientInterface interface {
 	GetUserJourneys(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserOrganizations request
-	GetUserOrganizations(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetUserOrganizations(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserOrganizationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserSubscriptions request
 	GetUserSubscriptions(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserSubscriptionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3405,8 +3432,8 @@ func (c *Client) GetUserJourneys(ctx context.Context, projectID openapi_types.UU
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetUserOrganizations(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetUserOrganizationsRequest(c.Server, projectID, userID)
+func (c *Client) GetUserOrganizations(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserOrganizationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserOrganizationsRequest(c.Server, projectID, userID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -4361,6 +4388,22 @@ func NewListCampaignsRequest(server string, projectID openapi_types.UUID, params
 
 		}
 
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -5178,6 +5221,22 @@ func NewListJourneysRequest(server string, projectID openapi_types.UUID, params 
 
 		}
 
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -5906,6 +5965,22 @@ func NewListListsRequest(server string, projectID openapi_types.UUID, params *Li
 
 		}
 
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -6196,6 +6271,22 @@ func NewGetListUsersRequest(server string, projectID openapi_types.UUID, listID 
 		if params.Offset != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -7905,6 +7996,22 @@ func NewGetUserEventsRequest(server string, projectID openapi_types.UUID, userID
 
 		}
 
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -7996,7 +8103,7 @@ func NewGetUserJourneysRequest(server string, projectID openapi_types.UUID, user
 }
 
 // NewGetUserOrganizationsRequest generates requests for GetUserOrganizations
-func NewGetUserOrganizationsRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
+func NewGetUserOrganizationsRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserOrganizationsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -8026,6 +8133,60 @@ func NewGetUserOrganizationsRequest(server string, projectID openapi_types.UUID,
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -9480,7 +9641,7 @@ type ClientWithResponsesInterface interface {
 	GetUserJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*GetUserJourneysResponse, error)
 
 	// GetUserOrganizationsWithResponse request
-	GetUserOrganizationsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserOrganizationsResponse, error)
+	GetUserOrganizationsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserOrganizationsParams, reqEditors ...RequestEditorFn) (*GetUserOrganizationsResponse, error)
 
 	// GetUserSubscriptionsWithResponse request
 	GetUserSubscriptionsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserSubscriptionsParams, reqEditors ...RequestEditorFn) (*GetUserSubscriptionsResponse, error)
@@ -11474,7 +11635,10 @@ type GetUserOrganizationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
+		Limit   int            `json:"limit"`
+		Offset  int            `json:"offset"`
 		Results []Organization `json:"results"`
+		Total   int            `json:"total"`
 	}
 	JSONDefault *Error
 }
@@ -12957,8 +13121,8 @@ func (c *ClientWithResponses) GetUserJourneysWithResponse(ctx context.Context, p
 }
 
 // GetUserOrganizationsWithResponse request returning *GetUserOrganizationsResponse
-func (c *ClientWithResponses) GetUserOrganizationsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserOrganizationsResponse, error) {
-	rsp, err := c.GetUserOrganizations(ctx, projectID, userID, reqEditors...)
+func (c *ClientWithResponses) GetUserOrganizationsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserOrganizationsParams, reqEditors ...RequestEditorFn) (*GetUserOrganizationsResponse, error) {
+	rsp, err := c.GetUserOrganizations(ctx, projectID, userID, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -15884,7 +16048,10 @@ func ParseGetUserOrganizationsResponse(rsp *http.Response) (*GetUserOrganization
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
+			Limit   int            `json:"limit"`
+			Offset  int            `json:"offset"`
 			Results []Organization `json:"results"`
+			Total   int            `json:"total"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -16910,7 +17077,7 @@ type ServerInterface interface {
 	GetUserJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserJourneysParams)
 	// Get user organizations
 	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/subject-organizations)
-	GetUserOrganizations(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	GetUserOrganizations(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserOrganizationsParams)
 	// Get user subscriptions
 	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/subscriptions)
 	GetUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserSubscriptionsParams)
@@ -17483,7 +17650,7 @@ func (_ Unimplemented) GetUserJourneys(w http.ResponseWriter, r *http.Request, p
 
 // Get user organizations
 // (GET /api/admin/projects/{projectID}/subjects/users/{userID}/subject-organizations)
-func (_ Unimplemented) GetUserOrganizations(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+func (_ Unimplemented) GetUserOrganizations(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserOrganizationsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18036,6 +18203,14 @@ func (siw *ServerInterfaceWrapper) ListCampaigns(w http.ResponseWriter, r *http.
 	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
 		return
 	}
 
@@ -18727,6 +18902,14 @@ func (siw *ServerInterfaceWrapper) ListJourneys(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListJourneys(w, r, projectID, params)
 	}))
@@ -19329,6 +19512,14 @@ func (siw *ServerInterfaceWrapper) ListLists(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListLists(w, r, projectID, params)
 	}))
@@ -19576,6 +19767,14 @@ func (siw *ServerInterfaceWrapper) GetListUsers(w http.ResponseWriter, r *http.R
 	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
 		return
 	}
 
@@ -20967,6 +21166,14 @@ func (siw *ServerInterfaceWrapper) GetUserEvents(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetUserEvents(w, r, projectID, userID, params)
 	}))
@@ -21066,8 +21273,35 @@ func (siw *ServerInterfaceWrapper) GetUserOrganizations(w http.ResponseWriter, r
 
 	r = r.WithContext(ctx)
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserOrganizationsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetUserOrganizations(w, r, projectID, userID)
+		siw.Handler.GetUserOrganizations(w, r, projectID, userID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {

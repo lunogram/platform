@@ -93,6 +93,7 @@ paths:
           description: The project ID
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
         "200":
           $ref: "#/components/responses/CampaignListResponse"
@@ -512,6 +513,7 @@ paths:
           description: The project ID
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
         "200":
           $ref: "#/components/responses/ListListResponse"
@@ -712,6 +714,7 @@ paths:
           description: The list ID
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
         "200":
           description: List users retrieved successfully
@@ -911,6 +914,7 @@ paths:
           description: The project ID
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
         "200":
           $ref: "#/components/responses/JourneyListResponse"
@@ -1696,6 +1700,7 @@ paths:
           description: The user ID
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
         "200":
           description: User events retrieved successfully
@@ -2297,6 +2302,9 @@ paths:
             type: string
             format: uuid
           description: The user ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
         "200":
           description: User organizations retrieved successfully
@@ -2306,11 +2314,20 @@ paths:
                 type: object
                 required:
                   - results
+                  - total
+                  - limit
+                  - offset
                 properties:
                   results:
                     type: array
                     items:
                       $ref: "#/components/schemas/Organization"
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
         default:
           $ref: "#/components/responses/Error"
 

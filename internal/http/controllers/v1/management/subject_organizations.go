@@ -47,6 +47,7 @@ func (srv *SubjectOrganizationsController) ListOrganizations(w http.ResponseWrit
 
 	logger := srv.logger.With(zap.String("project_id", projectID.String()))
 
+	search := params.Search.ToString()
 	pagination := store.Pagination{
 		Limit:  params.Limit.ToInt(),
 		Offset: params.Offset.ToInt(),
@@ -54,7 +55,7 @@ func (srv *SubjectOrganizationsController) ListOrganizations(w http.ResponseWrit
 
 	logger.Info("listing subject organizations", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	orgs, total, err := srv.orgs.ListOrganizations(ctx, projectID, pagination)
+	orgs, total, err := srv.orgs.ListOrganizations(ctx, projectID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list organizations", zap.Error(err))
 		oapi.WriteProblem(w, err)

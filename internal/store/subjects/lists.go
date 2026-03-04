@@ -100,7 +100,7 @@ func (s *ListsStore) CreateList(ctx context.Context, list List) (uuid.UUID, erro
 	return id, nil
 }
 
-func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Lists, int, error) {
+func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string) (Lists, int, error) {
 	query := `
 	SELECT
 		l.id,
@@ -119,6 +119,7 @@ func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, paginat
 	LEFT JOIN list_users lu ON lu.list_id = l.id
 	WHERE l.project_id = $1
 	AND l.deleted_at IS NULL
+	AND ($4 = '' OR l.name ILIKE '%' || $4 || '%')
 	GROUP BY l.id, l.project_id, l.name, l.type, l.rule_id, r.rule, l.version, l.created_at, l.updated_at
 	ORDER BY l.updated_at DESC
 	LIMIT $2 OFFSET $3`
@@ -127,7 +128,7 @@ func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, paginat
 		List
 		TotalCount int `db:"total_count"`
 	}
-	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset)
+	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset, search)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -238,7 +239,7 @@ func (s *ListsStore) DuplicateList(ctx context.Context, projectID, listID uuid.U
 	return id, nil
 }
 
-func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid.UUID, pagination store.Pagination) (Users, int, error) {
+func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid.UUID, pagination store.Pagination, search string) (Users, int, error) {
 	query := `
 	SELECT
 		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
@@ -254,8 +255,14 @@ func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid
 	INNER JOIN lists l ON ul.list_id = l.id
 	WHERE l.project_id = $1
 	AND l.id = $2
+	AND (
+		$3 = '' OR
+		u.external_id ILIKE '%' || $3 || '%' OR
+		u.email ILIKE '%' || $3 || '%' OR
+		u.phone ILIKE '%' || $3 || '%'
+	)
 	ORDER BY ul.created_at DESC
-	LIMIT $3 OFFSET $4`
+	LIMIT $4 OFFSET $5`
 
 	type result struct {
 		User
@@ -263,7 +270,7 @@ func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid
 	}
 
 	var results []result
-	err := s.db.SelectContext(ctx, &results, query, projectID, listID, pagination.Limit, pagination.Offset)
+	err := s.db.SelectContext(ctx, &results, query, projectID, listID, search, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}

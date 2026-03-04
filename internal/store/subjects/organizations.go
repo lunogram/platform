@@ -148,16 +148,21 @@ func (s *OrganizationsStore) DeleteOrganization(ctx context.Context, projectID, 
 	return err
 }
 
-// ListOrganizations lists all organizations for a project with pagination.
-func (s *OrganizationsStore) ListOrganizations(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Organizations, int, error) {
+// ListOrganizations lists all organizations for a project with pagination and optional search.
+func (s *OrganizationsStore) ListOrganizations(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string) (Organizations, int, error) {
 	query := `
 	SELECT
 		id, project_id, external_id, name, data, version, created_at, updated_at,
 		COUNT(*) OVER () AS total_count
 	FROM organizations
 	WHERE project_id = $1
+	AND (
+		$2 = '' OR
+		external_id ILIKE '%' || $2 || '%' OR
+		name ILIKE '%' || $2 || '%'
+	)
 	ORDER BY created_at DESC
-	LIMIT $2 OFFSET $3`
+	LIMIT $3 OFFSET $4`
 
 	type result struct {
 		Organization
@@ -165,7 +170,7 @@ func (s *OrganizationsStore) ListOrganizations(ctx context.Context, projectID uu
 	}
 
 	var results []result
-	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset)
+	err := s.db.SelectContext(ctx, &results, query, projectID, search, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -320,21 +325,43 @@ func (s *OrganizationsStore) ListOrganizationMembers(ctx context.Context, projec
 }
 
 // ListUserOrganizations lists all organizations a user belongs to.
-func (s *OrganizationsStore) ListUserOrganizations(ctx context.Context, projectID, userID uuid.UUID) ([]Organization, error) {
+func (s *OrganizationsStore) ListUserOrganizations(ctx context.Context, projectID, userID uuid.UUID, pagination store.Pagination, search string) ([]Organization, int, error) {
 	query := `
-	SELECT o.id, o.project_id, o.external_id, o.name, o.data, o.version, o.created_at, o.updated_at
+	SELECT o.id, o.project_id, o.external_id, o.name, o.data, o.version, o.created_at, o.updated_at,
+		COUNT(*) OVER () AS total_count
 	FROM organizations o
 	INNER JOIN organization_users ou ON o.id = ou.organization_id
 	WHERE ou.user_id = $1 AND o.project_id = $2
-	ORDER BY ou.created_at DESC`
+	AND (
+		$5 = '' OR
+		o.external_id ILIKE '%' || $5 || '%' OR
+		o.name ILIKE '%' || $5 || '%'
+	)
+	ORDER BY ou.created_at DESC
+	LIMIT $3 OFFSET $4`
 
-	var orgs []Organization
-	err := s.db.SelectContext(ctx, &orgs, query, userID, projectID)
-	if err != nil {
-		return nil, err
+	type result struct {
+		Organization
+		TotalCount int `db:"total_count"`
 	}
 
-	return orgs, nil
+	var results []result
+	err := s.db.SelectContext(ctx, &results, query, userID, projectID, pagination.Limit, pagination.Offset, search)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(results) == 0 {
+		return []Organization{}, 0, nil
+	}
+
+	total := results[0].TotalCount
+	orgs := make([]Organization, len(results))
+	for i, r := range results {
+		orgs[i] = r.Organization
+	}
+
+	return orgs, total, nil
 }
 
 // CountOrganizationMembers returns the number of members in an organization.

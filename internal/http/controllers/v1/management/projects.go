@@ -22,6 +22,8 @@ import (
 	"github.com/lunogram/platform/internal/webhook"
 	webhookoapi "github.com/lunogram/platform/oapi"
 	"go.uber.org/zap"
+	"golang.org/x/text/language"
+	"golang.org/x/text/language/display"
 )
 
 func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, webhookCaller *webhook.Caller) *ProjectsController {
@@ -225,6 +227,23 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 			oapi.WriteProblem(w, err)
 			return
 		}
+	}
+
+	// Create default locale from the project's locale setting
+	locales := management.NewLocalesStore(tx)
+	localeLabel := body.Locale
+	if tag, langErr := language.Parse(body.Locale); langErr == nil {
+		localeLabel = display.Self.Name(tag)
+	}
+	_, err = locales.CreateLocale(ctx, management.Locale{
+		ProjectID: projectID,
+		Key:       body.Locale,
+		Label:     localeLabel,
+	})
+	if err != nil {
+		logger.Error("failed to create default locale", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
 	}
 
 	err = tx.Commit()

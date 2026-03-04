@@ -383,6 +383,7 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 		zap.String("user_id", userID.String()),
 	)
 
+	search := params.Search.ToString()
 	pagination := store.Pagination{
 		Limit:  params.Limit.ToInt(),
 		Offset: params.Offset.ToInt(),
@@ -390,7 +391,7 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 
 	logger.Info("listing user events", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	events, total, err := srv.users.ListUserEvents(ctx, projectID, userID, pagination)
+	events, total, err := srv.users.ListUserEvents(ctx, projectID, userID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list user events", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -719,7 +720,7 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 	return tx.Commit()
 }
 
-func (srv *UsersController) GetUserOrganizations(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
+func (srv *UsersController) GetUserOrganizations(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserOrganizationsParams) {
 	ctx := r.Context()
 	_, ok := claim.FromContext(ctx)
 	if !ok {
@@ -746,21 +747,33 @@ func (srv *UsersController) GetUserOrganizations(w http.ResponseWriter, r *http.
 		zap.String("user_id", userID.String()),
 	)
 
+	search := params.Search.ToString()
+	pagination := store.Pagination{
+		Limit:  params.Limit.ToInt(),
+		Offset: params.Offset.ToInt(),
+	}
+
 	logger.Info("listing user organizations")
 
-	orgs, err := srv.users.ListUserOrganizations(ctx, projectID, userID)
+	orgs, total, err := srv.users.ListUserOrganizations(ctx, projectID, userID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list user organizations", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	logger.Info("user organizations listed", zap.Int("count", len(orgs)))
+	logger.Info("user organizations listed", zap.Int("total", total), zap.Int("count", len(orgs)))
 
 	response := struct {
 		Results []oapi.Organization `json:"results"`
+		Total   int                 `json:"total"`
+		Limit   int                 `json:"limit"`
+		Offset  int                 `json:"offset"`
 	}{
 		Results: subjects.Organizations(orgs).OAPI(),
+		Total:   total,
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
 	}
 
 	json.Write(w, http.StatusOK, response)

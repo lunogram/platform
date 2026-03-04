@@ -42,9 +42,11 @@ func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Reque
 		Offset: params.Offset.ToInt(),
 	}
 
+	search := params.Search.ToString()
+
 	logger.Info("listing journeys", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	journeys, total, err := srv.jrny.ListJourneys(ctx, projectID, pagination)
+	journeys, total, err := srv.jrny.ListJourneys(ctx, projectID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list journeys", zap.Error(err))
 		oapi.WriteProblem(w, err)

@@ -172,7 +172,9 @@ func (srv *ListsController) ListLists(w http.ResponseWriter, r *http.Request, pr
 		Offset: params.Offset.ToInt(),
 	}
 
-	result, total, err := srv.store.ListLists(ctx, projectID, pagination)
+	search := params.Search.ToString()
+
+	result, total, err := srv.store.ListLists(ctx, projectID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list lists", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -545,7 +547,9 @@ func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request,
 		Offset: params.Offset.ToInt(),
 	}
 
-	users, total, err := srv.store.SelectListUsers(ctx, projectID, listID, pagination)
+	search := params.Search.ToString()
+
+	users, total, err := srv.store.SelectListUsers(ctx, projectID, listID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list list users", zap.Error(err))
 		oapi.WriteProblem(w, err)
