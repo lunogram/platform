@@ -183,13 +183,32 @@ func (r Rule) IsWrapper() bool {
 	return r.Type == RuleTypeWrapper
 }
 
-func (r Rule) Events() (result []string) {
+func (r Rule) UserEvents() (result []string) {
 	if r.Group == RuleGroupEvent && r.Type == RuleTypeWrapper {
-		result = append(result, r.Value.(string))
+		if v, ok := r.Value.(string); ok {
+			result = append(result, v)
+		}
 	}
 
 	for _, child := range r.Children {
-		events := child.Events()
+		events := child.UserEvents()
+		if len(events) > 0 {
+			result = append(result, events...)
+		}
+	}
+
+	return result
+}
+
+func (r Rule) OrganizationEvents() (result []string) {
+	if r.Group == RuleGroupOrganizationEvent && r.Type == RuleTypeWrapper {
+		if v, ok := r.Value.(string); ok {
+			result = append(result, v)
+		}
+	}
+
+	for _, child := range r.Children {
+		events := child.OrganizationEvents()
 		if len(events) > 0 {
 			result = append(result, events...)
 		}

@@ -33,13 +33,15 @@ type ClerkProvider struct {
 }
 
 func NewClerkProvider(cfg config.ClerkAuth, mgmt *management.State, logger *zap.Logger, keyFunc jwt.Keyfunc) (_ *ClerkProvider, err error) {
-	clerk.SetKey(cfg.SecretKey)
-
 	provider := &ClerkProvider{
-		config:  cfg,
-		mgmt:    mgmt,
-		logger:  logger,
-		users:   user.NewClient(&clerk.ClientConfig{}),
+		config: cfg,
+		mgmt:   mgmt,
+		logger: logger,
+		users: user.NewClient(&clerk.ClientConfig{
+			BackendConfig: clerk.BackendConfig{
+				Key: &cfg.SecretKey,
+			},
+		}),
 		keyFunc: keyFunc,
 	}
 

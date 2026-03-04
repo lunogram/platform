@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 )
@@ -17,7 +18,7 @@ type Rule struct {
 	DependsOnUsers             bool                       `db:"depends_on_users"`
 	DependsOnOrganizations     bool                       `db:"depends_on_organizations"`
 	DependsOnOrganizationUsers bool                       `db:"depends_on_organization_users"`
-	Events                     []uuid.UUID                `db:"events"`
+	Events                     store.UUIDArray            `db:"events"`
 	Version                    int                        `db:"version"`
 	CreatedAt                  time.Time                  `db:"created_at"`
 	UpdatedAt                  time.Time                  `db:"updated_at"`
@@ -72,14 +73,39 @@ func (s *RulesStore) CreateRule(ctx context.Context, rule Rule) (uuid.UUID, erro
 	return id, nil
 }
 
-func (s *RulesStore) SetRuleEventDependencies(ctx context.Context, projectID, ruleID uuid.UUID, events []string) error {
+// EventDependency represents an event name with its subject type for rule dependencies
+type EventDependency struct {
+	Name        string
+	SubjectType SubjectType
+}
+
+func (s *RulesStore) SetRuleEventDependencies(ctx context.Context, projectID, ruleID uuid.UUID, events []EventDependency) error {
+	// If no events provided, remove all existing dependencies for this rule
+	if len(events) == 0 {
+		_, err := s.db.ExecContext(ctx, `DELETE FROM rules_events WHERE rule_id = $1`, ruleID)
+		return err
+	}
+
+	// Extract names and subject types into parallel arrays for SQL.
+	// Note: These arrays must stay in sync - index i of names corresponds to index i of subjectTypes.
+	names := make([]string, len(events))
+	subjectTypes := make([]string, len(events))
+	for i, e := range events {
+		names[i] = e.Name
+		subjectTypes[i] = string(e.SubjectType)
+	}
+
 	query := `
 	WITH event_ids AS (
 		SELECT e.id
 		FROM events e
 		WHERE e.project_id = $1
-		AND e.name = ANY($3)
 		AND e.deleted_at IS NULL
+		AND EXISTS (
+			SELECT 1
+			FROM unnest($3::text[], $4::text[]) AS dep(name, subject_type)
+			WHERE e.name = dep.name AND e.subject_type = dep.subject_type::subject_type
+		)
 	),
 	deleted AS (
 		DELETE FROM rules_events
@@ -90,7 +116,7 @@ func (s *RulesStore) SetRuleEventDependencies(ctx context.Context, projectID, ru
 	SELECT $2, id FROM event_ids
 	ON CONFLICT (rule_id, event_id) DO NOTHING`
 
-	_, err := s.db.ExecContext(ctx, query, projectID, ruleID, events)
+	_, err := s.db.ExecContext(ctx, query, projectID, ruleID, pq.Array(names), pq.Array(subjectTypes))
 	return err
 }
 

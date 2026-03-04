@@ -3,6 +3,7 @@ package pubsub
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/config"
@@ -13,7 +14,12 @@ import (
 
 // New creates a new JetStream connection using the provided configuration.
 func New(ctx graceful.Context, conf config.Node) (jetstream.JetStream, error) {
-	conn, err := nats.Connect(conf.Nats.URL)
+	conn, err := nats.Connect(
+		conf.Nats.URL,
+		nats.MaxReconnects(5),
+		nats.ReconnectWait(100*time.Millisecond),
+		nats.RetryOnFailedConnect(true),
+	)
 	if err != nil {
 		return nil, err
 	}

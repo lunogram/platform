@@ -8,11 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"strings"
 
 	"github.com/cloudproud/graceful"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
@@ -188,6 +190,54 @@ func (j *JSONB[T]) MarshalRaw() *json.RawMessage {
 	}
 
 	return (*json.RawMessage)(&bytes)
+}
+
+// UUIDArray is a custom type for scanning PostgreSQL UUID arrays.
+type UUIDArray []uuid.UUID
+
+// Scan implements sql.Scanner for reading PostgreSQL UUID arrays.
+func (u *UUIDArray) Scan(value any) error {
+	if value == nil {
+		*u = nil
+		return nil
+	}
+
+	// PostgreSQL returns array_agg results as a string like "{uuid1,uuid2,...}"
+	var str string
+	switch v := value.(type) {
+	case []byte:
+		str = string(v)
+	case string:
+		str = v
+	default:
+		return fmt.Errorf("unsupported type for UUIDArray: %T", value)
+	}
+
+	// Handle empty array
+	if str == "{}" || str == "" {
+		*u = []uuid.UUID{}
+		return nil
+	}
+
+	// Remove braces and split
+	str = strings.Trim(str, "{}")
+	if str == "" {
+		*u = []uuid.UUID{}
+		return nil
+	}
+
+	parts := strings.Split(str, ",")
+	result := make([]uuid.UUID, len(parts))
+	for i, p := range parts {
+		id, err := uuid.Parse(p)
+		if err != nil {
+			return fmt.Errorf("failed to parse UUID at index %d: %w", i, err)
+		}
+		result[i] = id
+	}
+
+	*u = result
+	return nil
 }
 
 // DataType represents the type of a data field.
