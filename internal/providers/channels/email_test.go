@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,7 +21,7 @@ func TestComposeEmail(t *testing.T) {
 		name        string
 		config      map[string]any
 		template    management.Template
-		user        *users.User
+		user        *subjects.User
 		wantFrom    string
 		wantName    string
 		wantErr     bool
@@ -44,7 +44,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:     &users.User{Email: ptr("user@example.com")},
+			user:     &subjects.User{Email: ptr("user@example.com")},
 			wantFrom: "custom@example.com",
 			wantName: "Custom Name",
 			wantErr:  false,
@@ -64,7 +64,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:     &users.User{Email: ptr("user@example.com")},
+			user:     &subjects.User{Email: ptr("user@example.com")},
 			wantFrom: "default@example.com",
 			wantName: "Default Name",
 			wantErr:  false,
@@ -84,7 +84,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:     &users.User{Email: ptr("user@example.com")},
+			user:     &subjects.User{Email: ptr("user@example.com")},
 			wantFrom: "locked@example.com",
 			wantName: "Locked Name",
 			wantErr:  false,
@@ -101,7 +101,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:        &users.User{Email: ptr("user@example.com")},
+			user:        &subjects.User{Email: ptr("user@example.com")},
 			wantErr:     true,
 			errContains: "no from address specified",
 		},
@@ -118,7 +118,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:        &users.User{Email: nil},
+			user:        &subjects.User{Email: nil},
 			wantErr:     true,
 			errContains: "user has no email address",
 		},
@@ -135,7 +135,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:     &users.User{Email: ptr("user@example.com")},
+			user:     &subjects.User{Email: ptr("user@example.com")},
 			wantFrom: "custom@example.com",
 			wantName: "",
 			wantErr:  false,
@@ -153,7 +153,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:     &users.User{Email: ptr("user@example.com")},
+			user:     &subjects.User{Email: ptr("user@example.com")},
 			wantFrom: "custom@example.com",
 			wantName: "Fallback Name",
 			wantErr:  false,
@@ -168,7 +168,7 @@ func TestComposeEmail(t *testing.T) {
 					"html": "<p>Test</p>"
 				}`),
 			},
-			user:     &users.User{Email: ptr("user@example.com")},
+			user:     &subjects.User{Email: ptr("user@example.com")},
 			wantFrom: "sender@example.com",
 			wantName: "Sender",
 			wantErr:  false,
