@@ -22,12 +22,12 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewListsController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher, maxUploadSize int64) *ListsController {
+func NewListsController(logger *zap.Logger, usersDB *sqlx.DB, projects *management.ProjectsStore, pub pubsub.Publisher, maxUploadSize int64) *ListsController {
 	return &ListsController{
 		logger:        logger,
-		db:            db,
-		store:         users.NewState(db),
-		projects:      management.NewProjectsStore(db),
+		usersDB:       usersDB,
+		store:         users.NewState(usersDB),
+		projects:      projects,
 		maxUploadSize: maxUploadSize,
 		pub:           pub,
 	}
@@ -35,7 +35,7 @@ func NewListsController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher, m
 
 type ListsController struct {
 	logger        *zap.Logger
-	db            *sqlx.DB
+	usersDB       *sqlx.DB
 	store         *users.State
 	projects      *management.ProjectsStore
 	maxUploadSize int64
@@ -67,7 +67,7 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.usersDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -211,7 +211,7 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.usersDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -430,7 +430,7 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	imported := 0
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.usersDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		return err

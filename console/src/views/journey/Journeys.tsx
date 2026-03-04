@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -22,7 +21,7 @@ import type { UUID } from '@/types/common'
 
 export const JourneyTag = ({ status }: Pick<Journey, 'status'>) => {
     const { t } = useTranslation()
-    const variant = status === 'live' ? 'success' : 'plain'
+    const variant = status === 'published' ? 'success' : 'plain'
     const title = t(status)
     return <Tag variant={variant}>{title}</Tag>
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/lunogram/platform/internal/store/users"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
@@ -24,11 +25,10 @@ import (
 func setupUsersTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream) {
 	t.Helper()
 
-	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	natsURL := container.RunNATS(t)
-	postgresURI := container.RunPostgreSQL(t)
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
 	cfg := config.Node{
 		Nats: config.Nats{
@@ -36,16 +36,10 @@ func setupUsersTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream)
 		},
 	}
 
-	err := management.Migrate(management.Config{URI: postgresURI})
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, management.Config{URI: postgresURI})
-	require.NoError(t, err)
-
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	mgmtState := management.NewState(db)
+	mgmtState := management.NewState(mgmt)
 
 	orgID, err := mgmtState.OrganizationsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
@@ -58,7 +52,7 @@ func setupUsersTest(t *testing.T) (*users.State, uuid.UUID, jetstream.JetStream)
 	})
 	require.NoError(t, err)
 
-	usersState := users.NewState(db)
+	usersState := users.NewState(usrs)
 
 	return usersState, projectID, jet
 }

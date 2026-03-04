@@ -6,12 +6,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/container"
+
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
+	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -20,22 +20,15 @@ func TestCreateJourney(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	ctx := t.Context()
+	mgmt, _, jrny := teststore.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, config)
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeys := NewJourneysController(logger, db)
+	mgmtState := management.NewState(mgmt)
+	journeys := NewJourneysController(logger, jrny, mgmtState)
 
 	type test struct {
 		body oapi.CreateJourneyJSONRequestBody
@@ -90,22 +83,14 @@ func TestListJourneys(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	ctx := t.Context()
+	mgmt, _, jrny := teststore.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, config)
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeysStore := journey.NewJourneysStore(db)
+	journeysStore := journey.NewJourneysStore(jrny)
 
 	for i := 0; i < 5; i++ {
 		_, err := journeysStore.CreateJourney(ctx, journey.Journey{
@@ -115,7 +100,8 @@ func TestListJourneys(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	journeys := NewJourneysController(logger, db)
+	mgmtState := management.NewState(mgmt)
+	journeys := NewJourneysController(logger, jrny, mgmtState)
 
 	type test struct {
 		limit  int
@@ -181,22 +167,14 @@ func TestGetJourney(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	ctx := t.Context()
+	mgmt, _, jrny := teststore.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, config)
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeysStore := journey.NewJourneysStore(db)
+	journeysStore := journey.NewJourneysStore(jrny)
 	description := "Test Description"
 	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID:   projectID,
@@ -205,7 +183,8 @@ func TestGetJourney(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	journeys := NewJourneysController(logger, db)
+	mgmtState := management.NewState(mgmt)
+	journeys := NewJourneysController(logger, jrny, mgmtState)
 
 	type test struct {
 		journeyID uuid.UUID
@@ -248,29 +227,22 @@ func TestUpdateJourney(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	ctx := t.Context()
+	mgmt, _, jrny := teststore.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, config)
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeysStore := journey.NewJourneysStore(db)
+	journeysStore := journey.NewJourneysStore(jrny)
 	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID: projectID,
 		Name:      "Original Journey",
 	})
 	require.NoError(t, err)
 
-	journeys := NewJourneysController(logger, db)
+	mgmtState := management.NewState(mgmt)
+	journeys := NewJourneysController(logger, jrny, mgmtState)
 
 	type test struct {
 		body oapi.UpdateJourneyJSONRequestBody
@@ -335,29 +307,22 @@ func TestDeleteJourney(t *testing.T) {
 	t.Parallel()
 
 	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	config := management.Config{
-		URI: container.RunPostgreSQL(t),
-	}
+	ctx := t.Context()
+	mgmt, _, jrny := teststore.RunPostgreSQL(t)
 
-	err := management.Migrate(config)
-	require.NoError(t, err)
-
-	db, err := management.New(ctx, logger, config)
-	require.NoError(t, err)
-
-	projects := management.NewProjectsStore(db)
+	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	journeysStore := journey.NewJourneysStore(db)
+	journeysStore := journey.NewJourneysStore(jrny)
 	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID: projectID,
 		Name:      "Journey to Delete",
 	})
 	require.NoError(t, err)
 
-	journeys := NewJourneysController(logger, db)
+	mgmtState := management.NewState(mgmt)
+	journeys := NewJourneysController(logger, jrny, mgmtState)
 
 	type test struct {
 		journeyID uuid.UUID

@@ -1,6 +1,7 @@
 FROM tinygo/tinygo:0.40.1 AS modules
 WORKDIR /src
 
+COPY go.mod go.sum ./
 COPY Makefile ./
 COPY modules/ ./modules/
 COPY pkg/ ./pkg/

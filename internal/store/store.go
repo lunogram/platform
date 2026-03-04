@@ -6,18 +6,131 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/fs"
 
+	"github.com/cloudproud/graceful"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/pgx/v5"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
 )
 
-// Config contains database connection settings for all stores.
+// Config contains database connection settings for all databases.
 type Config struct {
-	ManagementURI string `env:"POSTGRES_URI" envDefault:"postgres://postgres:password@postgres:5432/postgres?sslmode=disable"`
-	UsersURI      string `env:"USERS_POSTGRES_URI" envDefault:"postgres://postgres:password@postgres:5432/users?sslmode=disable"`
-	JourneyURI    string `env:"JOURNEY_POSTGRES_URI" envDefault:"postgres://postgres:password@postgres:5432/journey?sslmode=disable"`
+	ManagementURI string `env:"POSTGRES_MANAGEMENT_URI" envDefault:"postgres://postgres:postgrespw@postgres:5432/management?sslmode=disable"`
+	UsersURI      string `env:"POSTGRES_USERS_URI" envDefault:"postgres://postgres:postgrespw@postgres:5432/users?sslmode=disable"`
+	JourneyURI    string `env:"POSTGRES_JOURNEY_URI" envDefault:"postgres://postgres:postgrespw@postgres:5432/journey?sslmode=disable"`
+}
+
+// Connections holds all database connections.
+type Connections struct {
+	Management *sqlx.DB
+	Users      *sqlx.DB
+	Journey    *sqlx.DB
+}
+
+// New creates database connections for all databases.
+func New(ctx graceful.Context, logger *zap.Logger, config Config) (*Connections, error) {
+	logger.Info("connecting to PostgreSQL databases")
+
+	management, err := sqlx.Connect("pgx", config.ManagementURI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to management database: %w", err)
+	}
+
+	users, err := sqlx.Connect("pgx", config.UsersURI)
+	if err != nil {
+		management.Close()
+		return nil, fmt.Errorf("failed to connect to users database: %w", err)
+	}
+
+	journey, err := sqlx.Connect("pgx", config.JourneyURI)
+	if err != nil {
+		management.Close()
+		users.Close()
+		return nil, fmt.Errorf("failed to connect to journey database: %w", err)
+	}
+
+	conns := &Connections{
+		Management: management,
+		Users:      users,
+		Journey:    journey,
+	}
+
+	ctx.Closer(func() {
+		logger.Info("received close signal, closing database connections")
+
+		if err := management.Close(); err != nil {
+			logger.Error("failed to close management database connection", zap.Error(err))
+		}
+		if err := users.Close(); err != nil {
+			logger.Error("failed to close users database connection", zap.Error(err))
+		}
+		if err := journey.Close(); err != nil {
+			logger.Error("failed to close journey database connection", zap.Error(err))
+		}
+	})
+
+	return conns, nil
+}
+
+// Connect creates a single database connection with graceful shutdown.
+func Connect(ctx graceful.Context, logger *zap.Logger, uri string) (*sqlx.DB, error) {
+	logger.Info("connecting to PostgreSQL database", zap.String("uri", uri))
+
+	db, err := sqlx.Connect("pgx", uri)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	ctx.Closer(func() {
+		logger.Info("received close signal, closing database connection")
+
+		err := db.Close()
+		if err != nil {
+			logger.Error("failed to close database connection", zap.Error(err))
+		}
+	})
+
+	return db, nil
 }
 
 var ErrNoRows = sql.ErrNoRows
+
+// Migrate applies all migrations from the given filesystem to the database.
+func Migrate(uri string, migrations fs.FS) error {
+	fsDriver, err := iofs.New(migrations, "migrations")
+	if err != nil {
+		return fmt.Errorf("failed to load embedded migration: %w", err)
+	}
+
+	conn, err := sql.Open("pgx", uri)
+	if err != nil {
+		return fmt.Errorf("failed to open database connection: %w", err)
+	}
+	defer conn.Close()
+
+	db, err := pgx.WithInstance(conn, &pgx.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to create migration database instance: %w", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	migrator, err := migrate.NewWithInstance("iofs", fsDriver, "pgx", db)
+	if err != nil {
+		return fmt.Errorf("failed to construct migrator: %w", err)
+	}
+
+	err = migrator.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("failed to run migration: %w", err)
+	}
+
+	return nil
+}
 
 // DB is the common database interface used by all store implementations.
 type DB interface {

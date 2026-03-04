@@ -1,3 +1,0 @@
--- This migration is superseded by 1767347087_versioned_journeys.up.sql
--- The journey system was completely redesigned with versioned architecture
--- Keeping this file as a no-op for migration history

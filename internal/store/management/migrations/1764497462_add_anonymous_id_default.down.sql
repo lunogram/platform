@@ -1,2 +1,0 @@
-ALTER TABLE users 
-  ALTER COLUMN anonymous_id DROP DEFAULT;

@@ -119,10 +119,10 @@ export function IntegrationForm({
         <>
           {provider?.id ? (
             <>
-              {provider.setup?.length > 0 && (
+              {provider?.setup?.length > 0 && (
                 <h4 className="legacy-typography">Details</h4>
               )}
-              {provider.setup?.map((item) => {
+              {provider?.setup?.map((item) => {
                 return (
                   <TextInput
                     name={item.name}
