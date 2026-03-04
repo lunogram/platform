@@ -14,10 +14,16 @@ const (
 	EventUserUpdated     = "user.updated"
 	EventListUserAdded   = "list.user.added"
 	EventListUserRemoved = "list.user.removed"
+
+	EventOrganizationCreated     = "organization.created"
+	EventOrganizationUpdated     = "organization.updated"
+	EventOrganizationUserAdded   = "organization.user.added"
+	EventOrganizationUserUpdated = "organization.user.updated"
+	EventOrganizationUserRemoved = "organization.user.removed"
 )
 
-// Event represents a tracked event with associated user and project information.
-type Event struct {
+// UserEvent represents a tracked event with associated user and project information.
+type UserEvent struct {
 	ID          uuid.UUID      `json:"id"`
 	Name        string         `json:"name"`
 	ProjectID   uuid.UUID      `json:"project_id"`
@@ -40,8 +46,8 @@ type User struct {
 	Version     int32          `json:"version"`
 }
 
-func (u User) Event(name string) Event {
-	return Event{
+func (u User) UserEvent(name string) UserEvent {
+	return UserEvent{
 		Name:        name,
 		ProjectID:   u.ProjectID,
 		AnonymousId: u.AnonymousID,
@@ -74,19 +80,73 @@ type JourneyStep struct {
 	StateID        *uuid.UUID `json:"state_id,omitempty"`
 }
 
+// Organization represents an organization with associated project information.
+type Organization struct {
+	ID         uuid.UUID      `json:"id"`
+	ProjectID  uuid.UUID      `json:"project_id"`
+	ExternalID string         `json:"external_id"`
+	Name       *string        `json:"name"`
+	Data       map[string]any `json:"data"`
+	Version    int32          `json:"version"`
+}
+
+// OrganizationEvent creates an OrganizationEvent from this Organization with the given event name.
+func (o Organization) OrganizationEvent(name string) OrganizationEvent {
+	return OrganizationEvent{
+		Name:                   name,
+		ProjectID:              o.ProjectID,
+		OrganizationID:         o.ID,
+		OrganizationExternalID: o.ExternalID,
+		Data: map[string]any{
+			"id":          o.ID,
+			"external_id": o.ExternalID,
+			"name":        o.Name,
+			"data":        o.Data,
+			"version":     o.Version,
+		},
+	}
+}
+
+// OrganizationUser represents a user's membership in an organization.
+type OrganizationUser struct {
+	OrganizationID         uuid.UUID      `json:"organization_id"`
+	OrganizationExternalID string         `json:"organization_external_id"`
+	UserID                 uuid.UUID      `json:"user_id"`
+	ProjectID              uuid.UUID      `json:"project_id"`
+	Data                   map[string]any `json:"data"`
+	Version                int32          `json:"version"`
+}
+
+// OrganizationEvent creates an OrganizationEvent from this OrganizationUser with the given event name.
+func (ou OrganizationUser) OrganizationEvent(name string) OrganizationEvent {
+	return OrganizationEvent{
+		Name:                   name,
+		ProjectID:              ou.ProjectID,
+		OrganizationID:         ou.OrganizationID,
+		OrganizationExternalID: ou.OrganizationExternalID,
+		Data: map[string]any{
+			"organization_id":          ou.OrganizationID,
+			"organization_external_id": ou.OrganizationExternalID,
+			"user_id":                  ou.UserID,
+			"data":                     ou.Data,
+			"version":                  ou.Version,
+		},
+	}
+}
+
+// OrganizationEvent represents an event that occurs on an organization (not a user).
+type OrganizationEvent struct {
+	ID                     uuid.UUID      `json:"id"`
+	Name                   string         `json:"name"`
+	ProjectID              uuid.UUID      `json:"project_id"`
+	OrganizationID         uuid.UUID      `json:"organization_id"`
+	OrganizationExternalID string         `json:"organization_external_id"`
+	Data                   map[string]any `json:"data"`
+}
+
 // CampaignsSend returns the NATS subject for campaign sending.
 func CampaignsSend(projectID uuid.UUID, campaignID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("campaigns.send.%s.%s", projectID, campaignID))
-}
-
-// EventsProcess returns the NATS subject for event processing.
-func EventsProcess(projectID uuid.UUID) Subject {
-	return Subject(fmt.Sprintf("events.process.%s", projectID))
-}
-
-// EventsSchema returns the NATS subject for event schema updates.
-func EventsSchema(projectID uuid.UUID) Subject {
-	return Subject(fmt.Sprintf("events.schema.%s", projectID))
 }
 
 // UsersProcess returns the NATS subject for user processing.
@@ -99,6 +159,16 @@ func UsersSchema(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("users.schema.%s", projectID))
 }
 
+// UserEventsProcess returns the NATS subject for user event processing.
+func UserEventsProcess(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("users.events.process.%s", projectID))
+}
+
+// UserEventsSchema returns the NATS subject for user event schema updates.
+func UserEventsSchema(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("users.events.schema.%s", projectID))
+}
+
 // ListsRecompute returns the NATS subject for list recomputation.
 func ListsRecompute(projectID uuid.UUID, listID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("lists.recompute.%s.%s", projectID, listID))
@@ -107,4 +177,34 @@ func ListsRecompute(projectID uuid.UUID, listID uuid.UUID) Subject {
 // JourneysAdvance returns the NATS subject for journey advancement.
 func JourneysAdvance(projectID uuid.UUID, journeyID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("journeys.advance.%s.%s", projectID, journeyID))
+}
+
+// OrganizationsProcess returns the NATS subject for organization processing.
+func OrganizationsProcess(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.process.%s", projectID))
+}
+
+// OrganizationsSchema returns the NATS subject for organization schema updates.
+func OrganizationsSchema(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.schema.%s", projectID))
+}
+
+// OrganizationUsersProcess returns the NATS subject for organization user processing.
+func OrganizationUsersProcess(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.users.process.%s", projectID))
+}
+
+// OrganizationUsersSchema returns the NATS subject for organization user schema updates.
+func OrganizationUsersSchema(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.users.schema.%s", projectID))
+}
+
+// OrganizationEventsProcess returns the NATS subject for organization event processing.
+func OrganizationEventsProcess(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.events.process.%s", projectID))
+}
+
+// OrganizationEventsSchema returns the NATS subject for organization event schema updates.
+func OrganizationEventsSchema(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.events.schema.%s", projectID))
 }

@@ -28,10 +28,10 @@ type JourneyStep struct {
 	StateID        *uuid.UUID `json:"state_id,omitempty"`
 }
 
-// EventsHandler creates a handler that processes incoming events and stores them in the database.
-func EventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
+// UserEventsHandler creates a handler that processes incoming user events and stores them in the database.
+func UserEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
-		event := schemas.Event{}
+		event := schemas.UserEvent{}
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal event message", zap.Error(err))
@@ -63,9 +63,9 @@ func EventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.State
 		}
 
 		wg, ctx := errgroup.WithContext(ctx)
-		wg.Go(PublishEventSchema(ctx, logger, pub, event))
-		wg.Go(PublishEventListDependencies(ctx, logger, usrs, pub, event))
-		wg.Go(PublishEventJourneyDependencies(ctx, logger, usrs, jrny, pub, event))
+		wg.Go(PublishUserEventSchema(ctx, logger, pub, event))
+		wg.Go(PublishUserEventListDependencies(ctx, logger, usrs, pub, event))
+		wg.Go(PublishUserEventJourneyDependencies(ctx, logger, usrs, jrny, pub, event))
 
 		err = wg.Wait()
 		if err != nil {
@@ -73,17 +73,17 @@ func EventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.State
 			return err
 		}
 
-		logger.Info("event processed successfully", zap.Stringer("event_id", event.ID))
+		logger.Info("user event processed successfully", zap.Stringer("event_id", event.ID))
 		return nil
 	}
 }
 
-// PublishEventSchema returns a function that publishes the event schema to the schema subject
+// PublishUserEventSchema returns a function that publishes the user event schema to the schema subject
 // if the event contains data properties.
-func PublishEventSchema(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, event schemas.Event) func() error {
+func PublishUserEventSchema(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, event schemas.UserEvent) func() error {
 	return func() error {
 		if event.Data != nil {
-			err := pub.Publish(ctx, schemas.EventsSchema(event.ProjectID), event)
+			err := pub.Publish(ctx, schemas.UserEventsSchema(event.ProjectID), event)
 			if err != nil {
 				logger.Error("failed to publish event to project subject", zap.Error(err))
 				return err
@@ -94,9 +94,9 @@ func PublishEventSchema(ctx context.Context, logger *zap.Logger, pub pubsub.Publ
 	}
 }
 
-// PublishEventListDependencies returns a function that publishes recompute messages for all lists
-// that depend on the given event through rule conditions.
-func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher, event schemas.Event) func() error {
+// PublishUserEventListDependencies returns a function that publishes recompute messages for all lists
+// that depend on the given user event through rule conditions.
+func PublishUserEventListDependencies(ctx context.Context, logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher, event schemas.UserEvent) func() error {
 	return func() error {
 		lists, err := usrs.ListEventListDependencies(ctx, event.ID)
 		if err != nil {
@@ -121,9 +121,9 @@ func PublishEventListDependencies(ctx context.Context, logger *zap.Logger, usrs 
 	}
 }
 
-// PublishEventJourneyDependencies returns a function that triggers journey entrance steps
-// for all journeys configured with event-based entrance conditions matching the given event.
-func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher, event schemas.Event) func() error {
+// PublishUserEventJourneyDependencies returns a function that triggers journey entrance steps
+// for all journeys configured with event-based entrance conditions matching the given user event.
+func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher, event schemas.UserEvent) func() error {
 	evaluator := eval.NewEvaluator()
 
 	return func() error {
@@ -207,10 +207,10 @@ func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, us
 	}
 }
 
-// EventSchemasHandler creates a handler that extracts and stores event schema information.
-func EventSchemasHandler(logger *zap.Logger, usrs *subjects.State) HandlerFunc {
+// UserEventSchemasHandler creates a handler that extracts and stores user event schema information.
+func UserEventSchemasHandler(logger *zap.Logger, usrs *subjects.State) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
-		event := schemas.Event{}
+		event := schemas.UserEvent{}
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal event message", zap.Error(err))

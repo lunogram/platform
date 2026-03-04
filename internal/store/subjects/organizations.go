@@ -3,9 +3,14 @@ package subjects
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
+	"github.com/lunogram/platform/internal/rules"
+	"github.com/lunogram/platform/internal/rules/query"
 	"github.com/lunogram/platform/internal/store"
 )
 
@@ -279,4 +284,180 @@ func (s *OrganizationsStore) CountOrganizationMembers(ctx context.Context, orgID
 	var count int
 	err := s.db.GetContext(ctx, &count, query, orgID)
 	return count, err
+}
+
+// UpsertOrganizationSchema inserts or updates schema paths for organization data.
+func (s *OrganizationsStore) UpsertOrganizationSchema(ctx context.Context, projectID uuid.UUID, paths rules.Paths) error {
+	if len(paths) == 0 {
+		return nil
+	}
+
+	stmt := `
+	INSERT INTO organization_schemas (project_id, path, data_type)
+	VALUES ($1, $2, $3)
+	ON CONFLICT (project_id, path, data_type) DO NOTHING`
+
+	// TODO: consider batch insert if path count becomes large enough to impact performance.
+	// Current usage suggests path counts are small (typically <50 paths per schema update).
+	for _, path := range paths {
+		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// OrganizationSchema represents a schema path for organization data.
+type OrganizationSchema struct {
+	Path  string         `db:"path"`
+	Types pq.StringArray `db:"types"`
+}
+
+// ListOrganizationSchemas returns all schema paths for organizations in a project.
+func (s *OrganizationsStore) ListOrganizationSchemas(ctx context.Context, projectID uuid.UUID) ([]OrganizationSchema, error) {
+	stmt := `
+	SELECT
+		path,
+		array_agg(DISTINCT data_type ORDER BY data_type) as types
+	FROM organization_schemas
+	WHERE project_id = $1
+	GROUP BY path
+	ORDER BY path`
+
+	var schemas []OrganizationSchema
+	err := s.db.SelectContext(ctx, &schemas, stmt, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return schemas, nil
+}
+
+// UpsertOrganizationUserSchema inserts or updates schema paths for organization user data.
+func (s *OrganizationsStore) UpsertOrganizationUserSchema(ctx context.Context, projectID uuid.UUID, paths rules.Paths) error {
+	if len(paths) == 0 {
+		return nil
+	}
+
+	stmt := `
+	INSERT INTO organization_user_schemas (project_id, path, data_type)
+	VALUES ($1, $2, $3)
+	ON CONFLICT (project_id, path, data_type) DO NOTHING`
+
+	// TODO: consider batch insert if path count becomes large enough to impact performance.
+	// Current usage suggests path counts are small (typically <50 paths per schema update).
+	for _, path := range paths {
+		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// OrganizationUserSchema represents a schema path for organization user data.
+type OrganizationUserSchema struct {
+	Path  string         `db:"path"`
+	Types pq.StringArray `db:"types"`
+}
+
+// ListOrganizationUserSchemas returns all schema paths for organization users in a project.
+func (s *OrganizationsStore) ListOrganizationUserSchemas(ctx context.Context, projectID uuid.UUID) ([]OrganizationUserSchema, error) {
+	stmt := `
+	SELECT
+		path,
+		array_agg(DISTINCT data_type ORDER BY data_type) as types
+	FROM organization_user_schemas
+	WHERE project_id = $1
+	GROUP BY path
+	ORDER BY path`
+
+	var schemas []OrganizationUserSchema
+	err := s.db.SelectContext(ctx, &schemas, stmt, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return schemas, nil
+}
+
+// InsertOrganizationEvent inserts an event occurrence for an organization.
+func (s *OrganizationsStore) InsertOrganizationEvent(ctx context.Context, organizationID uuid.UUID, eventID uuid.UUID, data map[string]any) (uuid.UUID, error) {
+	stmt := `
+	INSERT INTO organization_events (organization_id, event_id, data)
+	VALUES ($1, $2, $3)
+	RETURNING id`
+
+	var id uuid.UUID
+	err := s.db.GetContext(ctx, &id, stmt, organizationID, eventID, data)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
+}
+
+// LookupOrganizationID looks up an organization's internal ID by external ID.
+func (s *OrganizationsStore) LookupOrganizationID(ctx context.Context, projectID uuid.UUID, externalID string) (uuid.UUID, error) {
+	stmt := `
+	SELECT id FROM organizations
+	WHERE project_id = $1 AND external_id = $2`
+
+	var id uuid.UUID
+	err := s.db.GetContext(ctx, &id, stmt, projectID, externalID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
+}
+
+// ListOrganizationUserIDs returns all user IDs belonging to an organization.
+func (s *OrganizationsStore) ListOrganizationUserIDs(ctx context.Context, orgID uuid.UUID) ([]uuid.UUID, error) {
+	q := `
+	SELECT user_id
+	FROM organization_users
+	WHERE organization_id = $1`
+
+	var ids []uuid.UUID
+	err := s.db.SelectContext(ctx, &ids, q, orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	return ids, nil
+}
+
+// QueryOrganizationUserIDs returns a cursor for iterating over user IDs in an organization.
+// The caller is responsible for closing the rows.
+func (s *OrganizationsStore) QueryOrganizationUserIDs(ctx context.Context, orgID uuid.UUID) (*sqlx.Rows, error) {
+	q := `
+	SELECT user_id
+	FROM organization_users
+	WHERE organization_id = $1`
+
+	return s.db.QueryxContext(ctx, q, orgID)
+}
+
+// QueryOrganizationUsersMatchingRule returns a cursor for iterating over user IDs in an organization
+// that match the given ruleset. The caller is responsible for closing the rows.
+func (s *OrganizationsStore) QueryOrganizationUsersMatchingRule(ctx context.Context, projectID, orgID uuid.UUID, ruleset rules.RuleSet) (*sqlx.Rows, error) {
+	builder := query.NewQueryBuilder(projectID, nil)
+	result, err := builder.Query(ruleset)
+	if err != nil {
+		return nil, err
+	}
+
+	// Wrap the ruleset query to filter only users in the specified organization
+	q := fmt.Sprintf(`
+	SELECT u.id AS user_id
+	FROM organization_users ou
+	JOIN (%s) u ON u.id = ou.user_id
+	WHERE ou.organization_id = $%d`, result.SQL, len(result.Args)+1)
+
+	args := append(result.Args, orgID)
+	return s.db.QueryxContext(ctx, q, args...)
 }

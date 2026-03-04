@@ -254,13 +254,13 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	eventConsumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
+	eventConsumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
 	require.NoError(t, err)
 
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
 	require.NoError(t, err)
 
-	var receivedEvent schemas.Event
+	var receivedEvent schemas.UserEvent
 	err = json.Unmarshal(eventMsg.Data(), &receivedEvent)
 	require.NoError(t, err)
 	assert.Equal(t, schemas.EventListUserAdded, receivedEvent.Name)
@@ -276,8 +276,8 @@ func TestPublishListRecomputeEventsInserted(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamEvents,
-		Subjects: []string{"events.>"},
+		Name:     StreamUserEvents,
+		Subjects: []string{"users.events.>"},
 	})
 	require.NoError(t, err)
 
@@ -305,8 +305,8 @@ func TestPublishListRecomputeEventsDeleted(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamEvents,
-		Subjects: []string{"events.>"},
+		Name:     StreamUserEvents,
+		Subjects: []string{"users.events.>"},
 	})
 	require.NoError(t, err)
 
@@ -334,8 +334,8 @@ func TestPublishListRecomputeEventsMixed(t *testing.T) {
 	ctx := graceful.NewContext(t.Context())
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamEvents,
-		Subjects: []string{"events.>"},
+		Name:     StreamUserEvents,
+		Subjects: []string{"users.events.>"},
 	})
 	require.NoError(t, err)
 

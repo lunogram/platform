@@ -59,7 +59,7 @@ func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request) 
 	logger.Info("posting events")
 
 	for _, event := range events {
-		msg := schemas.Event{
+		msg := schemas.UserEvent{
 			ProjectID:   projectID,
 			Name:        event.Name,
 			AnonymousId: event.AnonymousId,
@@ -67,7 +67,7 @@ func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request) 
 			ExternalId:  event.ExternalId,
 		}
 
-		err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.EventsProcess(projectID)), msg)
+		err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), msg)
 		if err != nil {
 			logger.Error("failed to publish event", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal())

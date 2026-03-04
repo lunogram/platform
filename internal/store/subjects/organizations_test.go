@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/stretchr/testify/require"
 )
@@ -629,4 +630,465 @@ func TestDeleteOrganizationCascadesMembers(t *testing.T) {
 	orgs, err := db.ListUserOrganizations(ctx, projectID, userID)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(orgs))
+}
+
+func TestUpsertOrganizationSchema(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	paths := rules.Paths{
+		{Path: "plan", Type: rules.TypeString},
+		{Path: "seats", Type: rules.TypeNumber},
+		{Path: "active", Type: rules.TypeBool},
+	}
+
+	err := db.UpsertOrganizationSchema(ctx, projectID, paths)
+	require.NoError(t, err)
+
+	// Verify schemas were stored
+	schemas, err := db.ListOrganizationSchemas(ctx, projectID)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(schemas))
+
+	// Verify paths and types
+	schemaMap := make(map[string][]string)
+	for _, s := range schemas {
+		schemaMap[s.Path] = s.Types
+	}
+
+	require.Contains(t, schemaMap, "plan")
+	require.Contains(t, schemaMap["plan"], "string")
+
+	require.Contains(t, schemaMap, "seats")
+	require.Contains(t, schemaMap["seats"], "number")
+
+	require.Contains(t, schemaMap, "active")
+	require.Contains(t, schemaMap["active"], "boolean")
+}
+
+func TestUpsertOrganizationSchemaDeduplication(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	paths := rules.Paths{
+		{Path: "plan", Type: rules.TypeString},
+	}
+
+	// Insert same schema twice
+	err := db.UpsertOrganizationSchema(ctx, projectID, paths)
+	require.NoError(t, err)
+	err = db.UpsertOrganizationSchema(ctx, projectID, paths)
+	require.NoError(t, err)
+
+	// Should still only have one entry
+	schemas, err := db.ListOrganizationSchemas(ctx, projectID)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(schemas))
+}
+
+func TestUpsertOrganizationSchemaEmptyPaths(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Should not error with empty paths
+	err := db.UpsertOrganizationSchema(ctx, projectID, rules.Paths{})
+	require.NoError(t, err)
+
+	schemas, err := db.ListOrganizationSchemas(ctx, projectID)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(schemas))
+}
+
+func TestUpsertOrganizationUserSchema(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	paths := rules.Paths{
+		{Path: "role", Type: rules.TypeString},
+		{Path: "permissions", Type: rules.TypeString},
+		{Path: "level", Type: rules.TypeNumber},
+	}
+
+	err := db.UpsertOrganizationUserSchema(ctx, projectID, paths)
+	require.NoError(t, err)
+
+	// Verify schemas were stored
+	schemas, err := db.ListOrganizationUserSchemas(ctx, projectID)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(schemas))
+
+	// Verify paths and types
+	schemaMap := make(map[string][]string)
+	for _, s := range schemas {
+		schemaMap[s.Path] = s.Types
+	}
+
+	require.Contains(t, schemaMap, "role")
+	require.Contains(t, schemaMap["role"], "string")
+
+	require.Contains(t, schemaMap, "permissions")
+	require.Contains(t, schemaMap["permissions"], "string")
+
+	require.Contains(t, schemaMap, "level")
+	require.Contains(t, schemaMap["level"], "number")
+}
+
+func TestUpsertOrganizationUserSchemaDeduplication(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	paths := rules.Paths{
+		{Path: "role", Type: rules.TypeString},
+	}
+
+	// Insert same schema twice
+	err := db.UpsertOrganizationUserSchema(ctx, projectID, paths)
+	require.NoError(t, err)
+	err = db.UpsertOrganizationUserSchema(ctx, projectID, paths)
+	require.NoError(t, err)
+
+	// Should still only have one entry
+	schemas, err := db.ListOrganizationUserSchemas(ctx, projectID)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(schemas))
+}
+
+func TestUpsertOrganizationUserSchemaEmptyPaths(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Should not error with empty paths
+	err := db.UpsertOrganizationUserSchema(ctx, projectID, rules.Paths{})
+	require.NoError(t, err)
+
+	schemas, err := db.ListOrganizationUserSchemas(ctx, projectID)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(schemas))
+}
+
+func TestSelectListOrganizationsDependency(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create a rule that depends on organizations
+	ruleID, err := db.CreateRule(ctx, Rule{
+		ProjectID:              projectID,
+		Rule:                   store.JSONB[rules.RuleSet]{Data: rules.RuleSet{}},
+		DependsOnOrganizations: true,
+		Version:                1,
+	})
+	require.NoError(t, err)
+
+	// Create a list using this rule
+	listID, err := db.CreateList(ctx, List{
+		ProjectID: projectID,
+		RuleID:    &ruleID,
+		Name:      "Org Dependent List",
+	})
+	require.NoError(t, err)
+
+	// Should find the list as a dependency
+	result, err := db.SelectListOrganizationsDependency(ctx, projectID)
+	require.NoError(t, err)
+	require.Contains(t, result, listID)
+}
+
+func TestSelectListOrganizationsDependencyNoMatch(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create a rule that does NOT depend on organizations
+	ruleID, err := db.CreateRule(ctx, Rule{
+		ProjectID:              projectID,
+		Rule:                   store.JSONB[rules.RuleSet]{Data: rules.RuleSet{}},
+		DependsOnOrganizations: false,
+		DependsOnUsers:         true,
+		Version:                1,
+	})
+	require.NoError(t, err)
+
+	// Create a list using this rule
+	listID, err := db.CreateList(ctx, List{
+		ProjectID: projectID,
+		RuleID:    &ruleID,
+		Name:      "User Dependent List",
+	})
+	require.NoError(t, err)
+
+	// Should NOT find the list as an organization dependency
+	result, err := db.SelectListOrganizationsDependency(ctx, projectID)
+	require.NoError(t, err)
+	require.NotContains(t, result, listID)
+}
+
+func TestSelectListOrganizationUsersDependency(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create a rule that depends on organization users
+	ruleID, err := db.CreateRule(ctx, Rule{
+		ProjectID:                  projectID,
+		Rule:                       store.JSONB[rules.RuleSet]{Data: rules.RuleSet{}},
+		DependsOnOrganizationUsers: true,
+		Version:                    1,
+	})
+	require.NoError(t, err)
+
+	// Create a list using this rule
+	listID, err := db.CreateList(ctx, List{
+		ProjectID: projectID,
+		RuleID:    &ruleID,
+		Name:      "Org User Dependent List",
+	})
+	require.NoError(t, err)
+
+	// Should find the list as a dependency
+	result, err := db.SelectListOrganizationUsersDependency(ctx, projectID)
+	require.NoError(t, err)
+	require.Contains(t, result, listID)
+}
+
+func TestSelectListOrganizationUsersDependencyNoMatch(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create a rule that does NOT depend on organization users
+	ruleID, err := db.CreateRule(ctx, Rule{
+		ProjectID:                  projectID,
+		Rule:                       store.JSONB[rules.RuleSet]{Data: rules.RuleSet{}},
+		DependsOnOrganizationUsers: false,
+		DependsOnOrganizations:     true,
+		Version:                    1,
+	})
+	require.NoError(t, err)
+
+	// Create a list using this rule
+	listID, err := db.CreateList(ctx, List{
+		ProjectID: projectID,
+		RuleID:    &ruleID,
+		Name:      "Org Dependent List",
+	})
+	require.NoError(t, err)
+
+	// Should NOT find the list as an organization user dependency
+	result, err := db.SelectListOrganizationUsersDependency(ctx, projectID)
+	require.NoError(t, err)
+	require.NotContains(t, result, listID)
+}
+
+func TestLookupOrganizationID(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	externalID := "lookup_org_external_123"
+
+	// Create an organization
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: externalID,
+		Name:       ptr("Lookup Test Organization"),
+	})
+	require.NoError(t, err)
+
+	// Lookup the organization ID by external ID
+	foundID, err := db.LookupOrganizationID(ctx, projectID, externalID)
+	require.NoError(t, err)
+	require.Equal(t, orgID, foundID)
+}
+
+func TestLookupOrganizationIDNotFound(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Lookup a non-existent organization
+	_, err := db.LookupOrganizationID(ctx, projectID, "non_existent_org")
+	require.Error(t, err, "should return error when organization not found")
+}
+
+func TestInsertOrganizationEvent(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create an organization
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_event_test",
+		Name:       ptr("Event Test Organization"),
+	})
+	require.NoError(t, err)
+
+	// Create an event
+	eventID, err := db.UpsertEvent(ctx, projectID, "subscription.upgraded")
+	require.NoError(t, err)
+
+	// Insert organization event with data
+	eventData := map[string]any{
+		"plan":     "enterprise",
+		"seats":    100,
+		"features": []string{"sso", "audit_logs"},
+	}
+	orgEventID, err := db.InsertOrganizationEvent(ctx, orgID, eventID, eventData)
+	require.NoError(t, err)
+	require.NotEqual(t, uuid.Nil, orgEventID)
+}
+
+func TestInsertOrganizationEventWithNilData(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create an organization
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_event_nil_data",
+	})
+	require.NoError(t, err)
+
+	// Create an event
+	eventID, err := db.UpsertEvent(ctx, projectID, "org.created")
+	require.NoError(t, err)
+
+	// Insert organization event with nil data
+	orgEventID, err := db.InsertOrganizationEvent(ctx, orgID, eventID, nil)
+	require.NoError(t, err)
+	require.NotEqual(t, uuid.Nil, orgEventID)
+}
+
+func TestInsertMultipleOrganizationEvents(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create an organization
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_multi_events",
+	})
+	require.NoError(t, err)
+
+	// Create an event
+	eventID, err := db.UpsertEvent(ctx, projectID, "user.joined")
+	require.NoError(t, err)
+
+	// Insert multiple events for the same organization
+	eventIDs := make([]uuid.UUID, 3)
+	for i := 0; i < 3; i++ {
+		eventIDs[i], err = db.InsertOrganizationEvent(ctx, orgID, eventID, map[string]any{
+			"user_number": i + 1,
+		})
+		require.NoError(t, err)
+	}
+
+	// All event IDs should be unique
+	uniqueIDs := make(map[uuid.UUID]bool)
+	for _, id := range eventIDs {
+		require.False(t, uniqueIDs[id], "event IDs should be unique")
+		uniqueIDs[id] = true
+	}
+}
+
+func TestListOrganizationUserIDs(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create an organization
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_user_ids",
+	})
+	require.NoError(t, err)
+
+	// Initially should return empty list
+	userIDs, err := db.ListOrganizationUserIDs(ctx, orgID)
+	require.NoError(t, err)
+	require.Empty(t, userIDs)
+
+	// Create users and add them to the organization
+	expectedUserIDs := make([]uuid.UUID, 3)
+	for i := 0; i < 3; i++ {
+		userID, err := db.CreateUser(ctx, User{
+			ProjectID:   projectID,
+			AnonymousID: ptr(uuid.New().String()),
+			Data:        json.RawMessage(`{}`),
+		})
+		require.NoError(t, err)
+		expectedUserIDs[i] = userID
+
+		err = db.UpsertOrganizationMember(ctx, orgID, userID, nil)
+		require.NoError(t, err)
+	}
+
+	// Now should return all user IDs
+	userIDs, err = db.ListOrganizationUserIDs(ctx, orgID)
+	require.NoError(t, err)
+	require.Len(t, userIDs, 3)
+
+	// Verify all expected user IDs are present
+	userIDSet := make(map[uuid.UUID]bool)
+	for _, id := range userIDs {
+		userIDSet[id] = true
+	}
+	for _, expectedID := range expectedUserIDs {
+		require.True(t, userIDSet[expectedID], "expected user ID should be in result")
+	}
+}
+
+func TestListOrganizationUserIDsEmpty(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	// Create an organization with no members
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_empty_users",
+	})
+	require.NoError(t, err)
+
+	// Should return empty list, not error
+	userIDs, err := db.ListOrganizationUserIDs(ctx, orgID)
+	require.NoError(t, err)
+	require.Empty(t, userIDs)
 }

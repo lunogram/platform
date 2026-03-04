@@ -74,7 +74,7 @@ func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub pub
 	for _, applied := range recomputed {
 		switch applied.Action {
 		case subjects.RecomputeActionInserted:
-			event := schemas.Event{
+			event := schemas.UserEvent{
 				Name:      schemas.EventListUserAdded,
 				UserID:    applied.UserID,
 				ProjectID: projectID,
@@ -83,13 +83,13 @@ func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub pub
 				},
 			}
 
-			err = pub.Publish(ctx, schemas.EventsProcess(event.ProjectID), event)
+			err = pub.Publish(ctx, schemas.UserEventsProcess(event.ProjectID), event)
 			if err != nil {
 				logger.Error("failed to publish user list inserted event", zap.Error(err))
 				return err
 			}
 		case subjects.RecomputeActionDeleted:
-			event := schemas.Event{
+			event := schemas.UserEvent{
 				Name:      schemas.EventListUserRemoved,
 				UserID:    applied.UserID,
 				ProjectID: projectID,
@@ -98,7 +98,7 @@ func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub pub
 				},
 			}
 
-			err = pub.Publish(ctx, schemas.EventsProcess(event.ProjectID), event)
+			err = pub.Publish(ctx, schemas.UserEventsProcess(event.ProjectID), event)
 			if err != nil {
 				logger.Error("failed to publish user list removed event", zap.Error(err))
 				return err

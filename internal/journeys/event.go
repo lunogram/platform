@@ -40,7 +40,7 @@ func HandleEvent(ctx HandlerContext, step journey.JourneyVersionStep, state jour
 		return state, nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	event := schemas.Event{
+	event := schemas.UserEvent{
 		Name:        config.EventName,
 		ProjectID:   ctx.ProjectID,
 		UserID:      ctx.UserID,
@@ -49,7 +49,7 @@ func HandleEvent(ctx HandlerContext, step journey.JourneyVersionStep, state jour
 		Data:        payload,
 	}
 
-	err = ctx.Publisher.Publish(ctx, schemas.Subject(schemas.EventsProcess(ctx.ProjectID)), event)
+	err = ctx.Publisher.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(ctx.ProjectID)), event)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to publish event: %w", err)
 	}
