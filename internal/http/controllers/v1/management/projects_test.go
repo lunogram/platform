@@ -5,14 +5,18 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/claim/rbac"
+	"github.com/lunogram/platform/internal/config"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
+	"github.com/lunogram/platform/internal/webhook"
+	webhookoapi "github.com/lunogram/platform/oapi"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -312,4 +316,74 @@ func TestUpdateProject(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateProjectWebhook(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
+
+	orgs := management.NewOrganizationsStore(mgmt)
+	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
+	require.NoError(t, err)
+
+	admins := management.NewAdminsStore(mgmt)
+	_, err = admins.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID,
+		Email:          "test@example.com",
+		Role:           "admin",
+	})
+	require.NoError(t, err)
+
+	var called atomic.Bool
+	var receivedEvent webhookoapi.ProjectCreatedEvent
+
+	webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called.Store(true)
+
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		require.Equal(t, string(webhookoapi.ProjectCreated), r.Header.Get("X-Webhook-Event"))
+
+		err := json.NewDecoder(r.Body).Decode(&receivedEvent)
+		require.NoError(t, err)
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer webhookServer.Close()
+
+	caller := webhook.NewCaller(logger, config.Webhook{
+		ProjectCreatedURL: webhookServer.URL,
+	})
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, caller)
+
+	body := oapi.CreateProjectJSONRequestBody{
+		Name:     "Webhook Test Project",
+		Timezone: "America/New_York",
+		Locale:   "en-US",
+	}
+
+	bb, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects", bytes.NewReader(bb))
+
+	claimAdmin := &rbac.Scope{
+		OrganizationID: orgID,
+	}
+	req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+
+	projects.CreateProject(res, req)
+
+	require.Equal(t, http.StatusCreated, res.Code, res.Body.String())
+	require.True(t, called.Load(), "webhook should have been called")
+
+	require.Equal(t, webhookoapi.ProjectCreated, receivedEvent.Event)
+	require.Equal(t, "Webhook Test Project", receivedEvent.Project.Name)
+	require.Equal(t, orgID, receivedEvent.Project.OrganizationId)
+	require.NotEqual(t, uuid.Nil, receivedEvent.Project.Id)
 }

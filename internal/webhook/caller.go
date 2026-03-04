@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -79,7 +80,7 @@ func (c *Caller) ProjectCreated(ctx context.Context, r *http.Request, project oa
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Webhook-Event", "project.created")
+	req.Header.Set("X-Webhook-Event", string(payload.Event))
 
 	logger.Info("calling project created webhook")
 
@@ -88,6 +89,9 @@ func (c *Caller) ProjectCreated(ctx context.Context, r *http.Request, project oa
 		return fmt.Errorf("webhook request failed: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// Drain the response body to allow HTTP connection reuse
+	_, _ = io.Copy(io.Discard, resp.Body)
 
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("webhook returned error status: %d", resp.StatusCode)
