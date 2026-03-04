@@ -18,8 +18,8 @@ import (
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
-	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -129,9 +129,9 @@ func TestListLists(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(usrs)
+	listsStore := subjects.NewListsStore(usrs)
 
-	testLists := []users.List{
+	testLists := []subjects.List{
 		{
 			ProjectID: projectID,
 			Name:      "Test List 1",
@@ -233,8 +233,8 @@ func TestGetList(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(usrs)
-	listID, err := listsStore.CreateList(ctx, users.List{
+	listsStore := subjects.NewListsStore(usrs)
+	listID, err := listsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
@@ -280,8 +280,8 @@ func TestUpdateList(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(usrs)
-	listID, err := listsStore.CreateList(ctx, users.List{
+	listsStore := subjects.NewListsStore(usrs)
+	listID, err := listsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "dynamic",
@@ -333,8 +333,8 @@ func TestDeleteList(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(usrs)
-	listID, err := listsStore.CreateList(ctx, users.List{
+	listsStore := subjects.NewListsStore(usrs)
+	listID, err := listsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
@@ -377,8 +377,8 @@ func TestDuplicateList(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	listsStore := users.NewListsStore(usrs)
-	listID, err := listsStore.CreateList(ctx, users.List{
+	listsStore := subjects.NewListsStore(usrs)
+	listID, err := listsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Original List",
 		Type:      "static",
@@ -452,13 +452,13 @@ func TestImportListUsers(t *testing.T) {
 			projectID, err := projects.CreateProject(ctx, DefaultProject)
 			require.NoError(t, err)
 
-			usersStore := users.NewUsersStore(usrs)
-			listsStore := users.NewListsStore(usrs)
+			usersStore := subjects.NewUsersStore(usrs)
+			listsStore := subjects.NewListsStore(usrs)
 
-			list := users.List{
+			list := subjects.List{
 				ProjectID: projectID,
 				Name:      "Import Test List",
-				Type:      users.ListTypeStatic,
+				Type:      subjects.ListTypeStatic,
 			}
 
 			listID, err := listsStore.CreateList(ctx, list)

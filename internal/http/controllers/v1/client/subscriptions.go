@@ -13,7 +13,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
@@ -24,11 +24,11 @@ type SubscriptionsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	mgmt   *management.State
-	users  *users.State
+	users  *subjects.State
 	tmpl   *template.Template
 }
 
-func NewSubscriptionsController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, usrs *users.State) (*SubscriptionsController, error) {
+func NewSubscriptionsController(logger *zap.Logger, db *sqlx.DB, mgmt *management.State, usrs *subjects.State) (*SubscriptionsController, error) {
 	tmpl, err := template.ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		return nil, err

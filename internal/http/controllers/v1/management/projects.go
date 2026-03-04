@@ -18,7 +18,7 @@ import (
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/lunogram/platform/internal/webhook"
 	webhookoapi "github.com/lunogram/platform/oapi"
 	"go.uber.org/zap"
@@ -30,7 +30,7 @@ func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB 
 		managementDB: managementDB,
 		store:        management.NewState(managementDB),
 		journey:      journey.NewState(journeyDB),
-		users:        users.NewState(usersDB),
+		users:        subjects.NewState(usersDB),
 		webhook:      webhookCaller,
 	}
 }
@@ -40,7 +40,7 @@ type ProjectsController struct {
 	managementDB *sqlx.DB
 	store        *management.State
 	journey      *journey.State
-	users        *users.State
+	users        *subjects.State
 	webhook      *webhook.Caller
 }
 

@@ -9,7 +9,7 @@ import (
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -25,7 +25,7 @@ func RunPostgreSQL(t *testing.T) (mgmt, usrs, jrny *sqlx.DB) {
 	journeyURI := container.CreateSchema(t, uri, "journey")
 
 	require.NoError(t, management.Migrate(mgmtURI))
-	require.NoError(t, users.Migrate(usersURI))
+	require.NoError(t, subjects.Migrate(usersURI))
 	require.NoError(t, journey.Migrate(journeyURI))
 
 	ctx := graceful.NewContext(t.Context())

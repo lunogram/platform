@@ -24,8 +24,8 @@ import (
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
-	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -94,7 +94,7 @@ func TestListUsers(t *testing.T) {
 
 	usersStore := controller.users.UsersStore
 	for i := 0; i < 5; i++ {
-		_, err := usersStore.CreateUser(ctx, users.User{
+		_, err := usersStore.CreateUser(ctx, subjects.User{
 			ProjectID:   projectID,
 			AnonymousID: ptr(uuid.New().String()),
 			Data:        json.RawMessage(`{}`),
@@ -153,7 +153,7 @@ func TestGetUser(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
+	userID, err := usersStore.CreateUser(ctx, subjects.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_get"),
 		Email:       ptr("get@example.com"),
@@ -183,7 +183,7 @@ func TestUpdateUser(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
+	userID, err := usersStore.CreateUser(ctx, subjects.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_update"),
 		Email:       ptr("old@example.com"),
@@ -227,7 +227,7 @@ func TestDeleteUser(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
+	userID, err := usersStore.CreateUser(ctx, subjects.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_delete"),
 		Data:        json.RawMessage(`{}`),
@@ -253,7 +253,7 @@ func TestVersionIncrementsOnUpdate(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
+	userID, err := usersStore.CreateUser(ctx, subjects.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_version"),
 		Data:        json.RawMessage(`{}`),
@@ -290,7 +290,7 @@ func TestGetUserEvents(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
+	userID, err := usersStore.CreateUser(ctx, subjects.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_events"),
 		Data:        json.RawMessage(`{}`),
@@ -298,7 +298,7 @@ func TestGetUserEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := 0; i < 3; i++ {
-		_, err := usersStore.CreateUserEvent(ctx, users.UserEvent{
+		_, err := usersStore.CreateUserEvent(ctx, subjects.UserEvent{
 			ProjectID: projectID,
 			UserID:    userID,
 			Name:      "page_viewed",
@@ -346,7 +346,7 @@ func TestGetUserSubscriptions(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
+	userID, err := usersStore.CreateUser(ctx, subjects.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_subscriptions"),
 		Data:        json.RawMessage(`{}`),
@@ -403,7 +403,7 @@ func TestUpdateUserSubscriptions(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
+	userID, err := usersStore.CreateUser(ctx, subjects.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_update_subs"),
 		Data:        json.RawMessage(`{}`),
@@ -452,7 +452,7 @@ func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
+	userID, err := usersStore.CreateUser(ctx, subjects.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_sub_not_found"),
 		Data:        json.RawMessage(`{}`),
@@ -487,7 +487,7 @@ func TestGetUserJourneys(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
+	userID, err := usersStore.CreateUser(ctx, subjects.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_journeys"),
 		Data:        json.RawMessage(`{}`),
@@ -553,7 +553,7 @@ func TestGetUserJourneysPagination(t *testing.T) {
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
-	userID, err := usersStore.CreateUser(ctx, users.User{
+	userID, err := usersStore.CreateUser(ctx, subjects.User{
 		ProjectID:   projectID,
 		AnonymousID: ptr("anon_journeys_page"),
 		Data:        json.RawMessage(`{}`),
@@ -830,7 +830,7 @@ func TestImportUsers(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			usersStore := users.NewUsersStore(usrsDB)
+			usersStore := subjects.NewUsersStore(usrsDB)
 			mgmt := management.NewState(mgmtDB)
 			controller := NewUsersController(logger, pub, usrsDB, jrnyDB, mgmt, 32<<20)
 

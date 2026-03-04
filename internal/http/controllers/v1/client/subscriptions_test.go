@@ -11,8 +11,8 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
-	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -25,7 +25,7 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 	mgmtDB, usrsDB, _ := teststore.RunPostgreSQL(t)
 
 	mgmt := management.NewState(mgmtDB)
-	usrs := users.NewState(usrsDB)
+	usrs := subjects.NewState(usrsDB)
 
 	// Create project
 	projectsStore := management.NewProjectsStore(mgmtDB)
@@ -38,7 +38,7 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 
 	// Create user
 	email := "test@example.com"
-	userID, err := usrs.CreateUser(ctx, users.User{
+	userID, err := usrs.CreateUser(ctx, subjects.User{
 		ProjectID: projectID,
 		Email:     &email,
 		Data:      json.RawMessage("{}"),
@@ -137,7 +137,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 	mgmtDB, usrsDB, _ := teststore.RunPostgreSQL(t)
 
 	mgmt := management.NewState(mgmtDB)
-	usrs := users.NewState(usrsDB)
+	usrs := subjects.NewState(usrsDB)
 
 	// Create project
 	projectsStore := management.NewProjectsStore(mgmtDB)
@@ -150,7 +150,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 
 	// Create user
 	email := "test@example.com"
-	userID, err := usrs.CreateUser(ctx, users.User{
+	userID, err := usrs.CreateUser(ctx, subjects.User{
 		ProjectID: projectID,
 		Email:     &email,
 		Data:      json.RawMessage("{}"),
