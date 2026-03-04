@@ -68,15 +68,6 @@ func TestCreateProject(t *testing.T) {
 			},
 			code: http.StatusCreated,
 		},
-		"with tools": {
-			body: oapi.CreateProjectJSONRequestBody{
-				Name:     "Test Project",
-				Timezone: "America/New_York",
-				Locale:   "en-US",
-				Tools:    &[]string{"analytics", "reporting"},
-			},
-			code: http.StatusCreated,
-		},
 	}
 
 	for name, test := range tests {

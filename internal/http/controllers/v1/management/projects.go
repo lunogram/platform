@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/claim/rbac"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
@@ -172,11 +171,6 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	projects := management.NewProjectsStore(tx)
 	subscriptions := management.NewSubscriptionsStore(tx)
 
-	var tools pq.StringArray
-	if body.Tools != nil {
-		tools = pq.StringArray(*body.Tools)
-	}
-
 	projectID, err := projects.CreateProject(ctx, management.Project{
 		OrganizationID:    &scope.OrganizationID,
 		Name:              body.Name,
@@ -187,7 +181,6 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		TextHelpMessage:   body.TextHelpMessage,
 		LinkWrapEmail:     body.LinkWrapEmail != nil && *body.LinkWrapEmail,
 		LinkWrapPush:      body.LinkWrapPush != nil && *body.LinkWrapPush,
-		Tools:             tools,
 	})
 	if err != nil {
 		logger.Error("failed to create project", zap.Error(err))
@@ -215,7 +208,7 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Create default subscriptions for each channel
-	for _, channel := range []string{"email", "sms", "push"} {
+	for _, channel := range []string{"email", "sms", "push", "webhook"} {
 		_, err = subscriptions.CreateSubscription(ctx, management.Subscription{
 			ProjectID: projectID,
 			Name:      "Default " + channel,
@@ -300,11 +293,6 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var tools pq.StringArray
-	if body.Tools != nil {
-		tools = pq.StringArray(*body.Tools)
-	}
-
 	update := management.ProjectUpdate{
 		Name:              body.Name,
 		Description:       body.Description,
@@ -314,7 +302,6 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		TextHelpMessage:   body.TextHelpMessage,
 		LinkWrapEmail:     body.LinkWrapEmail,
 		LinkWrapPush:      body.LinkWrapPush,
-		Tools:             tools,
 	}
 
 	err = srv.store.UpdateProject(ctx, projectID, update)

@@ -383,7 +383,7 @@ components:
         locale:
           type: string
           nullable: true
-          example: "en"
+          example: "en-US"
         data:
           type: object
           additionalProperties: true

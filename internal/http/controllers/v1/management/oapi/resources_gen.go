@@ -42,9 +42,10 @@ const (
 
 // Defines values for Channel.
 const (
-	Email Channel = "email"
-	Push  Channel = "push"
-	Text  Channel = "text"
+	Email   Channel = "email"
+	Push    Channel = "push"
+	Text    Channel = "text"
+	Webhook Channel = "webhook"
 )
 
 // Defines values for CreateListType.
@@ -131,6 +132,15 @@ const (
 	Hour   UpdateProviderRateInterval = "hour"
 	Minute UpdateProviderRateInterval = "minute"
 	Second UpdateProviderRateInterval = "second"
+)
+
+// Defines values for WebhookTemplateDataMethod.
+const (
+	DELETE WebhookTemplateDataMethod = "DELETE"
+	GET    WebhookTemplateDataMethod = "GET"
+	PATCH  WebhookTemplateDataMethod = "PATCH"
+	POST   WebhookTemplateDataMethod = "POST"
+	PUT    WebhookTemplateDataMethod = "PUT"
 )
 
 // Defines values for AuthCallbackParamsDriver.
@@ -298,7 +308,7 @@ type CreateListType string
 
 // CreateLocale defines model for CreateLocale.
 type CreateLocale struct {
-	// Key Locale key (e.g., language code)
+	// Key Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
 	Key string `json:"key"`
 
 	// Label Human-readable locale label
@@ -307,15 +317,14 @@ type CreateLocale struct {
 
 // CreateProject defines model for CreateProject.
 type CreateProject struct {
-	Description       *string   `json:"description,omitempty"`
-	LinkWrapEmail     *bool     `json:"link_wrap_email,omitempty"`
-	LinkWrapPush      *bool     `json:"link_wrap_push,omitempty"`
-	Locale            string    `json:"locale"`
-	Name              string    `json:"name"`
-	TextHelpMessage   *string   `json:"text_help_message,omitempty"`
-	TextOptOutMessage *string   `json:"text_opt_out_message,omitempty"`
-	Timezone          string    `json:"timezone"`
-	Tools             *[]string `json:"tools,omitempty"`
+	Description       *string `json:"description,omitempty"`
+	LinkWrapEmail     *bool   `json:"link_wrap_email,omitempty"`
+	LinkWrapPush      *bool   `json:"link_wrap_push,omitempty"`
+	Locale            string  `json:"locale"`
+	Name              string  `json:"name"`
+	TextHelpMessage   *string `json:"text_help_message,omitempty"`
+	TextOptOutMessage *string `json:"text_opt_out_message,omitempty"`
+	Timezone          string  `json:"timezone"`
 }
 
 // CreateProvider defines model for CreateProvider.
@@ -541,7 +550,7 @@ type Locale struct {
 	CreatedAt time.Time          `json:"created_at"`
 	Id        openapi_types.UUID `json:"id"`
 
-	// Key Locale key (e.g., language code)
+	// Key Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
 	Key string `json:"key"`
 
 	// Label Human-readable locale label
@@ -677,7 +686,6 @@ type Project struct {
 	TextHelpMessage   *string             `json:"text_help_message,omitempty"`
 	TextOptOutMessage *string             `json:"text_opt_out_message,omitempty"`
 	Timezone          string              `json:"timezone"`
-	Tools             *[]string           `json:"tools,omitempty"`
 	UpdatedAt         time.Time           `json:"updated_at"`
 	UsersCount        *int                `json:"users_count,omitempty"`
 }
@@ -885,15 +893,14 @@ type UpdateOrganization struct {
 
 // UpdateProject defines model for UpdateProject.
 type UpdateProject struct {
-	Description       *string   `json:"description,omitempty"`
-	LinkWrapEmail     *bool     `json:"link_wrap_email,omitempty"`
-	LinkWrapPush      *bool     `json:"link_wrap_push,omitempty"`
-	Locale            *string   `json:"locale,omitempty"`
-	Name              *string   `json:"name,omitempty"`
-	TextHelpMessage   *string   `json:"text_help_message,omitempty"`
-	TextOptOutMessage *string   `json:"text_opt_out_message,omitempty"`
-	Timezone          *string   `json:"timezone,omitempty"`
-	Tools             *[]string `json:"tools,omitempty"`
+	Description       *string `json:"description,omitempty"`
+	LinkWrapEmail     *bool   `json:"link_wrap_email,omitempty"`
+	LinkWrapPush      *bool   `json:"link_wrap_push,omitempty"`
+	Locale            *string `json:"locale,omitempty"`
+	Name              *string `json:"name,omitempty"`
+	TextHelpMessage   *string `json:"text_help_message,omitempty"`
+	TextOptOutMessage *string `json:"text_opt_out_message,omitempty"`
+	Timezone          *string `json:"timezone,omitempty"`
 }
 
 // UpdateProjectAdmin defines model for UpdateProjectAdmin.
@@ -1065,6 +1072,30 @@ type UserSubscriptionList struct {
 	// Total Total number of items matching the filters
 	Total int `json:"total"`
 }
+
+// WebhookProviderData defines model for WebhookProviderData.
+type WebhookProviderData = map[string]interface{}
+
+// WebhookTemplateData defines model for WebhookTemplateData.
+type WebhookTemplateData struct {
+	// Body JSON body to send with the webhook request
+	Body *map[string]interface{} `json:"body,omitempty"`
+
+	// CacheKey Optional cache key for the webhook response
+	CacheKey *string `json:"cache_key,omitempty"`
+
+	// Endpoint URL endpoint for the webhook
+	Endpoint *string `json:"endpoint,omitempty"`
+
+	// Headers HTTP headers to include in the webhook request
+	Headers *map[string]string `json:"headers,omitempty"`
+
+	// Method HTTP method for the webhook request
+	Method *WebhookTemplateDataMethod `json:"method,omitempty"`
+}
+
+// WebhookTemplateDataMethod HTTP method for the webhook request
+type WebhookTemplateDataMethod string
 
 // Limit defines model for Limit.
 type Limit = PaginationLimit

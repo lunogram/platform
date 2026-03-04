@@ -3663,7 +3663,7 @@ components:
   schemas:
     Channel:
       type: string
-      enum: [email, text, push]
+      enum: [email, text, push, webhook]
       description: Communication channel type
       example: email
 
@@ -4031,11 +4031,6 @@ components:
         link_wrap_push:
           type: boolean
           example: false
-        tools:
-          type: array
-          items:
-            type: string
-          example: ["analytics", "reporting"]
         integrations_count:
           type: integer
           example: 3
@@ -4091,11 +4086,6 @@ components:
         link_wrap_push:
           type: boolean
           example: false
-        tools:
-          type: array
-          items:
-            type: string
-          example: ["analytics"]
 
     UpdateProject:
       type: object
@@ -4124,11 +4114,6 @@ components:
         link_wrap_push:
           type: boolean
           example: true
-        tools:
-          type: array
-          items:
-            type: string
-          example: ["analytics", "reporting"]
 
     CreateCampaign:
       type: object
@@ -4167,7 +4152,7 @@ components:
       properties:
         locale:
           type: string
-          example: "en"
+          example: "en-US"
           description: The locale/language code for the template
         data:
           type: object
@@ -4425,6 +4410,7 @@ components:
             - $ref: "#/components/schemas/EmailProviderData"
             - $ref: "#/components/schemas/SmsProviderData"
             - $ref: "#/components/schemas/PushProviderData"
+            - $ref: "#/components/schemas/WebhookProviderData"
           x-go-type: json.RawMessage
         is_default:
           type: boolean
@@ -4557,10 +4543,11 @@ components:
             - $ref: "#/components/schemas/EmailTemplateData"
             - $ref: "#/components/schemas/SmsTemplateData"
             - $ref: "#/components/schemas/PushTemplateData"
+            - $ref: "#/components/schemas/WebhookTemplateData"
           x-go-type: json.RawMessage
         locale:
           type: string
-          example: "en"
+          example: "en-US"
 
     EmailTemplateData:
       type: object
@@ -4630,6 +4617,35 @@ components:
       properties: {}
 
     PushProviderData:
+      type: object
+      properties: {}
+
+    WebhookTemplateData:
+      type: object
+      properties:
+        method:
+          type: string
+          enum: [DELETE, GET, PATCH, POST, PUT]
+          description: HTTP method for the webhook request
+          example: "POST"
+        endpoint:
+          type: string
+          description: URL endpoint for the webhook
+          example: "https://api.example.com/webhook"
+        body:
+          type: object
+          additionalProperties: true
+          description: JSON body to send with the webhook request
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: HTTP headers to include in the webhook request
+        cache_key:
+          type: string
+          description: Optional cache key for the webhook response
+
+    WebhookProviderData:
       type: object
       properties: {}
 
@@ -5552,11 +5568,11 @@ components:
           format: uuid
         key:
           type: string
-          example: "en"
-          description: Locale key (e.g., language code)
+          example: "en-US"
+          description: Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
         label:
           type: string
-          example: "English"
+          example: "English (United States)"
           description: Human-readable locale label
         created_at:
           type: string
@@ -5575,11 +5591,11 @@ components:
       properties:
         key:
           type: string
-          example: "en"
-          description: Locale key (e.g., language code)
+          example: "en-US"
+          description: Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
         label:
           type: string
-          example: "English"
+          example: "English (United States)"
           description: Human-readable locale label
 
     Document:

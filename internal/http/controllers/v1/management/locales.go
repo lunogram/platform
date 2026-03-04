@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"regexp"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -14,6 +15,10 @@ import (
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
+
+// validLocaleKey matches BCP 47 / IETF language tags such as "en", "en-US", "pt-BR", "zh-Hant-TW".
+// It intentionally allows only the most common forms (language, language-region, language-script-region).
+var validLocaleKey = regexp.MustCompile(`^[a-z]{2,3}(-[A-Za-z]{4})?(-[A-Z]{2}|-[0-9]{3})?$`)
 
 func NewLocalesController(logger *zap.Logger, db *sqlx.DB) *LocalesController {
 	return &LocalesController{
@@ -35,6 +40,16 @@ func (srv *LocalesController) CreateLocale(w http.ResponseWriter, r *http.Reques
 	err := json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if body.Key == "" || body.Label == "" {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("key and label are required")))
+		return
+	}
+
+	if !validLocaleKey.MatchString(body.Key) {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("key must be a valid BCP 47 language tag (e.g. en, en-US, pt-BR)")))
 		return
 	}
 
