@@ -2,6 +2,7 @@ package providers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -78,7 +79,7 @@ func (p *ClerkProvider) Authenticate(ctx context.Context, w http.ResponseWriter,
 		return ctx, nil
 	}
 
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 
