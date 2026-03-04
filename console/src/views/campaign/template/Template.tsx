@@ -1,8 +1,27 @@
-import { ChevronRight, Loader2 } from "lucide-react"
-import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router"
-import { useCallback, useContext, useMemo, memo, useState, useEffect, useRef } from "react"
-import { CampaignContext, LocaleContext, ProjectContext, type LocaleSelection } from "@/contexts"
-import api from "@/api"
+import { ChevronRight, Loader2 } from "lucide-react";
+import {
+  Link,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router";
+import {
+  useCallback,
+  useContext,
+  useMemo,
+  memo,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
+import {
+  CampaignContext,
+  LocaleContext,
+  ProjectContext,
+  type LocaleSelection,
+} from "@/contexts";
+import api from "@/api";
 
 import {
   Pagination,
@@ -10,11 +29,10 @@ import {
   PaginationItem,
 } from "@/components/ui/pagination";
 
-import { LocaleSelect } from "@/components/locale/select"
-import { Button } from "@/components/ui/button"
-import { TemplateWorkflowContext } from './contexts';
-import { t } from "i18next"
-import { set } from "date-fns"
+import { LocaleSelect } from "@/components/locale/select";
+import { Button } from "@/components/ui/button";
+import { TemplateWorkflowContext } from "./contexts";
+import { t } from "i18next";
 
 interface CampaignStepProps {
   steps: Array<{ name: string; href: string }>;
@@ -159,26 +177,34 @@ export default function Template() {
         }
       }
 
-        const selectedTemplate = campaign.templates.find((template) => template.locale === localeKey);
-        if (selectedTemplate) {
-            navigateToTemplate(selectedTemplate.id);
-            return;
-        }
+      const selectedTemplate = campaign.templates.find(
+        (template) => template.locale === localeKey,
+      );
+      if (selectedTemplate) {
+        navigateToTemplate(selectedTemplate.id);
+        return;
+      }
 
-        setPageLoading(true);
-        const template = await api.campaigns.templates.create(project.id, campaign.id, {
-            locale: localeKey,
-            data: {}
-        });
+      setPageLoading(true);
+      const template = await api.campaigns.templates.create(
+        project.id,
+        campaign.id,
+        {
+          locale: localeKey,
+          data: {},
+        },
+      );
 
-        setCampaign({
-            ...campaign,
-            templates: [...campaign.templates, template]
-        });
+      setCampaign({
+        ...campaign,
+        templates: [...campaign.templates, template],
+      });
 
-        navigateToTemplate(template.id);
-        setPageLoading(false);
-    }, [campaign, project?.id, setCampaign, navigateToTemplate]);
+      navigateToTemplate(template.id);
+      setPageLoading(false);
+    },
+    [campaign, project?.id, setCampaign, navigateToTemplate],
+  );
 
   // Fetch locales when template changes
   useEffect(() => {
@@ -187,31 +213,38 @@ export default function Template() {
 
       setPageLoading(true);
 
-            const allLocalesResult = await api.locales.search(project.id, { limit: 5 })
-            if (currentTemplate) {
-                try {
-                    const selectedLocale = await api.locales.getByKey(project.id, currentTemplate.locale)
-                    setLocaleSelection({
-                        currentLocale: selectedLocale,
-                        allLocales: allLocalesResult.results,
-                    })
-                } catch (error) {
-                    // Locale not found, use default or first available locale
-                    console.warn(`Locale ${currentTemplate.locale} not found, using default`)
-                    setLocaleSelection({
-                        currentLocale: allLocalesResult.results[0],
-                        allLocales: allLocalesResult.results,
-                    })
-                }
-            } else {
-                setLocaleSelection({
-                    currentLocale: undefined,
-                    allLocales: allLocalesResult.results,
-                })
-            }
-
-            setPageLoading(false)
+      const allLocalesResult = await api.locales.search(project.id, {
+        limit: 5,
+      });
+      if (currentTemplate) {
+        try {
+          const selectedLocale = await api.locales.getByKey(
+            project.id,
+            currentTemplate.locale,
+          );
+          setLocaleSelection({
+            currentLocale: selectedLocale,
+            allLocales: allLocalesResult.results,
+          });
+        } catch (error) {
+          // Locale not found, use default or first available locale
+          console.warn(
+            `Locale ${currentTemplate.locale} not found, using default`,
+          );
+          setLocaleSelection({
+            currentLocale: allLocalesResult.results[0],
+            allLocales: allLocalesResult.results,
+          });
         }
+      } else {
+        setLocaleSelection({
+          currentLocale: undefined,
+          allLocales: allLocalesResult.results,
+        });
+      }
+
+      setPageLoading(false);
+    };
 
     fetchLocales();
   }, [project?.id, currentTemplate]);
