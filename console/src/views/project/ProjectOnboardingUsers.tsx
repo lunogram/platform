@@ -1,13 +1,14 @@
 import { useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { UserImportForm } from '@/components/ui/user-import-dialog'
 import api from '../../api'
 import type { UUID } from '@/types/common'
 import { useState } from 'react'
 import { NIL } from 'uuid'
 
-export default function ProjectOnboarding() {
+export default function ProjectOnboardingUsers() {
     const navigate = useNavigate()
     const { t } = useTranslation()
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
@@ -54,22 +55,24 @@ export default function ProjectOnboarding() {
     }
 
     return (
-        <div>
-            <section>
-                <h1>{t('onboarding_users_title')}</h1>
-                <p>{t('onboarding_users_description')}</p>
-            </section>
-
-            <hr />
-
-            <div className="my-4">
+        <Card className="w-full min-w-[400px] max-w-[600px]">
+            <CardHeader>
+                <CardTitle className="text-lg">{t('onboarding_users_title')}</CardTitle>
+                <CardDescription>
+                    {t('onboarding_users_description')}
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
                 <UserImportForm file={file} onFileChange={setFile} />
-            </div>
-
-            <div className="flex gap-2 mt-4">
-                <Button onClick={next} isLoading={nextLoading}>{t('next')}</Button>
-                <Button onClick={skip} isLoading={skipLoading} variant="secondary">{t('skip')}</Button>
-            </div>
-        </div>
+            </CardContent>
+            <CardFooter className="flex gap-2">
+                <Button onClick={next} isLoading={nextLoading}>
+                    {t('next')}
+                </Button>
+                <Button onClick={skip} isLoading={skipLoading} variant="outline">
+                    {t('skip')}
+                </Button>
+            </CardFooter>
+        </Card>
     )
 }

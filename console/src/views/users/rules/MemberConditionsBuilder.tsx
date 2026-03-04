@@ -1,7 +1,7 @@
 import { useContext } from "react";
 import { Button } from "@/components/ui/button";
-import { SingleSelect } from "../../../ui/form/SingleSelect";
-import { PlusIcon } from "../../../components/icons";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus } from "lucide-react";
 import { createUuid } from "../../../utils";
 import type { Rule, WrapperRule } from "../../../types";
 import { operatorTypes, VariablesContext } from "./RuleHelpers";
@@ -31,7 +31,7 @@ export default function MemberConditionsBuilder({
       parent_uuid: rule.uuid,
       path: "",
       type: "string",
-      group: "user", // member data is treated like user properties
+      group: "user",
       value: "",
       operator: "=",
     };
@@ -59,22 +59,26 @@ export default function MemberConditionsBuilder({
   };
 
   return (
-    <div className="member-conditions-builder">
-      <div className="member-conditions-header">
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
         {t("rule_members_matching")}
-        <SingleSelect
+        <Select
           value={rule.operator}
-          onChange={(operator) => setRule({ ...rule, operator })}
-          options={operatorTypes.wrapper}
-          required
-          hideLabel
-          size="small"
-          toValue={(x) => x.key}
-        />
+          onValueChange={(operator) => setRule({ ...rule, operator: operator as typeof rule.operator })}
+        >
+          <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {operatorTypes.wrapper.map((op) => (
+              <SelectItem key={op.key} value={op.key}>{op.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {t("rule_of_the_following")}
       </div>
 
-      <div className="member-conditions-list">
+      <div className="flex flex-col gap-1.5">
         {rule.children?.map((child, index) => (
           <MemberConditionEdit
             key={child.uuid || index}
@@ -86,13 +90,13 @@ export default function MemberConditionsBuilder({
         ))}
       </div>
 
-      <div className="member-conditions-actions">
+      <div>
         <Button
           size="sm"
           variant="outline"
           onClick={handleAddCondition}
         >
-          <PlusIcon />
+          <Plus className="h-3.5 w-3.5 mr-1" />
           {t("rule_add_member_condition")}
         </Button>
       </div>

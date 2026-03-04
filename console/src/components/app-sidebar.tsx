@@ -68,7 +68,9 @@ export function AppSidebar({
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {links?.map((item) => {
+              {links
+                ?.filter((item) => !item.active || item.active(project))
+                .map((item) => {
                 const isActive = location.pathname.includes(String(item.to));
                 return (
                   <SidebarMenuItem key={item.key}>

@@ -120,16 +120,6 @@ export function formatDuration(_preferences: Preferences, duration: Duration) {
   });
 }
 
-export function languageName(locale: string) {
-  try {
-    const languages = new Intl.DisplayNames([locale], {
-      type: "language",
-    });
-    return languages.of(locale);
-  } catch {
-    return undefined;
-  }
-}
 
 export function createComparator<T>(getter: (o: T) => any, desc = false) {
   return (a: T, b: T) => {

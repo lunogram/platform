@@ -34,7 +34,7 @@ const toTableParams = (searchParams: URLSearchParams): SearchParams => {
         cursor: searchParams.get('cursor') ?? undefined,
         page: searchParams.get('page') === 'prev' ? 'prev' : 'next',
         limit: parseInt(searchParams.get('limit') ?? '25'),
-        q: searchParams.get('q') ?? undefined,
+        search: searchParams.get('search') ?? undefined,
         tag: searchParams.getAll('tag'),
         sort: searchParams.get('sort') ?? undefined,
         direction: searchParams.get('direction') ?? undefined,
@@ -49,7 +49,7 @@ const fromTableParams = (params: Partial<SearchParams>): Record<string, string> 
         cursor: params.cursor,
         page: params.page,
         limit: (params.limit ?? DEFAULT_ITEMS_PER_PAGE).toString(),
-        q: params.q,
+        search: params.search,
         tag: params.tag ?? [],
         sort: params.sort,
         direction: params.direction,
@@ -88,7 +88,7 @@ export function useSearchTableState<T>(loader: (params: SearchParams) => Promise
 
     const [params, setParams] = useState<SearchParams>({
         limit: 25,
-        q: '',
+        search: '',
         ...initialParams ?? {},
     })
 
@@ -141,7 +141,7 @@ export function SearchTable<T extends Record<string, any>>({
     ...rest
 }: SearchTableProps<T>) {
     const { t } = useTranslation()
-    const [search, setSearch] = useDebounceControl(params.q ?? '', q => setParams({ ...params, q }))
+    const [search, setSearch] = useDebounceControl(params.search ?? '', search => setParams({ ...params, search }))
     const columnSort = params.sort
         ? { sort: params.sort, direction: params.direction ?? 'asc' }
         : undefined

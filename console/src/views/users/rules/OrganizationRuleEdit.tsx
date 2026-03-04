@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { SingleSelect } from "../../../ui/form/SingleSelect";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type {
   OrganizationRule,
   OrganizationUserMatch,
@@ -16,7 +16,7 @@ import MemberConditionsBuilder from "./MemberConditionsBuilder";
 interface OrganizationRuleEditProps {
   rule: OrganizationRule;
   setRule: (rule: OrganizationRule) => void;
-  showUserMatch?: boolean; // Whether to show the user match section (for when rendered after children)
+  showUserMatch?: boolean;
 }
 
 export default function OrganizationRuleEdit({
@@ -30,7 +30,7 @@ export default function OrganizationRuleEdit({
     type: "all",
   };
 
-  // Set default user_match if missing (moved to useEffect to avoid side effects during render)
+  // Set default user_match if missing
   useEffect(() => {
     if (!rule.user_match) {
       setRule({
@@ -43,9 +43,7 @@ export default function OrganizationRuleEdit({
   const handleUserMatchTypeChange = (type: OrganizationUserMatch["type"]) => {
     const newUserMatch: OrganizationUserMatch = { type };
 
-    // Initialize member conditions if conditions type is selected
     if (type === "conditions") {
-      // Reuse existing member_conditions or create new wrapper with initial condition
       if (rule.user_match?.member_conditions) {
         newUserMatch.member_conditions = rule.user_match.member_conditions;
       } else {
@@ -64,48 +62,54 @@ export default function OrganizationRuleEdit({
   // When showUserMatch is false, render just the header
   if (!showUserMatch) {
     return (
-      <>
+      <div className="flex items-center gap-1.5">
         {t("rule_organization_has")}
         {!!rule.children?.length && (
           <>
-            {" "}
             {t("rule_matching")}
-            <SingleSelect
+            <Select
               value={rule.operator}
-              onChange={(operator) => setRule({ ...rule, operator })}
-              options={operatorTypes.wrapper}
-              required
-              hideLabel
-              size="small"
-              toValue={(x) => x.key}
-            />
+              onValueChange={(operator) => setRule({ ...rule, operator: operator as typeof rule.operator })}
+            >
+              <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {operatorTypes.wrapper.map((op) => (
+                  <SelectItem key={op.key} value={op.key}>{op.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {t("rule_of_the_following")}
           </>
         )}
-      </>
+      </div>
     );
   }
 
   // When showUserMatch is true, render only the user match section
   return (
-    <div className="organization-rule-user-match">
-      <div className="user-match-header">
+    <div className="ml-5 p-3 bg-muted/50 rounded-lg border">
+      <div className="flex items-center gap-1.5 text-sm">
         {t("rule_include_org_members")}
-        <SingleSelect
+        <Select
           value={userMatch.type}
-          onChange={handleUserMatchTypeChange}
-          options={userMatchTypes}
-          required
-          hideLabel
-          size="small"
-          toValue={(x) => x.key}
-          getOptionDisplay={(x) => x.label}
-        />
+          onValueChange={(value) => handleUserMatchTypeChange(value as OrganizationUserMatch["type"])}
+        >
+          <SelectTrigger className="h-8 w-auto min-w-[180px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {userMatchTypes.map((mt) => (
+              <SelectItem key={mt.key} value={mt.key}>{mt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Member conditions builder when conditions type is selected */}
       {userMatch.type === "conditions" && userMatch.member_conditions && (
-        <div className="user-match-conditions">
+        <div className="mt-3 pt-3 border-t">
           <MemberConditionsBuilder
             rule={userMatch.member_conditions}
             setRule={(member_conditions) =>

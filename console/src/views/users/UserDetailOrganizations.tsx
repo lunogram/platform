@@ -126,7 +126,7 @@ export default function UserDetailOrganizations() {
                     query: {
                         limit,
                         offset: (page - 1) * limit,
-                        q: debouncedQuery || undefined,
+                        search: debouncedQuery || undefined,
                     },
                 },
             })

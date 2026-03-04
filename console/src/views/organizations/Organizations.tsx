@@ -9,6 +9,7 @@ import { formatDate } from '../../utils'
 import { getRandomColor } from '@/lib/colors'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import { useContext } from 'react'
+import { BuildingIcon } from '@/components/icons'
 import type { UUID } from '@/types/common'
 import oapiClient, { type Organization, type UpsertOrganization } from '../../oapi/client'
 
@@ -67,7 +68,7 @@ export default function Organizations() {
                     query: {
                         limit,
                         offset: (page - 1) * limit,
-                        q: debouncedQuery || undefined,
+                        search: debouncedQuery || undefined,
                     },
                 },
             })
@@ -109,7 +110,19 @@ export default function Organizations() {
     return (
         <div className="flex flex-col gap-6 p-6">
             {/* Header */}
-            <h2 className="text-2xl font-semibold tracking-tight">{t('organizations')}</h2>
+            <div className="flex items-start gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-xl shrink-0 bg-muted [&>svg]:h-7 [&>svg]:w-7 [&>svg]:text-muted-foreground">
+                    <BuildingIcon />
+                </div>
+                <div className="space-y-1">
+                    <h1 className="text-2xl font-semibold tracking-tight">
+                        {t('organizations')}
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        {t('organizations_description', 'Group and manage users by organization to target them collectively.')}
+                    </p>
+                </div>
+            </div>
 
             {/* Search and Create */}
             <div className="flex items-center justify-between gap-4">

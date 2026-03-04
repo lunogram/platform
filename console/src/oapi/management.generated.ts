@@ -338,7 +338,11 @@ export interface paths {
         get: operations["getProject"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete project
+         * @description Soft deletes a project by setting its deleted_at timestamp
+         */
+        delete: operations["deleteProject"];
         options?: never;
         head?: never;
         /**
@@ -1445,7 +1449,7 @@ export interface components {
          * @example email
          * @enum {string}
          */
-        Channel: "email" | "text" | "push";
+        Channel: "email" | "text" | "push" | "webhook";
         /**
          * @description Journey step type
          * @example entrance
@@ -1709,13 +1713,6 @@ export interface components {
             link_wrap_email?: boolean;
             /** @example false */
             link_wrap_push?: boolean;
-            /**
-             * @example [
-             *       "analytics",
-             *       "reporting"
-             *     ]
-             */
-            tools?: string[];
             /** @example 3 */
             integrations_count?: number;
             /** @example 12 */
@@ -1754,12 +1751,6 @@ export interface components {
             link_wrap_email?: boolean;
             /** @example false */
             link_wrap_push?: boolean;
-            /**
-             * @example [
-             *       "analytics"
-             *     ]
-             */
-            tools?: string[];
         };
         UpdateProject: {
             /** @example Updated Project Name */
@@ -1778,13 +1769,6 @@ export interface components {
             link_wrap_email?: boolean;
             /** @example true */
             link_wrap_push?: boolean;
-            /**
-             * @example [
-             *       "analytics",
-             *       "reporting"
-             *     ]
-             */
-            tools?: string[];
         };
         CreateCampaign: {
             /** @example Welcome Campaign */
@@ -1810,7 +1794,7 @@ export interface components {
         CreateTemplate: {
             /**
              * @description The locale/language code for the template
-             * @example en
+             * @example en-US
              */
             locale: string;
             /** @description Template-specific data based on type. Structure varies by template type. */
@@ -1979,7 +1963,7 @@ export interface components {
              */
             project_id: string;
             channel: components["schemas"]["Channel"];
-            data?: components["schemas"]["EmailProviderData"] | components["schemas"]["SmsProviderData"] | components["schemas"]["PushProviderData"];
+            data?: components["schemas"]["EmailProviderData"] | components["schemas"]["SmsProviderData"] | components["schemas"]["PushProviderData"] | components["schemas"]["WebhookProviderData"];
             /** @example true */
             is_default: boolean;
             /** @example 0 */
@@ -2069,8 +2053,8 @@ export interface components {
              */
             campaign_id: string;
             type: components["schemas"]["Channel"];
-            data: components["schemas"]["EmailTemplateData"] | components["schemas"]["SmsTemplateData"] | components["schemas"]["PushTemplateData"];
-            /** @example en */
+            data: components["schemas"]["EmailTemplateData"] | components["schemas"]["SmsTemplateData"] | components["schemas"]["PushTemplateData"] | components["schemas"]["WebhookTemplateData"];
+            /** @example en-US */
             locale: string;
         };
         EmailTemplateData: {
@@ -2119,6 +2103,30 @@ export interface components {
         };
         SmsProviderData: Record<string, never>;
         PushProviderData: Record<string, never>;
+        WebhookTemplateData: {
+            /**
+             * @description HTTP method for the webhook request
+             * @example POST
+             * @enum {string}
+             */
+            method?: "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
+            /**
+             * @description URL endpoint for the webhook
+             * @example https://api.example.com/webhook
+             */
+            endpoint?: string;
+            /** @description JSON body to send with the webhook request */
+            body?: {
+                [key: string]: unknown;
+            };
+            /** @description HTTP headers to include in the webhook request */
+            headers?: {
+                [key: string]: string;
+            };
+            /** @description Optional cache key for the webhook response */
+            cache_key?: string;
+        };
+        WebhookProviderData: Record<string, never>;
         Admin: {
             /**
              * Format: uuid
@@ -2806,13 +2814,13 @@ export interface components {
             /** Format: uuid */
             project_id: string;
             /**
-             * @description Locale key (e.g., language code)
-             * @example en
+             * @description Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
+             * @example en-US
              */
             key: string;
             /**
              * @description Human-readable locale label
-             * @example English
+             * @example English (United States)
              */
             label: string;
             /**
@@ -2828,13 +2836,13 @@ export interface components {
         };
         CreateLocale: {
             /**
-             * @description Locale key (e.g., language code)
-             * @example en
+             * @description Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
+             * @example en-US
              */
             key: string;
             /**
              * @description Human-readable locale label
-             * @example English
+             * @example English (United States)
              */
             label: string;
         };
@@ -3277,6 +3285,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
                 offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
             };
             header?: never;
             path: {
@@ -3588,6 +3598,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
                 offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
             };
             header?: never;
             path: {
@@ -3743,6 +3755,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
                 offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
             };
             header?: never;
             path: {
@@ -3878,6 +3892,28 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    deleteProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateProject: {
         parameters: {
             query?: never;
@@ -3913,6 +3949,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
                 offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
             };
             header?: never;
             path: {
@@ -4602,6 +4640,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
                 offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
             };
             header?: never;
             path: {
@@ -5085,7 +5125,14 @@ export interface operations {
     };
     getUserOrganizations: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
             header?: never;
             path: {
                 /** @description The project ID */
@@ -5105,6 +5152,9 @@ export interface operations {
                 content: {
                     "application/json": {
                         results: components["schemas"]["Organization"][];
+                        total: number;
+                        limit: number;
+                        offset: number;
                     };
                 };
             };

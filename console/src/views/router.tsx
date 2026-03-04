@@ -41,7 +41,7 @@ import ProjectGettingStarted from './project/GettingStarted'
 import ProjectOnboarding from './project/ProjectOnboarding'
 import ProjectOnboardingGettingStarted from './project/ProjectOnboardingGettingStarted'
 import ProjectOnboardingUsers from './project/ProjectOnboardingUsers'
-import ProjectOnboardingTools from './project/ProjectOnboardingTools'
+import ProjectOnboardingIntegration from './project/ProjectOnboardingIntegration'
 import Locales from './settings/Locales'
 import JourneyUserEntrances from './journey/JourneyUserEntrances'
 import UserDetailJourneys from './users/UserDetailJourneys'
@@ -141,7 +141,13 @@ export const createRouter = ({
                             {
                                 index: true,
                                 path: '',
-                                element: <ProjectOnboardingTools />,
+                                loader: async ({ params: { projectId = '' } }) => {
+                                    const project = await api.projects.get(projectId)
+                                    if ((project.integrations_count ?? 0) > 0) {
+                                        return redirect('users')
+                                    }
+                                },
+                                element: <ProjectOnboardingIntegration />,
                             },
                             {
                                 path: 'users',
@@ -232,6 +238,13 @@ export const createRouter = ({
                             },
                             {
                                 path: 'getting-started',
+                                loader: async ({ params: { projectId = '' } }) => {
+                                    const project = await api.projects.get(projectId)
+                                    if (completedGettingStarted(project)) {
+                                        return redirect(`/projects/${projectId}/campaigns`)
+                                    }
+                                    return null
+                                },
                                 element: <ProjectGettingStarted />,
                             },
                             {

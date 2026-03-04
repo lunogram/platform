@@ -18,6 +18,7 @@ import { NIL } from 'uuid'
 import api from '@/api'
 import { cn } from '@/utils'
 import { t } from 'i18next'
+import { Puzzle } from 'lucide-react'
 
 export default function ProjectGettingStarted() {
     const navigate = useNavigate()
@@ -37,6 +38,7 @@ export default function ProjectGettingStarted() {
     const hasJourneys = (project.journeys_count ?? 0) > 0
     const hasUsers = (project.users_count ?? 0) > 0
     const hasLists = (project.lists_count ?? 0) > 0
+    const hasIntegrations = (project.integrations_count ?? 0) > 0
 
     async function createOnboardingJourney() {
         setIsJourneyLoading(true)
@@ -54,6 +56,17 @@ export default function ProjectGettingStarted() {
     }
 
     const checklistItems = [
+        {
+            icon: <Puzzle className="h-4 w-4" />,
+            completed: hasIntegrations,
+            title: t('project.getting_started.checklist.integration.title'),
+            description: t('project.getting_started.checklist.integration.description'),
+            action: (
+                <Button variant="secondary" onClick={() => navigate('../settings/integrations')}>
+                    {t('project.getting_started.checklist.integration.action')}
+                </Button>
+            ),
+        },
         {
             icon: <CampaignsIcon />,
             completed: hasCampaigns,
@@ -146,7 +159,7 @@ export default function ProjectGettingStarted() {
                         <div className="w-6 h-6 mb-2 text-muted-foreground">
                             <BookIcon />
                         </div>
-                        <h4 className="legacy-typography font-semibold mb-1">{t('project.getting_started.documentation.title')}</h4>
+                        <h4 className="text-sm font-semibold mb-1">{t('project.getting_started.documentation.title')}</h4>
                         <p className="text-sm text-muted-foreground">
                             {t('project.getting_started.documentation.description')}
                         </p>

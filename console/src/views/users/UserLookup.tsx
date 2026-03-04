@@ -44,7 +44,7 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
             if (!open) return []
             setIsSearching(true)
             try {
-                const result = await api.users.search(project.id, { q: debouncedQuery || undefined, limit: 20 })
+                const result = await api.users.search(project.id, { search: debouncedQuery || undefined, limit: 20 })
                 return result.results
             } finally {
                 setIsSearching(false)

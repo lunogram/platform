@@ -130,7 +130,7 @@ export default function UserDetailEvents() {
             const params: SearchParams = {
                 limit,
                 offset: (page - 1) * limit,
-                q: debouncedQuery || undefined,
+                search: debouncedQuery || undefined,
             }
             return await api.users.events(project.id, user.id, params)
         }, [project.id, user.id, page, debouncedQuery])

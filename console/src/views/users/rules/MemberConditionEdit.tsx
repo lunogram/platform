@@ -1,9 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "../../../ui";
-import { SingleSelect } from "../../../ui/form/SingleSelect";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Combobox } from "../../../components/ui/combobox";
-import TextInput from "../../../ui/form/TextInput";
-import { TrashIcon } from "../../../components/icons";
+import { Input } from "@/components/ui/input";
+import { Trash2 } from "lucide-react";
 import type { OrganizationUserSchemaPath, Rule, RuleType } from "../../../types";
 import { operatorTypes, ruleTypes } from "./RuleHelpers";
 import { highlightSearch } from "../../../ui/utils";
@@ -17,7 +16,6 @@ interface MemberConditionEditProps {
 
 // Map schema types to rule types
 function mapSchemaTypeToRuleType(types: string[]): RuleType {
-  // Use the first type as the primary type
   const type = types[0]?.toLowerCase();
   switch (type) {
     case "string":
@@ -56,10 +54,8 @@ export default function MemberConditionEdit({
     !["is set", "is not set", "empty"].includes(rule?.operator);
 
   // Convert schema paths to combobox options
-  // API returns paths like ".role", ".admin" - use them as-is without adding .data prefix
   const pathOptions = organizationUserPaths.map((p) => {
     const dataType = mapSchemaTypeToRuleType(p.types);
-    // Extract name from path (e.g., ".role" -> "role")
     const name = p.path.startsWith(".") ? p.path.substring(1) : p.path;
     return {
       id: `member-path-${p.path}`,
@@ -72,17 +68,21 @@ export default function MemberConditionEdit({
   });
 
   return (
-    <div className="member-condition">
-      <ButtonGroup className="ui-select">
-        <SingleSelect
+    <div className="flex items-center">
+      <div className="flex items-center">
+        <Select
           value={rule?.type}
-          onChange={(type) => setRule({ ...rule, type })}
-          options={ruleTypes}
-          required
-          hideLabel
-          size="small"
-          toValue={(x) => x.key as typeof rule.type}
-        />
+          onValueChange={(type) => setRule({ ...rule, type: type as typeof rule.type })}
+        >
+          <SelectTrigger className="h-8 w-auto min-w-[90px] rounded-r-none text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ruleTypes.map((t) => (
+              <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Combobox
           value={rule?.path}
           onValueChange={(selectedPath: string) => {
@@ -112,17 +112,21 @@ export default function MemberConditionEdit({
             />
           )}
         />
-        <SingleSelect
+        <Select
           value={rule?.operator}
-          onChange={(operator) => setRule({ ...rule, operator })}
-          options={operatorTypes[rule?.type] ?? []}
-          required
-          hideLabel
-          size="small"
-          toValue={(x) => x.key}
-        />
+          onValueChange={(operator) => setRule({ ...rule, operator: operator as typeof rule.operator })}
+        >
+          <SelectTrigger className="h-8 w-auto min-w-[100px] rounded-none border-l-0 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(operatorTypes[rule?.type] ?? []).map((op) => (
+              <SelectItem key={op.key} value={op.key}>{op.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {hasValue && rule.type === "boolean" ? (
-          <SingleSelect
+          <Select
             value={
               rule.value === "true"
                 ? "true"
@@ -130,38 +134,36 @@ export default function MemberConditionEdit({
                   ? "false"
                   : undefined
             }
-            onChange={(value) => setRule({ ...rule, value })}
-            options={[
-              { key: "true", label: "True" },
-              { key: "false", label: "False" },
-            ]}
-            required
-            hideLabel
-            size="small"
-            toValue={(x) => x.key}
-          />
+            onValueChange={(value) => setRule({ ...rule, value })}
+          >
+            <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-none border-l-0 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">True</SelectItem>
+              <SelectItem value="false">False</SelectItem>
+            </SelectContent>
+          </Select>
         ) : (
           hasValue && (
-            <TextInput
-              size="small"
+            <Input
               type="text"
-              name="value"
               placeholder="Value"
-              hideLabel={true}
-              value={rule?.value?.toString()}
-              onChange={(value) => setRule({ ...rule, value })}
+              className="h-8 min-w-[100px] w-auto rounded-none border-l-0 text-xs"
+              value={rule?.value?.toString() ?? ""}
+              onChange={(e) => setRule({ ...rule, value: e.target.value })}
             />
           )
         )}
         <Button
           size="sm"
           variant="outline"
-          className="rounded-l-none shadow-none border-l-0"
+          className="h-8 rounded-l-none shadow-none border-l-0"
           onClick={onRemove}
         >
-          <TrashIcon />
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
-      </ButtonGroup>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,6 @@ import { useContext, useState } from 'react'
 import { Outlet, useNavigate, NavLink, useLocation, Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import {
-    UserCircle2,
     Trash2,
     FileText,
     Activity,
@@ -11,14 +10,21 @@ import {
     Building2,
     ChevronRight,
     MoreHorizontal,
+    Globe,
 } from 'lucide-react'
 import { ProjectContext, UserContext } from '../../contexts'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 import { getRandomColor } from '@/lib/colors'
 import { formatDate, cn } from '../../utils'
 import api from '../../api'
+import {
+    getTimezoneCoordinates,
+    getLocalTimeInTimezone,
+    getTimezoneOffset,
+} from '@/lib/timezone-coordinates'
 
 import { Button } from '@/components/ui/button'
+import { Map, MapMarker, MarkerContent } from '@/components/ui/map'
 import {
     Dialog,
     DialogContent,
@@ -85,8 +91,42 @@ export default function UserDetail() {
     return (
         <div className="flex flex-col min-h-full">
             {/* Header Section */}
-            <div className="border-b bg-card/50">
-                <div className="p-6 pb-0">
+            <div className="border-b bg-card/50 relative overflow-hidden">
+                {/* Ambient timezone map — faded right-side background */}
+                {user.timezone && (() => {
+                    const coordinates = getTimezoneCoordinates(user.timezone)
+                    if (!coordinates) return null
+                    return (
+                        <div
+                            className="ambient-map absolute inset-y-0 left-[30%] right-0 hidden lg:block pointer-events-none overflow-hidden opacity-[0.45] dark:opacity-[0.35]"
+                            style={{
+                                maskImage: 'linear-gradient(to right, transparent 0%, black 40%)',
+                                WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 40%)',
+                            }}
+                        >
+                            <Map
+                                center={coordinates}
+                                zoom={3}
+                                interactive={false}
+                                theme="light"
+                                className="h-full w-full"
+                            >
+                                <MapMarker
+                                    longitude={coordinates[0]}
+                                    latitude={coordinates[1]}
+                                >
+                                    <MarkerContent>
+                                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/80 shadow-md">
+                                            <div className="h-2 w-2 rounded-full bg-white" />
+                                        </div>
+                                    </MarkerContent>
+                                </MapMarker>
+                            </Map>
+                        </div>
+                    )
+                })()}
+
+                <div className="p-6 pb-0 relative z-20">
                     {/* Breadcrumb */}
                     <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
                         <Link
@@ -103,14 +143,14 @@ export default function UserDetail() {
 
                     {/* User Identity */}
                     <div className="flex items-start justify-between gap-6">
-                        <div className="flex items-start gap-4">
+                        <div className="flex items-start gap-4 min-w-0">
                             <div
                                 className="flex h-14 w-14 items-center justify-center rounded-xl shrink-0 text-white text-lg font-medium"
                                 style={{ backgroundColor: userColor }}
                             >
                                 {initials}
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-1 min-w-0">
                                 <h1 className="text-2xl font-semibold tracking-tight">
                                     {displayName}
                                 </h1>
@@ -132,33 +172,51 @@ export default function UserDetail() {
                                     <span>
                                         Created {formatDate(preferences, user.created_at, 'PP')}
                                     </span>
+                                    {user.timezone && (() => {
+                                        const localTime = getLocalTimeInTimezone(user.timezone)
+                                        const utcOffset = getTimezoneOffset(user.timezone)
+                                        return (
+                                            <>
+                                                <span className="mx-2">·</span>
+                                                <span className="inline-flex items-center gap-1">
+                                                    <Globe className="h-3 w-3" />
+                                                    {localTime}
+                                                    <span className="text-muted-foreground/60">
+                                                        {utcOffset && `(${utcOffset})`}
+                                                    </span>
+                                                </span>
+                                            </>
+                                        )
+                                    })()}
                                 </p>
                             </div>
                         </div>
 
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={() => setIsDeleteOpen(true)}
-                                >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    {t('delete')}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="shrink-0">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                    >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                        className="text-destructive focus:text-destructive"
+                                        onClick={() => setIsDeleteOpen(true)}
+                                    >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        {t('delete')}
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </div>
 
-                    {/* Navigation Tabs - Integrated with header */}
+                    {/* Navigation Tabs */}
                     <nav className="flex gap-1 mt-6 -mb-px">
                         {tabs.map((tab) => {
                             const Icon = tab.icon

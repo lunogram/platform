@@ -162,7 +162,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
 
         const { t } = useTranslation()
         const getList = useCallback(async (id: UUID) => await api.lists.get(projectId, id), [projectId])
-        const searchLists = useCallback(async (q: string) => await api.lists.search(projectId, { q, limit: 50 }), [projectId])
+        const searchLists = useCallback(async (q: string) => await api.lists.search(projectId, { search: q, limit: 50 }), [projectId])
 
         return (
             <>

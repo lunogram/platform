@@ -9,6 +9,7 @@ import { useResolver } from '../../hooks'
 import { formatDate } from '../../utils'
 import { getRandomColor } from '@/lib/colors'
 import { PreferencesContext } from '../../ui/PreferencesContext'
+import { UsersIcon as UsersPageIcon } from '@/components/icons'
 import api from '../../api'
 import type { UUID } from '@/types/common'
 import type { User } from '../../types'
@@ -92,7 +93,7 @@ export default function Users() {
             return await api.users.search(projectId, {
                 limit,
                 offset: (page - 1) * limit,
-                q: debouncedQuery || undefined,
+                search: debouncedQuery || undefined,
             })
         }, [projectId, debouncedQuery, page])
     )
@@ -157,7 +158,19 @@ export default function Users() {
     return (
         <div className="flex flex-col gap-6 p-6">
             {/* Header */}
-            <h2 className="text-2xl font-semibold tracking-tight">{t('users')}</h2>
+            <div className="flex items-start gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-xl shrink-0 bg-muted [&>svg]:h-7 [&>svg]:w-7 [&>svg]:text-muted-foreground">
+                    <UsersPageIcon />
+                </div>
+                <div className="space-y-1">
+                    <h1 className="text-2xl font-semibold tracking-tight">
+                        {t('users')}
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        {t('users_description', 'View, search, and manage the users in your project.')}
+                    </p>
+                </div>
+            </div>
 
             {/* Search and Actions */}
             <div className="flex items-center justify-between gap-4">

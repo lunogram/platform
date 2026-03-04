@@ -2,7 +2,6 @@ import type { Rule, ControlledInputProps, FieldProps } from '../../../types'
 import type { FieldPath, FieldValues } from 'react-hook-form'
 import type { ReactNode } from 'react'
 import { useController } from 'react-hook-form'
-import './RuleBuilder.css'
 import { useCallback, useContext, useMemo } from 'react'
 import { ProjectContext } from '../../../contexts'
 import { useResolver } from '../../../hooks'
@@ -10,6 +9,7 @@ import api from '../../../api'
 import { snakeToTitle } from '../../../utils'
 import { emptySuggestions, VariablesContext } from './RuleHelpers'
 import RuleEdit from './RuleEdit'
+import { Label } from '@/components/ui/label'
 
 interface RuleBuilderParams {
     rule: Rule
@@ -51,16 +51,16 @@ RuleBuilder.Field = function RuleBuilderField<X extends FieldValues, P extends F
         },
     })
 
-    return <>
-        <div className="rule-form-title">
-            <span>
+    return (
+        <div className="space-y-2">
+            <Label className="inline-flex items-center gap-1 text-sm font-medium">
                 {label ?? snakeToTitle(name)}
-                {required && <span style={{ color: 'red' }}>&nbsp;*</span>}
-            </span>
+                {required && <span className="text-destructive">*</span>}
+            </Label>
+            <RuleBuilder rule={field.value} setRule={async (rule) => {
+                await field.onChange?.(rule)
+                onChange?.(rule)
+            }} />
         </div>
-        <RuleBuilder rule={field.value} setRule={async (rule) => {
-            await field.onChange?.(rule)
-            onChange?.(rule)
-        }} />
-    </>
+    )
 }

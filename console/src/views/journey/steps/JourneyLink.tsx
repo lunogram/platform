@@ -60,7 +60,7 @@ export const journeyLinkStep: JourneyStepType<JourneyLinkConfig> = {
                 label={t('target_journey')}
                 subtitle={t('target_journey_desc')}
                 get={useCallback(async id => await api.journeys.get(project.id, id), [project])}
-                search={useCallback(async q => await api.journeys.search(project.id, { q, limit: 50 }), [project])}
+                search={useCallback(async q => await api.journeys.search(project.id, { search: q, limit: 50 }), [project])}
                 value={value.target_id}
                 onChange={target_id => onChange({ ...value, target_id: target_id ?? NIL as UUID })}
                 required

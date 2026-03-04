@@ -22,6 +22,11 @@
           "title": "Create your first list",
           "description": "Segment your users into lists for targeted campaigns",
           "action": "Create List"
+        },
+        "integration": {
+          "title": "Set up an integration",
+          "description": "Connect a provider like Resend or Twilio to send messages",
+          "action": "Manage Integrations"
         }
       },
       "documentation": {
@@ -103,8 +108,18 @@
             "label": "Notification Message"
           },
           "preview_disclaimer": "Preview only, notifications may display differently."
+        },
+        "webhook": {
+          "headers": {
+            "label": "Headers",
+            "add": "Add Header"
+          },
+          "preview_disclaimer": "Preview only, actual request may vary."
         }
       }
+    },
+    "webhook": {
+      "edit": "Edit Configuration"
     },
     "template": {
       "setup": {
@@ -179,6 +194,13 @@
     "singular": "Locale",
     "delete_confirmation": "Are you sure you want to delete this locale? No existing templates will be deleted, this language option will just not be present for future templates.",
     "field_subtitle": "The abbreviated language code i.e. en, es, fr",
+    "picker": {
+      "placeholder": "Select a locale...",
+      "search": "Search languages...",
+      "empty": "No matching locale found.",
+      "label": "Language"
+    },
+    "add_description": "Select a language to add to this project.",
     "select": {
       "placeholder": "Select locale...",
       "search_placeholder": "Search locale...",
@@ -187,11 +209,7 @@
       "create_new": "Create new locale",
       "dialog": {
         "title": "Create New Locale",
-        "description": "Enter the locale key and label for the new locale.",
-        "locale_key_label": "Locale Key",
-        "locale_key_placeholder": "e.g., de, pt-BR, zh-CN",
-        "locale_label_label": "Locale Label",
-        "locale_label_placeholder": "e.g., German, Portuguese (Brazil)",
+        "description": "Select a language to add as a new locale.",
         "cancel": "Cancel",
         "create": "Create Locale"
       }
@@ -334,6 +352,15 @@
   "delete_admin_confirmation": "Are you sure you want to delete this admin?",
   "delete_integration_confirmation": "Are you sure you want to archive this integration?",
   "delete_key_confirmation": "Are you sure you want to archive this key? All clients using the key will immediately be unable to access the API.",
+  "delete_project": "Delete Project",
+  "delete_project_description": "Permanently delete this project and all of its data. This action is irreversible.",
+  "delete_project_warning": "This action cannot be undone. This will permanently delete the project, including all campaigns, journeys, users, and associated data.",
+  "delete_project_confirm_prompt": "Please type {{name}} to confirm.",
+  "delete_project_success": "Project deleted successfully.",
+  "delete_project_error": "Unable to delete project. Please try again.",
+  "deleting": "Deleting...",
+  "danger_zone": "Danger Zone",
+  "danger_zone_description": "Irreversible and destructive actions.",
   "delete_step": "Delete Step",
   "delete_user": "Delete User",
   "delete_users": "Delete Users",
@@ -439,8 +466,8 @@
   "invalid_json": "Invalid JSON syntax",
   "invite_to_project": "Invite to Project",
   "joined_list_at": "Joined List At",
-  "onboarding_tools_title": "Select your tools",
-  "onboarding_tools_description": "This helps us suggest the right integrations for your workspace.",
+  "onboarding_integration_title": "Set up an Integration",
+  "onboarding_integration_description": "Connect a provider to start sending messages. You can always add more later.",
   "onboarding_users_title": "Connect your Users",
   "onboarding_users_description": "Bring your users into Lunogram. Install our SDK/plugin or upload a CSV to start syncing users.",
   "onboarding_users_api_key_title": "Your API key is ready",

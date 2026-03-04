@@ -38,7 +38,7 @@ export function UserSelection({
 
     const fetchUsers = useCallback(async () => {
         const users = await api.users.search(projectId, {
-            q: search,
+            search: search,
             limit: 50,
         });
 

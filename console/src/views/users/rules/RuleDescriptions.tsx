@@ -161,7 +161,7 @@ export function ruleDescription(preferences: Preferences, rule: Rule | GroupedRu
     }
     if (root) {
         return (
-            <span className="rule-describe">
+            <span className="inline text-sm">
                 {nodes}
             </span>
         )

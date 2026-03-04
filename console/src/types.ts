@@ -267,10 +267,11 @@ export interface SearchParams {
   cursor?: string;
   page?: "next" | "prev";
   limit: number;
+  offset?: number;
   sort?: string;
   direction?: string;
   filter?: Record<string, unknown>;
-  q?: string;
+  search?: string;
   tag?: string[];
   id?: UUID[];
 }
@@ -280,6 +281,8 @@ export interface SearchResult<T> {
   nextCursor: string;
   prevCursor?: string;
   limit: number;
+  total?: number;
+  offset?: number;
 }
 
 export type AuditFields = "created_at" | "updated_at" | "deleted_at";
@@ -360,7 +363,6 @@ export interface Project {
   journeys_count?: number;
   users_count?: number;
   lists_count?: number;
-  tools?: string[];
 }
 
 export type ChannelType = "email" | "push" | "text" | "webhook";
