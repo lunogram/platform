@@ -229,7 +229,7 @@ export interface SearchParams {
   limit: number;
   sort?: string;
   direction?: string;
-  filter?: Record<string, any>;
+  filter?: Record<string, unknown>;
   q?: string;
   tag?: string[];
   id?: UUID[];
@@ -269,7 +269,7 @@ export interface Organization {
   id: UUID;
   username: string;
   domain?: string;
-  auth: any;
+  auth: unknown;
   tracking_deeplink_mirror_url?: string;
 }
 
@@ -350,7 +350,7 @@ export interface User {
   phone?: string;
   timezone?: string;
   locale?: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   devices?: Device[];
   created_at?: Date;
 }
@@ -360,7 +360,7 @@ export interface SubjectOrganization {
   project_id: UUID;
   external_id: string;
   name?: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   version: number;
   created_at: string;
   updated_at: string;
@@ -378,7 +378,7 @@ export type SubjectOrganizationUpdateParams = Pick<
 export interface SubjectOrganizationMember {
   user_id: UUID;
   organization_id: UUID;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   user?: User;
@@ -401,7 +401,7 @@ export interface Device {
 export interface UserEvent {
   id: UUID;
   name: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   created_at: string;
 }
 
