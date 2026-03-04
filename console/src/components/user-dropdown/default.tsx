@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { LogOut } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -30,15 +31,19 @@ export function DefaultUserDropdown({ user }: UserDropdownProps) {
 
   const initials = getInitials(user.name);
 
+  const handleLogout = useCallback(async () => {
+    await logout(undefined);
+  }, []);
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
-          <DropdownMenuTrigger className="w-full">
+          <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
               className={cn(
-                "cursor-pointer data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
+                "w-full cursor-pointer data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
                 isCollapsed && "justify-center",
               )}
             >
@@ -69,7 +74,7 @@ export function DefaultUserDropdown({ user }: UserDropdownProps) {
             sideOffset={4}
           >
             <DropdownMenuItem
-              onSelect={async () => await logout(undefined)}
+              onSelect={handleLogout}
               className="cursor-pointer"
             >
               <LogOut className="mr-2 size-4" />
