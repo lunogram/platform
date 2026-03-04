@@ -36,9 +36,11 @@ func (rt RuleType) SQL() string {
 type RuleGroup string
 
 const (
-	RuleGroupParent RuleGroup = "parent"
-	RuleGroupUser   RuleGroup = "user"
-	RuleGroupEvent  RuleGroup = "event"
+	RuleGroupParent           RuleGroup = "parent"
+	RuleGroupUser             RuleGroup = "user"
+	RuleGroupEvent            RuleGroup = "event"
+	RuleGroupOrganization     RuleGroup = "organization"
+	RuleGroupOrganizationUser RuleGroup = "organization_user"
 )
 
 // Operator defines logical and comparison operators
@@ -196,6 +198,34 @@ func (r Rule) DependsOnUsers() bool {
 
 	for _, child := range r.Children {
 		if child.DependsOnUsers() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r Rule) DependsOnOrganizations() bool {
+	if r.Group == RuleGroupOrganization {
+		return true
+	}
+
+	for _, child := range r.Children {
+		if child.DependsOnOrganizations() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r Rule) DependsOnOrganizationUsers() bool {
+	if r.Group == RuleGroupOrganizationUser {
+		return true
+	}
+
+	for _, child := range r.Children {
+		if child.DependsOnOrganizationUsers() {
 			return true
 		}
 	}
