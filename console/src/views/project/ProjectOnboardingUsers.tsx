@@ -1,25 +1,39 @@
 import { useNavigate, useParams } from 'react-router'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
+import { UserImportForm } from '@/components/ui/user-import-dialog'
 import api from '../../api'
 import type { UUID } from '@/types/common'
 import { useState } from 'react'
-import FormWrapper from '../../ui/form/FormWrapper'
-import UploadField from '../../ui/form/UploadField'
 import { NIL } from 'uuid'
 
 export default function ProjectOnboarding() {
     const navigate = useNavigate()
     const { t } = useTranslation()
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
-    const [skipLoading, setSkipLoading] = useState(false)
+    const [file, setFile] = useState<File | null>(null)
     const [nextLoading, setNextLoading] = useState(false)
+    const [skipLoading, setSkipLoading] = useState(false)
 
-    const next = async (file: FileList) => {
+    async function createInitialUser() {
+        const admin = await api.admins.whoami()
+        if (!admin) return
+
+        await api.users.create(projectId, {
+            anonymous_id: crypto.randomUUID(),
+            data: {
+                first_name: admin.first_name,
+                last_name: admin.last_name,
+            },
+            email: admin.email,
+        })
+    }
+
+    const next = async () => {
         setNextLoading(true)
         try {
             if (file) {
-                await api.users.addImport(projectId, file[0])
+                await api.users.addImport(projectId, file)
             } else {
                 await createInitialUser()
             }
@@ -39,20 +53,6 @@ export default function ProjectOnboarding() {
         }
     }
 
-    async function createInitialUser() {
-        const admin = await api.admins.whoami()
-        if (!admin) return
-
-        await api.users.create(projectId, {
-            anonymous_id: crypto.randomUUID(),
-            data: {
-                first_name: admin.first_name,
-                last_name: admin.last_name,
-            },
-            email: admin.email,
-        })
-    }
-
     return (
         <div>
             <section>
@@ -62,29 +62,14 @@ export default function ProjectOnboarding() {
 
             <hr />
 
-            <FormWrapper<{ file: FileList }>
-                onSubmit={async (form) => await next(form.file)}
-                showSubmitButton={false}
-            >
-                {form => <>
-                    <p>
-                        <Trans
-                            i18nKey="onboarding_project_users_template"
-                            components={{
-                                download: <a href="/templates/users.csv" download="users.csv" className="underline" />,
-                            }}
-                        />
-                    </p>
+            <div className="my-4">
+                <UserImportForm file={file} onFileChange={setFile} />
+            </div>
 
-                    <UploadField form={form} name="file" label={t('users')} required />
-
-                    <div className="flex gap-2 mt-4">
-                        <Button isLoading={nextLoading} type="submit">{t('next')}</Button>
-                        <Button onClick={skip} isLoading={skipLoading} variant="secondary">{t('skip')}</Button>
-                    </div>
-                </>}
-            </FormWrapper>
-
+            <div className="flex gap-2 mt-4">
+                <Button onClick={next} isLoading={nextLoading}>{t('next')}</Button>
+                <Button onClick={skip} isLoading={skipLoading} variant="secondary">{t('skip')}</Button>
+            </div>
         </div>
     )
 }

@@ -543,15 +543,6 @@ const api = {
         formData,
       );
     },
-    deleteImport: async (projectId: UUID, file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      await client.post(
-        `${projectUrl(projectId)}/subjects/users/bulk/delete`,
-        formData,
-      );
-    },
-
     journeys: {
       search: async (projectId: UUID, userId: UUID, params: SearchParams) =>
         await client
