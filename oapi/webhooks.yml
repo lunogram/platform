@@ -1,353 +1,87 @@
 openapi: 3.0.3
 info:
-  title: Lunogram Webhook API
-  version: "1.0.0"
-  description: |
-    These webhook endpoints allow Lunogram to integrate with external systems.
+  title: Lunogram Webhooks
+  description: Webhook event payloads sent by Lunogram
+  version: 1.0.0
 
 paths:
-  /webhooks/providers/bootstrap:
+  /webhooks/project/created:
     post:
-      operationId: bootstrapProviders
-      summary: Bootstrap default integrations for a new project
+      summary: Project Created Webhook
       description: |
-        Called by Lunogram when a new project is created.
-        The endpoint should return one or more default providers and/or an `external_id`
-        that can be used by Lunogram to send or fetch configuration.
+        Called when a new project is created. The original request headers are forwarded,
+        including the Authorization header for authenticating API calls back to the Lunogram management API.
+      operationId: projectCreatedWebhook
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                project_id:
-                  type: string
-                  format: uuid
-                  description: Unique identifier of the project
-                organization_id:
-                  type: string
-                  format: uuid
-                  description: Organization to which the project belongs
-              required: [project_id]
+              $ref: "#/components/schemas/ProjectCreatedEvent"
       responses:
         "200":
-          description: Default providers and/or external reference
+          description: Event processed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Providers'
-        "400":
-          description: Invalid request
-        "500":
-          description: Server error in external system
-
-  /webhooks/provider/send:
-    post:
-      operationId: sendMessage
-      summary: Send a message through an external provider
-      description: |
-        Called by Lunogram to send a message through the external provider identified by `external_id`.
-        The request body can represent an **email**, **SMS**, or **push** notification.
-      parameters:
-        - in: query
-          name: external_id
-          required: true
-          schema:
-            type: string
-          description: External identifier of the provider
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              oneOf:
-                - $ref: '#/components/schemas/Email'
-                - $ref: '#/components/schemas/TextMessage'
-                - $ref: '#/components/schemas/Push'
-              discriminator:
-                propertyName: type
-                mapping:
-                  email: '#/components/schemas/Email'
-                  text: '#/components/schemas/TextMessage'
-                  push: '#/components/schemas/Push'
-      responses:
-        "201":
-          description: Message accepted by the external system
-        "400":
-          description: Invalid payload or unsupported message type
-        "404":
-          description: Provider not found
-        "500":
-          description: Server error in external system
-  
-  /webhooks/journey/templates:
-    get:
-      operationId: journeyTemplates
-      summary: List available journey step templates
-      description: |
-        Returns a list of available journey step templates that define how users can get started
-        with Journeys. Each template includes an identifier and a brief description.
-      responses:
-        "200":
-          description: List of journey templates retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    template_id:
-                      type: string
-                      description: Identifier of the journey template
-                    name:
-                      type: string
-                      description: Name of the journey template
-                    description:
-                      type: string
-                      description: Brief description of the journey template
-                  required: [template_id, name]
-        "500":
-          description: Server error in external system
-
-  /webhooks/journey/template:
-    get:
-      operationId: journeyTemplate
-      summary: Retrieve a journey step template
-      description: |
-        Returns a predefined journey step template that defines how users can get started
-        with Journeys. The template contains a map of step definitions, including `entrance`,
-        `action`, and `sticky` types.
-      parameters:
-        - in: query
-          name: template_id
-          required: true
-          schema:
-            type: string
-          description: Identifier of the journey template
-      responses:
-        "200":
-          description: Journey template retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Journey'
-        "400":
-          description: Invalid template_id or malformed request
-        "404":
-          description: Template not found
-        "500":
-          description: Server error in external system
+                $ref: "#/components/schemas/WebhookResponse"
 
 components:
   schemas:
-    Providers:
+    ProjectCreatedEvent:
       type: object
+      required:
+        - event
+        - timestamp
+        - project
       properties:
-        providers:
-          type: array
-          items:
-            $ref: '#/components/schemas/Provider'
-          description: List of providers to create
-      required: [providers]
-
-    Provider:
-      type: object
-      properties:
-        type:
+        event:
           type: string
-          description: Provider type (e.g., "twilio", "sendgrid", "slack")
+          enum: [project.created]
+          description: The event type
+        timestamp:
+          type: string
+          format: date-time
+          description: When the event occurred (UTC)
+        project:
+          $ref: "#/components/schemas/ProjectDetails"
+
+    ProjectDetails:
+      type: object
+      required:
+        - id
+        - organization_id
+        - name
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The project's unique identifier
+        organization_id:
+          type: string
+          format: uuid
+          description: The organization the project belongs to
         name:
           type: string
-          description: Display name of the provider
-        group:
+          description: The project name
+        timezone:
           type: string
-          enum: [email, text, push, webhook, analytics]
-          description: Group of the provider
-        data:
-          type: object
-          additionalProperties: true
-          description: Provider-specific configuration data
-        is_default:
-          type: boolean
-          description: Whether this provider is marked as default
-        rate_interval:
+          description: The project's timezone (e.g., "America/New_York")
+        locale:
           type: string
-          enum: [second, minute, hour, day]
-          description: Rate limit interval
-        rate_limit:
-          type: integer
-          description: Maximum number of requests allowed in the specified interval
-        external_id:
+          description: The project's locale (e.g., "en-US")
+        created_at:
           type: string
-          description: External identifier to fetch or send through
-      required: [type, name, group, data, is_default, external_id]
+          format: date-time
+          description: When the project was created (UTC)
 
-    Journey:
-      type: object
-      description: |
-        Represents a journey step template map, where each key is a unique step ID (UUID)
-        and the value defines the step configuration.
-      additionalProperties:
-        $ref: '#/components/schemas/JourneyStep'
-      example:
-        819fbabf-c3c0-4fe3-b41f-7f6bbe068379:
-          type: entrance
-          data: {}
-          name: ""
-          data_key: null
-          x: 0
-          y: 0
-          children:
-            - external_id: a9b91772-f555-4d0b-999e-bae513202821
-              path: ""
-              data: {}
-        e6eed3fb-9d7f-4295-947e-6fceb546ad40:
-          type: sticky
-          data:
-            text: "Journeys define how users progress through your automated steps and actions over time."
-          name: "Getting Started! 🎉"
-          data_key: null
-          x: 303.37
-          y: -10.80
-          children: []
-        a9b91772-f555-4d0b-999e-bae513202821:
-          type: action
-          data:
-            campaign_id: "00000000-0000-0000-0000-000000000000"
-          name: ""
-          data_key: null
-          x: -40.62
-          y: 289.19
-          children: []
-        a197e316-c2aa-4290-9231-31a56218e5a8:
-          type: sticky
-          data:
-            text: "Use actions to send emails, SMS, push notifications, or trigger webhooks."
-          name: "Deliver your Message 📣"
-          data_key: null
-          x: 302.03
-          y: 385.81
-          children: []
-
-    JourneyStep:
+    WebhookResponse:
       type: object
       properties:
-        type:
+        status:
           type: string
-          enum: [entrance, action, sticky]
-        name:
+          enum: [ok, error]
+        message:
           type: string
-          nullable: true
-        data:
-          type: object
-          nullable: true
-          additionalProperties: true
-        data_key:
-          type: string
-          nullable: true
-        x:
-          type: number
-        y:
-          type: number
-        children:
-          type: array
-          nullable: true
-          items:
-            $ref: '#/components/schemas/JourneyStepChild'
-      required: [type, x, y]
-
-    JourneyStepChild:
-      type: object
-      properties:
-        external_id:
-          type: string
-        path:
-          type: string
-          nullable: true
-        data:
-          type: object
-          nullable: true
-          additionalProperties: true
-      required: [external_id]
-
-    Email:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [email]
-          example: email
-        to:
-          type: string
-        from:
-          oneOf:
-            - type: string
-            - $ref: '#/components/schemas/NamedEmail'
-        cc:
-          type: string
-        bcc:
-          type: string
-        reply_to:
-          type: string
-        subject:
-          type: string
-        text:
-          type: string
-        html:
-          type: string
-        headers:
-          type: object
-          additionalProperties:
-            type: string
-        list:
-          type: object
-          properties:
-            unsubscribe:
-              type: string
-      required: [type, to, from, subject]
-
-    TextMessage:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [text]
-          example: text
-        to:
-          type: string
-        text:
-          type: string
-      required: [type, to, text]
-
-    Push:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [push]
-          example: push
-        tokens:
-          oneOf:
-            - type: string
-            - type: array
-              items:
-                type: string
-        title:
-          type: string
-        body:
-          type: string
-        custom:
-          type: object
-          additionalProperties: true
-      required: [type, tokens, title, body]
-
-    NamedEmail:
-      type: object
-      properties:
-        name:
-          type: string
-        email:
-          type: string
-      required: [name, email]
+          description: Optional message, typically used for error details

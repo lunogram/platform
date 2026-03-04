@@ -108,7 +108,7 @@ func (s *OrganizationsStore) UpsertOrganization(ctx context.Context, projectID u
 	ON CONFLICT (project_id, external_id)
 	DO UPDATE SET
 		name = COALESCE(EXCLUDED.name, organizations.name),
-		data = COALESCE(EXCLUDED.data, organizations.data)
+		data = organizations.data || EXCLUDED.data
 	RETURNING id`
 
 	var id uuid.UUID
@@ -350,7 +350,8 @@ func (s *OrganizationsStore) UpsertOrganizationSchema(ctx context.Context, proje
 	VALUES ($1, $2, $3)
 	ON CONFLICT (project_id, path, data_type) DO NOTHING`
 
-	// TODO: optimize with batch insert
+	// TODO: consider batch insert if path count becomes large enough to impact performance.
+	// Current usage suggests path counts are small (typically <50 paths per schema update).
 	for _, path := range paths {
 		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type)
 		if err != nil {
@@ -398,7 +399,8 @@ func (s *OrganizationsStore) UpsertOrganizationUserSchema(ctx context.Context, p
 	VALUES ($1, $2, $3)
 	ON CONFLICT (project_id, path, data_type) DO NOTHING`
 
-	// TODO: optimize with batch insert
+	// TODO: consider batch insert if path count becomes large enough to impact performance.
+	// Current usage suggests path counts are small (typically <50 paths per schema update).
 	for _, path := range paths {
 		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type)
 		if err != nil {

@@ -188,6 +188,60 @@ func TestUpdateOrganizationWithDataMerge(t *testing.T) {
 	require.NotNil(t, orgData["feature_flags"])
 }
 
+func TestUpsertOrganizationDataMergeOnConflict(t *testing.T) {
+	t.Parallel()
+
+	db := NewContainerStore(t)
+	projectID := uuid.New()
+	ctx := context.Background()
+
+	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+		ExternalID: "org_upsert_merge",
+		Name:       ptr("Original Name"),
+		Data:       map[string]any{"plan": "free", "seats": 10},
+	})
+	require.NoError(t, err)
+
+	t.Run("preserves data when upserting with nil data", func(t *testing.T) {
+		upsertedID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+			ExternalID: "org_upsert_merge",
+			Name:       ptr("Updated Name"),
+			Data:       nil,
+		})
+		require.NoError(t, err)
+		require.Equal(t, orgID, upsertedID)
+
+		org, err := db.GetOrganization(ctx, projectID, orgID)
+		require.NoError(t, err)
+		require.Equal(t, ptr("Updated Name"), org.Name)
+
+		var orgData map[string]any
+		err = json.Unmarshal(org.Data, &orgData)
+		require.NoError(t, err)
+		require.Equal(t, "free", orgData["plan"], "existing data should be preserved")
+		require.Equal(t, float64(10), orgData["seats"], "existing data should be preserved")
+	})
+
+	t.Run("merges data when upserting with new data", func(t *testing.T) {
+		upsertedID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
+			ExternalID: "org_upsert_merge",
+			Data:       map[string]any{"seats": 50, "feature": "beta"},
+		})
+		require.NoError(t, err)
+		require.Equal(t, orgID, upsertedID)
+
+		org, err := db.GetOrganization(ctx, projectID, orgID)
+		require.NoError(t, err)
+
+		var orgData map[string]any
+		err = json.Unmarshal(org.Data, &orgData)
+		require.NoError(t, err)
+		require.Equal(t, "free", orgData["plan"], "original key should be preserved")
+		require.Equal(t, float64(50), orgData["seats"], "updated key should be changed")
+		require.Equal(t, "beta", orgData["feature"], "new key should be added")
+	})
+}
+
 func TestDeleteOrganization(t *testing.T) {
 	t.Parallel()
 

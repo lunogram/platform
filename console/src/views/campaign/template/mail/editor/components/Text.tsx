@@ -1,4 +1,4 @@
-import type { ComponentConfig, Slot } from '@measured/puck';
+import type { ComponentConfig, Slot } from '@puckeditor/core'; 
 import { Layout, type LayoutProps, layoutClassMap } from './fields/Layout';
 import { cn } from '@/utils';
 import { Spacing, type SpacingProps, spacingClassMap } from './fields/Spacing';
@@ -7,7 +7,7 @@ import { Decoration, type DecorationProps, decorationClassMap } from './fields/D
 import { generateTailwindClasses } from './fields/unit';
 
 export interface TextProps {
-    content: Slot;
+    content: Slot; 
     layout: LayoutProps;
     spacing: SpacingProps;
     typography: TypographyProps;

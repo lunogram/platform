@@ -8,6 +8,13 @@ import (
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
+// Provider data keys for default from configuration.
+const (
+	ProviderKeyDefaultFrom       = "default_from"
+	ProviderKeyDefaultFromName   = "default_from_name"
+	ProviderKeyDefaultFromLocked = "default_from_locked"
+)
+
 type ComposeOptions struct {
 	Devices subjects.Devices
 }

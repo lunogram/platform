@@ -1334,6 +1334,251 @@ func TestQueryBuilderOrganizationRules(t *testing.T) {
 			wantArgs: []any{testProjectID, testProjectID},
 			wantErr:  false,
 		},
+		"user OR organization - should error": {
+			name: "user OR organization - should error",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorOr,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupUser,
+							Path:     ".email",
+							Operator: rules.OperatorEndsWith,
+							Value:    "@admin.com",
+						},
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganization,
+							Path:     ".data.tier",
+							Operator: rules.OperatorEquals,
+							Value:    "gold",
+						},
+					},
+				},
+			},
+			wantSQL:  "",
+			wantArgs: nil,
+			wantErr:  true,
+		},
+		"user OR organization_user - should error": {
+			name: "user OR organization_user - should error",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorOr,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupUser,
+							Path:     ".email",
+							Operator: rules.OperatorEndsWith,
+							Value:    "@admin.com",
+						},
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganizationUser,
+							Path:     ".data.role",
+							Operator: rules.OperatorEquals,
+							Value:    "admin",
+						},
+					},
+				},
+			},
+			wantSQL:  "",
+			wantArgs: nil,
+			wantErr:  true,
+		},
+		"nested user OR organization - should error": {
+			name: "nested user OR organization - should error",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorAnd,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupUser,
+							Path:     ".name",
+							Operator: rules.OperatorEquals,
+							Value:    "John",
+						},
+						{
+							Type:     rules.RuleTypeWrapper,
+							Group:    rules.RuleGroupParent,
+							Operator: rules.OperatorOr,
+							Children: []rules.Rule{
+								{
+									Type:     rules.RuleTypeString,
+									Group:    rules.RuleGroupUser,
+									Path:     ".email",
+									Operator: rules.OperatorEndsWith,
+									Value:    "@vip.com",
+								},
+								{
+									Type:     rules.RuleTypeString,
+									Group:    rules.RuleGroupOrganization,
+									Path:     ".data.tier",
+									Operator: rules.OperatorEquals,
+									Value:    "enterprise",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantSQL:  "",
+			wantArgs: nil,
+			wantErr:  true,
+		},
+		"deeply nested wrapper in OR - should error": {
+			name: "deeply nested wrapper in OR - should error",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorOr,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeWrapper,
+							Group:    rules.RuleGroupParent,
+							Operator: rules.OperatorAnd,
+							Children: []rules.Rule{
+								{
+									Type:     rules.RuleTypeString,
+									Group:    rules.RuleGroupUser,
+									Path:     ".email",
+									Operator: rules.OperatorContains,
+									Value:    "test",
+								},
+							},
+						},
+						{
+							Type:     rules.RuleTypeWrapper,
+							Group:    rules.RuleGroupParent,
+							Operator: rules.OperatorAnd,
+							Children: []rules.Rule{
+								{
+									Type:     rules.RuleTypeString,
+									Group:    rules.RuleGroupOrganization,
+									Path:     ".data.tier",
+									Operator: rules.OperatorEquals,
+									Value:    "gold",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantSQL:  "",
+			wantArgs: nil,
+			wantErr:  true,
+		},
+		"organization OR organization_user - should work": {
+			name: "organization OR organization_user - should work",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorOr,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganization,
+							Path:     ".data.tier",
+							Operator: rules.OperatorEquals,
+							Value:    "gold",
+						},
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganizationUser,
+							Path:     ".data.role",
+							Operator: rules.OperatorEquals,
+							Value:    "admin",
+						},
+					},
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $3 AND ((o.data->>'tier')::text = $1 OR (ou.data->>'role')::text = $2)) e1 ON e1.user_id = u.id WHERE u.project_id = $4",
+			wantArgs: []any{"gold", "admin", testProjectID, testProjectID},
+			wantErr:  false,
+		},
+		"user OR user - should work": {
+			name: "user OR user - should work",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorOr,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupUser,
+							Path:     ".email",
+							Operator: rules.OperatorEndsWith,
+							Value:    "@admin.com",
+						},
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupUser,
+							Path:     ".data.role",
+							Operator: rules.OperatorEquals,
+							Value:    "superuser",
+						},
+					},
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u WHERE u.project_id = $3 AND (u.email ILIKE $1 OR (u.data->>'role')::text = $2)",
+			wantArgs: []any{"%@admin.com", "superuser", testProjectID},
+			wantErr:  false,
+		},
+		"nested org wrapper with parent - falls through to buildWrapper": {
+			name: "nested org wrapper with parent - falls through to buildWrapper",
+			ruleSet: rules.RuleSet{
+				Rule: rules.Rule{
+					Type:     rules.RuleTypeWrapper,
+					Group:    rules.RuleGroupParent,
+					Operator: rules.OperatorAnd,
+					Children: []rules.Rule{
+						{
+							Type:     rules.RuleTypeString,
+							Group:    rules.RuleGroupOrganization,
+							Path:     ".data.tier",
+							Operator: rules.OperatorEquals,
+							Value:    "gold",
+						},
+						{
+							Type:     rules.RuleTypeWrapper,
+							Group:    rules.RuleGroupParent,
+							Operator: rules.OperatorOr,
+							Children: []rules.Rule{
+								{
+									Type:     rules.RuleTypeString,
+									Group:    rules.RuleGroupOrganizationUser,
+									Path:     ".data.role",
+									Operator: rules.OperatorEquals,
+									Value:    "admin",
+								},
+								{
+									Type:     rules.RuleTypeString,
+									Group:    rules.RuleGroupOrganizationUser,
+									Path:     ".data.role",
+									Operator: rules.OperatorEquals,
+									Value:    "owner",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $2 AND (o.data->>'tier')::text = $1) e1 ON e1.user_id = u.id JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $5 AND ((ou.data->>'role')::text = $3 OR (ou.data->>'role')::text = $4)) e2 ON e2.user_id = u.id WHERE u.project_id = $6",
+			wantArgs: []any{"gold", testProjectID, "admin", "owner", testProjectID, testProjectID},
+			wantErr:  false,
+		},
 	}
 
 	for name, tc := range tests {

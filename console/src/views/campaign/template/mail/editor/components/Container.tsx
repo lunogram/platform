@@ -1,4 +1,4 @@
-import type { ComponentConfig, Slot } from '@measured/puck';
+import type { ComponentConfig, Slot } from '@puckeditor/core'; 
 import { Container as EmailContainer, Section as EmailSection } from '@react-email/components';
 import { Layout, type LayoutProps, layoutClassMap } from './fields/Layout';
 import { cn } from '@/utils';
@@ -8,7 +8,7 @@ import { Decoration, type DecorationProps, decorationClassMap } from './fields/D
 import { generateTailwindClasses } from './fields/unit';
 
 export interface ContainerProps {
-    content: Slot;
+    content: Slot; 
     layout: LayoutProps;
     spacing: SpacingProps;
     typography: TypographyProps;
