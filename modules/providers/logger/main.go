@@ -34,8 +34,12 @@ func Manifest() int32 {
 				Type: "object",
 				Properties: map[string]*modules.JSONSchema{
 					"data": {
-						Type:       "object",
-						Properties: map[string]*modules.JSONSchema{},
+						Type: "object",
+						Properties: map[string]*modules.JSONSchema{
+							"default_from":        {Type: "string", Title: "Default From", Description: "Default sender address (email or phone)"},
+							"default_from_name":   {Type: "string", Title: "Default From Name", Description: "Default sender display name (email only)"},
+							"default_from_locked": {Type: "boolean", Title: "Lock From", Description: "Prevent templates from overriding the from value"},
+						},
 					},
 				},
 			},
