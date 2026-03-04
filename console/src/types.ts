@@ -86,7 +86,7 @@ export type RuleType =
   | "boolean"
   | "date"
   | "array";
-export type RuleGroup = "user" | "event" | "parent";
+export type RuleGroup = "user" | "event" | "parent" | "organization" | "organization_user" | "organization_event";
 
 export type AnyJson = boolean | number | string | null | JsonArray | JsonMap;
 export interface JsonMap {
@@ -192,6 +192,33 @@ export type EventRule = {
   frequency?: EventRuleFrequency;
 } & WrapperRule;
 
+// Organization Event Rule - matches users who belong to organizations
+// that have triggered specific events
+export type OrganizationUserMatchType =
+  | "all" // All members of the organization
+  | "conditions"; // Members matching property conditions on membership data
+
+export interface OrganizationUserMatch {
+  type: OrganizationUserMatchType;
+  // For condition-based matching - rules applied to organization membership data
+  member_conditions?: WrapperRule;
+}
+
+export type OrganizationEventRule = {
+  group: "organization_event";
+  frequency?: EventRuleFrequency;
+  // How to match users within the organization
+  user_match: OrganizationUserMatch;
+} & WrapperRule;
+
+// Organization Rule - matches users who belong to organizations
+// that have specific properties
+export type OrganizationRule = {
+  group: "organization";
+  // How to match users within the organization
+  user_match?: OrganizationUserMatch;
+} & WrapperRule;
+
 export interface RulePath {
   id: UUID;
   path: string;
@@ -212,9 +239,22 @@ export interface EventSchema {
   schema: EventSchemaPath[];
 }
 
+export interface OrganizationUserSchemaPath {
+  path: string;
+  types: string[];
+}
+
+export interface OrganizationSchemaPath {
+  path: string;
+  types: string[];
+}
+
 export interface VariableSuggestions {
   userPaths: RulePath[];
   eventPaths: EventSchema[];
+  organizationEventPaths?: EventSchema[];
+  organizationUserPaths?: OrganizationUserSchemaPath[];
+  organizationPaths?: OrganizationSchemaPath[];
 }
 
 export interface Preferences {
@@ -265,7 +305,7 @@ export interface Admin {
   role: OrganizationRole;
 }
 
-export interface Organization {
+export interface Tenant {
   id: UUID;
   username: string;
   domain?: string;
@@ -273,8 +313,8 @@ export interface Organization {
   tracking_deeplink_mirror_url?: string;
 }
 
-export type OrganizationUpdateParams = Omit<
-  Organization,
+export type TenantUpdateParams = Omit<
+  Tenant,
   "id" | "auth" | AuditFields
 >;
 

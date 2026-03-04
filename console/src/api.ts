@@ -17,8 +17,8 @@ import type {
   ListCreateParams,
   ListUpdateParams,
   Locale,
-  Organization,
-  OrganizationUpdateParams,
+  Tenant,
+  TenantUpdateParams,
   Project,
   ProjectAdmin,
   ProjectAdminInviteParams,
@@ -233,8 +233,8 @@ const api = {
       let eventSuggestions = await client
         .get<{
           results: VariableSuggestions["eventPaths"];
-        }>(`${projectUrl(projectId)}/subjects/events/schema`)
-        .then((r) => r.data.results);
+        }>(`${projectUrl(projectId)}/subjects/user/events/schema`)
+        .then((r) => r.data.results ?? []);
 
       eventSuggestions = eventSuggestions.map((event) => {
         event.schema ??= [];
@@ -252,11 +252,58 @@ const api = {
         .get<{
           results: VariableSuggestions["userPaths"];
         }>(`${projectUrl(projectId)}/subjects/users/schema`)
-        .then((r) => r.data.results);
+        .then((r) => r.data.results ?? []);
+
+      // Fetch organization event schema (with fallback to empty array)
+      let organizationEventSuggestions: VariableSuggestions["eventPaths"] = [];
+      try {
+        const orgEvents = await client
+          .get<{
+            results: VariableSuggestions["eventPaths"];
+          }>(`${projectUrl(projectId)}/subjects/organization/events/schema`)
+          .then((r) => r.data.results ?? []);
+        
+        organizationEventSuggestions = orgEvents.map((event) => {
+          event.schema ??= [];
+          return event;
+        });
+      } catch (error) {
+        // Organization events endpoint may not exist yet, fallback to empty
+        console.debug("Failed to fetch organization event schemas:", error);
+      }
+
+      // Fetch organization user (member) schema (with fallback to empty array)
+      let organizationUserSuggestions: VariableSuggestions["organizationUserPaths"] = [];
+      try {
+        organizationUserSuggestions = await client
+          .get<{
+            results: VariableSuggestions["organizationUserPaths"];
+          }>(`${projectUrl(projectId)}/subjects/organizations/users/schema`)
+          .then((r) => r.data.results ?? []);
+      } catch (error) {
+        // Organization user schema endpoint may not exist yet, fallback to empty
+        console.debug("Failed to fetch organization user schemas:", error);
+      }
+
+      // Fetch organization schema (with fallback to empty array)
+      let organizationSuggestions: VariableSuggestions["organizationPaths"] = [];
+      try {
+        organizationSuggestions = await client
+          .get<{
+            results: VariableSuggestions["organizationPaths"];
+          }>(`${projectUrl(projectId)}/subjects/organizations/schema`)
+          .then((r) => r.data.results ?? []);
+      } catch (error) {
+        // Organization schema endpoint may not exist yet, fallback to empty
+        console.debug("Failed to fetch organization schemas:", error);
+      }
 
       return {
         eventPaths: eventSuggestions,
         userPaths: userSuggestions,
+        organizationEventPaths: organizationEventSuggestions,
+        organizationUserPaths: organizationUserSuggestions,
+        organizationPaths: organizationSuggestions,
       };
     },
   },
@@ -719,11 +766,9 @@ const api = {
 
   tenant: {
     get: async () =>
-      await client.get<Organization>("/admin/tenant").then((r) => r.data),
-    update: async (id: UUID, params: OrganizationUpdateParams) =>
-      await client
-        .patch<Organization>(`/admin/tenant`, params)
-        .then((r) => r.data),
+      await client.get<Tenant>("/admin/tenant").then((r) => r.data),
+    update: async (id: UUID, params: TenantUpdateParams) =>
+      await client.patch<Tenant>(`/admin/tenant`, params).then((r) => r.data),
     delete: async () =>
       await client.delete("/admin/tenant").then((r) => r.data),
   },
