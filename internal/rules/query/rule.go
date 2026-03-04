@@ -9,10 +9,6 @@ import (
 	"github.com/lunogram/platform/internal/rules"
 )
 
-// ErrUnsupportedOrWithJoins is returned when OR is used with a mix of join-producing
-// rules (organization, organization_user) and condition-producing rules (user).
-var ErrUnsupportedOrWithJoins = errors.New("OR operator is not supported when combining organization rules with user rules; use AND or restructure the query")
-
 // pathSegmentRegex matches path segments:
 // .field          - dot notation
 // ['field']       - bracket with single quotes
@@ -154,73 +150,6 @@ func (qb *QueryBuilder) isOrganizationWrapper(rule *rules.Rule) bool {
 	}
 
 	return true
-}
-
-// producesJoin returns true if the rule group produces a JOIN rather than a WHERE condition.
-// Organization and OrganizationUser rules use JOINs for filtering.
-func (qb *QueryBuilder) producesJoin(group rules.RuleGroup) bool {
-	return group == rules.RuleGroupOrganization || group == rules.RuleGroupOrganizationUser
-}
-
-// checkOrWithMixedRules validates that OR wrappers don't mix join-producing rules with
-// condition-producing rules, as this would produce incorrect AND semantics.
-func (qb *QueryBuilder) checkOrWithMixedRules(rule *rules.Rule) error {
-	if rule.Operator != rules.OperatorOr || !rule.HasChildren() {
-		return nil
-	}
-
-	hasJoinRule := false
-	hasConditionRule := false
-
-	for i := range rule.Children {
-		child := &rule.Children[i]
-
-		// For nested wrappers, we need to check what they contain
-		if child.IsWrapper() && child.Group == rules.RuleGroupParent {
-			// Recursively check if the wrapper contains join or condition rules
-			containsJoin, containsCondition := qb.analyzeWrapperContents(child)
-			if containsJoin {
-				hasJoinRule = true
-			}
-			if containsCondition {
-				hasConditionRule = true
-			}
-		} else if qb.producesJoin(child.Group) {
-			hasJoinRule = true
-		} else {
-			hasConditionRule = true
-		}
-
-		if hasJoinRule && hasConditionRule {
-			return ErrUnsupportedOrWithJoins
-		}
-	}
-
-	return nil
-}
-
-// analyzeWrapperContents recursively checks if a wrapper contains join-producing
-// and/or condition-producing rules.
-func (qb *QueryBuilder) analyzeWrapperContents(rule *rules.Rule) (containsJoin, containsCondition bool) {
-	for i := range rule.Children {
-		child := &rule.Children[i]
-
-		if child.IsWrapper() && child.Group == rules.RuleGroupParent {
-			cj, cc := qb.analyzeWrapperContents(child)
-			if cj {
-				containsJoin = true
-			}
-			if cc {
-				containsCondition = true
-			}
-		} else if qb.producesJoin(child.Group) {
-			containsJoin = true
-		} else {
-			containsCondition = true
-		}
-	}
-
-	return containsJoin, containsCondition
 }
 
 // buildWrapper builds SQL for wrapper nodes with logical operators

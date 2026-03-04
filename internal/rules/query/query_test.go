@@ -1334,8 +1334,8 @@ func TestQueryBuilderOrganizationRules(t *testing.T) {
 			wantArgs: []any{testProjectID, testProjectID},
 			wantErr:  false,
 		},
-		"user OR organization - should error": {
-			name: "user OR organization - should error",
+		"user OR organization - uses UNION for true OR semantics": {
+			name: "user OR organization - uses UNION for true OR semantics",
 			ruleSet: rules.RuleSet{
 				Rule: rules.Rule{
 					Type:     rules.RuleTypeWrapper,
@@ -1359,12 +1359,12 @@ func TestQueryBuilderOrganizationRules(t *testing.T) {
 					},
 				},
 			},
-			wantSQL:  "",
-			wantArgs: nil,
-			wantErr:  true,
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT u.id AS user_id FROM users u WHERE u.project_id = $2 AND u.email ILIKE $1 UNION SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $4 AND (o.data->>'tier')::text = $3) e2 ON e2.user_id = u.id WHERE u.project_id = $5",
+			wantArgs: []any{"%@admin.com", testProjectID, "gold", testProjectID, testProjectID},
+			wantErr:  false,
 		},
-		"user OR organization_user - should error": {
-			name: "user OR organization_user - should error",
+		"user OR organization_user - uses UNION for true OR semantics": {
+			name: "user OR organization_user - uses UNION for true OR semantics",
 			ruleSet: rules.RuleSet{
 				Rule: rules.Rule{
 					Type:     rules.RuleTypeWrapper,
@@ -1388,12 +1388,12 @@ func TestQueryBuilderOrganizationRules(t *testing.T) {
 					},
 				},
 			},
-			wantSQL:  "",
-			wantArgs: nil,
-			wantErr:  true,
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT u.id AS user_id FROM users u WHERE u.project_id = $2 AND u.email ILIKE $1 UNION SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $4 AND (ou.data->>'role')::text = $3) e2 ON e2.user_id = u.id WHERE u.project_id = $5",
+			wantArgs: []any{"%@admin.com", testProjectID, "admin", testProjectID, testProjectID},
+			wantErr:  false,
 		},
-		"nested user OR organization - should error": {
-			name: "nested user OR organization - should error",
+		"nested user OR organization - uses UNION for true OR semantics": {
+			name: "nested user OR organization - uses UNION for true OR semantics",
 			ruleSet: rules.RuleSet{
 				Rule: rules.Rule{
 					Type:     rules.RuleTypeWrapper,
@@ -1431,12 +1431,12 @@ func TestQueryBuilderOrganizationRules(t *testing.T) {
 					},
 				},
 			},
-			wantSQL:  "",
-			wantArgs: nil,
-			wantErr:  true,
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT u.id AS user_id FROM users u WHERE u.project_id = $3 AND u.email ILIKE $2 UNION SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $5 AND (o.data->>'tier')::text = $4) e2 ON e2.user_id = u.id WHERE u.project_id = $6 AND u.name = $1",
+			wantArgs: []any{"John", "%@vip.com", testProjectID, "enterprise", testProjectID, testProjectID},
+			wantErr:  false,
 		},
-		"deeply nested wrapper in OR - should error": {
-			name: "deeply nested wrapper in OR - should error",
+		"deeply nested wrapper in OR - handles mixed rules": {
+			name: "deeply nested wrapper in OR - handles mixed rules",
 			ruleSet: rules.RuleSet{
 				Rule: rules.Rule{
 					Type:     rules.RuleTypeWrapper,
@@ -1474,9 +1474,9 @@ func TestQueryBuilderOrganizationRules(t *testing.T) {
 					},
 				},
 			},
-			wantSQL:  "",
-			wantArgs: nil,
-			wantErr:  true,
+			wantSQL:  "SELECT u.id FROM users u JOIN (SELECT DISTINCT ou.user_id FROM organization_users ou JOIN organizations o ON o.id = ou.organization_id WHERE o.project_id = $3 AND (o.data->>'tier')::text = $2) e1 ON e1.user_id = u.id WHERE u.project_id = $4 AND u.email ILIKE $1",
+			wantArgs: []any{"%test%", "gold", testProjectID, testProjectID},
+			wantErr:  false,
 		},
 		"organization OR organization_user - should work": {
 			name: "organization OR organization_user - should work",
