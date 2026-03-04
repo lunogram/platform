@@ -58,6 +58,19 @@ func NewPushRequest[T any](config T, payload PushPayload) (*SendRequest[T], erro
 	}, nil
 }
 
+// NewWebhookRequest creates a SendRequest for webhooks.
+func NewWebhookRequest[T any](config T, payload WebhookPayload) (*SendRequest[T], error) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return &SendRequest[T]{
+		Channel: ChannelWebhook,
+		Config:  config,
+		Payload: data,
+	}, nil
+}
+
 // Helper methods to unmarshal channel-specific payloads
 
 // GetEmailPayload unmarshals the payload as EmailPayload.
@@ -81,6 +94,15 @@ func (r *SendRequest[T]) GetSMSPayload() (*SMSPayload, error) {
 // GetPushPayload unmarshals the payload as PushPayload.
 func (r *SendRequest[T]) GetPushPayload() (*PushPayload, error) {
 	var payload PushPayload
+	if err := json.Unmarshal(r.Payload, &payload); err != nil {
+		return nil, err
+	}
+	return &payload, nil
+}
+
+// GetWebhookPayload unmarshals the payload as WebhookPayload.
+func (r *SendRequest[T]) GetWebhookPayload() (*WebhookPayload, error) {
+	var payload WebhookPayload
 	if err := json.Unmarshal(r.Payload, &payload); err != nil {
 		return nil, err
 	}

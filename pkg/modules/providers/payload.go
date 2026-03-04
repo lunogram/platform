@@ -43,3 +43,12 @@ type PushPayload struct {
 	Sound    *string        `json:"sound,omitempty"`
 	Badge    *int           `json:"badge,omitempty"`
 }
+
+// WebhookPayload contains webhook-specific request data.
+type WebhookPayload struct {
+	Method   string            `json:"method"`
+	Endpoint string            `json:"endpoint"`
+	Body     map[string]any    `json:"body,omitempty"`
+	Headers  map[string]string `json:"headers,omitempty"`
+	CacheKey string            `json:"cache_key,omitempty"`
+}
