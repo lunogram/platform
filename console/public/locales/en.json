@@ -340,7 +340,7 @@
   "data": "Data",
   "deeplink": "Deeplink",
   "default_locale": "Default Locale",
-  "default_locale_description": "This locale will be used as the default when creating campaigns and when a user is created without a locale.",
+  "default_locale_description": "This locale will be used as the default when creating campaigns.",
   "defaults": "Defaults",
   "delay": "Delay",
   "delay_date_desc": "Delay until the specified date in the user's timezone.",

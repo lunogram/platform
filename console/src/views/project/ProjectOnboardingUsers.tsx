@@ -12,13 +12,15 @@ import {
 import { UserImportForm } from "@/components/ui/user-import-dialog"
 import api from "../../api"
 import type { UUID } from "@/types/common"
-import { useState } from "react"
+import { useContext, useState } from "react"
 import { NIL } from "uuid"
+import { ProjectContext } from "@/contexts"
 
 export default function ProjectOnboardingUsers() {
     const navigate = useNavigate()
     const { t } = useTranslation()
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
+    const [project] = useContext(ProjectContext)
     const [file, setFile] = useState<File | null>(null)
     const [nextLoading, setNextLoading] = useState(false)
     const [skipLoading, setSkipLoading] = useState(false)
@@ -34,6 +36,7 @@ export default function ProjectOnboardingUsers() {
                 last_name: admin.last_name,
             },
             email: admin.email,
+            timezone: project.timezone,
         })
     }
 

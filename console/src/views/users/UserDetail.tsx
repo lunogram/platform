@@ -1,6 +1,7 @@
 import { useContext, useState } from "react"
 import { Outlet, useNavigate, NavLink, useLocation, Link } from "react-router"
 import { useTranslation } from "react-i18next"
+import { toast } from "react-hot-toast/headless"
 import {
     Trash2,
     FileText,
@@ -11,6 +12,9 @@ import {
     ChevronRight,
     MoreHorizontal,
     Globe,
+    Mail,
+    Pencil,
+    Check,
 } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "../../ui/PreferencesContext"
@@ -39,6 +43,23 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command"
+import { Input } from "@/components/ui/input"
+import type { User } from "../../types"
+
+// eslint-disable-next-line @typescript-eslint/no-namespace
+declare namespace Intl {
+    type Key = "calendar" | "collation" | "currency" | "numberingSystem" | "timeZone" | "unit"
+    function supportedValuesOf(input: Key): string[]
+}
 
 export default function UserDetail() {
     const { t } = useTranslation()
@@ -46,9 +67,57 @@ export default function UserDetail() {
     const location = useLocation()
     const [preferences] = useContext(PreferencesContext)
     const [project] = useContext(ProjectContext)
-    const [user] = useContext(UserContext)
+    const [user, setUser] = useContext(UserContext)
     const [isDeleteOpen, setIsDeleteOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [isTimezoneOpen, setIsTimezoneOpen] = useState(false)
+    const [isSavingTimezone, setIsSavingTimezone] = useState(false)
+    const [isEmailOpen, setIsEmailOpen] = useState(false)
+    const [isSavingEmail, setIsSavingEmail] = useState(false)
+    const [emailValue, setEmailValue] = useState(user.email ?? "")
+
+    const timeZones = Intl.supportedValuesOf("timeZone")
+
+    const handleTimezoneChange = async (newTimezone: string) => {
+        setIsSavingTimezone(true)
+        try {
+            const updatedUser = await api.users.update(project.id, user.id, {
+                timezone: newTimezone,
+            } as User)
+            if (updatedUser) {
+                setUser(updatedUser)
+                toast.success(t("timezone_updated", "Timezone updated"))
+            }
+            setIsTimezoneOpen(false)
+        } catch {
+            toast.error(t("timezone_update_error", "Failed to update timezone"))
+        } finally {
+            setIsSavingTimezone(false)
+        }
+    }
+
+    const handleEmailChange = async () => {
+        const trimmedEmail = emailValue.trim()
+        if (trimmedEmail === (user.email ?? "")) {
+            setIsEmailOpen(false)
+            return
+        }
+        setIsSavingEmail(true)
+        try {
+            const updatedUser = await api.users.update(project.id, user.id, {
+                email: trimmedEmail || undefined,
+            } as User)
+            if (updatedUser) {
+                setUser(updatedUser)
+                toast.success(t("email_updated", "Email updated"))
+            }
+            setIsEmailOpen(false)
+        } catch {
+            toast.error(t("email_update_error", "Failed to update email"))
+        } finally {
+            setIsSavingEmail(false)
+        }
+    }
 
     const userColor = getRandomColor(user.email ?? user.external_id ?? user.id)
 
@@ -154,9 +223,138 @@ export default function UserDetail() {
                                     {displayName}
                                 </h1>
                                 <p className="text-sm text-muted-foreground flex items-center flex-wrap gap-x-0">
-                                    {user.email && (
+                                    {user.email ? (
                                         <>
-                                            <span>{user.email}</span>
+                                            <Popover
+                                                open={isEmailOpen}
+                                                onOpenChange={(open) => {
+                                                    setIsEmailOpen(open)
+                                                    if (open) setEmailValue(user.email ?? "")
+                                                }}
+                                            >
+                                                <PopoverTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors group"
+                                                    >
+                                                        <Mail className="h-3 w-3" />
+                                                        <span>{user.email}</span>
+                                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                                                    </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-72 p-3" align="start">
+                                                    <form
+                                                        onSubmit={(e) => {
+                                                            e.preventDefault()
+                                                            handleEmailChange()
+                                                        }}
+                                                        className="flex flex-col gap-2"
+                                                    >
+                                                        <Input
+                                                            type="email"
+                                                            value={emailValue}
+                                                            onChange={(e) =>
+                                                                setEmailValue(e.target.value)
+                                                            }
+                                                            placeholder={t(
+                                                                "email_placeholder",
+                                                                "user@example.com",
+                                                            )}
+                                                            autoFocus
+                                                            disabled={isSavingEmail}
+                                                        />
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    setIsEmailOpen(false)
+                                                                }
+                                                                disabled={isSavingEmail}
+                                                            >
+                                                                {t("cancel")}
+                                                            </Button>
+                                                            <Button
+                                                                type="submit"
+                                                                size="sm"
+                                                                disabled={isSavingEmail}
+                                                            >
+                                                                {isSavingEmail
+                                                                    ? t("saving", "Saving...")
+                                                                    : t("save")}
+                                                            </Button>
+                                                        </div>
+                                                    </form>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <span className="mx-2">·</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Popover
+                                                open={isEmailOpen}
+                                                onOpenChange={(open) => {
+                                                    setIsEmailOpen(open)
+                                                    if (open) setEmailValue("")
+                                                }}
+                                            >
+                                                <PopoverTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors text-muted-foreground/60 hover:text-muted-foreground group"
+                                                    >
+                                                        <Mail className="h-3 w-3" />
+                                                        {t("set_email", "Set email")}
+                                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                                                    </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-72 p-3" align="start">
+                                                    <form
+                                                        onSubmit={(e) => {
+                                                            e.preventDefault()
+                                                            handleEmailChange()
+                                                        }}
+                                                        className="flex flex-col gap-2"
+                                                    >
+                                                        <Input
+                                                            type="email"
+                                                            value={emailValue}
+                                                            onChange={(e) =>
+                                                                setEmailValue(e.target.value)
+                                                            }
+                                                            placeholder={t(
+                                                                "email_placeholder",
+                                                                "user@example.com",
+                                                            )}
+                                                            autoFocus
+                                                            disabled={isSavingEmail}
+                                                        />
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    setIsEmailOpen(false)
+                                                                }
+                                                                disabled={isSavingEmail}
+                                                            >
+                                                                {t("cancel")}
+                                                            </Button>
+                                                            <Button
+                                                                type="submit"
+                                                                size="sm"
+                                                                disabled={isSavingEmail}
+                                                            >
+                                                                {isSavingEmail
+                                                                    ? t("saving", "Saving...")
+                                                                    : t("save")}
+                                                            </Button>
+                                                        </div>
+                                                    </form>
+                                                </PopoverContent>
+                                            </Popover>
                                             <span className="mx-2">·</span>
                                         </>
                                     )}
@@ -171,23 +369,144 @@ export default function UserDetail() {
                                     <span>
                                         Created {formatDate(preferences, user.created_at, "PP")}
                                     </span>
-                                    {user.timezone &&
-                                        (() => {
-                                            const localTime = getLocalTimeInTimezone(user.timezone)
-                                            const utcOffset = getTimezoneOffset(user.timezone)
-                                            return (
-                                                <>
-                                                    <span className="mx-2">·</span>
-                                                    <span className="inline-flex items-center gap-1">
-                                                        <Globe className="h-3 w-3" />
-                                                        {localTime}
-                                                        <span className="text-muted-foreground/60">
-                                                            {utcOffset && `(${utcOffset})`}
-                                                        </span>
-                                                    </span>
-                                                </>
-                                            )
-                                        })()}
+                                    {user.timezone
+                                        ? (() => {
+                                              const localTime = getLocalTimeInTimezone(
+                                                  user.timezone,
+                                              )
+                                              const utcOffset = getTimezoneOffset(user.timezone)
+                                              return (
+                                                  <>
+                                                      <span className="mx-2">·</span>
+                                                      <Popover
+                                                          open={isTimezoneOpen}
+                                                          onOpenChange={setIsTimezoneOpen}
+                                                      >
+                                                          <PopoverTrigger asChild>
+                                                              <button
+                                                                  type="button"
+                                                                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors group"
+                                                              >
+                                                                  <Globe className="h-3 w-3" />
+                                                                  {localTime}
+                                                                  <span className="text-muted-foreground/60">
+                                                                      {utcOffset &&
+                                                                          `(${utcOffset})`}
+                                                                  </span>
+                                                                  <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                                                              </button>
+                                                          </PopoverTrigger>
+                                                          <PopoverContent
+                                                              className="w-72 p-0"
+                                                              align="start"
+                                                          >
+                                                              <Command>
+                                                                  <CommandInput
+                                                                      placeholder={t(
+                                                                          "search_timezone",
+                                                                          "Search timezone...",
+                                                                      )}
+                                                                  />
+                                                                  <CommandList>
+                                                                      <CommandEmpty>
+                                                                          {t(
+                                                                              "no_timezone_found",
+                                                                              "No timezone found.",
+                                                                          )}
+                                                                      </CommandEmpty>
+                                                                      <CommandGroup>
+                                                                          {timeZones.map((tz) => (
+                                                                              <CommandItem
+                                                                                  key={tz}
+                                                                                  value={tz}
+                                                                                  onSelect={() =>
+                                                                                      handleTimezoneChange(
+                                                                                          tz,
+                                                                                      )
+                                                                                  }
+                                                                                  disabled={
+                                                                                      isSavingTimezone
+                                                                                  }
+                                                                              >
+                                                                                  <Check
+                                                                                      className={cn(
+                                                                                          "mr-2 h-4 w-4",
+                                                                                          user.timezone ===
+                                                                                              tz
+                                                                                              ? "opacity-100"
+                                                                                              : "opacity-0",
+                                                                                      )}
+                                                                                  />
+                                                                                  {tz}
+                                                                              </CommandItem>
+                                                                          ))}
+                                                                      </CommandGroup>
+                                                                  </CommandList>
+                                                              </Command>
+                                                          </PopoverContent>
+                                                      </Popover>
+                                                  </>
+                                              )
+                                          })()
+                                        : (() => (
+                                              <>
+                                                  <span className="mx-2">·</span>
+                                                  <Popover
+                                                      open={isTimezoneOpen}
+                                                      onOpenChange={setIsTimezoneOpen}
+                                                  >
+                                                      <PopoverTrigger asChild>
+                                                          <button
+                                                              type="button"
+                                                              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors text-muted-foreground/60 hover:text-muted-foreground group"
+                                                          >
+                                                              <Globe className="h-3 w-3" />
+                                                              {t("set_timezone", "Set timezone")}
+                                                              <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                                                          </button>
+                                                      </PopoverTrigger>
+                                                      <PopoverContent
+                                                          className="w-72 p-0"
+                                                          align="start"
+                                                      >
+                                                          <Command>
+                                                              <CommandInput
+                                                                  placeholder={t(
+                                                                      "search_timezone",
+                                                                      "Search timezone...",
+                                                                  )}
+                                                              />
+                                                              <CommandList>
+                                                                  <CommandEmpty>
+                                                                      {t(
+                                                                          "no_timezone_found",
+                                                                          "No timezone found.",
+                                                                      )}
+                                                                  </CommandEmpty>
+                                                                  <CommandGroup>
+                                                                      {timeZones.map((tz) => (
+                                                                          <CommandItem
+                                                                              key={tz}
+                                                                              value={tz}
+                                                                              onSelect={() =>
+                                                                                  handleTimezoneChange(
+                                                                                      tz,
+                                                                                  )
+                                                                              }
+                                                                              disabled={
+                                                                                  isSavingTimezone
+                                                                              }
+                                                                          >
+                                                                              {tz}
+                                                                          </CommandItem>
+                                                                      ))}
+                                                                  </CommandGroup>
+                                                              </CommandList>
+                                                          </Command>
+                                                      </PopoverContent>
+                                                  </Popover>
+                                              </>
+                                          ))()}
                                 </p>
                             </div>
                         </div>
