@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { editor } from "monaco-editor"
-import type CodeStore from "../codeEditorPlugins/CodeStore"
+import type CodeStore from "../CodeEditorPlugins/CodeStore"
 
 interface TemplateVariable {
     label: string

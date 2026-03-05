@@ -1,12 +1,12 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useEffect, useRef } from "react"
-import CodeEditorEventListener from "../codeEditorPlugins/CodeEditorEventListener"
+import CodeEditorEventListener from "../CodeEditorPlugins/CodeEditorEventListener"
 import { Puck, type Data } from "@puckeditor/core"
 import { viewports } from "../viewport"
 import { config, type Components } from "../handlers/ConfigHandler"
-import CodeStore from "../codeEditorPlugins/CodeStore"
-import { Preview } from "../overrides/Preview"
-import { CodeEditorPlugin } from "../codeEditorPlugins/CodeEditorPlugin"
+import CodeStore from "../CodeEditorPlugins/CodeStore"
+import { Preview } from "../Overrides/Preview"
+import { CodeEditorPlugin } from "../CodeEditorPlugins/CodeEditorPlugin"
 import { HtmlEditorHeader } from "./HtmlEditorHeader"
 import "./HtmlEditor.css"
 

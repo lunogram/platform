@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
-import type CodeEditorEventListener from "../codeEditorPlugins/CodeEditorEventListener"
-import type CodeStore from "../codeEditorPlugins/CodeStore"
+import type CodeEditorEventListener from "../CodeEditorPlugins/CodeEditorEventListener"
+import type CodeStore from "../CodeEditorPlugins/CodeStore"
 
 export const Preview = (props: {
     children: React.ReactNode
