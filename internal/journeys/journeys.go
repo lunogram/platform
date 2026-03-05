@@ -18,6 +18,7 @@ import (
 const (
 	ActionStepType     = "action"
 	BalancerStepType   = "balancer"
+	CampaignStepType   = "campaign"
 	DelayStepType      = "delay"
 	EventStepType      = "event"
 	ExitStepType       = "exit"
@@ -67,6 +68,8 @@ func Handle(parent context.Context, db *sqlx.DB, pub pubsub.Publisher, projectID
 		return HandleAction(ctx, step, s)
 	case BalancerStepType:
 		return HandleBalancer(ctx, step, s)
+	case CampaignStepType:
+		return HandleCampaign(ctx, step, s)
 	case DelayStepType:
 		return HandleDelay(ctx, step, s)
 	case EventStepType:

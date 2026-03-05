@@ -95,7 +95,7 @@ func TestHandleLink(t *testing.T) {
 					WillReturnRows(versionRows)
 
 				stepRows := sqlmock.NewRows([]string{"id", "version_id", "external_id", "type", "name", "data", "data_key", "x", "y", "created_at", "children"}).
-					AddRow(uuid.New(), versionID, "step-1", "action", nil, json.RawMessage("{}"), nil, 0, 0, time.Now(), "[]")
+					AddRow(uuid.New(), versionID, "step-1", "campaign", nil, json.RawMessage("{}"), nil, 0, 0, time.Now(), "[]")
 				mock.ExpectQuery("SELECT (.+) FROM journey_version_steps").
 					WithArgs(versionID).
 					WillReturnRows(stepRows)
