@@ -1,12 +1,19 @@
-import { useNavigate, useParams } from 'react-router'
-import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { UserImportForm } from '@/components/ui/user-import-dialog'
-import api from '../../api'
-import type { UUID } from '@/types/common'
-import { useState } from 'react'
-import { NIL } from 'uuid'
+import { useNavigate, useParams } from "react-router"
+import { useTranslation } from "react-i18next"
+import { Button } from "@/components/ui/button"
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card"
+import { UserImportForm } from "@/components/ui/user-import-dialog"
+import api from "../../api"
+import type { UUID } from "@/types/common"
+import { useState } from "react"
+import { NIL } from "uuid"
 
 export default function ProjectOnboardingUsers() {
     const navigate = useNavigate()
@@ -57,20 +64,18 @@ export default function ProjectOnboardingUsers() {
     return (
         <Card className="w-full min-w-[400px] max-w-[600px]">
             <CardHeader>
-                <CardTitle className="text-lg">{t('onboarding_users_title')}</CardTitle>
-                <CardDescription>
-                    {t('onboarding_users_description')}
-                </CardDescription>
+                <CardTitle className="text-lg">{t("onboarding_users_title")}</CardTitle>
+                <CardDescription>{t("onboarding_users_description")}</CardDescription>
             </CardHeader>
             <CardContent>
                 <UserImportForm file={file} onFileChange={setFile} />
             </CardContent>
             <CardFooter className="flex gap-2">
                 <Button onClick={next} isLoading={nextLoading}>
-                    {t('next')}
+                    {t("next")}
                 </Button>
                 <Button onClick={skip} isLoading={skipLoading} variant="outline">
-                    {t('skip')}
+                    {t("skip")}
                 </Button>
             </CardFooter>
         </Card>

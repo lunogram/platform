@@ -1,6 +1,6 @@
-import { useCallback, useContext, useEffect, useState, useRef } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { useTranslation } from 'react-i18next'
+import { useCallback, useContext, useEffect, useState, useRef } from "react"
+import { Link, useNavigate } from "react-router"
+import { useTranslation } from "react-i18next"
 import {
     ListFilter,
     ChevronRight,
@@ -14,21 +14,21 @@ import {
     Search,
     AlertCircle,
     Users,
-} from 'lucide-react'
-import api from '../../api'
-import { ListContext, ProjectContext } from '../../contexts'
-import { PreferencesContext } from '../../ui/PreferencesContext'
-import type { DynamicList, ListUpdateParams, Rule, WrapperRule } from '../../types'
-import { formatDate, snakeToTitle } from '../../utils'
-import { getRandomColor } from '@/lib/colors'
-import RuleBuilder from './rules/RuleBuilder'
-import { useRoute } from '../router'
-import { useBlocker } from 'react-router'
+} from "lucide-react"
+import api from "../../api"
+import { ListContext, ProjectContext } from "../../contexts"
+import { PreferencesContext } from "../../ui/PreferencesContext"
+import type { DynamicList, ListUpdateParams, Rule, WrapperRule } from "../../types"
+import { formatDate, snakeToTitle } from "../../utils"
+import { getRandomColor } from "@/lib/colors"
+import RuleBuilder from "./rules/RuleBuilder"
+import { useRoute } from "../router"
+import { useBlocker } from "react-router"
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
     Table,
     TableBody,
@@ -36,7 +36,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '@/components/ui/table'
+} from "@/components/ui/table"
 import {
     Dialog,
     DialogContent,
@@ -44,31 +44,40 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog"
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-    Alert,
-    AlertDescription,
-    AlertTitle,
-} from '@/components/ui/alert'
-import { Label } from '@/components/ui/label'
+} from "@/components/ui/dropdown-menu"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Label } from "@/components/ui/label"
 
-import type { ListState } from '../../types'
+import type { ListState } from "../../types"
 
 function getStateBadge(state: ListState, t: (key: string) => string) {
     const config: Record<ListState, { label: string; className: string }> = {
-        draft: { label: t('draft'), className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-        loading: { label: t('loading'), className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-        ready: { label: t('ready'), className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+        draft: {
+            label: t("draft"),
+            className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+        },
+        loading: {
+            label: t("loading"),
+            className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+        },
+        ready: {
+            label: t("ready"),
+            className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+        },
     }
     const { label, className } = config[state] ?? config.draft
-    return <Badge variant="outline" className={`border-0 ${className}`}>{label}</Badge>
+    return (
+        <Badge variant="outline" className={`border-0 ${className}`}>
+            {label}
+        </Badge>
+    )
 }
 
 interface RuleSectionProps {
@@ -89,20 +98,17 @@ function RuleSection({ list, isSaving, onRuleSave, onChange }: RuleSectionProps)
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="text-base font-semibold">{t('rules')}</h3>
+                    <h3 className="text-base font-semibold">{t("rules")}</h3>
                     <p className="text-sm text-muted-foreground">
-                        {t('rules_description', 'Define conditions to dynamically include users in this list.')}
+                        {t(
+                            "rules_description",
+                            "Define conditions to dynamically include users in this list.",
+                        )}
                     </p>
                 </div>
-                <Button
-                    size="sm"
-                    onClick={() => onRuleSave(rule)}
-                    disabled={isSaving}
-                >
-                    {isSaving ? (
-                        <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" />
-                    ) : null}
-                    {t('rules_save')}
+                <Button size="sm" onClick={() => onRuleSave(rule)} disabled={isSaving}>
+                    {isSaving ? <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                    {t("rules_save")}
                 </Button>
             </div>
             <div className="rounded-lg border bg-card p-4">
@@ -127,10 +133,10 @@ export default function ListDetail() {
 
     // Users table state
     const [users, setUsers] = useState<any[] | null>(null)
-    const [searchQuery, setSearchQuery] = useState('')
-    const [debouncedQuery, setDebouncedQuery] = useState('')
+    const [searchQuery, setSearchQuery] = useState("")
+    const [debouncedQuery, setDebouncedQuery] = useState("")
     const [cursor, setCursor] = useState<string | undefined>()
-    const [pageDirection, setPageDirection] = useState<'next' | 'prev' | undefined>()
+    const [pageDirection, setPageDirection] = useState<"next" | "prev" | undefined>()
     const [cursorHistory, setCursorHistory] = useState<string[]>([])
     const [nextCursor, setNextCursor] = useState<string | undefined>()
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
@@ -158,17 +164,18 @@ export default function ListDetail() {
     }, [loadUsers])
 
     const refreshList = useCallback(() => {
-        api.lists.get(project.id, list.id)
+        api.lists
+            .get(project.id, list.id)
             .then(setList)
             .then(() => loadUsers())
-            .catch(() => { })
+            .catch(() => {})
     }, [project.id, list.id, setList, loadUsers])
 
     useEffect(() => {
-        if (list.state !== 'loading') return
+        if (list.state !== "loading") return
         const complete = list.progress?.complete ?? 0
         const total = list.progress?.total ?? 0
-        const percent = total > 0 ? complete / total * 100 : 0
+        const percent = total > 0 ? (complete / total) * 100 : 0
         const refreshRate = percent < 5 ? 1000 : 5000
         const interval = setInterval(refreshList, refreshRate)
         refreshList()
@@ -177,12 +184,13 @@ export default function ListDetail() {
     }, [list.state, list.progress?.complete, list.progress?.total, refreshList])
 
     const blocker = useBlocker(
-        ({ currentLocation, nextLocation }) => hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname,
+        ({ currentLocation, nextLocation }) =>
+            hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname,
     )
 
     useEffect(() => {
-        if (blocker.state !== 'blocked') return
-        if (confirm(t('confirm_unsaved_changes'))) {
+        if (blocker.state !== "blocked") return
+        if (confirm(t("confirm_unsaved_changes"))) {
             blocker.proceed()
         } else {
             blocker.reset()
@@ -205,9 +213,9 @@ export default function ListDetail() {
 
     const handleNextPage = () => {
         if (nextCursor) {
-            setCursorHistory(prev => [...prev, cursor ?? ''])
+            setCursorHistory((prev) => [...prev, cursor ?? ""])
             setCursor(nextCursor)
-            setPageDirection('next')
+            setPageDirection("next")
         }
     }
 
@@ -217,20 +225,26 @@ export default function ListDetail() {
             const prevCursor = prev.pop()
             setCursorHistory(prev)
             setCursor(prevCursor || undefined)
-            setPageDirection(prevCursor ? 'next' : undefined)
+            setPageDirection(prevCursor ? "next" : undefined)
         }
     }
 
     const saveList = async ({ name, rule, published, tags }: ListUpdateParams) => {
         setIsSaving(true)
         try {
-            const value = await api.lists.update(project.id, list.id, { name, rule, published, tags })
+            const value = await api.lists.update(project.id, list.id, {
+                name,
+                rule,
+                published,
+                tags,
+            })
             setError(undefined)
             setList(value)
             setIsEditListOpen(false)
             setHasUnsavedChanges(false)
         } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
+            const errorMessage =
+                error instanceof Error ? error.message : "An unexpected error occurred"
             setError(errorMessage)
             setIsEditListOpen(false)
         } finally {
@@ -254,9 +268,10 @@ export default function ListDetail() {
         await navigate(`/projects/${project.id}/lists`)
     }
 
-    const progress = list.state === 'loading' && list.progress
-        ? Math.round((list.progress.complete / (list.progress.total || 1)) * 100)
-        : null
+    const progress =
+        list.state === "loading" && list.progress
+            ? Math.round((list.progress.complete / (list.progress.total || 1)) * 100)
+            : null
 
     return (
         <div className="flex flex-col min-h-full">
@@ -269,12 +284,10 @@ export default function ListDetail() {
                             to={`/projects/${project.id}/lists`}
                             className="hover:text-foreground transition-colors"
                         >
-                            {t('lists')}
+                            {t("lists")}
                         </Link>
                         <ChevronRight className="h-3.5 w-3.5" />
-                        <span className="text-foreground font-medium">
-                            {list.name}
-                        </span>
+                        <span className="text-foreground font-medium">{list.name}</span>
                     </nav>
 
                     {/* List Identity */}
@@ -297,37 +310,39 @@ export default function ListDetail() {
                                     <span>{snakeToTitle(list.type)}</span>
                                     <span>·</span>
                                     <span>
-                                        {list.state === 'loading'
-                                            ? t('counting', 'Counting...')
-                                            : `${list.users_count?.toLocaleString() ?? 0} ${t('users').toLowerCase()}`
-                                        }
+                                        {list.state === "loading"
+                                            ? t("counting", "Counting...")
+                                            : `${list.users_count?.toLocaleString() ?? 0} ${t("users").toLowerCase()}`}
                                     </span>
                                     <span>·</span>
                                     <span>
-                                        {t('created')} {formatDate(preferences, list.created_at, 'PP')}
+                                        {t("created")}{" "}
+                                        {formatDate(preferences, list.created_at, "PP")}
                                     </span>
                                 </p>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-2">
-                            {list.state === 'draft' && (
+                            {list.state === "draft" && (
                                 <Button
                                     size="sm"
-                                    onClick={async () => await saveList({ name: list.name, published: true })}
+                                    onClick={async () =>
+                                        await saveList({ name: list.name, published: true })
+                                    }
                                 >
                                     <Send className="mr-2 h-3.5 w-3.5" />
-                                    {t('publish')}
+                                    {t("publish")}
                                 </Button>
                             )}
-                            {list.type === 'static' && (
+                            {list.type === "static" && (
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setIsUploadOpen(true)}
                                 >
                                     <Upload className="mr-2 h-3.5 w-3.5" />
-                                    {t('upload_list')}
+                                    {t("upload_list")}
                                 </Button>
                             )}
                             <Button
@@ -339,7 +354,7 @@ export default function ListDetail() {
                                 }}
                             >
                                 <Pencil className="mr-2 h-3.5 w-3.5" />
-                                {t('edit_list')}
+                                {t("edit_list")}
                             </Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -350,7 +365,7 @@ export default function ListDetail() {
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuItem onClick={handleRecountList}>
                                         <RefreshCw className="h-4 w-4 mr-2" />
-                                        {t('recount')}
+                                        {t("recount")}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
@@ -358,7 +373,7 @@ export default function ListDetail() {
                                         onClick={handleArchiveList}
                                     >
                                         <Archive className="h-4 w-4 mr-2" />
-                                        {t('archive')}
+                                        {t("archive")}
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -368,16 +383,18 @@ export default function ListDetail() {
             </div>
 
             {/* Progress Bar for Loading State */}
-            {list.state === 'loading' && progress !== null && (
+            {list.state === "loading" && progress !== null && (
                 <div className="border-b bg-blue-50/50 dark:bg-blue-950/20 px-6 py-3">
                     <div className="flex items-center gap-3">
                         <RefreshCw className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
                         <div className="flex-1">
                             <div className="flex items-center justify-between text-sm mb-1">
                                 <span className="text-blue-700 dark:text-blue-300 font-medium">
-                                    {t('processing', 'Processing...')}
+                                    {t("processing", "Processing...")}
                                 </span>
-                                <span className="text-blue-600 dark:text-blue-400">{progress}%</span>
+                                <span className="text-blue-600 dark:text-blue-400">
+                                    {progress}%
+                                </span>
                             </div>
                             <div className="h-1.5 rounded-full bg-blue-200/60 dark:bg-blue-800/40 overflow-hidden">
                                 <div
@@ -396,17 +413,19 @@ export default function ListDetail() {
                 {error && (
                     <Alert variant="destructive">
                         <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>{t('error')}</AlertTitle>
+                        <AlertTitle>{t("error")}</AlertTitle>
                         <AlertDescription>{error}</AlertDescription>
                     </Alert>
                 )}
 
                 {/* Rules Section (Dynamic Lists) */}
-                {list.type === 'dynamic' && (
+                {list.type === "dynamic" && (
                     <RuleSection
                         list={list}
                         isSaving={isSaving}
-                        onRuleSave={async (rule) => await saveList({ name: list.name, rule: rule as WrapperRule })}
+                        onRuleSave={async (rule) =>
+                            await saveList({ name: list.name, rule: rule as WrapperRule })
+                        }
                         onChange={() => setHasUnsavedChanges(true)}
                     />
                 )}
@@ -414,11 +433,11 @@ export default function ListDetail() {
                 {/* Users Table */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between gap-4">
-                        <h3 className="text-base font-semibold">{t('users')}</h3>
+                        <h3 className="text-base font-semibold">{t("users")}</h3>
                         <div className="relative max-w-xs flex-1">
                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
-                                placeholder={t('search_users', 'Search users...')}
+                                placeholder={t("search_users", "Search users...")}
                                 value={searchQuery}
                                 onChange={(e) => handleSearch(e.target.value)}
                                 className="pl-9 h-8"
@@ -430,20 +449,28 @@ export default function ListDetail() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>{t('name')}</TableHead>
-                                    <TableHead>{t('external_id')}</TableHead>
-                                    <TableHead>{t('email')}</TableHead>
-                                    <TableHead>{t('phone')}</TableHead>
+                                    <TableHead>{t("name")}</TableHead>
+                                    <TableHead>{t("external_id")}</TableHead>
+                                    <TableHead>{t("email")}</TableHead>
+                                    <TableHead>{t("phone")}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {!users ? (
                                     Array.from({ length: 5 }).map((_, i) => (
                                         <TableRow key={i}>
-                                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-36" /></TableCell>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                            <TableCell>
+                                                <Skeleton className="h-4 w-32" />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Skeleton className="h-4 w-24" />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Skeleton className="h-4 w-36" />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Skeleton className="h-4 w-24" />
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 ) : users.length === 0 ? (
@@ -451,7 +478,14 @@ export default function ListDetail() {
                                         <TableCell colSpan={4} className="h-32 text-center">
                                             <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                                 <Users className="h-8 w-8" />
-                                                <p>{debouncedQuery ? t('no_users_found', 'No users found') : t('no_users_yet', 'No users in this list yet')}</p>
+                                                <p>
+                                                    {debouncedQuery
+                                                        ? t("no_users_found", "No users found")
+                                                        : t(
+                                                              "no_users_yet",
+                                                              "No users in this list yet",
+                                                          )}
+                                                </p>
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -463,7 +497,7 @@ export default function ListDetail() {
                                             onClick={() => route(`users/${user.id}`)}
                                         >
                                             <TableCell className="font-medium">
-                                                {user.full_name || '—'}
+                                                {user.full_name || "—"}
                                             </TableCell>
                                             <TableCell className="text-muted-foreground">
                                                 <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
@@ -471,10 +505,10 @@ export default function ListDetail() {
                                                 </code>
                                             </TableCell>
                                             <TableCell className="text-muted-foreground">
-                                                {user.email || '—'}
+                                                {user.email || "—"}
                                             </TableCell>
                                             <TableCell className="text-muted-foreground">
-                                                {user.phone || '—'}
+                                                {user.phone || "—"}
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -486,7 +520,7 @@ export default function ListDetail() {
                         {users && users.length > 0 && (
                             <div className="flex items-center justify-between border-t px-4 py-3">
                                 <p className="text-sm text-muted-foreground">
-                                    {users.length} {t('users').toLowerCase()}
+                                    {users.length} {t("users").toLowerCase()}
                                 </p>
                                 {(hasPrevPage || hasNextPage) && (
                                     <div className="flex items-center gap-2">
@@ -497,7 +531,7 @@ export default function ListDetail() {
                                             disabled={!hasPrevPage}
                                         >
                                             <ChevronLeft className="h-4 w-4 mr-1" />
-                                            {t('previous')}
+                                            {t("previous")}
                                         </Button>
                                         <Button
                                             variant="outline"
@@ -505,7 +539,7 @@ export default function ListDetail() {
                                             onClick={handleNextPage}
                                             disabled={!hasNextPage}
                                         >
-                                            {t('next')}
+                                            {t("next")}
                                             <ChevronRight className="h-4 w-4 ml-1" />
                                         </Button>
                                     </div>
@@ -520,18 +554,20 @@ export default function ListDetail() {
             <Dialog open={isEditListOpen} onOpenChange={setIsEditListOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{t('edit_list')}</DialogTitle>
+                        <DialogTitle>{t("edit_list")}</DialogTitle>
                         <DialogDescription>
-                            {t('edit_list_description', 'Update the list name and settings.')}
+                            {t("edit_list_description", "Update the list name and settings.")}
                         </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={async (e) => {
-                        e.preventDefault()
-                        await saveList({ name: editName })
-                    }}>
+                    <form
+                        onSubmit={async (e) => {
+                            e.preventDefault()
+                            await saveList({ name: editName })
+                        }}
+                    >
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="list-name">{t('list_name')}</Label>
+                                <Label htmlFor="list-name">{t("list_name")}</Label>
                                 <Input
                                     id="list-name"
                                     value={editName}
@@ -547,10 +583,10 @@ export default function ListDetail() {
                                 onClick={() => setIsEditListOpen(false)}
                                 disabled={isSaving}
                             >
-                                {t('cancel')}
+                                {t("cancel")}
                             </Button>
                             <Button type="submit" disabled={isSaving}>
-                                {isSaving ? t('saving', 'Saving...') : t('save')}
+                                {isSaving ? t("saving", "Saving...") : t("save")}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -561,20 +597,20 @@ export default function ListDetail() {
             <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{t('import_users')}</DialogTitle>
-                        <DialogDescription>
-                            {t('upload_instructions')}
-                        </DialogDescription>
+                        <DialogTitle>{t("import_users")}</DialogTitle>
+                        <DialogDescription>{t("upload_instructions")}</DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={async (e) => {
-                        e.preventDefault()
-                        const formData = new FormData(e.currentTarget)
-                        const file = formData.get('file') as File
-                        if (file) await uploadUsers(file)
-                    }}>
+                    <form
+                        onSubmit={async (e) => {
+                            e.preventDefault()
+                            const formData = new FormData(e.currentTarget)
+                            const file = formData.get("file") as File
+                            if (file) await uploadUsers(file)
+                        }}
+                    >
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="upload-file">{t('file')}</Label>
+                                <Label htmlFor="upload-file">{t("file")}</Label>
                                 <Input
                                     id="upload-file"
                                     name="file"
@@ -591,11 +627,11 @@ export default function ListDetail() {
                                 variant="outline"
                                 onClick={() => setIsUploadOpen(false)}
                             >
-                                {t('cancel')}
+                                {t("cancel")}
                             </Button>
                             <Button type="submit">
                                 <Upload className="mr-2 h-3.5 w-3.5" />
-                                {t('upload')}
+                                {t("upload")}
                             </Button>
                         </DialogFooter>
                     </form>

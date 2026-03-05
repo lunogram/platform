@@ -1,16 +1,16 @@
-import { useCallback, useContext, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { Plus, Search, Puzzle, MoreHorizontal } from 'lucide-react'
-import api from '../../api'
-import { ProjectContext } from '../../contexts'
-import { useResolver } from '../../hooks'
-import { snakeToTitle } from '../../utils'
-import type { Provider } from '../../types'
-import IntegrationModal from './IntegrationModal'
-import type { UUID } from '@/types/common'
+import { useCallback, useContext, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { Plus, Search, Puzzle, MoreHorizontal } from "lucide-react"
+import api from "../../api"
+import { ProjectContext } from "../../contexts"
+import { useResolver } from "../../hooks"
+import { snakeToTitle } from "../../utils"
+import type { Provider } from "../../types"
+import IntegrationModal from "./IntegrationModal"
+import type { UUID } from "@/types/common"
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
     Table,
     TableBody,
@@ -18,22 +18,22 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '@/components/ui/table'
+} from "@/components/ui/table"
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
+} from "@/components/ui/dropdown-menu"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 
 export default function Integrations() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
 
-    const [searchQuery, setSearchQuery] = useState('')
-    const [debouncedQuery, setDebouncedQuery] = useState('')
+    const [searchQuery, setSearchQuery] = useState("")
+    const [debouncedQuery, setDebouncedQuery] = useState("")
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [provider, setProvider] = useState<Provider>()
@@ -52,13 +52,13 @@ export default function Integrations() {
                 limit: 50,
                 search: debouncedQuery || undefined,
             } as any)
-        }, [project.id, debouncedQuery])
+        }, [project.id, debouncedQuery]),
     )
 
     const providers = result?.results ?? []
 
     const handleArchive = async (id: UUID) => {
-        if (!confirm(t('delete_integration_confirmation'))) return
+        if (!confirm(t("delete_integration_confirmation"))) return
         await api.providers.delete(project.id, id)
         await reload()
     }
@@ -66,25 +66,27 @@ export default function Integrations() {
     return (
         <div className="flex flex-col gap-6">
             {/* Header */}
-            <h2 className="text-2xl font-semibold tracking-tight">{t('integrations')}</h2>
+            <h2 className="text-2xl font-semibold tracking-tight">{t("integrations")}</h2>
 
             {/* Search and Actions */}
             <div className="flex items-center justify-between gap-4">
                 <div className="relative max-w-sm flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                        placeholder={t('search')}
+                        placeholder={t("search")}
                         value={searchQuery}
                         onChange={(e) => handleSearch(e.target.value)}
                         className="pl-9"
                     />
                 </div>
-                <Button onClick={() => {
-                    setProvider(undefined)
-                    setIsModalOpen(true)
-                }}>
+                <Button
+                    onClick={() => {
+                        setProvider(undefined)
+                        setIsModalOpen(true)
+                    }}
+                >
                     <Plus className="mr-2 h-4 w-4" />
-                    {t('add_integration')}
+                    {t("add_integration")}
                 </Button>
             </div>
 
@@ -93,9 +95,9 @@ export default function Integrations() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>{t('name')}</TableHead>
-                            <TableHead>{t('type')}</TableHead>
-                            <TableHead>{t('group')}</TableHead>
+                            <TableHead>{t("name")}</TableHead>
+                            <TableHead>{t("type")}</TableHead>
+                            <TableHead>{t("group")}</TableHead>
                             <TableHead className="w-[70px]" />
                         </TableRow>
                     </TableHeader>
@@ -103,10 +105,18 @@ export default function Integrations() {
                         {!result ? (
                             Array.from({ length: 3 }).map((_, i) => (
                                 <TableRow key={i}>
-                                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-28" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-20" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-16" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-8" />
+                                    </TableCell>
                                 </TableRow>
                             ))
                         ) : providers.length === 0 ? (
@@ -114,7 +124,11 @@ export default function Integrations() {
                                 <TableCell colSpan={4} className="h-32 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Puzzle className="h-8 w-8" />
-                                        <p>{debouncedQuery ? t('no_results') : t('no_integrations_yet', 'No integrations yet')}</p>
+                                        <p>
+                                            {debouncedQuery
+                                                ? t("no_results")
+                                                : t("no_integrations_yet", "No integrations yet")}
+                                        </p>
                                         {!debouncedQuery && (
                                             <Button
                                                 variant="outline"
@@ -126,7 +140,7 @@ export default function Integrations() {
                                                 className="mt-2"
                                             >
                                                 <Plus className="mr-2 h-4 w-4" />
-                                                {t('add_integration')}
+                                                {t("add_integration")}
                                             </Button>
                                         )}
                                     </div>
@@ -143,7 +157,9 @@ export default function Integrations() {
                                     }}
                                 >
                                     <TableCell className="font-medium">{p.name}</TableCell>
-                                    <TableCell className="text-muted-foreground">{p.module}</TableCell>
+                                    <TableCell className="text-muted-foreground">
+                                        {p.module}
+                                    </TableCell>
                                     <TableCell>
                                         <Badge variant="secondary">{snakeToTitle(p.channel)}</Badge>
                                     </TableCell>
@@ -154,7 +170,7 @@ export default function Integrations() {
                                                     variant="ghost"
                                                     className="h-8 w-8 p-0"
                                                     onClick={(e) => e.stopPropagation()}
-                                                    aria-label={t('options')}
+                                                    aria-label={t("options")}
                                                 >
                                                     <MoreHorizontal className="h-4 w-4" />
                                                 </Button>
@@ -167,7 +183,7 @@ export default function Integrations() {
                                                         await handleArchive(p.id)
                                                     }}
                                                 >
-                                                    {t('archive')}
+                                                    {t("archive")}
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -181,7 +197,10 @@ export default function Integrations() {
                 {providers.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
-                            {providers.length} {providers.length === 1 ? t('integration', 'integration') : t('integrations')}
+                            {providers.length}{" "}
+                            {providers.length === 1
+                                ? t("integration", "integration")
+                                : t("integrations")}
                         </p>
                     </div>
                 )}

@@ -1,6 +1,6 @@
-import { useContext, useState } from 'react'
-import { Outlet, useNavigate, NavLink, useLocation, Link } from 'react-router'
-import { useTranslation } from 'react-i18next'
+import { useContext, useState } from "react"
+import { Outlet, useNavigate, NavLink, useLocation, Link } from "react-router"
+import { useTranslation } from "react-i18next"
 import {
     Trash2,
     FileText,
@@ -11,20 +11,20 @@ import {
     ChevronRight,
     MoreHorizontal,
     Globe,
-} from 'lucide-react'
-import { ProjectContext, UserContext } from '../../contexts'
-import { PreferencesContext } from '../../ui/PreferencesContext'
-import { getRandomColor } from '@/lib/colors'
-import { formatDate, cn } from '../../utils'
-import api from '../../api'
+} from "lucide-react"
+import { ProjectContext, UserContext } from "../../contexts"
+import { PreferencesContext } from "../../ui/PreferencesContext"
+import { getRandomColor } from "@/lib/colors"
+import { formatDate, cn } from "../../utils"
+import api from "../../api"
 import {
     getTimezoneCoordinates,
     getLocalTimeInTimezone,
     getTimezoneOffset,
-} from '@/lib/timezone-coordinates'
+} from "@/lib/timezone-coordinates"
 
-import { Button } from '@/components/ui/button'
-import { Map, MapMarker, MarkerContent } from '@/components/ui/map'
+import { Button } from "@/components/ui/button"
+import { Map, MapMarker, MarkerContent } from "@/components/ui/map"
 import {
     Dialog,
     DialogContent,
@@ -32,13 +32,13 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog"
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui/dropdown-menu"
 
 export default function UserDetail() {
     const { t } = useTranslation()
@@ -52,10 +52,11 @@ export default function UserDetail() {
 
     const userColor = getRandomColor(user.email ?? user.external_id ?? user.id)
 
-    const displayName = user.full_name
-        ?? (user.data as Record<string, unknown>)?.full_name as string
-        ?? user.email
-        ?? 'No name'
+    const displayName =
+        user.full_name ??
+        ((user.data as Record<string, unknown>)?.full_name as string) ??
+        user.email ??
+        "No name"
 
     const initials = (() => {
         const parts = displayName.split(/[\s@.]+/)
@@ -68,7 +69,7 @@ export default function UserDetail() {
     // Determine active tab
     const basePath = `/projects/${project.id}/users/${user.id}`
     const currentPath = location.pathname
-    const activeTab = currentPath === basePath ? 'details' : currentPath.split('/').pop()
+    const activeTab = currentPath === basePath ? "details" : currentPath.split("/").pop()
 
     const deleteUser = async () => {
         setIsDeleting(true)
@@ -81,11 +82,11 @@ export default function UserDetail() {
     }
 
     const tabs = [
-        { key: 'details', to: '', label: t('details'), icon: FileText },
-        { key: 'events', to: 'events', label: t('events'), icon: Activity },
-        { key: 'subscriptions', to: 'subscriptions', label: t('subscriptions'), icon: Bell },
-        { key: 'journeys', to: 'journeys', label: t('journeys'), icon: Route },
-        { key: 'organizations', to: 'organizations', label: t('organizations'), icon: Building2 },
+        { key: "details", to: "", label: t("details"), icon: FileText },
+        { key: "events", to: "events", label: t("events"), icon: Activity },
+        { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
+        { key: "journeys", to: "journeys", label: t("journeys"), icon: Route },
+        { key: "organizations", to: "organizations", label: t("organizations"), icon: Building2 },
     ]
 
     return (
@@ -93,38 +94,38 @@ export default function UserDetail() {
             {/* Header Section */}
             <div className="border-b bg-card/50 relative overflow-hidden">
                 {/* Ambient timezone map — faded right-side background */}
-                {user.timezone && (() => {
-                    const coordinates = getTimezoneCoordinates(user.timezone)
-                    if (!coordinates) return null
-                    return (
-                        <div
-                            className="ambient-map absolute inset-y-0 left-[30%] right-0 hidden lg:block pointer-events-none overflow-hidden opacity-[0.45] dark:opacity-[0.35]"
-                            style={{
-                                maskImage: 'linear-gradient(to right, transparent 0%, black 40%)',
-                                WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 40%)',
-                            }}
-                        >
-                            <Map
-                                center={coordinates}
-                                zoom={3}
-                                interactive={false}
-                                theme="light"
-                                className="h-full w-full"
+                {user.timezone &&
+                    (() => {
+                        const coordinates = getTimezoneCoordinates(user.timezone)
+                        if (!coordinates) return null
+                        return (
+                            <div
+                                className="ambient-map absolute inset-y-0 left-[30%] right-0 hidden lg:block pointer-events-none overflow-hidden opacity-[0.45] dark:opacity-[0.35]"
+                                style={{
+                                    maskImage:
+                                        "linear-gradient(to right, transparent 0%, black 40%)",
+                                    WebkitMaskImage:
+                                        "linear-gradient(to right, transparent 0%, black 40%)",
+                                }}
                             >
-                                <MapMarker
-                                    longitude={coordinates[0]}
-                                    latitude={coordinates[1]}
+                                <Map
+                                    center={coordinates}
+                                    zoom={3}
+                                    interactive={false}
+                                    theme="light"
+                                    className="h-full w-full"
                                 >
-                                    <MarkerContent>
-                                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/80 shadow-md">
-                                            <div className="h-2 w-2 rounded-full bg-white" />
-                                        </div>
-                                    </MarkerContent>
-                                </MapMarker>
-                            </Map>
-                        </div>
-                    )
-                })()}
+                                    <MapMarker longitude={coordinates[0]} latitude={coordinates[1]}>
+                                        <MarkerContent>
+                                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/80 shadow-md">
+                                                <div className="h-2 w-2 rounded-full bg-white" />
+                                            </div>
+                                        </MarkerContent>
+                                    </MapMarker>
+                                </Map>
+                            </div>
+                        )
+                    })()}
 
                 <div className="p-6 pb-0 relative z-20">
                     {/* Breadcrumb */}
@@ -133,12 +134,10 @@ export default function UserDetail() {
                             to={`/projects/${project.id}/users`}
                             className="hover:text-foreground transition-colors"
                         >
-                            {t('users')}
+                            {t("users")}
                         </Link>
                         <ChevronRight className="h-3.5 w-3.5" />
-                        <span className="text-foreground font-medium">
-                            {displayName}
-                        </span>
+                        <span className="text-foreground font-medium">{displayName}</span>
                     </nav>
 
                     {/* User Identity */}
@@ -170,24 +169,25 @@ export default function UserDetail() {
                                         </>
                                     )}
                                     <span>
-                                        Created {formatDate(preferences, user.created_at, 'PP')}
+                                        Created {formatDate(preferences, user.created_at, "PP")}
                                     </span>
-                                    {user.timezone && (() => {
-                                        const localTime = getLocalTimeInTimezone(user.timezone)
-                                        const utcOffset = getTimezoneOffset(user.timezone)
-                                        return (
-                                            <>
-                                                <span className="mx-2">·</span>
-                                                <span className="inline-flex items-center gap-1">
-                                                    <Globe className="h-3 w-3" />
-                                                    {localTime}
-                                                    <span className="text-muted-foreground/60">
-                                                        {utcOffset && `(${utcOffset})`}
+                                    {user.timezone &&
+                                        (() => {
+                                            const localTime = getLocalTimeInTimezone(user.timezone)
+                                            const utcOffset = getTimezoneOffset(user.timezone)
+                                            return (
+                                                <>
+                                                    <span className="mx-2">·</span>
+                                                    <span className="inline-flex items-center gap-1">
+                                                        <Globe className="h-3 w-3" />
+                                                        {localTime}
+                                                        <span className="text-muted-foreground/60">
+                                                            {utcOffset && `(${utcOffset})`}
+                                                        </span>
                                                     </span>
-                                                </span>
-                                            </>
-                                        )
-                                    })()}
+                                                </>
+                                            )
+                                        })()}
                                 </p>
                             </div>
                         </div>
@@ -195,11 +195,7 @@ export default function UserDetail() {
                         <div className="shrink-0">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                    >
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
                                         <MoreHorizontal className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
@@ -209,7 +205,7 @@ export default function UserDetail() {
                                         onClick={() => setIsDeleteOpen(true)}
                                     >
                                         <Trash2 className="h-4 w-4 mr-2" />
-                                        {t('delete')}
+                                        {t("delete")}
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -225,12 +221,12 @@ export default function UserDetail() {
                                 <NavLink
                                     key={tab.key}
                                     to={tab.to}
-                                    end={tab.to === ''}
+                                    end={tab.to === ""}
                                     className={cn(
-                                        'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors',
+                                        "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors",
                                         isActive
-                                            ? 'border-primary text-foreground bg-background'
-                                            : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                                            ? "border-primary text-foreground bg-background"
+                                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50",
                                     )}
                                 >
                                     <Icon className="h-4 w-4" />
@@ -251,9 +247,12 @@ export default function UserDetail() {
             <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{t('delete_user')}</DialogTitle>
+                        <DialogTitle>{t("delete_user")}</DialogTitle>
                         <DialogDescription>
-                            {t('delete_user_warning', 'Are you sure you want to delete this user? This action cannot be undone.')}
+                            {t(
+                                "delete_user_warning",
+                                "Are you sure you want to delete this user? This action cannot be undone.",
+                            )}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
@@ -278,14 +277,10 @@ export default function UserDetail() {
                             onClick={() => setIsDeleteOpen(false)}
                             disabled={isDeleting}
                         >
-                            {t('cancel')}
+                            {t("cancel")}
                         </Button>
-                        <Button
-                            variant="destructive"
-                            onClick={deleteUser}
-                            disabled={isDeleting}
-                        >
-                            {isDeleting ? t('deleting') : t('delete_user')}
+                        <Button variant="destructive" onClick={deleteUser} disabled={isDeleting}>
+                            {isDeleting ? t("deleting") : t("delete_user")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

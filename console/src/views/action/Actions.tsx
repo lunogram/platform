@@ -1,18 +1,26 @@
-import { useCallback, useContext, useState, useRef } from 'react'
-import { useNavigate } from 'react-router'
-import { useTranslation } from 'react-i18next'
-import { Search, ChevronLeft, ChevronRight, Zap, MoreHorizontal, Archive, Webhook } from 'lucide-react'
+import { useCallback, useContext, useState, useRef } from "react"
+import { useNavigate } from "react-router"
+import { useTranslation } from "react-i18next"
+import {
+    Search,
+    ChevronLeft,
+    ChevronRight,
+    Zap,
+    MoreHorizontal,
+    Archive,
+    Webhook,
+} from "lucide-react"
 
-import oapiClient, { type Action } from '@/oapi/client'
-import { useResolver } from '../../hooks'
-import { formatDate, snakeToTitle } from '../../utils'
-import { ProjectContext } from '../../contexts'
-import { PreferencesContext } from '../../ui/PreferencesContext'
+import oapiClient, { type Action } from "@/oapi/client"
+import { useResolver } from "../../hooks"
+import { formatDate, snakeToTitle } from "../../utils"
+import { ProjectContext } from "../../contexts"
+import { PreferencesContext } from "../../ui/PreferencesContext"
 
-import { CreateAction } from './CreateAction'
+import { CreateAction } from "./CreateAction"
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
     Table,
     TableBody,
@@ -20,15 +28,15 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '@/components/ui/table'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
+} from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui/dropdown-menu"
 
 interface ActionsProps {
     create?: boolean
@@ -42,8 +50,8 @@ export default function Actions({ create = false }: ActionsProps) {
     const navigate = useNavigate()
     const { t } = useTranslation()
 
-    const [searchQuery, setSearchQuery] = useState('')
-    const [debouncedQuery, setDebouncedQuery] = useState('')
+    const [searchQuery, setSearchQuery] = useState("")
+    const [debouncedQuery, setDebouncedQuery] = useState("")
     const [page, setPage] = useState(1)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
@@ -58,7 +66,7 @@ export default function Actions({ create = false }: ActionsProps) {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            const { data } = await oapiClient.GET('/api/admin/projects/{projectID}/actions', {
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/actions", {
                 params: {
                     path: { projectID: project.id },
                     query: {
@@ -80,19 +88,19 @@ export default function Actions({ create = false }: ActionsProps) {
 
     const handleNextPage = () => {
         if (hasNextPage) {
-            setPage(p => p + 1)
+            setPage((p) => p + 1)
         }
     }
 
     const handlePrevPage = () => {
         if (hasPrevPage) {
-            setPage(p => p - 1)
+            setPage((p) => p - 1)
         }
     }
 
     const handleArchiveAction = async (e: React.MouseEvent, action: Action) => {
         e.stopPropagation()
-        await oapiClient.DELETE('/api/admin/projects/{projectID}/actions/{actionID}', {
+        await oapiClient.DELETE("/api/admin/projects/{projectID}/actions/{actionID}", {
             params: {
                 path: { projectID: project.id, actionID: action.id },
             },
@@ -112,11 +120,12 @@ export default function Actions({ create = false }: ActionsProps) {
                     <Zap />
                 </div>
                 <div className="space-y-1">
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                        {t('actions.plural')}
-                    </h1>
+                    <h1 className="text-2xl font-semibold tracking-tight">{t("actions.plural")}</h1>
                     <p className="text-sm text-muted-foreground">
-                        {t('actions_description', 'Create and manage webhook actions and other integrations.')}
+                        {t(
+                            "actions_description",
+                            "Create and manage webhook actions and other integrations.",
+                        )}
                     </p>
                 </div>
             </div>
@@ -126,7 +135,7 @@ export default function Actions({ create = false }: ActionsProps) {
                 <div className="relative max-w-sm flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                        placeholder={t('search_actions', 'Search actions...')}
+                        placeholder={t("search_actions", "Search actions...")}
                         value={searchQuery}
                         onChange={(e) => handleSearch(e.target.value)}
                         className="pl-9"
@@ -140,9 +149,9 @@ export default function Actions({ create = false }: ActionsProps) {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>{t('name')}</TableHead>
-                            <TableHead>{t('type')}</TableHead>
-                            <TableHead>{t('updated_at')}</TableHead>
+                            <TableHead>{t("name")}</TableHead>
+                            <TableHead>{t("type")}</TableHead>
+                            <TableHead>{t("updated_at")}</TableHead>
                             <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -156,9 +165,15 @@ export default function Actions({ create = false }: ActionsProps) {
                                             <Skeleton className="h-4 w-36" />
                                         </div>
                                     </TableCell>
-                                    <TableCell><Skeleton className="h-5 w-16 rounded-md" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-5 w-16 rounded-md" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-28" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-8" />
+                                    </TableCell>
                                 </TableRow>
                             ))
                         ) : actions.length === 0 ? (
@@ -166,7 +181,11 @@ export default function Actions({ create = false }: ActionsProps) {
                                 <TableCell colSpan={4} className="h-32 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Zap className="h-8 w-8" />
-                                        <p>{debouncedQuery ? t('no_results') : t('no_actions_yet', 'No actions yet')}</p>
+                                        <p>
+                                            {debouncedQuery
+                                                ? t("no_results")
+                                                : t("no_actions_yet", "No actions yet")}
+                                        </p>
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -186,25 +205,40 @@ export default function Actions({ create = false }: ActionsProps) {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant="secondary">{snakeToTitle(action.type)}</Badge>
+                                        <Badge variant="secondary">
+                                            {snakeToTitle(action.type)}
+                                        </Badge>
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">
-                                        {formatDate(preferences, action.updated_at, 'PP')}
+                                        {formatDate(preferences, action.updated_at, "PP")}
                                     </TableCell>
                                     <TableCell>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
                                                     <MoreHorizontal className="h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRowClick(action) }}>
-                                                    {t('edit')}
+                                                <DropdownMenuItem
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        handleRowClick(action)
+                                                    }}
+                                                >
+                                                    {t("edit")}
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={(e) => handleArchiveAction(e, action)} className="text-destructive">
+                                                <DropdownMenuItem
+                                                    onClick={(e) => handleArchiveAction(e, action)}
+                                                    className="text-destructive"
+                                                >
                                                     <Archive className="mr-2 h-4 w-4" />
-                                                    {t('delete')}
+                                                    {t("delete")}
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -219,7 +253,7 @@ export default function Actions({ create = false }: ActionsProps) {
                 {actions && actions.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
-                            {total} {t('actions.plural')}
+                            {total} {t("actions.plural")}
                         </p>
                         {(hasPrevPage || hasNextPage) && (
                             <div className="flex items-center gap-2">
@@ -230,7 +264,7 @@ export default function Actions({ create = false }: ActionsProps) {
                                     disabled={!hasPrevPage}
                                 >
                                     <ChevronLeft className="h-4 w-4 mr-1" />
-                                    {t('previous')}
+                                    {t("previous")}
                                 </Button>
                                 <Button
                                     variant="outline"
@@ -238,7 +272,7 @@ export default function Actions({ create = false }: ActionsProps) {
                                     onClick={handleNextPage}
                                     disabled={!hasNextPage}
                                 >
-                                    {t('next')}
+                                    {t("next")}
                                     <ChevronRight className="h-4 w-4 ml-1" />
                                 </Button>
                             </div>

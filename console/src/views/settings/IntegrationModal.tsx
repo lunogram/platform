@@ -1,21 +1,16 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { useTranslation } from 'react-i18next'
-import { ChevronLeft } from 'lucide-react'
-import api from '../../api'
-import { ProjectContext } from '../../contexts'
-import { useResolver } from '../../hooks'
-import { snakeToTitle } from '../../utils'
-import type {
-    Project,
-    Provider,
-    ProviderCreateParams,
-    ProviderMeta,
-} from '../../types'
+import { useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { useForm } from "react-hook-form"
+import { useTranslation } from "react-i18next"
+import { ChevronLeft } from "lucide-react"
+import api from "../../api"
+import { ProjectContext } from "../../contexts"
+import { useResolver } from "../../hooks"
+import { snakeToTitle } from "../../utils"
+import type { Project, Provider, ProviderCreateParams, ProviderMeta } from "../../types"
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
     Dialog,
     DialogContent,
@@ -23,16 +18,16 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog"
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
-import { SchemaFields } from '@/components/SchemaFields'
+} from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import { SchemaFields } from "@/components/SchemaFields"
 interface IntegrationFormParams {
     project: Project
     meta: ProviderMeta
@@ -56,7 +51,12 @@ export function IntegrationForm({
     useEffect(() => {
         if (defaultProvider) {
             api.providers
-                .get(project.id, defaultProvider.channel, defaultProvider.module, defaultProvider.id)
+                .get(
+                    project.id,
+                    defaultProvider.channel,
+                    defaultProvider.module,
+                    defaultProvider.id,
+                )
                 .then((provider) => setProvider(provider))
                 .catch(() => {})
         }
@@ -64,8 +64,15 @@ export function IntegrationForm({
 
     const form = useForm<ProviderCreateParams>({
         values: provider
-            ? { name: provider.name, data: provider.data, rate_limit: provider.rate_limit, rate_interval: provider.rate_interval, module, channel }
-            : { name: '', data: {}, rate_limit: 0, rate_interval: 'second', module, channel },
+            ? {
+                  name: provider.name,
+                  data: provider.data,
+                  rate_limit: provider.rate_limit,
+                  rate_interval: provider.rate_interval,
+                  module,
+                  channel,
+              }
+            : { name: "", data: {}, rate_limit: 0, rate_interval: "second", module, channel },
     })
 
     const handleSubmit = async (values: ProviderCreateParams) => {
@@ -86,7 +93,7 @@ export function IntegrationForm({
             {provider?.id ? (
                 provider?.setup?.length > 0 && (
                     <>
-                        <h4 className="text-sm font-medium">{t('details', 'Details')}</h4>
+                        <h4 className="text-sm font-medium">{t("details", "Details")}</h4>
                         {provider.setup.map((item) => (
                             <div key={item.name} className="grid gap-2">
                                 <Label className="text-muted-foreground">{item.name}</Label>
@@ -100,50 +107,49 @@ export function IntegrationForm({
                 <div className="rounded-lg border bg-muted/50 p-3">
                     <p className="text-sm font-medium">{meta.name}</p>
                     <p className="text-sm text-muted-foreground">
-                        {t('integration_setup_hint', 'Fill out the fields below to setup this integration. For more information on this integration please see the documentation on our website.')}
+                        {t(
+                            "integration_setup_hint",
+                            "Fill out the fields below to setup this integration. For more information on this integration please see the documentation on our website.",
+                        )}
                     </p>
                 </div>
             )}
 
-            <h4 className="text-sm font-medium">{t('config', 'Config')}</h4>
+            <h4 className="text-sm font-medium">{t("config", "Config")}</h4>
             <div className="grid gap-2">
                 <Label className="inline-flex items-center gap-1">
-                    {t('name')} <span className="text-destructive">*</span>
+                    {t("name")} <span className="text-destructive">*</span>
                 </Label>
-                <Input {...form.register('name', { required: true })} />
+                <Input {...form.register("name", { required: true })} />
             </div>
 
-            <SchemaFields
-                parent="data"
-                schema={meta.schema.properties.data}
-                form={form}
-            />
+            <SchemaFields parent="data" schema={meta.schema.properties.data} form={form} />
 
             <div className="grid gap-2">
-                <Label>{t('rate_limit')}</Label>
+                <Label>{t("rate_limit")}</Label>
                 <p className="text-sm text-muted-foreground">
-                    {t('rate_limit_hint', 'If you need to cap send rate, enter the maximum per interval limit.')}
+                    {t(
+                        "rate_limit_hint",
+                        "If you need to cap send rate, enter the maximum per interval limit.",
+                    )}
                 </p>
-                <Input
-                    type="number"
-                    {...form.register('rate_limit', { valueAsNumber: true })}
-                />
+                <Input type="number" {...form.register("rate_limit", { valueAsNumber: true })} />
             </div>
 
             <div className="grid gap-2">
-                <Label>{t('rate_interval')}</Label>
+                <Label>{t("rate_interval")}</Label>
                 <Select
-                    value={form.watch('rate_interval') ?? 'second'}
-                    onValueChange={(val) => form.setValue('rate_interval', val)}
+                    value={form.watch("rate_interval") ?? "second"}
+                    onValueChange={(val) => form.setValue("rate_interval", val)}
                 >
                     <SelectTrigger>
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="second">{t('second')}</SelectItem>
-                        <SelectItem value="minute">{t('minute')}</SelectItem>
-                        <SelectItem value="hour">{t('hour')}</SelectItem>
-                        <SelectItem value="day">{t('day')}</SelectItem>
+                        <SelectItem value="second">{t("second")}</SelectItem>
+                        <SelectItem value="minute">{t("minute")}</SelectItem>
+                        <SelectItem value="hour">{t("hour")}</SelectItem>
+                        <SelectItem value="day">{t("day")}</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -151,11 +157,10 @@ export function IntegrationForm({
             <DialogFooter className="pt-2">
                 <Button type="submit" disabled={isSaving}>
                     {isSaving
-                        ? t('saving', 'Saving...')
+                        ? t("saving", "Saving...")
                         : provider?.id
-                            ? t('update_integration', 'Update Integration')
-                            : t('create_integration', 'Create Integration')
-                    }
+                          ? t("update_integration", "Update Integration")
+                          : t("create_integration", "Create Integration")}
                 </Button>
             </DialogFooter>
         </form>
@@ -177,17 +182,16 @@ export default function IntegrationModal({
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const [options] = useResolver(
-        useCallback(async () => await api.providers.options(project.id), [project])
+        useCallback(async () => await api.providers.options(project.id), [project]),
     )
     const [meta, setMeta] = useState<ProviderMeta | undefined>()
 
     const derivedMeta = useMemo(
         () =>
             options?.find(
-                (item) =>
-                    item.group === provider?.channel && item.type === provider?.module
+                (item) => item.group === provider?.channel && item.type === provider?.module,
             ),
-        [options, provider]
+        [options, provider],
     )
 
     const activeMeta = meta ?? derivedMeta
@@ -204,14 +208,12 @@ export default function IntegrationModal({
             <Dialog open={open} onOpenChange={onClose}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{t('external_integration_title')}</DialogTitle>
-                        <DialogDescription>
-                            {t('external_integration_alert')}
-                        </DialogDescription>
+                        <DialogTitle>{t("external_integration_title")}</DialogTitle>
+                        <DialogDescription>{t("external_integration_alert")}</DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => onClose(false)}>
-                            {t('close')}
+                            {t("close")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -222,20 +224,26 @@ export default function IntegrationModal({
     const title = activeMeta
         ? provider?.id
             ? `${provider.name} (${activeMeta.name})`
-            : t('setup_integration', 'Setup Integration')
-        : t('integrations')
+            : t("setup_integration", "Setup Integration")
+        : t("integrations")
 
     return (
-        <Dialog open={open} onOpenChange={(isOpen) => {
-            onClose(isOpen)
-            if (!isOpen) setMeta(undefined)
-        }}>
+        <Dialog
+            open={open}
+            onOpenChange={(isOpen) => {
+                onClose(isOpen)
+                if (!isOpen) setMeta(undefined)
+            }}
+        >
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
                     {!activeMeta && (
                         <DialogDescription>
-                            {t('pick_integration_hint', 'To get started, pick one of the integrations from the list below.')}
+                            {t(
+                                "pick_integration_hint",
+                                "To get started, pick one of the integrations from the list below.",
+                            )}
                         </DialogDescription>
                     )}
                 </DialogHeader>
@@ -275,7 +283,7 @@ export default function IntegrationModal({
                                 onClick={() => setMeta(undefined)}
                             >
                                 <ChevronLeft className="mr-1 h-4 w-4" />
-                                {t('integrations')}
+                                {t("integrations")}
                             </Button>
                         )}
                         <IntegrationForm

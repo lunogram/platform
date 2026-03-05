@@ -1,9 +1,9 @@
-import * as React from 'react'
-import { useState, useCallback } from 'react'
-import { ChevronRight, ChevronDown, Copy, Check, Pencil } from 'lucide-react'
-import { cn } from '@/utils'
-import { Button } from './button'
-import { Textarea } from './textarea'
+import * as React from "react"
+import { useState, useCallback } from "react"
+import { ChevronRight, ChevronDown, Copy, Check, Pencil } from "lucide-react"
+import { cn } from "@/utils"
+import { Button } from "./button"
+import { Textarea } from "./textarea"
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
@@ -26,7 +26,7 @@ interface JsonNodeProps {
 function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodeProps) {
     const [isExpanded, setIsExpanded] = useState(defaultExpanded || depth < 2)
 
-    const isObject = value !== null && typeof value === 'object'
+    const isObject = value !== null && typeof value === "object"
     const isArray = Array.isArray(value)
     const isEmpty = isObject && Object.keys(value).length === 0
 
@@ -34,19 +34,19 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodePr
         if (value === null) {
             return <span className="text-muted-foreground italic">null</span>
         }
-        if (typeof value === 'boolean') {
+        if (typeof value === "boolean") {
             return <span className="text-amber-600 dark:text-amber-400">{value.toString()}</span>
         }
-        if (typeof value === 'number') {
+        if (typeof value === "number") {
             return <span className="text-blue-600 dark:text-blue-400">{value}</span>
         }
-        if (typeof value === 'string') {
+        if (typeof value === "string") {
             // Check if it's a URL
             if (value.match(/^https?:\/\//)) {
                 return (
-                    <a 
-                        href={value} 
-                        target="_blank" 
+                    <a
+                        href={value}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-emerald-600 dark:text-emerald-400 hover:underline"
                     >
@@ -74,12 +74,12 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodePr
         )
     }
 
-    const entries = isArray 
+    const entries = isArray
         ? (value as JsonValue[]).map((v, i) => [i.toString(), v] as const)
         : Object.entries(value as Record<string, JsonValue>)
 
-    const bracketOpen = isArray ? '[' : '{'
-    const bracketClose = isArray ? ']' : '}'
+    const bracketOpen = isArray ? "[" : "{"
+    const bracketClose = isArray ? "]" : "}"
 
     if (isEmpty) {
         return (
@@ -90,7 +90,10 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodePr
                         <span className="text-muted-foreground mx-1">:</span>
                     </>
                 )}
-                <span className="text-muted-foreground">{bracketOpen}{bracketClose}</span>
+                <span className="text-muted-foreground">
+                    {bracketOpen}
+                    {bracketClose}
+                </span>
                 {!isLast && <span className="text-muted-foreground">,</span>}
             </div>
         )
@@ -98,7 +101,7 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodePr
 
     return (
         <div className="py-0.5">
-            <div 
+            <div
                 className="flex items-start cursor-pointer hover:bg-muted/50 -mx-1 px-1 rounded"
                 onClick={() => setIsExpanded(!isExpanded)}
             >
@@ -150,16 +153,16 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodePr
     )
 }
 
-export function JsonView({ 
-    data, 
-    editable = false, 
+export function JsonView({
+    data,
+    editable = false,
     onChange,
     className,
-    defaultExpanded = true 
+    defaultExpanded = true,
 }: JsonViewProps) {
     const [copied, setCopied] = useState(false)
     const [isEditing, setIsEditing] = useState(false)
-    const [editValue, setEditValue] = useState('')
+    const [editValue, setEditValue] = useState("")
     const [parseError, setParseError] = useState<string | null>(null)
 
     const handleCopy = useCallback(async () => {
@@ -181,7 +184,7 @@ export function JsonView({
             setIsEditing(false)
             setParseError(null)
         } catch {
-            setParseError('Invalid JSON')
+            setParseError("Invalid JSON")
         }
     }, [editValue, onChange])
 
@@ -192,10 +195,12 @@ export function JsonView({
 
     if (data === null || data === undefined) {
         return (
-            <div className={cn(
-                "rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground italic",
-                className
-            )}>
+            <div
+                className={cn(
+                    "rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground italic",
+                    className,
+                )}
+            >
                 No data
             </div>
         )
@@ -227,9 +232,7 @@ export function JsonView({
                         className="font-mono text-sm min-h-[200px] resize-y"
                         placeholder="Enter JSON..."
                     />
-                    {parseError && (
-                        <p className="text-sm text-destructive mt-2">{parseError}</p>
-                    )}
+                    {parseError && <p className="text-sm text-destructive mt-2">{parseError}</p>}
                 </div>
             </div>
         )
@@ -243,21 +246,11 @@ export function JsonView({
                 </span>
                 <div className="flex items-center gap-1">
                     {editable && onChange && (
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={handleEdit}
-                            className="h-7 px-2"
-                        >
+                        <Button variant="ghost" size="sm" onClick={handleEdit} className="h-7 px-2">
                             <Pencil className="h-3.5 w-3.5" />
                         </Button>
                     )}
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={handleCopy}
-                        className="h-7 px-2"
-                    >
+                    <Button variant="ghost" size="sm" onClick={handleCopy} className="h-7 px-2">
                         {copied ? (
                             <Check className="h-3.5 w-3.5 text-green-500" />
                         ) : (
@@ -267,9 +260,9 @@ export function JsonView({
                 </div>
             </div>
             <div className="p-3 font-mono text-sm overflow-auto max-h-[400px]">
-                <JsonNode 
-                    value={data as JsonValue} 
-                    depth={0} 
+                <JsonNode
+                    value={data as JsonValue}
+                    depth={0}
                     defaultExpanded={defaultExpanded}
                     isLast={true}
                 />
@@ -279,26 +272,26 @@ export function JsonView({
 }
 
 // Compact inline view for smaller data displays
-export function JsonInline({ 
-    data, 
+export function JsonInline({
+    data,
     className,
-    maxLength = 100 
-}: { 
+    maxLength = 100,
+}: {
     data: unknown
     className?: string
     maxLength?: number
 }) {
     const jsonString = JSON.stringify(data)
     const truncated = jsonString.length > maxLength
-    const displayString = truncated 
-        ? jsonString.substring(0, maxLength) + '...'
-        : jsonString
+    const displayString = truncated ? jsonString.substring(0, maxLength) + "..." : jsonString
 
     return (
-        <code className={cn(
-            "text-xs bg-muted px-1.5 py-0.5 rounded font-mono text-muted-foreground",
-            className
-        )}>
+        <code
+            className={cn(
+                "text-xs bg-muted px-1.5 py-0.5 rounded font-mono text-muted-foreground",
+                className,
+            )}
+        >
             {displayString}
         </code>
     )

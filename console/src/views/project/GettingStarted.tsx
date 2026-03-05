@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from "react"
 
 import {
     BookIcon,
@@ -7,18 +7,18 @@ import {
     JourneysIcon,
     ListsIcon,
     UsersIcon,
-} from '@/components/icons'
+} from "@/components/icons"
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ProjectContext } from '@/contexts'
-import { useNavigate, useParams } from 'react-router'
-import type { UUID } from '@/types/common'
-import { NIL } from 'uuid'
-import api from '@/api'
-import { cn } from '@/utils'
-import { t } from 'i18next'
-import { Puzzle } from 'lucide-react'
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ProjectContext } from "@/contexts"
+import { useNavigate, useParams } from "react-router"
+import type { UUID } from "@/types/common"
+import { NIL } from "uuid"
+import api from "@/api"
+import { cn } from "@/utils"
+import { t } from "i18next"
+import { Puzzle } from "lucide-react"
 
 export default function ProjectGettingStarted() {
     const navigate = useNavigate()
@@ -44,10 +44,10 @@ export default function ProjectGettingStarted() {
         setIsJourneyLoading(true)
         try {
             const journey = await api.journeys.create(projectId, {
-                name: 'Onboarding',
-                description: 'Getting started with your first journey',
-                template_id: 'onboarding',
-                status: 'draft',
+                name: "Onboarding",
+                description: "Getting started with your first journey",
+                template_id: "onboarding",
+                status: "draft",
             })
             await navigate(`/projects/${projectId}/journeys/${journey.id}`)
         } finally {
@@ -59,59 +59,59 @@ export default function ProjectGettingStarted() {
         {
             icon: <Puzzle className="h-4 w-4" />,
             completed: hasIntegrations,
-            title: t('project.getting_started.checklist.integration.title'),
-            description: t('project.getting_started.checklist.integration.description'),
+            title: t("project.getting_started.checklist.integration.title"),
+            description: t("project.getting_started.checklist.integration.description"),
             action: (
-                <Button variant="secondary" onClick={() => navigate('../settings/integrations')}>
-                    {t('project.getting_started.checklist.integration.action')}
+                <Button variant="secondary" onClick={() => navigate("../settings/integrations")}>
+                    {t("project.getting_started.checklist.integration.action")}
                 </Button>
             ),
         },
         {
             icon: <CampaignsIcon />,
             completed: hasCampaigns,
-            title: t('project.getting_started.checklist.campaign.title'),
-            description: t('project.getting_started.checklist.campaign.description'),
+            title: t("project.getting_started.checklist.campaign.title"),
+            description: t("project.getting_started.checklist.campaign.description"),
             action: (
-                <Button variant="secondary" onClick={() => navigate('../campaigns/new')}>
-                    {t('project.getting_started.checklist.campaign.action')}
+                <Button variant="secondary" onClick={() => navigate("../campaigns/new")}>
+                    {t("project.getting_started.checklist.campaign.action")}
                 </Button>
             ),
         },
         {
             icon: <JourneysIcon />,
             completed: hasJourneys,
-            title: t('project.getting_started.checklist.journey.title'),
-            description: t('project.getting_started.checklist.journey.description'),
+            title: t("project.getting_started.checklist.journey.title"),
+            description: t("project.getting_started.checklist.journey.description"),
             action: (
                 <Button
                     variant="secondary"
                     onClick={createOnboardingJourney}
                     isLoading={isJourneyLoading}
                 >
-                    {t('project.getting_started.checklist.journey.action')}
+                    {t("project.getting_started.checklist.journey.action")}
                 </Button>
             ),
         },
         {
             icon: <UsersIcon />,
             completed: hasUsers,
-            title: t('project.getting_started.checklist.users.title'),
-            description: t('project.getting_started.checklist.users.description'),
+            title: t("project.getting_started.checklist.users.title"),
+            description: t("project.getting_started.checklist.users.description"),
             action: (
-                <Button variant="secondary" onClick={() => navigate('../users')}>
-                    {t('project.getting_started.checklist.users.action')}
+                <Button variant="secondary" onClick={() => navigate("../users")}>
+                    {t("project.getting_started.checklist.users.action")}
                 </Button>
             ),
         },
         {
             icon: <ListsIcon />,
             completed: hasLists,
-            title: t('project.getting_started.checklist.lists.title'),
-            description: t('project.getting_started.checklist.lists.description'),
+            title: t("project.getting_started.checklist.lists.title"),
+            description: t("project.getting_started.checklist.lists.description"),
             action: (
-                <Button variant="secondary" onClick={() => navigate('../lists')}>
-                    {t('project.getting_started.checklist.lists.action')}
+                <Button variant="secondary" onClick={() => navigate("../lists")}>
+                    {t("project.getting_started.checklist.lists.action")}
                 </Button>
             ),
         },
@@ -122,7 +122,9 @@ export default function ProjectGettingStarted() {
             {/* Checklist */}
             <Card className="border rounded-lg">
                 <CardHeader className="border-b">
-                    <CardTitle className="text-lg font-semibold">{t('project.getting_started.title')}</CardTitle>
+                    <CardTitle className="text-lg font-semibold">
+                        {t("project.getting_started.title")}
+                    </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-2">
                     <ul className="divide-y divide-border">
@@ -133,8 +135,8 @@ export default function ProjectGettingStarted() {
                             >
                                 <div
                                     className={cn(
-                                        'w-6 h-6 flex items-center justify-center shrink-0 text-muted-foreground',
-                                        item.completed && 'text-green-600'
+                                        "w-6 h-6 flex items-center justify-center shrink-0 text-muted-foreground",
+                                        item.completed && "text-green-600",
                                     )}
                                 >
                                     {item.completed ? <CheckCircleIcon /> : item.icon}
@@ -159,9 +161,11 @@ export default function ProjectGettingStarted() {
                         <div className="w-6 h-6 mb-2 text-muted-foreground">
                             <BookIcon />
                         </div>
-                        <h4 className="text-sm font-semibold mb-1">{t('project.getting_started.documentation.title')}</h4>
+                        <h4 className="text-sm font-semibold mb-1">
+                            {t("project.getting_started.documentation.title")}
+                        </h4>
                         <p className="text-sm text-muted-foreground">
-                            {t('project.getting_started.documentation.description')}
+                            {t("project.getting_started.documentation.description")}
                         </p>
                     </div>
                 </CardContent>

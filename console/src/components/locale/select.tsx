@@ -1,11 +1,11 @@
-import { useContext, useState, useEffect, useMemo } from 'react'
-import { LocaleContext, ProjectContext } from '@/contexts'
-import api from '@/api'
-import type { Locale } from '@/types'
+import { useContext, useState, useEffect, useMemo } from "react"
+import { LocaleContext, ProjectContext } from "@/contexts"
+import api from "@/api"
+import type { Locale } from "@/types"
 
-import { Plus, Check, ChevronsUpDown } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/utils'
+import { Plus, Check, ChevronsUpDown } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/utils"
 
 import {
     Command,
@@ -14,13 +14,9 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
-} from '@/components/ui/command'
+} from "@/components/ui/command"
 
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 import {
     Dialog,
@@ -29,11 +25,11 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { useTranslation } from 'react-i18next'
-import { LocalePicker } from './picker'
-import { resolveLocaleName } from './locales'
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { useTranslation } from "react-i18next"
+import { LocalePicker } from "./picker"
+import { resolveLocaleName } from "./locales"
 
 interface LocaleSelectProps {
     onChange?: (localeKey: string) => void | Promise<void>
@@ -48,7 +44,7 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false)
 
     const [locales, setLocales] = useState<Locale[]>([])
-    const [searchQuery, setSearchQuery] = useState('')
+    const [searchQuery, setSearchQuery] = useState("")
 
     const [newLocaleKey, setNewLocaleKey] = useState<string | undefined>()
     const [isCreating, setIsCreating] = useState(false)
@@ -73,14 +69,12 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
 
     // Keys already in the project — exclude from the "add" picker
     const existingKeys = useMemo(
-        () => localeSelection.allLocales.map(l => l.key),
+        () => localeSelection.allLocales.map((l) => l.key),
         [localeSelection.allLocales],
     )
 
     const handleSelectChange = async (value: string) => {
-        const selectedLocale = locales.find(
-            (locale) => locale.key === value,
-        )
+        const selectedLocale = locales.find((locale) => locale.key === value)
 
         if (selectedLocale) {
             if (onChange) await onChange(selectedLocale.key)
@@ -145,11 +139,15 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
                     >
                         {localeSelection.currentLocale ? (
                             <span className="flex items-center gap-1.5 truncate">
-                                <span className="truncate">{localeSelection.currentLocale.label}</span>
-                                <span className="text-xs text-muted-foreground">{localeSelection.currentLocale.key}</span>
+                                <span className="truncate">
+                                    {localeSelection.currentLocale.label}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                    {localeSelection.currentLocale.key}
+                                </span>
                             </span>
                         ) : (
-                            t('locale.select.placeholder')
+                            t("locale.select.placeholder")
                         )}
                         <ChevronsUpDown className="h-4 w-4 opacity-50" />
                     </Button>
@@ -157,14 +155,16 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
                 <PopoverContent className="w-52 p-0">
                     <Command shouldFilter={false}>
                         <CommandInput
-                            placeholder={t('locale.select.search_placeholder')}
+                            placeholder={t("locale.select.search_placeholder")}
                             className="h-9"
                             value={searchQuery}
                             onValueChange={setSearchQuery}
                         />
                         <CommandList>
                             <CommandEmpty>
-                                {isLoading ? t('locale.select.loading') : t('locale.select.no_locale_found')}
+                                {isLoading
+                                    ? t("locale.select.loading")
+                                    : t("locale.select.no_locale_found")}
                             </CommandEmpty>
                             <CommandGroup>
                                 {locales.map((locale) => (
@@ -176,14 +176,16 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
                                     >
                                         <div className="flex items-center gap-1.5 flex-1 min-w-0">
                                             <span className="truncate">{locale.label}</span>
-                                            <span className="text-xs text-muted-foreground shrink-0">{locale.key}</span>
+                                            <span className="text-xs text-muted-foreground shrink-0">
+                                                {locale.key}
+                                            </span>
                                         </div>
                                         <Check
                                             className={cn(
-                                                'ml-auto h-4 w-4',
+                                                "ml-auto h-4 w-4",
                                                 localeSelection.currentLocale?.key === locale.key
-                                                    ? 'opacity-100'
-                                                    : 'opacity-0',
+                                                    ? "opacity-100"
+                                                    : "opacity-0",
                                             )}
                                         />
                                     </CommandItem>
@@ -196,7 +198,7 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
                                     onClick={openDialog}
                                 >
                                     <Plus className="h-4 w-4" />
-                                    <span>{t('locale.select.create_new')}</span>
+                                    <span>{t("locale.select.create_new")}</span>
                                 </Button>
                             </div>
                         </CommandList>
@@ -207,14 +209,17 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
             <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{t('locale.select.dialog.title')}</DialogTitle>
+                        <DialogTitle>{t("locale.select.dialog.title")}</DialogTitle>
                         <DialogDescription>
-                            {t('locale.add_description', 'Select a language to add to this project.')}
+                            {t(
+                                "locale.add_description",
+                                "Select a language to add to this project.",
+                            )}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label>{t('locale.picker.label', 'Language')}</Label>
+                            <Label>{t("locale.picker.label", "Language")}</Label>
                             <LocalePicker
                                 value={newLocaleKey}
                                 onChange={setNewLocaleKey}
@@ -228,13 +233,12 @@ export function LocaleSelect({ onChange }: LocaleSelectProps) {
                             onClick={() => handleDialogChange(false)}
                             disabled={isCreating}
                         >
-                            {t('locale.select.dialog.cancel')}
+                            {t("locale.select.dialog.cancel")}
                         </Button>
-                        <Button
-                            onClick={handleCreateLocale}
-                            disabled={!newLocaleKey || isCreating}
-                        >
-                            {isCreating ? t('creating', 'Creating...') : t('locale.select.dialog.create')}
+                        <Button onClick={handleCreateLocale} disabled={!newLocaleKey || isCreating}>
+                            {isCreating
+                                ? t("creating", "Creating...")
+                                : t("locale.select.dialog.create")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

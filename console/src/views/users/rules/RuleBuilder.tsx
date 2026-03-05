@@ -1,15 +1,15 @@
-import type { Rule, ControlledInputProps, FieldProps } from '../../../types'
-import type { FieldPath, FieldValues } from 'react-hook-form'
-import type { ReactNode } from 'react'
-import { useController } from 'react-hook-form'
-import { useCallback, useContext, useMemo } from 'react'
-import { ProjectContext } from '../../../contexts'
-import { useResolver } from '../../../hooks'
-import api from '../../../api'
-import { snakeToTitle } from '../../../utils'
-import { emptySuggestions, VariablesContext } from './RuleHelpers'
-import RuleEdit from './RuleEdit'
-import { Label } from '@/components/ui/label'
+import type { Rule, ControlledInputProps, FieldProps } from "../../../types"
+import type { FieldPath, FieldValues } from "react-hook-form"
+import type { ReactNode } from "react"
+import { useController } from "react-hook-form"
+import { useCallback, useContext, useMemo } from "react"
+import { ProjectContext } from "../../../contexts"
+import { useResolver } from "../../../hooks"
+import api from "../../../api"
+import { snakeToTitle } from "../../../utils"
+import { emptySuggestions, VariablesContext } from "./RuleHelpers"
+import RuleEdit from "./RuleEdit"
+import { Label } from "@/components/ui/label"
 
 interface RuleBuilderParams {
     rule: Rule
@@ -20,14 +20,18 @@ interface RuleBuilderParams {
 
 export default function RuleBuilder({ eventName, headerPrefix, rule, setRule }: RuleBuilderParams) {
     const [{ id: projectId }] = useContext(ProjectContext)
-    const [suggestions] = useResolver(useCallback(async () => await api.projects.pathSuggestions(projectId), [projectId]))
+    const [suggestions] = useResolver(
+        useCallback(async () => await api.projects.pathSuggestions(projectId), [projectId]),
+    )
     return (
-        <VariablesContext.Provider value={useMemo(() => ({ suggestions: suggestions ?? emptySuggestions }), [suggestions])}>
+        <VariablesContext.Provider
+            value={useMemo(() => ({ suggestions: suggestions ?? emptySuggestions }), [suggestions])}
+        >
             <RuleEdit
                 root={rule}
                 rule={rule}
                 setRule={setRule}
-                group={eventName ? 'event' : 'parent'}
+                group={eventName ? "event" : "parent"}
                 eventName={eventName}
                 headerPrefix={headerPrefix}
             />
@@ -42,7 +46,6 @@ RuleBuilder.Field = function RuleBuilderField<X extends FieldValues, P extends F
     required,
     onChange,
 }: Partial<ControlledInputProps<Rule>> & FieldProps<X, P>) {
-
     const { field } = useController({
         control: form.control,
         name,
@@ -57,10 +60,13 @@ RuleBuilder.Field = function RuleBuilderField<X extends FieldValues, P extends F
                 {label ?? snakeToTitle(name)}
                 {required && <span className="text-destructive">*</span>}
             </Label>
-            <RuleBuilder rule={field.value} setRule={async (rule) => {
-                await field.onChange?.(rule)
-                onChange?.(rule)
-            }} />
+            <RuleBuilder
+                rule={field.value}
+                setRule={async (rule) => {
+                    await field.onChange?.(rule)
+                    onChange?.(rule)
+                }}
+            />
         </div>
     )
 }

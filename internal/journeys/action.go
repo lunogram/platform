@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -29,24 +30,14 @@ func HandleAction(ctx HandlerContext, step journey.JourneyVersionStep, state jou
 			return state, nil, fmt.Errorf("unknown action type: %s", action.Type)
 		}
 
-		// Build the action config from the stored action's config
-		var actionConfig map[string]any
-		if action.Config.Data != nil {
-			b, err := json.Marshal(action.Config.Data)
-			if err != nil {
-				return state, nil, fmt.Errorf("failed to marshal action config: %w", err)
-			}
-			if err := json.Unmarshal(b, &actionConfig); err != nil {
-				return state, nil, fmt.Errorf("failed to unmarshal action config: %w", err)
-			}
-		}
-		if actionConfig == nil {
-			actionConfig = map[string]any{}
+		// Marshal the action config to JSON and render variable templates on the raw bytes.
+		renderedConfig, err := actions.MarshalAndRender(action.Config.Data, ctx.Data)
+		if err != nil {
+			return state, nil, fmt.Errorf("failed to render action config: %w", err)
 		}
 
-		req := &actiontypes.ExecuteRequest[map[string]any]{
-			Config:    actionConfig,
-			Variables: ctx.Data,
+		req := &actiontypes.ExecuteRequest[json.RawMessage]{
+			Config: renderedConfig,
 		}
 
 		result, err := module.Execute(ctx, req)

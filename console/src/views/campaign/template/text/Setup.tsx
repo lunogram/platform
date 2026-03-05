@@ -1,38 +1,38 @@
-import { Controller, useForm, type UseFormReturn } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Ellipsis, UserRound } from 'lucide-react';
-import type { Campaign, Template, User, Locale } from "@/types";
-import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
-import api from "@/api";
-import * as z from "zod";
+import { Controller, useForm, type UseFormReturn } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Ellipsis, UserRound } from "lucide-react"
+import type { Campaign, Template, User, Locale } from "@/types"
+import { useTranslation } from "react-i18next"
+import { useNavigate } from "react-router"
+import api from "@/api"
+import * as z from "zod"
 
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select";
-import { UserSelection } from "../UserSelection";
-import { useContext, useState, useEffect } from "react";
-import { ProjectContext, TemplateContext } from "@/contexts";
+} from "@/components/ui/select"
+import { UserSelection } from "../UserSelection"
+import { useContext, useState, useEffect } from "react"
+import { ProjectContext, TemplateContext } from "@/contexts"
 
 const textSetupFormSchema = z.object({
     from: z.string().optional(),
     message: z.string("Message is required").min(1, "Message is required"),
-});
+})
 
 export function TextForm(campaign: Campaign, template?: Template) {
     const formSchema = textSetupFormSchema.extend({
         from: campaign?.provider?.data.default_from
             ? z.string().optional()
             : z.string("From number is required").min(1),
-    });
+    })
 
     return useForm({
         resolver: zodResolver(formSchema),
@@ -40,17 +40,17 @@ export function TextForm(campaign: Campaign, template?: Template) {
             from: template?.data.from ?? "",
             message: template?.data.message,
         },
-    });
+    })
 }
 
 interface TextFormControlProps {
-    campaign: Campaign;
-    form: UseFormReturn<z.infer<typeof textSetupFormSchema>>;
-    disabled?: boolean;
+    campaign: Campaign
+    form: UseFormReturn<z.infer<typeof textSetupFormSchema>>
+    disabled?: boolean
 }
 
 export function TextFormControl({ campaign, form, disabled = false }: TextFormControlProps) {
-    const { t } = useTranslation();
+    const { t } = useTranslation()
 
     return (
         <FieldGroup className="mt-7">
@@ -59,7 +59,9 @@ export function TextFormControl({ campaign, form, disabled = false }: TextFormCo
                 control={form.control}
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid} className="gap-2">
-                        <FieldLabel htmlFor="form-rhf-demo-from">{t('campaign.setup.channels.text.from.label')}</FieldLabel>
+                        <FieldLabel htmlFor="form-rhf-demo-from">
+                            {t("campaign.setup.channels.text.from.label")}
+                        </FieldLabel>
                         <Input
                             {...field}
                             id="form-rhf-demo-from"
@@ -78,7 +80,9 @@ export function TextFormControl({ campaign, form, disabled = false }: TextFormCo
                 control={form.control}
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid} className="gap-2">
-                        <FieldLabel htmlFor="form-rhf-demo-message">{t('campaign.setup.channels.text.message.label')}</FieldLabel>
+                        <FieldLabel htmlFor="form-rhf-demo-message">
+                            {t("campaign.setup.channels.text.message.label")}
+                        </FieldLabel>
                         <Textarea
                             {...field}
                             aria-invalid={fieldState.invalid}
@@ -96,45 +100,45 @@ export function TextFormControl({ campaign, form, disabled = false }: TextFormCo
 }
 
 export interface TextSetupProps {
-    campaign: Campaign;
-    form: UseFormReturn<z.infer<typeof textSetupFormSchema>>;
-    edit?: boolean;
+    campaign: Campaign
+    form: UseFormReturn<z.infer<typeof textSetupFormSchema>>
+    edit?: boolean
 }
 
 export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
-    const [project] = useContext(ProjectContext);
-    const [template, setTemplate] = useContext(TemplateContext);
-    const { t } = useTranslation();
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
-    const [selectedLocale, setSelectedLocale] = useState(template.locale);
-    const [locales, setLocales] = useState<Locale[]>([]);
-    const navigate = useNavigate();
+    const [project] = useContext(ProjectContext)
+    const [template, setTemplate] = useContext(TemplateContext)
+    const { t } = useTranslation()
+    const [selectedUser, setSelectedUser] = useState<User | null>(null)
+    const [selectedLocale, setSelectedLocale] = useState(template.locale)
+    const [locales, setLocales] = useState<Locale[]>([])
+    const navigate = useNavigate()
 
     useEffect(() => {
         const fetchLocales = async () => {
             if (project?.id) {
-                const result = await api.locales.search(project.id, { limit: 100 });
-                setLocales(result.results);
+                const result = await api.locales.search(project.id, { limit: 100 })
+                setLocales(result.results)
             }
-        };
-        fetchLocales();
-    }, [project?.id]);
+        }
+        fetchLocales()
+    }, [project?.id])
 
-    const message = form.watch('message');
-    const phoneNumber = project.name.charAt(0).toUpperCase() + project.name.slice(1);
+    const message = form.watch("message")
+    const phoneNumber = project.name.charAt(0).toUpperCase() + project.name.slice(1)
 
     const handleEditTemplate = () => {
-        navigate(`/projects/${project?.id}/campaigns/${campaign.id}/templates/${template.id}`);
-    };
+        navigate(`/projects/${project?.id}/campaigns/${campaign.id}/templates/${template.id}`)
+    }
 
     const handleLocaleChange = async (locale: string) => {
-        setSelectedLocale(locale);
-        const newTemplate = campaign.templates.find(t => t.locale === locale);
+        setSelectedLocale(locale)
+        const newTemplate = campaign.templates.find((t) => t.locale === locale)
         if (!newTemplate) {
             return
         }
-        setTemplate(newTemplate);
-    };
+        setTemplate(newTemplate)
+    }
 
     return (
         <div className="flex h-full items-center flex-col">
@@ -155,19 +159,19 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {campaign.templates.map((t) => {
-                                        const locale = locales.find(l => l.key === t.locale);
+                                        const locale = locales.find((l) => l.key === t.locale)
                                         return (
                                             <SelectItem key={t.id} value={t.locale}>
                                                 {locale?.label || t.locale}
                                             </SelectItem>
-                                        );
+                                        )
                                     })}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="flex-1">
                             <Button onClick={handleEditTemplate} className="w-full">
-                                {t('campaign.template.edit')}
+                                {t("campaign.template.edit")}
                             </Button>
                         </div>
                     </>
@@ -190,8 +194,12 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
 
                     <div className="flex-1 bg-white px-4 py-6 overflow-y-auto">
                         <div className="flex flex-col items-center mb-6">
-                            <span className="text-gray-500 text-xs">{t('campaign.setup.channels.text.text_message_label')}</span>
-                            <span className="text-gray-400 text-xs">{t('campaign.setup.channels.text.today')}</span>
+                            <span className="text-gray-500 text-xs">
+                                {t("campaign.setup.channels.text.text_message_label")}
+                            </span>
+                            <span className="text-gray-400 text-xs">
+                                {t("campaign.setup.channels.text.today")}
+                            </span>
                         </div>
 
                         <div className="flex justify-start mb-6">
@@ -203,11 +211,13 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
                         </div>
 
                         <div className="text-center">
-                            <p className="text-gray-400 text-sm">{t('campaign.setup.channels.text.preview_disclaimer')}</p>
+                            <p className="text-gray-400 text-sm">
+                                {t("campaign.setup.channels.text.preview_disclaimer")}
+                            </p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    );
+    )
 }

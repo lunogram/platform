@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react'
-import { useTranslation, Trans } from 'react-i18next'
-import { Upload, FileText, X, Download } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { useState, useRef } from "react"
+import { useTranslation, Trans } from "react-i18next"
+import { Upload, FileText, X, Download } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
     Dialog,
     DialogContent,
@@ -9,7 +9,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog"
 
 // --- Shared upload form (used in both dialog and onboarding) ---
 
@@ -51,7 +51,7 @@ export function UserImportForm({ file, onFileChange }: UserImportFormProps) {
     const clearFile = (e: React.MouseEvent) => {
         e.stopPropagation()
         onFileChange(null)
-        if (fileInputRef.current) fileInputRef.current.value = ''
+        if (fileInputRef.current) fileInputRef.current.value = ""
     }
 
     return (
@@ -62,7 +62,13 @@ export function UserImportForm({ file, onFileChange }: UserImportFormProps) {
                 <Trans
                     i18nKey="onboarding_project_users_template"
                     components={{
-                        download: <a href="/templates/users.csv" download="users.csv" className="font-medium text-primary underline underline-offset-4 hover:text-primary/80" />,
+                        download: (
+                            <a
+                                href="/templates/users.csv"
+                                download="users.csv"
+                                className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+                            />
+                        ),
                     }}
                 />
             </div>
@@ -71,10 +77,10 @@ export function UserImportForm({ file, onFileChange }: UserImportFormProps) {
             <div
                 className={`relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 transition-colors cursor-pointer ${
                     isDragging
-                        ? 'border-primary bg-primary/5'
+                        ? "border-primary bg-primary/5"
                         : file
-                          ? 'border-primary/50 bg-primary/5'
-                          : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+                          ? "border-primary/50 bg-primary/5"
+                          : "border-muted-foreground/25 hover:border-muted-foreground/50"
                 }`}
                 onClick={() => fileInputRef.current?.click()}
                 onDrop={handleDrop}
@@ -111,7 +117,7 @@ export function UserImportForm({ file, onFileChange }: UserImportFormProps) {
                         <Upload className="h-8 w-8 text-muted-foreground/50" />
                         <div className="text-center">
                             <p className="text-sm text-muted-foreground">
-                                {t('drop_csv_here', 'Drop a CSV file here, or click to browse')}
+                                {t("drop_csv_here", "Drop a CSV file here, or click to browse")}
                             </p>
                         </div>
                     </>
@@ -157,10 +163,8 @@ export function UserImportDialog({ open, onOpenChange, onImport }: UserImportDia
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{t('import_users', 'Import Users')}</DialogTitle>
-                    <DialogDescription>
-                        {t('upload_instructions')}
-                    </DialogDescription>
+                    <DialogTitle>{t("import_users", "Import Users")}</DialogTitle>
+                    <DialogDescription>{t("upload_instructions")}</DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
                     <UserImportForm file={file} onFileChange={setFile} />
@@ -171,18 +175,15 @@ export function UserImportDialog({ open, onOpenChange, onImport }: UserImportDia
                         onClick={() => handleOpenChange(false)}
                         disabled={isImporting}
                     >
-                        {t('cancel')}
+                        {t("cancel")}
                     </Button>
-                    <Button
-                        onClick={handleImport}
-                        disabled={!file || isImporting}
-                    >
+                    <Button onClick={handleImport} disabled={!file || isImporting}>
                         {isImporting ? (
-                            t('importing', 'Importing...')
+                            t("importing", "Importing...")
                         ) : (
                             <>
                                 <Upload className="mr-2 h-4 w-4" />
-                                {t('import', 'Import')}
+                                {t("import", "Import")}
                             </>
                         )}
                     </Button>

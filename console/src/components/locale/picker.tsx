@@ -1,8 +1,8 @@
-import { useState, useMemo, useCallback } from 'react'
-import { useTranslation } from 'react-i18next'
-import { Check, ChevronsUpDown, Globe } from 'lucide-react'
+import { useState, useMemo, useCallback } from "react"
+import { useTranslation } from "react-i18next"
+import { Check, ChevronsUpDown, Globe } from "lucide-react"
 
-import { Button } from '@/components/ui/button'
+import { Button } from "@/components/ui/button"
 import {
     Command,
     CommandEmpty,
@@ -10,15 +10,11 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
-} from '@/components/ui/command'
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '@/components/ui/popover'
-import { cn } from '@/utils'
+} from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/utils"
 
-import { LOCALES, searchLocales } from './locales'
+import { LOCALES, searchLocales } from "./locales"
 
 // ---------------------------------------------------------------------------
 // LocalePicker – a searchable combobox backed by the standardised locale list.
@@ -54,29 +50,23 @@ export function LocalePicker({
 }: LocalePickerProps) {
     const { t } = useTranslation()
     const [open, setOpen] = useState(false)
-    const [query, setQuery] = useState('')
+    const [query, setQuery] = useState("")
 
-    const excludeSet = useMemo(
-        () => new Set(exclude ?? []),
-        [exclude],
-    )
+    const excludeSet = useMemo(() => new Set(exclude ?? []), [exclude])
 
     const filteredLocales = useMemo(() => {
         const results = searchLocales(query)
         if (excludeSet.size === 0) return results
-        return results.filter(l => !excludeSet.has(l.key))
+        return results.filter((l) => !excludeSet.has(l.key))
     }, [query, excludeSet])
 
-    const selectedEntry = useMemo(
-        () => LOCALES.find(l => l.key === value),
-        [value],
-    )
+    const selectedEntry = useMemo(() => LOCALES.find((l) => l.key === value), [value])
 
     const handleSelect = useCallback(
         (key: string) => {
             onChange(key)
             setOpen(false)
-            setQuery('')
+            setQuery("")
         },
         [onChange],
     )
@@ -89,17 +79,19 @@ export function LocalePicker({
                     role="combobox"
                     aria-expanded={open}
                     disabled={disabled}
-                    className={cn('w-full justify-between', className)}
+                    className={cn("w-full justify-between", className)}
                 >
                     {selectedEntry ? (
                         <span className="flex items-center gap-2 truncate">
                             <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                             <span className="truncate">{selectedEntry.label}</span>
-                            <span className="text-xs text-muted-foreground">{selectedEntry.key}</span>
+                            <span className="text-xs text-muted-foreground">
+                                {selectedEntry.key}
+                            </span>
                         </span>
                     ) : (
                         <span className="text-muted-foreground">
-                            {placeholder ?? t('locale.picker.placeholder', 'Select a locale...')}
+                            {placeholder ?? t("locale.picker.placeholder", "Select a locale...")}
                         </span>
                     )}
                     <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
@@ -108,14 +100,14 @@ export function LocalePicker({
             <PopoverContent className="w-[340px] p-0" align="start">
                 <Command shouldFilter={false}>
                     <CommandInput
-                        placeholder={t('locale.picker.search', 'Search languages...')}
+                        placeholder={t("locale.picker.search", "Search languages...")}
                         value={query}
                         onValueChange={setQuery}
                         className="h-9"
                     />
                     <CommandList>
                         <CommandEmpty>
-                            {t('locale.picker.empty', 'No matching locale found.')}
+                            {t("locale.picker.empty", "No matching locale found.")}
                         </CommandEmpty>
                         <CommandGroup>
                             {filteredLocales.slice(0, 50).map((locale) => (
@@ -133,8 +125,8 @@ export function LocalePicker({
                                     </div>
                                     <Check
                                         className={cn(
-                                            'ml-auto h-4 w-4 shrink-0',
-                                            value === locale.key ? 'opacity-100' : 'opacity-0',
+                                            "ml-auto h-4 w-4 shrink-0",
+                                            value === locale.key ? "opacity-100" : "opacity-0",
                                         )}
                                     />
                                 </CommandItem>

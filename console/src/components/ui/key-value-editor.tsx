@@ -1,7 +1,7 @@
-import { Plus, Trash2 } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { VariableAutocompleteInput } from '@/components/ui/variable-autocomplete-input'
+import { Plus, Trash2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { VariableAutocompleteInput } from "@/components/ui/variable-autocomplete-input"
 
 interface KeyValuePair {
     key: string
@@ -18,7 +18,9 @@ interface KeyValueEditorProps {
 
 function toRows(obj: Record<string, string>): KeyValuePair[] {
     const entries = Object.entries(obj)
-    return entries.length > 0 ? entries.map(([key, value]) => ({ key, value })) : [{ key: '', value: '' }]
+    return entries.length > 0
+        ? entries.map(([key, value]) => ({ key, value }))
+        : [{ key: "", value: "" }]
 }
 
 function toRecord(rows: KeyValuePair[]): Record<string, string> {
@@ -33,8 +35,8 @@ function toRecord(rows: KeyValuePair[]): Record<string, string> {
 export function KeyValueEditor({
     value,
     onChange,
-    keyPlaceholder = 'Key',
-    valuePlaceholder = 'Value',
+    keyPlaceholder = "Key",
+    valuePlaceholder = "Value",
     variableNames,
 }: KeyValueEditorProps) {
     const rows = toRows(value ?? {})
@@ -43,19 +45,19 @@ export function KeyValueEditor({
         onChange(toRecord(next))
     }
 
-    function setRow(index: number, field: 'key' | 'value', val: string) {
+    function setRow(index: number, field: "key" | "value", val: string) {
         const next = [...rows]
         next[index] = { ...next[index], [field]: val }
         update(next)
     }
 
     function addRow() {
-        update([...rows, { key: '', value: '' }])
+        update([...rows, { key: "", value: "" }])
     }
 
     function removeRow(index: number) {
         const next = rows.filter((_, i) => i !== index)
-        update(next.length > 0 ? next : [{ key: '', value: '' }])
+        update(next.length > 0 ? next : [{ key: "", value: "" }])
     }
 
     return (
@@ -64,7 +66,7 @@ export function KeyValueEditor({
                 <div key={i} className="flex items-center gap-2">
                     <Input
                         value={row.key}
-                        onChange={(e) => setRow(i, 'key', e.target.value)}
+                        onChange={(e) => setRow(i, "key", e.target.value)}
                         placeholder={keyPlaceholder}
                         className="flex-1"
                     />
@@ -72,14 +74,14 @@ export function KeyValueEditor({
                         <VariableAutocompleteInput
                             variableNames={variableNames}
                             value={row.value}
-                            onChange={(val) => setRow(i, 'value', val)}
+                            onChange={(val) => setRow(i, "value", val)}
                             placeholder={valuePlaceholder}
                             className="flex-1"
                         />
                     ) : (
                         <Input
                             value={row.value}
-                            onChange={(e) => setRow(i, 'value', e.target.value)}
+                            onChange={(e) => setRow(i, "value", e.target.value)}
                             placeholder={valuePlaceholder}
                             className="flex-1"
                         />
@@ -96,13 +98,7 @@ export function KeyValueEditor({
                     </Button>
                 </div>
             ))}
-            <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addRow}
-                className="mt-1"
-            >
+            <Button type="button" variant="outline" size="sm" onClick={addRow} className="mt-1">
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
                 Add Header
             </Button>

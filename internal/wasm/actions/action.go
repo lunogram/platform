@@ -23,7 +23,7 @@ type Action struct {
 }
 
 // Execute invokes the action's execute function.
-func (a *Action) Execute(ctx context.Context, req *actiontypes.ExecuteRequest[map[string]any]) (*actiontypes.ExecuteResponse, error) {
+func (a *Action) Execute(ctx context.Context, req *actiontypes.ExecuteRequest[json.RawMessage]) (*actiontypes.ExecuteResponse, error) {
 	payload, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal execute request: %w", err)

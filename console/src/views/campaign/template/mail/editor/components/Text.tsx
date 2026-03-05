@@ -1,18 +1,18 @@
-import type { ComponentConfig, Slot } from '@puckeditor/core'; 
-import { Layout, type LayoutProps, layoutClassMap } from './fields/Layout';
-import { cn } from '@/utils';
-import { Spacing, type SpacingProps, spacingClassMap } from './fields/Spacing';
-import { Typography, type TypographyProps, typographyClassMap } from './fields/Typography';
-import { Decoration, type DecorationProps, decorationClassMap } from './fields/Decoration';
-import { generateTailwindClasses } from './fields/unit';
+import type { ComponentConfig, Slot } from "@puckeditor/core"
+import { Layout, type LayoutProps, layoutClassMap } from "./fields/Layout"
+import { cn } from "@/utils"
+import { Spacing, type SpacingProps, spacingClassMap } from "./fields/Spacing"
+import { Typography, type TypographyProps, typographyClassMap } from "./fields/Typography"
+import { Decoration, type DecorationProps, decorationClassMap } from "./fields/Decoration"
+import { generateTailwindClasses } from "./fields/unit"
 
 export interface TextProps {
-    content: Slot; 
-    layout: LayoutProps;
-    spacing: SpacingProps;
-    typography: TypographyProps;
-    decoration: DecorationProps;
-};
+    content: Slot
+    layout: LayoutProps
+    spacing: SpacingProps
+    typography: TypographyProps
+    decoration: DecorationProps
+}
 
 export const Text: ComponentConfig<TextProps> = {
     fields: {
@@ -29,16 +29,16 @@ export const Text: ComponentConfig<TextProps> = {
             {
                 type: "TextSection",
                 props: {},
-            }
+            },
         ],
         layout: {},
         spacing: {},
         typography: {
             xl: {
-                fontSize: '16',
-                fontWeight: '600',
-                color: '#000000',
-            }
+                fontSize: "16",
+                fontWeight: "600",
+                color: "#000000",
+            },
         },
         decoration: {},
     },
@@ -51,8 +51,6 @@ export const Text: ComponentConfig<TextProps> = {
             generateTailwindClasses(decoration, decorationClassMap),
         )
 
-        return (
-            <Content as="p" className={classes} />
-        );
+        return <Content as="p" className={classes} />
     },
 }

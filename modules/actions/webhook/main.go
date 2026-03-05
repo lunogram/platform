@@ -124,13 +124,13 @@ func Execute() int32 {
 		return -1
 	}
 
-	// Substitute variables in endpoint, headers, and body.
-	endpoint := substituteVariables(payload.Endpoint, req.Variables)
-	body := substituteVariables(payload.Body, req.Variables)
+	// Variables are already substituted by the host before reaching the WASM module.
+	endpoint := payload.Endpoint
+	body := payload.Body
 
 	headers := make(map[string]string, len(payload.Headers))
 	for k, v := range payload.Headers {
-		headers[k] = substituteVariables(v, req.Variables)
+		headers[k] = v
 	}
 
 	// Build the HTTP request.
@@ -218,25 +218,6 @@ func Execute() int32 {
 func Preview() int32 {
 	pdk.Output(previewHTML)
 	return 0
-}
-
-// substituteVariables replaces {{variable_name}} patterns in the input string
-// with the corresponding values from the variables map.
-func substituteVariables(input string, variables map[string]any) string {
-	if len(variables) == 0 {
-		return input
-	}
-
-	result := input
-	for name, value := range variables {
-		placeholder := "{{" + name + "}}"
-		result = strings.ReplaceAll(result, placeholder, fmt.Sprintf("%v", value))
-
-		// Also handle with spaces: {{ name }}
-		placeholderSpaced := "{{ " + name + " }}"
-		result = strings.ReplaceAll(result, placeholderSpaced, fmt.Sprintf("%v", value))
-	}
-	return result
 }
 
 func main() {}

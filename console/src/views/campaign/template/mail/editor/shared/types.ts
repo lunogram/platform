@@ -9,13 +9,13 @@
  * Changes constantly.
  * Not observable.
  */
-export type EditorCode = string;
+export type EditorCode = string
 
 /**
  * Editor change callback.
  * Fired by Monaco / CodeMirror.
  */
-export type EditorChangeListener = (code: EditorCode | undefined) => void;
+export type EditorChangeListener = (code: EditorCode | undefined) => void
 
 /* ============================
    STORE / PUBSUB
@@ -24,12 +24,12 @@ export type EditorChangeListener = (code: EditorCode | undefined) => void;
 /**
  * Function used to unsubscribe.
  */
-export type Unsubscribe = () => void;
+export type Unsubscribe = () => void
 
 /**
  * Generic listener signature.
  */
-export type Listener<T> = (value: T) => void;
+export type Listener<T> = (value: T) => void
 
 /* ============================
    DEBOUNCE / SCHEDULING
@@ -39,4 +39,4 @@ export type Listener<T> = (value: T) => void;
  * Debounced executor.
  * Used to control when compilation happens.
  */
-export type DebouncedFn<T extends Array<string | undefined>> = (...args: T) => void;
+export type DebouncedFn<T extends Array<string | undefined>> = (...args: T) => void

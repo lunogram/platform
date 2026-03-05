@@ -1,11 +1,11 @@
-import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronsUpDown } from "lucide-react";
+import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { ChevronsUpDown } from "lucide-react"
 
 interface CollapsibleFieldProps {
-    icon: React.ReactNode;
-    title: string;
-    children: React.ReactNode;
+    icon: React.ReactNode
+    title: string
+    children: React.ReactNode
 }
 
 export default function CollapsibleField({ icon, title, children }: CollapsibleFieldProps) {
@@ -22,9 +22,7 @@ export default function CollapsibleField({ icon, title, children }: CollapsibleF
                     <ChevronsUpDown strokeWidth={2} />
                 </Button>
             </CollapsibleTrigger>
-            <CollapsibleContent>
-                {children}
-            </CollapsibleContent>
+            <CollapsibleContent>{children}</CollapsibleContent>
         </Collapsible>
     )
 }

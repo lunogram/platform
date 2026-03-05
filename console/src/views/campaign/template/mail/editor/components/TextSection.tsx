@@ -1,18 +1,18 @@
-import type { ComponentConfig } from '@puckeditor/core'; 
-import { Layout, type LayoutProps, layoutClassMap } from './fields/Layout';
-import { cn } from '@/utils';
-import { Spacing, type SpacingProps, spacingClassMap } from './fields/Spacing';
-import { Typography, type TypographyProps, typographyClassMap } from './fields/Typography';
-import { Decoration, type DecorationProps, decorationClassMap } from './fields/Decoration';
-import { generateTailwindClasses } from './fields/unit';
+import type { ComponentConfig } from "@puckeditor/core"
+import { Layout, type LayoutProps, layoutClassMap } from "./fields/Layout"
+import { cn } from "@/utils"
+import { Spacing, type SpacingProps, spacingClassMap } from "./fields/Spacing"
+import { Typography, type TypographyProps, typographyClassMap } from "./fields/Typography"
+import { Decoration, type DecorationProps, decorationClassMap } from "./fields/Decoration"
+import { generateTailwindClasses } from "./fields/unit"
 
 export interface TextSectionProps {
-    value: string;
-    layout: LayoutProps;
-    spacing: SpacingProps;
-    typography: TypographyProps;
-    decoration: DecorationProps;
-};
+    value: string
+    layout: LayoutProps
+    spacing: SpacingProps
+    typography: TypographyProps
+    decoration: DecorationProps
+}
 
 export const TextSection: ComponentConfig<TextSectionProps> = {
     fields: {
@@ -40,10 +40,6 @@ export const TextSection: ComponentConfig<TextSectionProps> = {
             generateTailwindClasses(decoration, decorationClassMap),
         )
 
-        return (
-            <span className={classes}>
-                {value}
-            </span>
-        );
+        return <span className={classes}>{value}</span>
     },
 }

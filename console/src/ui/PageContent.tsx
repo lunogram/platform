@@ -1,6 +1,6 @@
-import type { PropsWithChildren, ReactNode } from 'react'
-import Heading from './Heading'
-import clsx from 'clsx'
+import type { PropsWithChildren, ReactNode } from "react"
+import Heading from "./Heading"
+import clsx from "clsx"
 
 type PageHeaderProps = PropsWithChildren<{
     title: ReactNode
@@ -10,11 +10,20 @@ type PageHeaderProps = PropsWithChildren<{
     fullscreen?: boolean
 }>
 
-export default function PageContent({ actions, children, desc, title, banner, fullscreen = false }: PageHeaderProps) {
+export default function PageContent({
+    actions,
+    children,
+    desc,
+    title,
+    banner,
+    fullscreen = false,
+}: PageHeaderProps) {
     return (
-        <div className={clsx('page-content', { fullscreen })}>
+        <div className={clsx("page-content", { fullscreen })}>
             {banner && <div className="page-banner">{banner}</div>}
-            <Heading title={title} actions={actions}>{desc}</Heading>
+            <Heading title={title} actions={actions}>
+                {desc}
+            </Heading>
             {children}
         </div>
     )

@@ -1,19 +1,19 @@
-import type { ComponentConfig, Slot } from '@puckeditor/core'; 
-import { Container as EmailContainer, Section as EmailSection } from '@react-email/components';
-import { Layout, type LayoutProps, layoutClassMap } from './fields/Layout';
-import { cn } from '@/utils';
-import { Spacing, type SpacingProps, spacingClassMap } from './fields/Spacing';
-import { Typography, type TypographyProps, typographyClassMap } from './fields/Typography';
-import { Decoration, type DecorationProps, decorationClassMap } from './fields/Decoration';
-import { generateTailwindClasses } from './fields/unit';
+import type { ComponentConfig, Slot } from "@puckeditor/core"
+import { Container as EmailContainer, Section as EmailSection } from "@react-email/components"
+import { Layout, type LayoutProps, layoutClassMap } from "./fields/Layout"
+import { cn } from "@/utils"
+import { Spacing, type SpacingProps, spacingClassMap } from "./fields/Spacing"
+import { Typography, type TypographyProps, typographyClassMap } from "./fields/Typography"
+import { Decoration, type DecorationProps, decorationClassMap } from "./fields/Decoration"
+import { generateTailwindClasses } from "./fields/unit"
 
 export interface ContainerProps {
-    content: Slot; 
-    layout: LayoutProps;
-    spacing: SpacingProps;
-    typography: TypographyProps;
-    decoration: DecorationProps;
-};
+    content: Slot
+    layout: LayoutProps
+    spacing: SpacingProps
+    typography: TypographyProps
+    decoration: DecorationProps
+}
 
 export const Container: ComponentConfig<ContainerProps> = {
     fields: {
@@ -42,10 +42,10 @@ export const Container: ComponentConfig<ContainerProps> = {
 
         return (
             <EmailSection className={sectionClasses}>
-                <EmailContainer style={{ margin: '0 auto' }}>
+                <EmailContainer style={{ margin: "0 auto" }}>
                     <Content />
                 </EmailContainer>
             </EmailSection>
-        );
+        )
     },
 }

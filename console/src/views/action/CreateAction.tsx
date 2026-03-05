@@ -67,13 +67,18 @@ export function CreateAction({ open = false }: CreateActionProps) {
     return (
         <Dialog open={isOpen} onOpenChange={() => setIsOpen(!isOpen)}>
             <DialogTrigger>
-                <Button size="lg"><PlusIcon /> {t('create_action', 'Create Action')}</Button>
+                <Button size="lg">
+                    <PlusIcon /> {t("create_action", "Create Action")}
+                </Button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{t('action.create.title', 'Create Action')}</DialogTitle>
+                    <DialogTitle>{t("action.create.title", "Create Action")}</DialogTitle>
                     <DialogDescription>
-                        {t('action.create.description', 'Select the type of action you want to create.')}
+                        {t(
+                            "action.create.description",
+                            "Select the type of action you want to create.",
+                        )}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -81,8 +86,17 @@ export function CreateAction({ open = false }: CreateActionProps) {
                     {actionMetas?.map((meta: ActionMeta) => {
                         const { icon, color } = actionIcons[meta.type] ?? defaultActionIcon
                         return (
-                            <Item key={meta.type} variant="outline" className="items-center" asChild>
-                                <button type="button" className="no-underline cursor-pointer" onClick={() => selectType(meta.type)}>
+                            <Item
+                                key={meta.type}
+                                variant="outline"
+                                className="items-center"
+                                asChild
+                            >
+                                <button
+                                    type="button"
+                                    className="no-underline cursor-pointer"
+                                    onClick={() => selectType(meta.type)}
+                                >
                                     <ItemMedia variant="icon" className={color}>
                                         {icon}
                                     </ItemMedia>
@@ -100,7 +114,6 @@ export function CreateAction({ open = false }: CreateActionProps) {
                         )
                     })}
                 </ItemGroup>
-
             </DialogContent>
         </Dialog>
     )

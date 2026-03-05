@@ -1,20 +1,15 @@
-import { useCallback, useContext, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router'
-import {
-    Route,
-    ChevronLeft,
-    ChevronRight,
-    ExternalLink,
-} from 'lucide-react'
-import { ProjectContext, UserContext } from '../../contexts'
-import { PreferencesContext } from '../../ui/PreferencesContext'
-import { useResolver } from '../../hooks'
-import { formatDate } from '../../utils'
-import api from '../../api'
+import { useCallback, useContext, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { useNavigate } from "react-router"
+import { Route, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react"
+import { ProjectContext, UserContext } from "../../contexts"
+import { PreferencesContext } from "../../ui/PreferencesContext"
+import { useResolver } from "../../hooks"
+import { formatDate } from "../../utils"
+import api from "../../api"
 
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
     Table,
     TableBody,
@@ -22,19 +17,19 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '@/components/ui/table'
+} from "@/components/ui/table"
 
-function getPageNumbers(current: number, total: number): (number | '...')[] {
+function getPageNumbers(current: number, total: number): (number | "...")[] {
     if (total <= 7) {
         return Array.from({ length: total }, (_, i) => i + 1)
     }
     if (current <= 3) {
-        return [1, 2, 3, 4, 5, '...', total]
+        return [1, 2, 3, 4, 5, "...", total]
     }
     if (current >= total - 2) {
-        return [1, '...', total - 4, total - 3, total - 2, total - 1, total]
+        return [1, "...", total - 4, total - 3, total - 2, total - 1, total]
     }
-    return [1, '...', current - 1, current, current + 1, '...', total]
+    return [1, "...", current - 1, current, current + 1, "...", total]
 }
 
 export default function UserDetailJourneys() {
@@ -53,7 +48,7 @@ export default function UserDetailJourneys() {
                 limit,
                 offset: (page - 1) * limit,
             })
-        }, [project.id, user.id, page])
+        }, [project.id, user.id, page]),
     )
 
     const journeys = result?.results
@@ -69,9 +64,9 @@ export default function UserDetailJourneys() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>{t('journey')}</TableHead>
-                            <TableHead>{t('created_at')}</TableHead>
-                            <TableHead>{t('ended_at')}</TableHead>
+                            <TableHead>{t("journey")}</TableHead>
+                            <TableHead>{t("created_at")}</TableHead>
+                            <TableHead>{t("ended_at")}</TableHead>
                             <TableHead className="w-12"></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -79,9 +74,15 @@ export default function UserDetailJourneys() {
                         {journeys === undefined ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
-                                    <TableCell><Skeleton className="h-4 w-36" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-36" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-28" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-28" />
+                                    </TableCell>
                                     <TableCell></TableCell>
                                 </TableRow>
                             ))
@@ -92,9 +93,14 @@ export default function UserDetailJourneys() {
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
                                             <Route className="h-6 w-6 text-muted-foreground" />
                                         </div>
-                                        <p className="font-medium mb-1">{t('no_journeys_yet', 'No journeys')}</p>
+                                        <p className="font-medium mb-1">
+                                            {t("no_journeys_yet", "No journeys")}
+                                        </p>
                                         <p className="text-sm text-muted-foreground max-w-xs text-center">
-                                            {t('no_journeys_description', 'Journey entries will appear here when the user enters a journey')}
+                                            {t(
+                                                "no_journeys_description",
+                                                "Journey entries will appear here when the user enters a journey",
+                                            )}
                                         </p>
                                     </div>
                                 </TableCell>
@@ -107,19 +113,19 @@ export default function UserDetailJourneys() {
                                     onClick={() => navigate(`../../journeys/${entry.journey?.id}`)}
                                 >
                                     <TableCell className="font-medium">
-                                        {entry.journey?.name ?? '—'}
+                                        {entry.journey?.name ?? "—"}
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">
-                                        {formatDate(preferences, entry.created_at, 'Pp')}
+                                        {formatDate(preferences, entry.created_at, "Pp")}
                                     </TableCell>
                                     <TableCell>
                                         {entry.ended_at ? (
                                             <span className="text-muted-foreground">
-                                                {formatDate(preferences, entry.ended_at, 'Pp')}
+                                                {formatDate(preferences, entry.ended_at, "Pp")}
                                             </span>
                                         ) : (
                                             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                                                {t('running')}
+                                                {t("running")}
                                             </span>
                                         )}
                                     </TableCell>
@@ -136,42 +142,45 @@ export default function UserDetailJourneys() {
                 {total > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
-                            {total} {total === 1 ? t('journey') : t('journeys')}
+                            {total} {total === 1 ? t("journey") : t("journeys")}
                         </p>
                         {totalPages > 1 && (
                             <div className="flex items-center gap-1">
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => setPage(p => p - 1)}
+                                    onClick={() => setPage((p) => p - 1)}
                                     disabled={!hasPrevPage}
                                     className="h-8 w-8 p-0"
                                 >
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
 
-                                {getPageNumbers(page, totalPages).map((pageNum, idx) => (
-                                    pageNum === '...' ? (
-                                        <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground">
+                                {getPageNumbers(page, totalPages).map((pageNum, idx) =>
+                                    pageNum === "..." ? (
+                                        <span
+                                            key={`ellipsis-${idx}`}
+                                            className="px-1 text-muted-foreground"
+                                        >
                                             ...
                                         </span>
                                     ) : (
                                         <Button
                                             key={pageNum}
-                                            variant={page === pageNum ? 'default' : 'ghost'}
+                                            variant={page === pageNum ? "default" : "ghost"}
                                             size="sm"
                                             onClick={() => setPage(pageNum as number)}
                                             className="h-8 w-8 p-0"
                                         >
                                             {pageNum}
                                         </Button>
-                                    )
-                                ))}
+                                    ),
+                                )}
 
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => setPage(p => p + 1)}
+                                    onClick={() => setPage((p) => p + 1)}
                                     disabled={!hasNextPage}
                                     className="h-8 w-8 p-0"
                                 >

@@ -1,22 +1,22 @@
-import { DataTable, PageContent, Tag } from '../../ui'
-import type { TagProps } from '../../ui/Tag'
-import { camelToTitle, formatDate } from '../../utils'
-import { useLoaderData } from 'react-router'
-import type { JourneyEntranceDetail } from '../../types'
-import { useContext } from 'react'
-import { PreferencesContext } from '../../ui/PreferencesContext'
-import * as stepTypes from './steps'
-import clsx from 'clsx'
-import { stepCategoryColors } from './JourneyEditor'
-import { useTranslation } from 'react-i18next'
+import { DataTable, PageContent, Tag } from "../../ui"
+import type { TagProps } from "../../ui/Tag"
+import { camelToTitle, formatDate } from "../../utils"
+import { useLoaderData } from "react-router"
+import type { JourneyEntranceDetail } from "../../types"
+import { useContext } from "react"
+import { PreferencesContext } from "../../ui/PreferencesContext"
+import * as stepTypes from "./steps"
+import clsx from "clsx"
+import { stepCategoryColors } from "./JourneyEditor"
+import { useTranslation } from "react-i18next"
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const typeVariants: Record<string, TagProps['variant']> = {
-    completed: 'success',
-    error: 'error',
-    action: 'info',
-    delay: 'warn',
-    pending: 'plain',
+export const typeVariants: Record<string, TagProps["variant"]> = {
+    completed: "success",
+    error: "error",
+    action: "info",
+    delay: "warn",
+    pending: "plain",
 }
 
 export default function EntranceDetails() {
@@ -24,9 +24,9 @@ export default function EntranceDetails() {
     const [preferences] = useContext(PreferencesContext)
 
     const { journey, user, userSteps } = useLoaderData<JourneyEntranceDetail>()
-    
+
     const entrance = userSteps[0]
-    const error = userSteps.find(s => s.type === 'error')
+    const error = userSteps.find((s) => s.type === "error")
     const displayName = user?.full_name ?? user?.email ?? user?.phone ?? user?.id
 
     return (
@@ -34,14 +34,10 @@ export default function EntranceDetails() {
             title={`${displayName} - ${journey.name}`}
             desc={
                 <>
-                    <Tag variant={error ? 'error' : entrance.ended_at ? 'success' : 'info'}>
-                        {
-                            error ? 'Error' : entrance.ended_at ? 'Completed' : 'Running'
-                        }
+                    <Tag variant={error ? "error" : entrance.ended_at ? "success" : "info"}>
+                        {error ? "Error" : entrance.ended_at ? "Completed" : "Running"}
                     </Tag>
-                    {
-                        entrance.ended_at && ` at ${formatDate(preferences, new Date())}`
-                    }
+                    {entrance.ended_at && ` at ${formatDate(preferences, new Date())}`}
                 </>
             }
         >
@@ -50,17 +46,22 @@ export default function EntranceDetails() {
                 isLoading={!userSteps}
                 columns={[
                     {
-                        key: 'step',
+                        key: "step",
                         cell: ({ item }) => {
                             const stepType = stepTypes[item.step!.type as keyof typeof stepTypes]
 
                             return (
                                 <div className="multi-cell">
-                                    <div className={clsx('icon-box', stepCategoryColors[stepType.category])}>
+                                    <div
+                                        className={clsx(
+                                            "icon-box",
+                                            stepCategoryColors[stepType.category],
+                                        )}
+                                    >
                                         {stepType?.icon}
                                     </div>
                                     <div className="text">
-                                        <div className="title">{item.step!.name || 'Untitled'}</div>
+                                        <div className="title">{item.step!.name || "Untitled"}</div>
                                         <div className="subtitle">{t(item.step!.type)}</div>
                                     </div>
                                 </div>
@@ -68,16 +69,14 @@ export default function EntranceDetails() {
                         },
                     },
                     {
-                        key: 'type',
-                        title: 'Type',
+                        key: "type",
+                        title: "Type",
                         cell: ({ item }) => (
-                            <Tag variant={typeVariants[item.type]}>
-                                {camelToTitle(item.type)}
-                            </Tag>
+                            <Tag variant={typeVariants[item.type]}>{camelToTitle(item.type)}</Tag>
                         ),
                     },
-                    { key: 'created_at', title: t('created_at') },
-                    { key: 'delay_until', title: t('delay_until') },
+                    { key: "created_at", title: t("created_at") },
+                    { key: "delay_until", title: t("delay_until") },
                 ]}
             />
         </PageContent>

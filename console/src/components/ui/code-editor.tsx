@@ -1,14 +1,25 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
-import { EditorState, Compartment } from '@codemirror/state'
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { json } from '@codemirror/lang-json'
-import { foldGutter, indentOnInput, bracketMatching, foldKeymap } from '@codemirror/language'
-import { autocompletion, completionKeymap, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete'
-import { githubLight } from '@fsegurai/codemirror-theme-github-light'
-import { githubDark } from '@fsegurai/codemirror-theme-github-dark'
-import { Copy, Check, WandSparkles } from 'lucide-react'
-import { cn } from '@/utils'
+import { useEffect, useRef, useState, useMemo, useCallback } from "react"
+import { EditorState, Compartment } from "@codemirror/state"
+import {
+    EditorView,
+    keymap,
+    lineNumbers,
+    highlightActiveLine,
+    highlightActiveLineGutter,
+} from "@codemirror/view"
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands"
+import { json } from "@codemirror/lang-json"
+import { foldGutter, indentOnInput, bracketMatching, foldKeymap } from "@codemirror/language"
+import {
+    autocompletion,
+    completionKeymap,
+    type CompletionContext,
+    type CompletionResult,
+} from "@codemirror/autocomplete"
+import { githubLight } from "@fsegurai/codemirror-theme-github-light"
+import { githubDark } from "@fsegurai/codemirror-theme-github-dark"
+import { Copy, Check, WandSparkles } from "lucide-react"
+import { cn } from "@/utils"
 
 interface CodeEditorProps {
     value: string
@@ -22,27 +33,29 @@ interface CodeEditorProps {
 }
 
 const baseTheme = EditorView.theme({
-    '&': {
-        fontSize: '13px',
-        height: '100%',
+    "&": {
+        fontSize: "13px",
+        height: "100%",
     },
-    '&.cm-focused': {
-        outline: 'none',
-        boxShadow: 'none',
+    "&.cm-focused": {
+        outline: "none",
+        boxShadow: "none",
     },
-    '.cm-scroller': {
-        overflow: 'auto',
+    ".cm-scroller": {
+        overflow: "auto",
     },
-    '&.cm-editor .cm-line': {
-        wordBreak: 'break-all',
+    "&.cm-editor .cm-line": {
+        wordBreak: "break-all",
     },
 })
 
 function isJsonContent(value: string): boolean {
     const trimmed = value.trim()
     if (!trimmed) return false
-    return (trimmed.startsWith('{') && trimmed.endsWith('}'))
-        || (trimmed.startsWith('[') && trimmed.endsWith(']'))
+    return (
+        (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+        (trimmed.startsWith("[") && trimmed.endsWith("]"))
+    )
 }
 
 function canFormatAsJson(value: string): boolean {
@@ -68,9 +81,7 @@ export function CodeEditor({
     const containerRef = useRef<HTMLDivElement>(null)
     const viewRef = useRef<EditorView | null>(null)
     const [copied, setCopied] = useState(false)
-    const [isDark, setIsDark] = useState(() =>
-        document.documentElement.classList.contains('dark')
-    )
+    const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"))
 
     const themeCompartment = useMemo(() => new Compartment(), [])
     const editableCompartment = useMemo(() => new Compartment(), [])
@@ -78,11 +89,15 @@ export function CodeEditor({
     const completionCompartment = useMemo(() => new Compartment(), [])
 
     const onChangeRef = useRef(onChange)
-    useEffect(() => { onChangeRef.current = onChange }, [onChange])
+    useEffect(() => {
+        onChangeRef.current = onChange
+    }, [onChange])
 
     // Keep variable names in a ref so the completion source always has the latest
     const variableNamesRef = useRef(variableNames)
-    useEffect(() => { variableNamesRef.current = variableNames }, [variableNames])
+    useEffect(() => {
+        variableNamesRef.current = variableNames
+    }, [variableNames])
 
     // Build a CodeMirror completion source for {{ variable }} patterns
     const variableCompletionSource = useCallback(
@@ -95,11 +110,11 @@ export function CodeEditor({
             const textBefore = line.text.slice(0, pos - line.from)
 
             // Find the last `{{` before cursor with no closing `}}`
-            const lastBrace = textBefore.lastIndexOf('{{')
+            const lastBrace = textBefore.lastIndexOf("{{")
             if (lastBrace === -1) return null
 
             const between = textBefore.slice(lastBrace + 2)
-            if (between.includes('}}')) return null
+            if (between.includes("}}")) return null
 
             // The filter text is everything after `{{` (trimmed)
             const filterText = between.trimStart()
@@ -110,7 +125,7 @@ export function CodeEditor({
                 options: names.map((name) => ({
                     label: name,
                     apply: ` ${name} }}`,
-                    type: 'variable',
+                    type: "variable",
                 })),
                 filter: true,
             }
@@ -122,8 +137,8 @@ export function CodeEditor({
     useEffect(() => {
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
-                if (mutation.attributeName === 'class') {
-                    setIsDark(document.documentElement.classList.contains('dark'))
+                if (mutation.attributeName === "class") {
+                    setIsDark(document.documentElement.classList.contains("dark"))
                 }
             })
         })
@@ -157,22 +172,16 @@ export function CodeEditor({
                     : [],
             ),
             languageCompartment.of(isJsonContent(value) ? json() : []),
-            keymap.of([
-                ...defaultKeymap,
-                ...historyKeymap,
-                ...foldKeymap,
-                ...completionKeymap,
-            ]),
+            keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap, ...completionKeymap]),
             baseTheme,
             themeCompartment.of(isDark ? githubDark : githubLight),
             editableCompartment.of(EditorView.editable.of(!readOnly)),
             ...(readOnly ? [EditorView.lineWrapping] : []),
             updateListener,
             ...(placeholder
-                ? [EditorView.contentAttributes.of({ 'aria-placeholder': placeholder })]
-                : []
-            ),
-            EditorView.contentAttributes.of({ 'aria-label': 'Code Editor' }),
+                ? [EditorView.contentAttributes.of({ "aria-placeholder": placeholder })]
+                : []),
+            EditorView.contentAttributes.of({ "aria-label": "Code Editor" }),
         ]
 
         const state = EditorState.create({
@@ -191,7 +200,7 @@ export function CodeEditor({
             view.destroy()
             viewRef.current = null
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [themeCompartment, editableCompartment, languageCompartment, completionCompartment])
 
     // Update theme
@@ -274,14 +283,17 @@ export function CodeEditor({
         }
     }
 
-    const lineCount = value.split('\n').length
+    const lineCount = value.split("\n").length
     const lineHeight = 20
     const padding = 24
-    const calculatedHeight = Math.min(Math.max(lineCount * lineHeight + padding, minHeight), maxHeight)
+    const calculatedHeight = Math.min(
+        Math.max(lineCount * lineHeight + padding, minHeight),
+        maxHeight,
+    )
     const showFormat = canFormatAsJson(value)
 
     return (
-        <div className={cn('relative rounded-md border', className)}>
+        <div className={cn("relative rounded-md border", className)}>
             {/* Toolbar */}
             <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
                 {showFormat && (

@@ -1,12 +1,12 @@
-import type { MouseEvent, PropsWithChildren, Ref } from 'react';
-import { forwardRef } from 'react'
-import clsx from 'clsx'
-import type { To } from 'react-router';
-import { Link } from 'react-router'
-import './Button.css'
+import type { MouseEvent, PropsWithChildren, Ref } from "react"
+import { forwardRef } from "react"
+import clsx from "clsx"
+import type { To } from "react-router"
+import { Link } from "react-router"
+import "./Button.css"
 
-export type ButtonVariant = 'primary' | 'secondary' | 'destructive' | 'plain'
-export type ButtonSize = 'tiny' | 'small' | 'regular'
+export type ButtonVariant = "primary" | "secondary" | "destructive" | "plain"
+export type ButtonSize = "tiny" | "small" | "regular"
 
 type BaseButtonProps = PropsWithChildren<{
     children?: React.ReactNode
@@ -14,11 +14,12 @@ type BaseButtonProps = PropsWithChildren<{
     size?: ButtonSize
     icon?: React.ReactNode
     isLoading?: boolean
-}> & JSX.IntrinsicElements['button']
+}> &
+    JSX.IntrinsicElements["button"]
 
 type ButtonProps = {
     onClick?: (event: MouseEvent<HTMLButtonElement>) => void
-    type?: 'button' | 'submit'
+    type?: "button" | "submit"
 } & BaseButtonProps
 
 type LinkButtonProps = {
@@ -27,12 +28,19 @@ type LinkButtonProps = {
     onClick?: () => void
 } & BaseButtonProps
 
-const LinkButton = forwardRef(function LinkButton(props: LinkButtonProps, ref: Ref<HTMLAnchorElement> | undefined) {
+const LinkButton = forwardRef(function LinkButton(
+    props: LinkButtonProps,
+    ref: Ref<HTMLAnchorElement> | undefined,
+) {
     return (
-        <Link to={props.to} target={props.target} className={
-            `ui-button ${props.variant ?? 'primary'} ${props.size ?? 'regular'}`
-        } ref={ref} onClick={props.onClick}>
-            {props.icon && (<span className="button-icon">{props.icon}</span>)}
+        <Link
+            to={props.to}
+            target={props.target}
+            className={`ui-button ${props.variant ?? "primary"} ${props.size ?? "regular"}`}
+            ref={ref}
+            onClick={props.onClick}
+        >
+            {props.icon && <span className="button-icon">{props.icon}</span>}
             {props.children}
         </Link>
     )
@@ -40,13 +48,16 @@ const LinkButton = forwardRef(function LinkButton(props: LinkButtonProps, ref: R
 
 export { LinkButton }
 
-const Button = forwardRef(function Button(props: ButtonProps, ref: Ref<HTMLButtonElement> | undefined) {
+const Button = forwardRef(function Button(
+    props: ButtonProps,
+    ref: Ref<HTMLButtonElement> | undefined,
+) {
     const {
         onClick,
         className,
-        type = 'button',
-        variant = 'primary',
-        size = 'regular',
+        type = "button",
+        variant = "primary",
+        size = "regular",
         icon,
         children,
         isLoading = false,
@@ -60,18 +71,22 @@ const Button = forwardRef(function Button(props: ButtonProps, ref: Ref<HTMLButto
             onClick={onClick}
             type={type}
             className={clsx(
-                'ui-button',
+                "ui-button",
                 variant,
                 size,
-                { 'is-loading': isLoading },
-                { 'ui-button-no-children': children == null },
+                { "is-loading": isLoading },
+                { "ui-button-no-children": children == null },
                 className,
             )}
             ref={ref}
             disabled={disabled ?? isLoading}
             style={style}
         >
-            {icon && (<span className="button-icon" aria-hidden="true">{icon}</span>)}
+            {icon && (
+                <span className="button-icon" aria-hidden="true">
+                    {icon}
+                </span>
+            )}
             {children && <span className="button-text">{children}</span>}
         </button>
     )

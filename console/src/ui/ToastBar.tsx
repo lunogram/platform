@@ -1,8 +1,8 @@
-import * as React from 'react'
-import type { Toast, ToastPosition} from 'react-hot-toast/headless';
-import { resolveValue } from 'react-hot-toast/headless'
-import { ToastIcon } from './ToastIcon'
-import clsx from 'clsx'
+import * as React from "react"
+import type { Toast, ToastPosition } from "react-hot-toast/headless"
+import { resolveValue } from "react-hot-toast/headless"
+import { ToastIcon } from "./ToastIcon"
+import clsx from "clsx"
 
 interface ToastBarProps {
     toast: Toast
@@ -13,8 +13,8 @@ interface ToastBarProps {
 const getAnimationStyle = (visible: boolean): React.CSSProperties => {
     return {
         animation: visible
-            ? 'toastBarEnter 0.35s cubic-bezier(.21,1.02,.73,1) forwards'
-            : 'toastBarExit 0.4s forwards cubic-bezier(.06,.71,.55,1)',
+            ? "toastBarEnter 0.35s cubic-bezier(.21,1.02,.73,1) forwards"
+            : "toastBarExit 0.4s forwards cubic-bezier(.06,.71,.55,1)",
     }
 }
 
@@ -32,7 +32,7 @@ export default function ToastBar({ toast, style }: ToastBarProps) {
 
     return (
         <div
-            className={clsx(toast.className, 'ui-toast-bar')}
+            className={clsx(toast.className, "ui-toast-bar")}
             style={{
                 ...animationStyle,
                 ...style,

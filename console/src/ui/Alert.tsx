@@ -1,8 +1,8 @@
-import type { CSSProperties, PropsWithChildren } from 'react'
-import './Alert.css'
+import type { CSSProperties, PropsWithChildren } from "react"
+import "./Alert.css"
 
 export interface AlertProps extends PropsWithChildren {
-    variant?: 'info' | 'plain' | 'success' | 'error' | 'warn'
+    variant?: "info" | "plain" | "success" | "error" | "warn"
     title: React.ReactNode
     body?: React.ReactNode
     actions?: React.ReactNode
@@ -11,7 +11,7 @@ export interface AlertProps extends PropsWithChildren {
 
 export default function Alert(props: AlertProps) {
     return (
-        <div className={`ui-alert ${props.variant ?? 'info'}`} style={props.style}>
+        <div className={`ui-alert ${props.variant ?? "info"}`} style={props.style}>
             <h4 className="legacy-typography">{props.title}</h4>
             <p className="alert-body">{props.body ?? props.children}</p>
             {props.actions && <div className="alert-actions">{props.actions}</div>}

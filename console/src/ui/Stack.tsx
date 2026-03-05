@@ -1,6 +1,6 @@
-import clsx from 'clsx'
-import type { CSSProperties, PropsWithChildren } from 'react'
-import './Stack.css'
+import clsx from "clsx"
+import type { CSSProperties, PropsWithChildren } from "react"
+import "./Stack.css"
 
 type StackProps = PropsWithChildren<{
     className?: string
@@ -10,7 +10,7 @@ type StackProps = PropsWithChildren<{
 
 export default function Stack({ children, className, style, vertical }: StackProps) {
     return (
-        <div className={clsx('ui-stack', vertical && 'ui-stack-vertical', className)} style={style}>
+        <div className={clsx("ui-stack", vertical && "ui-stack-vertical", className)} style={style}>
             {children}
         </div>
     )

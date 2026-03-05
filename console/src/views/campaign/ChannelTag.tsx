@@ -1,15 +1,15 @@
-import type { ChannelType } from '../../types'
-import { EmailIcon, PushIcon, TextIcon } from '../../components/icons'
-import type { TagProps } from '../../ui/Tag';
-import Tag from '../../ui/Tag'
-import { useTranslation } from 'react-i18next'
+import type { ChannelType } from "../../types"
+import { EmailIcon, PushIcon, TextIcon } from "../../components/icons"
+import type { TagProps } from "../../ui/Tag"
+import Tag from "../../ui/Tag"
+import { useTranslation } from "react-i18next"
 
 interface ChannelTagParams {
     channel: ChannelType
     showIcon?: boolean
 }
 
-export function ChannelIcon({ channel }: Pick<ChannelTagParams, 'channel'>) {
+export function ChannelIcon({ channel }: Pick<ChannelTagParams, "channel">) {
     const icons = {
         email: EmailIcon,
         text: TextIcon,
@@ -19,18 +19,27 @@ export function ChannelIcon({ channel }: Pick<ChannelTagParams, 'channel'>) {
     return <Icon />
 }
 
-export default function ChannelTag({ channel, showIcon = true, ...params }: ChannelTagParams & TagProps) {
+export default function ChannelTag({
+    channel,
+    showIcon = true,
+    ...params
+}: ChannelTagParams & TagProps) {
     const { t } = useTranslation()
 
     const title: Record<ChannelType, string> = {
-        email: t('email'),
-        text: t('text'),
-        push: t('push'),
+        email: t("email"),
+        text: t("text"),
+        push: t("push"),
     }
 
     return Tag({
         ...params,
-        children: <>{showIcon && <ChannelIcon channel={channel} />}{title[channel]}</>,
-        variant: 'plain',
+        children: (
+            <>
+                {showIcon && <ChannelIcon channel={channel} />}
+                {title[channel]}
+            </>
+        ),
+        variant: "plain",
     })
 }

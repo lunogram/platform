@@ -1,20 +1,20 @@
-import { useCallback, useContext, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { Search, User, Mail, Hash } from 'lucide-react'
-import type { User as UserType } from '../../types'
-import { ProjectContext } from '../../contexts'
-import api from '../../api'
-import { useResolver } from '../../hooks'
+import { useCallback, useContext, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { Search, User, Mail, Hash } from "lucide-react"
+import type { User as UserType } from "../../types"
+import { ProjectContext } from "../../contexts"
+import api from "../../api"
+import { useResolver } from "../../hooks"
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog"
 import {
     Table,
     TableBody,
@@ -22,8 +22,8 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '@/components/ui/table'
-import { Skeleton } from '@/components/ui/skeleton'
+} from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface UserLookupProps {
     open: boolean
@@ -34,8 +34,8 @@ interface UserLookupProps {
 export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
     const [project] = useContext(ProjectContext)
     const { t } = useTranslation()
-    const [searchQuery, setSearchQuery] = useState('')
-    const [debouncedQuery, setDebouncedQuery] = useState('')
+    const [searchQuery, setSearchQuery] = useState("")
+    const [debouncedQuery, setDebouncedQuery] = useState("")
     const [isSearching, setIsSearching] = useState(false)
     const [isSelecting, setIsSelecting] = useState(false)
 
@@ -44,12 +44,15 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
             if (!open) return []
             setIsSearching(true)
             try {
-                const result = await api.users.search(project.id, { search: debouncedQuery || undefined, limit: 20 })
+                const result = await api.users.search(project.id, {
+                    search: debouncedQuery || undefined,
+                    limit: 20,
+                })
                 return result.results
             } finally {
                 setIsSearching(false)
             }
-        }, [project.id, debouncedQuery, open])
+        }, [project.id, debouncedQuery, open]),
     )
 
     const handleSearch = (e: React.FormEvent) => {
@@ -62,8 +65,8 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
         try {
             await onSelected(user)
             onClose(false)
-            setSearchQuery('')
-            setDebouncedQuery('')
+            setSearchQuery("")
+            setDebouncedQuery("")
         } finally {
             setIsSelecting(false)
         }
@@ -71,8 +74,8 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
 
     const handleOpenChange = (isOpen: boolean) => {
         if (!isOpen) {
-            setSearchQuery('')
-            setDebouncedQuery('')
+            setSearchQuery("")
+            setDebouncedQuery("")
         }
         onClose(isOpen)
     }
@@ -80,7 +83,7 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
     const getUserDisplayName = (user: UserType) => {
         if (user.full_name) return user.full_name
         if (user.email) return user.email
-        return user.external_id ?? user.anonymous_id ?? 'Unknown'
+        return user.external_id ?? user.anonymous_id ?? "Unknown"
     }
 
     const getUserInitials = (user: UserType) => {
@@ -92,9 +95,12 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>{t('user_lookup')}</DialogTitle>
+                    <DialogTitle>{t("user_lookup")}</DialogTitle>
                     <DialogDescription>
-                        {t('user_lookup_description', 'Search for a user by email, name, or external ID')}
+                        {t(
+                            "user_lookup_description",
+                            "Search for a user by email, name, or external ID",
+                        )}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -103,7 +109,7 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            placeholder={t('enter_email')}
+                            placeholder={t("enter_email")}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-9"
@@ -111,7 +117,7 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                         />
                     </div>
                     <Button type="submit" variant="secondary">
-                        {t('search')}
+                        {t("search")}
                     </Button>
                 </form>
 
@@ -120,9 +126,9 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>{t('name')}</TableHead>
-                                <TableHead>{t('email')}</TableHead>
-                                <TableHead>{t('external_id')}</TableHead>
+                                <TableHead>{t("name")}</TableHead>
+                                <TableHead>{t("email")}</TableHead>
+                                <TableHead>{t("external_id")}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -136,8 +142,12 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                                                 <Skeleton className="h-4 w-28" />
                                             </div>
                                         </TableCell>
-                                        <TableCell><Skeleton className="h-4 w-36" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                        <TableCell>
+                                            <Skeleton className="h-4 w-36" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Skeleton className="h-4 w-20" />
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             ) : users.length === 0 ? (
@@ -145,7 +155,7 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                                     <TableCell colSpan={3} className="h-32 text-center">
                                         <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                             <User className="h-8 w-8" />
-                                            <p>{t('no_users_found')}</p>
+                                            <p>{t("no_users_found")}</p>
                                         </div>
                                     </TableCell>
                                 </TableRow>
@@ -173,17 +183,23 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
                                                     <span className="text-sm">{user.email}</span>
                                                 </div>
                                             ) : (
-                                                <span className="text-sm text-muted-foreground">—</span>
+                                                <span className="text-sm text-muted-foreground">
+                                                    —
+                                                </span>
                                             )}
                                         </TableCell>
                                         <TableCell>
                                             {user.external_id ? (
                                                 <div className="flex items-center gap-2 text-muted-foreground">
                                                     <Hash className="h-3 w-3" />
-                                                    <code className="text-sm">{user.external_id}</code>
+                                                    <code className="text-sm">
+                                                        {user.external_id}
+                                                    </code>
                                                 </div>
                                             ) : (
-                                                <span className="text-sm text-muted-foreground">—</span>
+                                                <span className="text-sm text-muted-foreground">
+                                                    —
+                                                </span>
                                             )}
                                         </TableCell>
                                     </TableRow>

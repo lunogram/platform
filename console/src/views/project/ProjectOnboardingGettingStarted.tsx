@@ -1,12 +1,19 @@
-import { Link, useNavigate, useParams } from 'react-router'
-import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import api from '../../api'
-import type { UUID } from '@/types/common'
-import { useState } from 'react'
-import { NIL } from 'uuid'
-import { Megaphone, Route, Loader2 } from 'lucide-react'
+import { Link, useNavigate, useParams } from "react-router"
+import { useTranslation } from "react-i18next"
+import { Button } from "@/components/ui/button"
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card"
+import api from "../../api"
+import type { UUID } from "@/types/common"
+import { useState } from "react"
+import { NIL } from "uuid"
+import { Megaphone, Route, Loader2 } from "lucide-react"
 
 export default function ProjectOnboardingGettingStarted() {
     const navigate = useNavigate()
@@ -24,10 +31,10 @@ export default function ProjectOnboardingGettingStarted() {
             }
 
             const journey = await api.journeys.create(projectId, {
-                name: 'Onboarding',
-                description: 'Getting started with your first journey',
-                template_id: 'onboarding',
-                status: 'draft',
+                name: "Onboarding",
+                description: "Getting started with your first journey",
+                template_id: "onboarding",
+                status: "draft",
             })
 
             await navigate(`/projects/${projectId}/journeys/${journey.id}`)
@@ -43,9 +50,12 @@ export default function ProjectOnboardingGettingStarted() {
     return (
         <Card className="w-full min-w-[400px] max-w-[600px]">
             <CardHeader>
-                <CardTitle className="text-lg">{t('getting-started')}</CardTitle>
+                <CardTitle className="text-lg">{t("getting-started")}</CardTitle>
                 <CardDescription>
-                    {t('onboarding_getting_started_description', 'Choose how you want to start reaching your users.')}
+                    {t(
+                        "onboarding_getting_started_description",
+                        "Choose how you want to start reaching your users.",
+                    )}
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -62,7 +72,7 @@ export default function ProjectOnboardingGettingStarted() {
                             <Route className="h-6 w-6 text-muted-foreground" />
                         )}
                         <span className="text-sm font-medium">
-                            {t('onboarding_project-getting-started_journey')}
+                            {t("onboarding_project-getting-started_journey")}
                         </span>
                     </button>
                     <button
@@ -72,16 +82,14 @@ export default function ProjectOnboardingGettingStarted() {
                     >
                         <Megaphone className="h-6 w-6 text-muted-foreground" />
                         <span className="text-sm font-medium">
-                            {t('onboarding_project-getting-started_campaign')}
+                            {t("onboarding_project-getting-started_campaign")}
                         </span>
                     </button>
                 </div>
             </CardContent>
             <CardFooter>
                 <Link to={`/projects/${projectId}/getting-started`}>
-                    <Button variant="outline">
-                        {t('skip')}
-                    </Button>
+                    <Button variant="outline">{t("skip")}</Button>
                 </Link>
             </CardFooter>
         </Card>

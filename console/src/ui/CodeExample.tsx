@@ -1,9 +1,9 @@
-import toast from 'react-hot-toast'
-import { Button } from '@/components/ui/button'
-import { CopyIcon } from '../components/icons'
-import './CodeExample.css'
-import type { ReactNode } from 'react'
-import Heading from './Heading'
+import toast from "react-hot-toast"
+import { Button } from "@/components/ui/button"
+import { CopyIcon } from "../components/icons"
+import "./CodeExample.css"
+import type { ReactNode } from "react"
+import Heading from "./Heading"
 
 interface CodeExampleProps {
     code: string
@@ -12,26 +12,21 @@ interface CodeExampleProps {
 }
 
 export default function CodeExample({ code, description, title }: CodeExampleProps) {
-
     const handleCopy = async (value: string) => {
         await navigator.clipboard.writeText(value)
-        toast.success('Copied code sample')
+        toast.success("Copied code sample")
     }
 
     return (
         <>
-            {
-                Boolean(title ?? description) && (
-                    <Heading title={title} size="h4">
-                        {description}
-                    </Heading>
-                )
-            }
+            {Boolean(title ?? description) && (
+                <Heading title={title} size="h4">
+                    {description}
+                </Heading>
+            )}
             <div className="code-example">
                 <pre>
-                    <code>
-                        {code}
-                    </code>
+                    <code>{code}</code>
                 </pre>
                 <div className="copy-button">
                     <Button

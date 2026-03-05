@@ -3,8 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { cn } from "@/utils"
 import { Input } from "@/components/ui/input"
 
-interface VariableAutocompleteInputProps
-    extends Omit<React.ComponentProps<"input">, "onChange"> {
+interface VariableAutocompleteInputProps extends Omit<React.ComponentProps<"input">, "onChange"> {
     variableNames: string[]
     value: string
     onChange: (value: string) => void
@@ -126,15 +125,11 @@ const VariableAutocompleteInput = React.forwardRef<
             switch (e.key) {
                 case "ArrowDown":
                     e.preventDefault()
-                    setSelectedIndex((prev) =>
-                        prev < filtered.length - 1 ? prev + 1 : 0,
-                    )
+                    setSelectedIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : 0))
                     break
                 case "ArrowUp":
                     e.preventDefault()
-                    setSelectedIndex((prev) =>
-                        prev > 0 ? prev - 1 : filtered.length - 1,
-                    )
+                    setSelectedIndex((prev) => (prev > 0 ? prev - 1 : filtered.length - 1))
                     break
                 case "Enter":
                     e.preventDefault()
@@ -180,7 +175,9 @@ const VariableAutocompleteInput = React.forwardRef<
                 aria-haspopup="listbox"
                 aria-autocomplete="list"
                 aria-controls={open ? "variable-listbox" : undefined}
-                aria-activedescendant={open && filtered.length > 0 ? `variable-option-${selectedIndex}` : undefined}
+                aria-activedescendant={
+                    open && filtered.length > 0 ? `variable-option-${selectedIndex}` : undefined
+                }
                 {...props}
             />
             {open && filtered.length > 0 && (
@@ -209,7 +206,11 @@ const VariableAutocompleteInput = React.forwardRef<
                             }}
                             onMouseEnter={() => setSelectedIndex(i)}
                         >
-                            <span className="font-mono">{"{{ "}{name}{" }}"}</span>
+                            <span className="font-mono">
+                                {"{{ "}
+                                {name}
+                                {" }}"}
+                            </span>
                         </button>
                     ))}
                 </div>

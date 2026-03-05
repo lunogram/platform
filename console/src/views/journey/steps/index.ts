@@ -1,12 +1,11 @@
-
-export { entranceStep as entrance } from './Entrance'
-export { exitStep as exit } from './Exit'
-export { actionStep as action } from './Action'
-export { delayStep as delay } from './Delay'
-export { gateStep as gate } from './Gate'
-export { experimentStep as experiment } from './Experiment'
-export { journeyLinkStep as link } from './JourneyLink'
-export { updateStep as update } from './Update'
-export { balancerStep as balancer } from './Balancer'
-export { eventStep as event } from './Event'
-export { stickyStep as sticky } from './Sticky'
+export { entranceStep as entrance } from "./Entrance"
+export { exitStep as exit } from "./Exit"
+export { actionStep as action } from "./Action"
+export { delayStep as delay } from "./Delay"
+export { gateStep as gate } from "./Gate"
+export { experimentStep as experiment } from "./Experiment"
+export { journeyLinkStep as link } from "./JourneyLink"
+export { updateStep as update } from "./Update"
+export { balancerStep as balancer } from "./Balancer"
+export { eventStep as event } from "./Event"
+export { stickyStep as sticky } from "./Sticky"

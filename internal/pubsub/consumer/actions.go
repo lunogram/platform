@@ -48,8 +48,9 @@ func ActionExecuteHandler(logger *zap.Logger, actionRegistry *actions.Registry, 
 		logger.Info("received action execution request")
 
 		var req schemas.ExecuteAction
-		if err := json.Unmarshal(msg.Data, &req); err != nil {
-			logger.Error("failed to unmarshal execute request", zap.Error(err))
+		action := json.Unmarshal(msg.Data, &req)
+		if action != nil {
+			logger.Error("failed to unmarshal execute request", zap.Error(action))
 			respondWithError(msg, logger, "failed to parse request")
 			return
 		}
@@ -63,26 +64,30 @@ func ActionExecuteHandler(logger *zap.Logger, actionRegistry *actions.Registry, 
 			return
 		}
 
-		execReq := &actiontypes.ExecuteRequest[map[string]any]{
-			Config:    req.Config,
-			Variables: req.Variables,
+		execReq := &actiontypes.ExecuteRequest[json.RawMessage]{}
+
+		execReq.Config, action = actions.MarshalAndRender(req.Config, req.Variables)
+		if action != nil {
+			log.Error("failed to render config", zap.Error(action))
+			respondWithError(msg, log, "failed to render config")
+			return
 		}
+
 		if req.Payload != nil {
-			payloadBytes, err := json.Marshal(req.Payload)
-			if err != nil {
-				log.Error("failed to marshal payload", zap.Error(err))
-				respondWithError(msg, log, "failed to marshal payload")
+			execReq.Payload, action = actions.MarshalAndRender(req.Payload, req.Variables)
+			if action != nil {
+				log.Error("failed to render payload", zap.Error(action))
+				respondWithError(msg, log, "failed to render payload")
 				return
 			}
-			execReq.Payload = payloadBytes
 		}
 
 		log.Info("calling WASM execute")
 
-		result, err := module.Execute(ctx, execReq)
-		if err != nil {
-			log.Error("action execution failed", zap.Error(err))
-			respondWithError(msg, log, "action execution failed: "+err.Error())
+		result, action := module.Execute(ctx, execReq)
+		if action != nil {
+			log.Error("action execution failed", zap.Error(action))
+			respondWithError(msg, log, "action execution failed: "+action.Error())
 			return
 		}
 
@@ -94,9 +99,9 @@ func ActionExecuteHandler(logger *zap.Logger, actionRegistry *actions.Registry, 
 			Metadata:   result.Metadata,
 		}
 
-		data, err := json.Marshal(resp)
-		if err != nil {
-			log.Error("failed to marshal response", zap.Error(err))
+		data, action := json.Marshal(resp)
+		if action != nil {
+			log.Error("failed to marshal response", zap.Error(action))
 			respondWithError(msg, log, "failed to marshal response")
 			return
 		}

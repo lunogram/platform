@@ -1,6 +1,6 @@
-import { useId } from 'react'
-import type { FieldPath, FieldValues } from 'react-hook-form'
-import type { FieldProps } from './Field'
+import { useId } from "react"
+import type { FieldPath, FieldValues } from "react-hook-form"
+import type { FieldProps } from "./Field"
 
 interface SwitchFieldProps<X extends FieldValues, P extends FieldPath<X>> extends FieldProps<X, P> {
     checked?: boolean
@@ -20,11 +20,12 @@ export default function SwitchField<X extends FieldValues, P extends FieldPath<X
     const id = useId()
     return (
         <label className="legacy">
-            {label && <span>
-                {label ?? name}
-                {required && <span style={{ color: 'red' }}>&nbsp;*</span>}
-            </span>
-            }
+            {label && (
+                <span>
+                    {label ?? name}
+                    {required && <span style={{ color: "red" }}>&nbsp;*</span>}
+                </span>
+            )}
             {subtitle && <span className="label-subtitle">{subtitle}</span>}
             <div className="switch">
                 <input

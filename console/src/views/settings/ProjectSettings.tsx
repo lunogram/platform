@@ -1,15 +1,15 @@
-import { useContext, useState } from 'react'
-import { ProjectContext } from '../../contexts'
-import { toast } from 'react-hot-toast/headless'
-import ProjectForm from '../project/ProjectForm'
-import { useTranslation } from 'react-i18next'
-import api from '../../api'
-import { AlertTriangle } from 'lucide-react'
+import { useContext, useState } from "react"
+import { ProjectContext } from "../../contexts"
+import { toast } from "react-hot-toast/headless"
+import ProjectForm from "../project/ProjectForm"
+import { useTranslation } from "react-i18next"
+import api from "../../api"
+import { AlertTriangle } from "lucide-react"
 
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import {
     Dialog,
     DialogContent,
@@ -17,32 +17,35 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog"
 
 export default function ProjectSettings() {
     const { t } = useTranslation()
     const [project, setProject] = useContext(ProjectContext)
     const [isDeleteOpen, setIsDeleteOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
-    const [confirmName, setConfirmName] = useState('')
+    const [confirmName, setConfirmName] = useState("")
 
     const deleteProject = async () => {
         setIsDeleting(true)
         try {
             await api.projects.delete(project.id)
-            window.location.href = '/'
+            window.location.href = "/"
         } catch {
-            toast.error(t('delete_project_error'))
+            toast.error(t("delete_project_error"))
             setIsDeleting(false)
         }
     }
 
     return (
         <>
-            <ProjectForm project={project} onSave={(project) => {
-                setProject(project)
-                toast.success(t('project_settings_saved'))
-            }} />
+            <ProjectForm
+                project={project}
+                onSave={(project) => {
+                    setProject(project)
+                    toast.success(t("project_settings_saved"))
+                }}
+            />
 
             <Separator className="my-8" />
 
@@ -54,38 +57,37 @@ export default function ProjectSettings() {
                             <AlertTriangle className="h-4 w-4 text-destructive" />
                         </div>
                         <div>
-                            <h3 className="font-semibold leading-none tracking-tight">{t('danger_zone')}</h3>
+                            <h3 className="font-semibold leading-none tracking-tight">
+                                {t("danger_zone")}
+                            </h3>
                             <p className="text-sm text-muted-foreground">
-                                {t('danger_zone_description')}
+                                {t("danger_zone_description")}
                             </p>
                         </div>
                     </div>
                 </CardContent>
                 <CardFooter className="border-t border-destructive/10 bg-destructive/[0.03] rounded-b-xl justify-between gap-4 !py-4">
                     <p className="text-sm text-muted-foreground">
-                        {t('delete_project_description')}
+                        {t("delete_project_description")}
                     </p>
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setIsDeleteOpen(true)}
-                    >
-                        {t('delete_project')}
+                    <Button variant="destructive" size="sm" onClick={() => setIsDeleteOpen(true)}>
+                        {t("delete_project")}
                     </Button>
                 </CardFooter>
             </Card>
 
             {/* Delete Confirmation Dialog */}
-            <Dialog open={isDeleteOpen} onOpenChange={(open) => {
-                setIsDeleteOpen(open)
-                if (!open) setConfirmName('')
-            }}>
+            <Dialog
+                open={isDeleteOpen}
+                onOpenChange={(open) => {
+                    setIsDeleteOpen(open)
+                    if (!open) setConfirmName("")
+                }}
+            >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{t('delete_project')}</DialogTitle>
-                        <DialogDescription>
-                            {t('delete_project_warning')}
-                        </DialogDescription>
+                        <DialogTitle>{t("delete_project")}</DialogTitle>
+                        <DialogDescription>{t("delete_project_warning")}</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
@@ -101,7 +103,7 @@ export default function ProjectSettings() {
                         </div>
                         <div className="space-y-2">
                             <p className="text-sm text-muted-foreground">
-                                {t('delete_project_confirm_prompt', { name: project.name })}
+                                {t("delete_project_confirm_prompt", { name: project.name })}
                             </p>
                             <Input
                                 value={confirmName}
@@ -116,14 +118,14 @@ export default function ProjectSettings() {
                             onClick={() => setIsDeleteOpen(false)}
                             disabled={isDeleting}
                         >
-                            {t('cancel')}
+                            {t("cancel")}
                         </Button>
                         <Button
                             variant="destructive"
                             onClick={deleteProject}
                             disabled={isDeleting || confirmName !== project.name}
                         >
-                            {isDeleting ? t('deleting') : t('delete_project')}
+                            {isDeleting ? t("deleting") : t("delete_project")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
