@@ -208,7 +208,7 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Create default subscriptions for each channel
-	for _, channel := range []string{"email", "sms", "push", "webhook"} {
+	for _, channel := range []string{"email", "sms", "push"} {
 		_, err = subscriptions.CreateSubscription(ctx, management.Subscription{
 			ProjectID: projectID,
 			Name:      "Default " + channel,

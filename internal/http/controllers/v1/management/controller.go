@@ -35,6 +35,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		ProvidersController:            NewProvidersController(logger, managementDB, registry),
 		SubscriptionsController:        NewSubscriptionsController(logger, managementDB),
 		ApiKeysController:              NewApiKeysController(logger, managementDB),
+		ActionsController:              NewActionsController(logger, managementDB),
 	}
 
 	controller.AuthController, err = NewAuthController(logger, managementDB, cfg)
@@ -63,4 +64,5 @@ type Controller struct {
 	*SubscriptionsController
 	*AuthController
 	*ApiKeysController
+	*ActionsController
 }

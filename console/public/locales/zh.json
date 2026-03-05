@@ -404,6 +404,9 @@
   "visual": "可视化",
   "wait": "等待",
   "wait_until": "等待直到",
+  "actions": {
+    "plural": "操作"
+  },
   "webhook": "Webhook",
   "welcome": "欢迎！"
 }

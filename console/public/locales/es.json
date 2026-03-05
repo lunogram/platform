@@ -424,6 +424,9 @@
   "visual": "Visual",
   "wait": "Espere",
   "wait_until": "Esperar hasta",
+  "actions": {
+    "plural": "Acciones"
+  },
   "webhook": "Webhook",
   "welcome": "¡Bienvenido!"
 }

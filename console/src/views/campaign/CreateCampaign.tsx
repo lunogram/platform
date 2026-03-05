@@ -4,7 +4,7 @@ import { ProjectContext } from "@/contexts"
 import { useContext, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Mail, MessageSquareDot, PlusIcon, Smartphone, Webhook } from "lucide-react"
+import { ArrowRight, Mail, MessageSquareDot, PlusIcon, Smartphone } from "lucide-react"
 import type { ChannelType } from "@/types"
 
 import {
@@ -74,13 +74,6 @@ export function CreateCampaign({ open = false }: CreateCampaignProps) {
             icon: <MessageSquareDot strokeWidth={2} />,
             title: t('channels.push.title'),
             description: t('channels.push.description'),
-        },
-        {
-            key: 'webhook',
-            color: 'bg-yellow-50 text-yellow-600',
-            icon: <Webhook strokeWidth={2} />,
-            title: t('channels.webhook.title'),
-            description: t('channels.webhook.description'),
         },
     ]
 

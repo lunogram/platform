@@ -24,6 +24,11 @@ const (
 	HttpBearerAuthScopes = "HttpBearerAuth.Scopes"
 )
 
+// Defines values for ActionType.
+const (
+	Webhook ActionType = "webhook"
+)
+
 // Defines values for ApiKeyScope.
 const (
 	Public ApiKeyScope = "public"
@@ -42,10 +47,9 @@ const (
 
 // Defines values for Channel.
 const (
-	Email   Channel = "email"
-	Push    Channel = "push"
-	Text    Channel = "text"
-	Webhook Channel = "webhook"
+	Email Channel = "email"
+	Push  Channel = "push"
+	Text  Channel = "text"
 )
 
 // Defines values for CreateListType.
@@ -71,17 +75,17 @@ const (
 
 // Defines values for JourneyStepType.
 const (
-	Action     JourneyStepType = "action"
-	Balancer   JourneyStepType = "balancer"
-	Delay      JourneyStepType = "delay"
-	Entrance   JourneyStepType = "entrance"
-	Event      JourneyStepType = "event"
-	Exit       JourneyStepType = "exit"
-	Experiment JourneyStepType = "experiment"
-	Gate       JourneyStepType = "gate"
-	Link       JourneyStepType = "link"
-	Sticky     JourneyStepType = "sticky"
-	Update     JourneyStepType = "update"
+	JourneyStepTypeAction     JourneyStepType = "action"
+	JourneyStepTypeBalancer   JourneyStepType = "balancer"
+	JourneyStepTypeDelay      JourneyStepType = "delay"
+	JourneyStepTypeEntrance   JourneyStepType = "entrance"
+	JourneyStepTypeEvent      JourneyStepType = "event"
+	JourneyStepTypeExit       JourneyStepType = "exit"
+	JourneyStepTypeExperiment JourneyStepType = "experiment"
+	JourneyStepTypeGate       JourneyStepType = "gate"
+	JourneyStepTypeLink       JourneyStepType = "link"
+	JourneyStepTypeSticky     JourneyStepType = "sticky"
+	JourneyStepTypeUpdate     JourneyStepType = "update"
 )
 
 // Defines values for ListState.
@@ -134,15 +138,6 @@ const (
 	Second UpdateProviderRateInterval = "second"
 )
 
-// Defines values for WebhookTemplateDataMethod.
-const (
-	DELETE WebhookTemplateDataMethod = "DELETE"
-	GET    WebhookTemplateDataMethod = "GET"
-	PATCH  WebhookTemplateDataMethod = "PATCH"
-	POST   WebhookTemplateDataMethod = "POST"
-	PUT    WebhookTemplateDataMethod = "PUT"
-)
-
 // Defines values for AuthCallbackParamsDriver.
 const (
 	AuthCallbackParamsDriverBasic AuthCallbackParamsDriver = "basic"
@@ -153,6 +148,23 @@ const (
 const (
 	AuthWebhookParamsDriverClerk AuthWebhookParamsDriver = "clerk"
 )
+
+// Action defines model for Action.
+type Action struct {
+	// Config Action configuration (varies by type)
+	Config    json.RawMessage    `json:"config"`
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+
+	// Type Type of action
+	Type      ActionType `json:"type"`
+	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+// ActionType Type of action
+type ActionType string
 
 // AddOrganizationMember defines model for AddOrganizationMember.
 type AddOrganizationMember struct {
@@ -257,6 +269,16 @@ type CampaignUserStatus string
 
 // Channel Communication channel type
 type Channel string
+
+// CreateAction defines model for CreateAction.
+type CreateAction struct {
+	// Config Action configuration (varies by type)
+	Config *json.RawMessage `json:"config,omitempty"`
+	Name   string           `json:"name"`
+
+	// Type Type of action
+	Type ActionType `json:"type"`
+}
 
 // CreateAdmin defines model for CreateAdmin.
 type CreateAdmin struct {
@@ -846,6 +868,16 @@ type Tenant struct {
 	UpdatedAt                 time.Time           `json:"updated_at"`
 }
 
+// UpdateAction defines model for UpdateAction.
+type UpdateAction struct {
+	// Config Action configuration (varies by type)
+	Config *json.RawMessage `json:"config,omitempty"`
+	Name   *string          `json:"name,omitempty"`
+
+	// Type Type of action
+	Type *ActionType `json:"type,omitempty"`
+}
+
 // UpdateAdmin defines model for UpdateAdmin.
 type UpdateAdmin struct {
 	Email     *string `json:"email,omitempty"`
@@ -1073,30 +1105,6 @@ type UserSubscriptionList struct {
 	Total int `json:"total"`
 }
 
-// WebhookProviderData defines model for WebhookProviderData.
-type WebhookProviderData = map[string]interface{}
-
-// WebhookTemplateData defines model for WebhookTemplateData.
-type WebhookTemplateData struct {
-	// Body JSON body to send with the webhook request
-	Body *map[string]interface{} `json:"body,omitempty"`
-
-	// CacheKey Optional cache key for the webhook response
-	CacheKey *string `json:"cache_key,omitempty"`
-
-	// Endpoint URL endpoint for the webhook
-	Endpoint *string `json:"endpoint,omitempty"`
-
-	// Headers HTTP headers to include in the webhook request
-	Headers *map[string]string `json:"headers,omitempty"`
-
-	// Method HTTP method for the webhook request
-	Method *WebhookTemplateDataMethod `json:"method,omitempty"`
-}
-
-// WebhookTemplateDataMethod HTTP method for the webhook request
-type WebhookTemplateDataMethod string
-
 // Limit defines model for Limit.
 type Limit = PaginationLimit
 
@@ -1105,6 +1113,19 @@ type Offset = PaginationOffset
 
 // Search defines model for Search.
 type Search = PaginationSearch
+
+// ActionListResponse defines model for ActionListResponse.
+type ActionListResponse struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int      `json:"offset"`
+	Results []Action `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
 
 // ApiKeyListResponse defines model for ApiKeyListResponse.
 type ApiKeyListResponse struct {
@@ -1220,6 +1241,18 @@ type TagListResponse struct {
 
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// ListActionsParams defines parameters for ListActions.
+type ListActionsParams struct {
 	// Limit Maximum number of items to return
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -1481,6 +1514,12 @@ type CreateProjectJSONRequestBody = CreateProject
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProject
+
+// CreateActionJSONRequestBody defines body for CreateAction for application/json ContentType.
+type CreateActionJSONRequestBody = CreateAction
+
+// UpdateActionJSONRequestBody defines body for UpdateAction for application/json ContentType.
+type UpdateActionJSONRequestBody = UpdateAction
 
 // UpdateProjectAdminJSONRequestBody defines body for UpdateProjectAdmin for application/json ContentType.
 type UpdateProjectAdminJSONRequestBody = UpdateProjectAdmin
@@ -1852,6 +1891,25 @@ type ClientInterface interface {
 	UpdateProjectWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateProject(ctx context.Context, projectID openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListActions request
+	ListActions(ctx context.Context, projectID openapi_types.UUID, params *ListActionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateActionWithBody request with any body
+	CreateActionWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateAction(ctx context.Context, projectID openapi_types.UUID, body CreateActionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteAction request
+	DeleteAction(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAction request
+	GetAction(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateActionWithBody request with any body
+	UpdateActionWithBody(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateAction(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, body UpdateActionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjectAdmins request
 	ListProjectAdmins(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2301,6 +2359,90 @@ func (c *Client) UpdateProjectWithBody(ctx context.Context, projectID openapi_ty
 
 func (c *Client) UpdateProject(ctx context.Context, projectID openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateProjectRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListActions(ctx context.Context, projectID openapi_types.UUID, params *ListActionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListActionsRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateActionWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateActionRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateAction(ctx context.Context, projectID openapi_types.UUID, body CreateActionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateActionRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteAction(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteActionRequest(c.Server, projectID, actionID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAction(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetActionRequest(c.Server, projectID, actionID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateActionWithBody(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateActionRequestWithBody(c.Server, projectID, actionID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateAction(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, body UpdateActionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateActionRequest(c.Server, projectID, actionID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4115,6 +4257,277 @@ func NewUpdateProjectRequestWithBody(server string, projectID openapi_types.UUID
 	}
 
 	operationPath := fmt.Sprintf("/api/admin/projects/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListActionsRequest generates requests for ListActions
+func NewListActionsRequest(server string, projectID openapi_types.UUID, params *ListActionsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/actions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateActionRequest calls the generic CreateAction builder with application/json body
+func NewCreateActionRequest(server string, projectID openapi_types.UUID, body CreateActionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateActionRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateActionRequestWithBody generates requests for CreateAction with any type of body
+func NewCreateActionRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/actions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteActionRequest generates requests for DeleteAction
+func NewDeleteActionRequest(server string, projectID openapi_types.UUID, actionID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "actionID", runtime.ParamLocationPath, actionID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/actions/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetActionRequest generates requests for GetAction
+func NewGetActionRequest(server string, projectID openapi_types.UUID, actionID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "actionID", runtime.ParamLocationPath, actionID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/actions/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateActionRequest calls the generic UpdateAction builder with application/json body
+func NewUpdateActionRequest(server string, projectID openapi_types.UUID, actionID openapi_types.UUID, body UpdateActionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateActionRequestWithBody(server, projectID, actionID, "application/json", bodyReader)
+}
+
+// NewUpdateActionRequestWithBody generates requests for UpdateAction with any type of body
+func NewUpdateActionRequestWithBody(server string, projectID openapi_types.UUID, actionID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "actionID", runtime.ParamLocationPath, actionID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/actions/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9403,6 +9816,25 @@ type ClientWithResponsesInterface interface {
 
 	UpdateProjectWithResponse(ctx context.Context, projectID openapi_types.UUID, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResponse, error)
 
+	// ListActionsWithResponse request
+	ListActionsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListActionsParams, reqEditors ...RequestEditorFn) (*ListActionsResponse, error)
+
+	// CreateActionWithBodyWithResponse request with any body
+	CreateActionWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateActionResponse, error)
+
+	CreateActionWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateActionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateActionResponse, error)
+
+	// DeleteActionWithResponse request
+	DeleteActionWithResponse(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteActionResponse, error)
+
+	// GetActionWithResponse request
+	GetActionWithResponse(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetActionResponse, error)
+
+	// UpdateActionWithBodyWithResponse request with any body
+	UpdateActionWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateActionResponse, error)
+
+	UpdateActionWithResponse(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, body UpdateActionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateActionResponse, error)
+
 	// ListProjectAdminsWithResponse request
 	ListProjectAdminsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*ListProjectAdminsResponse, error)
 
@@ -9896,6 +10328,120 @@ func (r UpdateProjectResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateProjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListActionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ActionListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListActionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListActionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateActionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Action
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateActionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateActionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteActionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteActionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteActionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetActionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Action
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetActionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetActionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateActionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Action
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateActionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateActionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -12307,6 +12853,67 @@ func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, pro
 	return ParseUpdateProjectResponse(rsp)
 }
 
+// ListActionsWithResponse request returning *ListActionsResponse
+func (c *ClientWithResponses) ListActionsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListActionsParams, reqEditors ...RequestEditorFn) (*ListActionsResponse, error) {
+	rsp, err := c.ListActions(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListActionsResponse(rsp)
+}
+
+// CreateActionWithBodyWithResponse request with arbitrary body returning *CreateActionResponse
+func (c *ClientWithResponses) CreateActionWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateActionResponse, error) {
+	rsp, err := c.CreateActionWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateActionResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateActionWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateActionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateActionResponse, error) {
+	rsp, err := c.CreateAction(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateActionResponse(rsp)
+}
+
+// DeleteActionWithResponse request returning *DeleteActionResponse
+func (c *ClientWithResponses) DeleteActionWithResponse(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteActionResponse, error) {
+	rsp, err := c.DeleteAction(ctx, projectID, actionID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteActionResponse(rsp)
+}
+
+// GetActionWithResponse request returning *GetActionResponse
+func (c *ClientWithResponses) GetActionWithResponse(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetActionResponse, error) {
+	rsp, err := c.GetAction(ctx, projectID, actionID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetActionResponse(rsp)
+}
+
+// UpdateActionWithBodyWithResponse request with arbitrary body returning *UpdateActionResponse
+func (c *ClientWithResponses) UpdateActionWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateActionResponse, error) {
+	rsp, err := c.UpdateActionWithBody(ctx, projectID, actionID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateActionResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateActionWithResponse(ctx context.Context, projectID openapi_types.UUID, actionID openapi_types.UUID, body UpdateActionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateActionResponse, error) {
+	rsp, err := c.UpdateAction(ctx, projectID, actionID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateActionResponse(rsp)
+}
+
 // ListProjectAdminsWithResponse request returning *ListProjectAdminsResponse
 func (c *ClientWithResponses) ListProjectAdminsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListProjectAdminsParams, reqEditors ...RequestEditorFn) (*ListProjectAdminsResponse, error) {
 	rsp, err := c.ListProjectAdmins(ctx, projectID, params, reqEditors...)
@@ -13622,6 +14229,164 @@ func ParseUpdateProjectResponse(rsp *http.Response) (*UpdateProjectResponse, err
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Project
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListActionsResponse parses an HTTP response from a ListActionsWithResponse call
+func ParseListActionsResponse(rsp *http.Response) (*ListActionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListActionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ActionListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateActionResponse parses an HTTP response from a CreateActionWithResponse call
+func ParseCreateActionResponse(rsp *http.Response) (*CreateActionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateActionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Action
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteActionResponse parses an HTTP response from a DeleteActionWithResponse call
+func ParseDeleteActionResponse(rsp *http.Response) (*DeleteActionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteActionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetActionResponse parses an HTTP response from a GetActionWithResponse call
+func ParseGetActionResponse(rsp *http.Response) (*GetActionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetActionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Action
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateActionResponse parses an HTTP response from a UpdateActionWithResponse call
+func ParseUpdateActionResponse(rsp *http.Response) (*UpdateActionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateActionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Action
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -16878,6 +17643,21 @@ type ServerInterface interface {
 	// Update project
 	// (PATCH /api/admin/projects/{projectID})
 	UpdateProject(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// List actions
+	// (GET /api/admin/projects/{projectID}/actions)
+	ListActions(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListActionsParams)
+	// Create action
+	// (POST /api/admin/projects/{projectID}/actions)
+	CreateAction(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete action
+	// (DELETE /api/admin/projects/{projectID}/actions/{actionID})
+	DeleteAction(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, actionID openapi_types.UUID)
+	// Get action by ID
+	// (GET /api/admin/projects/{projectID}/actions/{actionID})
+	GetAction(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, actionID openapi_types.UUID)
+	// Update action
+	// (PATCH /api/admin/projects/{projectID}/actions/{actionID})
+	UpdateAction(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, actionID openapi_types.UUID)
 	// List project admins
 	// (GET /api/admin/projects/{projectID}/admins)
 	ListProjectAdmins(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListProjectAdminsParams)
@@ -17220,6 +18000,36 @@ func (_ Unimplemented) GetProject(w http.ResponseWriter, r *http.Request, projec
 // Update project
 // (PATCH /api/admin/projects/{projectID})
 func (_ Unimplemented) UpdateProject(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List actions
+// (GET /api/admin/projects/{projectID}/actions)
+func (_ Unimplemented) ListActions(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListActionsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create action
+// (POST /api/admin/projects/{projectID}/actions)
+func (_ Unimplemented) CreateAction(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete action
+// (DELETE /api/admin/projects/{projectID}/actions/{actionID})
+func (_ Unimplemented) DeleteAction(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, actionID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get action by ID
+// (GET /api/admin/projects/{projectID}/actions/{actionID})
+func (_ Unimplemented) GetAction(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, actionID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update action
+// (PATCH /api/admin/projects/{projectID}/actions/{actionID})
+func (_ Unimplemented) UpdateAction(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, actionID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18011,6 +18821,215 @@ func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateProject(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListActions operation middleware
+func (siw *ServerInterfaceWrapper) ListActions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListActionsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListActions(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAction operation middleware
+func (siw *ServerInterfaceWrapper) CreateAction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAction(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAction operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "actionID" -------------
+	var actionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "actionID", chi.URLParam(r, "actionID"), &actionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "actionID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAction(w, r, projectID, actionID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAction operation middleware
+func (siw *ServerInterfaceWrapper) GetAction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "actionID" -------------
+	var actionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "actionID", chi.URLParam(r, "actionID"), &actionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "actionID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAction(w, r, projectID, actionID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAction operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "actionID" -------------
+	var actionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "actionID", chi.URLParam(r, "actionID"), &actionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "actionID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAction(w, r, projectID, actionID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -22267,6 +23286,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}", wrapper.UpdateProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/actions", wrapper.ListActions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/actions", wrapper.CreateAction)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/actions/{actionID}", wrapper.DeleteAction)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/actions/{actionID}", wrapper.GetAction)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/actions/{actionID}", wrapper.UpdateAction)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/admins", wrapper.ListProjectAdmins)

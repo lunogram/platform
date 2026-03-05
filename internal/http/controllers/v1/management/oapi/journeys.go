@@ -8,21 +8,6 @@ import (
 // I have been fighting with oneoffs for too long, so here is all step data in one file
 // might want to take a better approach later
 
-// JourneyStepType constants
-const (
-	JourneyStepTypeEntrance   = "entrance"
-	JourneyStepTypeExit       = "exit"
-	JourneyStepTypeDelay      = "delay"
-	JourneyStepTypeAction     = "action"
-	JourneyStepTypeGate       = "gate"
-	JourneyStepTypeExperiment = "experiment"
-	JourneyStepTypeLink       = "link"
-	JourneyStepTypeSticky     = "sticky"
-	JourneyStepTypeBalancer   = "balancer"
-	JourneyStepTypeUpdate     = "update"
-	JourneyStepTypeEvent      = "event"
-)
-
 // Step data format constants
 const (
 	Duration DelayStepDataFormat = "duration"

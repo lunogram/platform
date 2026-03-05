@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { createContext } from 'react'
-import type { Admin, Campaign, Journey, List, LocaleOption, Project, Template, User, UseStateContext } from './types'
+import type { Admin, Campaign, Journey, List, LocaleOption, Project, Template, User, Action, UseStateContext } from './types'
 import type { Organization } from './oapi/client'
 
 export const AdminContext = createContext<null | Admin>(null)
@@ -71,5 +71,10 @@ export const TemplateContext = createContext<UseStateContext<Template>>([
 
 export const OrganizationContext = createContext<UseStateContext<Organization>>([
     {} as unknown as Organization,
+    () => { },
+])
+
+export const ActionContext = createContext<UseStateContext<Action>>([
+    {} as unknown as Action,
     () => { },
 ])

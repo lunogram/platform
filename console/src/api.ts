@@ -1,6 +1,9 @@
 import Axios from "axios";
 import { env } from "./config/env";
 import type {
+  Action,
+  ActionCreateParams,
+  ActionUpdateParams,
   Admin,
   AuthDriver,
   Campaign,
@@ -339,6 +342,12 @@ const api = {
     ProjectApiKeyParams,
     Omit<ProjectApiKeyParams, "scope">
   >("keys"),
+
+  actions: createProjectEntityPath<
+    Action,
+    ActionCreateParams,
+    ActionUpdateParams
+  >("actions"),
 
   campaigns: {
     ...createProjectEntityPath<

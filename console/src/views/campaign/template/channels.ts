@@ -4,8 +4,6 @@ import type { Campaign, ChannelType, Template } from "@/types";
 import { EmailContentPreview, EmailForm, EmailFormControl, EmailPreview } from "./mail/Setup";
 import { TextForm, TextFormControl, TextPreview } from "./text/Setup";
 import { PushForm, PushFormControl, PushPreview } from "./push/Setup";
-import { WebhookForm, WebhookFormControl, WebhookPreview } from "./webhook/Setup";
-
 export interface ChannelConfig<T extends FieldValues> {
     form: (campaign: Campaign, template?: Template) => UseFormReturn<T>;
     FormControl: ComponentType<{ campaign: Campaign; form: UseFormReturn<T>; disabled?: boolean }>;
@@ -32,11 +30,5 @@ export const channels: Partial<Record<ChannelType, ChannelConfig<any>>> = {
         FormControl: PushFormControl,
         Preview: PushPreview,
         ContentPreview: PushPreview,
-    },
-    webhook: {
-        form: WebhookForm,
-        FormControl: WebhookFormControl,
-        Preview: WebhookPreview,
-        ContentPreview: WebhookPreview,
     },
 };

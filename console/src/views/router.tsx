@@ -5,7 +5,7 @@ import oapiClient from '../oapi/client'
 
 import ErrorPage from './ErrorPage'
 import { LoaderContextProvider, StatefulLoaderContextProvider } from './LoaderContextProvider'
-import { AdminContext, CampaignContext, TemplateContext, JourneyContext, ListContext, ProjectContext, UserContext, OrganizationContext } from '../contexts'
+import { AdminContext, CampaignContext, TemplateContext, JourneyContext, ListContext, ProjectContext, UserContext, OrganizationContext, ActionContext } from '../contexts'
 import ApiKeys from './settings/ApiKeys'
 import Lists from './users/Lists'
 import ListDetail from './users/ListDetail'
@@ -26,6 +26,8 @@ import TemplateReview from './campaign/template/Review'
 import EmailEditor from './campaign/template/mail/editor/Editor'
 import Journeys from './journey/Journeys'
 import JourneyEditor from './journey/JourneyEditor'
+import Actions from './action/Actions'
+import ActionDetail from './action/ActionDetail'
 import ProjectSettings from './settings/ProjectSettings'
 import Integrations from './settings/Integrations'
 import Login from './auth/Login'
@@ -33,6 +35,7 @@ import LoginCallback from './auth/LoginCallback'
 import Onboarding from './auth/Onboarding'
 import OnboardingProject from './auth/OnboardingProject'
 import { BuildingIcon, CampaignsIcon, CheckCircleIcon, JourneysIcon, ListsIcon, SettingsIcon, UsersIcon } from '@/components/icons'
+import { Zap } from 'lucide-react'
 import { Projects } from './project/Projects'
 import { completedGettingStarted } from '../utils'
 import Settings from './settings/Settings'
@@ -195,6 +198,13 @@ export const createRouter = ({
                                         minRole: 'editor',
                                     },
                                     {
+                                        key: 'actions',
+                                        to: 'actions',
+                                        children: <Translation>{t => t('actions.plural')}</Translation>,
+                                        icon: <Zap className="h-4 w-4" />,
+                                        minRole: 'editor',
+                                    },
+                                    {
                                         key: 'organizations',
                                         to: 'organizations',
                                         children: <Translation>{t => t('organizations')}</Translation>,
@@ -338,6 +348,22 @@ export const createRouter = ({
                                         element: <JourneyUserEntrances />,
                                     },
                                 ],
+                            }),
+                            createStatefulRoute({
+                                path: 'actions',
+                                apiPath: api.actions,
+                                element: <Actions />,
+                            }),
+                            {
+                                path: 'actions/new',
+                                element: <ActionDetail />,
+                            },
+                            createStatefulRoute({
+                                path: 'actions/:entityId',
+                                apiPath: api.actions,
+                                paramName: 'entityId',
+                                context: ActionContext,
+                                element: <ActionDetail />,
                             }),
                             createStatefulRoute({
                                 path: 'users',

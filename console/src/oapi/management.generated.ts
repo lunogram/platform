@@ -1316,6 +1316,58 @@ export interface paths {
         patch: operations["updateApiKey"];
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List actions
+         * @description Retrieves a paginated list of actions for a project
+         */
+        get: operations["listActions"];
+        put?: never;
+        /**
+         * Create action
+         * @description Creates a new action for a project
+         */
+        post: operations["createAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/actions/{actionID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get action by ID
+         * @description Retrieves a specific action
+         */
+        get: operations["getAction"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete action
+         * @description Deletes an action
+         */
+        delete: operations["deleteAction"];
+        options?: never;
+        head?: never;
+        /**
+         * Update action
+         * @description Updates an action's name, type, or config
+         */
+        patch: operations["updateAction"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/providers": {
         parameters: {
             query?: never;
@@ -1449,7 +1501,60 @@ export interface components {
          * @example email
          * @enum {string}
          */
-        Channel: "email" | "text" | "push" | "webhook";
+        Channel: "email" | "text" | "push";
+        /**
+         * @description Type of action
+         * @example webhook
+         * @enum {string}
+         */
+        ActionType: "webhook";
+        Action: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
+             */
+            project_id: string;
+            /** @example My Webhook Action */
+            name: string;
+            type: components["schemas"]["ActionType"];
+            /** @description Action configuration (varies by type) */
+            config: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: date-time
+             * @example 2025-11-19T14:18:42.960Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.021Z
+             */
+            updated_at: string;
+        };
+        CreateAction: {
+            /** @example My Webhook Action */
+            name: string;
+            type: components["schemas"]["ActionType"];
+            /** @description Action configuration (varies by type) */
+            config?: {
+                [key: string]: unknown;
+            };
+        };
+        UpdateAction: {
+            /** @example Updated Action Name */
+            name?: string;
+            type?: components["schemas"]["ActionType"];
+            /** @description Action configuration (varies by type) */
+            config?: {
+                [key: string]: unknown;
+            };
+        };
         /**
          * @description Journey step type
          * @example entrance
@@ -1963,7 +2068,7 @@ export interface components {
              */
             project_id: string;
             channel: components["schemas"]["Channel"];
-            data?: components["schemas"]["EmailProviderData"] | components["schemas"]["SmsProviderData"] | components["schemas"]["PushProviderData"] | components["schemas"]["WebhookProviderData"];
+            data?: components["schemas"]["EmailProviderData"] | components["schemas"]["SmsProviderData"] | components["schemas"]["PushProviderData"];
             /** @example true */
             is_default: boolean;
             /** @example 0 */
@@ -2053,7 +2158,7 @@ export interface components {
              */
             campaign_id: string;
             type: components["schemas"]["Channel"];
-            data: components["schemas"]["EmailTemplateData"] | components["schemas"]["SmsTemplateData"] | components["schemas"]["PushTemplateData"] | components["schemas"]["WebhookTemplateData"];
+            data: components["schemas"]["EmailTemplateData"] | components["schemas"]["SmsTemplateData"] | components["schemas"]["PushTemplateData"];
             /** @example en-US */
             locale: string;
         };
@@ -2103,30 +2208,6 @@ export interface components {
         };
         SmsProviderData: Record<string, never>;
         PushProviderData: Record<string, never>;
-        WebhookTemplateData: {
-            /**
-             * @description HTTP method for the webhook request
-             * @example POST
-             * @enum {string}
-             */
-            method?: "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
-            /**
-             * @description URL endpoint for the webhook
-             * @example https://api.example.com/webhook
-             */
-            endpoint?: string;
-            /** @description JSON body to send with the webhook request */
-            body?: {
-                [key: string]: unknown;
-            };
-            /** @description HTTP headers to include in the webhook request */
-            headers?: {
-                [key: string]: string;
-            };
-            /** @description Optional cache key for the webhook response */
-            cache_key?: string;
-        };
-        WebhookProviderData: Record<string, never>;
         Admin: {
             /**
              * Format: uuid
@@ -3191,6 +3272,17 @@ export interface components {
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
                     results: components["schemas"]["ApiKey"][];
+                };
+            };
+        };
+        /** @description Actions retrieved successfully */
+        ActionListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PaginatedResponse"] & {
+                    results: components["schemas"]["Action"][];
                 };
             };
         };
@@ -5878,6 +5970,137 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listActions: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ActionListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAction"];
+            };
+        };
+        responses: {
+            /** @description Action created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The action ID */
+                actionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The action ID */
+                actionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The action ID */
+                actionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAction"];
+            };
+        };
+        responses: {
+            /** @description Action updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Action"];
                 };
             };
             default: components["responses"]["Error"];

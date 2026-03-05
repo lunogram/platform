@@ -40,8 +40,8 @@ CREATE TABLE users (
     devices JSONB,
     timezone VARCHAR(50),
     locale VARCHAR(255),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     unsubscribe_ids UUID[] NOT NULL DEFAULT '{}'::uuid[],
     version INTEGER NOT NULL DEFAULT 0
 );
@@ -71,8 +71,8 @@ CREATE TABLE devices (
     model VARCHAR(255),
     app_version VARCHAR(255),
     app_build VARCHAR(255),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX devices_project_device_uniq ON devices(project_id, device_id);
@@ -86,8 +86,8 @@ CREATE TABLE events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
 
@@ -102,8 +102,8 @@ CREATE TABLE user_event_schemas (
     path VARCHAR(255) NOT NULL,
     data_type data_type NOT NULL,
     visibility project_rule_paths_visibility NOT NULL DEFAULT 'hidden',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_user_event_schemas_event_id ON user_event_schemas(event_id);
@@ -118,8 +118,8 @@ CREATE TABLE user_schemas (
     path VARCHAR(255) NOT NULL,
     data_type data_type NOT NULL,
     visibility project_rule_paths_visibility NOT NULL DEFAULT 'hidden',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX idx_user_schemas_project_path ON user_schemas(project_id, path, data_type);
@@ -132,7 +132,7 @@ CREATE TABLE user_events (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     data JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_user_events_user_id ON user_events(user_id);
@@ -149,8 +149,8 @@ CREATE TABLE rules (
     depends_on_events BOOLEAN NOT NULL DEFAULT FALSE,
     depends_on_users BOOLEAN NOT NULL DEFAULT FALSE,
     version INTEGER NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_rules_project_id ON rules(project_id);
@@ -175,8 +175,8 @@ CREATE TABLE lists (
     name VARCHAR(255) DEFAULT '',
     type VARCHAR(25),
     version INTEGER NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
     rule_id UUID REFERENCES rules(id) ON DELETE RESTRICT
 );
@@ -192,7 +192,7 @@ CREATE TABLE list_users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     list_id UUID NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_list_users_list_id ON list_users(list_id);
@@ -209,8 +209,8 @@ CREATE TABLE campaign_sends (
     sent_at TIMESTAMPTZ,
     opened_at TIMESTAMPTZ,
     clicks INTEGER DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     reference_type VARCHAR(255),
     reference_id VARCHAR(255) NOT NULL DEFAULT '0',
     PRIMARY KEY (campaign_id, user_id, reference_id)

@@ -5,17 +5,14 @@ import './Preview.css'
 import type { ReactNode } from 'react';
 import { useContext } from 'react'
 import { ProjectContext } from '../contexts'
-import JsonPreview from './JsonPreview'
 import clsx from 'clsx'
-import Heading from './Heading'
 
 interface PreviewProps {
     template: Pick<Template, 'type' | 'data'>
-    response?: any
     size?: 'small' | 'large'
 }
 
-export default function Preview({ template, response, size = 'large' }: PreviewProps) {
+export default function Preview({ template, size = 'large' }: PreviewProps) {
     const [project] = useContext(ProjectContext)
     const { data, type } = template
 
@@ -57,19 +54,6 @@ export default function Preview({ template, response, size = 'large' }: PreviewP
                     </div>
                     <span className="notification-body">{data.body}</span>
                 </div>
-            </div>
-        )
-    } else if (type === 'webhook') {
-        preview = (
-            <div className="webhook-frame">
-                <div className="webhook-block">
-                    <Heading title="Request" size="h5" />
-                    <JsonPreview value={data} />
-                </div>
-                {response && <div className="webhook-block">
-                    <Heading title="Response" size="h5" />
-                    <JsonPreview value={response.data} />
-                </div>}
             </div>
         )
     }

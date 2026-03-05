@@ -30,8 +30,6 @@ func Compose(channel providers.Channel, config map[string]any, template manageme
 			return nil, fmt.Errorf("push channel requires devices")
 		}
 		return ComposePush(config, template, user, opts.Devices)
-	case providers.ChannelWebhook:
-		return ComposeWebhook(config, template, user)
 	default:
 		return nil, fmt.Errorf("unsupported channel: %s", channel)
 	}

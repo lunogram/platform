@@ -246,6 +246,7 @@
     }
   },
   "actions": {
+    "plural": "Actions",
     "save": "Save",
     "submit": "Submit"
   },

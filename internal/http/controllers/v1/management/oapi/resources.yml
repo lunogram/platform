@@ -3222,6 +3222,166 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/actions:
+    get:
+      summary: List actions
+      description: Retrieves a paginated list of actions for a project
+      operationId: listActions
+      tags:
+        - Actions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
+      responses:
+        "200":
+          $ref: "#/components/responses/ActionListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      summary: Create action
+      description: Creates a new action for a project
+      operationId: createAction
+      tags:
+        - Actions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAction"
+      responses:
+        "201":
+          description: Action created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Action"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/actions/{actionID}:
+    get:
+      summary: Get action by ID
+      description: Retrieves a specific action
+      operationId: getAction
+      tags:
+        - Actions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: actionID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The action ID
+      responses:
+        "200":
+          description: Action retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Action"
+        default:
+          $ref: "#/components/responses/Error"
+
+    patch:
+      summary: Update action
+      description: Updates an action's name, type, or config
+      operationId: updateAction
+      tags:
+        - Actions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: actionID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The action ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAction"
+      responses:
+        "200":
+          description: Action updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Action"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      summary: Delete action
+      description: Deletes an action
+      operationId: deleteAction
+      tags:
+        - Actions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: actionID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The action ID
+      responses:
+        "204":
+          description: Action deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/providers:
     get:
       summary: List providers
@@ -3660,12 +3820,103 @@ components:
                     items:
                       $ref: "#/components/schemas/ApiKey"
 
+    ActionListResponse:
+      description: Actions retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/PaginatedResponse"
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Action"
+
   schemas:
     Channel:
       type: string
-      enum: [email, text, push, webhook]
+      enum: [email, text, push]
       description: Communication channel type
       example: email
+
+    ActionType:
+      type: string
+      enum: [webhook]
+      description: Type of action
+      example: webhook
+
+    Action:
+      type: object
+      required:
+        - id
+        - project_id
+        - name
+        - type
+        - config
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        name:
+          type: string
+          example: "My Webhook Action"
+        type:
+          $ref: "#/components/schemas/ActionType"
+        config:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          description: Action configuration (varies by type)
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    CreateAction:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+          example: "My Webhook Action"
+        type:
+          $ref: "#/components/schemas/ActionType"
+        config:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          description: Action configuration (varies by type)
+
+    UpdateAction:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Updated Action Name"
+        type:
+          $ref: "#/components/schemas/ActionType"
+        config:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          description: Action configuration (varies by type)
 
     JourneyStepType:
       type: string
@@ -4410,7 +4661,6 @@ components:
             - $ref: "#/components/schemas/EmailProviderData"
             - $ref: "#/components/schemas/SmsProviderData"
             - $ref: "#/components/schemas/PushProviderData"
-            - $ref: "#/components/schemas/WebhookProviderData"
           x-go-type: json.RawMessage
         is_default:
           type: boolean
@@ -4543,7 +4793,6 @@ components:
             - $ref: "#/components/schemas/EmailTemplateData"
             - $ref: "#/components/schemas/SmsTemplateData"
             - $ref: "#/components/schemas/PushTemplateData"
-            - $ref: "#/components/schemas/WebhookTemplateData"
           x-go-type: json.RawMessage
         locale:
           type: string
@@ -4617,35 +4866,6 @@ components:
       properties: {}
 
     PushProviderData:
-      type: object
-      properties: {}
-
-    WebhookTemplateData:
-      type: object
-      properties:
-        method:
-          type: string
-          enum: [DELETE, GET, PATCH, POST, PUT]
-          description: HTTP method for the webhook request
-          example: "POST"
-        endpoint:
-          type: string
-          description: URL endpoint for the webhook
-          example: "https://api.example.com/webhook"
-        body:
-          type: object
-          additionalProperties: true
-          description: JSON body to send with the webhook request
-        headers:
-          type: object
-          additionalProperties:
-            type: string
-          description: HTTP headers to include in the webhook request
-        cache_key:
-          type: string
-          description: Optional cache key for the webhook response
-
-    WebhookProviderData:
       type: object
       properties: {}
 

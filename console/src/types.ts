@@ -365,7 +365,7 @@ export interface Project {
   lists_count?: number;
 }
 
-export type ChannelType = "email" | "push" | "text" | "webhook";
+export type ChannelType = "email" | "push" | "text";
 
 export type ProjectCreate = Omit<Project, "id" | AuditFields>;
 
@@ -693,14 +693,6 @@ export interface PushTemplateData {
   custom: Record<string, unknown>;
 }
 
-export interface WebhookTemplateData {
-  method: "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
-  endpoint: string;
-  body: Record<string, any>;
-  headers: Record<string, string>;
-  cache_key?: string;
-}
-
 export type Template = {
   id: UUID;
   campaign_id: UUID;
@@ -722,10 +714,6 @@ export type Template = {
   | {
       type: "push";
       data: PushTemplateData;
-    }
-  | {
-      type: "webhook";
-      data: WebhookTemplateData;
     }
 );
 
@@ -778,7 +766,7 @@ export type SubscriptionUpdateParams = Pick<
   "name" | "is_public"
 >;
 
-export type ProviderGroup = "email" | "text" | "push" | "webhook";
+export type ProviderGroup = "email" | "text" | "push";
 export interface Provider {
   id: UUID;
   name: string;
@@ -853,3 +841,21 @@ export interface LocaleOption {
 export interface Locale extends LocaleOption {
   id: UUID;
 }
+
+export type ActionType = "webhook";
+
+export interface Action {
+  id: UUID;
+  project_id: UUID;
+  name: string;
+  type: ActionType;
+  config: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ActionCreateParams = Pick<Action, "name" | "type"> & {
+  config?: Record<string, any>;
+};
+
+export type ActionUpdateParams = Partial<ActionCreateParams>;

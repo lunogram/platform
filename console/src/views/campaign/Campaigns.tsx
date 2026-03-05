@@ -1,7 +1,7 @@
 import { useCallback, useContext, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, ChevronLeft, ChevronRight, ArrowRight, Megaphone, Mail, Smartphone, MessageSquareDot, Webhook, MoreHorizontal, Copy, Archive } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, ArrowRight, Megaphone, Mail, Smartphone, MessageSquareDot, MoreHorizontal, Copy, Archive } from 'lucide-react'
 
 import api from '../../api'
 import { useResolver } from '../../hooks'
@@ -40,7 +40,6 @@ const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
     text: Smartphone,
     push: MessageSquareDot,
-    webhook: Webhook,
 }
 
 function getStateBadge(state: CampaignState, t: (key: string) => string) {
