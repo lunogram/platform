@@ -6,1574 +6,1574 @@
 export interface paths {
     "/api/auth/methods": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get available auth methods
          * @description Returns a list of available authentication methods/drivers
          */
-        get: operations["getAuthMethods"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["getAuthMethods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login/{driver}/callback": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
          * Complete authentication
          * @description Validates credentials and completes the authentication flow
          */
-        post: operations["authCallback"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["authCallback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/{driver}/webhook": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
          * Auth provider webhook
          * @description Webhook endpoint for external auth providers (e.g., Clerk user sync)
          */
-        post: operations["authWebhook"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["authWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/campaigns": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List campaigns
          * @description Retrieves a list of campaigns with optional filtering
          */
-        get: operations["listCampaigns"]
-        put?: never
+        get: operations["listCampaigns"];
+        put?: never;
         /**
          * Create campaign
          * @description Creates a new campaign
          */
-        post: operations["createCampaign"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["createCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/campaigns/{campaignID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get campaign by ID
          * @description Retrieves a specific campaign with its templates and provider information
          */
-        get: operations["getCampaign"]
-        put?: never
-        post?: never
+        get: operations["getCampaign"];
+        put?: never;
+        post?: never;
         /**
          * Delete campaign
          * @description Archives a campaign by setting its deleted_at timestamp
          */
-        delete: operations["deleteCampaign"]
-        options?: never
-        head?: never
+        delete: operations["deleteCampaign"];
+        options?: never;
+        head?: never;
         /**
          * Update campaign
          * @description Updates campaign properties such as name and provider
          */
-        patch: operations["updateCampaign"]
-        trace?: never
-    }
+        patch: operations["updateCampaign"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/campaigns/{campaignID}/templates": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
          * Create template
          * @description Creates a new template for a campaign
          */
-        post: operations["createTemplate"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["createTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get template by ID
          * @description Retrieves a specific template with its content and editor data
          */
-        get: operations["getTemplate"]
-        put?: never
-        post?: never
+        get: operations["getTemplate"];
+        put?: never;
+        post?: never;
         /**
          * Delete template
          * @description Deletes a template
          */
-        delete: operations["deleteTemplate"]
-        options?: never
-        head?: never
+        delete: operations["deleteTemplate"];
+        options?: never;
+        head?: never;
         /**
          * Update template
          * @description Updates template properties and content
          */
-        patch: operations["updateTemplate"]
-        trace?: never
-    }
+        patch: operations["updateTemplate"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/campaigns/{campaignID}/duplicate": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
          * Duplicate campaign
          * @description Creates a copy of the campaign with all its templates
          */
-        post: operations["duplicateCampaign"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["duplicateCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/campaigns/{campaignID}/users": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get campaign users
          * @description Retrieves the list of users associated with a campaign
          */
-        get: operations["getCampaignUsers"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["getCampaignUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/lists": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List lists
          * @description Retrieves a paginated list of lists for a project
          */
-        get: operations["listLists"]
-        put?: never
+        get: operations["listLists"];
+        put?: never;
         /**
          * Create list
          * @description Creates a new list
          */
-        post: operations["createList"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["createList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/lists/{listID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get list by ID
          * @description Retrieves a specific list
          */
-        get: operations["getList"]
-        put?: never
-        post?: never
+        get: operations["getList"];
+        put?: never;
+        post?: never;
         /**
          * Delete list
          * @description Soft deletes a list
          */
-        delete: operations["deleteList"]
-        options?: never
-        head?: never
+        delete: operations["deleteList"];
+        options?: never;
+        head?: never;
         /**
          * Update list
          * @description Updates list properties such as name, rule, and tags
          */
-        patch: operations["updateList"]
-        trace?: never
-    }
+        patch: operations["updateList"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/lists/{listID}/duplicate": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
          * Duplicate list
          * @description Creates a copy of the list
          */
-        post: operations["duplicateList"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["duplicateList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/lists/{listID}/users": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get list users
          * @description Retrieves the list of users associated with a list
          */
-        get: operations["getListUsers"]
-        put?: never
+        get: operations["getListUsers"];
+        put?: never;
         /**
          * Import list users
          * @description Imports users to a static list from a CSV file
          */
-        post: operations["importListUsers"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["importListUsers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List projects
          * @description Retrieves a paginated list of projects accessible to the authenticated admin
          */
-        get: operations["listProjects"]
-        put?: never
+        get: operations["listProjects"];
+        put?: never;
         /**
          * Create project
          * @description Creates a new project
          */
-        post: operations["createProject"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["createProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get project by ID
          * @description Retrieves a specific project
          */
-        get: operations["getProject"]
-        put?: never
-        post?: never
+        get: operations["getProject"];
+        put?: never;
+        post?: never;
         /**
          * Delete project
          * @description Soft deletes a project by setting its deleted_at timestamp
          */
-        delete: operations["deleteProject"]
-        options?: never
-        head?: never
+        delete: operations["deleteProject"];
+        options?: never;
+        head?: never;
         /**
          * Update project
          * @description Updates project properties
          */
-        patch: operations["updateProject"]
-        trace?: never
-    }
+        patch: operations["updateProject"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/journeys": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List journeys
          * @description Retrieves a paginated list of journeys for a project
          */
-        get: operations["listJourneys"]
-        put?: never
+        get: operations["listJourneys"];
+        put?: never;
         /**
          * Create journey
          * @description Creates a new journey
          */
-        post: operations["createJourney"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["createJourney"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/journeys/{journeyID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get journey by ID
          * @description Retrieves a specific journey
          */
-        get: operations["getJourney"]
-        put?: never
-        post?: never
+        get: operations["getJourney"];
+        put?: never;
+        post?: never;
         /**
          * Delete journey
          * @description Soft deletes a journey
          */
-        delete: operations["deleteJourney"]
-        options?: never
-        head?: never
+        delete: operations["deleteJourney"];
+        options?: never;
+        head?: never;
         /**
          * Update journey
          * @description Updates journey properties such as name, description, and status
          */
-        patch: operations["updateJourney"]
-        trace?: never
-    }
+        patch: operations["updateJourney"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/journeys/{journeyID}/steps": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get journey steps
          * @description Retrieves the step map (workflow definition) for a journey
          */
-        get: operations["getJourneySteps"]
+        get: operations["getJourneySteps"];
         /**
          * Set journey steps
          * @description Sets or updates the step map (workflow definition) for a journey
          */
-        put: operations["setJourneySteps"]
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        put: operations["setJourneySteps"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/journeys/{journeyID}/version": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
          * Create journey version
          * @description Creates a new version of a journey as a child, keeping the same step UUIDs
          */
-        post: operations["versionJourney"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["versionJourney"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/journeys/{journeyID}/duplicate": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
          * Duplicate journey
          * @description Creates a copy of a journey with all its steps
          */
-        post: operations["duplicateJourney"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["duplicateJourney"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/journeys/{journeyID}/publish": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
          * Publish journey
          * @description Publishes the current draft version of a journey
          */
-        post: operations["publishJourney"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["publishJourney"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/profile": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get current admin profile
          * @description Retrieves the profile information for the authenticated admin user
          */
-        get: operations["getProfile"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["getProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/tenant/admins": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List organization admins
          * @description Retrieves a paginated list of admins in the organization
          */
-        get: operations["listAdmins"]
-        put?: never
+        get: operations["listAdmins"];
+        put?: never;
         /**
          * Create or update admin
          * @description Creates a new admin or updates an existing one if the email already exists
          */
-        post: operations["createAdmin"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["createAdmin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/tenant/admins/{adminID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get admin by ID
          * @description Retrieves a specific admin
          */
-        get: operations["getAdmin"]
-        put?: never
-        post?: never
+        get: operations["getAdmin"];
+        put?: never;
+        post?: never;
         /**
          * Delete admin
          * @description Deletes an admin from the organization
          */
-        delete: operations["deleteAdmin"]
-        options?: never
-        head?: never
+        delete: operations["deleteAdmin"];
+        options?: never;
+        head?: never;
         /**
          * Update admin
          * @description Updates admin properties such as role and name
          */
-        patch: operations["updateAdmin"]
-        trace?: never
-    }
+        patch: operations["updateAdmin"];
+        trace?: never;
+    };
     "/api/admin/tenant/whoami": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get current admin
          * @description Retrieves the currently authenticated admin's information
          */
-        get: operations["whoami"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["whoami"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/tenant": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get current tenant
          * @description Retrieves the current tenant for the authenticated admin
          */
-        get: operations["getTenant"]
-        put?: never
-        post?: never
+        get: operations["getTenant"];
+        put?: never;
+        post?: never;
         /**
          * Delete tenant
          * @description Soft deletes the current tenant (requires owner role)
          */
-        delete: operations["deleteTenant"]
-        options?: never
-        head?: never
+        delete: operations["deleteTenant"];
+        options?: never;
+        head?: never;
         /**
          * Update tenant
          * @description Updates tenant properties (requires owner role)
          */
-        patch: operations["updateTenant"]
-        trace?: never
-    }
+        patch: operations["updateTenant"];
+        trace?: never;
+    };
     "/api/admin/tenant/integrations": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get tenant integrations
          * @description Retrieves all provider integrations for the tenant
          */
-        get: operations["getTenantIntegrations"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["getTenantIntegrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/users": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List users
          * @description Retrieves a paginated list of users in a project
          */
-        get: operations["listUsers"]
-        put?: never
+        get: operations["listUsers"];
+        put?: never;
         /**
          * Identify user
          * @description Creates or updates a user by anonymous_id or external_id
          */
-        post: operations["identifyUser"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["identifyUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/users/import": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
          * Bulk import users
          * @description Imports multiple users from a CSV file
          */
-        post: operations["importUsers"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["importUsers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/users/{userID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get user by ID
          * @description Retrieves a specific user
          */
-        get: operations["getUser"]
-        put?: never
-        post?: never
+        get: operations["getUser"];
+        put?: never;
+        post?: never;
         /**
          * Delete user
          * @description Deletes a user from the project
          */
-        delete: operations["deleteUser"]
-        options?: never
-        head?: never
+        delete: operations["deleteUser"];
+        options?: never;
+        head?: never;
         /**
          * Update user
          * @description Updates user properties
          */
-        patch: operations["updateUser"]
-        trace?: never
-    }
+        patch: operations["updateUser"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/users/{userID}/events": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get user events
          * @description Retrieves events for a specific user
          */
-        get: operations["getUserEvents"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["getUserEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/users/{userID}/subscriptions": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get user subscriptions
          * @description Retrieves subscriptions for a specific user
          */
-        get: operations["getUserSubscriptions"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
+        get: operations["getUserSubscriptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         /**
          * Update user subscriptions
          * @description Updates subscription states for a user
          */
-        patch: operations["updateUserSubscriptions"]
-        trace?: never
-    }
+        patch: operations["updateUserSubscriptions"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/users/{userID}/journeys": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get user journeys
          * @description Retrieves journey entrances for a specific user
          */
-        get: operations["getUserJourneys"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["getUserJourneys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/user/events/schema": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List user event schemas
          * @description Retrieves all user events and their schema paths for a project
          */
-        get: operations["listUserEventSchemas"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["listUserEventSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/users/schema": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List user schemas
          * @description Retrieves all user data schema paths for a project
          */
-        get: operations["listUserSchemas"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["listUserSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/organizations": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List subject organizations
          * @description Retrieves a paginated list of organizations (subjects) in a project
          */
-        get: operations["listOrganizations"]
-        put?: never
+        get: operations["listOrganizations"];
+        put?: never;
         /**
          * Create or update subject organization
          * @description Creates or updates an organization (subject) by external_id
          */
-        post: operations["upsertOrganization"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["upsertOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get subject organization by ID
          * @description Retrieves a specific organization (subject)
          */
-        get: operations["getOrganization"]
-        put?: never
-        post?: never
+        get: operations["getOrganization"];
+        put?: never;
+        post?: never;
         /**
          * Delete subject organization
          * @description Deletes an organization and removes all user memberships
          */
-        delete: operations["deleteOrganization"]
-        options?: never
-        head?: never
+        delete: operations["deleteOrganization"];
+        options?: never;
+        head?: never;
         /**
          * Update subject organization
          * @description Updates organization properties
          */
-        patch: operations["updateOrganization"]
-        trace?: never
-    }
+        patch: operations["updateOrganization"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List organization users
          * @description Retrieves users belonging to an organization with their org-specific data
          */
-        get: operations["listOrganizationMembers"]
-        put?: never
+        get: operations["listOrganizationMembers"];
+        put?: never;
         /**
          * Add user to organization
          * @description Adds a user to an organization with optional org-specific data
          */
-        post: operations["addOrganizationMember"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["addOrganizationMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users/{userID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
-        post?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
         /**
          * Remove user from organization
          * @description Removes a user from an organization
          */
-        delete: operations["removeOrganizationMember"]
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        delete: operations["removeOrganizationMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get organization events
          * @description Retrieves events for a specific organization
          */
-        get: operations["getOrganizationEvents"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["getOrganizationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/organization/events/schema": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List organization event schemas
          * @description Retrieves all organization events and their schema paths for a project
          */
-        get: operations["listOrganizationEventSchemas"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["listOrganizationEventSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/organizations/schema": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List organization schemas
          * @description Retrieves all organization data schema paths for a project
          */
-        get: operations["listOrganizationSchemas"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["listOrganizationSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/organizations/users/schema": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List organization user schemas
          * @description Retrieves all organization user data schema paths for a project
          */
-        get: operations["listOrganizationMemberSchemas"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["listOrganizationMemberSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/users/{userID}/subject-organizations": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get user organizations
          * @description Retrieves all organizations a user belongs to
          */
-        get: operations["getUserOrganizations"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["getUserOrganizations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/tags": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List tags
          * @description Retrieves a list of tags with optional search filtering
          */
-        get: operations["listTags"]
-        put?: never
+        get: operations["listTags"];
+        put?: never;
         /**
          * Create tag
          * @description Creates a new tag
          */
-        post: operations["createTag"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["createTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/tags/{tagID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get tag by ID
          * @description Retrieves a specific tag
          */
-        get: operations["getTag"]
-        put?: never
-        post?: never
+        get: operations["getTag"];
+        put?: never;
+        post?: never;
         /**
          * Delete tag
          * @description Deletes a specific tag
          */
-        delete: operations["deleteTag"]
-        options?: never
-        head?: never
+        delete: operations["deleteTag"];
+        options?: never;
+        head?: never;
         /**
          * Update tag
          * @description Updates a specific tag
          */
-        patch: operations["updateTag"]
-        trace?: never
-    }
+        patch: operations["updateTag"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subscriptions": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List subscriptions
          * @description Retrieves a list of subscription types for a project
          */
-        get: operations["listSubscriptions"]
-        put?: never
+        get: operations["listSubscriptions"];
+        put?: never;
         /**
          * Create subscription type
          * @description Creates a new subscription type
          */
-        post: operations["createSubscription"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["createSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subscriptions/{subscriptionID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get subscription by ID
          * @description Retrieves a specific subscription type
          */
-        get: operations["getSubscription"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
+        get: operations["getSubscription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         /**
          * Update subscription type
          * @description Updates a specific subscription type
          */
-        patch: operations["updateSubscription"]
-        trace?: never
-    }
+        patch: operations["updateSubscription"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/locales": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List locales
          * @description Retrieves a paginated list of locales for a project
          */
-        get: operations["listLocales"]
-        put?: never
+        get: operations["listLocales"];
+        put?: never;
         /**
          * Create locale
          * @description Creates a new locale for a project
          */
-        post: operations["createLocale"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["createLocale"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/locales/{localeID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get locale by ID
          * @description Retrieves a specific locale
          */
-        get: operations["getLocale"]
-        put?: never
-        post?: never
+        get: operations["getLocale"];
+        put?: never;
+        post?: never;
         /**
          * Delete locale
          * @description Deletes a locale from a project
          */
-        delete: operations["deleteLocale"]
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        delete: operations["deleteLocale"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/documents": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List documents
          * @description Retrieves a paginated list of documents for a project
          */
-        get: operations["listDocuments"]
-        put?: never
+        get: operations["listDocuments"];
+        put?: never;
         /**
          * Upload documents
          * @description Uploads one or more documents using multipart/form-data
          */
-        post: operations["uploadDocuments"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["uploadDocuments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/documents/{documentID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Retrieve a document
          * @description Retrieves a document file by ID
          */
-        get: operations["getDocument"]
-        put?: never
-        post?: never
+        get: operations["getDocument"];
+        put?: never;
+        post?: never;
         /**
          * Delete document
          * @description Soft deletes a document
          */
-        delete: operations["deleteDocument"]
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        delete: operations["deleteDocument"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/documents/{documentID}/metadata": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get document metadata
          * @description Retrieves detailed metadata about a document without downloading the file
          */
-        get: operations["getDocumentMetadata"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["getDocumentMetadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/admins": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List project admins
          * @description Retrieves a list of admins for a project with optional filtering
          */
-        get: operations["listProjectAdmins"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["listProjectAdmins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/admins/{adminID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get project admin
          * @description Retrieves a specific project admin by ID
          */
-        get: operations["getProjectAdmin"]
-        put?: never
-        post?: never
+        get: operations["getProjectAdmin"];
+        put?: never;
+        post?: never;
         /**
          * Remove admin from project
          * @description Removes an admin from a project (soft delete)
          */
-        delete: operations["deleteProjectAdmin"]
-        options?: never
-        head?: never
+        delete: operations["deleteProjectAdmin"];
+        options?: never;
+        head?: never;
         /**
          * Update project admin role
          * @description Updates the role of an admin in a project
          */
-        patch: operations["updateProjectAdmin"]
-        trace?: never
-    }
+        patch: operations["updateProjectAdmin"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/keys": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List API keys
          * @description Retrieves a paginated list of API keys for a project
          */
-        get: operations["listApiKeys"]
-        put?: never
+        get: operations["listApiKeys"];
+        put?: never;
         /**
          * Create API key
          * @description Creates a new API key for a project
          */
-        post: operations["createApiKey"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["createApiKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/keys/{keyID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get API key by ID
          * @description Retrieves a specific API key
          */
-        get: operations["getApiKey"]
-        put?: never
-        post?: never
+        get: operations["getApiKey"];
+        put?: never;
+        post?: never;
         /**
          * Delete API key
          * @description Deletes an API key, revoking access
          */
-        delete: operations["deleteApiKey"]
-        options?: never
-        head?: never
+        delete: operations["deleteApiKey"];
+        options?: never;
+        head?: never;
         /**
          * Update API key
          * @description Updates an API key's name or description (scope cannot be changed)
          */
-        patch: operations["updateApiKey"]
-        trace?: never
-    }
+        patch: operations["updateApiKey"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/actions": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List actions
          * @description Retrieves a paginated list of actions for a project
          */
-        get: operations["listActions"]
-        put?: never
+        get: operations["listActions"];
+        put?: never;
         /**
          * Create action
          * @description Creates a new action for a project
          */
-        post: operations["createAction"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["createAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/actions/{actionID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get action by ID
          * @description Retrieves a specific action
          */
-        get: operations["getAction"]
-        put?: never
-        post?: never
+        get: operations["getAction"];
+        put?: never;
+        post?: never;
         /**
          * Delete action
          * @description Deletes an action
          */
-        delete: operations["deleteAction"]
-        options?: never
-        head?: never
+        delete: operations["deleteAction"];
+        options?: never;
+        head?: never;
         /**
          * Update action
          * @description Updates an action's name, type, or config
          */
-        patch: operations["updateAction"]
-        trace?: never
-    }
+        patch: operations["updateAction"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/actions/meta": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List available action modules
          * @description Retrieves all available action modules that can be configured
          */
-        get: operations["listActionMeta"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["listActionMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/actions/meta/{actionType}/preview": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get action module preview
          * @description Returns raw HTML preview for a specific action module
          */
-        get: operations["getActionPreview"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["getActionPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/actions/test": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
          * Test an action
          * @description Executes an action with the provided payload and variables without requiring the action to be saved first. Returns the execution result including status, HTTP status code, and response metadata.
          */
-        post: operations["testAction"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["testAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/actions/{actionID}/schema": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List action schemas
          * @description Retrieves the schema paths for an action's execution result metadata
          */
-        get: operations["listActionSchemas"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["listActionSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/providers": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List providers
          * @description Retrieves a paginated list of providers for a project
          */
-        get: operations["listProviders"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["listProviders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/providers/all": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List all providers
          * @description Retrieves all providers for a project without pagination
          */
-        get: operations["listAllProviders"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["listAllProviders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/providers/meta": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * List available provider modules
          * @description Retrieves all available provider modules (integrations) that can be configured
          */
-        get: operations["listProviderMeta"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        get: operations["listProviderMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/providers/{group}/{type}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
          * Create provider
          * @description Creates a new provider configuration
          */
-        post: operations["createProvider"]
-        delete?: never
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        post: operations["createProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
          * Get provider by ID
          * @description Retrieves a specific provider
          */
-        get: operations["getProvider"]
-        put?: never
-        post?: never
-        delete?: never
-        options?: never
-        head?: never
+        get: operations["getProvider"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         /**
          * Update provider
          * @description Updates provider configuration
          */
-        patch: operations["updateProvider"]
-        trace?: never
-    }
+        patch: operations["updateProvider"];
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/providers/{providerID}": {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        get?: never
-        put?: never
-        post?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
         /**
          * Delete provider
          * @description Soft deletes a provider
          */
-        delete: operations["deleteProvider"]
-        options?: never
-        head?: never
-        patch?: never
-        trace?: never
-    }
+        delete: operations["deleteProvider"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
-export type webhooks = Record<string, never>
+export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
@@ -1581,139 +1581,128 @@ export interface components {
          * @example email
          * @enum {string}
          */
-        Channel: "email" | "text" | "push"
+        Channel: "email" | "text" | "push";
         /**
          * @description Type of action (module ID from registered action modules)
          * @example webhook
          */
-        ActionType: string
+        ActionType: string;
         Action: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /** @example My Webhook Action */
-            name: string
-            type: components["schemas"]["ActionType"]
+            name: string;
+            type: components["schemas"]["ActionType"];
             /** @description Action configuration (varies by type) */
             config: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         CreateAction: {
             /** @example My Webhook Action */
-            name: string
-            type: components["schemas"]["ActionType"]
+            name: string;
+            type: components["schemas"]["ActionType"];
             /** @description Action configuration (varies by type) */
             config?: {
-                [key: string]: unknown
-            }
-        }
+                [key: string]: unknown;
+            };
+        };
         UpdateAction: {
             /** @example Updated Action Name */
-            name?: string
-            type?: components["schemas"]["ActionType"]
+            name?: string;
+            type?: components["schemas"]["ActionType"];
             /** @description Action configuration (varies by type) */
             config?: {
-                [key: string]: unknown
-            }
-        }
+                [key: string]: unknown;
+            };
+        };
         ActionMeta: {
             /**
              * @description Module ID
              * @example webhook
              */
-            type: string
+            type: string;
             /**
              * @description Human-readable module name
              * @example Webhook
              */
-            name: string
+            name: string;
             /**
              * @description Module description
              * @example Send HTTP webhooks to external services
              */
-            description?: string
+            description?: string;
             /** @description JSON Schema for action configuration */
             config_schema?: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /** @description JSON Schema for action payload */
             payload_schema?: {
-                [key: string]: unknown
-            }
-        }
+                [key: string]: unknown;
+            };
+        };
         TestActionRequest: {
             /**
              * Format: uuid
              * @description ID of the action instance to test (optional, used for schema tracking)
              */
-            action_id?: string
-            type: components["schemas"]["ActionType"]
+            action_id?: string;
+            type: components["schemas"]["ActionType"];
             /** @description Action configuration (used when testing unsaved actions) */
             config?: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /** @description Action payload (varies by type) */
             payload: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /** @description Variable values for substitution */
             variables?: {
-                [key: string]: unknown
-            }
-        }
+                [key: string]: unknown;
+            };
+        };
         TestActionResult: {
             /**
              * @description Execution status (success or error)
              * @example success
              */
-            status: string
+            status: string;
             /**
              * @description HTTP status code (for HTTP-based actions)
              * @example 200
              */
-            status_code?: number
+            status_code?: number;
             /** @description Additional response data (response body, headers, etc.) */
             metadata?: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /** @description Error message if execution failed */
-            error?: string
-        }
+            error?: string;
+        };
         /**
          * @description Journey step type
          * @example entrance
          * @enum {string}
          */
-        JourneyStepType:
-            | "entrance"
-            | "exit"
-            | "delay"
-            | "action"
-            | "gate"
-            | "experiment"
-            | "link"
-            | "sticky"
-            | "balancer"
-            | "update"
-            | "event"
+        JourneyStepType: "entrance" | "exit" | "delay" | "action" | "gate" | "experiment" | "link" | "sticky" | "balancer" | "update" | "event";
         /** @description Data for entrance step - entry point into journey */
         EntranceStepData: {
             /**
@@ -1721,49 +1710,49 @@ export interface components {
              * @example event
              * @enum {string}
              */
-            trigger?: "none" | "event" | "schedule"
+            trigger?: "none" | "event" | "schedule";
             /**
              * @description Event name that triggers entrance
              * @example user_signup
              */
-            event_name?: string
+            event_name?: string;
             /** @description Rule for filtering events */
             rule?: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /** @description Rule for filtering users (used with organization events) */
             user_rule?: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /**
              * @description Allow multiple entries
              * @example false
              */
-            multiple?: boolean
+            multiple?: boolean;
             /**
              * @description Allow concurrent journey runs
              * @example false
              */
-            concurrent?: boolean
+            concurrent?: boolean;
             /**
              * Format: uuid
              * @description List ID for scheduled entrance
              */
-            list_id?: string
+            list_id?: string;
             /**
              * @description RRule schedule string
              * @example FREQ=DAILY;BYHOUR=9;BYMINUTE=0
              */
-            schedule?: string
-        }
+            schedule?: string;
+        };
         /** @description Data for exit step - exits user from journey */
         ExitStepData: {
             /**
              * @description External ID of entrance to exit from
              * @example step_abc123
              */
-            entrance_uuid: string
-        }
+            entrance_uuid: string;
+        };
         /** @description Data for delay step - wait before proceeding */
         DelayStepData: {
             /**
@@ -1771,35 +1760,35 @@ export interface components {
              * @example duration
              * @enum {string}
              */
-            format: "duration" | "time" | "date"
+            format: "duration" | "time" | "date";
             /**
              * @description Minutes to delay (for duration format)
              * @example 30
              */
-            minutes?: number
+            minutes?: number;
             /**
              * @description Hours to delay (for duration format)
              * @example 1
              */
-            hours?: number
+            hours?: number;
             /**
              * @description Days to delay (for duration format)
              * @example 0
              */
-            days?: number
+            days?: number;
             /**
              * @description Time of day HH:mm (for time format)
              * @example 09:00
              */
-            time?: string
+            time?: string;
             /**
              * @description Date template string (for date format)
              * @example 2025-12-31T23:59:59Z
              */
-            date?: string
+            date?: string;
             /** @description Days to exclude (0=Sunday, 6=Saturday) */
-            exclusion_days?: number[]
-        }
+            exclusion_days?: number[];
+        };
         /** @description Data for action step - send campaign */
         ActionStepData: {
             /**
@@ -1807,74 +1796,74 @@ export interface components {
              * @description Campaign to send
              * @example 52f3f921-1343-48af-b795-87c0fd3b44aa
              */
-            campaign_id: string
-        }
+            campaign_id: string;
+        };
         /** @description Data for gate step - conditional branching */
         GateStepData: {
             /** @description Rule set for conditional evaluation */
             rule: {
-                [key: string]: unknown
-            }
-        }
+                [key: string]: unknown;
+            };
+        };
         /** @description Data for experiment step - A/B testing */
         ExperimentStepData: {
             /**
              * @description Experiment name
              * @example Welcome Email Test
              */
-            name?: string
-        }
+            name?: string;
+        };
         /** @description Data for link step - add user to another journey */
         LinkStepData: {
             /**
              * Format: uuid
              * @description Target journey ID to link to
              */
-            target_id: string
+            target_id: string;
             /**
              * @description Delay before adding to journey
              * @example 1 day
              * @enum {string}
              */
-            delay?: "1 minute" | "15 minutes" | "1 hour" | "1 day"
-        }
+            delay?: "1 minute" | "15 minutes" | "1 hour" | "1 day";
+        };
         /** @description Data for sticky step - placeholder for sticky logic */
-        StickyStepData: Record<string, never>
+        StickyStepData: Record<string, never>;
         /** @description Data for balancer step - rate-limited distribution */
         BalancerStepData: {
             /**
              * @description Maximum users per interval
              * @example 100
              */
-            rate_limit: number
+            rate_limit: number;
             /**
              * @description Rate limit interval
              * @example hour
              * @enum {string}
              */
-            interval: "second" | "minute" | "hour" | "day"
-        }
+            interval: "second" | "minute" | "hour" | "day";
+        };
         /** @description Data for update step - update user data */
         UpdateStepData: {
             /**
              * @description JSON template string for updating user data
              * @example {"last_journey": "onboarding"}
              */
-            template: string
-        }
+            template: string;
+        };
         /** @description Data for event step - trigger custom event */
         EventStepData: {
             /**
              * @description Name of event to trigger
              * @example journey_milestone
              */
-            event_name: string
+            event_name: string;
             /**
              * @description JSON template string for event data
              * @example {"milestone": "completed_step_1"}
              */
-            template?: string
-        }
+            template?: string;
+        };
         /** @description Data for experiment step children - defines branch ratio */
         ExperimentChildData: {
             /**
@@ -1882,604 +1871,598 @@ export interface components {
              * @description Ratio for this experiment branch (0-1)
              * @example 0.5
              */
-            ratio: number
-        }
+            ratio: number;
+        };
         /** @description Data for gate step children - typically empty, path determines branch */
-        GateChildData: Record<string, never>
+        GateChildData: Record<string, never>;
         /**
          * @description Role within an organization
          * @example member
          * @enum {string}
          */
-        OrganizationRole: "owner" | "admin" | "member"
+        OrganizationRole: "owner" | "admin" | "member";
         /**
          * @description Role within a project
          * @example admin
          * @enum {string}
          */
-        ProjectRole: "support" | "editor" | "publisher" | "admin"
+        ProjectRole: "support" | "editor" | "publisher" | "admin";
         /**
          * @description User subscription state
          * @example subscribed
          * @enum {string}
          */
-        SubscriptionState: "subscribed" | "unsubscribed"
+        SubscriptionState: "subscribed" | "unsubscribed";
         Problem: {
             /**
              * @description A short summary of the problem type. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
              * @example some title for the error situation
              */
-            title: string
+            title: string;
             /**
              * @description A human readable explanation specific to this occurrence of the problem that is helpful to locate the problem and give advice on how to proceed. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
              * @example some description for the error situation
              */
-            detail: string
-        }
+            detail: string;
+        };
         PaginatedResponse: {
             /**
              * @description Total number of items matching the filters
              * @example 42
              */
-            total: number
+            total: number;
             /**
              * @description Maximum number of items returned
              * @example 20
              */
-            limit: number
+            limit: number;
             /**
              * @description Number of items skipped
              * @example 0
              */
-            offset: number
-        }
+            offset: number;
+        };
         UserList: components["schemas"]["PaginatedResponse"] & {
-            results: components["schemas"]["User"][]
-        }
+            results: components["schemas"]["User"][];
+        };
         AdminList: components["schemas"]["PaginatedResponse"] & {
-            results: components["schemas"]["Admin"][]
-        }
+            results: components["schemas"]["Admin"][];
+        };
         ProjectList: components["schemas"]["PaginatedResponse"] & {
-            results: components["schemas"]["Project"][]
-        }
+            results: components["schemas"]["Project"][];
+        };
         Project: {
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b
              */
-            organization_id?: string
+            organization_id?: string;
             /** @example My Project */
-            name: string
+            name: string;
             /** @example A project for managing customer communications */
-            description?: string
+            description?: string;
             /** @example America/New_York */
-            timezone: string
+            timezone: string;
             /** @example en-US */
-            locale: string
+            locale: string;
             /** @example admin */
-            role: string
+            role: string;
             /** @example Reply STOP to unsubscribe */
-            text_opt_out_message?: string
+            text_opt_out_message?: string;
             /** @example Reply HELP for assistance */
-            text_help_message?: string
+            text_help_message?: string;
             /** @example false */
-            link_wrap_email?: boolean
+            link_wrap_email?: boolean;
             /** @example false */
-            link_wrap_push?: boolean
+            link_wrap_push?: boolean;
             /** @example 3 */
-            integrations_count?: number
+            integrations_count?: number;
             /** @example 12 */
-            campaigns_count?: number
+            campaigns_count?: number;
             /** @example 5 */
-            journeys_count?: number
+            journeys_count?: number;
             /** @example 1523 */
-            users_count?: number
+            users_count?: number;
             /** @example 8 */
-            lists_count?: number
+            lists_count?: number;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         CreateProject: {
             /** @example My New Project */
-            name: string
+            name: string;
             /** @example A project for managing customer communications */
-            description?: string
+            description?: string;
             /** @example America/New_York */
-            timezone: string
+            timezone: string;
             /** @example en-US */
-            locale: string
+            locale: string;
             /** @example Reply STOP to unsubscribe */
-            text_opt_out_message?: string
+            text_opt_out_message?: string;
             /** @example Reply HELP for assistance */
-            text_help_message?: string
+            text_help_message?: string;
             /** @example false */
-            link_wrap_email?: boolean
+            link_wrap_email?: boolean;
             /** @example false */
-            link_wrap_push?: boolean
-        }
+            link_wrap_push?: boolean;
+        };
         UpdateProject: {
             /** @example Updated Project Name */
-            name?: string
+            name?: string;
             /** @example Updated description */
-            description?: string
+            description?: string;
             /** @example America/Los_Angeles */
-            timezone?: string
+            timezone?: string;
             /** @example es-ES */
-            locale?: string
+            locale?: string;
             /** @example Reply STOP to unsubscribe */
-            text_opt_out_message?: string
+            text_opt_out_message?: string;
             /** @example Reply HELP for assistance */
-            text_help_message?: string
+            text_help_message?: string;
             /** @example true */
-            link_wrap_email?: boolean
+            link_wrap_email?: boolean;
             /** @example true */
-            link_wrap_push?: boolean
-        }
+            link_wrap_push?: boolean;
+        };
         CreateCampaign: {
             /** @example Welcome Campaign */
-            name: string
-            channel: components["schemas"]["Channel"]
+            name: string;
+            channel: components["schemas"]["Channel"];
             /**
              * Format: uuid
              * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
              */
-            provider_id?: string
+            provider_id?: string;
             /** Format: uuid */
-            subscription_id?: string
-        }
+            subscription_id?: string;
+        };
         UpdateCampaign: {
             /** @example epic hopper */
-            name?: string
+            name?: string;
             /**
              * Format: uuid
              * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
              */
-            provider_id?: string
-        }
+            provider_id?: string;
+        };
         CreateTemplate: {
             /**
              * @description The locale/language code for the template
              * @example en-US
              */
-            locale: string
+            locale: string;
             /** @description Template-specific data based on type. Structure varies by template type. */
             data?: {
-                [key: string]: unknown
-            } | null
-        }
+                [key: string]: unknown;
+            } | null;
+        };
         UpdateTemplate: {
             /** @description Template-specific data based on type. Structure varies by template type. */
             data?: {
-                [key: string]: unknown
-            } | null
-        }
+                [key: string]: unknown;
+            } | null;
+        };
         Campaign: {
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
+            updated_at: string;
             /**
              * Format: uuid
              * @example 52f3f921-1343-48af-b795-87c0fd3b44aa
              */
-            id: string
+            id: string;
             /** Format: uuid */
-            project_id: string
+            project_id: string;
             /** @example Welcome to the program! */
-            name: string
-            channel: components["schemas"]["Channel"]
+            name: string;
+            channel: components["schemas"]["Channel"];
             /** Format: uuid */
-            subscription_id?: string
-            provider?: components["schemas"]["Provider"]
-            templates: components["schemas"]["Template"][]
-            delivery: components["schemas"]["Delivery"]
-        }
+            subscription_id?: string;
+            provider?: components["schemas"]["Provider"];
+            templates: components["schemas"]["Template"][];
+            delivery: components["schemas"]["Delivery"];
+        };
         Delivery: {
             /** @example 0 */
-            sent: number
+            sent: number;
             /** @example 0 */
-            opens: number
+            opens: number;
             /** @example 0 */
-            total: number
+            total: number;
             /** @example 0 */
-            clicks: number
-        }
+            clicks: number;
+        };
         CampaignUser: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 52f3f921-1343-48af-b795-87c0fd3b44aa
              */
-            campaign_id: string
+            campaign_id: string;
             /**
              * Format: uuid
              * @example 7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b
              */
-            user_id: string
+            user_id: string;
             /**
              * @example sent
              * @enum {string}
              */
-            status: "pending" | "throttled" | "sent" | "aborted" | "failed" | "opened"
+            status: "pending" | "throttled" | "sent" | "aborted" | "failed" | "opened";
             /**
              * Format: date-time
              * @example 2025-11-23T17:30:00.000Z
              */
-            sent_at?: string
+            sent_at?: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.000Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:30:00.000Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         CreateList: {
             /** @example Active Users */
-            name: string
+            name: string;
             /**
              * @example dynamic
              * @enum {string}
              */
-            type: "static" | "dynamic"
+            type: "static" | "dynamic";
             rule?: {
-                [key: string]: unknown
-            }
-            tags?: string[]
-        }
+                [key: string]: unknown;
+            };
+            tags?: string[];
+        };
         UpdateList: {
             /** @example Premium Users */
-            name: string
+            name: string;
             rule?: {
-                [key: string]: unknown
-            }
-            tags?: string[]
-            published?: boolean
-        }
+                [key: string]: unknown;
+            };
+            tags?: string[];
+            published?: boolean;
+        };
         List: {
             /**
              * Format: uuid
              * @example 9a3e5c7d-2b4f-4e8a-9c1d-3b5e7f9a1c2d
              */
-            id: string
+            id: string;
             /** Format: uuid */
-            project_id: string
+            project_id: string;
             /** @example Active Users */
-            name: string
+            name: string;
             /**
              * @example dynamic
              * @enum {string}
              */
-            type: "static" | "dynamic"
+            type: "static" | "dynamic";
             /**
              * @example ready
              * @enum {string}
              */
-            state: "draft" | "ready" | "loading"
+            state: "draft" | "ready" | "loading";
             /** Format: uuid */
-            rule_id?: string
+            rule_id?: string;
             rule?: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /** @example 1 */
-            version: number
+            version: number;
             /** @example 1250 */
-            users_count: number
-            tags?: string[]
+            users_count: number;
+            tags?: string[];
             /** Format: date-time */
-            refreshed_at?: string
+            refreshed_at?: string;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         Provider: {
             /**
              * Format: uuid
              * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
              */
-            id: string
+            id: string;
             /** @example webhook */
-            module: string
+            module: string;
             /** @example Lunogram */
-            name: string
+            name: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
-            channel: components["schemas"]["Channel"]
-            data?:
-                | components["schemas"]["EmailProviderData"]
-                | components["schemas"]["SmsProviderData"]
-                | components["schemas"]["PushProviderData"]
+            project_id: string;
+            channel: components["schemas"]["Channel"];
+            data?: components["schemas"]["EmailProviderData"] | components["schemas"]["SmsProviderData"] | components["schemas"]["PushProviderData"];
             /** @example true */
-            is_default: boolean
+            is_default: boolean;
             /** @example 0 */
-            rate_limit?: number
+            rate_limit?: number;
             /**
              * @example second
              * @enum {string}
              */
-            rate_interval?: "second" | "minute" | "hour" | "day"
+            rate_interval?: "second" | "minute" | "hour" | "day";
             /**
              * Format: date-time
              * @example 2025-11-05T13:38:03.861Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-11T13:58:40.657Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         CreateProvider: {
             /** @example My Email Provider */
-            name: string
+            name: string;
             data?: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /** @example false */
-            is_default?: boolean
-            rate_limit?: number
+            is_default?: boolean;
+            rate_limit?: number;
             /** @enum {string} */
-            rate_interval?: "second" | "minute" | "hour" | "day"
-        }
+            rate_interval?: "second" | "minute" | "hour" | "day";
+        };
         UpdateProvider: {
             /** @example My Email Provider */
-            name?: string
+            name?: string;
             data?: {
-                [key: string]: unknown
-            }
-            is_default?: boolean
-            rate_limit?: number
+                [key: string]: unknown;
+            };
+            is_default?: boolean;
+            rate_limit?: number;
             /** @enum {string} */
-            rate_interval?: "second" | "minute" | "hour" | "day"
-        }
+            rate_interval?: "second" | "minute" | "hour" | "day";
+        };
         ProviderMeta: {
             /**
              * @description Module ID
              * @example resend
              */
-            type: string
+            type: string;
             /** @example Resend Email */
-            name: string
+            name: string;
             /** @example Resend email service integration */
-            description?: string
+            description?: string;
             /** @example https://resend.com */
-            url?: string
-            icon?: string
+            url?: string;
+            icon?: string;
             /** @example email */
-            group: string
+            group: string;
             schema: {
-                [key: string]: unknown
-            }
-        }
+                [key: string]: unknown;
+            };
+        };
         Template: {
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:43.020Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-24T10:06:34.082Z
              */
-            updated_at: string
+            updated_at: string;
             /**
              * Format: uuid
              * @example 4fe0d7e3-3071-40aa-a3ee-ecfb8e26a269
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /**
              * Format: uuid
              * @example 52f3f921-1343-48af-b795-87c0fd3b44aa
              */
-            campaign_id: string
-            type: components["schemas"]["Channel"]
-            data:
-                | components["schemas"]["EmailTemplateData"]
-                | components["schemas"]["SmsTemplateData"]
-                | components["schemas"]["PushTemplateData"]
+            campaign_id: string;
+            type: components["schemas"]["Channel"];
+            data: components["schemas"]["EmailTemplateData"] | components["schemas"]["SmsTemplateData"] | components["schemas"]["PushTemplateData"];
             /** @example en-US */
-            locale: string
-        }
+            locale: string;
+        };
         EmailTemplateData: {
-            from?: Record<string, never>
+            from?: Record<string, never>;
             /** @example Quick question for you... */
-            subject?: string
+            subject?: string;
             /** @description HTML content of the email template */
-            html?: string
+            html?: string;
             /** @description Editor configuration and content structure */
             editor?: {
                 root?: {
-                    props?: Record<string, never>
-                }
-                zones?: Record<string, never>
-                content?: Record<string, never>[]
-            }
-        }
+                    props?: Record<string, never>;
+                };
+                zones?: Record<string, never>;
+                content?: Record<string, never>[];
+            };
+        };
         SmsTemplateData: {
             /**
              * @description SMS message body
              * @example Your verification code is: {{code}}
              */
-            body?: string
-        }
+            body?: string;
+        };
         PushTemplateData: {
             /**
              * @description Push notification title
              * @example New message
              */
-            title?: string
+            title?: string;
             /**
              * @description Push notification body
              * @example You have a new message from {{sender}}
              */
-            body?: string
+            body?: string;
             /** @description Additional data payload for the push notification */
-            data?: Record<string, never>
-        }
+            data?: Record<string, never>;
+        };
         EmailProviderData: {
             /** @example 8f0512c2-e606-4a58-95cb-60a4a7f859e1@campaign.lunogram.com */
-            default_from?: string
+            default_from?: string;
             /** @example Onboarding */
-            default_from_name?: string
+            default_from_name?: string;
             /** @example true */
-            default_from_locked?: boolean
-        }
-        SmsProviderData: Record<string, never>
-        PushProviderData: Record<string, never>
+            default_from_locked?: boolean;
+        };
+        SmsProviderData: Record<string, never>;
+        PushProviderData: Record<string, never>;
         Admin: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b
              */
-            organization_id: string
+            organization_id: string;
             /** @example user_2abc123def */
-            external_id?: string
+            external_id?: string;
             /**
              * Format: email
              * @example admin@example.com
              */
-            email: string
+            email: string;
             /** @example John */
-            first_name?: string
+            first_name?: string;
             /** @example Doe */
-            last_name?: string
+            last_name?: string;
             /** @example https://example.com/avatar.jpg */
-            image_url?: string
-            role: components["schemas"]["OrganizationRole"]
+            image_url?: string;
+            role: components["schemas"]["OrganizationRole"];
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         CreateAdmin: {
             /**
              * Format: email
              * @example newadmin@example.com
              */
-            email: string
-            role: components["schemas"]["OrganizationRole"]
+            email: string;
+            role: components["schemas"]["OrganizationRole"];
             /** @example Jane */
-            first_name?: string
+            first_name?: string;
             /** @example Smith */
-            last_name?: string
-        }
+            last_name?: string;
+        };
         UpdateAdmin: {
             /**
              * Format: email
              * @example updated@example.com
              */
-            email?: string
-            role?: components["schemas"]["OrganizationRole"]
+            email?: string;
+            role?: components["schemas"]["OrganizationRole"];
             /** @example Jane */
-            first_name?: string
+            first_name?: string;
             /** @example Smith */
-            last_name?: string
-        }
+            last_name?: string;
+        };
         Tenant: {
             /**
              * Format: uuid
              * @example 7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b
              */
-            id: string
+            id: string;
             /** @example Acme Corporation */
-            name: string
+            name: string;
             /** @example https://acme.com/track */
-            tracking_deeplink_mirror_url?: string
+            tracking_deeplink_mirror_url?: string;
             /** Format: uuid */
-            notification_provider_id?: string
+            notification_provider_id?: string;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         UpdateTenant: {
             /** @example https://acme.com/track */
-            tracking_deeplink_mirror_url?: string
-        }
+            tracking_deeplink_mirror_url?: string;
+        };
         User: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /** @example anon_abc123xyz */
-            anonymous_id: string
+            anonymous_id: string;
             /** @example user_123 */
-            external_id?: string
+            external_id?: string;
             /**
              * Format: email
              * @example user@example.com
              */
-            email?: string
+            email?: string;
             /**
              * Format: phone
              * @description E.164 formatted phone number
              * @example +1234567890
              */
-            phone?: string
+            phone?: string;
             /**
              * @example {
              *       "first_name": "John",
@@ -2487,47 +2470,47 @@ export interface components {
              *     }
              */
             data: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /** @example America/New_York */
-            timezone?: string
+            timezone?: string;
             /** @example en-US */
-            locale?: string
+            locale?: string;
             /** @example false */
-            has_push_device: boolean
+            has_push_device: boolean;
             /** @example 1 */
-            version: number
+            version: number;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         IdentifyUser: {
             /** @example anon_abc123xyz */
-            anonymous_id?: string
+            anonymous_id?: string;
             /** @example user_123 */
-            external_id?: string
+            external_id?: string;
             /**
              * Format: email
              * @example user@example.com
              */
-            email?: string
+            email?: string;
             /**
              * Format: phone
              * @description E.164 formatted phone number
              * @example +1234567890
              */
-            phone?: string
+            phone?: string;
             /** @example America/New_York */
-            timezone?: string
+            timezone?: string;
             /** @example en-US */
-            locale?: string
+            locale?: string;
             /**
              * @example {
              *       "first_name": "John",
@@ -2535,25 +2518,25 @@ export interface components {
              *     }
              */
             data?: {
-                [key: string]: unknown
-            }
-        } & (unknown | unknown)
+                [key: string]: unknown;
+            };
+        } & (unknown | unknown);
         UpdateUser: {
             /**
              * Format: email
              * @example updated@example.com
              */
-            email?: string
+            email?: string;
             /**
              * Format: phone
              * @description E.164 formatted phone number
              * @example +1234567890
              */
-            phone?: string
+            phone?: string;
             /** @example America/New_York */
-            timezone?: string
+            timezone?: string;
             /** @example en-US */
-            locale?: string
+            locale?: string;
             /**
              * @example {
              *       "first_name": "Jane",
@@ -2561,27 +2544,27 @@ export interface components {
              *     }
              */
             data?: {
-                [key: string]: unknown
-            }
-        }
+                [key: string]: unknown;
+            };
+        };
         Organization: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /**
              * @description External identifier for the organization from your system
              * @example org_123
              */
-            external_id: string
+            external_id: string;
             /** @example Acme Corp */
-            name?: string
+            name?: string;
             /**
              * @example {
              *       "industry": "technology",
@@ -2589,42 +2572,42 @@ export interface components {
              *     }
              */
             data: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /** @example 1 */
-            version: number
+            version: number;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         OrganizationList: components["schemas"]["PaginatedResponse"] & {
-            results: components["schemas"]["Organization"][]
-        }
+            results: components["schemas"]["Organization"][];
+        };
         OrganizationEvent: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /**
              * Format: uuid
              * @example 7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b
              */
-            organization_id: string
+            organization_id: string;
             /** @example subscription_upgraded */
-            name: string
+            name: string;
             /**
              * @example {
              *       "plan": "enterprise",
@@ -2632,25 +2615,25 @@ export interface components {
              *     }
              */
             data?: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.000Z
              */
-            created_at: string
-        }
+            created_at: string;
+        };
         OrganizationEventList: components["schemas"]["PaginatedResponse"] & {
-            results: components["schemas"]["OrganizationEvent"][]
-        }
+            results: components["schemas"]["OrganizationEvent"][];
+        };
         UpsertOrganization: {
             /**
              * @description External identifier for the organization from your system
              * @example org_123
              */
-            external_id: string
+            external_id: string;
             /** @example Acme Corp */
-            name?: string
+            name?: string;
             /**
              * @example {
              *       "industry": "technology",
@@ -2658,12 +2641,12 @@ export interface components {
              *     }
              */
             data?: {
-                [key: string]: unknown
-            }
-        }
+                [key: string]: unknown;
+            };
+        };
         UpdateOrganization: {
             /** @example Acme Corporation */
-            name?: string
+            name?: string;
             /**
              * @example {
              *       "industry": "technology",
@@ -2671,35 +2654,35 @@ export interface components {
              *     }
              */
             data?: {
-                [key: string]: unknown
-            }
-        }
+                [key: string]: unknown;
+            };
+        };
         OrganizationMember: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /** @example anon_abc123xyz */
-            anonymous_id: string
+            anonymous_id: string;
             /** @example user_123 */
-            external_id?: string
+            external_id?: string;
             /**
              * Format: email
              * @example user@example.com
              */
-            email?: string
+            email?: string;
             /**
              * Format: phone
              * @description E.164 formatted phone number
              * @example +1234567890
              */
-            phone?: string
+            phone?: string;
             /**
              * @example {
              *       "first_name": "John",
@@ -2707,26 +2690,26 @@ export interface components {
              *     }
              */
             data: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /** @example America/New_York */
-            timezone?: string
+            timezone?: string;
             /** @example en-US */
-            locale?: string
+            locale?: string;
             /** @example false */
-            has_push_device: boolean
+            has_push_device: boolean;
             /** @example 1 */
-            version: number
+            version: number;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
+            updated_at: string;
             /**
              * @description Organization-specific data for this user
              * @example {
@@ -2735,19 +2718,19 @@ export interface components {
              *     }
              */
             organization_data: {
-                [key: string]: unknown
-            }
-        }
+                [key: string]: unknown;
+            };
+        };
         OrganizationMemberList: components["schemas"]["PaginatedResponse"] & {
-            results: components["schemas"]["OrganizationMember"][]
-        }
+            results: components["schemas"]["OrganizationMember"][];
+        };
         AddOrganizationMember: {
             /**
              * Format: uuid
              * @description The user ID to add to the organization
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            user_id: string
+            user_id: string;
             /**
              * @description Organization-specific data for this user
              * @example {
@@ -2756,27 +2739,27 @@ export interface components {
              *     }
              */
             data?: {
-                [key: string]: unknown
-            }
-        }
+                [key: string]: unknown;
+            };
+        };
         UserEvent: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /**
              * Format: uuid
              * @example 7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b
              */
-            user_id: string
+            user_id: string;
             /** @example page_viewed */
-            name: string
+            name: string;
             /**
              * @example {
              *       "page": "/home",
@@ -2784,474 +2767,469 @@ export interface components {
              *     }
              */
             data?: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.000Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.000Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         UserEventList: components["schemas"]["PaginatedResponse"] & {
-            results: components["schemas"]["UserEvent"][]
-        }
+            results: components["schemas"]["UserEvent"][];
+        };
         UserSubscription: {
             /**
              * Format: uuid
              * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
              */
-            subscription_id: string
+            subscription_id: string;
             /** @example Marketing Newsletter */
-            name: string
-            channel: components["schemas"]["Channel"]
-            state: components["schemas"]["SubscriptionState"]
-        }
+            name: string;
+            channel: components["schemas"]["Channel"];
+            state: components["schemas"]["SubscriptionState"];
+        };
         UserSubscriptionList: components["schemas"]["PaginatedResponse"] & {
-            results: components["schemas"]["UserSubscription"][]
-        }
+            results: components["schemas"]["UserSubscription"][];
+        };
         UpdateUserSubscriptions: {
             /**
              * Format: uuid
              * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
              */
-            subscription_id: string
-            state: components["schemas"]["SubscriptionState"]
-        }[]
+            subscription_id: string;
+            state: components["schemas"]["SubscriptionState"];
+        }[];
         Journey: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /** @example Onboarding Flow */
-            name: string
+            name: string;
             /** @example Welcome new users to the platform */
-            description?: string
+            description?: string;
             /**
              * @description Status of the active version (draft, published, or archived)
              * @example draft
              * @enum {string}
              */
-            status: "draft" | "published" | "archived"
+            status: "draft" | "published" | "archived";
             /**
              * @description Version number of the active version
              * @example 1
              */
-            version_number?: number
+            version_number?: number;
             /**
              * Format: uuid
              * @description ID of the draft version if one exists
              * @example 1b2deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            draft_version_id?: string
+            draft_version_id?: string;
             /**
              * Format: uuid
              * @description ID of the published version if one exists
              * @example 2b3deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            published_version_id?: string
+            published_version_id?: string;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         CreateJourney: {
             /** @example Onboarding Flow */
-            name: string
+            name: string;
             /** @example Welcome new users to the platform */
-            description?: string
-        }
+            description?: string;
+        };
         UpdateJourney: {
             /** @example Updated Onboarding Flow */
-            name?: string
+            name?: string;
             /** @example Welcome new users to the platform */
-            description?: string
-        }
+            description?: string;
+        };
         UserJourneyEntrance: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            entrance_id: string
-            journey?: components["schemas"]["Journey"]
+            entrance_id: string;
+            journey?: components["schemas"]["Journey"];
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
+            updated_at: string;
             /**
              * Format: date-time
              * @example 2025-11-24T10:30:00.000Z
              */
-            ended_at?: string
-        }
+            ended_at?: string;
+        };
         UserJourneyList: components["schemas"]["PaginatedResponse"] & {
-            results: components["schemas"]["UserJourneyEntrance"][]
-        }
+            results: components["schemas"]["UserJourneyEntrance"][];
+        };
         /** @description Map of journey steps keyed by external_id */
         JourneyStepMap: {
-            [key: string]: components["schemas"]["JourneyStep"]
-        }
+            [key: string]: components["schemas"]["JourneyStep"];
+        };
         JourneyStep: {
-            type: components["schemas"]["JourneyStepType"]
+            type: components["schemas"]["JourneyStepType"];
             /**
              * @description Display name for the step
              * @example Welcome Email
              */
-            name?: string
+            name?: string;
             /**
              * @description Step-specific configuration data (structure varies by step type).
              *     The step 'type' field determines which data structure to expect.
              *     See StepData types in Go code for specific structures.
              */
             data: {
-                [key: string]: unknown
-            }
+                [key: string]: unknown;
+            };
             /**
              * @description Key for storing step data in user journey context
              * @example entrance_data
              */
-            data_key?: string
+            data_key?: string;
             /**
              * Format: float
              * @description X coordinate for visual positioning
              * @example 100
              */
-            x: number
+            x: number;
             /**
              * Format: float
              * @description Y coordinate for visual positioning
              * @example 200
              */
-            y: number
+            y: number;
             /** @description Child steps connected to this step */
-            children: components["schemas"]["JourneyStepChild"][]
-        }
+            children: components["schemas"]["JourneyStepChild"][];
+        };
         JourneyStepChild: {
             /**
              * @description External ID of the child step
              * @example step_abc123
              */
-            external_id: string
+            external_id: string;
             /**
              * @description Branch path (e.g., 'yes', 'no' for gates)
              * @example yes
              */
-            path?: string
+            path?: string;
             /** @description Child-specific configuration data (structure varies by parent step type) */
-            data?:
-                | (
-                      | components["schemas"]["ExperimentChildData"]
-                      | components["schemas"]["GateChildData"]
-                  )
-                | null
-        }
+            data?: (components["schemas"]["ExperimentChildData"] | components["schemas"]["GateChildData"]) | null;
+        };
         Tag: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /** @example important */
-            name: string
+            name: string;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         CreateTag: {
             /** @example important */
-            name: string
-        }
+            name: string;
+        };
         UpdateTag: {
             /** @example updated-tag-name */
-            name: string
-        }
+            name: string;
+        };
         Subscription: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /** @example Marketing Newsletter */
-            name: string
-            channel: components["schemas"]["Channel"]
+            name: string;
+            channel: components["schemas"]["Channel"];
             /**
              * @description Whether users can manage this subscription in preferences
              * @example true
              */
-            is_public: boolean
+            is_public: boolean;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         CreateSubscription: {
             /** @example Product Updates */
-            name: string
-            channel: components["schemas"]["Channel"]
+            name: string;
+            channel: components["schemas"]["Channel"];
             /**
              * @description Whether users can manage this subscription in preferences
              * @example true
              */
-            is_public?: boolean
-        }
+            is_public?: boolean;
+        };
         UpdateSubscription: {
             /** @example Updated Subscription Name */
-            name: string
+            name: string;
             /** @example false */
-            is_public: boolean
-        }
+            is_public: boolean;
+        };
         Locale: {
             /**
              * Format: uuid
              * @example 52f3f921-1343-48af-b795-87c0fd3b44aa
              */
-            id: string
+            id: string;
             /** Format: uuid */
-            project_id: string
+            project_id: string;
             /**
              * @description Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
              * @example en-US
              */
-            key: string
+            key: string;
             /**
              * @description Human-readable locale label
              * @example English (United States)
              */
-            label: string
+            label: string;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         CreateLocale: {
             /**
              * @description Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
              * @example en-US
              */
-            key: string
+            key: string;
             /**
              * @description Human-readable locale label
              * @example English (United States)
              */
-            label: string
-        }
+            label: string;
+        };
         Document: {
             /**
              * Format: uuid
              * @example 6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /**
              * @description User-friendly name for the document
              * @example Annual Report
              */
-            name: string
+            name: string;
             /**
              * @description Original filename when uploaded
              * @example annual-report-2025.pdf
              */
-            filename: string
+            filename: string;
             /**
              * @description Storage key/path for retrieving the file
              * @example 6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899.pdf
              */
-            key: string
+            key: string;
             /**
              * @description MIME type of the file
              * @example application/pdf
              */
-            content_type: string
+            content_type: string;
             /**
              * Format: int64
              * @description File size in bytes
              * @example 1048576
              */
-            size_bytes: number
+            size_bytes: number;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         ProjectAdmin: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /**
              * Format: uuid
              * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
              */
-            admin_id: string
-            role: components["schemas"]["ProjectRole"]
+            admin_id: string;
+            role: components["schemas"]["ProjectRole"];
             /**
              * Format: email
              * @example admin@example.com
              */
-            email?: string
+            email?: string;
             /** @example John */
-            first_name?: string
+            first_name?: string;
             /** @example Doe */
-            last_name?: string
+            last_name?: string;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         UpdateProjectAdmin: {
-            role: components["schemas"]["ProjectRole"]
-        }
+            role: components["schemas"]["ProjectRole"];
+        };
         ProjectAdminList: components["schemas"]["PaginatedResponse"] & {
-            results: components["schemas"]["ProjectAdmin"][]
-        }
+            results: components["schemas"]["ProjectAdmin"][];
+        };
         /**
          * @description API key scope - public keys are safe to expose in client-side code
          * @example secret
          * @enum {string}
          */
-        ApiKeyScope: "public" | "secret"
+        ApiKeyScope: "public" | "secret";
         ApiKey: {
             /**
              * Format: uuid
              * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
              */
-            id: string
+            id: string;
             /**
              * Format: uuid
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            project_id: string
+            project_id: string;
             /** @example Production API Key */
-            name: string
+            name: string;
             /**
              * @description The API key value
              * @example a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
              */
-            value: string
-            scope: components["schemas"]["ApiKeyScope"]
-            role: components["schemas"]["ProjectRole"]
+            value: string;
+            scope: components["schemas"]["ApiKeyScope"];
+            role: components["schemas"]["ProjectRole"];
             /** @example API key for production environment */
-            description?: string
+            description?: string;
             /**
              * Format: date-time
              * @example 2025-11-19T14:18:42.960Z
              */
-            created_at: string
+            created_at: string;
             /**
              * Format: date-time
              * @example 2025-11-23T17:20:00.021Z
              */
-            updated_at: string
-        }
+            updated_at: string;
+        };
         CreateApiKey: {
             /** @example Production API Key */
-            name: string
-            scope: components["schemas"]["ApiKeyScope"]
-            role?: components["schemas"]["ProjectRole"]
+            name: string;
+            scope: components["schemas"]["ApiKeyScope"];
+            role?: components["schemas"]["ProjectRole"];
             /** @example API key for production environment */
-            description?: string
-        }
+            description?: string;
+        };
         UpdateApiKey: {
             /** @example Updated API Key Name */
-            name?: string
-            role?: components["schemas"]["ProjectRole"]
+            name?: string;
+            role?: components["schemas"]["ProjectRole"];
             /** @example Updated description */
-            description?: string
-        }
+            description?: string;
+        };
         ClientEvent: {
             /**
              * @description The name of the event
              * @example purchase_completed
              */
-            name: string
+            name: string;
             /**
              * @description Anonymous identifier for the user
              * @example anon_abc123
              */
-            anonymous_id?: string | null
+            anonymous_id?: string | null;
             /**
              * @description External identifier for the user from your system
              * @example user_12345
              */
-            external_id?: string | null
+            external_id?: string | null;
             /**
              * @description Event-specific data
              * @example {
@@ -3260,26 +3238,26 @@ export interface components {
              *     }
              */
             data?: {
-                [key: string]: unknown
-            } | null
-            user?: components["schemas"]["ClientEventUser"]
-        }
+                [key: string]: unknown;
+            } | null;
+            user?: components["schemas"]["ClientEventUser"];
+        };
         ClientEventUser: {
             /**
              * Format: email
              * @example user@example.com
              */
-            email?: string
+            email?: string;
             /**
              * Format: phone
              * @description E.164 formatted phone number
              * @example +1234567890
              */
-            phone?: string
+            phone?: string;
             /** @example America/New_York */
-            timezone?: string | null
+            timezone?: string | null;
             /** @example en-US */
-            locale?: string | null
+            locale?: string | null;
             /**
              * @description User-specific attributes
              * @example {
@@ -3288,770 +3266,770 @@ export interface components {
              *     }
              */
             data?: {
-                [key: string]: unknown
-            } | null
-        } | null
+                [key: string]: unknown;
+            } | null;
+        } | null;
         EventWithSchema: {
             /**
              * Format: uuid
              * @example 5c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
-            id: string
+            id: string;
             /** @example purchase_completed */
-            name: string
-            schema: components["schemas"]["SchemaPath"][]
-        }
+            name: string;
+            schema: components["schemas"]["SchemaPath"][];
+        };
         SchemaPath: {
             /** @example .email */
-            path: string
+            path: string;
             /**
              * @example [
              *       "string"
              *     ]
              */
-            types: string[]
-        }
+            types: string[];
+        };
         ActionSchemaListResponse: {
-            results: components["schemas"]["SchemaPath"][]
-        }
+            results: components["schemas"]["SchemaPath"][];
+        };
         AuthCallbackRequest: {
             /**
              * Format: email
              * @description Email address (required for basic auth)
              * @example admin@example.com
              */
-            email?: string
+            email?: string;
             /**
              * @description Password (required for basic auth)
              * @example password123
              */
-            password?: string
+            password?: string;
             /**
              * @description URL to redirect after successful auth
              * @example /
              */
-            redirect?: string
-        }
-    }
+            redirect?: string;
+        };
+    };
     responses: {
         /** @description Error response */
         Error: {
             headers: {
-                [name: string]: unknown
-            }
+                [name: string]: unknown;
+            };
             content: {
-                "application/json": components["schemas"]["Problem"]
-            }
-        }
+                "application/json": components["schemas"]["Problem"];
+            };
+        };
         /** @description Campaigns retrieved successfully */
         CampaignListResponse: {
             headers: {
-                [name: string]: unknown
-            }
+                [name: string]: unknown;
+            };
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
-                    results: components["schemas"]["Campaign"][]
-                }
-            }
-        }
+                    results: components["schemas"]["Campaign"][];
+                };
+            };
+        };
         /** @description Journeys retrieved successfully */
         JourneyListResponse: {
             headers: {
-                [name: string]: unknown
-            }
+                [name: string]: unknown;
+            };
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
-                    results: components["schemas"]["Journey"][]
-                }
-            }
-        }
+                    results: components["schemas"]["Journey"][];
+                };
+            };
+        };
         /** @description Tags retrieved successfully */
         TagListResponse: {
             headers: {
-                [name: string]: unknown
-            }
+                [name: string]: unknown;
+            };
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
-                    results: components["schemas"]["Tag"][]
-                }
-            }
-        }
+                    results: components["schemas"]["Tag"][];
+                };
+            };
+        };
         /** @description Subscriptions retrieved successfully */
         SubscriptionListResponse: {
             headers: {
-                [name: string]: unknown
-            }
+                [name: string]: unknown;
+            };
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
-                    results: components["schemas"]["Subscription"][]
-                }
-            }
-        }
+                    results: components["schemas"]["Subscription"][];
+                };
+            };
+        };
         /** @description Documents retrieved successfully */
         DocumentListResponse: {
             headers: {
-                [name: string]: unknown
-            }
+                [name: string]: unknown;
+            };
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
-                    results: components["schemas"]["Document"][]
-                }
-            }
-        }
+                    results: components["schemas"]["Document"][];
+                };
+            };
+        };
         /** @description Lists retrieved successfully */
         ListListResponse: {
             headers: {
-                [name: string]: unknown
-            }
+                [name: string]: unknown;
+            };
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
-                    results: components["schemas"]["List"][]
-                }
-            }
-        }
+                    results: components["schemas"]["List"][];
+                };
+            };
+        };
         /** @description Events retrieved successfully */
         EventListResponse: {
             headers: {
-                [name: string]: unknown
-            }
+                [name: string]: unknown;
+            };
             content: {
                 "application/json": {
-                    results: components["schemas"]["EventWithSchema"][]
-                }
-            }
-        }
+                    results: components["schemas"]["EventWithSchema"][];
+                };
+            };
+        };
         /** @description Providers retrieved successfully */
         ProviderListResponse: {
             headers: {
-                [name: string]: unknown
-            }
+                [name: string]: unknown;
+            };
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
-                    results: components["schemas"]["Provider"][]
-                }
-            }
-        }
+                    results: components["schemas"]["Provider"][];
+                };
+            };
+        };
         /** @description API keys retrieved successfully */
         ApiKeyListResponse: {
             headers: {
-                [name: string]: unknown
-            }
+                [name: string]: unknown;
+            };
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
-                    results: components["schemas"]["ApiKey"][]
-                }
-            }
-        }
+                    results: components["schemas"]["ApiKey"][];
+                };
+            };
+        };
         /** @description Actions retrieved successfully */
         ActionListResponse: {
             headers: {
-                [name: string]: unknown
-            }
+                [name: string]: unknown;
+            };
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
-                    results: components["schemas"]["Action"][]
-                }
-            }
-        }
-    }
+                    results: components["schemas"]["Action"][];
+                };
+            };
+        };
+    };
     parameters: {
         /** @description Maximum number of items to return */
-        Limit: number
+        Limit: number;
         /** @description Number of items to skip */
-        Offset: number
+        Offset: number;
         /** @description Search query string */
-        Search: string
-    }
-    requestBodies: never
-    headers: never
-    pathItems: never
+        Search: string;
+    };
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
-export type $defs = Record<string, never>
+export type $defs = Record<string, never>;
 export interface operations {
     getAuthMethods: {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        requestBody?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Auth methods retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": string[]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": string[];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     authCallback: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The authentication driver */
-                driver: "basic" | "clerk"
-            }
-            cookie?: never
-        }
+                driver: "basic" | "clerk";
+            };
+            cookie?: never;
+        };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["AuthCallbackRequest"]
-            }
-        }
+                "application/json": components["schemas"]["AuthCallbackRequest"];
+            };
+        };
         responses: {
             /** @description Authentication successful */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     authWebhook: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The authentication driver */
-                driver: "clerk"
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                driver: "clerk";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Webhook processed successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listCampaigns: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
-            200: components["responses"]["CampaignListResponse"]
-            default: components["responses"]["Error"]
-        }
-    }
+            200: components["responses"]["CampaignListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
     createCampaign: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateCampaign"]
-            }
-        }
+                "application/json": components["schemas"]["CreateCampaign"];
+            };
+        };
         responses: {
             /** @description Campaign created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Campaign"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getCampaign: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The campaign ID */
-                campaignID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                campaignID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Campaign retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
                     "application/json": {
-                        data: components["schemas"]["Campaign"]
-                    }
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                        data: components["schemas"]["Campaign"];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteCampaign: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The campaign ID */
-                campaignID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                campaignID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Campaign deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateCampaign: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The campaign ID */
-                campaignID: string
-            }
-            cookie?: never
-        }
+                campaignID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateCampaign"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateCampaign"];
+            };
+        };
         responses: {
             /** @description Campaign updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Campaign"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     createTemplate: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The campaign ID */
-                campaignID: string
-            }
-            cookie?: never
-        }
+                campaignID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateTemplate"]
-            }
-        }
+                "application/json": components["schemas"]["CreateTemplate"];
+            };
+        };
         responses: {
             /** @description Template created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Template"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getTemplate: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The campaign ID */
-                campaignID: string
+                campaignID: string;
                 /** @description The template ID */
-                templateID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                templateID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Template retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
                     "application/json": {
-                        data: components["schemas"]["Template"]
-                    }
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                        data: components["schemas"]["Template"];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteTemplate: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The campaign ID */
-                campaignID: string
+                campaignID: string;
                 /** @description The template ID */
-                templateID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                templateID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Template deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateTemplate: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The campaign ID */
-                campaignID: string
+                campaignID: string;
                 /** @description The template ID */
-                templateID: string
-            }
-            cookie?: never
-        }
+                templateID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateTemplate"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateTemplate"];
+            };
+        };
         responses: {
             /** @description Template updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Template"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     duplicateCampaign: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The campaign ID to duplicate */
-                campaignID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                campaignID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Campaign duplicated successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Campaign"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getCampaignUsers: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
-            }
-            header?: never
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The campaign ID */
-                campaignID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                campaignID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Campaign users retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
                     "application/json": {
-                        data: components["schemas"]["CampaignUser"][]
-                        total: number
-                        limit: number
-                        offset: number
-                    }
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                        data: components["schemas"]["CampaignUser"][];
+                        total: number;
+                        limit: number;
+                        offset: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listLists: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
-            200: components["responses"]["ListListResponse"]
-            default: components["responses"]["Error"]
-        }
-    }
+            200: components["responses"]["ListListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
     createList: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateList"]
-            }
-        }
+                "application/json": components["schemas"]["CreateList"];
+            };
+        };
         responses: {
             /** @description List created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["List"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["List"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getList: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The list ID */
-                listID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                listID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description List retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["List"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["List"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteList: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The list ID */
-                listID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                listID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description List deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateList: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The list ID */
-                listID: string
-            }
-            cookie?: never
-        }
+                listID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateList"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateList"];
+            };
+        };
         responses: {
             /** @description List updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["List"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["List"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     duplicateList: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The list ID to duplicate */
-                listID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                listID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description List duplicated successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["List"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["List"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getListUsers: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The list ID */
-                listID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                listID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description List users retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["UserList"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["UserList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     importListUsers: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The list ID */
-                listID: string
-            }
-            cookie?: never
-        }
+                listID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
                 "multipart/form-data": {
@@ -4059,737 +4037,737 @@ export interface operations {
                      * Format: binary
                      * @description CSV file containing user data. Must include external_id column.
                      */
-                    file: string
-                }
-            }
-        }
+                    file: string;
+                };
+            };
+        };
         responses: {
             /** @description Users imported successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listProjects: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        requestBody?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Projects retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["ProjectList"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["ProjectList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     createProject: {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateProject"]
-            }
-        }
+                "application/json": components["schemas"]["CreateProject"];
+            };
+        };
         responses: {
             /** @description Project created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Project"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getProject: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Project retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Project"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteProject: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Project deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateProject: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateProject"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateProject"];
+            };
+        };
         responses: {
             /** @description Project updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Project"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listJourneys: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
-            200: components["responses"]["JourneyListResponse"]
-            default: components["responses"]["Error"]
-        }
-    }
+            200: components["responses"]["JourneyListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
     createJourney: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateJourney"]
-            }
-        }
+                "application/json": components["schemas"]["CreateJourney"];
+            };
+        };
         responses: {
             /** @description Journey created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Journey"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Journey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getJourney: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The journey ID */
-                journeyID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                journeyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Journey retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Journey"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Journey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteJourney: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The journey ID */
-                journeyID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                journeyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Journey deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateJourney: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The journey ID */
-                journeyID: string
-            }
-            cookie?: never
-        }
+                journeyID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateJourney"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateJourney"];
+            };
+        };
         responses: {
             /** @description Journey updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Journey"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Journey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getJourneySteps: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The journey ID */
-                journeyID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                journeyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Journey steps retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["JourneyStepMap"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["JourneyStepMap"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     setJourneySteps: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The journey ID */
-                journeyID: string
-            }
-            cookie?: never
-        }
+                journeyID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["JourneyStepMap"]
-            }
-        }
+                "application/json": components["schemas"]["JourneyStepMap"];
+            };
+        };
         responses: {
             /** @description Journey steps updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["JourneyStepMap"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["JourneyStepMap"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     versionJourney: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The journey ID */
-                journeyID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                journeyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Journey version created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Journey"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Journey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     duplicateJourney: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The journey ID */
-                journeyID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                journeyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Journey duplicated successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Journey"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Journey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     publishJourney: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The journey ID */
-                journeyID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                journeyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Journey published successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Journey"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Journey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getProfile: {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        requestBody?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Profile retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Admin"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Admin"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listAdmins: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        requestBody?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Admins retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["AdminList"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["AdminList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     createAdmin: {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateAdmin"]
-            }
-        }
+                "application/json": components["schemas"]["CreateAdmin"];
+            };
+        };
         responses: {
             /** @description Admin created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Admin"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Admin"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getAdmin: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The admin ID */
-                adminID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                adminID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Admin retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Admin"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Admin"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteAdmin: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The admin ID */
-                adminID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                adminID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Admin deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateAdmin: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The admin ID */
-                adminID: string
-            }
-            cookie?: never
-        }
+                adminID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateAdmin"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateAdmin"];
+            };
+        };
         responses: {
             /** @description Admin updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Admin"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Admin"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     whoami: {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        requestBody?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Current admin retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Admin"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Admin"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getTenant: {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        requestBody?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Tenant retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Tenant"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Tenant"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteTenant: {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        requestBody?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Tenant deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateTenant: {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateTenant"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateTenant"];
+            };
+        };
         responses: {
             /** @description Tenant updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Tenant"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Tenant"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getTenantIntegrations: {
         parameters: {
-            query?: never
-            header?: never
-            path?: never
-            cookie?: never
-        }
-        requestBody?: never
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Integrations retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Provider"][]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Provider"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listUsers: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Users retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["UserList"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["UserList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     identifyUser: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["IdentifyUser"]
-            }
-        }
+                "application/json": components["schemas"]["IdentifyUser"];
+            };
+        };
         responses: {
             /** @description User identified successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["User"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     importUsers: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
                 "multipart/form-data": {
@@ -4797,1019 +4775,1019 @@ export interface operations {
                      * Format: binary
                      * @description CSV file with user data (must include external_id column)
                      */
-                    file: string
-                }
-            }
-        }
+                    file: string;
+                };
+            };
+        };
         responses: {
             /** @description Users imported successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getUser: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The user ID */
-                userID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description User retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["User"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteUser: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The user ID */
-                userID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description User deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateUser: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The user ID */
-                userID: string
-            }
-            cookie?: never
-        }
+                userID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateUser"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateUser"];
+            };
+        };
         responses: {
             /** @description User updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["User"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getUserEvents: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The user ID */
-                userID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description User events retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["UserEventList"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["UserEventList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getUserSubscriptions: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
-            }
-            header?: never
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The user ID */
-                userID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description User subscriptions retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["UserSubscriptionList"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["UserSubscriptionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateUserSubscriptions: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The user ID */
-                userID: string
-            }
-            cookie?: never
-        }
+                userID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateUserSubscriptions"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateUserSubscriptions"];
+            };
+        };
         responses: {
             /** @description User subscriptions updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["User"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getUserJourneys: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
-            }
-            header?: never
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The user ID */
-                userID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description User journeys retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["UserJourneyList"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["UserJourneyList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listUserEventSchemas: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
-            200: components["responses"]["EventListResponse"]
-            default: components["responses"]["Error"]
-        }
-    }
+            200: components["responses"]["EventListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
     listUserSchemas: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description User schemas retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
                     "application/json": {
-                        results: components["schemas"]["SchemaPath"][]
-                    }
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                        results: components["schemas"]["SchemaPath"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listOrganizations: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Organizations retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["OrganizationList"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["OrganizationList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     upsertOrganization: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpsertOrganization"]
-            }
-        }
+                "application/json": components["schemas"]["UpsertOrganization"];
+            };
+        };
         responses: {
             /** @description Organization upserted successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Organization"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getOrganization: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The organization ID */
-                organizationID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Organization retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Organization"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteOrganization: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The organization ID */
-                organizationID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Organization deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateOrganization: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The organization ID */
-                organizationID: string
-            }
-            cookie?: never
-        }
+                organizationID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateOrganization"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateOrganization"];
+            };
+        };
         responses: {
             /** @description Organization updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Organization"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listOrganizationMembers: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
-            }
-            header?: never
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The organization ID */
-                organizationID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Organization users retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["OrganizationMemberList"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["OrganizationMemberList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     addOrganizationMember: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The organization ID */
-                organizationID: string
-            }
-            cookie?: never
-        }
+                organizationID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AddOrganizationMember"]
-            }
-        }
+                "application/json": components["schemas"]["AddOrganizationMember"];
+            };
+        };
         responses: {
             /** @description User added to organization successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     removeOrganizationMember: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The organization ID */
-                organizationID: string
+                organizationID: string;
                 /** @description The user ID */
-                userID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description User removed from organization successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getOrganizationEvents: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
-            }
-            header?: never
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The organization ID */
-                organizationID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Organization events retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["OrganizationEventList"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["OrganizationEventList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listOrganizationEventSchemas: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
-            200: components["responses"]["EventListResponse"]
-            default: components["responses"]["Error"]
-        }
-    }
+            200: components["responses"]["EventListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
     listOrganizationSchemas: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Organization schemas retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
                     "application/json": {
-                        results: components["schemas"]["SchemaPath"][]
-                    }
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                        results: components["schemas"]["SchemaPath"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listOrganizationMemberSchemas: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Organization user schemas retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
                     "application/json": {
-                        results: components["schemas"]["SchemaPath"][]
-                    }
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                        results: components["schemas"]["SchemaPath"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getUserOrganizations: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The user ID */
-                userID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description User organizations retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
                     "application/json": {
-                        results: components["schemas"]["Organization"][]
-                        total: number
-                        limit: number
-                        offset: number
-                    }
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                        results: components["schemas"]["Organization"][];
+                        total: number;
+                        limit: number;
+                        offset: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listTags: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
-            200: components["responses"]["TagListResponse"]
-            default: components["responses"]["Error"]
-        }
-    }
+            200: components["responses"]["TagListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
     createTag: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateTag"]
-            }
-        }
+                "application/json": components["schemas"]["CreateTag"];
+            };
+        };
         responses: {
             /** @description Tag created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Tag"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Tag"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getTag: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The tag ID */
-                tagID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                tagID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Tag retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Tag"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Tag"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteTag: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The tag ID */
-                tagID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                tagID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Tag deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateTag: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The tag ID */
-                tagID: string
-            }
-            cookie?: never
-        }
+                tagID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateTag"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateTag"];
+            };
+        };
         responses: {
             /** @description Tag updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Tag"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Tag"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listSubscriptions: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
-            }
-            header?: never
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
-            200: components["responses"]["SubscriptionListResponse"]
-            default: components["responses"]["Error"]
-        }
-    }
+            200: components["responses"]["SubscriptionListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
     createSubscription: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateSubscription"]
-            }
-        }
+                "application/json": components["schemas"]["CreateSubscription"];
+            };
+        };
         responses: {
             /** @description Subscription type created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Subscription"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getSubscription: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The subscription ID */
-                subscriptionID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                subscriptionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Subscription type retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Subscription"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateSubscription: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The subscription ID */
-                subscriptionID: string
-            }
-            cookie?: never
-        }
+                subscriptionID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateSubscription"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateSubscription"];
+            };
+        };
         responses: {
             /** @description Subscription type updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Subscription"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listLocales: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
-            }
-            header?: never
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Locales retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
                     "application/json": components["schemas"]["PaginatedResponse"] & {
-                        results: components["schemas"]["Locale"][]
-                    }
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                        results: components["schemas"]["Locale"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     createLocale: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateLocale"]
-            }
-        }
+                "application/json": components["schemas"]["CreateLocale"];
+            };
+        };
         responses: {
             /** @description Locale created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Locale"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Locale"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getLocale: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The locale ID (can be UUID or key) */
-                localeID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                localeID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Locale retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Locale"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Locale"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteLocale: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The locale ID */
-                localeID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                localeID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Locale deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listDocuments: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
-            }
-            header?: never
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
-            200: components["responses"]["DocumentListResponse"]
-            default: components["responses"]["Error"]
-        }
-    }
+            200: components["responses"]["DocumentListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
     uploadDocuments: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
                 "multipart/form-data": {
                     /** @description One or more document files to upload */
-                    files: string[]
-                }
-            }
-        }
+                    files: string[];
+                };
+            };
+        };
         responses: {
             /** @description Documents uploaded successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
                     "application/json": {
                         /**
@@ -5819,751 +5797,751 @@ export interface operations {
                          *       "4a3145d4-9ae0-4a46-9cbe-5e47ec0b02d4"
                          *     ]
                          */
-                        documents: string[]
-                    }
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                        documents: string[];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getDocument: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The document ID */
-                documentID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                documentID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Document retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/octet-stream": string
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteDocument: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The document ID */
-                documentID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                documentID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Document deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getDocumentMetadata: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The document ID */
-                documentID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                documentID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Document metadata retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Document"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listProjectAdmins: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Project admins retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["ProjectAdminList"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["ProjectAdminList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getProjectAdmin: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The admin ID */
-                adminID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                adminID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Project admin retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["ProjectAdmin"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["ProjectAdmin"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteProjectAdmin: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The admin ID */
-                adminID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                adminID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Admin removed from project successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateProjectAdmin: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The admin ID */
-                adminID: string
-            }
-            cookie?: never
-        }
+                adminID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateProjectAdmin"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateProjectAdmin"];
+            };
+        };
         responses: {
             /** @description Project admin updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["ProjectAdmin"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["ProjectAdmin"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listApiKeys: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
-            }
-            header?: never
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
-            200: components["responses"]["ApiKeyListResponse"]
-            default: components["responses"]["Error"]
-        }
-    }
+            200: components["responses"]["ApiKeyListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
     createApiKey: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateApiKey"]
-            }
-        }
+                "application/json": components["schemas"]["CreateApiKey"];
+            };
+        };
         responses: {
             /** @description API key created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["ApiKey"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getApiKey: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The API key ID */
-                keyID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                keyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description API key retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["ApiKey"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteApiKey: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The API key ID */
-                keyID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                keyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description API key deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateApiKey: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The API key ID */
-                keyID: string
-            }
-            cookie?: never
-        }
+                keyID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateApiKey"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateApiKey"];
+            };
+        };
         responses: {
             /** @description API key updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["ApiKey"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listActions: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
+                offset?: components["parameters"]["Offset"];
                 /** @description Search query string */
-                search?: components["parameters"]["Search"]
-            }
-            header?: never
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
-            200: components["responses"]["ActionListResponse"]
-            default: components["responses"]["Error"]
-        }
-    }
+            200: components["responses"]["ActionListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
     createAction: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateAction"]
-            }
-        }
+                "application/json": components["schemas"]["CreateAction"];
+            };
+        };
         responses: {
             /** @description Action created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Action"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getAction: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The action ID */
-                actionID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                actionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Action retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Action"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteAction: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The action ID */
-                actionID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                actionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Action deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateAction: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The action ID */
-                actionID: string
-            }
-            cookie?: never
-        }
+                actionID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateAction"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateAction"];
+            };
+        };
         responses: {
             /** @description Action updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Action"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listActionMeta: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Action modules retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["ActionMeta"][]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["ActionMeta"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getActionPreview: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The action module type (module ID) */
-                actionType: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                actionType: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Action preview HTML retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "text/html": string
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "text/html": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     testAction: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
+                projectID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TestActionRequest"]
-            }
-        }
+                "application/json": components["schemas"]["TestActionRequest"];
+            };
+        };
         responses: {
             /** @description Action test executed successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["TestActionResult"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["TestActionResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listActionSchemas: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The action ID */
-                actionID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                actionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Action schemas retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["ActionSchemaListResponse"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["ActionSchemaListResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listProviders: {
         parameters: {
             query?: {
                 /** @description Maximum number of items to return */
-                limit?: components["parameters"]["Limit"]
+                limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
-                offset?: components["parameters"]["Offset"]
-            }
-            header?: never
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
-            200: components["responses"]["ProviderListResponse"]
-            default: components["responses"]["Error"]
-        }
-    }
+            200: components["responses"]["ProviderListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
     listAllProviders: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Providers retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Provider"][]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Provider"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listProviderMeta: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Provider modules retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["ProviderMeta"][]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["ProviderMeta"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     createProvider: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The provider group (email, text, push) */
-                group: string
+                group: string;
                 /** @description The provider module type (e.g., resend, twilio) */
-                type: string
-            }
-            cookie?: never
-        }
+                type: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateProvider"]
-            }
-        }
+                "application/json": components["schemas"]["CreateProvider"];
+            };
+        };
         responses: {
             /** @description Provider created successfully */
             201: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Provider"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Provider"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getProvider: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The provider group (email, text, push) */
-                group: string
+                group: string;
                 /** @description The provider module type */
-                type: string
+                type: string;
                 /** @description The provider ID */
-                providerID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                providerID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Provider retrieved successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Provider"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Provider"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateProvider: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The provider group (email, text, push) */
-                group: string
+                group: string;
                 /** @description The provider module type */
-                type: string
+                type: string;
                 /** @description The provider ID */
-                providerID: string
-            }
-            cookie?: never
-        }
+                providerID: string;
+            };
+            cookie?: never;
+        };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateProvider"]
-            }
-        }
+                "application/json": components["schemas"]["UpdateProvider"];
+            };
+        };
         responses: {
             /** @description Provider updated successfully */
             200: {
                 headers: {
-                    [name: string]: unknown
-                }
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["Provider"]
-                }
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    "application/json": components["schemas"]["Provider"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteProvider: {
         parameters: {
-            query?: never
-            header?: never
+            query?: never;
+            header?: never;
             path: {
                 /** @description The project ID */
-                projectID: string
+                projectID: string;
                 /** @description The provider ID */
-                providerID: string
-            }
-            cookie?: never
-        }
-        requestBody?: never
+                providerID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Provider deleted successfully */
             204: {
                 headers: {
-                    [name: string]: unknown
-                }
-                content?: never
-            }
-            default: components["responses"]["Error"]
-        }
-    }
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
 }
