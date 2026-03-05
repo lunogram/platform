@@ -1159,13 +1159,13 @@ type ListJourneysParams struct {
 // EnrollUserJSONBody defines parameters for EnrollUser.
 type EnrollUserJSONBody struct {
 	// ExternalStepID The ID of the journey entry to enroll the user in
-	ExternalStepID string `json:"externalStepID"`
+	ExternalStepID openapi_types.UUID `json:"externalStepID"`
 }
 
 // AdvanceUserStepJSONBody defines parameters for AdvanceUserStep.
 type AdvanceUserStepJSONBody struct {
 	// ExternalStepID The external ID of the current step to advance
-	ExternalStepID string `json:"externalStepID"`
+	ExternalStepID openapi_types.UUID `json:"externalStepID"`
 }
 
 // ListApiKeysParams defines parameters for ListApiKeys.
@@ -9799,17 +9799,8 @@ func (r SetJourneyStepsResponse) StatusCode() int {
 type StreamUserJourneyStepsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		CurrentStepId *string                          `json:"current_step_id"`
-		JourneyId     *openapi_types.UUID              `json:"journey_id,omitempty"`
-		StartedAt     *time.Time                       `json:"started_at,omitempty"`
-		Status        *StreamUserJourneySteps200Status `json:"status,omitempty"`
-		UpdatedAt     *time.Time                       `json:"updated_at,omitempty"`
-		UserId        *openapi_types.UUID              `json:"user_id,omitempty"`
-	}
-	JSONDefault *Error
+	JSONDefault  *Error
 }
-type StreamUserJourneySteps200Status string
 
 // Status returns HTTPResponse.Status
 func (r StreamUserJourneyStepsResponse) Status() string {
@@ -13572,20 +13563,6 @@ func ParseStreamUserJourneyStepsResponse(rsp *http.Response) (*StreamUserJourney
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			CurrentStepId *string                          `json:"current_step_id"`
-			JourneyId     *openapi_types.UUID              `json:"journey_id,omitempty"`
-			StartedAt     *time.Time                       `json:"started_at,omitempty"`
-			Status        *StreamUserJourneySteps200Status `json:"status,omitempty"`
-			UpdatedAt     *time.Time                       `json:"updated_at,omitempty"`
-			UserId        *openapi_types.UUID              `json:"user_id,omitempty"`
-		}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

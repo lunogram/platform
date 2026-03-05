@@ -1082,7 +1082,7 @@ paths:
   /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}:
     get:
       summary: Stream user journey steps
-      description: Retrieves the current steps and progress of a specific user in a journey in real-time
+      description: Streams the current steps and progress of a specific user in a journey in real-time using Server-Sent Events (SSE)
       operationId: streamUserJourneySteps
       tags:
         - Journeys
@@ -1112,30 +1112,12 @@ paths:
           description: The user ID to check journey status for
       responses:
         "200":
-          description: User journey status retrieved successfully
+          description: Server-Sent Event stream of user journey step updates
           content:
-            application/json:
+            text/event-stream:
               schema:
-                type: object
-                properties:
-                  user_id:
-                    type: string
-                    format: uuid
-                  journey_id:
-                    type: string
-                    format: uuid
-                  current_step_id:
-                    type: string
-                    nullable: true
-                  status:
-                    type: string
-                    enum: [active, completed, exited]
-                  started_at:
-                    type: string
-                    format: date-time
-                  updated_at:
-                    type: string
-                    format: date-time
+                type: string
+                description: Server-Sent Events stream. Events include "connected" on connection and "step" events with journey step data.
         default:
           $ref: "#/components/responses/Error"
     post:
@@ -1179,6 +1161,7 @@ paths:
               properties:
                 externalStepID:
                   type: string
+                  format: uuid
                   description: The ID of the journey entry to enroll the user in
       responses:
         "200":
@@ -1226,6 +1209,7 @@ paths:
               properties:
                 externalStepID:
                   type: string
+                  format: uuid
                   description: The external ID of the current step to advance
       responses:
         "200":
