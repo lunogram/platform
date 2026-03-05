@@ -8,7 +8,7 @@
   </a>
 </div>
 
-<h1 align="center">Open Source Multi-Channel Marketing</h1>
+<h1 align="center">SaaS Multi-Channel Outreach</h1>
 
 <p align="center">Engage your customers through effortless communication.</p>
 
