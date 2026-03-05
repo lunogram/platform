@@ -208,3 +208,38 @@ func OrganizationEventsProcess(projectID uuid.UUID) Subject {
 func OrganizationEventsSchema(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("organizations.events.schema.%s", projectID))
 }
+
+// ExecuteAction represents a request to execute an action via NATS.
+type ExecuteAction struct {
+	ProjectID uuid.UUID      `json:"project_id"`
+	ActionID  uuid.UUID      `json:"action_id"`
+	Type      string         `json:"type"`
+	Config    map[string]any `json:"config"`
+	Payload   any            `json:"payload,omitempty"`
+	Variables map[string]any `json:"variables,omitempty"`
+}
+
+// ExecuteActionResponse is the reply sent back through the NATS inbox.
+type ExecuteActionResponse struct {
+	Status     string         `json:"status"`
+	StatusCode *int           `json:"status_code,omitempty"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
+	Error      string         `json:"error,omitempty"`
+}
+
+// ActionsExecute returns the NATS subject for action execution requests.
+func ActionsExecute(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("actions.execute.%s", projectID))
+}
+
+// ActionSchema represents an action execution result for schema extraction.
+type ActionSchema struct {
+	ProjectID uuid.UUID      `json:"project_id"`
+	ActionID  uuid.UUID      `json:"action_id"`
+	Metadata  map[string]any `json:"metadata"`
+}
+
+// ActionsSchema returns the NATS subject for action schema updates.
+func ActionsSchema(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("actions.schema.%s", projectID))
+}

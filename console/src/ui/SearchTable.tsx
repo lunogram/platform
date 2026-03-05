@@ -135,7 +135,7 @@ export function SearchTable<T extends Record<string, any>>({
     results,
     searchPlaceholder,
     setParams,
-    tagEntity,
+    tagEntity: _tagEntity,
     filters: additionalFilters = [],
     title,
     ...rest

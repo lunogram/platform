@@ -15,7 +15,7 @@ import { useRoute } from '../router'
 import { formatDate, cn } from '../../utils'
 import { getRandomColor } from '@/lib/colors'
 import oapiClient, { type Organization } from '../../oapi/client'
-import type { SearchParams, SearchResult } from '../../types'
+
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

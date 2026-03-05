@@ -189,6 +189,23 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		MaxDeliver:    5,
 	})
 
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        StreamActions,
+		Description: "Action schema extraction",
+		Subjects:    []string{"actions.schema.>"},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, StreamActions, jetstream.ConsumerConfig{
+		Name:          ConsumerActionsSchema,
+		Description:   "Processes action execution schema definitions",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: "actions.schema.>",
+		MaxDeliver:    5,
+	})
+
 	return bootstrap.Error()
 }
 

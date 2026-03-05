@@ -1,15 +1,15 @@
 import { useCallback, useContext, useState, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, ChevronLeft, ChevronRight, Zap, MoreHorizontal, Archive, Webhook } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Zap, MoreHorizontal, Archive, Webhook } from 'lucide-react'
 
-import api from '../../api'
+import oapiClient, { type Action } from '@/oapi/client'
 import { useResolver } from '../../hooks'
 import { formatDate, snakeToTitle } from '../../utils'
 import { ProjectContext } from '../../contexts'
 import { PreferencesContext } from '../../ui/PreferencesContext'
 
-import type { Action } from '@/types'
+import { CreateAction } from './CreateAction'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,7 +34,9 @@ interface ActionsProps {
     create?: boolean
 }
 
-export default function Actions({ create: _create = false }: ActionsProps) {
+const PAGE_SIZE = 25
+
+export default function Actions({ create = false }: ActionsProps) {
     const [preferences] = useContext(PreferencesContext)
     const [project] = useContext(ProjectContext)
     const navigate = useNavigate()
@@ -42,16 +44,12 @@ export default function Actions({ create: _create = false }: ActionsProps) {
 
     const [searchQuery, setSearchQuery] = useState('')
     const [debouncedQuery, setDebouncedQuery] = useState('')
-    const [cursor, setCursor] = useState<string | undefined>()
-    const [pageDirection, setPageDirection] = useState<'next' | 'prev' | undefined>()
-    const [cursorHistory, setCursorHistory] = useState<string[]>([])
+    const [page, setPage] = useState(1)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
-        setCursor(undefined)
-        setPageDirection(undefined)
-        setCursorHistory([])
+        setPage(1)
         clearTimeout(searchTimeoutRef.current)
         searchTimeoutRef.current = setTimeout(() => {
             setDebouncedQuery(value)
@@ -60,40 +58,45 @@ export default function Actions({ create: _create = false }: ActionsProps) {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.actions.search(project.id, {
-                limit: 25,
-                cursor,
-                page: pageDirection,
-                search: debouncedQuery || undefined,
+            const { data } = await oapiClient.GET('/api/admin/projects/{projectID}/actions', {
+                params: {
+                    path: { projectID: project.id },
+                    query: {
+                        limit: PAGE_SIZE,
+                        offset: (page - 1) * PAGE_SIZE,
+                        search: debouncedQuery || undefined,
+                    },
+                },
             })
-        }, [project.id, debouncedQuery, cursor, pageDirection]),
+            return data ?? null
+        }, [project.id, debouncedQuery, page]),
     )
 
     const actions = result?.results
-    const hasNextPage = !!result?.nextCursor
-    const hasPrevPage = cursorHistory.length > 0
+    const total = result?.total ?? 0
+    const totalPages = Math.ceil(total / PAGE_SIZE)
+    const hasNextPage = page < totalPages
+    const hasPrevPage = page > 1
 
     const handleNextPage = () => {
-        if (result?.nextCursor) {
-            setCursorHistory(prev => [...prev, cursor ?? ''])
-            setCursor(result.nextCursor)
-            setPageDirection('next')
+        if (hasNextPage) {
+            setPage(p => p + 1)
         }
     }
 
     const handlePrevPage = () => {
-        if (cursorHistory.length > 0) {
-            const prev = [...cursorHistory]
-            const prevCursor = prev.pop()
-            setCursorHistory(prev)
-            setCursor(prevCursor || undefined)
-            setPageDirection(prevCursor ? 'next' : undefined)
+        if (hasPrevPage) {
+            setPage(p => p - 1)
         }
     }
 
     const handleArchiveAction = async (e: React.MouseEvent, action: Action) => {
         e.stopPropagation()
-        await api.actions.delete(project.id, action.id)
+        await oapiClient.DELETE('/api/admin/projects/{projectID}/actions/{actionID}', {
+            params: {
+                path: { projectID: project.id, actionID: action.id },
+            },
+        })
         await reload()
     }
 
@@ -129,13 +132,7 @@ export default function Actions({ create: _create = false }: ActionsProps) {
                         className="pl-9"
                     />
                 </div>
-                <Button
-                    size="lg"
-                    onClick={() => navigate(`/projects/${project.id}/actions/new`)}
-                >
-                    <Plus className="mr-2 h-4 w-4" />
-                    {t('create_action', 'Create Action')}
-                </Button>
+                <CreateAction open={create} />
             </div>
 
             {/* Table */}
@@ -170,17 +167,6 @@ export default function Actions({ create: _create = false }: ActionsProps) {
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Zap className="h-8 w-8" />
                                         <p>{debouncedQuery ? t('no_results') : t('no_actions_yet', 'No actions yet')}</p>
-                                        {!debouncedQuery && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => navigate(`/projects/${project.id}/actions/new`)}
-                                                className="mt-2"
-                                            >
-                                                <Plus className="mr-2 h-4 w-4" />
-                                                {t('create_action', 'Create Action')}
-                                            </Button>
-                                        )}
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -233,7 +219,7 @@ export default function Actions({ create: _create = false }: ActionsProps) {
                 {actions && actions.length > 0 && (
                     <div className="flex items-center justify-between border-t px-4 py-3">
                         <p className="text-sm text-muted-foreground">
-                            {actions.length} {t('actions.plural')}
+                            {total} {t('actions.plural')}
                         </p>
                         {(hasPrevPage || hasNextPage) && (
                             <div className="flex items-center gap-2">

@@ -28,8 +28,7 @@ $(BUILD_DIR):
 	@mkdir -p $@
 
 PROVIDER_MODULES := $(notdir $(wildcard ./modules/providers/*))
-
-
+ACTION_MODULES := $(notdir $(wildcard ./modules/actions/*))
 
 # Tools
 $(BIN):
@@ -60,10 +59,20 @@ lunogram: ; $(info $(M) building lunogram…)
 	$Q CGO_ENABLED=0 $(GO) build -ldflags='$(LDFLAGS)' -o $(BIN)/lunogram ./cmd/lunogram
 
 .PHONY: modules
-modules: ; $(info $(M) building provider modules…) @ ## Build all provider modules
+modules: providers actions ## Build all WASM modules
+
+.PHONY: providers
+providers: ; $(info $(M) building provider modules…) @ ## Build all provider modules
 	$Q for module in $(PROVIDER_MODULES); do \
-		echo "$(M) building $$module module…"; \
-		cd modules/providers/$$module && $(TINYGO) build -target=wasi -buildmode c-shared -opt=2 -no-debug -o ../../../internal/providers/modules/$$module.wasm ./main.go && cd ../../..; \
+		echo "$(M) building $$module provider…"; \
+		$(MAKE) -C modules/providers/$$module wasm TINYGO=$(TINYGO) NODE=$(NODE); \
+	done
+
+.PHONY: actions
+actions: ; $(info $(M) building action modules…) @ ## Build all action modules
+	$Q for module in $(ACTION_MODULES); do \
+		echo "$(M) building $$module action…"; \
+		$(MAKE) -C modules/actions/$$module all TINYGO=$(TINYGO) NODE=$(NODE); \
 	done
 
 .PHONY: console

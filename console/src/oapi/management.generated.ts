@@ -1368,6 +1368,86 @@ export interface paths {
         patch: operations["updateAction"];
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/actions/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List available action modules
+         * @description Retrieves all available action modules that can be configured
+         */
+        get: operations["listActionMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/actions/meta/{actionType}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get action module preview
+         * @description Returns raw HTML preview for a specific action module
+         */
+        get: operations["getActionPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/actions/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test an action
+         * @description Executes an action with the provided payload and variables without requiring the action to be saved first. Returns the execution result including status, HTTP status code, and response metadata.
+         */
+        post: operations["testAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/actions/{actionID}/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List action schemas
+         * @description Retrieves the schema paths for an action's execution result metadata
+         */
+        get: operations["listActionSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/providers": {
         parameters: {
             query?: never;
@@ -1503,11 +1583,10 @@ export interface components {
          */
         Channel: "email" | "text" | "push";
         /**
-         * @description Type of action
+         * @description Type of action (module ID from registered action modules)
          * @example webhook
-         * @enum {string}
          */
-        ActionType: "webhook";
+        ActionType: string;
         Action: {
             /**
              * Format: uuid
@@ -1554,6 +1633,69 @@ export interface components {
             config?: {
                 [key: string]: unknown;
             };
+        };
+        ActionMeta: {
+            /**
+             * @description Module ID
+             * @example webhook
+             */
+            type: string;
+            /**
+             * @description Human-readable module name
+             * @example Webhook
+             */
+            name: string;
+            /**
+             * @description Module description
+             * @example Send HTTP webhooks to external services
+             */
+            description?: string;
+            /** @description JSON Schema for action configuration */
+            config_schema?: {
+                [key: string]: unknown;
+            };
+            /** @description JSON Schema for action payload */
+            payload_schema?: {
+                [key: string]: unknown;
+            };
+        };
+        TestActionRequest: {
+            /**
+             * Format: uuid
+             * @description ID of the action instance to test (optional, used for schema tracking)
+             */
+            action_id?: string;
+            type: components["schemas"]["ActionType"];
+            /** @description Action configuration (used when testing unsaved actions) */
+            config?: {
+                [key: string]: unknown;
+            };
+            /** @description Action payload (varies by type) */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** @description Variable values for substitution */
+            variables?: {
+                [key: string]: unknown;
+            };
+        };
+        TestActionResult: {
+            /**
+             * @description Execution status (success or error)
+             * @example success
+             */
+            status: string;
+            /**
+             * @description HTTP status code (for HTTP-based actions)
+             * @example 200
+             */
+            status_code?: number;
+            /** @description Additional response data (response body, headers, etc.) */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** @description Error message if execution failed */
+            error?: string;
         };
         /**
          * @description Journey step type
@@ -3146,6 +3288,9 @@ export interface components {
              *     ]
              */
             types: string[];
+        };
+        ActionSchemaListResponse: {
+            results: components["schemas"]["SchemaPath"][];
         };
         AuthCallbackRequest: {
             /**
@@ -6101,6 +6246,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Action"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listActionMeta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action modules retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionMeta"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getActionPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The action module type (module ID) */
+                actionType: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action preview HTML retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Action test executed successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestActionResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listActionSchemas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The action ID */
+                actionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action schemas retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionSchemaListResponse"];
                 };
             };
             default: components["responses"]["Error"];

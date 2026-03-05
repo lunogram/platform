@@ -12,6 +12,7 @@ func NewState(db store.DB) *State {
 		DevicesStore:       NewDevicesStore(db),
 		ListsStore:         NewListsStore(db),
 		RulesStore:         NewRulesStore(db),
+		ActionsStore:       NewActionsStore(db),
 	}
 }
 
@@ -22,4 +23,5 @@ type State struct {
 	*DevicesStore
 	*ListsStore
 	*RulesStore
+	*ActionsStore
 }

@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/popover'
 import { cn } from '@/utils'
 
-import { LOCALES, searchLocales, type LocaleEntry } from './locales'
+import { LOCALES, searchLocales } from './locales'
 
 // ---------------------------------------------------------------------------
 // LocalePicker – a searchable combobox backed by the standardised locale list.

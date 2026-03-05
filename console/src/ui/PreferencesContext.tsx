@@ -1,8 +1,7 @@
 import type { Dispatch, PropsWithChildren, SetStateAction } from 'react';
 import { useMemo, useState, useEffect, createContext } from 'react'
 import type { Preferences } from '../types'
-import { localStorageGetJson, localStorageSetJson } from '../utils'
-import { useTranslation } from 'react-i18next'
+import { localStorageGetJson } from '../utils'
 
 const PREFERENCES = 'preferences'
 
@@ -25,7 +24,6 @@ export const PreferencesContext = createContext<readonly [Preferences, Dispatch<
 ])
 
 export function PreferencesProvider({ children }: PropsWithChildren<{}>) {
-    const { i18n } = useTranslation()
     const [preferences, setPreferences] = useState(initial)
 
     useEffect(() => {

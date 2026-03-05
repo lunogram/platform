@@ -54,7 +54,7 @@ export default function ProjectOnboardingGettingStarted() {
                         type="button"
                         onClick={createOnboardingJourney}
                         disabled={isJourneyLoading}
-                        className="flex flex-col items-center gap-3 rounded-lg border border-border p-6 text-center transition-colors hover:bg-accent disabled:opacity-70"
+                        className="flex flex-col items-center gap-3 rounded-lg border border-border p-6 text-center transition-colors hover:bg-accent disabled:opacity-70 cursor-pointer disabled:cursor-not-allowed"
                     >
                         {isJourneyLoading ? (
                             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -68,7 +68,7 @@ export default function ProjectOnboardingGettingStarted() {
                     <button
                         type="button"
                         onClick={createCampaign}
-                        className="flex flex-col items-center gap-3 rounded-lg border border-border p-6 text-center transition-colors hover:bg-accent"
+                        className="flex flex-col items-center gap-3 rounded-lg border border-border p-6 text-center transition-colors hover:bg-accent cursor-pointer"
                     >
                         <Megaphone className="h-6 w-6 text-muted-foreground" />
                         <span className="text-sm font-medium">

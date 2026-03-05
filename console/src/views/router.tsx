@@ -354,8 +354,13 @@ export const createRouter = ({
                                 apiPath: api.actions,
                                 element: <Actions />,
                             }),
-                            {
+                            createStatefulRoute({
                                 path: 'actions/new',
+                                apiPath: api.actions,
+                                element: <Actions create={true} />,
+                            }),
+                            {
+                                path: 'actions/new/:type',
                                 element: <ActionDetail />,
                             },
                             createStatefulRoute({

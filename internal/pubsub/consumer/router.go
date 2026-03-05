@@ -4,9 +4,14 @@ import (
 	"context"
 
 	"github.com/cloudproud/graceful"
+	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
+
+// CallerHandlerFunc processes incoming messages from a NATS core subscription.
+// This is used for request/reply patterns where JetStream consumers cannot be used.
+type CallerHandlerFunc func(ctx context.Context, msg *nats.Msg)
 
 // HandlerFunc processes incoming messages from a JetStream consumer.
 // If the handler returns an error, the message is negatively acknowledged (NAK)
@@ -30,9 +35,9 @@ type Router struct {
 	logger *zap.Logger
 }
 
-// Handle registers a handler function for a specific stream and consumer.
+// HandleStream registers a handler function for a specific stream and consumer.
 // The consumer must already exist in JetStream configuration.
-func (r *Router) Handle(stream, consumer string, handler HandlerFunc) {
+func (r *Router) HandleStream(stream, consumer string, handler HandlerFunc) {
 	log := r.logger.With(zap.String("stream", stream), zap.String("consumer", consumer))
 	log.Info("starting consumer")
 
@@ -69,4 +74,27 @@ func (r *Router) Handle(stream, consumer string, handler HandlerFunc) {
 		r.ctx.Shutdown()
 		return
 	}
+}
+
+// HandleCaller registers a handler for a NATS core subscription.
+// This is used for request/reply patterns where JetStream consumers cannot
+// reply to NATS core requests.
+func (r *Router) HandleCaller(subject string, handler CallerHandlerFunc) {
+	log := r.logger.With(zap.String("subject", subject))
+	log.Info("starting subscription")
+
+	conn := r.jet.Conn()
+
+	sub, err := conn.Subscribe(subject, func(msg *nats.Msg) {
+		handler(r.ctx, msg)
+	})
+	if err != nil {
+		log.Error("failed to subscribe, shutting down...", zap.Error(err))
+		r.ctx.Shutdown()
+		return
+	}
+
+	r.ctx.Closer(func() {
+		_ = sub.Unsubscribe()
+	})
 }

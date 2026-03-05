@@ -45,9 +45,10 @@ type DelayStepData struct {
 	ExclusionDays *[]int              `json:"exclusion_days,omitempty"`
 }
 
-// ActionStepData represents data for action step - send campaign
+// ActionStepData represents data for action step - execute action
 type ActionStepData struct {
-	CampaignId uuid.UUID `json:"campaign_id"`
+	CampaignId uuid.UUID  `json:"campaign_id"`
+	ActionId   *uuid.UUID `json:"action_id,omitempty"`
 }
 
 // GateStepData represents data for gate step - conditional branching

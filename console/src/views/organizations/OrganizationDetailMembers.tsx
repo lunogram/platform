@@ -73,7 +73,7 @@ interface MemberExpandedRowProps {
 }
 
 function MemberExpandedRow({ 
-    member, 
+    member: _member, 
     memberData, 
     hasChanges, 
     isSaving, 

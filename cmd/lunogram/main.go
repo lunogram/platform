@@ -8,6 +8,7 @@ import (
 
 	"github.com/caarlos0/env/v10"
 	"github.com/cloudproud/graceful"
+	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/cluster"
 	"github.com/lunogram/platform/internal/cluster/consensus"
 	"github.com/lunogram/platform/internal/cluster/leader"
@@ -103,14 +104,23 @@ func run() error {
 
 	logger.Info("initializing provider registry")
 
-	registry, err := providers.NewRegistry(ctx, conf.WASM, logger)
+	providersRegisrtry, err := providers.NewRegistry(ctx, conf.WASM, logger)
 	if err != nil {
 		return err
 	}
-	defer registry.Close(ctx)
+	defer providersRegisrtry.Close(ctx)
+
+	logger.Info("initializing action registry")
+
+	actionRegistry, err := actions.NewRegistry(ctx, conf.WASM, logger)
+	if err != nil {
+		return err
+	}
+	defer actionRegistry.Close(ctx)
 
 	pub := pubsub.NewPublisher(jet)
-	consumer.Serve(ctx, jet, logger, db, managementStore, usersStore, journeyStore, registry)
+	req := pubsub.NewCaller(jet)
+	consumer.Serve(ctx, jet, logger, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry)
 
 	logger.Info("initializing cluster")
 
@@ -128,7 +138,7 @@ func run() error {
 
 	logger.Info("starting http server")
 
-	server, err := v1.NewServer(ctx, logger, conf, db, bucket, pub, registry)
+	server, err := v1.NewServer(ctx, logger, conf, db, bucket, pub, req, providersRegisrtry, actionRegistry)
 	if err != nil {
 		return err
 	}

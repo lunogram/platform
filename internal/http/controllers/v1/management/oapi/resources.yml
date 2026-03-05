@@ -3382,6 +3382,135 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/actions/meta:
+    get:
+      summary: List available action modules
+      description: Retrieves all available action modules that can be configured
+      operationId: listActionMeta
+      tags:
+        - Actions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        "200":
+          description: Action modules retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActionMeta"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/actions/meta/{actionType}/preview:
+    get:
+      summary: Get action module preview
+      description: Returns raw HTML preview for a specific action module
+      operationId: getActionPreview
+      tags:
+        - Actions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: actionType
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The action module type (module ID)
+      responses:
+        "200":
+          description: Action preview HTML retrieved successfully
+          content:
+            text/html:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/actions/test:
+    post:
+      summary: Test an action
+      description: Executes an action with the provided payload and variables without requiring the action to be saved first. Returns the execution result including status, HTTP status code, and response metadata.
+      operationId: testAction
+      tags:
+        - Actions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestActionRequest"
+      responses:
+        "200":
+          description: Action test executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestActionResult"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/actions/{actionID}/schema:
+    get:
+      summary: List action schemas
+      description: Retrieves the schema paths for an action's execution result metadata
+      operationId: listActionSchemas
+      tags:
+        - Actions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: actionID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The action ID
+      responses:
+        "200":
+          description: Action schemas retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionSchemaListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/providers:
     get:
       summary: List providers
@@ -3845,8 +3974,7 @@ components:
 
     ActionType:
       type: string
-      enum: [webhook]
-      description: Type of action
+      description: Type of action (module ID from registered action modules)
       example: webhook
 
     Action:
@@ -3917,6 +4045,84 @@ components:
           additionalProperties: true
           x-go-type: json.RawMessage
           description: Action configuration (varies by type)
+
+    ActionMeta:
+      type: object
+      required:
+        - type
+        - name
+      properties:
+        type:
+          type: string
+          description: Module ID
+          example: "webhook"
+        name:
+          type: string
+          description: Human-readable module name
+          example: "Webhook"
+        description:
+          type: string
+          description: Module description
+          example: "Send HTTP webhooks to external services"
+        config_schema:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          description: JSON Schema for action configuration
+        payload_schema:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          description: JSON Schema for action payload
+
+    TestActionRequest:
+      type: object
+      required:
+        - type
+        - payload
+      properties:
+        action_id:
+          type: string
+          format: uuid
+          description: ID of the action instance to test (optional, used for schema tracking)
+        type:
+          $ref: "#/components/schemas/ActionType"
+        config:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          description: Action configuration (used when testing unsaved actions)
+        payload:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          description: Action payload (varies by type)
+        variables:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          description: Variable values for substitution
+
+    TestActionResult:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          description: Execution status (success or error)
+          example: "success"
+        status_code:
+          type: integer
+          description: HTTP status code (for HTTP-based actions)
+          example: 200
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional response data (response body, headers, etc.)
+        error:
+          type: string
+          description: Error message if execution failed
 
     JourneyStepType:
       type: string
@@ -6108,6 +6314,16 @@ components:
           items:
             type: string
           example: ["string"]
+
+    ActionSchemaListResponse:
+      type: object
+      required:
+        - results
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaPath"
 
     AuthCallbackRequest:
       type: object

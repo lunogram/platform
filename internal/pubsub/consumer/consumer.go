@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"github.com/cloudproud/graceful"
+	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/store"
@@ -22,6 +23,12 @@ const (
 	StreamOrganizations      = "organizations"
 	StreamOrganizationUsers  = "organizations-users"
 	StreamOrganizationEvents = "organizations-events"
+	StreamActions            = "actions"
+)
+
+// Subscription subjects for NATS core subscribers.
+const (
+	SubjectActionsExecute = "actions.execute.>"
 )
 
 // Consumer names for NATS JetStream subscribers.
@@ -39,24 +46,27 @@ const (
 	ConsumerOrganizationUsersSchema   = "organizations-users-schema"
 	ConsumerOrganizationEventsProcess = "organizations-events-process"
 	ConsumerOrganizationEventsSchema  = "organizations-events-schema"
+	ConsumerActionsSchema             = "actions-schema"
 )
 
 // Serve starts all JetStream consumers and registers their handlers.
-func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, db *store.Connections, mgmt *management.State, usrs *subjects.State, jrny *journey.State, registry *providers.Registry) {
+func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, db *store.Connections, mgmt *management.State, usrs *subjects.State, jrny *journey.State, registry *providers.Registry, actionRegistry *actions.Registry) {
 	pub := pubsub.NewPublisher(jet)
 	router := NewRouter(ctx, jet, logger)
 
-	router.Handle(StreamUsers, ConsumerUsersProcess, UsersHandler(logger, usrs, pub))
-	router.Handle(StreamUsers, ConsumerUsersSchema, UserSchemasHandler(logger, usrs))
-	router.Handle(StreamUserEvents, ConsumerUserEventsProcess, UserEventsHandler(logger, usrs, jrny, pub))
-	router.Handle(StreamUserEvents, ConsumerUserEventsSchema, UserEventSchemasHandler(logger, usrs))
-	router.Handle(StreamLists, ConsumerListsRecompute, RecomputeListHandler(logger, usrs, pub))
-	router.Handle(StreamJourneys, ConsumerJourneysAdvance, JourneyStepHandler(logger, db.Subjects, jrny, pub))
-	router.Handle(StreamCampaigns, ConsumerCampaignsSend, CampaignsSendHandler(logger, mgmt, usrs, registry))
-	router.Handle(StreamOrganizations, ConsumerOrganizationsProcess, OrganizationsHandler(logger, usrs, pub))
-	router.Handle(StreamOrganizations, ConsumerOrganizationsSchema, OrganizationSchemasHandler(logger, usrs))
-	router.Handle(StreamOrganizationUsers, ConsumerOrganizationUsersProcess, OrganizationUsersHandler(logger, usrs, pub))
-	router.Handle(StreamOrganizationUsers, ConsumerOrganizationUsersSchema, OrganizationUserSchemasHandler(logger, usrs))
-	router.Handle(StreamOrganizationEvents, ConsumerOrganizationEventsProcess, OrganizationEventsHandler(logger, usrs, jrny, pub))
-	router.Handle(StreamOrganizationEvents, ConsumerOrganizationEventsSchema, OrganizationEventSchemasHandler(logger, usrs))
+	router.HandleStream(StreamUsers, ConsumerUsersProcess, UsersHandler(logger, usrs, pub))
+	router.HandleStream(StreamUsers, ConsumerUsersSchema, UserSchemasHandler(logger, usrs))
+	router.HandleStream(StreamUserEvents, ConsumerUserEventsProcess, UserEventsHandler(logger, usrs, jrny, pub))
+	router.HandleStream(StreamUserEvents, ConsumerUserEventsSchema, UserEventSchemasHandler(logger, usrs))
+	router.HandleStream(StreamLists, ConsumerListsRecompute, RecomputeListHandler(logger, usrs, pub))
+	router.HandleStream(StreamJourneys, ConsumerJourneysAdvance, JourneyStepHandler(logger, db.Subjects, jrny, mgmt, pub, actionRegistry))
+	router.HandleStream(StreamCampaigns, ConsumerCampaignsSend, CampaignsSendHandler(logger, mgmt, usrs, registry))
+	router.HandleStream(StreamOrganizations, ConsumerOrganizationsProcess, OrganizationsHandler(logger, usrs, pub))
+	router.HandleStream(StreamOrganizations, ConsumerOrganizationsSchema, OrganizationSchemasHandler(logger, usrs))
+	router.HandleStream(StreamOrganizationUsers, ConsumerOrganizationUsersProcess, OrganizationUsersHandler(logger, usrs, pub))
+	router.HandleStream(StreamOrganizationUsers, ConsumerOrganizationUsersSchema, OrganizationUserSchemasHandler(logger, usrs))
+	router.HandleStream(StreamOrganizationEvents, ConsumerOrganizationEventsProcess, OrganizationEventsHandler(logger, usrs, jrny, pub))
+	router.HandleStream(StreamOrganizationEvents, ConsumerOrganizationEventsSchema, OrganizationEventSchemasHandler(logger, usrs))
+	router.HandleStream(StreamActions, ConsumerActionsSchema, ActionSchemasHandler(logger, usrs))
+	router.HandleCaller(SubjectActionsExecute, ActionExecuteHandler(logger, actionRegistry, pub))
 }

@@ -226,7 +226,7 @@ export default function Template() {
             currentLocale: selectedLocale,
             allLocales: allLocalesResult.results,
           });
-        } catch (error) {
+        } catch {
           // Locale not found, use default or first available locale
           console.warn(
             `Locale ${currentTemplate.locale} not found, using default`,

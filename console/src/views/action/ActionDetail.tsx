@@ -1,188 +1,320 @@
-import { Controller, useForm, useFieldArray } from "react-hook-form"
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router"
-import { useContext, useEffect, useState } from "react"
-import { Plus, Trash2, ArrowLeft } from "lucide-react"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { ArrowLeft, ChevronDown, Plus, Trash2 } from "lucide-react"
 import * as z from "zod"
 
-import api from "@/api"
+import oapiClient, {
+    type Action,
+    type ActionMeta,
+    type TestActionResult,
+} from "@/oapi/client"
 import { ProjectContext } from "@/contexts"
-import type { Action } from "@/types"
-import type { UUID } from "@/types/common"
+import { useResolver } from "@/hooks"
+
+import { SchemaFields, type Schema } from "@/components/SchemaFields"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
+import { CodeEditor } from "@/components/ui/code-editor"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { cn, snakeToTitle } from "@/utils"
 
-const methods = ["DELETE", "GET", "PATCH", "POST", "PUT"] as const
+function TestResultPanel({ result }: { result: TestActionResult }) {
+    const isError = result.status === "error"
+    const hasMetadata = result.metadata && Object.keys(result.metadata).length > 0
+    const statusLabel = result.status || "unknown"
+
+    const metadataJson = hasMetadata
+        ? JSON.stringify(result.metadata, null, 2)
+        : ""
+
+    return (
+        <div className="space-y-4">
+            {/* Status + status code */}
+            <div className="flex items-center gap-3">
+                <Badge variant={isError ? "destructive" : "default"}>
+                    {statusLabel}
+                </Badge>
+                {result.status_code != null && (
+                    <span className="text-sm text-muted-foreground">
+                        HTTP {result.status_code}
+                    </span>
+                )}
+            </div>
+
+            {/* Error message */}
+            {result.error && (
+                <div className="rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                    {result.error}
+                </div>
+            )}
+
+            {/* Metadata */}
+            {metadataJson ? (
+                <CodeEditor
+                    value={metadataJson}
+                    onChange={() => {}}
+                    readOnly
+                    minHeight={80}
+                    maxHeight={400}
+                />
+            ) : (
+                <p className="text-sm text-muted-foreground">No response data returned.</p>
+            )}
+        </div>
+    )
+}
+
+const VARIABLE_TYPES = ["string", "bool", "int"] as const
+type VariableType = (typeof VARIABLE_TYPES)[number]
 
 const actionFormSchema = z.object({
     name: z.string().min(1, "Name is required"),
-    type: z.enum(["webhook"] as const),
-    method: z.enum(methods),
-    endpoint: z.string().min(1, "Endpoint is required"),
-    body: z.string().optional(),
-    headers: z.array(z.object({
-        key: z.string(),
-        value: z.string(),
+    config: z.record(z.string(), z.unknown()).optional(),
+    payload: z.record(z.string(), z.unknown()).optional(),
+    variables: z.array(z.object({
+        name: z.string().min(1, "Variable name is required"),
+        type: z.enum(VARIABLE_TYPES),
+        default: z.string(),
     })).optional(),
 })
 
 type ActionFormValues = z.infer<typeof actionFormSchema>
 
-function headersToArray(headers?: Record<string, string>): { key: string; value: string }[] {
-    if (!headers || Object.keys(headers).length === 0) {
-        return [{ key: "", value: "" }]
-    }
-    return Object.entries(headers).map(([key, value]) => ({ key, value }))
+type StoredVariable = { name: string; type: VariableType; default?: string }
+
+/** Convert stored variables array to form field array */
+function storedToForm(stored?: StoredVariable[]): { name: string; type: VariableType; default: string }[] {
+    if (!stored || !Array.isArray(stored)) return []
+    return stored.map((v) => ({ name: v.name, type: v.type ?? "string", default: v.default ?? "" }))
 }
 
-function bodyToString(body?: Record<string, unknown> | string): string {
-    if (!body) return ""
-    if (typeof body === "string") return body
-    if (Object.keys(body).length === 0) return ""
-    try {
-        return JSON.stringify(body, null, 2)
-    } catch {
-        return ""
+/** Convert form variables to a Record<string, any> using default values (for test/preview) */
+function variablesToMap(arr?: { name: string; type: VariableType; default: string }[]): Record<string, unknown> {
+    if (!arr) return {}
+    const result: Record<string, unknown> = {}
+    for (const v of arr) {
+        if (!v.name.trim()) continue
+        const key = v.name.trim()
+        const raw = v.default
+        switch (v.type) {
+            case "int":
+                result[key] = raw === "" ? 0 : Number(raw)
+                break
+            case "bool":
+                result[key] = raw === "true" || raw === "1"
+                break
+            default:
+                result[key] = raw
+        }
     }
-}
-
-const methodColors: Record<string, string> = {
-    GET: "bg-emerald-600 text-white",
-    POST: "bg-blue-600 text-white",
-    PUT: "bg-amber-600 text-white",
-    PATCH: "bg-orange-600 text-white",
-    DELETE: "bg-red-600 text-white",
-}
-
-function buildCurlCommand(method: string, endpoint: string, headers: { key: string; value: string }[], body?: string): string {
-    const parts: string[] = ["curl"]
-
-    if (method !== "GET") {
-        parts.push(`-X ${method}`)
-    }
-
-    parts.push(`'${endpoint || "https://..."}'`)
-
-    const validHeaders = headers.filter(h => h.key.trim())
-    for (const header of validHeaders) {
-        parts.push(`-H '${header.key}: ${header.value}'`)
-    }
-
-    if (body && body.trim() && method !== "GET" && method !== "DELETE") {
-        parts.push(`-d '${body}'`)
-    }
-
-    return parts.join(" \\\n  ")
+    return result
 }
 
 export default function ActionDetail() {
     const [project] = useContext(ProjectContext)
     const { t } = useTranslation()
     const navigate = useNavigate()
-    const { entityId } = useParams()
-    const isNew = !entityId || entityId === 'new'
-    const [isSaving, setIsSaving] = useState(false)
+    const { entityId, type: routeType } = useParams()
+    const isNew = !entityId || entityId === "new"
 
+    // Type is determined at creation time (from route) or from the existing action
+    const actionType = isNew ? routeType : undefined
+
+    const [isSaving, setIsSaving] = useState(false)
+    const [isTesting, setIsTesting] = useState(false)
+    const [testResult, setTestResult] = useState<TestActionResult | null>(null)
+    const [activeTab, setActiveTab] = useState<string>("preview")
+    const [actionMetas] = useResolver(
+        useCallback(async () => {
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/actions/meta", {
+                params: { path: { projectID: project.id } },
+            })
+            return data ?? null
+        }, [project.id]),
+    )
     const [existingAction, setExistingAction] = useState<Action | null>(null)
 
     useEffect(() => {
         if (!isNew && entityId) {
-            api.actions.get(project.id, entityId as UUID)
-                .then(setExistingAction)
+            oapiClient
+                .GET("/api/admin/projects/{projectID}/actions/{actionID}", {
+                    params: {
+                        path: { projectID: project.id, actionID: entityId },
+                    },
+                })
+                .then(({ data }) => {
+                    if (data) setExistingAction(data)
+                    else navigate(`/projects/${project.id}/actions`)
+                })
                 .catch(() => navigate(`/projects/${project.id}/actions`))
         }
     }, [isNew, entityId, project.id, navigate])
+
+    // Resolve the effective type: route param for new, existing action for edit
+    const selectedType = isNew ? actionType : existingAction?.type
+    const selectedMeta = actionMetas?.find((m: ActionMeta) => m.type === selectedType) ?? null
+
+    // Redirect if no valid type for new actions
+    useEffect(() => {
+        if (isNew && !actionType) {
+            navigate(`/projects/${project.id}/actions`)
+        }
+    }, [isNew, actionType, project.id, navigate])
 
     const form = useForm<ActionFormValues>({
         resolver: zodResolver(actionFormSchema),
         defaultValues: {
             name: "",
-            type: "webhook",
-            method: "POST",
-            endpoint: "",
-            body: "",
-            headers: [{ key: "", value: "" }],
+            config: {},
+            payload: {},
+            variables: [],
         },
     })
 
-    useEffect(() => {
-        if (existingAction) {
-            form.reset({
-                name: existingAction.name,
-                type: existingAction.type,
-                method: existingAction.config?.method ?? "POST",
-                endpoint: existingAction.config?.endpoint ?? "",
-                body: bodyToString(existingAction.config?.body),
-                headers: headersToArray(existingAction.config?.headers),
-            })
-        }
-    }, [existingAction, form])
-
-    const { fields, append, remove } = useFieldArray({
+    const { fields: variableFields, append: appendVariable, remove: removeVariable } = useFieldArray({
         control: form.control,
-        name: "headers",
+        name: "variables",
     })
 
-    const method = form.watch("method") ?? "POST"
-    const endpoint = form.watch("endpoint") ?? ""
-    const headers = form.watch("headers") ?? []
-    const body = form.watch("body") ?? ""
+    useEffect(() => {
+        if (existingAction && actionMetas) {
+            const stored = (existingAction.config ?? {}) as Record<string, unknown>
+            form.reset({
+                name: existingAction.name,
+                config: (stored.config as Record<string, unknown>) ?? {},
+                payload: (stored.payload as Record<string, unknown>) ?? {},
+                variables: storedToForm(stored.variables as StoredVariable[]),
+            })
+        }
+    }, [existingAction, actionMetas, form])
 
-    const curlCommand = buildCurlCommand(method, endpoint, headers, body)
+    const iframeRef = useRef<HTMLIFrameElement>(null)
+    const [iframeHeight, setIframeHeight] = useState(300)
+    const [previewHtml, setPreviewHtml] = useState<string | null>(null)
+    const iframeLoadedRef = useRef(false)
+
+    // Fetch preview HTML when action type changes
+    useEffect(() => {
+        if (!selectedType) {
+            setPreviewHtml(null)
+            return
+        }
+        iframeLoadedRef.current = false
+        fetch(`/api/admin/projects/${project.id}/actions/meta/${selectedType}/preview`)
+            .then((r) => {
+                if (r.ok) return r.text()
+                return null
+            })
+            .then((html) => setPreviewHtml(html ?? null))
+            .catch(() => setPreviewHtml(null))
+    }, [selectedType, project.id])
+
+    // Post form data to iframe on changes — useWatch returns new references on nested changes
+    const config = useWatch({ control: form.control, name: "config" })
+    const payload = useWatch({ control: form.control, name: "payload" })
+    const variables = useWatch({ control: form.control, name: "variables" })
+
+    // Derive variable names for autocomplete in payload fields
+    const variableNames = useMemo(
+        () => (variables ?? []).map((v) => v.name.trim()).filter(Boolean),
+        [variables],
+    )
+
+    // Serialize to JSON so the effect fires on deep changes
+    const previewData = JSON.stringify({
+        config: { ...(config ?? {}), ...(payload ?? {}) },
+        payload: payload ?? {},
+        variables: variablesToMap(variables),
+    })
+
+    const postToIframe = useCallback(() => {
+        if (!iframeRef.current?.contentWindow || !iframeLoadedRef.current) return
+        iframeRef.current.contentWindow.postMessage(
+            {
+                type: "preview-update",
+                actionType: selectedType,
+                ...JSON.parse(previewData),
+            },
+            "*",
+        )
+    }, [selectedType, previewData])
+
+    // Keep a ref to the latest postToIframe so the "preview-ready" handler
+    // always calls the most current version (avoids stale closure from
+    // the race between form.reset and iframe mount).
+    const postToIframeRef = useRef(postToIframe)
+    useEffect(() => {
+        postToIframeRef.current = postToIframe
+    }, [postToIframe])
+
+    // Post data when it changes (only if iframe is loaded)
+    useEffect(() => {
+        if (!previewHtml) return
+        postToIframe()
+    }, [previewHtml, postToIframe])
+
+    // Re-post data when iframe finishes loading (DOM ready)
+    const handleIframeLoad = useCallback(() => {
+        iframeLoadedRef.current = true
+    }, [])
+
+    // Listen for messages from iframe: resize and preview-ready
+    useEffect(() => {
+        const handler = (e: MessageEvent) => {
+            if (e.data?.type === "resize" && typeof e.data.height === "number") {
+                setIframeHeight(e.data.height)
+            }
+            // The Preact app inside the iframe signals it has mounted its
+            // message listener. Post the current form data in response so
+            // the preview is guaranteed to receive it.
+            if (e.data?.type === "preview-ready") {
+                iframeLoadedRef.current = true
+                postToIframeRef.current()
+            }
+        }
+        window.addEventListener("message", handler)
+        return () => window.removeEventListener("message", handler)
+    }, [])
 
     const onSubmit = async (data: ActionFormValues) => {
+        if (!selectedType) return
         setIsSaving(true)
         try {
-            const validHeaders = (data.headers ?? []).filter(h => h.key.trim())
-            const headersObj: Record<string, string> = {}
-            for (const h of validHeaders) {
-                headersObj[h.key] = h.value
+            const vars = (data.variables ?? []).filter((v) => v.name.trim())
+            const actionConfig: Record<string, unknown> = {
+                config: data.config ?? {},
+                payload: data.payload ?? {},
+            }
+            if (vars.length > 0) {
+                actionConfig.variables = vars
             }
 
-            let bodyObj: Record<string, unknown> | undefined
-            if (data.body && data.body.trim()) {
-                try {
-                    bodyObj = JSON.parse(data.body)
-                } catch {
-                    bodyObj = undefined
-                }
-            }
-
-            const config: Record<string, unknown> = {
-                method: data.method,
-                endpoint: data.endpoint,
-            }
-            if (Object.keys(headersObj).length > 0) {
-                config.headers = headersObj
-            }
-            if (bodyObj) {
-                config.body = bodyObj
+            const body = {
+                name: data.name,
+                type: selectedType,
+                config: actionConfig,
             }
 
             if (isNew) {
-                await api.actions.create(project.id, {
-                    name: data.name,
-                    type: data.type,
-                    config,
+                await oapiClient.POST("/api/admin/projects/{projectID}/actions", {
+                    params: { path: { projectID: project.id } },
+                    body,
                 })
                 navigate(`/projects/${project.id}/actions`)
             } else {
-                await api.actions.update(project.id, entityId as UUID, {
-                    name: data.name,
-                    type: data.type,
-                    config,
+                await oapiClient.PATCH("/api/admin/projects/{projectID}/actions/{actionID}", {
+                    params: {
+                        path: { projectID: project.id, actionID: entityId! },
+                    },
+                    body,
                 })
             }
         } finally {
@@ -190,238 +322,324 @@ export default function ActionDetail() {
         }
     }
 
-    if (!isNew && !existingAction) {
-        return null
+    const onTest = async () => {
+        if (!selectedType) return
+        setIsTesting(true)
+        setTestResult(null)
+        try {
+            const formData = form.getValues()
+            const body: Record<string, unknown> = {
+                type: selectedType,
+                config: formData.config ?? {},
+                payload: formData.payload ?? {},
+                variables: variablesToMap(formData.variables),
+            }
+            // Include action_id only for saved actions.
+            if (entityId && !isNew) {
+                body.action_id = entityId
+            }
+            const { data, error } = await oapiClient.POST(
+                "/api/admin/projects/{projectID}/actions/test",
+                {
+                    params: { path: { projectID: project.id } },
+                    body: body as any,
+                },
+            )
+            if (data) {
+                setTestResult(data)
+                setActiveTab("results")
+            } else {
+                setTestResult({
+                    status: "error",
+                    error: error?.detail ?? "Unknown error",
+                })
+                setActiveTab("results")
+            }
+        } catch (e) {
+            setTestResult({
+                status: "error",
+                error: e instanceof Error ? e.message : "Request failed",
+            })
+            setActiveTab("results")
+        } finally {
+            setIsTesting(false)
+        }
     }
 
+    if (!isNew && !existingAction) return null
+
     return (
-        <div className="flex flex-col gap-6 p-6 max-w-4xl">
-            {/* Header */}
-            <div className="flex items-center gap-3">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => navigate(`/projects/${project.id}/actions`)}
-                >
-                    <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <h1 className="text-2xl font-semibold tracking-tight">
-                    {isNew ? t('create_action', 'Create Action') : t('edit_action', 'Edit Action')}
-                </h1>
-            </div>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 overflow-hidden">
+            {/* Left: Form (scrollable) */}
+            <div className="h-full overflow-y-auto w-2/5 bg-background p-8">
+                <div className="space-y-6">
+                    {/* Header */}
+                    <div className="flex items-center gap-3">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            onClick={() => navigate(`/projects/${project.id}/actions`)}
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                            {isNew
+                                ? t("create_action", "Create Action")
+                                : t("edit_action", "Edit Action")}
+                        </h1>
+                        {selectedMeta && (
+                            <Badge variant="secondary">{selectedMeta.name}</Badge>
+                        )}
+                        {!selectedMeta && selectedType && (
+                            <Badge variant="secondary">{snakeToTitle(selectedType)}</Badge>
+                        )}
+                    </div>
 
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-8">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Left: Form */}
-                    <div className="space-y-6">
-                        <FieldGroup>
-                            <Controller
-                                name="name"
-                                control={form.control}
-                                render={({ field, fieldState }) => (
-                                    <Field data-invalid={fieldState.invalid} className="gap-2">
-                                        <FieldLabel>{t('name')} <span className="inline text-destructive">*</span></FieldLabel>
-                                        <Input
-                                            {...field}
-                                            aria-invalid={fieldState.invalid}
-                                            placeholder={t('action_name_placeholder', 'My Webhook Action')}
-                                            autoComplete="off"
+                    {/* Name */}
+                    <FieldGroup>
+                        <Controller
+                            name="name"
+                            control={form.control}
+                            render={({ field, fieldState }) => (
+                                <Field data-invalid={fieldState.invalid} className="gap-2">
+                                    <FieldLabel>
+                                        {t("name")}{" "}
+                                        <span className="inline text-destructive">*</span>
+                                    </FieldLabel>
+                                    <Input
+                                        {...field}
+                                        aria-invalid={fieldState.invalid}
+                                        placeholder={t(
+                                            "action_name_placeholder",
+                                            "My Action",
+                                        )}
+                                        autoComplete="off"
+                                    />
+                                    {fieldState.invalid && (
+                                        <FieldError errors={[fieldState.error]} />
+                                    )}
+                                </Field>
+                            )}
+                        />
+                    </FieldGroup>
+
+                    {/* Variables — user-defined name + binding rows */}
+                    <Collapsible defaultOpen={variableFields.length > 0}>
+                        <CollapsibleTrigger asChild>
+                            <button
+                                type="button"
+                                className="flex w-full items-center justify-between rounded-lg border px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-colors"
+                            >
+                                <span className="flex items-center gap-2">
+                                    {t("variables", "Variables")}
+                                    {variableFields.length > 0 && (
+                                        <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                                            {variableFields.length}
+                                        </Badge>
+                                    )}
+                                </span>
+                                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+                            </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                            <div className="border border-t-0 rounded-b-lg px-4 py-4 space-y-3">
+                                {variableFields.map((field, index) => (
+                                    <div key={field.id} className="flex items-start gap-2">
+                                        <Controller
+                                            name={`variables.${index}.name`}
+                                            control={form.control}
+                                            render={({ field: nameField, fieldState }) => (
+                                                <div className="w-2/5">
+                                                    <Input
+                                                        {...nameField}
+                                                        placeholder={t("variable_name", "name")}
+                                                        aria-invalid={fieldState.invalid}
+                                                        className="font-mono text-xs"
+                                                        autoComplete="off"
+                                                    />
+                                                </div>
+                                            )}
                                         />
-                                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                                    </Field>
-                                )}
-                            />
-
-                            <Controller
-                                name="type"
-                                control={form.control}
-                                render={({ field }) => (
-                                    <Field className="gap-2">
-                                        <FieldLabel>{t('type')}</FieldLabel>
-                                        <Select
-                                            value={field.value}
-                                            onValueChange={field.onChange}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="webhook">Webhook</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </Field>
-                                )}
-                            />
-                        </FieldGroup>
-
-                        <div className="border-t pt-6">
-                            <h2 className="text-lg font-medium mb-4">{t('webhook_configuration', 'Webhook Configuration')}</h2>
-
-                            <FieldGroup>
-                                <Controller
-                                    name="method"
-                                    control={form.control}
-                                    render={({ field, fieldState }) => (
-                                        <Field data-invalid={fieldState.invalid} className="gap-2">
-                                            <FieldLabel>{t('method')}</FieldLabel>
-                                            <Select
-                                                value={field.value}
-                                                onValueChange={field.onChange}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {methods.map((m) => (
-                                                        <SelectItem key={m} value={m}>{m}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                                        </Field>
-                                    )}
-                                />
-
-                                <Controller
-                                    name="endpoint"
-                                    control={form.control}
-                                    render={({ field, fieldState }) => (
-                                        <Field data-invalid={fieldState.invalid} className="gap-2">
-                                            <FieldLabel>{t('endpoint')} <span className="inline text-destructive">*</span></FieldLabel>
-                                            <Input
-                                                {...field}
-                                                aria-invalid={fieldState.invalid}
-                                                placeholder="https://api.example.com/webhook"
-                                                autoComplete="off"
-                                            />
-                                            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                                        </Field>
-                                    )}
-                                />
-
-                                <Field className="gap-2">
-                                    <div className="flex items-center justify-between">
-                                        <FieldLabel>{t('headers', 'Headers')}</FieldLabel>
+                                        <Controller
+                                            name={`variables.${index}.type`}
+                                            control={form.control}
+                                            render={({ field: typeField }) => (
+                                                <Select value={typeField.value} onValueChange={typeField.onChange}>
+                                                    <SelectTrigger className="w-24 text-xs">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {VARIABLE_TYPES.map((t) => (
+                                                            <SelectItem key={t} value={t} className="text-xs">
+                                                                {t}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        />
+                                        <Controller
+                                            name={`variables.${index}.default`}
+                                            control={form.control}
+                                            render={({ field: defaultField }) => (
+                                                <div className="flex-1">
+                                                    <Input
+                                                        {...defaultField}
+                                                        placeholder={t("default_value", "default")}
+                                                        className="text-xs"
+                                                        autoComplete="off"
+                                                    />
+                                                </div>
+                                            )}
+                                        />
                                         <Button
                                             type="button"
                                             variant="ghost"
-                                            size="sm"
-                                            onClick={() => append({ key: "", value: "" })}
+                                            size="icon"
+                                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                            onClick={() => removeVariable(index)}
                                         >
-                                            <Plus className="w-4 h-4 mr-1" />
-                                            {t('add_header', 'Add Header')}
+                                            <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <div className="space-y-2">
-                                        {fields.map((item, index) => (
-                                            <div key={item.id} className="flex items-center gap-2">
-                                                <Controller
-                                                    name={`headers.${index}.key`}
-                                                    control={form.control}
-                                                    render={({ field }) => (
-                                                        <Input
-                                                            {...field}
-                                                            placeholder="Header name"
-                                                            autoComplete="off"
-                                                            className="flex-1"
-                                                        />
-                                                    )}
-                                                />
-                                                <Controller
-                                                    name={`headers.${index}.value`}
-                                                    control={form.control}
-                                                    render={({ field }) => (
-                                                        <Input
-                                                            {...field}
-                                                            placeholder="Value"
-                                                            autoComplete="off"
-                                                            className="flex-1"
-                                                        />
-                                                    )}
-                                                />
-                                                {fields.length > 1 && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => remove(index)}
-                                                        className="shrink-0"
-                                                    >
-                                                        <Trash2 className="w-4 h-4 text-muted-foreground" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </Field>
-
-                                <Controller
-                                    name="body"
-                                    control={form.control}
-                                    render={({ field, fieldState }) => (
-                                        <Field data-invalid={fieldState.invalid} className="gap-2">
-                                            <FieldLabel>{t('body')}</FieldLabel>
-                                            <Textarea
-                                                {...field}
-                                                aria-invalid={fieldState.invalid}
-                                                placeholder='{"key": "value"}'
-                                                autoComplete="off"
-                                                className="font-mono text-sm min-h-[120px]"
-                                            />
-                                            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                                        </Field>
-                                    )}
-                                />
-
-                            </FieldGroup>
-                        </div>
-                    </div>
-
-                    {/* Right: Preview */}
-                    <div className="space-y-4">
-                        <h2 className="text-lg font-medium">{t('preview')}</h2>
-                        <div className="bg-zinc-800/90 rounded-lg shadow-lg overflow-hidden border border-zinc-600/50">
-                            <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-700/60 border-b border-zinc-600/40">
-                                <div className="flex gap-1.5">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-red-400/80" />
-                                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-400/80" />
-                                    <div className="w-2.5 h-2.5 rounded-full bg-green-400/80" />
-                                </div>
-                                <div className="flex-1 flex items-center gap-2 ml-2">
-                                    <Badge className={`${methodColors[method] ?? "bg-zinc-600 text-white"} text-[10px] px-1.5 py-0 font-bold rounded border-0`}>
-                                        {method}
-                                    </Badge>
-                                    <span className="text-zinc-400 text-xs font-mono truncate">
-                                        {endpoint || "https://..."}
-                                    </span>
-                                </div>
+                                ))}
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full"
+                                    onClick={() => appendVariable({ name: "", type: "string", default: "" })}
+                                >
+                                    <Plus className="h-4 w-4 mr-1.5" />
+                                    {t("add_variable", "Add Variable")}
+                                </Button>
                             </div>
-                            <pre className="px-5 py-5 text-sm font-mono text-green-400/90 whitespace-pre-wrap break-all overflow-auto min-h-[200px] max-h-[500px] leading-relaxed">
-                                <span className="text-zinc-500">$ </span>{curlCommand}
-                            </pre>
+                        </CollapsibleContent>
+                    </Collapsible>
+
+                    {/* Config section (from config_schema) */}
+                    {selectedMeta?.config_schema && (
+                        <div className="border-t pt-6">
+                            <SchemaFields
+                                title="Configuration"
+                                description={selectedMeta.description}
+                                parent="config"
+                                schema={selectedMeta.config_schema as Schema}
+                                form={form}
+                                variableNames={variableNames}
+                            />
                         </div>
+                    )}
+
+                    {/* Payload section (from payload_schema) */}
+                    {selectedMeta?.payload_schema && (
+                        <div className="border-t pt-6">
+                            <SchemaFields
+                                title="Payload"
+                                parent="payload"
+                                schema={selectedMeta.payload_schema as Schema}
+                                form={form}
+                                variableNames={variableNames}
+                            />
+                        </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-3 border-t pt-6">
+                        <Button type="submit" disabled={isSaving || !selectedType}>
+                            {isSaving
+                                ? t("saving", "Saving...")
+                                : isNew
+                                  ? t("create_action", "Create Action")
+                                  : t("save_action", "Save Action")}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isTesting || !selectedType}
+                            onClick={onTest}
+                        >
+                            {isTesting ? t("testing", "Testing...") : t("test", "Test")}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => navigate(`/projects/${project.id}/actions`)}
+                        >
+                            {t("cancel")}
+                        </Button>
                     </div>
                 </div>
+            </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-3 border-t pt-6">
-                    <Button type="submit" disabled={isSaving}>
-                        {isSaving
-                            ? t('saving', 'Saving...')
-                            : isNew
-                                ? t('create_action', 'Create Action')
-                                : t('save_action', 'Save Action')
+            {/* Right: Preview / Results tabs */}
+            <div className="flex flex-col w-3/5 border-l overflow-hidden">
+                <nav className="flex gap-1 px-8 pt-8 border-b bg-card/50">
+                    {([
+                        { key: "preview", label: t("preview", "Preview") },
+                        { key: "results", label: t("results", "Results") },
+                    ] as const).map((tab) => {
+                        const isDisabled = tab.key === "results" && !testResult
+                        const tabButton = (
+                            <button
+                                key={tab.key}
+                                type="button"
+                                disabled={isDisabled}
+                                onClick={() => setActiveTab(tab.key)}
+                                className={cn(
+                                    "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors -mb-px",
+                                    activeTab === tab.key
+                                        ? "border-primary text-foreground bg-background"
+                                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                                    isDisabled && "opacity-50 pointer-events-none",
+                                )}
+                            >
+                                {tab.label}
+                            </button>
+                        )
+
+                        if (isDisabled) {
+                            return (
+                                <Tooltip key={tab.key}>
+                                    <TooltipTrigger asChild>
+                                        <span className="cursor-default">{tabButton}</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">
+                                        {t("test_to_see_results", "Run a test to see results")}
+                                    </TooltipContent>
+                                </Tooltip>
+                            )
                         }
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => navigate(`/projects/${project.id}/actions`)}
-                    >
-                        {t('cancel')}
-                    </Button>
+
+                        return tabButton
+                    })}
+                </nav>
+
+                <div className="flex-1 overflow-y-auto p-8">
+                    {activeTab === "preview" && (
+                        previewHtml ? (
+                            <iframe
+                                ref={iframeRef}
+                                srcDoc={previewHtml}
+                                title="Action Preview"
+                                className="w-full rounded-lg bg-background"
+                                style={{ height: iframeHeight, border: "none" }}
+                                sandbox="allow-scripts"
+                                onLoad={handleIframeLoad}
+                            />
+                        ) : (
+                            <div className="flex items-center justify-center h-48 border rounded-lg text-muted-foreground text-sm">
+                                {t("no_preview", "No preview available")}
+                            </div>
+                        )
+                    )}
+
+                    {activeTab === "results" && testResult && (
+                        <TestResultPanel result={testResult} />
+                    )}
                 </div>
-            </form>
-        </div>
+            </div>
+        </form>
     )
 }

@@ -30,4 +30,11 @@ export type AddOrganizationMember = components["schemas"]["AddOrganizationMember
 export type User = components["schemas"]["User"];
 export type UserList = components["schemas"]["UserList"];
 
+export type Action = components["schemas"]["Action"];
+export type CreateAction = components["schemas"]["CreateAction"];
+export type UpdateAction = components["schemas"]["UpdateAction"];
+export type ActionMeta = components["schemas"]["ActionMeta"];
+export type TestActionRequest = components["schemas"]["TestActionRequest"];
+export type TestActionResult = components["schemas"]["TestActionResult"];
+
 export default oapiClient;

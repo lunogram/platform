@@ -13,6 +13,7 @@ import (
 )
 
 // New creates a new JetStream connection using the provided configuration.
+// Use jet.Conn() to access the underlying NATS connection for request/reply patterns.
 func New(ctx graceful.Context, conf config.Node) (jetstream.JetStream, error) {
 	conn, err := nats.Connect(
 		conf.Nats.URL,
@@ -63,6 +64,38 @@ func (p *publisher) Publish(ctx context.Context, subject schemas.Subject, v any)
 	return nil
 }
 
+// Caller sends a message to a NATS subject and waits for a reply via the inbox pattern.
+type Caller interface {
+	// Call sends a JSON-encoded message and waits for a JSON response.
+	Call(ctx context.Context, subject schemas.Subject, v any, timeout time.Duration) ([]byte, error)
+}
+
+type caller struct {
+	conn *nats.Conn
+}
+
+// NewCaller creates a Caller that uses the underlying NATS connection for request/reply.
+func NewCaller(jet jetstream.JetStream) Caller {
+	return &caller{conn: jet.Conn()}
+}
+
+func (r *caller) Call(ctx context.Context, subject schemas.Subject, v any, timeout time.Duration) ([]byte, error) {
+	payload, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	msg, err := r.conn.RequestWithContext(ctx, string(subject), payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return msg.Data, nil
+}
+
 type noopPublisher struct{}
 
 // NewNoopPublisher creates a Publisher that does nothing for testing.
@@ -72,4 +105,15 @@ func NewNoopPublisher() Publisher {
 
 func (n *noopPublisher) Publish(ctx context.Context, subject schemas.Subject, v any) error {
 	return nil
+}
+
+type noopCaller struct{}
+
+// NewNoopCaller creates a Caller that does nothing for testing.
+func NewNoopCaller() Caller {
+	return &noopCaller{}
+}
+
+func (n *noopCaller) Call(ctx context.Context, subject schemas.Subject, v any, timeout time.Duration) ([]byte, error) {
+	return nil, nil
 }

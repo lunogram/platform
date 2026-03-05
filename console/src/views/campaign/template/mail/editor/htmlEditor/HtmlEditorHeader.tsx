@@ -93,8 +93,8 @@ export function HtmlEditorHeader({
   editorRef,
 }: HtmlEditorHeaderProps) {
   const { t } = useTranslation();
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
+  const [, setCanUndo] = useState(false);
+  const [, setCanRedo] = useState(false);
 
   // Update undo/redo state when editor content changes
   const updateUndoRedoState = useCallback(() => {

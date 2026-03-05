@@ -5,15 +5,17 @@ import (
 	"encoding/json"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/journeys"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/management"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
-func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
+func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mgmt *management.State, pub pubsub.Publisher, actionRegistry *actions.Registry) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		event := schemas.JourneyStep{}
 		err := json.Unmarshal(msg.Data(), &event)
@@ -53,7 +55,7 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, pu
 		logger := logger.With(zap.String("step_type", step.Type), zap.String("step_id", step.ID.String()), zap.String("user_id", event.UserID.String()))
 		logger.Info("processing journey step")
 
-		next, children, err := journeys.Handle(ctx, db, pub, event.ProjectID, event.UserID, step, state, data)
+		next, children, err := journeys.Handle(ctx, db, pub, event.ProjectID, event.UserID, step, state, data, mgmt, actionRegistry)
 		if err != nil {
 			logger.Error("failed to handle journey step", zap.Error(err))
 			return err

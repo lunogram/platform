@@ -9,7 +9,6 @@ import { useResolver } from '../../hooks'
 import { formatDate, snakeToTitle } from '../../utils'
 import { getRandomColor } from '@/lib/colors'
 import { PreferencesContext } from '../../ui/PreferencesContext'
-import { ProjectContext } from '../../contexts'
 import { ListCreateForm } from './ListCreateForm'
 import { ListsIcon as ListsPageIcon } from '@/components/icons'
 
@@ -54,7 +53,6 @@ function getStateBadge(state: ListState, t: (key: string) => string) {
 
 export default function Lists() {
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
-    const [project] = useContext(ProjectContext)
     const [preferences] = useContext(PreferencesContext)
     const { t } = useTranslation()
     const navigate = useNavigate()

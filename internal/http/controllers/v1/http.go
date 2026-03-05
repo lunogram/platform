@@ -9,6 +9,7 @@ import (
 	"github.com/cloudproud/graceful"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/go-chi/chi/v5"
+	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http"
 	"github.com/lunogram/platform/internal/http/auth"
@@ -33,7 +34,7 @@ var staticFiles embed.FS
 // NewServer constructs a unified HTTP server combining both management and client
 // API endpoints. Management endpoints use JWT+API Key auth, while client endpoints
 // use API Key only authentication.
-func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) (*http.Server, error) {
+func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storage storage.Storage, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry) (*http.Server, error) {
 	mgmtStores := management.NewState(db.Management)
 	usersStore := subjects.NewState(db.Subjects)
 
@@ -49,7 +50,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	}
 
 	// Create management controller
-	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storage, pub, registry)
+	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storage, pub, req, registry, actionRegistry)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create management controller: %w", err)
 	}

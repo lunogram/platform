@@ -11,13 +11,11 @@ import type {
     Provider,
     ProviderCreateParams,
     ProviderMeta,
-    ProviderUpdateParams,
 } from '../../types'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import {
     Dialog,
     DialogContent,
@@ -34,138 +32,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Textarea } from '@/components/ui/textarea'
-
-// ─── Schema Fields (modern replacement) ──────────────────────────────────────
-
-interface Schema {
-    type: 'string' | 'number' | 'boolean' | 'object'
-    enum?: string[]
-    title?: string
-    description?: string
-    properties?: Record<string, Schema>
-    required?: string[]
-    minLength?: number
-}
-
-interface ModernSchemaFieldsProps {
-    title?: string
-    description?: string
-    parent: string
-    schema: Schema
-    form: ReturnType<typeof useForm<any>>
-}
-
-function ModernSchemaFields({ title, description, parent, form, schema }: ModernSchemaFieldsProps) {
-    if (!schema?.properties) {
-        return null
-    }
-
-    const props = schema.properties
-    const keys = Object.keys(schema.properties)
-
-    return (
-        <div className="grid gap-4">
-            {title && <h4 className="text-sm font-medium">{snakeToTitle(title)}</h4>}
-            {description && <p className="text-sm text-muted-foreground">{description}</p>}
-            {keys.map(key => {
-                const item = props[key]
-                const required = schema.required?.includes(key)
-                const fieldTitle = item.title ?? snakeToTitle(key)
-                const fieldName = `${parent}.${key}`
-
-                if (item.enum) {
-                    return (
-                        <div key={key} className="grid gap-2">
-                            <Label className="inline-flex items-center gap-1">
-                                {fieldTitle}
-                                {required && <span className="text-destructive">*</span>}
-                            </Label>
-                            {item.description && (
-                                <p className="text-sm text-muted-foreground">{item.description}</p>
-                            )}
-                            <Select
-                                value={form.watch(fieldName) ?? ''}
-                                onValueChange={(val) => form.setValue(fieldName, val)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {item.enum.map((value: string) => (
-                                        <SelectItem key={value} value={value}>
-                                            {snakeToTitle(value)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )
-                } else if (item.type === 'string' || item.type === 'number') {
-                    const useTextarea = (item.minLength ?? 0) >= 80
-                    return (
-                        <div key={key} className="grid gap-2">
-                            <Label className="inline-flex items-center gap-1">
-                                {fieldTitle}
-                                {required && <span className="text-destructive">*</span>}
-                            </Label>
-                            {item.description && (
-                                <p className="text-sm text-muted-foreground">{item.description}</p>
-                            )}
-                            {useTextarea ? (
-                                <Textarea
-                                    {...form.register(fieldName, {
-                                        required,
-                                        minLength: item.minLength,
-                                    })}
-                                />
-                            ) : (
-                                <Input
-                                    type={item.type === 'number' ? 'number' : 'text'}
-                                    {...form.register(fieldName, {
-                                        required,
-                                        minLength: item.minLength,
-                                        valueAsNumber: item.type === 'number',
-                                    })}
-                                />
-                            )}
-                        </div>
-                    )
-                } else if (item.type === 'boolean') {
-                    return (
-                        <div key={key} className="flex items-center justify-between rounded-lg border p-3">
-                            <div className="space-y-0.5">
-                                <Label>{fieldTitle}</Label>
-                                {item.description && (
-                                    <p className="text-sm text-muted-foreground">{item.description}</p>
-                                )}
-                            </div>
-                            <Switch
-                                checked={form.watch(fieldName) ?? false}
-                                onCheckedChange={(checked) => form.setValue(fieldName, checked)}
-                            />
-                        </div>
-                    )
-                } else if (item.type === 'object') {
-                    return (
-                        <ModernSchemaFields
-                            key={key}
-                            form={form}
-                            title={fieldTitle}
-                            description={item.description}
-                            parent={fieldName}
-                            schema={item}
-                        />
-                    )
-                }
-                return null
-            })}
-        </div>
-    )
-}
-
-// ─── Integration Form ────────────────────────────────────────────────────────
-
+import { SchemaFields } from '@/components/SchemaFields'
 interface IntegrationFormParams {
     project: Project
     meta: ProviderMeta
@@ -246,7 +113,7 @@ export function IntegrationForm({
                 <Input {...form.register('name', { required: true })} />
             </div>
 
-            <ModernSchemaFields
+            <SchemaFields
                 parent="data"
                 schema={meta.schema.properties.data}
                 form={form}
@@ -294,9 +161,6 @@ export function IntegrationForm({
         </form>
     )
 }
-
-// ─── Integration Modal ───────────────────────────────────────────────────────
-
 interface IntegrationModalProps {
     open: boolean
     onClose: (open: boolean) => void
@@ -382,7 +246,7 @@ export default function IntegrationModal({
                             <button
                                 key={`${option.group}${option.type}`}
                                 type="button"
-                                className="flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors hover:bg-accent hover:text-accent-foreground"
+                                className="flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer"
                                 onClick={() => setMeta(option)}
                             >
                                 {option.icon && (

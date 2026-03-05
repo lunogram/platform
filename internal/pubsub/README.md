@@ -15,12 +15,16 @@ graph TB
     Client -->|Submit Organization| OrgSubject["organizations.process.{project_id}"]
     Client -->|Submit Org User| OrgUserSubject["organizations.users.process.{project_id}"]
     Client -->|Submit Org Event| OrgEventSubject["organizations.events.process.{project_id}"]
+    Client -->|Send Campaign| CampaignSubject["campaigns.send.{project_id}.{campaign_id}"]
+    Client -->|Execute Action| ActionSubject["actions.execute.{project_id}"]
 
     EventSubject -->|Consume| EventHandler["User Event Handler"]
     UserSubject -->|Consume| UserHandler["User Handler"]
     OrgSubject -->|Consume| OrgHandler["Organization Handler"]
     OrgUserSubject -->|Consume| OrgUserHandler["Organization User Handler"]
     OrgEventSubject -->|Consume| OrgEventHandler["Organization Event Handler"]
+    CampaignSubject -->|Consume| CampaignHandler["Campaign Send Handler"]
+    ActionSubject -->|Consume| ActionHandler["Action Execute Handler"]
 
     %% Schema publishing
     EventHandler --> EventSchemaSubject["users.events.schema.{project_id}"]
@@ -54,8 +58,18 @@ graph TB
     OrgUserSchemaSubject -->|Consume| OrgUserSchemaHandler["Organization User Schema Handler"]
     OrgEventSchemaSubject -->|Consume| OrgEventSchemaHandler["Organization Event Schema Handler"]
 
+    %% Action schema publishing
+    ActionHandler --> ActionSchemaSubject["actions.schema.{project_id}"]
+    ActionSchemaSubject -->|Consume| ActionSchemaHandler["Action Schema Handler"]
+
     ListSubject -->|Consume| ListRecompute["List Recomputation"]
     JourneySubject -->|Consume| JourneyState["Journey State Handler"]
+
+    %% Journey self-advancement and action execution
+    JourneyState -->|Child Steps| JourneySubject
+    JourneyState -->|Execute Action| ActionSubject
+    ActionHandler -->|Reply via Inbox| JourneyState
+    ActionHandler -->|Reply via Inbox| Client
 
     ListRecompute -->|List Membership Change| EventSubject
 ```

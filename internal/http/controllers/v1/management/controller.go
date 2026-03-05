@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
@@ -11,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, registry *providers.Registry) (_ *Controller, err error) {
+func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry) (_ *Controller, err error) {
 	mgmt := management.NewState(managementDB)
 	projects := management.NewProjectsStore(managementDB)
 
@@ -35,7 +36,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		ProvidersController:            NewProvidersController(logger, managementDB, registry),
 		SubscriptionsController:        NewSubscriptionsController(logger, managementDB),
 		ApiKeysController:              NewApiKeysController(logger, managementDB),
-		ActionsController:              NewActionsController(logger, managementDB),
+		ActionsController:              NewActionsController(logger, managementDB, req, usersDB, actionRegistry),
 	}
 
 	controller.AuthController, err = NewAuthController(logger, managementDB, cfg)
