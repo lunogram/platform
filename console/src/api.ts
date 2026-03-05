@@ -406,6 +406,20 @@ const api = {
           .then((r) => r.data),
     },
     users: {
+      getState: async (
+        projectId: UUID,
+        journeyId: UUID,
+        userId: UUID,
+      ) => {
+        const response = await client.get<Array<{
+          external_step_id: string;
+          step_type: string;
+          is_completed: boolean;
+        }>>(
+          `${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/state`,
+        );
+        return response.data;
+      },
       trigger: async (
         projectId: UUID,
         journeyId: UUID,
@@ -414,10 +428,9 @@ const api = {
       ) =>
         await client
           .post<JourneyEntranceDetail>(
-            `${projectUrl(projectId)}/journeys/${journeyId}/users`,
+            `${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}`,
             {
               externalStepID: externalId,
-              userID: userId,
             },
           )
           .then((r) => r.data),
@@ -429,10 +442,9 @@ const api = {
       ) =>
         await client
           .put<JourneyEntranceDetail>(
-            `${projectUrl(projectId)}/journeys/${journeyId}/users`,
+            `${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}`,
             {
               externalStepID: stepId,
-              userID: userId,
             },
           )
           .then((r) => r.data),

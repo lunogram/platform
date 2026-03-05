@@ -71,6 +71,7 @@ type JourneyStep struct {
 	VersionID      *uuid.UUID `json:"version_id,omitempty"`
 	UserID         uuid.UUID  `json:"user_id"`
 	ExternalStepID string     `json:"external_step_id"`
+	StepType       string     `json:"step_type"`
 	StateID        *uuid.UUID `json:"state_id,omitempty"`
 }
 

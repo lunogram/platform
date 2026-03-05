@@ -25,6 +25,7 @@ type JourneyStep struct {
 	VersionID      *uuid.UUID `json:"version_id,omitempty"`
 	UserID         uuid.UUID  `json:"user_id"`
 	ExternalStepID string     `json:"external_step_id"`
+	StepType       string     `json:"step_type"`
 	StateID        *uuid.UUID `json:"state_id,omitempty"`
 }
 
@@ -186,12 +187,19 @@ func PublishEventJourneyDependencies(ctx context.Context, logger *zap.Logger, us
 			}
 
 			for _, child := range dep.Children {
+				stepType, err := jrny.GetStepType(ctx, dep.VersionID, child.ChildExternalID)
+				if err != nil {
+					logger.Error("failed to get step type for child", zap.Error(err))
+					continue
+				}
+
 				step := JourneyStep{
 					ProjectID:      event.ProjectID,
 					JourneyID:      dep.JourneyID,
 					JourneyEntryID: entry,
 					ExternalStepID: child.ChildExternalID,
 					UserID:         event.UserID,
+					StepType:       stepType,
 				}
 
 				err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID, event.UserID), step)

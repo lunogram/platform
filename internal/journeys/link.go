@@ -71,6 +71,12 @@ func HandleLink(ctx HandlerContext, step journey.JourneyVersionStep, state journ
 	}
 
 	for _, child := range entrance.Children {
+		journeys := journey.NewJourneysStore(ctx.DB)
+		stepType, err := journeys.GetStepType(ctx, version.ID, child.ChildExternalID)
+		if err != nil {
+			return state, nil, fmt.Errorf("failed to get step type: %w", err)
+		}
+
 		journeyStep := schemas.JourneyStep{
 			ProjectID:      ctx.ProjectID,
 			JourneyID:      targetJourneyID,
@@ -78,6 +84,7 @@ func HandleLink(ctx HandlerContext, step journey.JourneyVersionStep, state journ
 			VersionID:      &version.ID,
 			UserID:         ctx.UserID,
 			ExternalStepID: child.ChildExternalID,
+			StepType:       stepType,
 		}
 
 		err = ctx.Publisher.Publish(ctx, schemas.JourneysAdvance(ctx.ProjectID, targetJourneyID, ctx.UserID), journeyStep)

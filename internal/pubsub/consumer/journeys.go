@@ -74,6 +74,12 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, userDB *sqlx.DB, jrny *
 		}
 
 		for _, child := range children {
+			stepType, err := jrny.GetStepType(ctx, *event.VersionID, child.ChildExternalID)
+			if err != nil {
+				logger.Error("failed to get step type for child", zap.Error(err))
+				continue
+			}
+
 			next := schemas.JourneyStep{
 				ProjectID:      event.ProjectID,
 				JourneyID:      event.JourneyID,
@@ -81,6 +87,7 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, userDB *sqlx.DB, jrny *
 				VersionID:      event.VersionID,
 				UserID:         event.UserID,
 				ExternalStepID: child.ChildExternalID,
+				StepType:       stepType,
 			}
 
 			err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, event.JourneyID, event.UserID), next)
@@ -89,7 +96,7 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, userDB *sqlx.DB, jrny *
 				return err
 			}
 
-			logger.Info("published next journey step", zap.String("step_id", child.ChildExternalID))
+			logger.Info("published next journey step", zap.String("step_id", child.ChildExternalID), zap.String("step_type", stepType))
 		}
 
 		logger.Info("journey step processed successfully!")

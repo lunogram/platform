@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import type { ReactFlowInstance } from "reactflow";
 import ReactFlow, {
   Background,
@@ -59,6 +59,7 @@ export default function JourneyEditor() {
   }>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const onUserEnteredNode = useCallback(
     (nodeId: string) => {
@@ -148,12 +149,24 @@ export default function JourneyEditor() {
     () => setHasUnsavedChanges(true),
   );
 
-  const { users, triggerUser, skipDelayForActiveUser } = useUserSelection(
+  const { users, triggerUser, skipDelayForActiveUser, followUser, restoreFollowing, activeUserId } = useUserSelection(
     project.id,
     journey.id,
     isUserModalOpen,
     onUserEnteredNode,
   );
+
+  const followUserRef = useRef(followUser);
+  followUserRef.current = followUser;
+  const restoreFollowingRef = useRef(restoreFollowing);
+  restoreFollowingRef.current = restoreFollowing;
+
+  useEffect(() => {
+    const followParam = searchParams.get("follow");
+    if (followParam) {
+      restoreFollowingRef.current(followParam);
+    }
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -371,6 +384,7 @@ export default function JourneyEditor() {
           setIsUserModalOpen(false);
           if (editNode?.id) triggerUser(editNode.id, u.id);
           onUserEnteredNode(editNode?.id ?? "");
+          setSearchParams({ follow: u.id });
         }}
       />
 

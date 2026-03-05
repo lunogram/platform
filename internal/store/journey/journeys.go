@@ -596,6 +596,53 @@ func (s *JourneysStore) GetJourneyVersionStepsChildren(ctx context.Context, vers
 	return children, nil
 }
 
+func (s *JourneysStore) GetStepType(ctx context.Context, versionID uuid.UUID, externalStepID string) (string, error) {
+	query := `SELECT type FROM journey_version_steps WHERE version_id = $1 AND external_id = $2`
+	var stepType string
+	err := s.db.GetContext(ctx, &stepType, query, versionID, externalStepID)
+	if err != nil {
+		return "", err
+	}
+	return stepType, nil
+}
+
+type UserJourneyState struct {
+	ExternalStepID string     `db:"external_step_id"`
+	StepType       string     `db:"step_type"`
+	EnteredAt      time.Time  `db:"entered_at"`
+	CompletedAt    *time.Time `db:"completed_at"`
+	VisitedAt      *time.Time `db:"visited_at"`
+}
+
+func (s *JourneysStore) GetUserJourneyCurrentState(ctx context.Context, projectID, journeyID, userID uuid.UUID) ([]UserJourneyState, error) {
+	query := `
+	SELECT 
+		jus.external_step_id,
+		COALESCE(jvs.type, '') AS step_type,
+		jus.entered_at,
+		jus.completed_at,
+		jus.updated_at AS visited_at
+	FROM journey_user_state jus
+	LEFT JOIN journey_version_steps jvs ON jvs.version_id = jus.pinned_version_id AND jvs.external_id = jus.external_step_id
+	WHERE jus.journey_id = $1 
+		AND jus.user_id = $2
+		AND jus.journey_entry_id IN (
+			SELECT journey_entry_id 
+			FROM journey_user_state 
+			WHERE journey_id = $1 AND user_id = $2
+			ORDER BY entered_at DESC
+			LIMIT 1
+		)
+	ORDER BY jus.entered_at ASC`
+
+	var states []UserJourneyState
+	err := s.db.SelectContext(ctx, &states, query, journeyID, userID)
+	if err != nil {
+		return nil, err
+	}
+	return states, nil
+}
+
 func (s *JourneysStore) GetJourneyStep(ctx context.Context, journeyID uuid.UUID, externalID string, versionID *uuid.UUID) (JourneyVersionStep, error) {
 	query := `
 	WITH target_version AS (
@@ -1155,7 +1202,7 @@ func (s *JourneysStore) ListEventJourneyDependencies(ctx context.Context, eventI
 	return entrances, err
 }
 
-func (s *JourneysStore) SkipUserJourneyStep(ctx context.Context, journeyID uuid.UUID, userID uuid.UUID, externalStepID string) ([]JourneyUserState, error) {
+func (s *JourneysStore) ResumeUserJourneyStep(ctx context.Context, journeyID uuid.UUID, userID uuid.UUID, externalStepID string) (JourneyUserState, error) {
 	stmt := `
 	WITH updated AS (
 		UPDATE journey_user_state
@@ -1167,11 +1214,11 @@ func (s *JourneysStore) SkipUserJourneyStep(ctx context.Context, journeyID uuid.
 	FROM updated u
 	JOIN journeys j ON j.id = u.journey_id`
 
-	var states []JourneyUserState
-	err := s.db.SelectContext(ctx, &states, stmt, journeyID, userID, externalStepID)
+	var state JourneyUserState
+	err := s.db.GetContext(ctx, &state, stmt, journeyID, userID, externalStepID)
 	if err != nil {
-		return nil, err
+		return state, err
 	}
 
-	return states, nil
+	return state, nil
 }

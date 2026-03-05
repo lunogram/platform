@@ -1156,28 +1156,16 @@ type ListJourneysParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
-// FollowUserJourneyStatusParams defines parameters for FollowUserJourneyStatus.
-type FollowUserJourneyStatusParams struct {
-	// UserID The user ID to check journey status for
-	UserID openapi_types.UUID `form:"userID" json:"userID"`
+// EnrollUserJSONBody defines parameters for EnrollUser.
+type EnrollUserJSONBody struct {
+	// ExternalStepID The ID of the journey entry to enroll the user in
+	ExternalStepID string `json:"externalStepID"`
 }
 
-// RunJourneyForUserJSONBody defines parameters for RunJourneyForUser.
-type RunJourneyForUserJSONBody struct {
-	// ExternalStepID The ID of the journey entry to run
+// AdvanceUserStepJSONBody defines parameters for AdvanceUserStep.
+type AdvanceUserStepJSONBody struct {
+	// ExternalStepID The external ID of the current step to advance
 	ExternalStepID string `json:"externalStepID"`
-
-	// UserID The ID of the user to run the journey for
-	UserID string `json:"userID"`
-}
-
-// SkipUserStepJSONBody defines parameters for SkipUserStep.
-type SkipUserStepJSONBody struct {
-	// ExternalStepID The external ID of the current step to skip
-	ExternalStepID string `json:"externalStepID"`
-
-	// UserID The ID of the user whose current step should be skipped
-	UserID string `json:"userID"`
 }
 
 // ListApiKeysParams defines parameters for ListApiKeys.
@@ -1345,11 +1333,11 @@ type UpdateJourneyJSONRequestBody = UpdateJourney
 // SetJourneyStepsJSONRequestBody defines body for SetJourneySteps for application/json ContentType.
 type SetJourneyStepsJSONRequestBody = JourneyStepMap
 
-// RunJourneyForUserJSONRequestBody defines body for RunJourneyForUser for application/json ContentType.
-type RunJourneyForUserJSONRequestBody RunJourneyForUserJSONBody
+// EnrollUserJSONRequestBody defines body for EnrollUser for application/json ContentType.
+type EnrollUserJSONRequestBody EnrollUserJSONBody
 
-// SkipUserStepJSONRequestBody defines body for SkipUserStep for application/json ContentType.
-type SkipUserStepJSONRequestBody SkipUserStepJSONBody
+// AdvanceUserStepJSONRequestBody defines body for AdvanceUserStep for application/json ContentType.
+type AdvanceUserStepJSONRequestBody AdvanceUserStepJSONBody
 
 // CreateApiKeyJSONRequestBody defines body for CreateApiKey for application/json ContentType.
 type CreateApiKeyJSONRequestBody = CreateApiKey
@@ -1816,18 +1804,21 @@ type ClientInterface interface {
 
 	SetJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// FollowUserJourneyStatus request
-	FollowUserJourneyStatus(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, params *FollowUserJourneyStatusParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// StreamUserJourneySteps request
+	StreamUserJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RunJourneyForUserWithBody request with any body
-	RunJourneyForUserWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// EnrollUserWithBody request with any body
+	EnrollUserWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	RunJourneyForUser(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body RunJourneyForUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	EnrollUser(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body EnrollUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// SkipUserStepWithBody request with any body
-	SkipUserStepWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// AdvanceUserStepWithBody request with any body
+	AdvanceUserStepWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	SkipUserStep(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SkipUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AdvanceUserStep(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body AdvanceUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserJourneyState request
+	GetUserJourneyState(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// VersionJourney request
 	VersionJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2700,8 +2691,8 @@ func (c *Client) SetJourneySteps(ctx context.Context, projectID openapi_types.UU
 	return c.Client.Do(req)
 }
 
-func (c *Client) FollowUserJourneyStatus(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, params *FollowUserJourneyStatusParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFollowUserJourneyStatusRequest(c.Server, projectID, journeyID, params)
+func (c *Client) StreamUserJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStreamUserJourneyStepsRequest(c.Server, projectID, journeyID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -2712,8 +2703,8 @@ func (c *Client) FollowUserJourneyStatus(ctx context.Context, projectID openapi_
 	return c.Client.Do(req)
 }
 
-func (c *Client) RunJourneyForUserWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRunJourneyForUserRequestWithBody(c.Server, projectID, journeyID, contentType, body)
+func (c *Client) EnrollUserWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnrollUserRequestWithBody(c.Server, projectID, journeyID, userID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2724,8 +2715,8 @@ func (c *Client) RunJourneyForUserWithBody(ctx context.Context, projectID openap
 	return c.Client.Do(req)
 }
 
-func (c *Client) RunJourneyForUser(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body RunJourneyForUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRunJourneyForUserRequest(c.Server, projectID, journeyID, body)
+func (c *Client) EnrollUser(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body EnrollUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnrollUserRequest(c.Server, projectID, journeyID, userID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2736,8 +2727,8 @@ func (c *Client) RunJourneyForUser(ctx context.Context, projectID openapi_types.
 	return c.Client.Do(req)
 }
 
-func (c *Client) SkipUserStepWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSkipUserStepRequestWithBody(c.Server, projectID, journeyID, contentType, body)
+func (c *Client) AdvanceUserStepWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdvanceUserStepRequestWithBody(c.Server, projectID, journeyID, userID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2748,8 +2739,20 @@ func (c *Client) SkipUserStepWithBody(ctx context.Context, projectID openapi_typ
 	return c.Client.Do(req)
 }
 
-func (c *Client) SkipUserStep(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SkipUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSkipUserStepRequest(c.Server, projectID, journeyID, body)
+func (c *Client) AdvanceUserStep(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body AdvanceUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdvanceUserStepRequest(c.Server, projectID, journeyID, userID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUserJourneyState(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserJourneyStateRequest(c.Server, projectID, journeyID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -5636,8 +5639,8 @@ func NewSetJourneyStepsRequestWithBody(server string, projectID openapi_types.UU
 	return req, nil
 }
 
-// NewFollowUserJourneyStatusRequest generates requests for FollowUserJourneyStatus
-func NewFollowUserJourneyStatusRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, params *FollowUserJourneyStatusParams) (*http.Request, error) {
+// NewStreamUserJourneyStepsRequest generates requests for StreamUserJourneySteps
+func NewStreamUserJourneyStepsRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5654,12 +5657,19 @@ func NewFollowUserJourneyStatusRequest(server string, projectID openapi_types.UU
 		return nil, err
 	}
 
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users/%s", pathParam0, pathParam1, pathParam2)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -5667,24 +5677,6 @@ func NewFollowUserJourneyStatusRequest(server string, projectID openapi_types.UU
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "userID", runtime.ParamLocationQuery, params.UserID); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -5695,19 +5687,19 @@ func NewFollowUserJourneyStatusRequest(server string, projectID openapi_types.UU
 	return req, nil
 }
 
-// NewRunJourneyForUserRequest calls the generic RunJourneyForUser builder with application/json body
-func NewRunJourneyForUserRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, body RunJourneyForUserJSONRequestBody) (*http.Request, error) {
+// NewEnrollUserRequest calls the generic EnrollUser builder with application/json body
+func NewEnrollUserRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body EnrollUserJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewRunJourneyForUserRequestWithBody(server, projectID, journeyID, "application/json", bodyReader)
+	return NewEnrollUserRequestWithBody(server, projectID, journeyID, userID, "application/json", bodyReader)
 }
 
-// NewRunJourneyForUserRequestWithBody generates requests for RunJourneyForUser with any type of body
-func NewRunJourneyForUserRequestWithBody(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewEnrollUserRequestWithBody generates requests for EnrollUser with any type of body
+func NewEnrollUserRequestWithBody(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5724,12 +5716,19 @@ func NewRunJourneyForUserRequestWithBody(server string, projectID openapi_types.
 		return nil, err
 	}
 
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users/%s", pathParam0, pathParam1, pathParam2)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -5749,19 +5748,19 @@ func NewRunJourneyForUserRequestWithBody(server string, projectID openapi_types.
 	return req, nil
 }
 
-// NewSkipUserStepRequest calls the generic SkipUserStep builder with application/json body
-func NewSkipUserStepRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SkipUserStepJSONRequestBody) (*http.Request, error) {
+// NewAdvanceUserStepRequest calls the generic AdvanceUserStep builder with application/json body
+func NewAdvanceUserStepRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body AdvanceUserStepJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewSkipUserStepRequestWithBody(server, projectID, journeyID, "application/json", bodyReader)
+	return NewAdvanceUserStepRequestWithBody(server, projectID, journeyID, userID, "application/json", bodyReader)
 }
 
-// NewSkipUserStepRequestWithBody generates requests for SkipUserStep with any type of body
-func NewSkipUserStepRequestWithBody(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewAdvanceUserStepRequestWithBody generates requests for AdvanceUserStep with any type of body
+func NewAdvanceUserStepRequestWithBody(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5778,12 +5777,19 @@ func NewSkipUserStepRequestWithBody(server string, projectID openapi_types.UUID,
 		return nil, err
 	}
 
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users/%s", pathParam0, pathParam1, pathParam2)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -5799,6 +5805,54 @@ func NewSkipUserStepRequestWithBody(server string, projectID openapi_types.UUID,
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetUserJourneyStateRequest generates requests for GetUserJourneyState
+func NewGetUserJourneyStateRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "journeyID", runtime.ParamLocationPath, journeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users/%s/state", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -8512,18 +8566,21 @@ type ClientWithResponsesInterface interface {
 
 	SetJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetJourneyStepsResponse, error)
 
-	// FollowUserJourneyStatusWithResponse request
-	FollowUserJourneyStatusWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, params *FollowUserJourneyStatusParams, reqEditors ...RequestEditorFn) (*FollowUserJourneyStatusResponse, error)
+	// StreamUserJourneyStepsWithResponse request
+	StreamUserJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamUserJourneyStepsResponse, error)
 
-	// RunJourneyForUserWithBodyWithResponse request with any body
-	RunJourneyForUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RunJourneyForUserResponse, error)
+	// EnrollUserWithBodyWithResponse request with any body
+	EnrollUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnrollUserResponse, error)
 
-	RunJourneyForUserWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body RunJourneyForUserJSONRequestBody, reqEditors ...RequestEditorFn) (*RunJourneyForUserResponse, error)
+	EnrollUserWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body EnrollUserJSONRequestBody, reqEditors ...RequestEditorFn) (*EnrollUserResponse, error)
 
-	// SkipUserStepWithBodyWithResponse request with any body
-	SkipUserStepWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SkipUserStepResponse, error)
+	// AdvanceUserStepWithBodyWithResponse request with any body
+	AdvanceUserStepWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdvanceUserStepResponse, error)
 
-	SkipUserStepWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SkipUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*SkipUserStepResponse, error)
+	AdvanceUserStepWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body AdvanceUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*AdvanceUserStepResponse, error)
+
+	// GetUserJourneyStateWithResponse request
+	GetUserJourneyStateWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserJourneyStateResponse, error)
 
 	// VersionJourneyWithResponse request
 	VersionJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*VersionJourneyResponse, error)
@@ -9739,23 +9796,23 @@ func (r SetJourneyStepsResponse) StatusCode() int {
 	return 0
 }
 
-type FollowUserJourneyStatusResponse struct {
+type StreamUserJourneyStepsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
-		CurrentStepId *string                           `json:"current_step_id"`
-		JourneyId     *openapi_types.UUID               `json:"journey_id,omitempty"`
-		StartedAt     *time.Time                        `json:"started_at,omitempty"`
-		Status        *FollowUserJourneyStatus200Status `json:"status,omitempty"`
-		UpdatedAt     *time.Time                        `json:"updated_at,omitempty"`
-		UserId        *openapi_types.UUID               `json:"user_id,omitempty"`
+		CurrentStepId *string                          `json:"current_step_id"`
+		JourneyId     *openapi_types.UUID              `json:"journey_id,omitempty"`
+		StartedAt     *time.Time                       `json:"started_at,omitempty"`
+		Status        *StreamUserJourneySteps200Status `json:"status,omitempty"`
+		UpdatedAt     *time.Time                       `json:"updated_at,omitempty"`
+		UserId        *openapi_types.UUID              `json:"user_id,omitempty"`
 	}
 	JSONDefault *Error
 }
-type FollowUserJourneyStatus200Status string
+type StreamUserJourneySteps200Status string
 
 // Status returns HTTPResponse.Status
-func (r FollowUserJourneyStatusResponse) Status() string {
+func (r StreamUserJourneyStepsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -9763,21 +9820,21 @@ func (r FollowUserJourneyStatusResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r FollowUserJourneyStatusResponse) StatusCode() int {
+func (r StreamUserJourneyStepsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type RunJourneyForUserResponse struct {
+type EnrollUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSONDefault  *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r RunJourneyForUserResponse) Status() string {
+func (r EnrollUserResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -9785,21 +9842,21 @@ func (r RunJourneyForUserResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RunJourneyForUserResponse) StatusCode() int {
+func (r EnrollUserResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type SkipUserStepResponse struct {
+type AdvanceUserStepResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSONDefault  *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r SkipUserStepResponse) Status() string {
+func (r AdvanceUserStepResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -9807,7 +9864,34 @@ func (r SkipUserStepResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r SkipUserStepResponse) StatusCode() int {
+func (r AdvanceUserStepResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetUserJourneyStateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]struct {
+		ExternalStepId *string `json:"external_step_id,omitempty"`
+		IsCompleted    *bool   `json:"is_completed,omitempty"`
+		StepType       *string `json:"step_type,omitempty"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserJourneyStateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserJourneyStateResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11429,47 +11513,56 @@ func (c *ClientWithResponses) SetJourneyStepsWithResponse(ctx context.Context, p
 	return ParseSetJourneyStepsResponse(rsp)
 }
 
-// FollowUserJourneyStatusWithResponse request returning *FollowUserJourneyStatusResponse
-func (c *ClientWithResponses) FollowUserJourneyStatusWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, params *FollowUserJourneyStatusParams, reqEditors ...RequestEditorFn) (*FollowUserJourneyStatusResponse, error) {
-	rsp, err := c.FollowUserJourneyStatus(ctx, projectID, journeyID, params, reqEditors...)
+// StreamUserJourneyStepsWithResponse request returning *StreamUserJourneyStepsResponse
+func (c *ClientWithResponses) StreamUserJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamUserJourneyStepsResponse, error) {
+	rsp, err := c.StreamUserJourneySteps(ctx, projectID, journeyID, userID, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseFollowUserJourneyStatusResponse(rsp)
+	return ParseStreamUserJourneyStepsResponse(rsp)
 }
 
-// RunJourneyForUserWithBodyWithResponse request with arbitrary body returning *RunJourneyForUserResponse
-func (c *ClientWithResponses) RunJourneyForUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RunJourneyForUserResponse, error) {
-	rsp, err := c.RunJourneyForUserWithBody(ctx, projectID, journeyID, contentType, body, reqEditors...)
+// EnrollUserWithBodyWithResponse request with arbitrary body returning *EnrollUserResponse
+func (c *ClientWithResponses) EnrollUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnrollUserResponse, error) {
+	rsp, err := c.EnrollUserWithBody(ctx, projectID, journeyID, userID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRunJourneyForUserResponse(rsp)
+	return ParseEnrollUserResponse(rsp)
 }
 
-func (c *ClientWithResponses) RunJourneyForUserWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body RunJourneyForUserJSONRequestBody, reqEditors ...RequestEditorFn) (*RunJourneyForUserResponse, error) {
-	rsp, err := c.RunJourneyForUser(ctx, projectID, journeyID, body, reqEditors...)
+func (c *ClientWithResponses) EnrollUserWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body EnrollUserJSONRequestBody, reqEditors ...RequestEditorFn) (*EnrollUserResponse, error) {
+	rsp, err := c.EnrollUser(ctx, projectID, journeyID, userID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRunJourneyForUserResponse(rsp)
+	return ParseEnrollUserResponse(rsp)
 }
 
-// SkipUserStepWithBodyWithResponse request with arbitrary body returning *SkipUserStepResponse
-func (c *ClientWithResponses) SkipUserStepWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SkipUserStepResponse, error) {
-	rsp, err := c.SkipUserStepWithBody(ctx, projectID, journeyID, contentType, body, reqEditors...)
+// AdvanceUserStepWithBodyWithResponse request with arbitrary body returning *AdvanceUserStepResponse
+func (c *ClientWithResponses) AdvanceUserStepWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdvanceUserStepResponse, error) {
+	rsp, err := c.AdvanceUserStepWithBody(ctx, projectID, journeyID, userID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseSkipUserStepResponse(rsp)
+	return ParseAdvanceUserStepResponse(rsp)
 }
 
-func (c *ClientWithResponses) SkipUserStepWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SkipUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*SkipUserStepResponse, error) {
-	rsp, err := c.SkipUserStep(ctx, projectID, journeyID, body, reqEditors...)
+func (c *ClientWithResponses) AdvanceUserStepWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body AdvanceUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*AdvanceUserStepResponse, error) {
+	rsp, err := c.AdvanceUserStep(ctx, projectID, journeyID, userID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseSkipUserStepResponse(rsp)
+	return ParseAdvanceUserStepResponse(rsp)
+}
+
+// GetUserJourneyStateWithResponse request returning *GetUserJourneyStateResponse
+func (c *ClientWithResponses) GetUserJourneyStateWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserJourneyStateResponse, error) {
+	rsp, err := c.GetUserJourneyState(ctx, projectID, journeyID, userID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserJourneyStateResponse(rsp)
 }
 
 // VersionJourneyWithResponse request returning *VersionJourneyResponse
@@ -13465,15 +13558,15 @@ func ParseSetJourneyStepsResponse(rsp *http.Response) (*SetJourneyStepsResponse,
 	return response, nil
 }
 
-// ParseFollowUserJourneyStatusResponse parses an HTTP response from a FollowUserJourneyStatusWithResponse call
-func ParseFollowUserJourneyStatusResponse(rsp *http.Response) (*FollowUserJourneyStatusResponse, error) {
+// ParseStreamUserJourneyStepsResponse parses an HTTP response from a StreamUserJourneyStepsWithResponse call
+func ParseStreamUserJourneyStepsResponse(rsp *http.Response) (*StreamUserJourneyStepsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &FollowUserJourneyStatusResponse{
+	response := &StreamUserJourneyStepsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -13481,12 +13574,12 @@ func ParseFollowUserJourneyStatusResponse(rsp *http.Response) (*FollowUserJourne
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			CurrentStepId *string                           `json:"current_step_id"`
-			JourneyId     *openapi_types.UUID               `json:"journey_id,omitempty"`
-			StartedAt     *time.Time                        `json:"started_at,omitempty"`
-			Status        *FollowUserJourneyStatus200Status `json:"status,omitempty"`
-			UpdatedAt     *time.Time                        `json:"updated_at,omitempty"`
-			UserId        *openapi_types.UUID               `json:"user_id,omitempty"`
+			CurrentStepId *string                          `json:"current_step_id"`
+			JourneyId     *openapi_types.UUID              `json:"journey_id,omitempty"`
+			StartedAt     *time.Time                       `json:"started_at,omitempty"`
+			Status        *StreamUserJourneySteps200Status `json:"status,omitempty"`
+			UpdatedAt     *time.Time                       `json:"updated_at,omitempty"`
+			UserId        *openapi_types.UUID              `json:"user_id,omitempty"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -13505,15 +13598,15 @@ func ParseFollowUserJourneyStatusResponse(rsp *http.Response) (*FollowUserJourne
 	return response, nil
 }
 
-// ParseRunJourneyForUserResponse parses an HTTP response from a RunJourneyForUserWithResponse call
-func ParseRunJourneyForUserResponse(rsp *http.Response) (*RunJourneyForUserResponse, error) {
+// ParseEnrollUserResponse parses an HTTP response from a EnrollUserWithResponse call
+func ParseEnrollUserResponse(rsp *http.Response) (*EnrollUserResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RunJourneyForUserResponse{
+	response := &EnrollUserResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -13531,20 +13624,57 @@ func ParseRunJourneyForUserResponse(rsp *http.Response) (*RunJourneyForUserRespo
 	return response, nil
 }
 
-// ParseSkipUserStepResponse parses an HTTP response from a SkipUserStepWithResponse call
-func ParseSkipUserStepResponse(rsp *http.Response) (*SkipUserStepResponse, error) {
+// ParseAdvanceUserStepResponse parses an HTTP response from a AdvanceUserStepWithResponse call
+func ParseAdvanceUserStepResponse(rsp *http.Response) (*AdvanceUserStepResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &SkipUserStepResponse{
+	response := &AdvanceUserStepResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetUserJourneyStateResponse parses an HTTP response from a GetUserJourneyStateWithResponse call
+func ParseGetUserJourneyStateResponse(rsp *http.Response) (*GetUserJourneyStateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserJourneyStateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []struct {
+			ExternalStepId *string `json:"external_step_id,omitempty"`
+			IsCompleted    *bool   `json:"is_completed,omitempty"`
+			StepType       *string `json:"step_type,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -15220,15 +15350,18 @@ type ServerInterface interface {
 	// Set journey steps
 	// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/steps)
 	SetJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
-	// Get user journey status
-	// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users)
-	FollowUserJourneyStatus(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, params FollowUserJourneyStatusParams)
-	// Manually runs a journey for a user
-	// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/users)
-	RunJourneyForUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
-	// Skip current user step
-	// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/users)
-	SkipUserStep(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
+	// Stream user journey steps
+	// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+	StreamUserJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
+	// Manually enrolls a user in a journey
+	// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+	EnrollUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
+	// Advance user step
+	// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+	AdvanceUserStep(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
+	// Get user journey state
+	// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}/state)
+	GetUserJourneyState(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
 	// Create journey version
 	// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/version)
 	VersionJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
@@ -15649,21 +15782,27 @@ func (_ Unimplemented) SetJourneySteps(w http.ResponseWriter, r *http.Request, p
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Get user journey status
-// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users)
-func (_ Unimplemented) FollowUserJourneyStatus(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, params FollowUserJourneyStatusParams) {
+// Stream user journey steps
+// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+func (_ Unimplemented) StreamUserJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Manually runs a journey for a user
-// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/users)
-func (_ Unimplemented) RunJourneyForUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
+// Manually enrolls a user in a journey
+// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+func (_ Unimplemented) EnrollUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Skip current user step
-// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/users)
-func (_ Unimplemented) SkipUserStep(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
+// Advance user step
+// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+func (_ Unimplemented) AdvanceUserStep(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get user journey state
+// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}/state)
+func (_ Unimplemented) GetUserJourneyState(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17635,8 +17774,8 @@ func (siw *ServerInterfaceWrapper) SetJourneySteps(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
-// FollowUserJourneyStatus operation middleware
-func (siw *ServerInterfaceWrapper) FollowUserJourneyStatus(w http.ResponseWriter, r *http.Request) {
+// StreamUserJourneySteps operation middleware
+func (siw *ServerInterfaceWrapper) StreamUserJourneySteps(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -17658,32 +17797,23 @@ func (siw *ServerInterfaceWrapper) FollowUserJourneyStatus(w http.ResponseWriter
 		return
 	}
 
-	ctx := r.Context()
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
 
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params FollowUserJourneyStatusParams
-
-	// ------------- Required query parameter "userID" -------------
-
-	if paramValue := r.URL.Query().Get("userID"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "userID"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "userID", r.URL.Query(), &params.UserID)
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
 		return
 	}
 
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.FollowUserJourneyStatus(w, r, projectID, journeyID, params)
+		siw.Handler.StreamUserJourneySteps(w, r, projectID, journeyID, userID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -17693,8 +17823,8 @@ func (siw *ServerInterfaceWrapper) FollowUserJourneyStatus(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
-// RunJourneyForUser operation middleware
-func (siw *ServerInterfaceWrapper) RunJourneyForUser(w http.ResponseWriter, r *http.Request) {
+// EnrollUser operation middleware
+func (siw *ServerInterfaceWrapper) EnrollUser(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -17716,6 +17846,15 @@ func (siw *ServerInterfaceWrapper) RunJourneyForUser(w http.ResponseWriter, r *h
 		return
 	}
 
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -17723,7 +17862,7 @@ func (siw *ServerInterfaceWrapper) RunJourneyForUser(w http.ResponseWriter, r *h
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RunJourneyForUser(w, r, projectID, journeyID)
+		siw.Handler.EnrollUser(w, r, projectID, journeyID, userID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -17733,8 +17872,8 @@ func (siw *ServerInterfaceWrapper) RunJourneyForUser(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
-// SkipUserStep operation middleware
-func (siw *ServerInterfaceWrapper) SkipUserStep(w http.ResponseWriter, r *http.Request) {
+// AdvanceUserStep operation middleware
+func (siw *ServerInterfaceWrapper) AdvanceUserStep(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -17756,6 +17895,15 @@ func (siw *ServerInterfaceWrapper) SkipUserStep(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
@@ -17763,7 +17911,56 @@ func (siw *ServerInterfaceWrapper) SkipUserStep(w http.ResponseWriter, r *http.R
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SkipUserStep(w, r, projectID, journeyID)
+		siw.Handler.AdvanceUserStep(w, r, projectID, journeyID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUserJourneyState operation middleware
+func (siw *ServerInterfaceWrapper) GetUserJourneyState(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserJourneyState(w, r, projectID, journeyID, userID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -20003,13 +20200,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/steps", wrapper.SetJourneySteps)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users", wrapper.FollowUserJourneyStatus)
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.StreamUserJourneySteps)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users", wrapper.RunJourneyForUser)
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.EnrollUser)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users", wrapper.SkipUserStep)
+		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.AdvanceUserStep)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}/state", wrapper.GetUserJourneyState)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/version", wrapper.VersionJourney)

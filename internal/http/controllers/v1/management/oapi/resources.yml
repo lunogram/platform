@@ -1028,12 +1028,12 @@ paths:
           description: Journey deleted successfully
         default:
           $ref: "#/components/responses/Error"
-  
-  /api/admin/projects/{projectID}/journeys/{journeyID}/users:
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}/state:
     get:
-      summary: Get user journey status
-      description: Retrieves the current status and progress of a specific user in a journey in real-time
-      operationId: followUserJourneyStatus
+      summary: Get user journey state
+      description: Retrieves the current state of a user in a journey
+      operationId: getUserJourneyState
       tags:
         - Journeys
       security:
@@ -1054,7 +1054,57 @@ paths:
             format: uuid
           description: The journey ID
         - name: userID
-          in: query
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        "200":
+          description: User journey state retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    external_step_id:
+                      type: string
+                    step_type:
+                      type: string
+                    is_completed:
+                      type: boolean
+        default:
+          $ref: "#/components/responses/Error"
+  
+  /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}:
+    get:
+      summary: Stream user journey steps
+      description: Retrieves the current steps and progress of a specific user in a journey in real-time
+      operationId: streamUserJourneySteps
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: userID
+          in: path
           required: true
           schema:
             type: string
@@ -1089,9 +1139,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
     post:
-      summary: Manually runs a journey for a user
-      description: Triggers a journey to run for a specific user, typically used for testing or manual overrides
-      operationId: runJourneyForUser
+      summary: Manually enrolls a user in a journey
+      description: Enrolls a user in a journey, typically used for testing or manual overrides
+      operationId: enrollUser
       tags:
         - Journeys
       security:
@@ -1111,6 +1161,13 @@ paths:
             type: string
             format: uuid
           description: The journey ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID to enroll in the journey
       requestBody:
         required: true
         content:
@@ -1118,24 +1175,20 @@ paths:
             schema:
               type: object
               required:
-                - userID
                 - externalStepID
               properties:
-                userID:
-                  type: string
-                  description: The ID of the user to run the journey for
                 externalStepID:
                   type: string
-                  description: The ID of the journey entry to run
+                  description: The ID of the journey entry to enroll the user in
       responses:
         "200":
-          description: Journey run successfully for user
+          description: User enrolled in journey successfully
         default:
           $ref: "#/components/responses/Error"
     put:
-      summary: Skip current user step
-      description: Skips the current step for a user in a journey and moves to the next step
-      operationId: skipUserStep
+      summary: Advance user step
+      description: Advances the current step for a user in a journey and moves to the next step
+      operationId: AdvanceUserStep
       tags:
         - Journeys
       security:
@@ -1155,6 +1208,13 @@ paths:
             type: string
             format: uuid
           description: The journey ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID whose current step should be advanced
       requestBody:
         required: true
         content:
@@ -1162,18 +1222,14 @@ paths:
             schema:
               type: object
               required:
-                - userID
                 - externalStepID
               properties:
-                userID:
-                  type: string
-                  description: The ID of the user whose current step should be skipped
                 externalStepID:
                   type: string
-                  description: The external ID of the current step to skip
+                  description: The external ID of the current step to advance
       responses:
         "200":
-          description: Current step skipped successfully
+          description: Current step advanced successfully
         default:
           $ref: "#/components/responses/Error"
 
