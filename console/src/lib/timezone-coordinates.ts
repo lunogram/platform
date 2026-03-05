@@ -446,11 +446,10 @@ const timezoneCoordinates: Record<string, [number, number]> = {
     "Pacific/Wallis": [-176.17, -13.3],
 
     // Other
-    "UTC": [0, 51.51],
-    "GMT": [0, 51.51],
+    UTC: [0, 51.51],
+    GMT: [0, 51.51],
     "Etc/UTC": [0, 51.51],
     "Etc/GMT": [0, 51.51],
-
 }
 
 /**
