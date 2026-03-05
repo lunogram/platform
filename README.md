@@ -2,8 +2,8 @@
 <div align="center">
   <a href="https://lunogram.com" target="_blank">
     <picture>
-        <source media="(prefers-color-scheme: dark)" srcset=".github/assets/logo-dark.png#gh-dark-mode-only">
-        <img src=".github/assets/logo-light.png#gh-light-mode-only" width="360" alt="Logo"/>
+        <source media="(prefers-color-scheme: dark)" srcset="https://lunogram.com/logos/logo-white-512.png">
+        <img src="https://lunogram.com/logos/logo-dark-512.png" width="360" alt="Logo"/>
     </picture>
   </a>
 </div>
