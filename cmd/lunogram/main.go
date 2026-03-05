@@ -97,7 +97,7 @@ func run() error {
 		return err
 	}
 
-	err = consumer.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, consumer.Namespace(conf.Nats.Namespace))
 	if err != nil {
 		return err
 	}
@@ -118,9 +118,10 @@ func run() error {
 	}
 	defer actionRegistry.Close(ctx)
 
-	pub := pubsub.NewPublisher(jet)
-	req := pubsub.NewCaller(jet)
-	consumer.Serve(ctx, jet, logger, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry)
+	pub := pubsub.NewPublisher(jet, conf.Nats.Namespace)
+	req := pubsub.NewCaller(jet, conf.Nats.Namespace)
+	ns := consumer.Namespace(conf.Nats.Namespace)
+	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry)
 
 	logger.Info("initializing cluster")
 

@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func setupUsersTest(t *testing.T) (*subjects.State, uuid.UUID, jetstream.JetStream) {
+func setupUsersTest(t *testing.T) (*subjects.State, uuid.UUID, jetstream.JetStream, Namespace) {
 	t.Helper()
 
 	ctx := graceful.NewContext(t.Context())
@@ -53,8 +53,9 @@ func setupUsersTest(t *testing.T) (*subjects.State, uuid.UUID, jetstream.JetStre
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrs)
+	ns := testNamespace(t)
 
-	return usersState, projectID, jet
+	return usersState, projectID, jet, ns
 }
 
 func TestUsersProcess(t *testing.T) {
@@ -123,14 +124,14 @@ func TestUserEvent(t *testing.T) {
 func TestUsersHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
-	usersState, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet, ns := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := UsersHandler(logger, usersState, pub)
 
 	email := "test@example.com"
@@ -147,7 +148,7 @@ func TestUsersHandlerSuccess(t *testing.T) {
 	err = pub.Publish(ctx, schemas.UsersProcess(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersProcess))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -163,14 +164,14 @@ func TestUsersHandlerSuccess(t *testing.T) {
 func TestUsersHandlerPublishesUserCreatedEvent(t *testing.T) {
 	t.Parallel()
 
-	usersState, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet, ns := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := UsersHandler(logger, usersState, pub)
 
 	email := "new@example.com"
@@ -187,7 +188,7 @@ func TestUsersHandlerPublishesUserCreatedEvent(t *testing.T) {
 	err = pub.Publish(ctx, schemas.UsersProcess(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersProcess))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -196,7 +197,7 @@ func TestUsersHandlerPublishesUserCreatedEvent(t *testing.T) {
 	err = handler(ctx, msg)
 	require.NoError(t, err)
 
-	eventConsumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
+	eventConsumer, err := jet.Consumer(ctx, ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess))
 	require.NoError(t, err)
 
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -212,14 +213,14 @@ func TestUsersHandlerPublishesUserCreatedEvent(t *testing.T) {
 func TestUsersHandlerPublishesUserUpdatedEvent(t *testing.T) {
 	t.Parallel()
 
-	usersState, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet, ns := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := UsersHandler(logger, usersState, pub)
 
 	email := "existing@example.com"
@@ -236,7 +237,7 @@ func TestUsersHandlerPublishesUserUpdatedEvent(t *testing.T) {
 	err = pub.Publish(ctx, schemas.UsersProcess(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersProcess))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -245,7 +246,7 @@ func TestUsersHandlerPublishesUserUpdatedEvent(t *testing.T) {
 	err = handler(ctx, msg)
 	require.NoError(t, err)
 
-	eventConsumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
+	eventConsumer, err := jet.Consumer(ctx, ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess))
 	require.NoError(t, err)
 
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -261,11 +262,11 @@ func TestUsersHandlerPublishesUserUpdatedEvent(t *testing.T) {
 func TestUsersHandlerWithListDependencies(t *testing.T) {
 	t.Parallel()
 
-	usersState, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet, ns := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	ruleset := rules.RuleSet{
@@ -296,7 +297,7 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := UsersHandler(logger, usersState, pub)
 
 	email := "test@example.com"
@@ -313,7 +314,7 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 	err = pub.Publish(ctx, schemas.UsersProcess(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersProcess))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -322,7 +323,7 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 	err = handler(ctx, msg)
 	require.NoError(t, err)
 
-	recomputeConsumer, err := jet.Consumer(ctx, StreamLists, ConsumerListsRecompute)
+	recomputeConsumer, err := jet.Consumer(ctx, ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute))
 	require.NoError(t, err)
 
 	recomputeMsg, err := recomputeConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -337,14 +338,14 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 func TestUsersHandlerWithUserData(t *testing.T) {
 	t.Parallel()
 
-	usersState, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet, ns := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := UsersHandler(logger, usersState, pub)
 
 	email := "test@example.com"
@@ -362,7 +363,7 @@ func TestUsersHandlerWithUserData(t *testing.T) {
 	err = pub.Publish(ctx, schemas.UsersProcess(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersProcess))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -371,7 +372,7 @@ func TestUsersHandlerWithUserData(t *testing.T) {
 	err = handler(ctx, msg)
 	require.NoError(t, err)
 
-	schemaConsumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersSchema)
+	schemaConsumer, err := jet.Consumer(ctx, ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersSchema))
 	require.NoError(t, err)
 
 	schemaMsg, err := schemaConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -387,14 +388,14 @@ func TestUsersHandlerWithUserData(t *testing.T) {
 func TestUsersHandlerWithoutData(t *testing.T) {
 	t.Parallel()
 
-	usersState, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet, ns := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := UsersHandler(logger, usersState, pub)
 
 	email := "test@example.com"
@@ -409,7 +410,7 @@ func TestUsersHandlerWithoutData(t *testing.T) {
 	err = pub.Publish(ctx, schemas.UsersProcess(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersProcess))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -418,7 +419,7 @@ func TestUsersHandlerWithoutData(t *testing.T) {
 	err = handler(ctx, msg)
 	require.NoError(t, err)
 
-	schemaConsumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersSchema)
+	schemaConsumer, err := jet.Consumer(ctx, ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersSchema))
 	require.NoError(t, err)
 
 	_, err = schemaConsumer.Next(jetstream.FetchMaxWait(1 * time.Second))
@@ -428,7 +429,7 @@ func TestUsersHandlerWithoutData(t *testing.T) {
 func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 	t.Parallel()
 
-	usersState, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet, ns := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
@@ -461,12 +462,12 @@ func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamLists,
-		Subjects: []string{"lists.recompute.>"},
+		Name:     ns.Stream(StreamLists),
+		Subjects: []string{ns.Subject("lists.recompute.>")},
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -482,7 +483,7 @@ func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 	err = PublishUserRecomputeLists(ctx, logger, usersState, pub, user)
 	require.NoError(t, err)
 
-	stream, err := jet.Stream(ctx, StreamLists)
+	stream, err := jet.Stream(ctx, ns.Stream(StreamLists))
 	require.NoError(t, err)
 
 	info, err := stream.Info(ctx)
@@ -497,17 +498,17 @@ func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 func TestPublishUserRecomputeListsNoLists(t *testing.T) {
 	t.Parallel()
 
-	usersState, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet, ns := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamLists,
-		Subjects: []string{"lists.recompute.>"},
+		Name:     ns.Stream(StreamLists),
+		Subjects: []string{ns.Subject("lists.recompute.>")},
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -530,14 +531,15 @@ func TestPublishUserEventsUserCreated(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamUserEvents,
-		Subjects: []string{"users.events.>"},
+		Name:     ns.Stream(StreamUserEvents),
+		Subjects: []string{ns.Subject("users.events.>")},
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	projectID := uuid.New()
 
 	email := "new@example.com"
@@ -561,14 +563,15 @@ func TestPublishUserEventsUserUpdated(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamUserEvents,
-		Subjects: []string{"users.events.>"},
+		Name:     ns.Stream(StreamUserEvents),
+		Subjects: []string{ns.Subject("users.events.>")},
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	projectID := uuid.New()
 
 	email := "existing@example.com"
@@ -589,11 +592,11 @@ func TestPublishUserEventsUserUpdated(t *testing.T) {
 func TestUserSchemasHandlerSuccess(t *testing.T) {
 	t.Parallel()
 
-	usersState, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet, ns := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	handler := UserSchemasHandler(logger, usersState)
@@ -616,10 +619,10 @@ func TestUserSchemasHandlerSuccess(t *testing.T) {
 		Version: 0,
 	}
 
-	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.UsersSchema(projectID), user)
+	err = pubsub.NewPublisher(jet, string(ns)).Publish(ctx, schemas.UsersSchema(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersSchema)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersSchema))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -635,11 +638,11 @@ func TestUserSchemasHandlerSuccess(t *testing.T) {
 func TestUserSchemasHandlerComplexData(t *testing.T) {
 	t.Parallel()
 
-	usersState, projectID, jet := setupUsersTest(t)
+	usersState, projectID, jet, ns := setupUsersTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	handler := UserSchemasHandler(logger, usersState)
@@ -672,10 +675,10 @@ func TestUserSchemasHandlerComplexData(t *testing.T) {
 		Version: 0,
 	}
 
-	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.UsersSchema(projectID), user)
+	err = pubsub.NewPublisher(jet, string(ns)).Publish(ctx, schemas.UsersSchema(projectID), user)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUsers, ConsumerUsersSchema)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersSchema))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))

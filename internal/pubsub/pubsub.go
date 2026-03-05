@@ -43,11 +43,13 @@ type Publisher interface {
 
 type publisher struct {
 	jetstream.JetStream
+	namespace string
 }
 
 // NewPublisher creates a new Publisher that wraps the JetStream connection.
-func NewPublisher(jet jetstream.JetStream) Publisher {
-	return &publisher{JetStream: jet}
+// When the namespace is non-empty every subject is prefixed with it.
+func NewPublisher(jet jetstream.JetStream, namespace string) Publisher {
+	return &publisher{JetStream: jet, namespace: namespace}
 }
 
 func (p *publisher) Publish(ctx context.Context, subject schemas.Subject, v any) error {
@@ -56,7 +58,12 @@ func (p *publisher) Publish(ctx context.Context, subject schemas.Subject, v any)
 		return err
 	}
 
-	_, err = p.JetStream.Publish(ctx, string(subject), payload)
+	subj := string(subject)
+	if p.namespace != "" {
+		subj = p.namespace + "." + subj
+	}
+
+	_, err = p.JetStream.Publish(ctx, subj, payload)
 	if err != nil {
 		return err
 	}
@@ -71,12 +78,14 @@ type Caller interface {
 }
 
 type caller struct {
-	conn *nats.Conn
+	conn      *nats.Conn
+	namespace string
 }
 
 // NewCaller creates a Caller that uses the underlying NATS connection for request/reply.
-func NewCaller(jet jetstream.JetStream) Caller {
-	return &caller{conn: jet.Conn()}
+// When the namespace is non-empty every subject is prefixed with it.
+func NewCaller(jet jetstream.JetStream, namespace string) Caller {
+	return &caller{conn: jet.Conn(), namespace: namespace}
 }
 
 func (r *caller) Call(ctx context.Context, subject schemas.Subject, v any, timeout time.Duration) ([]byte, error) {
@@ -88,7 +97,12 @@ func (r *caller) Call(ctx context.Context, subject schemas.Subject, v any, timeo
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	msg, err := r.conn.RequestWithContext(ctx, string(subject), payload)
+	subj := string(subject)
+	if r.namespace != "" {
+		subj = r.namespace + "." + subj
+	}
+
+	msg, err := r.conn.RequestWithContext(ctx, subj, payload)
 	if err != nil {
 		return nil, err
 	}

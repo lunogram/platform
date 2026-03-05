@@ -23,13 +23,14 @@ func TestOrganizationEventsHandlerSuccess(t *testing.T) {
 	_, usrsDB, jrnyDB, projectID, jet := setupOrganizationsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrsDB)
 	journeyState := journey.NewState(jrnyDB)
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 
 	// First, create an organization in the database
 	orgID, err := usersState.UpsertOrganization(ctx, projectID, subjects.UpsertOrganizationParams{
@@ -53,7 +54,7 @@ func TestOrganizationEventsHandlerSuccess(t *testing.T) {
 	err = pub.Publish(ctx, schemas.OrganizationEventsProcess(projectID), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamOrganizationEvents, ConsumerOrganizationEventsProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsProcess))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -66,7 +67,7 @@ func TestOrganizationEventsHandlerSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify schema message was published (since Data was provided)
-	schemaConsumer, err := jet.Consumer(ctx, StreamOrganizationEvents, ConsumerOrganizationEventsSchema)
+	schemaConsumer, err := jet.Consumer(ctx, ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsSchema))
 	require.NoError(t, err)
 
 	schemaMsg, err := schemaConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -85,13 +86,14 @@ func TestOrganizationEventsHandlerWithExternalID(t *testing.T) {
 	_, usrsDB, jrnyDB, projectID, jet := setupOrganizationsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrsDB)
 	journeyState := journey.NewState(jrnyDB)
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 
 	// Create an organization with a known external ID
 	externalID := "org_external_123"
@@ -117,7 +119,7 @@ func TestOrganizationEventsHandlerWithExternalID(t *testing.T) {
 	err = pub.Publish(ctx, schemas.OrganizationEventsProcess(projectID), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamOrganizationEvents, ConsumerOrganizationEventsProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsProcess))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -136,13 +138,14 @@ func TestOrganizationEventsHandlerWithoutData(t *testing.T) {
 	_, usrsDB, jrnyDB, projectID, jet := setupOrganizationsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrsDB)
 	journeyState := journey.NewState(jrnyDB)
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 
 	// Create an organization
 	orgID, err := usersState.UpsertOrganization(ctx, projectID, subjects.UpsertOrganizationParams{
@@ -163,7 +166,7 @@ func TestOrganizationEventsHandlerWithoutData(t *testing.T) {
 	err = pub.Publish(ctx, schemas.OrganizationEventsProcess(projectID), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamOrganizationEvents, ConsumerOrganizationEventsProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsProcess))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -176,7 +179,7 @@ func TestOrganizationEventsHandlerWithoutData(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify NO schema message was published (since Data is nil)
-	schemaConsumer, err := jet.Consumer(ctx, StreamOrganizationEvents, ConsumerOrganizationEventsSchema)
+	schemaConsumer, err := jet.Consumer(ctx, ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsSchema))
 	require.NoError(t, err)
 
 	_, err = schemaConsumer.Next(jetstream.FetchMaxWait(1 * time.Second))
@@ -189,8 +192,9 @@ func TestOrganizationEventSchemasHandlerSuccess(t *testing.T) {
 	_, usrsDB, _, projectID, jet := setupOrganizationsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrsDB)
@@ -215,10 +219,10 @@ func TestOrganizationEventSchemasHandlerSuccess(t *testing.T) {
 		},
 	}
 
-	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.OrganizationEventsSchema(projectID), event)
+	err = pubsub.NewPublisher(jet, string(ns)).Publish(ctx, schemas.OrganizationEventsSchema(projectID), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamOrganizationEvents, ConsumerOrganizationEventsSchema)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsSchema))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -237,8 +241,9 @@ func TestOrganizationEventSchemasHandlerComplexNestedData(t *testing.T) {
 	_, usrsDB, _, projectID, jet := setupOrganizationsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrsDB)
@@ -271,10 +276,10 @@ func TestOrganizationEventSchemasHandlerComplexNestedData(t *testing.T) {
 		},
 	}
 
-	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.OrganizationEventsSchema(projectID), event)
+	err = pubsub.NewPublisher(jet, string(ns)).Publish(ctx, schemas.OrganizationEventsSchema(projectID), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamOrganizationEvents, ConsumerOrganizationEventsSchema)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsSchema))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))

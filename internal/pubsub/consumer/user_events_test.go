@@ -61,8 +61,9 @@ func TestUserEventsProjectHandlerSuccess(t *testing.T) {
 	_, usrsDB, jrnyDB, projectID, jet := setupUserEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrsDB)
@@ -73,7 +74,7 @@ func TestUserEventsProjectHandlerSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := UserEventsHandler(logger, usersState, journeyState, pub)
 
 	event := schemas.UserEvent{
@@ -88,7 +89,7 @@ func TestUserEventsProjectHandlerSuccess(t *testing.T) {
 	err = pub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -100,7 +101,7 @@ func TestUserEventsProjectHandlerSuccess(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	schemaConsumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsSchema)
+	schemaConsumer, err := jet.Consumer(ctx, ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsSchema))
 	require.NoError(t, err)
 
 	schemaMsg, err := schemaConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -119,8 +120,9 @@ func TestUserEventsProjectHandlerWithoutData(t *testing.T) {
 	_, usrsDB, jrnyDB, projectID, jet := setupUserEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrsDB)
@@ -131,7 +133,7 @@ func TestUserEventsProjectHandlerWithoutData(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := UserEventsHandler(logger, usersState, journeyState, pub)
 
 	event := schemas.UserEvent{
@@ -144,7 +146,7 @@ func TestUserEventsProjectHandlerWithoutData(t *testing.T) {
 	err = pub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -156,7 +158,7 @@ func TestUserEventsProjectHandlerWithoutData(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	schemaConsumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsSchema)
+	schemaConsumer, err := jet.Consumer(ctx, ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsSchema))
 	require.NoError(t, err)
 
 	_, err = schemaConsumer.Next(jetstream.FetchMaxWait(1 * time.Second))
@@ -169,8 +171,9 @@ func TestUserEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	_, usrsDB, jrnyDB, projectID, jet := setupUserEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrsDB)
@@ -184,7 +187,7 @@ func TestUserEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := UserEventsHandler(logger, usersState, journeyState, pub)
 
 	event := schemas.UserEvent{
@@ -200,7 +203,7 @@ func TestUserEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	err = pub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -216,8 +219,9 @@ func TestUserEventsSchemaHandlerSuccess(t *testing.T) {
 	_, usrsDB, _, projectID, jet := setupUserEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrsDB)
@@ -239,10 +243,10 @@ func TestUserEventsSchemaHandlerSuccess(t *testing.T) {
 		},
 	}
 
-	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.Subject(schemas.UserEventsSchema(projectID)), event)
+	err = pubsub.NewPublisher(jet, string(ns)).Publish(ctx, schemas.Subject(schemas.UserEventsSchema(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsSchema)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsSchema))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -261,8 +265,9 @@ func TestUserEventsSchemaHandlerComplexNestedData(t *testing.T) {
 	_, usrsDB, _, projectID, jet := setupUserEventsTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	usersState := subjects.NewState(usrsDB)
@@ -290,10 +295,10 @@ func TestUserEventsSchemaHandlerComplexNestedData(t *testing.T) {
 		},
 	}
 
-	err = pubsub.NewPublisher(jet).Publish(ctx, schemas.Subject(schemas.UserEventsSchema(projectID)), event)
+	err = pubsub.NewPublisher(jet, string(ns)).Publish(ctx, schemas.Subject(schemas.UserEventsSchema(projectID)), event)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsSchema)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsSchema))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))

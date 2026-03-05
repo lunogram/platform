@@ -28,14 +28,11 @@ func HandleAction(ctx HandlerContext, step journey.JourneyVersionStep, state jou
 		return state, nil, fmt.Errorf("unknown action type: %s", action.Type)
 	}
 
-	// Marshal the action config to JSON and render variable templates on the raw bytes.
-	renderedConfig, err := actions.MarshalAndRender(action.Config.Data, ctx.Data)
+	req := &actiontypes.ExecuteRequest[json.RawMessage]{}
+
+	req.Config, err = actions.MarshalAndRender(action.Config.Data, ctx.Data)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to render action config: %w", err)
-	}
-
-	req := &actiontypes.ExecuteRequest[json.RawMessage]{
-		Config: renderedConfig,
 	}
 
 	result, err := module.Execute(ctx, req)
@@ -43,16 +40,17 @@ func HandleAction(ctx HandlerContext, step journey.JourneyVersionStep, state jou
 		return state, nil, fmt.Errorf("action execution failed: %w", err)
 	}
 
-	// Publish metadata to NATS for schema extraction if present
 	if result.Metadata != nil {
-		schemaMsg := schemas.ActionSchema{
+		schema := schemas.ActionSchema{
 			ProjectID: ctx.ProjectID,
 			ActionID:  config.ActionId,
 			Metadata:  result.Metadata,
 		}
-		if pubErr := ctx.Publisher.Publish(ctx, schemas.ActionsSchema(ctx.ProjectID), schemaMsg); pubErr != nil {
+
+		err = ctx.Publisher.Publish(ctx, schemas.ActionsSchema(ctx.ProjectID), schema)
+		if err != nil {
 			// Non-fatal: schema extraction failure should not block the action step
-			zap.L().Warn("failed to publish action schema", zap.Error(pubErr), zap.Stringer("action_id", config.ActionId))
+			zap.L().Warn("failed to publish action schema", zap.Error(err), zap.Stringer("action_id", config.ActionId))
 		}
 	}
 

@@ -74,8 +74,9 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	st, projectID, jet := setupRecomputeTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	email := "test@example.com"
@@ -115,7 +116,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := RecomputeListHandler(logger, st, pub)
 
 	recompute := RecomputeList{
@@ -126,7 +127,7 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 	err = pub.Publish(ctx, schemas.ListsRecompute(projectID, listID), recompute)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamLists, ConsumerListsRecompute)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -151,8 +152,9 @@ func TestRecomputeListHandlerNoRule(t *testing.T) {
 	st, projectID, jet := setupRecomputeTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	listID, err := st.ListsStore.CreateList(ctx, subjects.List{
@@ -163,7 +165,7 @@ func TestRecomputeListHandlerNoRule(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := RecomputeListHandler(logger, st, pub)
 
 	recompute := RecomputeList{
@@ -174,7 +176,7 @@ func TestRecomputeListHandlerNoRule(t *testing.T) {
 	err = pub.Publish(ctx, schemas.ListsRecompute(projectID, listID), recompute)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamLists, ConsumerListsRecompute)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -190,8 +192,9 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	st, projectID, jet := setupRecomputeTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	email := "test@example.com"
@@ -231,7 +234,7 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := RecomputeListHandler(logger, st, pub)
 
 	recompute := RecomputeList{
@@ -242,7 +245,7 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	err = pub.Publish(ctx, schemas.ListsRecompute(projectID, listID), recompute)
 	require.NoError(t, err)
 
-	consumer, err := jet.Consumer(ctx, StreamLists, ConsumerListsRecompute)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute))
 	require.NoError(t, err)
 
 	msg, err := consumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -254,7 +257,7 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	eventConsumer, err := jet.Consumer(ctx, StreamUserEvents, ConsumerUserEventsProcess)
+	eventConsumer, err := jet.Consumer(ctx, ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess))
 	require.NoError(t, err)
 
 	eventMsg, err := eventConsumer.Next(jetstream.FetchMaxWait(5 * time.Second))
@@ -274,14 +277,15 @@ func TestPublishListRecomputeEventsInserted(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamUserEvents,
-		Subjects: []string{"users.events.>"},
+		Name:     ns.Stream(StreamUserEvents),
+		Subjects: []string{ns.Subject("users.events.>")},
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	projectID := uuid.New()
 	listID := uuid.New()
 	userID := uuid.New()
@@ -303,14 +307,15 @@ func TestPublishListRecomputeEventsDeleted(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamUserEvents,
-		Subjects: []string{"users.events.>"},
+		Name:     ns.Stream(StreamUserEvents),
+		Subjects: []string{ns.Subject("users.events.>")},
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	projectID := uuid.New()
 	listID := uuid.New()
 	userID := uuid.New()
@@ -332,14 +337,15 @@ func TestPublishListRecomputeEventsMixed(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     StreamUserEvents,
-		Subjects: []string{"users.events.>"},
+		Name:     ns.Stream(StreamUserEvents),
+		Subjects: []string{ns.Subject("users.events.>")},
 	})
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, string(ns))
 	projectID := uuid.New()
 	listID := uuid.New()
 

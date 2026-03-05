@@ -51,10 +51,10 @@ func TestListCreation(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, "")
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -121,10 +121,10 @@ func TestListLists(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, "")
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -225,10 +225,10 @@ func TestGetList(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, "")
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -272,10 +272,10 @@ func TestUpdateList(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, "")
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -325,10 +325,10 @@ func TestDeleteList(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, "")
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -369,10 +369,10 @@ func TestDuplicateList(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, "")
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -444,10 +444,10 @@ func TestImportListUsers(t *testing.T) {
 			jet, err := pubsub.New(ctx, cfg)
 			require.NoError(t, err)
 
-			err = consumer.Bootstrap(ctx, logger, jet)
+			err = consumer.Bootstrap(ctx, logger, jet, "")
 			require.NoError(t, err)
 
-			pub := pubsub.NewPublisher(jet)
+			pub := pubsub.NewPublisher(jet, "")
 
 			projects := management.NewProjectsStore(mgmt)
 			projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -514,10 +514,10 @@ func TestCreateListWithOrganizationEvents(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, "")
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -625,10 +625,10 @@ func TestUpdateListWithOrganizationEvents(t *testing.T) {
 	jet, err := pubsub.New(ctx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, "")
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, "")
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)

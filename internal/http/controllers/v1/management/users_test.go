@@ -55,10 +55,10 @@ func TNewUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	jet, err := pubsub.New(gracefulCtx, cfg)
 	require.NoError(t, err)
 
-	err = consumer.Bootstrap(gracefulCtx, logger, jet)
+	err = consumer.Bootstrap(gracefulCtx, logger, jet, "")
 	require.NoError(t, err)
 
-	pub := pubsub.NewPublisher(jet)
+	pub := pubsub.NewPublisher(jet, "")
 
 	orgsStore := management.NewOrganizationsStore(mgmtDB)
 	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
@@ -812,10 +812,10 @@ func TestImportUsers(t *testing.T) {
 			jet, err := pubsub.New(gracefulCtx, cfg)
 			require.NoError(t, err)
 
-			err = consumer.Bootstrap(gracefulCtx, logger, jet)
+			err = consumer.Bootstrap(gracefulCtx, logger, jet, "")
 			require.NoError(t, err)
 
-			pub := pubsub.NewPublisher(jet)
+			pub := pubsub.NewPublisher(jet, "")
 
 			orgsStore := management.NewOrganizationsStore(mgmtDB)
 			orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")

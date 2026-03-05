@@ -35,7 +35,7 @@ func TestNewPublisher(t *testing.T) {
 	t.Parallel()
 
 	jet := setupJetStream(t)
-	pub := NewPublisher(jet)
+	pub := NewPublisher(jet, "")
 
 	assert.NotNil(t, pub)
 }
@@ -53,7 +53,7 @@ func TestPublisherPublish(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := NewPublisher(jet, "")
 
 	type test struct {
 		subject schemas.Subject
@@ -132,7 +132,7 @@ func TestPublisherPublishAndReceive(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pub := NewPublisher(jet)
+	pub := NewPublisher(jet, "")
 
 	testEvent := schemas.UserEvent{
 		ID:        uuid.New(),
