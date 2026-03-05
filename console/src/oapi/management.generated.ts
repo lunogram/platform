@@ -764,6 +764,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get user devices
+         * @description Retrieves registered devices for a specific user
+         */
+        get: operations["getUserDevices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/devices/{deviceID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete user device
+         * @description Soft deletes a registered device for a specific user
+         */
+        delete: operations["deleteUserDevice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/user/events/schema": {
         parameters: {
             query?: never;
@@ -2782,6 +2822,40 @@ export interface components {
         };
         UserEventList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["UserEvent"][];
+        };
+        UserDevice: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id: string;
+            /** @example AB12CD34-EF56-GH78-IJ90 */
+            device_id: string;
+            /** @example fcm_token_abc123 */
+            token?: string | null;
+            /** @example iOS */
+            os?: string | null;
+            /** @example 17.2 */
+            os_version?: string | null;
+            /** @example iPhone 15 Pro */
+            model?: string | null;
+            /** @example 142 */
+            app_build?: string | null;
+            /** @example 2.1.0 */
+            app_version?: string | null;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.000Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.000Z
+             */
+            updated_at: string;
+        };
+        UserDeviceList: {
+            results: components["schemas"]["UserDevice"][];
         };
         UserSubscription: {
             /**
@@ -4991,6 +5065,58 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UserJourneyList"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getUserDevices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User devices retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDeviceList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteUserDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The device ID */
+                deviceID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Device deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

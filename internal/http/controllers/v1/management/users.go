@@ -206,6 +206,79 @@ func (srv *UsersController) GetUser(w http.ResponseWriter, r *http.Request, proj
 	json.Write(w, http.StatusOK, user.OAPI())
 }
 
+func (srv *UsersController) GetUserDevices(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	_, err := srv.users.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("user_id", userID.String()),
+	)
+
+	logger.Info("listing user devices")
+
+	devices, err := srv.users.ListDevicesByUser(ctx, projectID, userID)
+	if err != nil {
+		logger.Error("failed to list user devices", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("user devices listed", zap.Int("count", len(devices)))
+
+	response := oapi.UserDeviceList{
+		Results: devices.OAPI(),
+	}
+
+	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *UsersController) DeleteUserDevice(w http.ResponseWriter, r *http.Request, projectID, userID, deviceID uuid.UUID) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("user_id", userID.String()),
+		zap.String("device_id", deviceID.String()),
+	)
+
+	logger.Info("deleting user device")
+
+	err := srv.users.DeleteDevice(ctx, projectID, deviceID)
+	if err != nil {
+		logger.Error("failed to delete device", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("device deleted")
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
 	ctx := r.Context()
 	_, ok := claim.FromContext(ctx)

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store"
 )
 
@@ -59,6 +60,29 @@ func (d *Device) HasPushToken() bool {
 	return d.Token != nil && *d.Token != ""
 }
 
+func (d *Device) OAPI() oapi.UserDevice {
+	return oapi.UserDevice{
+		Id:         d.ID,
+		DeviceId:   d.DeviceID,
+		Token:      d.Token,
+		Os:         d.OS,
+		OsVersion:  d.OSVersion,
+		Model:      d.Model,
+		AppBuild:   d.AppBuild,
+		AppVersion: d.AppVersion,
+		CreatedAt:  d.CreatedAt,
+		UpdatedAt:  d.UpdatedAt,
+	}
+}
+
+func (d Devices) OAPI() []oapi.UserDevice {
+	results := make([]oapi.UserDevice, len(d))
+	for i, device := range d {
+		results[i] = device.OAPI()
+	}
+	return results
+}
+
 func NewDevicesStore(db store.DB) *DevicesStore {
 	return &DevicesStore{db: db}
 }
@@ -94,7 +118,8 @@ func (s *DevicesStore) ListDevicesByUser(ctx context.Context, projectID, userID 
 	SELECT id, project_id, user_id, device_id, token, os, os_version, model, app_build, app_version, created_at, updated_at
 	FROM devices
 	WHERE project_id = $1 AND user_id = $2
-	AND token IS NOT NULL AND token != ''`
+	AND token IS NOT NULL AND token != ''
+	AND deleted_at IS NULL`
 
 	var devices Devices
 	err := s.db.SelectContext(ctx, &devices, query, projectID, userID)
@@ -103,4 +128,16 @@ func (s *DevicesStore) ListDevicesByUser(ctx context.Context, projectID, userID 
 	}
 
 	return devices, nil
+}
+
+func (s *DevicesStore) DeleteDevice(ctx context.Context, projectID, deviceID uuid.UUID) error {
+	query := `
+	UPDATE devices
+	SET deleted_at = NOW()
+	WHERE project_id = $1
+	AND id = $2
+	AND deleted_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, query, projectID, deviceID)
+	return err
 }

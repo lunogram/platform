@@ -13,6 +13,8 @@ import {
     MoreHorizontal,
     Globe,
     Mail,
+    Phone,
+    Languages,
     Pencil,
     Check,
 } from "lucide-react"
@@ -59,6 +61,10 @@ import type { User } from "../../types"
 declare namespace Intl {
     type Key = "calendar" | "collation" | "currency" | "numberingSystem" | "timeZone" | "unit"
     function supportedValuesOf(input: Key): string[]
+    class DisplayNames {
+        constructor(locales: string[], options: { type: string })
+        of(code: string): string | undefined
+    }
 }
 
 export default function UserDetail() {
@@ -75,6 +81,11 @@ export default function UserDetail() {
     const [isEmailOpen, setIsEmailOpen] = useState(false)
     const [isSavingEmail, setIsSavingEmail] = useState(false)
     const [emailValue, setEmailValue] = useState(user.email ?? "")
+    const [isPhoneOpen, setIsPhoneOpen] = useState(false)
+    const [isSavingPhone, setIsSavingPhone] = useState(false)
+    const [phoneValue, setPhoneValue] = useState(user.phone ?? "")
+    const [isLocaleOpen, setIsLocaleOpen] = useState(false)
+    const [isSavingLocale, setIsSavingLocale] = useState(false)
 
     const timeZones = Intl.supportedValuesOf("timeZone")
 
@@ -116,6 +127,47 @@ export default function UserDetail() {
             toast.error(t("email_update_error", "Failed to update email"))
         } finally {
             setIsSavingEmail(false)
+        }
+    }
+
+    const handlePhoneChange = async () => {
+        const trimmedPhone = phoneValue.trim()
+        if (trimmedPhone === (user.phone ?? "")) {
+            setIsPhoneOpen(false)
+            return
+        }
+        setIsSavingPhone(true)
+        try {
+            const updatedUser = await api.users.update(project.id, user.id, {
+                phone: trimmedPhone || undefined,
+            } as User)
+            if (updatedUser) {
+                setUser(updatedUser)
+                toast.success(t("phone_updated", "Phone updated"))
+            }
+            setIsPhoneOpen(false)
+        } catch {
+            toast.error(t("phone_update_error", "Failed to update phone"))
+        } finally {
+            setIsSavingPhone(false)
+        }
+    }
+
+    const handleLocaleChange = async (newLocale: string) => {
+        setIsSavingLocale(true)
+        try {
+            const updatedUser = await api.users.update(project.id, user.id, {
+                locale: newLocale,
+            } as User)
+            if (updatedUser) {
+                setUser(updatedUser)
+                toast.success(t("locale_updated", "Locale updated"))
+            }
+            setIsLocaleOpen(false)
+        } catch {
+            toast.error(t("locale_update_error", "Failed to update locale"))
+        } finally {
+            setIsSavingLocale(false)
         }
     }
 
@@ -178,6 +230,7 @@ export default function UserDetail() {
                                 }}
                             >
                                 <Map
+                                    key={user.timezone}
                                     center={coordinates}
                                     zoom={3}
                                     interactive={false}
@@ -223,6 +276,7 @@ export default function UserDetail() {
                                     {displayName}
                                 </h1>
                                 <p className="text-sm text-muted-foreground flex items-center flex-wrap gap-x-0">
+                                    {/* 1. Email */}
                                     {user.email ? (
                                         <>
                                             <Popover
@@ -358,6 +412,488 @@ export default function UserDetail() {
                                             <span className="mx-2">·</span>
                                         </>
                                     )}
+                                    {/* 2. Phone */}
+                                    {user.phone ? (
+                                        <>
+                                            <Popover
+                                                open={isPhoneOpen}
+                                                onOpenChange={(open) => {
+                                                    setIsPhoneOpen(open)
+                                                    if (open) setPhoneValue(user.phone ?? "")
+                                                }}
+                                            >
+                                                <PopoverTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors group"
+                                                    >
+                                                        <Phone className="h-3 w-3" />
+                                                        <span>{user.phone}</span>
+                                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                                                    </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-72 p-3" align="start">
+                                                    <form
+                                                        onSubmit={(e) => {
+                                                            e.preventDefault()
+                                                            handlePhoneChange()
+                                                        }}
+                                                        className="flex flex-col gap-2"
+                                                    >
+                                                        <Input
+                                                            type="tel"
+                                                            value={phoneValue}
+                                                            onChange={(e) =>
+                                                                setPhoneValue(e.target.value)
+                                                            }
+                                                            placeholder={t(
+                                                                "phone_placeholder",
+                                                                "+1 (555) 000-0000",
+                                                            )}
+                                                            autoFocus
+                                                            disabled={isSavingPhone}
+                                                        />
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    setIsPhoneOpen(false)
+                                                                }
+                                                                disabled={isSavingPhone}
+                                                            >
+                                                                {t("cancel")}
+                                                            </Button>
+                                                            <Button
+                                                                type="submit"
+                                                                size="sm"
+                                                                disabled={isSavingPhone}
+                                                            >
+                                                                {isSavingPhone
+                                                                    ? t("saving", "Saving...")
+                                                                    : t("save")}
+                                                            </Button>
+                                                        </div>
+                                                    </form>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <span className="mx-2">·</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Popover
+                                                open={isPhoneOpen}
+                                                onOpenChange={(open) => {
+                                                    setIsPhoneOpen(open)
+                                                    if (open) setPhoneValue("")
+                                                }}
+                                            >
+                                                <PopoverTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors text-muted-foreground/60 hover:text-muted-foreground group"
+                                                    >
+                                                        <Phone className="h-3 w-3" />
+                                                        {t("set_phone", "Set phone")}
+                                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                                                    </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-72 p-3" align="start">
+                                                    <form
+                                                        onSubmit={(e) => {
+                                                            e.preventDefault()
+                                                            handlePhoneChange()
+                                                        }}
+                                                        className="flex flex-col gap-2"
+                                                    >
+                                                        <Input
+                                                            type="tel"
+                                                            value={phoneValue}
+                                                            onChange={(e) =>
+                                                                setPhoneValue(e.target.value)
+                                                            }
+                                                            placeholder={t(
+                                                                "phone_placeholder",
+                                                                "+1 (555) 000-0000",
+                                                            )}
+                                                            autoFocus
+                                                            disabled={isSavingPhone}
+                                                        />
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    setIsPhoneOpen(false)
+                                                                }
+                                                                disabled={isSavingPhone}
+                                                            >
+                                                                {t("cancel")}
+                                                            </Button>
+                                                            <Button
+                                                                type="submit"
+                                                                size="sm"
+                                                                disabled={isSavingPhone}
+                                                            >
+                                                                {isSavingPhone
+                                                                    ? t("saving", "Saving...")
+                                                                    : t("save")}
+                                                            </Button>
+                                                        </div>
+                                                    </form>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <span className="mx-2">·</span>
+                                        </>
+                                    )}
+                                    {/* 3. Locale */}
+                                    {user.locale ? (
+                                        <>
+                                            <Popover
+                                                open={isLocaleOpen}
+                                                onOpenChange={setIsLocaleOpen}
+                                            >
+                                                <PopoverTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors group"
+                                                    >
+                                                        <Languages className="h-3 w-3" />
+                                                        <span>{user.locale}</span>
+                                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                                                    </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-72 p-0" align="start">
+                                                    <Command>
+                                                        <CommandInput
+                                                            placeholder={t(
+                                                                "search_locale",
+                                                                "Search locale...",
+                                                            )}
+                                                        />
+                                                        <CommandList>
+                                                            <CommandEmpty>
+                                                                {t(
+                                                                    "no_locale_found",
+                                                                    "No locale found.",
+                                                                )}
+                                                            </CommandEmpty>
+                                                            <CommandGroup>
+                                                                {(() => {
+                                                                    const locales = [
+                                                                        ...new Set([
+                                                                            ...navigator.languages,
+                                                                            "en",
+                                                                            "en-US",
+                                                                            "en-GB",
+                                                                            "es",
+                                                                            "es-ES",
+                                                                            "es-MX",
+                                                                            "fr",
+                                                                            "fr-FR",
+                                                                            "de",
+                                                                            "de-DE",
+                                                                            "it",
+                                                                            "it-IT",
+                                                                            "pt",
+                                                                            "pt-BR",
+                                                                            "pt-PT",
+                                                                            "nl",
+                                                                            "nl-NL",
+                                                                            "ja",
+                                                                            "ja-JP",
+                                                                            "ko",
+                                                                            "ko-KR",
+                                                                            "zh",
+                                                                            "zh-CN",
+                                                                            "zh-TW",
+                                                                            "ar",
+                                                                            "ar-SA",
+                                                                            "hi",
+                                                                            "hi-IN",
+                                                                            "ru",
+                                                                            "ru-RU",
+                                                                            "pl",
+                                                                            "pl-PL",
+                                                                            "tr",
+                                                                            "tr-TR",
+                                                                            "sv",
+                                                                            "sv-SE",
+                                                                            "da",
+                                                                            "da-DK",
+                                                                            "no",
+                                                                            "nb-NO",
+                                                                            "fi",
+                                                                            "fi-FI",
+                                                                            "th",
+                                                                            "th-TH",
+                                                                            "vi",
+                                                                            "vi-VN",
+                                                                            "id",
+                                                                            "id-ID",
+                                                                            "ms",
+                                                                            "ms-MY",
+                                                                            "uk",
+                                                                            "uk-UA",
+                                                                            "cs",
+                                                                            "cs-CZ",
+                                                                            "ro",
+                                                                            "ro-RO",
+                                                                            "hu",
+                                                                            "hu-HU",
+                                                                            "el",
+                                                                            "el-GR",
+                                                                            "he",
+                                                                            "he-IL",
+                                                                            "bg",
+                                                                            "bg-BG",
+                                                                            "hr",
+                                                                            "hr-HR",
+                                                                            "sk",
+                                                                            "sk-SK",
+                                                                            "sl",
+                                                                            "sl-SI",
+                                                                            "lt",
+                                                                            "lt-LT",
+                                                                            "lv",
+                                                                            "lv-LV",
+                                                                            "et",
+                                                                            "et-EE",
+                                                                            "ca",
+                                                                            "ca-ES",
+                                                                            "fil",
+                                                                            "fil-PH",
+                                                                            "sw",
+                                                                            "sw-KE",
+                                                                            "af",
+                                                                            "af-ZA",
+                                                                        ]),
+                                                                    ].sort()
+                                                                    return locales.map((loc) => {
+                                                                        let label = loc
+                                                                        try {
+                                                                            const dn =
+                                                                                new Intl.DisplayNames(
+                                                                                    ["en"],
+                                                                                    {
+                                                                                        type: "language",
+                                                                                    },
+                                                                                )
+                                                                            label =
+                                                                                dn.of(loc) ?? loc
+                                                                        } catch {
+                                                                            // keep raw code
+                                                                        }
+                                                                        return (
+                                                                            <CommandItem
+                                                                                key={loc}
+                                                                                value={`${loc} ${label}`}
+                                                                                onSelect={() =>
+                                                                                    handleLocaleChange(
+                                                                                        loc,
+                                                                                    )
+                                                                                }
+                                                                                disabled={
+                                                                                    isSavingLocale
+                                                                                }
+                                                                            >
+                                                                                <Check
+                                                                                    className={cn(
+                                                                                        "mr-2 h-4 w-4",
+                                                                                        user.locale ===
+                                                                                            loc
+                                                                                            ? "opacity-100"
+                                                                                            : "opacity-0",
+                                                                                    )}
+                                                                                />
+                                                                                <span>{label}</span>
+                                                                                {label !== loc && (
+                                                                                    <span className="ml-1 text-muted-foreground">
+                                                                                        {loc}
+                                                                                    </span>
+                                                                                )}
+                                                                            </CommandItem>
+                                                                        )
+                                                                    })
+                                                                })()}
+                                                            </CommandGroup>
+                                                        </CommandList>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <span className="mx-2">·</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Popover
+                                                open={isLocaleOpen}
+                                                onOpenChange={setIsLocaleOpen}
+                                            >
+                                                <PopoverTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors text-muted-foreground/60 hover:text-muted-foreground group"
+                                                    >
+                                                        <Languages className="h-3 w-3" />
+                                                        {t("set_locale", "Set locale")}
+                                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                                                    </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-72 p-0" align="start">
+                                                    <Command>
+                                                        <CommandInput
+                                                            placeholder={t(
+                                                                "search_locale",
+                                                                "Search locale...",
+                                                            )}
+                                                        />
+                                                        <CommandList>
+                                                            <CommandEmpty>
+                                                                {t(
+                                                                    "no_locale_found",
+                                                                    "No locale found.",
+                                                                )}
+                                                            </CommandEmpty>
+                                                            <CommandGroup>
+                                                                {(() => {
+                                                                    const locales = [
+                                                                        ...new Set([
+                                                                            ...navigator.languages,
+                                                                            "en",
+                                                                            "en-US",
+                                                                            "en-GB",
+                                                                            "es",
+                                                                            "es-ES",
+                                                                            "es-MX",
+                                                                            "fr",
+                                                                            "fr-FR",
+                                                                            "de",
+                                                                            "de-DE",
+                                                                            "it",
+                                                                            "it-IT",
+                                                                            "pt",
+                                                                            "pt-BR",
+                                                                            "pt-PT",
+                                                                            "nl",
+                                                                            "nl-NL",
+                                                                            "ja",
+                                                                            "ja-JP",
+                                                                            "ko",
+                                                                            "ko-KR",
+                                                                            "zh",
+                                                                            "zh-CN",
+                                                                            "zh-TW",
+                                                                            "ar",
+                                                                            "ar-SA",
+                                                                            "hi",
+                                                                            "hi-IN",
+                                                                            "ru",
+                                                                            "ru-RU",
+                                                                            "pl",
+                                                                            "pl-PL",
+                                                                            "tr",
+                                                                            "tr-TR",
+                                                                            "sv",
+                                                                            "sv-SE",
+                                                                            "da",
+                                                                            "da-DK",
+                                                                            "no",
+                                                                            "nb-NO",
+                                                                            "fi",
+                                                                            "fi-FI",
+                                                                            "th",
+                                                                            "th-TH",
+                                                                            "vi",
+                                                                            "vi-VN",
+                                                                            "id",
+                                                                            "id-ID",
+                                                                            "ms",
+                                                                            "ms-MY",
+                                                                            "uk",
+                                                                            "uk-UA",
+                                                                            "cs",
+                                                                            "cs-CZ",
+                                                                            "ro",
+                                                                            "ro-RO",
+                                                                            "hu",
+                                                                            "hu-HU",
+                                                                            "el",
+                                                                            "el-GR",
+                                                                            "he",
+                                                                            "he-IL",
+                                                                            "bg",
+                                                                            "bg-BG",
+                                                                            "hr",
+                                                                            "hr-HR",
+                                                                            "sk",
+                                                                            "sk-SK",
+                                                                            "sl",
+                                                                            "sl-SI",
+                                                                            "lt",
+                                                                            "lt-LT",
+                                                                            "lv",
+                                                                            "lv-LV",
+                                                                            "et",
+                                                                            "et-EE",
+                                                                            "ca",
+                                                                            "ca-ES",
+                                                                            "fil",
+                                                                            "fil-PH",
+                                                                            "sw",
+                                                                            "sw-KE",
+                                                                            "af",
+                                                                            "af-ZA",
+                                                                        ]),
+                                                                    ].sort()
+                                                                    return locales.map((loc) => {
+                                                                        let label = loc
+                                                                        try {
+                                                                            const dn =
+                                                                                new Intl.DisplayNames(
+                                                                                    ["en"],
+                                                                                    {
+                                                                                        type: "language",
+                                                                                    },
+                                                                                )
+                                                                            label =
+                                                                                dn.of(loc) ?? loc
+                                                                        } catch {
+                                                                            // keep raw code
+                                                                        }
+                                                                        return (
+                                                                            <CommandItem
+                                                                                key={loc}
+                                                                                value={`${loc} ${label}`}
+                                                                                onSelect={() =>
+                                                                                    handleLocaleChange(
+                                                                                        loc,
+                                                                                    )
+                                                                                }
+                                                                                disabled={
+                                                                                    isSavingLocale
+                                                                                }
+                                                                            >
+                                                                                <span>{label}</span>
+                                                                                {label !== loc && (
+                                                                                    <span className="ml-1 text-muted-foreground">
+                                                                                        {loc}
+                                                                                    </span>
+                                                                                )}
+                                                                            </CommandItem>
+                                                                        )
+                                                                    })
+                                                                })()}
+                                                            </CommandGroup>
+                                                        </CommandList>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <span className="mx-2">·</span>
+                                        </>
+                                    )}
+                                    {/* 4. External ID */}
                                     {user.external_id && (
                                         <>
                                             <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
@@ -366,9 +902,7 @@ export default function UserDetail() {
                                             <span className="mx-2">·</span>
                                         </>
                                     )}
-                                    <span>
-                                        Created {formatDate(preferences, user.created_at, "PP")}
-                                    </span>
+                                    {/* 5. Timezone */}
                                     {user.timezone
                                         ? (() => {
                                               const localTime = getLocalTimeInTimezone(
@@ -377,7 +911,6 @@ export default function UserDetail() {
                                               const utcOffset = getTimezoneOffset(user.timezone)
                                               return (
                                                   <>
-                                                      <span className="mx-2">·</span>
                                                       <Popover
                                                           open={isTimezoneOpen}
                                                           onOpenChange={setIsTimezoneOpen}
@@ -445,12 +978,12 @@ export default function UserDetail() {
                                                               </Command>
                                                           </PopoverContent>
                                                       </Popover>
+                                                      <span className="mx-2">·</span>
                                                   </>
                                               )
                                           })()
                                         : (() => (
                                               <>
-                                                  <span className="mx-2">·</span>
                                                   <Popover
                                                       open={isTimezoneOpen}
                                                       onOpenChange={setIsTimezoneOpen}
@@ -505,8 +1038,13 @@ export default function UserDetail() {
                                                           </Command>
                                                       </PopoverContent>
                                                   </Popover>
+                                                  <span className="mx-2">·</span>
                                               </>
                                           ))()}
+                                    {/* 6. Created at */}
+                                    <span>
+                                        Created {formatDate(preferences, user.created_at, "PP")}
+                                    </span>
                                 </p>
                             </div>
                         </div>

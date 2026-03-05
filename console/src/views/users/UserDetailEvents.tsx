@@ -101,7 +101,7 @@ export default function UserDetailEvents() {
     const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
     const [previewEvent, setPreviewEvent] = useState<UserEvent | null>(null)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
-    const limit = 25
+    const limit = 15
 
     const handleSearch = (value: string) => {
         setSearchQuery(value)

@@ -1822,6 +1822,77 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/subjects/users/{userID}/devices:
+    get:
+      summary: Get user devices
+      description: Retrieves registered devices for a specific user
+      operationId: getUserDevices
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        "200":
+          description: User devices retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDeviceList"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/users/{userID}/devices/{deviceID}:
+    delete:
+      summary: Delete user device
+      description: Soft deletes a registered device for a specific user
+      operationId: deleteUserDevice
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+        - name: deviceID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The device ID
+      responses:
+        "204":
+          description: Device deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/subjects/user/events/schema:
     get:
       summary: List user event schemas
@@ -5626,6 +5697,64 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/UserEvent"
+
+    UserDevice:
+      type: object
+      required:
+        - id
+        - device_id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        device_id:
+          type: string
+          example: "AB12CD34-EF56-GH78-IJ90"
+        token:
+          type: string
+          nullable: true
+          example: "fcm_token_abc123"
+        os:
+          type: string
+          nullable: true
+          example: "iOS"
+        os_version:
+          type: string
+          nullable: true
+          example: "17.2"
+        model:
+          type: string
+          nullable: true
+          example: "iPhone 15 Pro"
+        app_build:
+          type: string
+          nullable: true
+          example: "142"
+        app_version:
+          type: string
+          nullable: true
+          example: "2.1.0"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.000Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.000Z"
+
+    UserDeviceList:
+      type: object
+      required:
+        - results
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserDevice"
 
     UserSubscription:
       type: object

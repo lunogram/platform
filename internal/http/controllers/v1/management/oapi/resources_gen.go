@@ -1072,6 +1072,25 @@ type User struct {
 	Version   int32              `json:"version"`
 }
 
+// UserDevice defines model for UserDevice.
+type UserDevice struct {
+	AppBuild   *string            `json:"app_build"`
+	AppVersion *string            `json:"app_version"`
+	CreatedAt  time.Time          `json:"created_at"`
+	DeviceId   string             `json:"device_id"`
+	Id         openapi_types.UUID `json:"id"`
+	Model      *string            `json:"model"`
+	Os         *string            `json:"os"`
+	OsVersion  *string            `json:"os_version"`
+	Token      *string            `json:"token"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+}
+
+// UserDeviceList defines model for UserDeviceList.
+type UserDeviceList struct {
+	Results []UserDevice `json:"results"`
+}
+
 // UserEvent defines model for UserEvent.
 type UserEvent struct {
 	CreatedAt time.Time          `json:"created_at"`
@@ -2240,6 +2259,12 @@ type ClientInterface interface {
 	UpdateUserWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateUser(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserDevices request
+	GetUserDevices(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteUserDevice request
+	DeleteUserDevice(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, deviceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserEvents request
 	GetUserEvents(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3699,6 +3724,30 @@ func (c *Client) UpdateUserWithBody(ctx context.Context, projectID openapi_types
 
 func (c *Client) UpdateUser(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateUserRequest(c.Server, projectID, userID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUserDevices(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserDevicesRequest(c.Server, projectID, userID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteUserDevice(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, deviceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserDeviceRequest(c.Server, projectID, userID, deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -8663,6 +8712,95 @@ func NewUpdateUserRequestWithBody(server string, projectID openapi_types.UUID, u
 	return req, nil
 }
 
+// NewGetUserDevicesRequest generates requests for GetUserDevices
+func NewGetUserDevicesRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/devices", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteUserDeviceRequest generates requests for DeleteUserDevice
+func NewDeleteUserDeviceRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, deviceID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "deviceID", runtime.ParamLocationPath, deviceID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/devices/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetUserEventsRequest generates requests for GetUserEvents
 func NewGetUserEventsRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserEventsParams) (*http.Request, error) {
 	var err error
@@ -10401,6 +10539,12 @@ type ClientWithResponsesInterface interface {
 	UpdateUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserResponse, error)
 
 	UpdateUserWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserResponse, error)
+
+	// GetUserDevicesWithResponse request
+	GetUserDevicesWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserDevicesResponse, error)
+
+	// DeleteUserDeviceWithResponse request
+	DeleteUserDeviceWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, deviceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserDeviceResponse, error)
 
 	// GetUserEventsWithResponse request
 	GetUserEventsWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserEventsParams, reqEditors ...RequestEditorFn) (*GetUserEventsResponse, error)
@@ -12558,6 +12702,51 @@ func (r UpdateUserResponse) StatusCode() int {
 	return 0
 }
 
+type GetUserDevicesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserDeviceList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserDevicesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserDevicesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteUserDeviceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteUserDeviceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteUserDeviceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetUserEventsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -14178,6 +14367,24 @@ func (c *ClientWithResponses) UpdateUserWithResponse(ctx context.Context, projec
 		return nil, err
 	}
 	return ParseUpdateUserResponse(rsp)
+}
+
+// GetUserDevicesWithResponse request returning *GetUserDevicesResponse
+func (c *ClientWithResponses) GetUserDevicesWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserDevicesResponse, error) {
+	rsp, err := c.GetUserDevices(ctx, projectID, userID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserDevicesResponse(rsp)
+}
+
+// DeleteUserDeviceWithResponse request returning *DeleteUserDeviceResponse
+func (c *ClientWithResponses) DeleteUserDeviceWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, deviceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserDeviceResponse, error) {
+	rsp, err := c.DeleteUserDevice(ctx, projectID, userID, deviceID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteUserDeviceResponse(rsp)
 }
 
 // GetUserEventsWithResponse request returning *GetUserEventsResponse
@@ -17327,6 +17534,65 @@ func ParseUpdateUserResponse(rsp *http.Response) (*UpdateUserResponse, error) {
 	return response, nil
 }
 
+// ParseGetUserDevicesResponse parses an HTTP response from a GetUserDevicesWithResponse call
+func ParseGetUserDevicesResponse(rsp *http.Response) (*GetUserDevicesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserDevicesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserDeviceList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteUserDeviceResponse parses an HTTP response from a DeleteUserDeviceWithResponse call
+func ParseDeleteUserDeviceResponse(rsp *http.Response) (*DeleteUserDeviceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteUserDeviceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetUserEventsResponse parses an HTTP response from a GetUserEventsWithResponse call
 func ParseGetUserEventsResponse(rsp *http.Response) (*GetUserEventsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -18457,6 +18723,12 @@ type ServerInterface interface {
 	// Update user
 	// (PATCH /api/admin/projects/{projectID}/subjects/users/{userID})
 	UpdateUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Get user devices
+	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/devices)
+	GetUserDevices(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Delete user device
+	// (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/devices/{deviceID})
+	DeleteUserDevice(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, deviceID openapi_types.UUID)
 	// Get user events
 	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/events)
 	GetUserEvents(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserEventsParams)
@@ -19075,6 +19347,18 @@ func (_ Unimplemented) GetUser(w http.ResponseWriter, r *http.Request, projectID
 // Update user
 // (PATCH /api/admin/projects/{projectID}/subjects/users/{userID})
 func (_ Unimplemented) UpdateUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get user devices
+// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/devices)
+func (_ Unimplemented) GetUserDevices(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete user device
+// (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/devices/{deviceID})
+func (_ Unimplemented) DeleteUserDevice(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, deviceID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -22911,6 +23195,95 @@ func (siw *ServerInterfaceWrapper) UpdateUser(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetUserDevices operation middleware
+func (siw *ServerInterfaceWrapper) GetUserDevices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserDevices(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteUserDevice operation middleware
+func (siw *ServerInterfaceWrapper) DeleteUserDevice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "deviceID" -------------
+	var deviceID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "deviceID", chi.URLParam(r, "deviceID"), &deviceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "deviceID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteUserDevice(w, r, projectID, userID, deviceID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetUserEvents operation middleware
 func (siw *ServerInterfaceWrapper) GetUserEvents(w http.ResponseWriter, r *http.Request) {
 
@@ -24278,6 +24651,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}", wrapper.UpdateUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/devices", wrapper.GetUserDevices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/devices/{deviceID}", wrapper.DeleteUserDevice)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/events", wrapper.GetUserEvents)
