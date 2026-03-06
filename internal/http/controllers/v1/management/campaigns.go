@@ -136,7 +136,7 @@ func (srv *CampaignsController) ListCampaigns(w http.ResponseWriter, r *http.Req
 		Offset: params.Offset.ToInt(),
 	}
 
-	result, total, err := srv.mgmt.ListCampaigns(ctx, projectID, pagination)
+	result, total, err := srv.mgmt.ListCampaigns(ctx, projectID, pagination, params.Search.ToString())
 	if err != nil {
 		logger.Error("failed to list campaigns", zap.Error(err))
 		oapi.WriteProblem(w, err)

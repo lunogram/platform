@@ -3,7 +3,7 @@ package importer
 import (
 	"testing"
 
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,14 +65,14 @@ func TestUserMapperMapRecord(t *testing.T) {
 	type test struct {
 		headers  []string
 		record   []string
-		validate func(*testing.T, users.UpsertUserParams)
+		validate func(*testing.T, subjects.UpsertUserParams)
 	}
 
 	tests := map[string]test{
 		"standard fields": {
 			headers: []string{"external_id", "email", "phone", "timezone", "locale"},
 			record:  []string{"user-123", "test@example.com", "+1234567890", "UTC", "en-US"},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
 				require.NotNil(t, user.ExternalID)
 				require.Equal(t, "user-123", *user.ExternalID)
 				require.NotNil(t, user.Email)
@@ -89,7 +89,7 @@ func TestUserMapperMapRecord(t *testing.T) {
 		"out of order fields": {
 			headers: []string{"email", "external_id", "timezone"},
 			record:  []string{"test@example.com", "user-456", "America/New_York"},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
 				require.NotNil(t, user.ExternalID)
 				require.Equal(t, "user-456", *user.ExternalID)
 				require.NotNil(t, user.Email)
@@ -101,7 +101,7 @@ func TestUserMapperMapRecord(t *testing.T) {
 		"with custom fields": {
 			headers: []string{"external_id", "email", "company", "role"},
 			record:  []string{"user-789", "admin@example.com", "Acme Inc", "Admin"},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
 				require.NotNil(t, user.ExternalID)
 				require.Equal(t, "user-789", *user.ExternalID)
 				require.NotNil(t, user.Email)
@@ -114,7 +114,7 @@ func TestUserMapperMapRecord(t *testing.T) {
 		"only custom fields": {
 			headers: []string{"external_id", "department", "employee_id"},
 			record:  []string{"user-999", "Engineering", "EMP-001"},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
 				require.NotNil(t, user.ExternalID)
 				require.Equal(t, "user-999", *user.ExternalID)
 				require.NotNil(t, user.Data)
@@ -125,7 +125,7 @@ func TestUserMapperMapRecord(t *testing.T) {
 		"with whitespace": {
 			headers: []string{"external_id", "email", "phone"},
 			record:  []string{"  user-111  ", "  test@example.com  ", "  +1234567890  "},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
 				require.NotNil(t, user.ExternalID)
 				require.Equal(t, "user-111", *user.ExternalID)
 				require.NotNil(t, user.Email)
@@ -137,7 +137,7 @@ func TestUserMapperMapRecord(t *testing.T) {
 		"minimal record": {
 			headers: []string{"external_id"},
 			record:  []string{"user-minimal"},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
 				require.NotNil(t, user.ExternalID)
 				require.Equal(t, "user-minimal", *user.ExternalID)
 				require.Nil(t, user.Email)
@@ -150,7 +150,7 @@ func TestUserMapperMapRecord(t *testing.T) {
 		"empty values": {
 			headers: []string{"external_id", "email", "phone"},
 			record:  []string{"user-empty", "", ""},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
 				require.NotNil(t, user.ExternalID)
 				require.Equal(t, "user-empty", *user.ExternalID)
 				require.NotNil(t, user.Email)
@@ -162,7 +162,7 @@ func TestUserMapperMapRecord(t *testing.T) {
 		"mixed standard and custom fields": {
 			headers: []string{"external_id", "email", "subscription_tier", "phone", "join_date"},
 			record:  []string{"user-mixed", "user@example.com", "premium", "+1234567890", "2025-01-01"},
-			validate: func(t *testing.T, user users.UpsertUserParams) {
+			validate: func(t *testing.T, user subjects.UpsertUserParams) {
 				require.NotNil(t, user.ExternalID)
 				require.Equal(t, "user-mixed", *user.ExternalID)
 				require.NotNil(t, user.Email)

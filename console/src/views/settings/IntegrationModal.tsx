@@ -1,243 +1,272 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import api from "../../api";
-import { ProjectContext } from "../../contexts";
-import { useResolver } from "../../hooks";
-import type {
-  Project,
-  Provider,
-  ProviderCreateParams,
-  ProviderMeta,
-  ProviderUpdateParams,
-} from "../../types";
-import Alert from "../../ui/Alert";
-import { Button } from "@/components/ui/button";
-import SchemaFields from "../../ui/form/SchemaFields";
-import TextInput from "../../ui/form/TextInput";
-import RadioInput from "../../ui/form/RadioInput";
-import FormWrapper from "../../ui/form/FormWrapper";
-import type { ModalProps } from "../../ui/Modal";
-import Modal from "../../ui/Modal";
-import Tile, { TileGrid } from "../../ui/Tile";
-import { snakeToTitle } from "../../utils";
-import { ChevronLeftIcon } from "../../components/icons";
-import { useTranslation } from "react-i18next";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { useForm } from "react-hook-form"
+import { useTranslation } from "react-i18next"
+import { ChevronLeft } from "lucide-react"
+import api from "../../api"
+import { ProjectContext } from "../../contexts"
+import { useResolver } from "../../hooks"
+import { snakeToTitle } from "../../utils"
+import type { Project, Provider, ProviderCreateParams, ProviderMeta } from "../../types"
+import type { SchemaProperty } from "@/components/SchemaFields"
 
-import "./IntegrationModal.css";
-import { t } from "i18next";
-
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
+import { SchemaFields } from "@/components/SchemaFields"
 interface IntegrationFormParams {
-  project: Project;
-  meta: ProviderMeta;
-  provider?: Provider;
-  onChange: (provider: Provider) => void;
+    project: Project
+    meta: ProviderMeta
+    provider?: Provider
+    onChange: (provider: Provider) => void
 }
 
 export function IntegrationForm({
-  project,
-  provider: defaultProvider,
-  onChange,
-  meta,
+    project,
+    provider: defaultProvider,
+    onChange,
+    meta,
 }: IntegrationFormParams) {
-  const { t } = useTranslation();
-  const [provider, setProvider] = useState<Provider | undefined>(
-    defaultProvider,
-  );
-  // meta uses type/group, but API and Provider use module/channel
-  const module = meta.type;
-  const channel = meta.group;
-  useEffect(() => {
-    if (defaultProvider) {
-      api.providers
-        .get(
-          project.id,
-          defaultProvider.channel,
-          defaultProvider.module,
-          defaultProvider.id,
-        )
-        .then((provider) => {
-          setProvider(provider);
-        })
-        .catch(() => {});
+    const { t } = useTranslation()
+    const [provider, setProvider] = useState<Provider | undefined>(defaultProvider)
+    const [isSaving, setIsSaving] = useState(false)
+
+    const module = meta.type
+    const channel = meta.group
+
+    useEffect(() => {
+        if (defaultProvider) {
+            api.providers
+                .get(
+                    project.id,
+                    defaultProvider.channel,
+                    defaultProvider.module,
+                    defaultProvider.id,
+                )
+                .then((provider) => setProvider(provider))
+                .catch(() => {})
+        }
+    }, [project.id, defaultProvider])
+
+    const form = useForm<ProviderCreateParams>({
+        values: provider
+            ? {
+                  name: provider.name,
+                  data: provider.data,
+                  module,
+                  channel,
+              }
+            : { name: "", data: {}, module, channel },
+    })
+
+    const handleSubmit = async (values: ProviderCreateParams) => {
+        setIsSaving(true)
+        try {
+            const params = { ...values, module, channel }
+            const result = provider?.id
+                ? await api.providers.update(project.id, provider.id, params)
+                : await api.providers.create(project.id, params)
+            onChange(result)
+        } finally {
+            setIsSaving(false)
+        }
     }
-  }, [project.id, defaultProvider]);
 
-  async function handleCreate({
-    name,
-    rate_limit,
-    rate_interval,
-    data = {},
-  }: ProviderCreateParams | ProviderUpdateParams) {
-    const params = { name, data, rate_limit, rate_interval, module, channel };
-    const value = provider?.id
-      ? await api.providers.update(project.id, provider?.id, params)
-      : await api.providers.create(project.id, params);
+    return (
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="grid gap-4">
+            {provider?.id ? (
+                provider?.setup?.length > 0 && (
+                    <>
+                        <h4 className="text-sm font-medium">{t("details", "Details")}</h4>
+                        {provider.setup.map((item) => (
+                            <div key={item.name} className="grid gap-2">
+                                <Label className="text-muted-foreground">{item.name}</Label>
+                                <Input value={item.value} disabled />
+                            </div>
+                        ))}
+                        <Separator />
+                    </>
+                )
+            ) : (
+                <div className="rounded-lg border bg-muted/50 p-3">
+                    <p className="text-sm font-medium">{meta.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                        {t(
+                            "integration_setup_hint",
+                            "Fill out the fields below to setup this integration. For more information on this integration please see the documentation on our website.",
+                        )}
+                    </p>
+                </div>
+            )}
 
-    onChange(value);
-  }
+            <h4 className="text-sm font-medium">{t("config", "Config")}</h4>
+            <div className="grid gap-2">
+                <Label className="inline-flex items-center gap-1">
+                    {t("name")} <span className="text-destructive">*</span>
+                </Label>
+                <Input {...form.register("name", { required: true })} />
+            </div>
 
-  return (
-    <FormWrapper<ProviderCreateParams>
-      onSubmit={async (provider) => await handleCreate(provider)}
-      submitLabel={provider?.id ? "Update Integration" : "Create Integration"}
-      defaultValues={provider}
-    >
-      {(form) => (
-        <>
-          {provider?.id ? (
-            <>
-              {provider.setup.length > 0 && (
-                <h4 className="legacy-typography">Details</h4>
-              )}
-              {provider.setup?.map((item) => {
-                return (
-                  <TextInput
-                    name={item.name}
-                    key={item.name}
-                    value={item.value}
-                    disabled
-                  />
-                );
-              })}
-            </>
-          ) : (
-            <Alert title={meta.name} variant="plain">
-              Fill out the fields below to setup this integration. For more
-              information on this integration please see the documentation on
-              our website
-            </Alert>
-          )}
+            <SchemaFields
+                parent="data"
+                schema={
+                    Array.isArray(meta.schema.properties)
+                        ? meta.schema.properties.find((p: SchemaProperty) => p.name === "data")
+                              ?.schema
+                        : meta.schema.properties?.data
+                }
+                form={form}
+            />
 
-          <h4 className="legacy-typography">Config</h4>
-          <TextInput.Field form={form} name="name" required />
-          <SchemaFields
-            parent="data"
-            schema={meta.schema.properties.data}
-            form={form}
-          />
-          <TextInput.Field
-            form={form}
-            type="number"
-            name="rate_limit"
-            subtitle="If you need to cap send rate, enter the maximum per interval limit."
-          />
-          <RadioInput.Field
-            form={form}
-            name="rate_interval"
-            label={t("rate_interval")}
-            options={[
-              { key: "second", label: t("second") },
-              { key: "minute", label: t("minute") },
-              { key: "hour", label: t("hour") },
-              { key: "day", label: t("day") },
-            ]}
-          />
-        </>
-      )}
-    </FormWrapper>
-  );
+            <DialogFooter className="pt-2">
+                <Button type="submit" disabled={isSaving}>
+                    {isSaving
+                        ? t("saving", "Saving...")
+                        : provider?.id
+                          ? t("update_integration", "Update Integration")
+                          : t("create_integration", "Create Integration")}
+                </Button>
+            </DialogFooter>
+        </form>
+    )
 }
-
-interface IntegrationModalProps extends Omit<ModalProps, "title"> {
-  provider: Provider | undefined;
-  onChange: (provider: Provider) => void;
+interface IntegrationModalProps {
+    open: boolean
+    onClose: (open: boolean) => void
+    provider: Provider | undefined
+    onChange: (provider: Provider) => void
 }
 
 export default function IntegrationModal({
-  onChange,
-  provider,
-  ...props
+    open,
+    onClose,
+    onChange,
+    provider,
 }: IntegrationModalProps) {
-  const [project] = useContext(ProjectContext);
-  const [options] = useResolver(
-    useCallback(async () => await api.providers.options(project.id), [project]),
-  );
-  const [meta, setMeta] = useState<ProviderMeta | undefined>();
+    const { t } = useTranslation()
+    const [project] = useContext(ProjectContext)
+    const [options] = useResolver(
+        useCallback(async () => await api.providers.options(project.id), [project]),
+    )
+    const [meta, setMeta] = useState<ProviderMeta | undefined>()
 
-  const derivedMeta = useMemo(
-    () =>
-      options?.find(
-        (item) =>
-          item.group === provider?.channel && item.type === provider?.module,
-      ),
-    [options, provider],
-  );
+    const derivedMeta = useMemo(
+        () =>
+            options?.find(
+                (item) => item.group === provider?.channel && item.type === provider?.module,
+            ),
+        [options, provider],
+    )
 
-  const activeMeta = meta ?? derivedMeta;
+    const activeMeta = meta ?? derivedMeta
 
-  const handleChange = (provider: Provider) => {
-    onChange(provider);
-    props.onClose(false);
-    setMeta(undefined);
-  };
+    const handleChange = (provider: Provider) => {
+        onChange(provider)
+        onClose(false)
+        setMeta(undefined)
+    }
 
-  if (provider?.external_id) {
+    // External integration — simple info dialog
+    if (provider?.external_id) {
+        return (
+            <Dialog open={open} onOpenChange={onClose}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{t("external_integration_title")}</DialogTitle>
+                        <DialogDescription>{t("external_integration_alert")}</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => onClose(false)}>
+                            {t("close")}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        )
+    }
+
+    const title = activeMeta
+        ? provider?.id
+            ? `${provider.name} (${activeMeta.name})`
+            : t("setup_integration", "Setup Integration")
+        : t("integrations")
+
     return (
-      <Modal {...props} title={t("external_integration_title")} size="regular">
-        <Alert title="Internal Integration" variant="plain">
-          {t("external_integration_alert")}
-        </Alert>
-        <div style={{ marginTop: "20px" }}>
-          <Button variant="secondary" onClick={() => props.onClose(false)}>
-            <ChevronLeftIcon />
-            {t("close")}
-          </Button>
-        </div>
-      </Modal>
-    );
-  }
+        <Dialog
+            open={open}
+            onOpenChange={(isOpen) => {
+                onClose(isOpen)
+                if (!isOpen) setMeta(undefined)
+            }}
+        >
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                    {!activeMeta && (
+                        <DialogDescription>
+                            {t(
+                                "pick_integration_hint",
+                                "To get started, pick one of the integrations from the list below.",
+                            )}
+                        </DialogDescription>
+                    )}
+                </DialogHeader>
 
-  return (
-    <Modal
-      {...props}
-      title={
-        activeMeta
-          ? provider?.id
-            ? `${provider?.name} (${activeMeta.name})`
-            : "Setup Integration"
-          : "Integrations"
-      }
-      size="regular"
-    >
-      {!activeMeta ? (
-        <>
-          <p>
-            To get started, pick one of the integrations from the list below.
-          </p>
-          <TileGrid>
-            {options?.map((option) => (
-              <Tile
-                key={`${option.group}${option.type}`}
-                title={option.name}
-                onClick={() => setMeta(option)}
-                iconUrl={option.icon}
-              >
-                {snakeToTitle(option.group)}
-              </Tile>
-            ))}
-          </TileGrid>
-        </>
-      ) : (
-        <>
-          {!provider?.id && (
-            <div style={{ marginBottom: "10px" }}>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setMeta(undefined)}
-              >
-                <ChevronLeftIcon />
-                Integrations
-              </Button>
-            </div>
-          )}
-          <IntegrationForm
-            project={project}
-            provider={provider}
-            meta={activeMeta}
-            onChange={handleChange}
-          />
-        </>
-      )}
-    </Modal>
-  );
+                {!activeMeta ? (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {options?.map((option) => (
+                            <button
+                                key={`${option.group}${option.type}`}
+                                type="button"
+                                className="flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                                onClick={() => setMeta(option)}
+                            >
+                                {option.icon && (
+                                    <img
+                                        src={option.icon}
+                                        alt={option.name}
+                                        className="h-10 w-10 rounded-md"
+                                    />
+                                )}
+                                <div>
+                                    <p className="text-sm font-medium">{option.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {snakeToTitle(option.group)}
+                                    </p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <>
+                        {!provider?.id && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-fit"
+                                onClick={() => setMeta(undefined)}
+                            >
+                                <ChevronLeft className="mr-1 h-4 w-4" />
+                                {t("integrations")}
+                            </Button>
+                        )}
+                        <IntegrationForm
+                            project={project}
+                            provider={provider}
+                            meta={activeMeta}
+                            onChange={handleChange}
+                        />
+                    </>
+                )}
+            </DialogContent>
+        </Dialog>
+    )
 }

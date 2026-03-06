@@ -1,10 +1,17 @@
-import { Dialog, DialogPanel, DialogTitle, DialogBackdrop, Transition, TransitionChild } from '@headlessui/react'
-import type { PropsWithChildren, ReactNode } from 'react';
-import { Fragment } from 'react'
-import { Button } from '@/components/ui/button'
-import { CloseIcon } from '../components/icons'
-import { useTranslation } from 'react-i18next'
-import './Modal.css'
+import {
+    Dialog,
+    DialogPanel,
+    DialogTitle,
+    DialogBackdrop,
+    Transition,
+    TransitionChild,
+} from "@headlessui/react"
+import type { PropsWithChildren, ReactNode } from "react"
+import { Fragment } from "react"
+import { Button } from "@/components/ui/button"
+import { CloseIcon } from "../components/icons"
+import { useTranslation } from "react-i18next"
+import "./Modal.css"
 
 export interface ModalStateProps {
     open: boolean
@@ -15,7 +22,7 @@ export interface ModalProps extends ModalStateProps {
     title: ReactNode
     description?: ReactNode
     actions?: ReactNode
-    size?: 'small' | 'regular' | 'large' | 'fullscreen'
+    size?: "small" | "regular" | "large" | "fullscreen"
     zIndex?: number
 }
 
@@ -34,7 +41,7 @@ export default function Modal({
         <Transition show={open} as={Fragment}>
             <Dialog
                 as="div"
-                className={`modal ${size ?? 'small'}`}
+                className={`modal ${size ?? "small"}`}
                 onClose={onClose}
                 style={{ zIndex }}
             >
@@ -61,55 +68,32 @@ export default function Modal({
                     >
                         <DialogPanel className="modal-inner">
                             <div className="modal-header">
-                                {
-                                    size === 'fullscreen' && (
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() => onClose(false)}
-                                        >
-                                            <CloseIcon />
-                                            {t('exit')}
-                                        </Button>
-                                    )
-                                }
-                                <DialogTitle as="h3">{title}</DialogTitle>
-                                {
-                                    size === 'fullscreen' && actions && (
-                                        <div className="modal-fullscreen-actions">
-                                            {actions}
-                                        </div>
-                                    )
-                                }
-                            </div>
-                            {
-                                description && (
-                                    <p className="modal-description">
-                                        {description}
-                                    </p>
-                                )
-                            }
-                            <div className="modal-content">
-                                {children}
-                            </div>
-                            {
-                                !!(actions && size !== 'fullscreen') && (
-                                    <div className="modal-footer">
-                                        {actions}
-                                    </div>
-                                )
-                            }
-                            {
-                                size !== 'fullscreen' && (
-                                    <Button
-                                        className="modal-close"
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => onClose(false)}
-                                    >
+                                {size === "fullscreen" && (
+                                    <Button variant="secondary" onClick={() => onClose(false)}>
                                         <CloseIcon />
+                                        {t("exit")}
                                     </Button>
-                                )
-                            }
+                                )}
+                                <DialogTitle as="h3">{title}</DialogTitle>
+                                {size === "fullscreen" && actions && (
+                                    <div className="modal-fullscreen-actions">{actions}</div>
+                                )}
+                            </div>
+                            {description && <p className="modal-description">{description}</p>}
+                            <div className="modal-content">{children}</div>
+                            {!!(actions && size !== "fullscreen") && (
+                                <div className="modal-footer">{actions}</div>
+                            )}
+                            {size !== "fullscreen" && (
+                                <Button
+                                    className="modal-close"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => onClose(false)}
+                                >
+                                    <CloseIcon />
+                                </Button>
+                            )}
                         </DialogPanel>
                     </TransitionChild>
                 </div>

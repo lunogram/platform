@@ -1,20 +1,20 @@
-import type { ComponentConfig, Slot } from '@measured/puck';
-import { Row as EmailRow, Column as EmailColumn } from '@react-email/components';
-import { Layout, type LayoutProps, layoutClassMap } from './fields/Layout';
-import { cn } from '@/utils';
-import { Spacing, type SpacingProps, spacingClassMap } from './fields/Spacing';
-import { Typography, type TypographyProps, typographyClassMap } from './fields/Typography';
-import { Decoration, type DecorationProps, decorationClassMap } from './fields/Decoration';
-import { generateTailwindClasses } from './fields/unit';
+import type { ComponentConfig, Slot } from "@puckeditor/core"
+import { Row as EmailRow, Column as EmailColumn } from "@react-email/components"
+import { Layout, type LayoutProps, layoutClassMap } from "./fields/Layout"
+import { cn } from "@/utils"
+import { Spacing, type SpacingProps, spacingClassMap } from "./fields/Spacing"
+import { Typography, type TypographyProps, typographyClassMap } from "./fields/Typography"
+import { Decoration, type DecorationProps, decorationClassMap } from "./fields/Decoration"
+import { generateTailwindClasses } from "./fields/unit"
 
 export interface ColumnProps {
-    align: 'left' | 'center' | 'right';
-    content: Slot;
-    layout: LayoutProps;
-    spacing: SpacingProps;
-    typography: TypographyProps;
-    decoration: DecorationProps;
-};
+    align: "left" | "center" | "right"
+    content: Slot
+    layout: LayoutProps
+    spacing: SpacingProps
+    typography: TypographyProps
+    decoration: DecorationProps
+}
 
 export const Column: ComponentConfig<ColumnProps> = {
     fields: {
@@ -35,12 +35,12 @@ export const Column: ComponentConfig<ColumnProps> = {
         decoration: Decoration,
     },
     defaultProps: {
-        align: 'left',
+        align: "left",
         content: [],
         layout: {
             xl: {
-                width: '33.33%',
-            }
+                width: "33.33%",
+            },
         },
         typography: {},
         spacing: {},
@@ -61,6 +61,6 @@ export const Column: ComponentConfig<ColumnProps> = {
                     <Content />
                 </EmailColumn>
             </EmailRow>
-        );
+        )
     },
 }

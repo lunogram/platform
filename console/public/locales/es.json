@@ -37,7 +37,57 @@
   "blast": "Volumen (Lista)",
   "body": "Cuerpo",
   "bounced": "Rebotado",
-  "campaign": "Campaña",
+  "campaign": {
+    "plural": "Campañas",
+    "singular": "Campaña",
+    "template": {
+      "email": {
+        "templates": {
+          "pricingEmphasized": {
+            "label": "Énfasis en precios",
+            "description": "Una sección profesional de plan dual de precios para correos electrónicos."
+          }
+        }
+      },
+      "editor": {
+        "selection": {
+          "title": "Nuevo Proyecto",
+          "description": "Selecciona tu experiencia de edición preferida.",
+          "visualBuilder": "Constructor Visual",
+          "visualBuilderDesc": "Arrastra y suelta bloques para diseñar visualmente.",
+          "developerMode": "Modo Desarrollador",
+          "developerModeDesc": "Escribe HTML sin procesar para tener control total.",
+          "note": "Nota: No puedes alternar entre estos modos dentro del editor."
+        },
+        "wizard": {
+          "step1": "Paso 1: Entorno",
+          "step2": "Paso 2: Plantilla",
+          "title": "Comienza un nuevo proyecto",
+          "description": "Selecciona tu espacio de trabajo. Puedes alternar entre estos modos más tarde en el editor.",
+          "visualBuilder": "Constructor Visual",
+          "visualBuilderDesc": "Arrastra y suelta bloques visualmente. Mejor para diseño de marketing y diseño.",
+          "developerMode": "Modo Desarrollador",
+          "developerModeDesc": "Escribe HTML sin procesar para tener control total. Mejor para lógica personalizada y código heredado.",
+          "chooseTemplate": "Elige una plantilla",
+          "configuring": "Configurando",
+          "blankSlate": "Lienzo en blanco",
+          "noTemplate": "Sin plantilla",
+          "autoSaveActive": "Guardado automático activo",
+          "cloudSync": "Sincronización en la nube",
+          "selectTemplate": "Selecciona una plantilla para continuar"
+        },
+        "htmlEditor": {
+          "developerMode": "Modo Desarrollador"
+        },
+        "components": {
+          "image": {
+            "title": "Imagen",
+            "upload_hint": "Haz clic para explorar y seleccionar una imagen"
+          }
+        }
+      }
+    }
+  },
   "campaign_alert_pending": "¡Esta campaña aún no ha sido enviada! Una vez que la campaña esté activa o programada, esta pestaña mostrará el progreso y los resultados.",
   "campaign_alert_scheduled": "Esta campaña está pendiente de entrega. Comenzará a desplegarse a",
   "campaign_delivery_trigger_description": "",
@@ -374,6 +424,9 @@
   "visual": "Visual",
   "wait": "Espere",
   "wait_until": "Esperar hasta",
+  "actions": {
+    "plural": "Acciones"
+  },
   "webhook": "Webhook",
   "welcome": "¡Bienvenido!"
 }

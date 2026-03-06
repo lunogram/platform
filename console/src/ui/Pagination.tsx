@@ -4,7 +4,7 @@ import {
     PaginationItem,
     PaginationPrevious,
     PaginationNext,
-} from '@/components/ui/pagination'
+} from "@/components/ui/pagination"
 
 interface PaginationProps {
     prevCursor: string | undefined
@@ -30,7 +30,11 @@ export default function CursorPagination({
                             onPrev(prevCursor)
                         }}
                         aria-disabled={prevCursor === undefined}
-                        className={prevCursor === undefined ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        className={
+                            prevCursor === undefined
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                        }
                     />
                 </PaginationItem>
                 <PaginationItem>
@@ -40,7 +44,11 @@ export default function CursorPagination({
                             onNext(nextCursor)
                         }}
                         aria-disabled={nextCursor === undefined}
-                        className={nextCursor === undefined ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        className={
+                            nextCursor === undefined
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                        }
                     />
                 </PaginationItem>
             </PaginationContent>

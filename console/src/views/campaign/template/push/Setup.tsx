@@ -1,35 +1,35 @@
-import { Controller, useForm, type UseFormReturn } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import type { Campaign, Template, User, Locale } from "@/types";
-import { Bell } from 'lucide-react';
-import { useTranslation } from "react-i18next";
-import { useContext, useState, useEffect } from "react";
-import { ProjectContext, TemplateContext } from "@/contexts";
-import { useNavigate } from "react-router";
-import { Button } from "@/components/ui/button";
-import api from "@/api";
-import * as z from "zod";
+import { Controller, useForm, type UseFormReturn } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import type { Campaign, Template, User, Locale } from "@/types"
+import { Bell } from "lucide-react"
+import { useTranslation } from "react-i18next"
+import { useContext, useState, useEffect } from "react"
+import { ProjectContext, TemplateContext } from "@/contexts"
+import { useNavigate } from "react-router"
+import { Button } from "@/components/ui/button"
+import api from "@/api"
+import * as z from "zod"
 
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select";
-import { UserSelection } from "../UserSelection";
+} from "@/components/ui/select"
+import { UserSelection } from "../UserSelection"
 
 const pushSetupFormSchema = z.object({
     title: z.string("Title is required").min(1, "Title is required"),
     body: z.string("Body is required").min(1, "Body is required"),
     custom: z.record(z.string(), z.unknown()).optional(),
-});
+})
 
 export function PushForm(_campaign: Campaign, template?: Template) {
-    const formSchema = pushSetupFormSchema.extend({});
+    const formSchema = pushSetupFormSchema.extend({})
 
     return useForm({
         resolver: zodResolver(formSchema),
@@ -38,17 +38,17 @@ export function PushForm(_campaign: Campaign, template?: Template) {
             body: template?.data.body,
             custom: template?.data.custom,
         },
-    });
+    })
 }
 
 interface PushFormControlProps {
-    campaign: Campaign;
-    form: UseFormReturn<z.infer<typeof pushSetupFormSchema>>;
-    disabled?: boolean;
+    campaign: Campaign
+    form: UseFormReturn<z.infer<typeof pushSetupFormSchema>>
+    disabled?: boolean
 }
 
 export function PushFormControl({ form, disabled = false }: PushFormControlProps) {
-    const { t } = useTranslation();
+    const { t } = useTranslation()
 
     return (
         <FieldGroup className="mt-7">
@@ -57,7 +57,9 @@ export function PushFormControl({ form, disabled = false }: PushFormControlProps
                 control={form.control}
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid} className="gap-2">
-                        <FieldLabel htmlFor="form-rhf-demo-title">{t('campaign.setup.channels.push.title.label')}</FieldLabel>
+                        <FieldLabel htmlFor="form-rhf-demo-title">
+                            {t("campaign.setup.channels.push.title.label")}
+                        </FieldLabel>
                         <Input
                             {...field}
                             aria-invalid={fieldState.invalid}
@@ -75,7 +77,9 @@ export function PushFormControl({ form, disabled = false }: PushFormControlProps
                 control={form.control}
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid} className="gap-2">
-                        <FieldLabel htmlFor="form-rhf-demo-message">{t('campaign.setup.channels.push.body.label')}</FieldLabel>
+                        <FieldLabel htmlFor="form-rhf-demo-message">
+                            {t("campaign.setup.channels.push.body.label")}
+                        </FieldLabel>
                         <Textarea
                             {...field}
                             aria-invalid={fieldState.invalid}
@@ -94,61 +98,67 @@ export function PushFormControl({ form, disabled = false }: PushFormControlProps
 }
 
 const randomNotifications = [
-    ["Welcome to our App!", "Thank you for installing our app. We're excited to have you on board."],
+    [
+        "Welcome to our App!",
+        "Thank you for installing our app. We're excited to have you on board.",
+    ],
     ["Don't miss out!", "Check out the latest features we've added to enhance your experience."],
     ["Special Offer!", "Get 20% off on your next purchase. Limited time offer!"],
-    ["Update Available", "A new version of the app is available. Update now for the best experience."],
+    [
+        "Update Available",
+        "A new version of the app is available. Update now for the best experience.",
+    ],
     ["Weekly Summary", "Here's what you've missed this week. Stay updated with the latest news."],
-];
+]
 
 function randomNotification() {
-    const index = Math.floor(Math.random() * randomNotifications.length);
-    return randomNotifications[index];
+    const index = Math.floor(Math.random() * randomNotifications.length)
+    return randomNotifications[index]
 }
 
 export interface PushSetupProps {
-    campaign: Campaign;
-    form: UseFormReturn<z.infer<typeof pushSetupFormSchema>>;
-    edit?: boolean;
+    campaign: Campaign
+    form: UseFormReturn<z.infer<typeof pushSetupFormSchema>>
+    edit?: boolean
 }
 
 export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
-    const [project] = useContext(ProjectContext);
-    const [template, setTemplate] = useContext(TemplateContext);
-    const { t } = useTranslation();
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
-    const [selectedLocale, setSelectedLocale] = useState(template.locale);
-    const [locales, setLocales] = useState<Locale[]>([]);
-    const navigate = useNavigate();
+    const [project] = useContext(ProjectContext)
+    const [template, setTemplate] = useContext(TemplateContext)
+    const { t } = useTranslation()
+    const [selectedUser, setSelectedUser] = useState<User | null>(null)
+    const [selectedLocale, setSelectedLocale] = useState(template.locale)
+    const [locales, setLocales] = useState<Locale[]>([])
+    const navigate = useNavigate()
 
     useEffect(() => {
         const fetchLocales = async () => {
             if (project?.id) {
-                const result = await api.locales.search(project.id, { limit: 100 });
-                setLocales(result.results);
+                const result = await api.locales.search(project.id, { limit: 100 })
+                setLocales(result.results)
             }
-        };
-        fetchLocales();
-    }, [project?.id]);
+        }
+        fetchLocales()
+    }, [project?.id])
 
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 
-    const [[placeholderTitle, placeholderBody]] = useState(() => randomNotification());
-    const title = form.watch('title') ?? placeholderTitle;
-    const body = form.watch('body') ?? placeholderBody;
+    const [[placeholderTitle, placeholderBody]] = useState(() => randomNotification())
+    const title = form.watch("title") ?? placeholderTitle
+    const body = form.watch("body") ?? placeholderBody
 
     const handleEditTemplate = () => {
-        navigate(`/projects/${project?.id}/campaigns/${campaign.id}/templates/${template.id}`);
-    };
+        navigate(`/projects/${project?.id}/campaigns/${campaign.id}/templates/${template.id}`)
+    }
 
     const handleLocaleChange = async (locale: string) => {
-        setSelectedLocale(locale);
-        const newTemplate = campaign.templates.find(t => t.locale === locale);
+        setSelectedLocale(locale)
+        const newTemplate = campaign.templates.find((t) => t.locale === locale)
         if (!newTemplate) {
             return
         }
-        setTemplate(newTemplate);
-    };
+        setTemplate(newTemplate)
+    }
 
     return (
         <>
@@ -168,18 +178,16 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
                             </SelectTrigger>
                             <SelectContent>
                                 {campaign.templates.map((t) => {
-                                    const locale = locales.find(l => l.key === t.locale);
+                                    const locale = locales.find((l) => l.key === t.locale)
                                     return (
                                         <SelectItem key={t.id} value={t.locale}>
                                             {locale?.label || t.locale}
                                         </SelectItem>
-                                    );
+                                    )
                                 })}
                             </SelectContent>
                         </Select>
-                        <Button onClick={handleEditTemplate}>
-                            {t('campaign.template.edit')}
-                        </Button>
+                        <Button onClick={handleEditTemplate}>{t("campaign.template.edit")}</Button>
                     </div>
                 )}
             </div>
@@ -193,18 +201,18 @@ export function PushPreview({ campaign, form, edit = false }: PushSetupProps) {
 
                             <div className="flex-1 flex gap-1 flex-col">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm font-semibold text-gray-900">{title}</span>
+                                    <span className="text-sm font-semibold text-gray-900">
+                                        {title}
+                                    </span>
                                     <span className="text-xs text-gray-500">{time}</span>
                                 </div>
 
-                                <p className="text-sm text-gray-600 line-clamp-3">
-                                    {body}
-                                </p>
+                                <p className="text-sm text-gray-600 line-clamp-3">{body}</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </>
-    );
+    )
 }

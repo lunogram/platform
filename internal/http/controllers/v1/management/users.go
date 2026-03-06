@@ -20,7 +20,7 @@ import (
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
@@ -29,7 +29,7 @@ func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, usersDB, journ
 		logger:        logger,
 		usersDB:       usersDB,
 		mgmt:          mgmt,
-		users:         users.NewState(usersDB),
+		users:         subjects.NewState(usersDB),
 		journey:       journey.NewState(journeyDB),
 		pubsub:        pub,
 		maxUploadSize: maxUploadSize,
@@ -41,7 +41,7 @@ type UsersController struct {
 	usersDB       *sqlx.DB
 	pubsub        pubsub.Publisher
 	mgmt          *management.State
-	users         *users.State
+	users         *subjects.State
 	journey       *journey.State
 	maxUploadSize int64
 }
@@ -123,9 +123,9 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	usersStore := users.NewUsersStore(tx)
+	usersStore := subjects.NewUsersStore(tx)
 
-	params := users.UpsertUserParams{
+	params := subjects.UpsertUserParams{
 		AnonymousID: body.AnonymousId,
 		ExternalID:  body.ExternalId,
 		Email:       body.Email,
@@ -206,6 +206,79 @@ func (srv *UsersController) GetUser(w http.ResponseWriter, r *http.Request, proj
 	json.Write(w, http.StatusOK, user.OAPI())
 }
 
+func (srv *UsersController) GetUserDevices(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	_, err := srv.users.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("user_id", userID.String()),
+	)
+
+	logger.Info("listing user devices")
+
+	devices, err := srv.users.ListDevicesByUser(ctx, projectID, userID)
+	if err != nil {
+		logger.Error("failed to list user devices", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("user devices listed", zap.Int("count", len(devices)))
+
+	response := oapi.UserDeviceList{
+		Results: devices.OAPI(),
+	}
+
+	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *UsersController) DeleteUserDevice(w http.ResponseWriter, r *http.Request, projectID, userID, deviceID uuid.UUID) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("user_id", userID.String()),
+		zap.String("device_id", deviceID.String()),
+	)
+
+	logger.Info("deleting user device")
+
+	err := srv.users.DeleteDevice(ctx, projectID, deviceID)
+	if err != nil {
+		logger.Error("failed to delete device", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("device deleted")
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
 	ctx := r.Context()
 	_, ok := claim.FromContext(ctx)
@@ -243,7 +316,26 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 
 	logger.Info("updating user")
 
-	update := users.UserUpdate{
+	var data map[string]any
+	if body.Data != nil {
+		err = json.Unmarshal(*body.Data, &data)
+		if err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("data must be a JSON object")))
+			return
+		}
+	}
+
+	tx, err := srv.usersDB.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+	users := subjects.NewUsersStore(tx)
+
+	update := subjects.UserUpdate{
 		Email:    body.Email,
 		Phone:    body.Phone,
 		Timezone: body.Timezone,
@@ -251,17 +343,45 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 		Data:     body.Data,
 	}
 
-	err = srv.users.UpdateUser(ctx, userID, update)
+	err = users.UpdateUser(ctx, userID, update)
 	if err != nil {
 		logger.Error("failed to update user", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	updatedUser, err := srv.users.GetUser(ctx, projectID, userID)
+	updatedUser, err := users.GetUser(ctx, projectID, userID)
 	if err != nil {
 		logger.Error("failed to get updated user", zap.Error(err))
 		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// Publish to pubsub for recomputation and schema extraction
+	msg := schemas.User{
+		ProjectID:   projectID,
+		ID:          updatedUser.ID,
+		AnonymousID: updatedUser.AnonymousID,
+		ExternalID:  updatedUser.ExternalID,
+		Email:       updatedUser.Email,
+		Phone:       updatedUser.Phone,
+		Timezone:    updatedUser.Timezone,
+		Locale:      updatedUser.Locale,
+		Data:        data,
+		Version:     updatedUser.Version,
+	}
+
+	err = srv.pubsub.Publish(ctx, schemas.UsersProcess(projectID), msg)
+	if err != nil {
+		logger.Error("failed to publish user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
 		return
 	}
 
@@ -336,6 +456,7 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 		zap.String("user_id", userID.String()),
 	)
 
+	search := params.Search.ToString()
 	pagination := store.Pagination{
 		Limit:  params.Limit.ToInt(),
 		Offset: params.Offset.ToInt(),
@@ -343,7 +464,7 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 
 	logger.Info("listing user events", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	events, total, err := srv.users.ListUserEvents(ctx, projectID, userID, pagination)
+	events, total, err := srv.users.ListUserEvents(ctx, projectID, userID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list user events", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -540,6 +661,18 @@ func (srv *UsersController) GetUserJourneys(w http.ResponseWriter, r *http.Reque
 	json.Write(w, http.StatusOK, response)
 }
 
+// userDirectColumns are well-known columns that exist directly on the users table
+// and should be included in user schema suggestions without the .data prefix.
+var userDirectColumns = []oapi.SchemaPath{
+	{Path: ".email", Types: []string{"string"}},
+	{Path: ".phone", Types: []string{"string"}},
+	{Path: ".locale", Types: []string{"string"}},
+	{Path: ".timezone", Types: []string{"string"}},
+	{Path: ".external_id", Types: []string{"string"}},
+	{Path: ".anonymous_id", Types: []string{"string"}},
+	{Path: ".created_at", Types: []string{"date"}},
+}
+
 func (srv *UsersController) ListUserSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 	_, ok := claim.FromContext(ctx)
@@ -561,12 +694,17 @@ func (srv *UsersController) ListUserSchemas(w http.ResponseWriter, r *http.Reque
 
 	logger.Info("user schemas listed", zap.Int("count", len(schemas)))
 
-	results := make([]oapi.SchemaPath, len(schemas))
-	for i, schema := range schemas {
-		results[i] = oapi.SchemaPath{
-			Path:  schema.Path,
+	// Start with well-known user direct columns
+	results := make([]oapi.SchemaPath, 0, len(userDirectColumns)+len(schemas))
+	results = append(results, userDirectColumns...)
+
+	// Add discovered user data properties with .data prefix so that the
+	// query builder correctly targets the JSONB data column.
+	for _, schema := range schemas {
+		results = append(results, oapi.SchemaPath{
+			Path:  ".data" + schema.Path,
 			Types: []string(schema.Types),
-		}
+		})
 	}
 
 	response := struct {
@@ -641,7 +779,7 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	usersStore := users.NewState(tx)
+	usersStore := subjects.NewState(tx)
 
 	for {
 		record, err := reader.Read()
@@ -670,4 +808,63 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 
 	logger.Info("import completed", zap.Int("users_imported", imported))
 	return tx.Commit()
+}
+
+func (srv *UsersController) GetUserOrganizations(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserOrganizationsParams) {
+	ctx := r.Context()
+	_, ok := claim.FromContext(ctx)
+	if !ok {
+		srv.logger.Error("session not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+		return
+	}
+
+	_, err := srv.users.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("user_id", userID.String()),
+	)
+
+	search := params.Search.ToString()
+	pagination := store.Pagination{
+		Limit:  params.Limit.ToInt(),
+		Offset: params.Offset.ToInt(),
+	}
+
+	logger.Info("listing user organizations")
+
+	orgs, total, err := srv.users.ListUserOrganizations(ctx, projectID, userID, pagination, search)
+	if err != nil {
+		logger.Error("failed to list user organizations", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("user organizations listed", zap.Int("total", total), zap.Int("count", len(orgs)))
+
+	response := struct {
+		Results []oapi.Organization `json:"results"`
+		Total   int                 `json:"total"`
+		Limit   int                 `json:"limit"`
+		Offset  int                 `json:"offset"`
+	}{
+		Results: subjects.Organizations(orgs).OAPI(),
+		Total:   total,
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+	}
+
+	json.Write(w, http.StatusOK, response)
 }

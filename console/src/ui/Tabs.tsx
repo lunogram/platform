@@ -1,10 +1,10 @@
-import NavLink from './NavLink'
-import './Tabs.css'
-import { Tab } from '@headlessui/react'
-import type { NavLinkProps } from 'react-router'
-import type { ReactNode } from 'react';
-import { Fragment } from 'react'
-import clsx from 'clsx'
+import NavLink from "./NavLink"
+import "./Tabs.css"
+import { Tab } from "@headlessui/react"
+import type { NavLinkProps } from "react-router"
+import type { ReactNode } from "react"
+import { Fragment } from "react"
+import clsx from "clsx"
 
 interface NavigationTabProps {
     tabs?: Array<NavLinkProps & { key: string }>
@@ -13,11 +13,9 @@ interface NavigationTabProps {
 export function NavigationTabs({ tabs }: NavigationTabProps) {
     return (
         <div className="ui-tabs">
-            {
-                tabs?.map(({ key, ...props }) => (
-                    <NavLink className="tab" {...props} key={key} end />
-                ))
-            }
+            {tabs?.map(({ key, ...props }) => (
+                <NavLink className="tab" {...props} key={key} end />
+            ))}
         </div>
     )
 }
@@ -42,14 +40,20 @@ export default function Tabs({ tabs, append, selectedIndex, onChange }: TabProps
                 {tabs.map(({ key, label }) => (
                     <Tab as={Fragment} key={key}>
                         {({ selected }) => (
-                            <button className={clsx('tab', selected ? 'selected' : undefined)}>{label}</button>
+                            <button className={clsx("tab", selected ? "selected" : undefined)}>
+                                {label}
+                            </button>
                         )}
                     </Tab>
                 ))}
                 {append}
             </Tab.List>
             <Tab.Panels className="ui-tabs-panels">
-                {tabs.map(({ key, children }) => <Tab.Panel className="panel" key={key}>{children}</Tab.Panel>)}
+                {tabs.map(({ key, children }) => (
+                    <Tab.Panel className="panel" key={key}>
+                        {children}
+                    </Tab.Panel>
+                ))}
             </Tab.Panels>
         </Tab.Group>
     )

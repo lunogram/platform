@@ -18,6 +18,7 @@ func NewState(db store.DB) *State {
 		DocumentsStore:     NewDocumentsStore(db),
 		AuthStore:          NewAuthStore(db),
 		ApiKeysStore:       NewApiKeysStore(db),
+		ActionsStore:       NewActionsStore(db),
 	}
 }
 
@@ -34,4 +35,5 @@ type State struct {
 	*DocumentsStore
 	*AuthStore
 	*ApiKeysStore
+	*ActionsStore
 }

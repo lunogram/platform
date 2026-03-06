@@ -36,9 +36,12 @@ func (rt RuleType) SQL() string {
 type RuleGroup string
 
 const (
-	RuleGroupParent RuleGroup = "parent"
-	RuleGroupUser   RuleGroup = "user"
-	RuleGroupEvent  RuleGroup = "event"
+	RuleGroupParent            RuleGroup = "parent"
+	RuleGroupUser              RuleGroup = "user"
+	RuleGroupEvent             RuleGroup = "event"
+	RuleGroupOrganization      RuleGroup = "organization"
+	RuleGroupOrganizationUser  RuleGroup = "organization_user"
+	RuleGroupOrganizationEvent RuleGroup = "organization_event"
 )
 
 // Operator defines logical and comparison operators
@@ -142,6 +145,24 @@ type Frequency struct {
 	Operator Operator `json:"operator"`
 }
 
+// UserMatchType defines how to match users in organization event rules
+type UserMatchType string
+
+const (
+	// UserMatchAll includes all members of organizations matching the event criteria
+	UserMatchAll UserMatchType = "all"
+	// UserMatchConditions includes only members matching specific property conditions
+	UserMatchConditions UserMatchType = "conditions"
+)
+
+// UserMatch defines how to match users within organizations for organization event rules
+type UserMatch struct {
+	// Type defines how to select users: "all" or "conditions"
+	Type UserMatchType `json:"type"`
+	// MemberConditions defines filter rules for organization user properties (when Type is "conditions")
+	MemberConditions *Rule `json:"member_conditions,omitempty"`
+}
+
 // Rule represents a rule node in the rules tree
 type Rule struct {
 	Path       string     `json:"path"`
@@ -154,19 +175,40 @@ type Rule struct {
 	Frequency  *Frequency `json:"frequency,omitempty"`
 	RootUUID   *uuid.UUID `json:"root_uuid,omitempty"`
 	ParentUUID *uuid.UUID `json:"parent_uuid,omitempty"`
+	// UserMatch defines how to match users for organization event rules
+	UserMatch *UserMatch `json:"user_match,omitempty"`
 }
 
 func (r Rule) IsWrapper() bool {
 	return r.Type == RuleTypeWrapper
 }
 
-func (r Rule) Events() (result []string) {
+func (r Rule) UserEvents() (result []string) {
 	if r.Group == RuleGroupEvent && r.Type == RuleTypeWrapper {
-		result = append(result, r.Value.(string))
+		if v, ok := r.Value.(string); ok {
+			result = append(result, v)
+		}
 	}
 
 	for _, child := range r.Children {
-		events := child.Events()
+		events := child.UserEvents()
+		if len(events) > 0 {
+			result = append(result, events...)
+		}
+	}
+
+	return result
+}
+
+func (r Rule) OrganizationEvents() (result []string) {
+	if r.Group == RuleGroupOrganizationEvent && r.Type == RuleTypeWrapper {
+		if v, ok := r.Value.(string); ok {
+			result = append(result, v)
+		}
+	}
+
+	for _, child := range r.Children {
+		events := child.OrganizationEvents()
 		if len(events) > 0 {
 			result = append(result, events...)
 		}
@@ -196,6 +238,34 @@ func (r Rule) DependsOnUsers() bool {
 
 	for _, child := range r.Children {
 		if child.DependsOnUsers() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r Rule) DependsOnOrganizations() bool {
+	if r.Group == RuleGroupOrganization {
+		return true
+	}
+
+	for _, child := range r.Children {
+		if child.DependsOnOrganizations() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r Rule) DependsOnOrganizationUsers() bool {
+	if r.Group == RuleGroupOrganizationUser {
+		return true
+	}
+
+	for _, child := range r.Children {
+		if child.DependsOnOrganizationUsers() {
 			return true
 		}
 	}

@@ -5,16 +5,17 @@ import (
 	"fmt"
 
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
 // SMSTemplateData represents SMS template content.
 type SMSTemplateData struct {
+	From string `json:"from,omitempty"`
 	Body string `json:"body"`
 }
 
-func ComposeSMS(config map[string]any, template management.Template, user *users.User) (*providers.SendRequest[map[string]any], error) {
+func ComposeSMS(config map[string]any, template management.Template, user *subjects.User) (*providers.SendRequest[map[string]any], error) {
 	if user.Phone == nil {
 		return nil, fmt.Errorf("user has no phone number")
 	}
@@ -24,8 +25,24 @@ func ComposeSMS(config map[string]any, template management.Template, user *users
 		return nil, fmt.Errorf("failed to unmarshal SMS template data: %w", err)
 	}
 
+	defaultFrom, _ := config[ProviderKeyDefaultFrom].(string)
+	defaultFromLocked, _ := config[ProviderKeyDefaultFromLocked].(bool)
+
+	fromNumber := data.From
+
+	if defaultFromLocked || fromNumber == "" {
+		if defaultFrom != "" {
+			fromNumber = defaultFrom
+		}
+	}
+
+	if fromNumber == "" {
+		return nil, fmt.Errorf("no from number specified in template or provider config")
+	}
+
 	payload := providers.SMSPayload{
 		To:   *user.Phone,
+		From: fromNumber,
 		Body: data.Body,
 	}
 

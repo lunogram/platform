@@ -361,7 +361,7 @@ func TestJourneysStoreUserJourneyState(t *testing.T) {
 			},
 		},
 		"step-2": {
-			Type: "action",
+			Type: "campaign",
 			X:    300,
 			Y:    400,
 		},
@@ -455,7 +455,7 @@ func TestJourneysStoreVersionPinning(t *testing.T) {
 			},
 		},
 		"step-3": {
-			Type: "action",
+			Type: "campaign",
 			X:    300,
 			Y:    400,
 		},

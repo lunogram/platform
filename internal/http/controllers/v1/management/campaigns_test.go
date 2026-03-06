@@ -71,10 +71,11 @@ func TestListCampaigns(t *testing.T) {
 	templates := management.NewTemplatesStore(mgmt)
 
 	// NOTE: create some test campaigns
-	for i := 0; i < 3; i++ {
+	campaignNames := []string{"Welcome Campaign", "Newsletter Campaign", "Promo Blast"}
+	for _, name := range campaignNames {
 		campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
 			ProjectID: projectID,
-			Name:      "Test Campaign",
+			Name:      name,
 			Channel:   "email",
 		})
 		require.NoError(t, err)
@@ -88,6 +89,7 @@ func TestListCampaigns(t *testing.T) {
 	type test struct {
 		limit  int
 		offset int
+		search string
 		total  int
 		result int
 	}
@@ -111,6 +113,20 @@ func TestListCampaigns(t *testing.T) {
 			total:  3,
 			result: 2,
 		},
+		"with search": {
+			limit:  10,
+			offset: 0,
+			search: "newsletter",
+			total:  1,
+			result: 1,
+		},
+		"with search no results": {
+			limit:  10,
+			offset: 0,
+			search: "nonexistent",
+			total:  0,
+			result: 0,
+		},
 	}
 
 	for name, test := range tests {
@@ -121,6 +137,10 @@ func TestListCampaigns(t *testing.T) {
 			params := oapi.ListCampaignsParams{
 				Limit:  &limit,
 				Offset: &offset,
+			}
+			if test.search != "" {
+				search := oapi.PaginationSearch(test.search)
+				params.Search = &search
 			}
 
 			res := httptest.NewRecorder()

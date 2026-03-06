@@ -353,7 +353,7 @@ func TestClerkProviderAuthenticateInvalidToken(t *testing.T) {
 	mgmt, _, _ := teststore.RunPostgreSQL(t)
 	stores := management.NewState(mgmt)
 
-	keyFunc := func(token *jwt.Token) (interface{}, error) {
+	keyFunc := func(token *jwt.Token) (any, error) {
 		return []byte("test-secret"), nil
 	}
 

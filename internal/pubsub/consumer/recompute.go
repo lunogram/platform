@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
@@ -30,7 +30,7 @@ type RecomputeList struct {
 //
 // Membership recomputation is idempotent and handled entirely in the database;
 // the handler itself does not batch, debounce, or persist recompute state.
-func RecomputeListHandler(logger *zap.Logger, usrs *users.State, pub pubsub.Publisher) HandlerFunc {
+func RecomputeListHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		event := RecomputeList{}
 		err := json.Unmarshal(msg.Data(), &event)
@@ -70,11 +70,11 @@ func RecomputeListHandler(logger *zap.Logger, usrs *users.State, pub pubsub.Publ
 	}
 }
 
-func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, projectID uuid.UUID, listID uuid.UUID, recomputed []users.Recomputed) (err error) {
+func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, projectID uuid.UUID, listID uuid.UUID, recomputed []subjects.Recomputed) (err error) {
 	for _, applied := range recomputed {
 		switch applied.Action {
-		case users.RecomputeActionInserted:
-			event := schemas.Event{
+		case subjects.RecomputeActionInserted:
+			event := schemas.UserEvent{
 				Name:      schemas.EventListUserAdded,
 				UserID:    applied.UserID,
 				ProjectID: projectID,
@@ -83,13 +83,13 @@ func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub pub
 				},
 			}
 
-			err = pub.Publish(ctx, schemas.EventsProcess(event.ProjectID), event)
+			err = pub.Publish(ctx, schemas.UserEventsProcess(event.ProjectID), event)
 			if err != nil {
 				logger.Error("failed to publish user list inserted event", zap.Error(err))
 				return err
 			}
-		case users.RecomputeActionDeleted:
-			event := schemas.Event{
+		case subjects.RecomputeActionDeleted:
+			event := schemas.UserEvent{
 				Name:      schemas.EventListUserRemoved,
 				UserID:    applied.UserID,
 				ProjectID: projectID,
@@ -98,7 +98,7 @@ func PublishListRecomputeEvents(ctx context.Context, logger *zap.Logger, pub pub
 				},
 			}
 
-			err = pub.Publish(ctx, schemas.EventsProcess(event.ProjectID), event)
+			err = pub.Publish(ctx, schemas.UserEventsProcess(event.ProjectID), event)
 			if err != nil {
 				logger.Error("failed to publish user list removed event", zap.Error(err))
 				return err

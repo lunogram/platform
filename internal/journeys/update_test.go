@@ -11,18 +11,18 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
-	"github.com/lunogram/platform/internal/store/users"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func setupStore(t *testing.T) (*management.State, *users.State, *sqlx.DB) {
+func setupStore(t *testing.T) (*management.State, *subjects.State, *sqlx.DB) {
 	t.Helper()
 
 	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
-	return management.NewState(mgmt), users.NewState(usrs), usrs
+	return management.NewState(mgmt), subjects.NewState(usrs), usrs
 }
 
 func TestHandleUpdate(t *testing.T) {
@@ -129,7 +129,7 @@ func TestHandleUpdate(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			initialData, _ := json.Marshal(tc.initialUserData)
-			userID, err := usersStore.CreateUser(ctx, users.User{
+			userID, err := usersStore.CreateUser(ctx, subjects.User{
 				ProjectID:   project,
 				Data:        json.RawMessage(initialData),
 				AnonymousID: ptr("anon_" + uuid.New().String()),
@@ -247,7 +247,7 @@ func TestHandleUpdateTemplateRendering(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			userID, err := usersStore.CreateUser(ctx, users.User{
+			userID, err := usersStore.CreateUser(ctx, subjects.User{
 				ProjectID:   project,
 				Data:        json.RawMessage(`{}`),
 				AnonymousID: ptr("anon_" + uuid.New().String()),

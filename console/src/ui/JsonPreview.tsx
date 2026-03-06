@@ -1,9 +1,9 @@
-import type { JsonViewerOnChange } from '@textea/json-viewer';
-import { JsonViewer } from '@textea/json-viewer'
-import { useContext } from 'react'
-import { PreferencesContext } from './PreferencesContext'
+import type { JsonViewerOnChange } from "@textea/json-viewer"
+import { JsonViewer } from "@textea/json-viewer"
+import { useContext } from "react"
+import { PreferencesContext } from "./PreferencesContext"
 
-import './JsonPreview.css'
+import "./JsonPreview.css"
 
 interface JsonPreviewParams {
     value: Record<string | number, any>

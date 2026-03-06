@@ -1,6 +1,6 @@
-import type { PropsWithChildren, ReactNode } from 'react'
-import { Button } from '@/components/ui/button'
-import Modal from './Modal'
+import type { PropsWithChildren, ReactNode } from "react"
+import { Button } from "@/components/ui/button"
+import Modal from "./Modal"
 
 export interface DialogProps {
     open: boolean
@@ -9,13 +9,22 @@ export interface DialogProps {
     actions?: ReactNode
 }
 
-export default function Dialog({ children, open, onClose, title, actions }: PropsWithChildren<DialogProps>) {
-    return <Modal
-        open={open}
-        onClose={() => onClose(false)}
-        title={title}
-        actions={actions ?? <Button onClick={() => onClose(false)}>Close</Button>}
-        size="small">
-        {children}
-    </Modal>
+export default function Dialog({
+    children,
+    open,
+    onClose,
+    title,
+    actions,
+}: PropsWithChildren<DialogProps>) {
+    return (
+        <Modal
+            open={open}
+            onClose={() => onClose(false)}
+            title={title}
+            actions={actions ?? <Button onClick={() => onClose(false)}>Close</Button>}
+            size="small"
+        >
+            {children}
+        </Modal>
+    )
 }

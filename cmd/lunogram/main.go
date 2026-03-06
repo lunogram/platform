@@ -8,6 +8,7 @@ import (
 
 	"github.com/caarlos0/env/v10"
 	"github.com/cloudproud/graceful"
+	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/cluster"
 	"github.com/lunogram/platform/internal/cluster/consensus"
 	"github.com/lunogram/platform/internal/cluster/leader"
@@ -21,7 +22,7 @@ import (
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
@@ -59,8 +60,8 @@ func run() error {
 		if err := management.Migrate(conf.Store.ManagementURI); err != nil {
 			return fmt.Errorf("management migration failed: %w", err)
 		}
-		if err := users.Migrate(conf.Store.UsersURI); err != nil {
-			return fmt.Errorf("users migration failed: %w", err)
+		if err := subjects.Migrate(conf.Store.SubjectsURI); err != nil {
+			return fmt.Errorf("subjects migration failed: %w", err)
 		}
 		if err := journey.Migrate(conf.Store.JourneyURI); err != nil {
 			return fmt.Errorf("journey migration failed: %w", err)
@@ -79,7 +80,7 @@ func run() error {
 	}
 
 	managementStore := management.NewState(db.Management)
-	usersStore := users.NewState(db.Users)
+	usersStore := subjects.NewState(db.Subjects)
 	journeyStore := journey.NewState(db.Journey)
 
 	logger.Info("initializing block storage")
@@ -96,21 +97,31 @@ func run() error {
 		return err
 	}
 
-	err = consumer.Bootstrap(ctx, logger, jet)
+	err = consumer.Bootstrap(ctx, logger, jet, consumer.Namespace(conf.Nats.Namespace))
 	if err != nil {
 		return err
 	}
 
 	logger.Info("initializing provider registry")
 
-	registry, err := providers.NewRegistry(ctx, conf.WASM, logger)
+	providersRegisrtry, err := providers.NewRegistry(ctx, conf.WASM, logger)
 	if err != nil {
 		return err
 	}
-	defer registry.Close(ctx)
+	defer providersRegisrtry.Close(ctx)
 
-	pub := pubsub.NewPublisher(jet)
-	consumer.Serve(ctx, jet, logger, db, managementStore, usersStore, journeyStore, registry)
+	logger.Info("initializing action registry")
+
+	actionRegistry, err := actions.NewRegistry(ctx, conf.WASM, logger)
+	if err != nil {
+		return err
+	}
+	defer actionRegistry.Close(ctx)
+
+	pub := pubsub.NewPublisher(jet, conf.Nats.Namespace)
+	req := pubsub.NewCaller(jet, conf.Nats.Namespace)
+	ns := consumer.Namespace(conf.Nats.Namespace)
+	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry)
 
 	logger.Info("initializing cluster")
 
@@ -128,7 +139,7 @@ func run() error {
 
 	logger.Info("starting http server")
 
-	server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, registry)
+	server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, req, providersRegisrtry, actionRegistry)
 	if err != nil {
 		return err
 	}

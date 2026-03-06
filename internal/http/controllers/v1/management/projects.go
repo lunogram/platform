@@ -9,26 +9,33 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/claim/rbac"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
+	"github.com/lunogram/platform/internal/webhook"
+	webhookoapi "github.com/lunogram/platform/oapi"
 	"go.uber.org/zap"
+	"golang.org/x/text/language"
+	"golang.org/x/text/language/display"
 )
 
-func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB) *ProjectsController {
+func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, webhookCaller *webhook.Caller, pub pubsub.Publisher) *ProjectsController {
 	return &ProjectsController{
 		logger:       logger,
 		managementDB: managementDB,
 		store:        management.NewState(managementDB),
 		journey:      journey.NewState(journeyDB),
-		users:        users.NewState(usersDB),
+		users:        subjects.NewState(usersDB),
+		webhook:      webhookCaller,
+		pub:          pub,
 	}
 }
 
@@ -37,7 +44,9 @@ type ProjectsController struct {
 	managementDB *sqlx.DB
 	store        *management.State
 	journey      *journey.State
-	users        *users.State
+	users        *subjects.State
+	webhook      *webhook.Caller
+	pub          pubsub.Publisher
 }
 
 func (srv *ProjectsController) loadProjectCounts(ctx context.Context, project *management.Project) {
@@ -166,11 +175,6 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	projects := management.NewProjectsStore(tx)
 	subscriptions := management.NewSubscriptionsStore(tx)
 
-	var tools pq.StringArray
-	if body.Tools != nil {
-		tools = pq.StringArray(*body.Tools)
-	}
-
 	projectID, err := projects.CreateProject(ctx, management.Project{
 		OrganizationID:    &scope.OrganizationID,
 		Name:              body.Name,
@@ -181,7 +185,6 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		TextHelpMessage:   body.TextHelpMessage,
 		LinkWrapEmail:     body.LinkWrapEmail != nil && *body.LinkWrapEmail,
 		LinkWrapPush:      body.LinkWrapPush != nil && *body.LinkWrapPush,
-		Tools:             tools,
 	})
 	if err != nil {
 		logger.Error("failed to create project", zap.Error(err))
@@ -223,6 +226,43 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
+	// Create default locale from the project's locale setting
+	locales := management.NewLocalesStore(tx)
+	localeLabel := body.Locale
+	if tag, langErr := language.Parse(body.Locale); langErr == nil {
+		localeLabel = display.Self.Name(tag)
+	}
+	_, err = locales.CreateLocale(ctx, management.Locale{
+		ProjectID: projectID,
+		Key:       body.Locale,
+		Label:     localeLabel,
+	})
+	if err != nil {
+		logger.Error("failed to create default locale", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if srv.pub != nil {
+		err = srv.pub.Publish(ctx, schemas.ProjectEventsProcess(scope.OrganizationID), schemas.ProjectEvent{
+			ID:             projectID,
+			Name:           schemas.EventProjectCreated,
+			OrganizationID: scope.OrganizationID,
+			Data: map[string]any{
+				"id":              projectID,
+				"organization_id": scope.OrganizationID,
+				"name":            body.Name,
+				"timezone":        body.Timezone,
+				"locale":          body.Locale,
+			},
+		})
+		if err != nil {
+			logger.Error("failed to publish project created event", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		logger.Error("unexpected error while attempting to commit transaction", zap.Error(err))
@@ -239,6 +279,20 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	}
 
 	srv.loadProjectCounts(ctx, project)
+
+	err = srv.webhook.ProjectCreated(ctx, r, webhookoapi.ProjectDetails{
+		Id:             project.ID,
+		OrganizationId: *project.OrganizationID,
+		Name:           project.Name,
+		Timezone:       &project.Timezone,
+		Locale:         &project.Locale,
+		CreatedAt:      project.CreatedAt,
+	})
+	if err != nil {
+		logger.Error("failed to call project created webhook", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	json.Write(w, http.StatusCreated, project.OAPI())
 }
@@ -263,11 +317,6 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var tools pq.StringArray
-	if body.Tools != nil {
-		tools = pq.StringArray(*body.Tools)
-	}
-
 	update := management.ProjectUpdate{
 		Name:              body.Name,
 		Description:       body.Description,
@@ -277,7 +326,6 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		TextHelpMessage:   body.TextHelpMessage,
 		LinkWrapEmail:     body.LinkWrapEmail,
 		LinkWrapPush:      body.LinkWrapPush,
-		Tools:             tools,
 	}
 
 	err = srv.store.UpdateProject(ctx, projectID, update)
@@ -298,4 +346,41 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 
 	logger.Info("project updated")
 	json.Write(w, http.StatusOK, project.OAPI())
+}
+
+func (srv *ProjectsController) DeleteProject(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+	ctx := r.Context()
+
+	scope := rbac.FromContext(ctx)
+	if scope == nil {
+		srv.logger.Error("admin not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID))
+	logger.Info("deleting project")
+
+	_, err := srv.store.GetProject(ctx, projectID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("project not found", zap.Stringer("project_id", projectID))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get project", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	err = srv.store.DeleteProject(ctx, projectID)
+	if err != nil {
+		logger.Error("failed to delete project", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("project deleted")
+	w.WriteHeader(http.StatusNoContent)
 }

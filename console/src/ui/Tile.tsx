@@ -1,15 +1,15 @@
-import clsx from 'clsx'
-import type { PropsWithChildren, ReactNode } from 'react'
-import './Tile.css'
+import clsx from "clsx"
+import type { PropsWithChildren, ReactNode } from "react"
+import "./Tile.css"
 
 type TileProps = {
     onClick?: () => void
     selected?: boolean
     iconUrl?: string
     title: ReactNode
-    size?: 'large' | 'regular'
+    size?: "large" | "regular"
     children: ReactNode
-} & Omit<JSX.IntrinsicElements['div'], 'title'>
+} & Omit<JSX.IntrinsicElements["div"], "title">
 
 export default function Tile({
     onClick,
@@ -18,25 +18,22 @@ export default function Tile({
     className,
     iconUrl,
     title,
-    size = 'regular',
+    size = "regular",
     ...rest
 }: TileProps) {
     return (
         <div
             {...rest}
-            className={clsx(className, 'ui-tile', { selected, interactive: onClick !== undefined }, size)}
+            className={clsx(
+                className,
+                "ui-tile",
+                { selected, interactive: onClick !== undefined },
+                size,
+            )}
             onClick={onClick}
             tabIndex={0}
         >
-            {
-                iconUrl && (
-                    <img
-                        src={iconUrl}
-                        className="ui-tile-icon"
-                        aria-hidden
-                    />
-                )
-            }
+            {iconUrl && <img src={iconUrl} className="ui-tile-icon" aria-hidden />}
             <div className="ui-tile-text">
                 <h5 className="legacy-typography">{title}</h5>
                 <p>{children}</p>
@@ -50,5 +47,9 @@ interface TileGridProps extends PropsWithChildren {
 }
 
 export function TileGrid({ children, numColumns = 3 }: TileGridProps) {
-    return <div className="ui-tile-grid" style={{ gridTemplateColumns: `repeat(${numColumns}, 1fr)` }}>{children}</div>
+    return (
+        <div className="ui-tile-grid" style={{ gridTemplateColumns: `repeat(${numColumns}, 1fr)` }}>
+            {children}
+        </div>
+    )
 }

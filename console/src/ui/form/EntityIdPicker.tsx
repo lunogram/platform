@@ -1,28 +1,30 @@
-import { Combobox } from '@headlessui/react'
-import { useCallback, useState } from 'react'
-import type { RefCallback, ReactNode } from 'react'
-import { useResolver } from '../../hooks'
-import type { ControlledInputProps, SearchResult } from '../../types'
-import clsx from 'clsx'
-import { CheckIcon, ChevronUpDownIcon, CloseIcon, EditIcon, PlusIcon } from '../../components/icons'
-import { usePopperSelectDropdown } from '../utils'
-import type { FieldProps } from './Field'
-import { useController } from 'react-hook-form'
-import type { FieldPath, FieldValues } from 'react-hook-form'
-import { Button } from '@/components/ui/button'
-import Modal from '../Modal'
-import type { ModalProps } from '../Modal'
-import type { UUID } from 'crypto'
+import { Combobox } from "@headlessui/react"
+import { useCallback, useState } from "react"
+import type { RefCallback, ReactNode } from "react"
+import { useResolver } from "../../hooks"
+import type { ControlledInputProps, SearchResult } from "../../types"
+import clsx from "clsx"
+import { CheckIcon, ChevronUpDownIcon, CloseIcon, EditIcon, PlusIcon } from "../../components/icons"
+import { usePopperSelectDropdown } from "../utils"
+import type { FieldProps } from "./Field"
+import { useController } from "react-hook-form"
+import type { FieldPath, FieldValues } from "react-hook-form"
+import { Button } from "@/components/ui/button"
+import Modal from "../Modal"
+import type { ModalProps } from "../Modal"
+import type { UUID } from "crypto"
 
-interface EntityIdPickerProps<T extends { id: UUID }> extends ControlledInputProps<UUID | undefined> {
+interface EntityIdPickerProps<T extends { id: UUID }> extends ControlledInputProps<
+    UUID | undefined
+> {
     get: (value: UUID) => Promise<T>
     search: (q: string) => Promise<SearchResult<T>>
     displayValue?: (entity: T) => string
     optionEnabled?: (entity: T) => boolean
-    size?: 'sm' | 'default'
+    size?: "sm" | "default"
     onBlur?: (event: any) => void
     inputRef?: RefCallback<HTMLInputElement>
-    createModalSize?: ModalProps['size']
+    createModalSize?: ModalProps["size"]
     renderCreateForm?: (onCreated: (created: T) => void) => ReactNode
     onEditLink?: (item: T) => void
 }
@@ -48,16 +50,12 @@ export function EntityIdPicker<T extends { id: UUID }>({
     required,
     value,
 }: EntityIdPickerProps<T>) {
-
-    const [entity] = useResolver(useCallback(async () => value ? await get(value) : null, [get, value]))
-    const [query, setQuery] = useState('')
+    const [entity] = useResolver(
+        useCallback(async () => (value ? await get(value) : null), [get, value]),
+    )
+    const [query, setQuery] = useState("")
     const [result] = useResolver(useCallback(async () => await search(query), [search, query]))
-    const {
-        setReferenceElement,
-        setPopperElement,
-        attributes,
-        styles,
-    } = usePopperSelectDropdown()
+    const { setReferenceElement, setPopperElement, attributes, styles } = usePopperSelectDropdown()
     const [open, setOpen] = useState(false)
 
     return (
@@ -67,20 +65,23 @@ export function EntityIdPicker<T extends { id: UUID }>({
             nullable
             disabled={disabled}
             value={entity}
-            onChange={next => onChange(next?.id ?? undefined)}
+            onChange={(next) => onChange(next?.id ?? undefined)}
         >
             <Combobox.Label aria-required={required}>
                 <span>
                     {label}
-                    {required && <span style={{ color: 'red' }}>&nbsp;*</span>}
+                    {required && <span style={{ color: "red" }}>&nbsp;*</span>}
                 </span>
                 {subtitle && <span className="label-subtitle">{subtitle}</span>}
             </Combobox.Label>
             <div className="ui-button-group">
-                <span className={clsx('ui-text-input', size ?? 'regular', { disabled })} style={{ flexGrow: 1 }}>
+                <span
+                    className={clsx("ui-text-input", size ?? "regular", { disabled })}
+                    style={{ flexGrow: 1 }}
+                >
                     <Combobox.Input
                         displayValue={(value: T) => value && displayValue(value)}
-                        onChange={e => setQuery(e.target.value)}
+                        onChange={(e) => setQuery(e.target.value)}
                         onBlur={onBlur}
                         ref={(input: HTMLInputElement) => {
                             setReferenceElement(input)
@@ -88,103 +89,91 @@ export function EntityIdPicker<T extends { id: UUID }>({
                         }}
                     />
                 </span>
-                {
-                    !!(value && !required) && (
-                        <Button
-                            variant="secondary"
-                            size={size}
-                            onClick={() => onChange(undefined)} // set to undefined to clear
-                        >
-                            <CloseIcon />
-                        </Button>
-                    )
-                }
-                <Combobox.Button className={clsx('ui-button', 'secondary', size ?? 'regular')}>
+                {!!(value && !required) && (
+                    <Button
+                        variant="secondary"
+                        size={size}
+                        onClick={() => onChange(undefined)} // set to undefined to clear
+                    >
+                        <CloseIcon />
+                    </Button>
+                )}
+                <Combobox.Button className={clsx("ui-button", "secondary", size ?? "regular")}>
                     <ChevronUpDownIcon />
                 </Combobox.Button>
-                {
-                    !!(onEditLink && entity) && (
-                        <Button
-                            variant="secondary"
-                            size={size}
-                            disabled={!entity}
-                            onClick={() => onEditLink(entity)}
-                        >
-                            <EditIcon />
+                {!!(onEditLink && entity) && (
+                    <Button
+                        variant="secondary"
+                        size={size}
+                        disabled={!entity}
+                        onClick={() => onEditLink(entity)}
+                    >
+                        <EditIcon />
+                    </Button>
+                )}
+                {renderCreateForm && (
+                    <>
+                        <Button variant="secondary" size={size} onClick={() => setOpen(true)}>
+                            <PlusIcon />
                         </Button>
-                    )
-                }
-                {
-                    renderCreateForm && (
-                        <>
-                            <Button
-                                variant="secondary"
-                                size={size}
-                                onClick={() => setOpen(true)}
-                            >
-                                <PlusIcon />
-                            </Button>
-                            <Modal
-                                open={open}
-                                onClose={setOpen}
-                                title="Create"
-                                size={createModalSize}
-                            >
-                                {renderCreateForm(created => {
-                                    setOpen(false)
-                                    onChange(created.id)
-                                })}
-                            </Modal>
-                        </>
-                    )
-                }
+                        <Modal open={open} onClose={setOpen} title="Create" size={createModalSize}>
+                            {renderCreateForm((created) => {
+                                setOpen(false)
+                                onChange(created.id)
+                            })}
+                        </Modal>
+                    </>
+                )}
             </div>
-            <Combobox.Options className="select-options nowheel"
+            <Combobox.Options
+                className="select-options nowheel"
                 ref={setPopperElement}
                 style={styles.popper}
-                {...attributes.popper}>
-                {
-                    result?.results.map((option) => (
-                        <Combobox.Option
-                            key={option.id}
-                            value={option}
-                            className={({ active, disabled, selected }) => clsx(
-                                'select-option',
-                                active && 'active',
-                                disabled && 'disabled',
-                                selected && 'selected',
-                            )}
-                            disabled={!optionEnabled(option)}
-                        >
-                            <span>
-                                {displayValue(option)}
-                            </span>
-                            <span className="option-icon">
-                                <CheckIcon aria-hidden="true" />
-                            </span>
-                        </Combobox.Option>
-                    ))
-                }
+                {...attributes.popper}
+            >
+                {result?.results.map((option) => (
+                    <Combobox.Option
+                        key={option.id}
+                        value={option}
+                        className={({ active, disabled, selected }) =>
+                            clsx(
+                                "select-option",
+                                active && "active",
+                                disabled && "disabled",
+                                selected && "selected",
+                            )
+                        }
+                        disabled={!optionEnabled(option)}
+                    >
+                        <span>{displayValue(option)}</span>
+                        <span className="option-icon">
+                            <CheckIcon aria-hidden="true" />
+                        </span>
+                    </Combobox.Option>
+                ))}
             </Combobox.Options>
         </Combobox>
     )
 }
 
-interface EntityIdPickerFieldProps<T extends { id: UUID }, X extends FieldValues, P extends FieldPath<X>> extends FieldProps<X, P>, Omit<EntityIdPickerProps<T>, 'value' | 'onChange'> {
-
-}
+interface EntityIdPickerFieldProps<
+    T extends { id: UUID },
+    X extends FieldValues,
+    P extends FieldPath<X>,
+>
+    extends FieldProps<X, P>, Omit<EntityIdPickerProps<T>, "value" | "onChange"> {}
 
 /**
  * react-hook-form bindings
  */
-EntityIdPicker.Field = function EntityIdPickerField<T extends { id: UUID }, X extends FieldValues, P extends FieldPath<X>>({
-    form,
-    name,
-    disabled,
-    required,
-    ...rest
-}: EntityIdPickerFieldProps<T, X, P>) {
-    const { field: { ref, ...field } } = useController({
+EntityIdPicker.Field = function EntityIdPickerField<
+    T extends { id: UUID },
+    X extends FieldValues,
+    P extends FieldPath<X>,
+>({ form, name, disabled, required, ...rest }: EntityIdPickerFieldProps<T, X, P>) {
+    const {
+        field: { ref, ...field },
+    } = useController({
         control: form!.control,
         name,
         rules: {

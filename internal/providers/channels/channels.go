@@ -4,15 +4,22 @@ import (
 	"fmt"
 
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
+// Provider data keys for default from configuration.
+const (
+	ProviderKeyDefaultFrom       = "default_from"
+	ProviderKeyDefaultFromName   = "default_from_name"
+	ProviderKeyDefaultFromLocked = "default_from_locked"
+)
+
 type ComposeOptions struct {
-	Devices users.Devices
+	Devices subjects.Devices
 }
 
-func Compose(channel providers.Channel, config map[string]any, template management.Template, user *users.User, opts *ComposeOptions) (*providers.SendRequest[map[string]any], error) {
+func Compose(channel providers.Channel, config map[string]any, template management.Template, user *subjects.User, opts *ComposeOptions) (*providers.SendRequest[map[string]any], error) {
 	switch channel {
 	case providers.ChannelEmail:
 		return ComposeEmail(config, template, user)

@@ -186,10 +186,10 @@ func TestHandleEvent(t *testing.T) {
 
 				// Verify event structure
 				event := mockPub.publishedEvents[0]
-				assert.Equal(t, schemas.Subject("events.process."+projectID.String()), event.subject)
+				assert.Equal(t, schemas.Subject("users.events.process."+projectID.String()), event.subject)
 
-				eventData, ok := event.data.(schemas.Event)
-				require.True(t, ok, "event data should be schemas.Event type")
+				eventData, ok := event.data.(schemas.UserEvent)
+				require.True(t, ok, "event data should be schemas.UserEvent type")
 				assert.NotNil(t, eventData.ID)
 				assert.NotEmpty(t, eventData.Name)
 				assert.Equal(t, projectID, eventData.ProjectID)
@@ -325,7 +325,7 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 
 			// Check the event payload
 			event := mockPub.publishedEvents[0]
-			eventData, ok := event.data.(schemas.Event)
+			eventData, ok := event.data.(schemas.UserEvent)
 			require.True(t, ok)
 
 			payloadData := eventData.Data

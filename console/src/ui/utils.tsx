@@ -1,28 +1,28 @@
-import type { Key} from 'react';
-import { useState } from 'react'
-import type { Modifier} from 'react-popper';
-import { usePopper } from 'react-popper'
-import type { User } from '../types'
+import type { Key } from "react"
+import { useState } from "react"
+import type { Modifier } from "react-popper"
+import { usePopper } from "react-popper"
+import type { User } from "../types"
 
 const modifiers: Array<Partial<Modifier<any, any>>> = [
     {
-        name: 'preventOverflow',
+        name: "preventOverflow",
         enabled: true,
         options: {
             padding: 10,
         },
     },
     {
-        name: 'offset',
+        name: "offset",
         options: {
             offset: [0, 4],
         },
     },
     {
-        name: 'sameWidth',
+        name: "sameWidth",
         enabled: true,
-        phase: 'beforeWrite',
-        requires: ['computeStyles'],
+        phase: "beforeWrite",
+        requires: ["computeStyles"],
         fn({ state }) {
             state.styles.popper.minWidth = `${state.rects.reference.width}px`
         },
@@ -34,12 +34,11 @@ const modifiers: Array<Partial<Modifier<any, any>>> = [
 ]
 
 export function usePopperSelectDropdown() {
-
     const [referenceElement, setReferenceElement] = useState<HTMLElement | null>(null)
     const [popperElement, setPopperElement] = useState<HTMLElement | null>(null)
     const { styles, attributes } = usePopper(referenceElement, popperElement, {
-        strategy: 'fixed',
-        placement: 'bottom-start',
+        strategy: "fixed",
+        placement: "bottom-start",
         modifiers,
     })
 
@@ -53,50 +52,72 @@ export function usePopperSelectDropdown() {
 
 export const defaultToValue = (option: any) => option
 
-export const defaultGetValueKey = (option: any) => (typeof option === 'object' ? option.id ?? option.key : option) as Key
+export const defaultGetValueKey = (option: any) =>
+    (typeof option === "object" ? (option.id ?? option.key) : option) as Key
 
-export const defaultGetOptionDisplay = (option: any) => (typeof option === 'object' ? option.label ?? option.name : option) as string
+export const defaultGetOptionDisplay = (option: any) =>
+    (typeof option === "object" ? (option.label ?? option.name) : option) as string
 
-export const highlightSearch = (
-    text: string,
-    search: string,
-    matchClassName = 'match',
-) => (text && search)
-    ? text.replaceAll(search, `<strong class="${matchClassName}">$&</strong>`)
-    : (text ?? '')
+export const highlightSearch = (text: string, search: string, matchClassName = "match") =>
+    text && search
+        ? text.replaceAll(search, `<strong class="${matchClassName}">$&</strong>`)
+        : (text ?? "")
 
-export const getEditableUserFields = ({ email, phone, id, anonymous_id, external_id, timezone, locale, created_at, devices, data }: User) => orderKeys({
+export const getEditableUserFields = ({
+    email,
+    phone,
+    id,
+    anonymous_id,
+    external_id,
+    timezone,
+    locale,
+    created_at,
+    devices,
     data,
-    email,
-    phone,
-    id,
-    anonymous_id,
-    external_id,
-    created_at,
-    locale,
-    timezone,
-    devices,
-})
+}: User) =>
+    orderKeys({
+        data,
+        email,
+        phone,
+        id,
+        anonymous_id,
+        external_id,
+        created_at,
+        locale,
+        timezone,
+        devices,
+    })
 
-export const flattenUser = ({ email, phone, id, anonymous_id, external_id, timezone, locale, created_at, devices, data }: User) => orderKeys({
-    ...data,
+export const flattenUser = ({
     email,
     phone,
     id,
     anonymous_id,
     external_id,
-    created_at,
-    locale,
     timezone,
+    locale,
+    created_at,
     devices,
-})
+    data,
+}: User) =>
+    orderKeys({
+        ...data,
+        email,
+        phone,
+        id,
+        anonymous_id,
+        external_id,
+        created_at,
+        locale,
+        timezone,
+        devices,
+    })
 
 export const orderKeys = (unorderedObj: Record<string, any>) => {
-    return Object.keys(unorderedObj).sort().reduce(
-        (obj: Record<string, any>, key) => {
+    return Object.keys(unorderedObj)
+        .sort()
+        .reduce((obj: Record<string, any>, key) => {
             obj[key] = unorderedObj[key]
             return obj
-        },
-        {},
-    )
+        }, {})
 }

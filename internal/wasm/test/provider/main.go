@@ -32,10 +32,13 @@ func Manifest() int32 {
 			},
 			Config: &modules.JSONSchema{
 				Type: "object",
-				Properties: map[string]*modules.JSONSchema{
-					"api_key": {
-						Type:        "string",
-						Description: "Test API key",
+				Properties: []modules.JSONSchemaProperty{
+					{
+						Name: "api_key",
+						Schema: &modules.JSONSchema{
+							Type:        "string",
+							Description: "Test API key",
+						},
 					},
 				},
 			},

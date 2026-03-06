@@ -1,19 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 export function useResolver<T>(resolver: () => Promise<T>) {
     const [value, setValue] = useState<null | T>(null)
-    const reload = useCallback(async () => await resolver().then(setValue).catch(err => console.error(err)), [resolver])
+    const reload = useCallback(
+        async () =>
+            await resolver()
+                .then(setValue)
+                .catch((err) => console.error(err)),
+        [resolver],
+    )
     useEffect(() => {
-        reload().catch(err => console.error(err))
+        reload().catch((err) => console.error(err))
     }, [reload])
     return useMemo(() => [value, setValue, reload] as const, [value, reload])
 }
 
-export function useDebounceControl<T>(
-    value: T,
-    onChange: (value: T) => void,
-    ms = 400,
-) {
+export function useDebounceControl<T>(value: T, onChange: (value: T) => void, ms = 400) {
     const changeRef = useRef(onChange)
     changeRef.current = onChange
     const valueRef = useRef(value)

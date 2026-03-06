@@ -1,28 +1,19 @@
-import * as React from 'react'
-import { useCallback, useContext, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import api from '../../api'
-import { ProjectContext } from '../../contexts'
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog'
-import type { Locale, LocaleOption, FieldProps } from '../../types'
-import type { TextInputProps } from '../../ui/form/TextInput'
-import type { FieldPath, FieldValues } from 'react-hook-form'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { useCallback, useContext, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { Globe, Plus, Search, MoreHorizontal } from "lucide-react"
+import api from "../../api"
+import { ProjectContext } from "../../contexts"
+import { useResolver } from "../../hooks"
+import type { Locale } from "../../types"
+
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
     DropdownMenu,
     DropdownMenuContent,
-    DropdownMenuGroup,
     DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui/dropdown-menu"
 import {
     Table,
     TableBody,
@@ -30,329 +21,232 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '@/components/ui/table'
+} from "@/components/ui/table"
 import {
-    flexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    getSortedRowModel,
-    useReactTable,
-    type ColumnDef,
-    type ColumnFiltersState,
-    type SortingState,
-    type VisibilityState,
-} from '@tanstack/react-table'
-import { MoreHorizontal } from 'lucide-react'
-import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage, Form } from '@/components/ui/form'
-import { PlusIcon } from '../../components/icons'
-import { languageName } from '../../utils'
-import { useTranslation } from 'react-i18next'
-
-type LocaleFieldProps<X extends FieldValues, P extends FieldPath<X>> = TextInputProps<string> & 
-    FieldProps<X, P>
-
-export const LocaleTextField = <X extends FieldValues, P extends FieldPath<X>>(params: LocaleFieldProps<X, P>) => {
-    const { t } = useTranslation()
-    const {
-        form,
-        name,
-        required,
-        subtitle,
-        disabled,
-        readOnly,
-        onFocus,
-        onChange,
-        type = 'text',
-    } = params
-
-    const initialLocale = form.getValues(name) as string | undefined
-    const [language, setLanguage] = useState<string | undefined>(initialLocale ? languageName(initialLocale) : undefined)
-
-    const handlePreviewLanguage = (locale: string) => {
-        if (!locale) {
-            setLanguage(undefined)
-            return
-        }
-        setLanguage(languageName(locale))
-    }
-
-    return (
-        <Form {...form}>
-            <FormField
-                control={form.control}
-                name={name}
-                rules={{
-                    required
-                }}
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel className="inline-flex gap-1">
-                            <span>
-                                {params.label ?? t('locale.singular')}
-                                {required && <span className="text-destructive">*</span>}
-                            </span>
-                        </FormLabel>
-                        {subtitle && <FormDescription>{subtitle}</FormDescription>}
-                        <FormControl>
-                            <div className="flex items-center gap-2">
-                                <Input
-                                    {...field}
-                                    type={type}
-                                    disabled={disabled}
-                                    readOnly={readOnly}
-                                    value={field.value ?? ''}
-                                    onFocus={onFocus}
-                                    onChange={event => {
-                                        field.onChange(event)
-                                        handlePreviewLanguage(event.target.value)
-                                        onChange?.(event.target.value)
-                                    }}
-                                />
-                                {language && (
-                                    <Badge variant="secondary" className="whitespace-nowrap">
-                                        {language}
-                                    </Badge>
-                                )}
-                            </div>
-                        </FormControl>
-                    <FormMessage />
-                </FormItem>
-                )}
-            />
-        </Form>
-    )
-}
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
+import { LocalePicker } from "@/components/locale/picker"
+import { resolveLocaleName } from "@/components/locale/locales"
 
 export default function Locales() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const [open, setOpen] = useState(false)
-    const [locales, setLocales] = useState<Locale[]>([])
-    const [loading, setLoading] = useState(true)
-    const [sorting, setSorting] = React.useState<SortingState>([])
-    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-    const [rowSelection, setRowSelection] = React.useState({})
-    const [localePreview, setLocalePreview] = useState<string | undefined>()
+    const [searchQuery, setSearchQuery] = useState("")
+    const [selectedLocaleKey, setSelectedLocaleKey] = useState<string | undefined>()
+    const [isCreating, setIsCreating] = useState(false)
 
-    const form = useForm<Pick<LocaleOption, 'key'>>({
-        defaultValues: {
-            key: ''
-        }
-    })
+    const [result, , reload] = useResolver(
+        useCallback(async () => {
+            return await api.locales.search(project.id, { limit: 100 })
+        }, [project.id]),
+    )
 
-    const loadLocales = useCallback(async () => {
-        setLoading(true)
-        try {
-            const response = await api.locales.search(project.id, { limit: 100 })
-            setLocales(response.results)
-        } finally {
-            setLoading(false)
-        }
-    }, [project.id])
+    const locales = result?.results ?? []
+    const filteredLocales = searchQuery
+        ? locales.filter(
+              (l) =>
+                  l.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  l.label.toLowerCase().includes(searchQuery.toLowerCase()),
+          )
+        : locales
 
-    React.useEffect(() => {
-        loadLocales()
-    }, [loadLocales])
+    // Keys already added to the project — exclude from picker
+    const existingKeys = locales.map((l) => l.key)
 
     const handleDeleteLocale = async (locale: Locale) => {
-        if (!confirm(t('locale.delete_confirmation'))) return
+        if (!confirm(t("locale.delete_confirmation"))) return
         await api.locales.delete(project.id, locale.id)
-        await loadLocales()
+        await reload()
     }
 
-    const columns: ColumnDef<Locale>[] = [
-        {
-            id: "key",
-            accessorKey: "key",
-            header: t('key'),
-            cell: ({ row }) => <div>{row.getValue("key")}</div>,
-        },
-        {
-            id: "label",
-            accessorKey: "label",
-            header: t('label'),
-            cell: ({ row }) => <div>{row.getValue("label")}</div>,
-        },
-        {
-            id: "actions",
-            accessorKey: "actions",
-            header: t('action'),
-            cell: ({ row }) => {
-                const locale = row.original
-                return (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0"
-                                aria-label={t('action')}
-                            >
-                                <MoreHorizontal />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" side="right">
-                            <DropdownMenuGroup>
-                                <DropdownMenuLabel>{t('action')}</DropdownMenuLabel>
-                                <DropdownMenuItem
-                                    className="text-destructive"
-                                    onClick={async () => await handleDeleteLocale(locale)}
-                                >
-                                    {t('delete')}
-                                </DropdownMenuItem>
-                            </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )
-            },
-        },
-    ]
-
-    const table = useReactTable({
-        data: locales,
-        columns,
-        onSortingChange: setSorting,
-        onColumnFiltersChange: setColumnFilters,
-        getCoreRowModel: getCoreRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-        onColumnVisibilityChange: setColumnVisibility,
-        onRowSelectionChange: setRowSelection,
-        state: {
-            sorting,
-            columnFilters,
-            columnVisibility,
-            rowSelection,
-        },
-    })
+    const handleCreate = async () => {
+        if (!selectedLocaleKey) return
+        setIsCreating(true)
+        try {
+            const label = resolveLocaleName(selectedLocaleKey)
+            await api.locales.create(project.id, { key: selectedLocaleKey, label })
+            await reload()
+            setOpen(false)
+            setSelectedLocaleKey(undefined)
+        } finally {
+            setIsCreating(false)
+        }
+    }
 
     return (
-        <>
-            <div className="w-full">
-                <div className="flex items-center py-4">
-                    <h2 className="text-2xl">{t('locales')}</h2>
-                    <Button
-                        size="sm"
-                        className="ml-auto"
-                        onClick={() => setOpen(true)}
-                    >
-                        <PlusIcon />
-                        {t('create_locale')}
-                    </Button>
+        <div className="flex flex-col gap-6">
+            {/* Header */}
+            <h2 className="text-2xl font-semibold tracking-tight">{t("locales")}</h2>
+
+            {/* Search and Actions */}
+            <div className="flex items-center justify-between gap-4">
+                <div className="relative max-w-sm flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder={t("search")}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9"
+                    />
                 </div>
-                <div className="overflow-hidden rounded-md border">
-                    <Table>
-                        <TableHeader>
-                            {table.getHeaderGroups().map((headerGroup) => (
-                                <TableRow key={headerGroup.id}>
-                                    {headerGroup.headers.map((header) => {
-                                        return (
-                                            <TableHead key={header.id}>
-                                                {header.isPlaceholder
-                                                    ? null
-                                                    : flexRender(
-                                                        header.column.columnDef.header,
-                                                        header.getContext()
-                                                    )}
-                                            </TableHead>
-                                        )
-                                    })}
-                                </TableRow>
-                            ))}
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={columns.length}
-                                        className="h-24 text-center"
-                                    >
-                                        {t('loading')}
-                                    </TableCell>
-                                </TableRow>
-                            ) : table.getRowModel().rows?.length ? (
-                                table.getRowModel().rows.map((row) => (
-                                    <TableRow
-                                        key={row.id}
-                                        data-state={row.getIsSelected() && "selected"}
-                                    >
-                                        {row.getVisibleCells().map((cell) => (
-                                            <TableCell key={cell.id}>
-                                                {flexRender(
-                                                    cell.column.columnDef.cell,
-                                                    cell.getContext()
-                                                )}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={columns.length}
-                                        className="h-24 text-center"
-                                    >
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                <Button onClick={() => setOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t("create_locale")}
+                </Button>
             </div>
-            <Dialog open={open} onOpenChange={setOpen}>
+
+            {/* Table */}
+            <div className="rounded-lg border bg-card">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>{t("key")}</TableHead>
+                            <TableHead>{t("label")}</TableHead>
+                            <TableHead className="w-[70px]" />
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {result === null ? (
+                            Array.from({ length: 3 }).map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-16" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-24" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-8" />
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : filteredLocales.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={3} className="h-32 text-center">
+                                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                                        <Globe className="h-8 w-8" />
+                                        <p>
+                                            {searchQuery
+                                                ? t("no_results")
+                                                : t("no_locales_yet", "No locales yet")}
+                                        </p>
+                                        {!searchQuery && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setOpen(true)}
+                                                className="mt-2"
+                                            >
+                                                <Plus className="mr-2 h-4 w-4" />
+                                                {t("create_locale")}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            filteredLocales.map((locale) => (
+                                <TableRow key={locale.id}>
+                                    <TableCell>
+                                        <code className="rounded bg-muted px-1.5 py-0.5 text-sm font-medium">
+                                            {locale.key}
+                                        </code>
+                                    </TableCell>
+                                    <TableCell className="text-muted-foreground">
+                                        {locale.label}
+                                    </TableCell>
+                                    <TableCell>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    className="h-8 w-8 p-0"
+                                                    aria-label={t("action")}
+                                                >
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem
+                                                    className="text-destructive"
+                                                    onClick={async () =>
+                                                        await handleDeleteLocale(locale)
+                                                    }
+                                                >
+                                                    {t("delete")}
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+
+                {/* Footer count */}
+                {filteredLocales.length > 0 && (
+                    <div className="flex items-center justify-between border-t px-4 py-3">
+                        <p className="text-sm text-muted-foreground">
+                            {filteredLocales.length}{" "}
+                            {filteredLocales.length === 1 ? t("locale.singular") : t("locales")}
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            {/* Add Locale Dialog */}
+            <Dialog
+                open={open}
+                onOpenChange={(isOpen) => {
+                    setOpen(isOpen)
+                    if (!isOpen) {
+                        setSelectedLocaleKey(undefined)
+                    }
+                }}
+            >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{t('create_locale')}</DialogTitle>
+                        <DialogTitle>{t("create_locale")}</DialogTitle>
+                        <DialogDescription>
+                            {t(
+                                "locale.add_description",
+                                "Select a language to add to this project.",
+                            )}
+                        </DialogDescription>
                     </DialogHeader>
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(async ({ key }) => {
-                            await api.locales.create(project.id, { key, label: languageName(key) ?? key })
-                            await loadLocales()
-                            setOpen(false)
-                            form.reset({ key: ''})
-                        })}>
-                            <FormField
-                                control={form.control}
-                                name="key"
-                                rules={{ required: true }}
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="inline-flex gap-1">
-                                            {t('locale.singular')}
-                                            <span className="text-destructive">*</span>
-                                        </FormLabel>
-                                        <FormDescription>
-                                            {t('locale.field_subtitle')}
-                                        </FormDescription>
-                                        <div className="flex items-center gap-2">
-                                            <FormControl>
-                                                <Input 
-                                                    {...field} 
-                                                    type="text"
-                                                    onChange={(e) => {
-                                                        field.onChange(e)
-                                                        const value = e.target.value
-                                                        setLocalePreview(value ? languageName(value) : undefined)
-                                                    }}
-                                                />
-                                            </FormControl>
-                                            {localePreview && (
-                                                <Badge variant="secondary" className="whitespace-nowrap">
-                                                    {localePreview}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label>{t("locale.picker.label", "Language")}</Label>
+                            <LocalePicker
+                                value={selectedLocaleKey}
+                                onChange={setSelectedLocaleKey}
+                                exclude={existingKeys}
                             />
-                            <Button type="submit" className="mt-4">
-                                {t('create')}
-                            </Button>
-                        </form>
-                    </Form>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                            disabled={isCreating}
+                        >
+                            {t("cancel")}
+                        </Button>
+                        <Button onClick={handleCreate} disabled={!selectedLocaleKey || isCreating}>
+                            {isCreating ? t("creating", "Creating...") : t("create")}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </>
+        </div>
     )
 }

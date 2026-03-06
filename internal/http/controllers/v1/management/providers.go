@@ -84,6 +84,12 @@ func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.
 
 	for _, p := range allProviders {
 		manifest := p.Manifest()
+
+		// Skip hidden modules from the UI listing
+		if manifest.Metadata.Hidden {
+			continue
+		}
+
 		for _, channel := range manifest.Spec.Channels {
 			schema, err := json.Marshal(manifest.Spec.Config)
 			if err != nil {
@@ -153,15 +159,6 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 
 	if body.IsDefault != nil {
 		provider.IsDefault = *body.IsDefault
-	}
-
-	if body.RateLimit != nil {
-		provider.RateLimit = body.RateLimit
-	}
-
-	if body.RateInterval != nil {
-		interval := string(*body.RateInterval)
-		provider.RateInterval = &interval
 	}
 
 	providerID, err := srv.store.ProvidersStore.CreateProvider(ctx, provider)
@@ -238,12 +235,6 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 		Name:      body.Name,
 		Data:      body.Data,
 		IsDefault: body.IsDefault,
-		RateLimit: body.RateLimit,
-	}
-
-	if body.RateInterval != nil {
-		interval := string(*body.RateInterval)
-		update.RateInterval = &interval
 	}
 
 	err = srv.store.ProvidersStore.UpdateProvider(ctx, projectID, providerID, update)

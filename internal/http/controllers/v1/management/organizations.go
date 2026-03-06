@@ -28,7 +28,7 @@ type OrganizationsController struct {
 	store  *management.State
 }
 
-func (srv *OrganizationsController) GetOrganization(w http.ResponseWriter, r *http.Request) {
+func (srv *OrganizationsController) GetTenant(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	scope := rbac.FromContext(ctx)
@@ -58,7 +58,7 @@ func (srv *OrganizationsController) GetOrganization(w http.ResponseWriter, r *ht
 	json.Write(w, http.StatusOK, organization.OAPI())
 }
 
-func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r *http.Request) {
+func (srv *OrganizationsController) UpdateTenant(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	scope := rbac.FromContext(ctx)
@@ -70,7 +70,7 @@ func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r 
 
 	logger := srv.logger.With(zap.Stringer("organization_id", scope.OrganizationID))
 
-	body := oapi.UpdateOrganizationJSONRequestBody{}
+	body := oapi.UpdateTenantJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -101,7 +101,7 @@ func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r 
 	json.Write(w, http.StatusOK, organization.OAPI())
 }
 
-func (srv *OrganizationsController) DeleteOrganization(w http.ResponseWriter, r *http.Request) {
+func (srv *OrganizationsController) DeleteTenant(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	scope := rbac.FromContext(ctx)
@@ -125,7 +125,7 @@ func (srv *OrganizationsController) DeleteOrganization(w http.ResponseWriter, r 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (srv *OrganizationsController) GetOrganizationIntegrations(w http.ResponseWriter, r *http.Request) {
+func (srv *OrganizationsController) GetTenantIntegrations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	scope := rbac.FromContext(ctx)

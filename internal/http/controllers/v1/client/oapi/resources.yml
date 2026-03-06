@@ -19,16 +19,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/IdentifyRequest'
+              $ref: "#/components/schemas/IdentifyRequest"
       responses:
-        '200':
+        "200":
           description: User identified successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: "#/components/schemas/User"
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
 
   /api/client/events:
     post:
@@ -49,12 +49,111 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PostEventsRequest'
+              $ref: "#/components/schemas/PostEventsRequest"
       responses:
-        '202':
+        "202":
           description: Events accepted for asynchronous processing
         default:
-          $ref: '#/components/responses/Error'
+          $ref: "#/components/responses/Error"
+
+  /api/client/organizations:
+    post:
+      summary: Upsert organization
+      description: |
+        Used by client libraries to create or update an organization by external_id.
+        The project is determined from the API key.
+      operationId: upsertOrganizationClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationRequest"
+      responses:
+        "200":
+          description: Organization upserted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/organizations/users:
+    post:
+      summary: Add user to organization
+      description: |
+        Used by client libraries to add a user to an organization with optional org-specific data.
+        Both organization and user are identified by their external_id.
+        The project is determined from the API key.
+      operationId: addOrganizationUserClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationUserRequest"
+      responses:
+        "200":
+          description: User added to organization successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      summary: Remove user from organization
+      description: |
+        Used by client libraries to remove a user from an organization.
+        Both organization and user are identified by their external_id.
+        The project is determined from the API key.
+      operationId: removeOrganizationUserClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RemoveOrganizationUserRequest"
+      responses:
+        "204":
+          description: User removed from organization successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/organizations/events:
+    post:
+      summary: Post organization events
+      description: |
+        Used by client libraries to trigger events on an organization.
+        The organization is identified by external_id.
+        Events are processed asynchronously and can trigger journeys for all users in the organization.
+        The project is determined from the API key.
+      operationId: postOrganizationEventsClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostOrganizationEventsRequest"
+      responses:
+        "202":
+          description: Events accepted for asynchronous processing
+        default:
+          $ref: "#/components/responses/Error"
 
   /unsubscribe/email:
     get:
@@ -73,7 +172,7 @@ paths:
             type: string
           description: Encoded unsubscribe link with user and campaign data
       responses:
-        '200':
+        "200":
           description: Unsubscribe confirmation page
           content:
             text/html:
@@ -105,7 +204,7 @@ paths:
             format: uuid
           description: The user ID
       responses:
-        '200':
+        "200":
           description: Subscription preferences page
           content:
             text/html:
@@ -149,9 +248,9 @@ paths:
                     format: uuid
                   description: Array of subscription IDs to keep subscribed
       responses:
-        '302':
+        "302":
           description: Redirect to preferences page with success indicator
-        '200':
+        "200":
           description: Success response (for htmx partial updates)
           content:
             text/html:
@@ -165,7 +264,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Problem'
+            $ref: "#/components/schemas/Problem"
 
   schemas:
     Problem:
@@ -184,7 +283,7 @@ components:
           description: |
             A human readable explanation specific to this occurrence of the problem that is helpful to locate the problem and give advice on how to proceed. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
           example: some description for the error situation
-          
+
     User:
       type: object
       required:
@@ -284,7 +383,7 @@ components:
         locale:
           type: string
           nullable: true
-          example: "en"
+          example: "en-US"
         data:
           type: object
           additionalProperties: true
@@ -300,7 +399,7 @@ components:
       type: array
       minItems: 1
       items:
-        $ref: '#/components/schemas/Event'
+        $ref: "#/components/schemas/Event"
 
     Event:
       type: object
@@ -329,6 +428,143 @@ components:
           example:
             product_id: "prod_789"
             amount: 99.99
+          description: Event-specific data
+
+    Organization:
+      type: object
+      required:
+        - id
+        - project_id
+        - external_id
+        - data
+        - version
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        project_id:
+          type: string
+          format: uuid
+          example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        external_id:
+          type: string
+          example: "org_123"
+          description: External identifier for the organization from your system
+        name:
+          type: string
+          example: "Acme Corp"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: map[string]any
+          example:
+            industry: "technology"
+            size: "enterprise"
+        version:
+          type: integer
+          example: 1
+          x-go-type: int32
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    OrganizationRequest:
+      type: object
+      required:
+        - external_id
+      properties:
+        external_id:
+          type: string
+          example: "org_123"
+          description: External identifier for the organization from your system
+        name:
+          type: string
+          nullable: true
+          example: "Acme Corp"
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          example:
+            industry: "technology"
+            size: "enterprise"
+
+    OrganizationUserRequest:
+      type: object
+      required:
+        - organization_external_id
+        - user_external_id
+      properties:
+        organization_external_id:
+          type: string
+          example: "org_123"
+          description: External identifier for the organization
+        user_external_id:
+          type: string
+          example: "user_456"
+          description: External identifier for the user
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          example:
+            role: "admin"
+            department: "engineering"
+          description: Organization-specific data for this user
+
+    RemoveOrganizationUserRequest:
+      type: object
+      required:
+        - organization_external_id
+        - user_external_id
+      properties:
+        organization_external_id:
+          type: string
+          example: "org_123"
+          description: External identifier for the organization
+        user_external_id:
+          type: string
+          example: "user_456"
+          description: External identifier for the user
+
+    PostOrganizationEventsRequest:
+      type: array
+      minItems: 1
+      items:
+        $ref: "#/components/schemas/OrganizationEvent"
+
+    OrganizationEvent:
+      type: object
+      required:
+        - organization_external_id
+        - name
+      properties:
+        organization_external_id:
+          type: string
+          example: "org_123"
+          description: External identifier for the organization
+        name:
+          type: string
+          example: "subscription_upgraded"
+          description: The name of the event
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          example:
+            plan: "enterprise"
+            seats: 100
           description: Event-specific data
 
   securitySchemes:

@@ -4,15 +4,11 @@ import { useCallback, useContext, useMemo, memo, useState, useEffect, useRef } f
 import { CampaignContext, LocaleContext, ProjectContext, type LocaleSelection } from "@/contexts"
 import api from "@/api"
 
-import {
-    Pagination,
-    PaginationContent,
-    PaginationItem,
-} from "@/components/ui/pagination"
+import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 
 import { LocaleSelect } from "@/components/locale/select"
 import { Button } from "@/components/ui/button"
-import { TemplateWorkflowContext } from './contexts';
+import { TemplateWorkflowContext } from "./contexts"
 import { t } from "i18next"
 
 interface CampaignStepProps {
@@ -33,7 +29,7 @@ const TemplateSteps = memo(function CampaignSteps({ steps }: CampaignStepProps) 
                         <PaginationItem>
                             <Link
                                 to={`${step.href}${location.search}`}
-                                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 ${isStepActive(step.href) ? 'bg-accent text-accent-foreground' : ''}`}
+                                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 ${isStepActive(step.href) ? "bg-accent text-accent-foreground" : ""}`}
                                 aria-label={`Go to ${step.name} step`}
                             >
                                 {step.name}
@@ -54,102 +50,121 @@ export default function Template() {
     const location = useLocation()
     const navigate = useNavigate()
 
-    const [localeState, setLocaleSelection] = useState<LocaleSelection>({ allLocales: [] })
-    const [pageLoading, setPageLoading] = useState(false)
+    const [localeState, setLocaleSelection] = useState<LocaleSelection>({
+        allLocales: [],
+    })
+    const [pageLoading, setPageLoading] = useState(true)
     const [isNextLoading, setIsNextLoading] = useState(false)
-
-    const handler = useRef<(() => Promise<boolean> | boolean) | null>(null);
+    const [canProceed, setCanProceed] = useState(true)
+    const handler = useRef<(() => Promise<boolean> | boolean) | null>(null)
 
     const steps = useMemo(() => {
-        // NOTE: always show template steps, even if no template is selected yet
-        const selectedTemplateId = templateId ?? campaign.templates?.find(t => t.locale === project.locale)?.id ?? campaign.templates?.[0]?.id;
-        const templateSteps = campaign.channel === 'email'
-            ? [
-                { name: "Content", href: `/projects/${project.id}/campaigns/${campaign.id}/templates/${selectedTemplateId}` },
-                { name: "Template", href: `/projects/${project.id}/campaigns/${campaign.id}/templates/${selectedTemplateId}/email/editor` },
-                { name: "Review", href: `/projects/${project.id}/campaigns/${campaign.id}/templates/${selectedTemplateId}/review` },
-            ]
-            : [
-                { name: "Content", href: `/projects/${project.id}/campaigns/${campaign.id}/templates/${selectedTemplateId}` },
-                { name: "Review", href: `/projects/${project.id}/campaigns/${campaign.id}/templates/${selectedTemplateId}/review` },
-            ]
+        const templates = campaign.templates || []
+        const selectedTemplateId =
+            templateId ?? templates.find((t) => t.locale === project.locale)?.id ?? templates[0]?.id
 
-        return [...templateSteps]
+        const basePath = `/projects/${project.id}/campaigns/${campaign.id}/templates/${selectedTemplateId}`
+
+        const navSteps = [{ name: "Content", href: basePath }]
+
+        if (campaign.channel === "email") {
+            navSteps.push({ name: "Editor", href: `${basePath}/email/editor` })
+        }
+
+        navSteps.push({ name: "Review", href: `${basePath}/review` })
+
+        return navSteps
     }, [project.id, campaign.id, campaign.channel, campaign.templates, project.locale, templateId])
 
     const nextStep = useMemo(() => {
-        const currentIndex = steps.findIndex(step => step.href === location.pathname)
-        return currentIndex !== -1 && currentIndex < steps.length - 1 ? steps[currentIndex + 1] : undefined
+        const currentIndex = steps.findIndex((step) => step.href === location.pathname)
+        return currentIndex !== -1 && currentIndex < steps.length - 1
+            ? steps[currentIndex + 1]
+            : undefined
     }, [steps, location.pathname])
 
     const onSubmit = useCallback((fn: () => Promise<boolean> | boolean) => {
-        handler.current = fn;
+        handler.current = fn
         return () => {
-            if (handler.current === fn) handler.current = null;
-        };
-    }, []);
+            if (handler.current === fn) handler.current = null
+        }
+    }, [])
 
     const submit = useCallback(async () => {
-        if (!handler.current) return;
+        if (!handler.current) return
 
-        setIsNextLoading(true);
+        setIsNextLoading(true)
         try {
-            const next = await handler.current();
-            if (next && nextStep) navigate(nextStep.href);
+            const next = await handler.current()
+            if (next && nextStep) navigate(nextStep.href)
         } finally {
-            setIsNextLoading(false);
+            setIsNextLoading(false)
         }
-    }, [navigate, nextStep]);
+    }, [navigate, nextStep])
 
-    const currentTemplate = useMemo(() => campaign.templates?.find(t => t.id === templateId), [campaign.templates, templateId])
-    const workflowContextValue = useMemo(() => ({ onSubmit, submit }), [onSubmit, submit]);
+    const currentTemplate = useMemo(
+        () => campaign.templates?.find((t) => t.id === templateId),
+        [campaign.templates, templateId],
+    )
+    const workflowContextValue = useMemo(
+        () => ({ onSubmit, submit, canProceed, setCanProceed }),
+        [onSubmit, submit, canProceed],
+    )
 
     const publish = useCallback(async () => {
-        if (!handler.current) return;
+        if (!handler.current) return
 
-        setIsNextLoading(true);
+        setIsNextLoading(true)
         try {
-            await handler.current();
-            navigate(`/projects/${project.id}/campaigns`);
+            await handler.current()
+            navigate(`/projects/${project.id}/campaigns`)
         } finally {
-            setIsNextLoading(false);
+            setIsNextLoading(false)
         }
-    }, [project.id, navigate]);
+    }, [project.id, navigate])
 
-    const navigateToTemplate = useCallback((templateId: string) => {
-        const basePath = `/projects/${project.id}/campaigns/${campaign.id}/templates/${templateId}`;
-        const suffix = location.pathname.split(/\/templates\/[^/]+/)[1] ?? "";
-        navigate(basePath + suffix);
-    }, [project.id, campaign.id, location.pathname, navigate]);
+    const navigateToTemplate = useCallback(
+        (templateId: string) => {
+            const basePath = `/projects/${project.id}/campaigns/${campaign.id}/templates/${templateId}`
+            const suffix = location.pathname.split(/\/templates\/[^/]+/)[1] ?? ""
+            navigate(basePath + suffix)
+        },
+        [project.id, campaign.id, location.pathname, navigate],
+    )
 
-    const handleLocaleChange = useCallback(async (localeKey: string) => {
-        if (handler.current) {
-            const next = await handler.current();
-            if (!next) {
-                return;
+    const handleLocaleChange = useCallback(
+        async (localeKey: string) => {
+            if (handler.current) {
+                const next = await handler.current()
+                if (!next) {
+                    return
+                }
             }
-        }
 
-        const selectedTemplate = campaign.templates.find((template) => template.locale === localeKey);
-        if (selectedTemplate) {
-            navigateToTemplate(selectedTemplate.id);
-            return;
-        }
+            const selectedTemplate = campaign.templates.find(
+                (template) => template.locale === localeKey,
+            )
+            if (selectedTemplate) {
+                navigateToTemplate(selectedTemplate.id)
+                return
+            }
 
-        setPageLoading(true);
-        const template = await api.campaigns.templates.create(project.id, campaign.id, {
-            locale: localeKey,
-            data: {}
-        });
+            setPageLoading(true)
+            const template = await api.campaigns.templates.create(project.id, campaign.id, {
+                locale: localeKey,
+                data: {},
+            })
 
-        setCampaign({
-            ...campaign,
-            templates: [...campaign.templates, template]
-        });
+            setCampaign({
+                ...campaign,
+                templates: [...campaign.templates, template],
+            })
 
-        navigateToTemplate(template.id);
-        setPageLoading(false);
-    }, [campaign, project?.id, setCampaign, navigateToTemplate]);
+            navigateToTemplate(template.id)
+            setPageLoading(false)
+        },
+        [campaign, project?.id, setCampaign, navigateToTemplate],
+    )
 
     // Fetch locales when template changes
     useEffect(() => {
@@ -158,15 +173,20 @@ export default function Template() {
 
             setPageLoading(true)
 
-            const allLocalesResult = await api.locales.search(project.id, { limit: 5 })
+            const allLocalesResult = await api.locales.search(project.id, {
+                limit: 5,
+            })
             if (currentTemplate) {
                 try {
-                    const selectedLocale = await api.locales.getByKey(project.id, currentTemplate.locale)
+                    const selectedLocale = await api.locales.getByKey(
+                        project.id,
+                        currentTemplate.locale,
+                    )
                     setLocaleSelection({
                         currentLocale: selectedLocale,
                         allLocales: allLocalesResult.results,
                     })
-                } catch (error) {
+                } catch {
                     // Locale not found, use default or first available locale
                     console.warn(`Locale ${currentTemplate.locale} not found, using default`)
                     setLocaleSelection({
@@ -209,12 +229,20 @@ export default function Template() {
                         <TemplateSteps steps={steps} />
                         <div className="ml-auto">
                             {!nextStep ? (
-                                <Button onClick={publish} isLoading={isNextLoading} disabled={isNextLoading}>
-                                    {t('publish', 'Publish')}
+                                <Button
+                                    onClick={publish}
+                                    isLoading={isNextLoading}
+                                    disabled={isNextLoading || !canProceed}
+                                >
+                                    {t("publish", "Publish")}
                                 </Button>
                             ) : (
-                                <Button onClick={submit} isLoading={isNextLoading} disabled={isNextLoading}>
-                                    {t('next')}
+                                <Button
+                                    onClick={submit}
+                                    isLoading={isNextLoading}
+                                    disabled={isNextLoading || !canProceed}
+                                >
+                                    {t("next")}
                                 </Button>
                             )}
                         </div>

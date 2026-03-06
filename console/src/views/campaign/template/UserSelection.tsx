@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
-import type { User } from "@/types";
-import { cn } from "@/utils";
-import api from "@/api";
+import { useState, useCallback, useEffect } from "react"
+import type { User } from "@/types"
+import { cn } from "@/utils"
+import api from "@/api"
 
-import { Check, ChevronsUpDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check, ChevronsUpDown } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 import {
     Command,
@@ -13,45 +13,37 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
-} from "@/components/ui/command";
+} from "@/components/ui/command"
 
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 interface UserSelectionProps {
-    projectId: string;
-    value?: User | null;
-    onChange?: (user: User) => void;
+    projectId: string
+    value?: User | null
+    onChange?: (user: User) => void
 }
 
-export function UserSelection({
-    projectId,
-    value,
-    onChange,
-}: UserSelectionProps) {
-    const [open, setOpen] = useState(false);
-    const [search, setSearch] = useState("");
-    const [users, setUsers] = useState<User[]>([]);
+export function UserSelection({ projectId, value, onChange }: UserSelectionProps) {
+    const [open, setOpen] = useState(false)
+    const [search, setSearch] = useState("")
+    const [users, setUsers] = useState<User[]>([])
 
     const fetchUsers = useCallback(async () => {
         const users = await api.users.search(projectId, {
-            q: search,
+            search: search,
             limit: 50,
-        });
+        })
 
-        setUsers(users.results);
-    }, [projectId, search]);
+        setUsers(users.results)
+    }, [projectId, search])
 
     useEffect(() => {
         const handler = setTimeout(() => {
-            fetchUsers();
-        }, 200);
+            fetchUsers()
+        }, 200)
 
-        return () => clearTimeout(handler);
-    }, [search, fetchUsers]);
+        return () => clearTimeout(handler)
+    }, [search, fetchUsers])
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -83,15 +75,15 @@ export function UserSelection({
                                     key={user.id}
                                     value={user.email}
                                     onSelect={() => {
-                                        onChange?.(user);
-                                        setOpen(false);
+                                        onChange?.(user)
+                                        setOpen(false)
                                     }}
                                 >
                                     {user.email}
                                     <Check
                                         className={cn(
                                             "ml-auto",
-                                            value?.id === user.id ? "opacity-100" : "opacity-0"
+                                            value?.id === user.id ? "opacity-100" : "opacity-0",
                                         )}
                                     />
                                 </CommandItem>
@@ -101,5 +93,5 @@ export function UserSelection({
                 </Command>
             </PopoverContent>
         </Popover>
-    );
+    )
 }

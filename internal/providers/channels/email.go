@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/lunogram/platform/pkg/modules/providers"
 )
 
@@ -28,7 +28,7 @@ type EmailTemplateData struct {
 	Bcc       string        `json:"bcc,omitempty"`
 }
 
-func ComposeEmail(config map[string]any, template management.Template, user *users.User) (*providers.SendRequest[map[string]any], error) {
+func ComposeEmail(config map[string]any, template management.Template, user *subjects.User) (*providers.SendRequest[map[string]any], error) {
 	if user.Email == nil {
 		return nil, fmt.Errorf("user has no email address")
 	}
@@ -38,11 +38,34 @@ func ComposeEmail(config map[string]any, template management.Template, user *use
 		return nil, fmt.Errorf("failed to parse email template data: %w", err)
 	}
 
+	defaultFrom, _ := config[ProviderKeyDefaultFrom].(string)
+	defaultFromName, _ := config[ProviderKeyDefaultFromName].(string)
+	defaultFromLocked, _ := config[ProviderKeyDefaultFromLocked].(bool)
+
+	fromAddress := data.From.Email
+	fromName := data.From.Name
+
+	if defaultFromLocked || fromAddress == "" {
+		if defaultFrom != "" {
+			fromAddress = defaultFrom
+		}
+	}
+
+	if defaultFromLocked || fromName == "" {
+		if defaultFromName != "" {
+			fromName = defaultFromName
+		}
+	}
+
+	if fromAddress == "" {
+		return nil, fmt.Errorf("no from address specified in template or provider config")
+	}
+
 	payload := providers.EmailPayload{
 		To: *user.Email,
 		From: providers.EmailAddress{
-			Name:    data.From.Name,
-			Address: data.From.Email,
+			Name:    fromName,
+			Address: fromAddress,
 		},
 		Subject: data.Subject,
 		HTML:    data.HTML,

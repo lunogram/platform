@@ -8,21 +8,6 @@ import (
 // I have been fighting with oneoffs for too long, so here is all step data in one file
 // might want to take a better approach later
 
-// JourneyStepType constants
-const (
-	JourneyStepTypeEntrance   = "entrance"
-	JourneyStepTypeExit       = "exit"
-	JourneyStepTypeDelay      = "delay"
-	JourneyStepTypeAction     = "action"
-	JourneyStepTypeGate       = "gate"
-	JourneyStepTypeExperiment = "experiment"
-	JourneyStepTypeLink       = "link"
-	JourneyStepTypeSticky     = "sticky"
-	JourneyStepTypeBalancer   = "balancer"
-	JourneyStepTypeUpdate     = "update"
-	JourneyStepTypeEvent      = "event"
-)
-
 // Step data format constants
 const (
 	Duration DelayStepDataFormat = "duration"
@@ -39,6 +24,7 @@ type EntranceStepData struct {
 	ListId     *string        `json:"list_id,omitempty"`
 	Schedule   *string        `json:"schedule,omitempty"`
 	Rule       *rules.RuleSet `json:"rule,omitempty"`
+	UserRule   *rules.RuleSet `json:"user_rule,omitempty"`
 	Concurrent *bool          `json:"concurrent,omitempty"`
 	Multiple   *bool          `json:"multiple,omitempty"`
 }
@@ -59,9 +45,14 @@ type DelayStepData struct {
 	ExclusionDays *[]int              `json:"exclusion_days,omitempty"`
 }
 
-// ActionStepData represents data for action step - send campaign
-type ActionStepData struct {
+// CampaignStepData represents data for campaign step - send campaign
+type CampaignStepData struct {
 	CampaignId uuid.UUID `json:"campaign_id"`
+}
+
+// ActionStepData represents data for action step - execute WASM action
+type ActionStepData struct {
+	ActionId uuid.UUID `json:"action_id"`
 }
 
 // GateStepData represents data for gate step - conditional branching

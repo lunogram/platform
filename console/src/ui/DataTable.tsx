@@ -1,15 +1,19 @@
-import clsx from 'clsx'
-import type { Key, ReactNode } from 'react';
-import { useContext } from 'react'
-import { formatDate, snakeToTitle } from '../utils'
-import { Button } from '@/components/ui/button'
-import './DataTable.css'
-import { CheckIcon, ChevronDownIcon, ChevronUpDownIcon, ChevronUpIcon, CloseIcon } from '../components/icons'
-import { PreferencesContext } from './PreferencesContext'
+import clsx from "clsx"
+import type { Key, ReactNode } from "react"
+import { useContext } from "react"
+import { formatDate, snakeToTitle } from "../utils"
+import { Button } from "@/components/ui/button"
+import "./DataTable.css"
+import {
+    CheckIcon,
+    ChevronDownIcon,
+    ChevronUpDownIcon,
+    ChevronUpIcon,
+    CloseIcon,
+} from "../components/icons"
+import { PreferencesContext } from "./PreferencesContext"
 
-type DataTableResolver<T, R> = (args: {
-    item: T
-}) => R
+type DataTableResolver<T, R> = (args: { item: T }) => R
 
 export interface DataTableCol<T> {
     key: string
@@ -36,31 +40,33 @@ export function HeaderCell<T>({ col, columnSort, onColumnSort }: HeaderCellProps
     const sort = sortKey ?? key
     const handleSort = () => {
         if (columnSort?.sort !== sort) {
-            onColumnSort?.({ sort, direction: 'asc' })
-        } else if (columnSort?.direction === 'desc') {
+            onColumnSort?.({ sort, direction: "asc" })
+        } else if (columnSort?.direction === "desc") {
             onColumnSort?.()
         } else {
-            onColumnSort?.({ sort, direction: 'desc' })
+            onColumnSort?.({ sort, direction: "desc" })
         }
     }
-    return <div className="table-header-cell">
-        <div className="header-cell-content">
-            <span>{title ?? snakeToTitle(key)}</span>
-            {sortable && (
-                <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => handleSort()}
-                >
-                    {columnSort?.sort === sort
-                        ? columnSort?.direction === 'asc'
-                            ? <ChevronUpIcon />
-                            : <ChevronDownIcon />
-                        : <ChevronUpDownIcon />}
-                </Button>
-            )}
+    return (
+        <div className="table-header-cell">
+            <div className="header-cell-content">
+                <span>{title ?? snakeToTitle(key)}</span>
+                {sortable && (
+                    <Button size="icon" variant="ghost" onClick={() => handleSort()}>
+                        {columnSort?.sort === sort ? (
+                            columnSort?.direction === "asc" ? (
+                                <ChevronUpIcon />
+                            ) : (
+                                <ChevronDownIcon />
+                            )
+                        ) : (
+                            <ChevronUpDownIcon />
+                        )}
+                    </Button>
+                )}
+            </div>
         </div>
-    </div>
+    )
 }
 
 export interface DataTableProps<T, C = {}> {
@@ -78,7 +84,7 @@ export interface DataTableProps<T, C = {}> {
 
 export function DataTable<T>({
     columns,
-    emptyMessage = 'No Results',
+    emptyMessage = "No Results",
     items,
     itemKey,
     selectedRow,
@@ -91,75 +97,73 @@ export function DataTable<T>({
     return (
         <div className="ui-table">
             <div className="table-header">
-                {
-                    columns.map(col => (
-                        <HeaderCell<T>
-                            key={col.key}
-                            col={col}
-                            onColumnSort={onColumnSort}
-                            columnSort={columnSort} />
-                    ))
-                }
+                {columns.map((col) => (
+                    <HeaderCell<T>
+                        key={col.key}
+                        col={col}
+                        onColumnSort={onColumnSort}
+                        columnSort={columnSort}
+                    />
+                ))}
             </div>
-            {
-                (items && items.length > 0)
-                    ? items.map(item => {
+            {items && items.length > 0 ? (
+                items.map((item) => {
+                    const args = { item }
+                    const key = itemKey ? itemKey(args) : (item as any).id
 
-                        const args = { item }
-                        const key = itemKey ? itemKey(args) : (item as any).id
-
-                        return (
-                            <div
-                                className={clsx(
-                                    'table-row',
-                                    onSelectRow ? ' table-row-interactive' : '',
-                                    selectedRow === key ? ' table-row-selected' : '',
-                                )}
-                                key={key}
-                                onClick={() => onSelectRow?.(item)}
-                            >
-                                {
-                                    columns.map(col => {
-                                        let value: any = col.cell
-                                            ? col.cell(args)
-                                            : item[col.key as keyof T]
-                                        if (!col.cell) {
-                                            if ((col.key.endsWith('_at') || col.key.endsWith('_until'))
-                                                && (typeof value === 'string' || typeof value === 'number')) {
-                                                value = formatDate(preferences, value, 'Pp')
-                                            }
-                                            if (typeof value === 'boolean') {
-                                                value = value ? <CheckIcon /> : <CloseIcon />
-                                            }
-                                        }
-                                        return (
-                                            <div className="table-cell" key={col.key} style={col.minWidth ? { minWidth: col.minWidth } : {}}>
-                                                {value ?? <>&#8211;</>}
-                                            </div>
-                                        )
-                                    })
+                    return (
+                        <div
+                            className={clsx(
+                                "table-row",
+                                onSelectRow ? " table-row-interactive" : "",
+                                selectedRow === key ? " table-row-selected" : "",
+                            )}
+                            key={key}
+                            onClick={() => onSelectRow?.(item)}
+                        >
+                            {columns.map((col) => {
+                                let value: any = col.cell
+                                    ? col.cell(args)
+                                    : item[col.key as keyof T]
+                                if (!col.cell) {
+                                    if (
+                                        (col.key.endsWith("_at") || col.key.endsWith("_until")) &&
+                                        (typeof value === "string" || typeof value === "number")
+                                    ) {
+                                        value = formatDate(preferences, value, "Pp")
+                                    }
+                                    if (typeof value === "boolean") {
+                                        value = value ? <CheckIcon /> : <CloseIcon />
+                                    }
                                 }
-                            </div>
-                        )
-                    })
-                    : isLoading
-                        ? Array.from({ length: 3 }, (x, i) => (
-                            <div className="table-row loading" key={i}>
-                                {
-                                    columns.map(col => (
-                                        <div className="table-cell" key={col.key}>
-                                            <div className="loader"></div>
-                                        </div>
-                                    ))
-                                }
-                            </div>
-                        ))
-                        : <div className="table-row">
-                            <div className="table-cell">
-                                {emptyMessage}
-                            </div>
+                                return (
+                                    <div
+                                        className="table-cell"
+                                        key={col.key}
+                                        style={col.minWidth ? { minWidth: col.minWidth } : {}}
+                                    >
+                                        {value ?? <>&#8211;</>}
+                                    </div>
+                                )
+                            })}
                         </div>
-            }
+                    )
+                })
+            ) : isLoading ? (
+                Array.from({ length: 3 }, (x, i) => (
+                    <div className="table-row loading" key={i}>
+                        {columns.map((col) => (
+                            <div className="table-cell" key={col.key}>
+                                <div className="loader"></div>
+                            </div>
+                        ))}
+                    </div>
+                ))
+            ) : (
+                <div className="table-row">
+                    <div className="table-cell">{emptyMessage}</div>
+                </div>
+            )}
         </div>
     )
 }

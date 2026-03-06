@@ -8,11 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"strings"
 
 	"github.com/cloudproud/graceful"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
@@ -20,15 +22,15 @@ import (
 
 // Config contains database connection settings for all databases.
 type Config struct {
-	ManagementURI string `env:"POSTGRES_MANAGEMENT_URI" envDefault:"postgres://postgres:password@postgres:5432/management?sslmode=disable"`
-	UsersURI      string `env:"POSTGRES_USERS_URI" envDefault:"postgres://postgres:password@postgres:5432/users?sslmode=disable"`
-	JourneyURI    string `env:"POSTGRES_JOURNEY_URI" envDefault:"postgres://postgres:password@postgres:5432/journey?sslmode=disable"`
+	ManagementURI string `env:"POSTGRES_MANAGEMENT_URI" envDefault:"postgres://postgres:postgrespw@postgres:5432/management?sslmode=disable"`
+	SubjectsURI   string `env:"POSTGRES_SUBJECTS_URI" envDefault:"postgres://postgres:postgrespw@postgres:5432/subjects?sslmode=disable"`
+	JourneyURI    string `env:"POSTGRES_JOURNEY_URI" envDefault:"postgres://postgres:postgrespw@postgres:5432/journey?sslmode=disable"`
 }
 
 // Connections holds all database connections.
 type Connections struct {
 	Management *sqlx.DB
-	Users      *sqlx.DB
+	Subjects   *sqlx.DB
 	Journey    *sqlx.DB
 }
 
@@ -41,22 +43,22 @@ func New(ctx graceful.Context, logger *zap.Logger, config Config) (*Connections,
 		return nil, fmt.Errorf("failed to connect to management database: %w", err)
 	}
 
-	users, err := sqlx.Connect("pgx", config.UsersURI)
+	subjects, err := sqlx.Connect("pgx", config.SubjectsURI)
 	if err != nil {
 		management.Close()
-		return nil, fmt.Errorf("failed to connect to users database: %w", err)
+		return nil, fmt.Errorf("failed to connect to subjects database: %w", err)
 	}
 
 	journey, err := sqlx.Connect("pgx", config.JourneyURI)
 	if err != nil {
 		management.Close()
-		users.Close()
+		subjects.Close()
 		return nil, fmt.Errorf("failed to connect to journey database: %w", err)
 	}
 
 	conns := &Connections{
 		Management: management,
-		Users:      users,
+		Subjects:   subjects,
 		Journey:    journey,
 	}
 
@@ -66,8 +68,8 @@ func New(ctx graceful.Context, logger *zap.Logger, config Config) (*Connections,
 		if err := management.Close(); err != nil {
 			logger.Error("failed to close management database connection", zap.Error(err))
 		}
-		if err := users.Close(); err != nil {
-			logger.Error("failed to close users database connection", zap.Error(err))
+		if err := subjects.Close(); err != nil {
+			logger.Error("failed to close subjects database connection", zap.Error(err))
 		}
 		if err := journey.Close(); err != nil {
 			logger.Error("failed to close journey database connection", zap.Error(err))
@@ -188,6 +190,54 @@ func (j *JSONB[T]) MarshalRaw() *json.RawMessage {
 	}
 
 	return (*json.RawMessage)(&bytes)
+}
+
+// UUIDArray is a custom type for scanning PostgreSQL UUID arrays.
+type UUIDArray []uuid.UUID
+
+// Scan implements sql.Scanner for reading PostgreSQL UUID arrays.
+func (u *UUIDArray) Scan(value any) error {
+	if value == nil {
+		*u = nil
+		return nil
+	}
+
+	// PostgreSQL returns array_agg results as a string like "{uuid1,uuid2,...}"
+	var str string
+	switch v := value.(type) {
+	case []byte:
+		str = string(v)
+	case string:
+		str = v
+	default:
+		return fmt.Errorf("unsupported type for UUIDArray: %T", value)
+	}
+
+	// Handle empty array
+	if str == "{}" || str == "" {
+		*u = []uuid.UUID{}
+		return nil
+	}
+
+	// Remove braces and split
+	str = strings.Trim(str, "{}")
+	if str == "" {
+		*u = []uuid.UUID{}
+		return nil
+	}
+
+	parts := strings.Split(str, ",")
+	result := make([]uuid.UUID, len(parts))
+	for i, p := range parts {
+		id, err := uuid.Parse(p)
+		if err != nil {
+			return fmt.Errorf("failed to parse UUID at index %d: %w", i, err)
+		}
+		result[i] = id
+	}
+
+	*u = result
+	return nil
 }
 
 // DataType represents the type of a data field.

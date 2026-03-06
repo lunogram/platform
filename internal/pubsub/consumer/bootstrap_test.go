@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
+
+// testNamespace returns a unique Namespace derived from the test name.
+// Slashes (from subtests) and dots (NATS subject delimiters) are replaced
+// with underscores so the namespace is safe for stream, consumer, and
+// subject names.
+func testNamespace(t *testing.T) Namespace {
+	t.Helper()
+	name := strings.ReplaceAll(t.Name(), "/", "_")
+	name = strings.ReplaceAll(name, ".", "_")
+	return Namespace(name)
+}
 
 func setupBootstrapTest(t *testing.T) jetstream.JetStream {
 	t.Helper()
@@ -36,27 +48,28 @@ func TestBootstrapCreatesStreamsAndConsumers(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	stream, err := jet.Stream(ctx, StreamEvents)
+	stream, err := jet.Stream(ctx, ns.Stream(StreamUserEvents))
 	require.NoError(t, err)
 	assert.NotNil(t, stream)
 
 	info, err := stream.Info(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, StreamEvents, info.Config.Name)
-	assert.Contains(t, info.Config.Subjects, "events.>")
+	assert.Equal(t, ns.Stream(StreamUserEvents), info.Config.Name)
+	assert.Contains(t, info.Config.Subjects, ns.Subject("users.events.>"))
 
-	consumer, err := jet.Consumer(ctx, StreamEvents, ConsumerEventsProcess)
+	consumer, err := jet.Consumer(ctx, ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess))
 	require.NoError(t, err)
 	assert.NotNil(t, consumer)
 
 	consumerInfo, err := consumer.Info(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, ConsumerEventsProcess, consumerInfo.Name)
-	assert.Equal(t, "events.process.>", consumerInfo.Config.FilterSubject)
+	assert.Equal(t, ns.Consumer(ConsumerUserEventsProcess), consumerInfo.Name)
+	assert.Equal(t, ns.Subject("users.events.process.>"), consumerInfo.Config.FilterSubject)
 }
 
 func TestBootstrapCreatesRecomputeStream(t *testing.T) {
@@ -65,18 +78,19 @@ func TestBootstrapCreatesRecomputeStream(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	stream, err := jet.Stream(ctx, StreamLists)
+	stream, err := jet.Stream(ctx, ns.Stream(StreamLists))
 	require.NoError(t, err)
 	assert.NotNil(t, stream)
 
 	info, err := stream.Info(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, StreamLists, info.Config.Name)
-	assert.Contains(t, info.Config.Subjects, "lists.>")
+	assert.Equal(t, ns.Stream(StreamLists), info.Config.Name)
+	assert.Contains(t, info.Config.Subjects, ns.Subject("lists.>"))
 }
 
 func TestBootstrapCreatesAllConsumers(t *testing.T) {
@@ -85,8 +99,9 @@ func TestBootstrapCreatesAllConsumers(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
 	type consumer struct {
@@ -96,10 +111,10 @@ func TestBootstrapCreatesAllConsumers(t *testing.T) {
 	}
 
 	consumers := []consumer{
-		{StreamEvents, ConsumerEventsProcess, "events.process.>"},
-		{StreamEvents, ConsumerEventsSchema, "events.schema.>"},
-		{StreamJourneys, ConsumerJourneysAdvance, "journeys.advance.>"},
-		{StreamLists, ConsumerListsRecompute, "lists.recompute.>"},
+		{ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess), ns.Subject("users.events.process.>")},
+		{ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsSchema), ns.Subject("users.events.schema.>")},
+		{ns.Stream(StreamJourneys), ns.Consumer(ConsumerJourneysAdvance), ns.Subject("journeys.advance.>")},
+		{ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute), ns.Subject("lists.recompute.>")},
 	}
 
 	for _, tc := range consumers {
@@ -119,14 +134,15 @@ func TestBootstrapIdempotent(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	err = Bootstrap(ctx, logger, jet)
+	err = Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	stream, err := jet.Stream(ctx, StreamEvents)
+	stream, err := jet.Stream(ctx, ns.Stream(StreamUserEvents))
 	require.NoError(t, err)
 	assert.NotNil(t, stream)
 }
@@ -190,11 +206,12 @@ func TestBootstrapperStreamRetention(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
-	err := Bootstrap(ctx, logger, jet)
+	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	stream, err := jet.Stream(ctx, StreamEvents)
+	stream, err := jet.Stream(ctx, ns.Stream(StreamUserEvents))
 	require.NoError(t, err)
 
 	info, err := stream.Info(ctx)

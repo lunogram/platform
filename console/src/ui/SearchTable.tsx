@@ -1,19 +1,22 @@
-import type { ReactNode } from 'react';
-import { useState, useCallback, useMemo } from 'react'
-import { useSearchParams } from 'react-router'
-import { useDebounceControl, useResolver } from '../hooks'
-import type { SearchParams, SearchResult } from '../types'
-import { prune } from '../utils'
-import type { DataTableProps } from './DataTable';
-import { DataTable } from './DataTable'
-import TextInput from './form/TextInput'
-import Heading from './Heading'
-import { SearchIcon } from '../components/icons'
-import Pagination from './Pagination'
-import Stack from './Stack'
-import { useTranslation } from 'react-i18next'
+import type { ReactNode } from "react"
+import { useState, useCallback, useMemo } from "react"
+import { useSearchParams } from "react-router"
+import { useDebounceControl, useResolver } from "../hooks"
+import type { SearchParams, SearchResult } from "../types"
+import { prune } from "../utils"
+import type { DataTableProps } from "./DataTable"
+import { DataTable } from "./DataTable"
+import TextInput from "./form/TextInput"
+import Heading from "./Heading"
+import { SearchIcon } from "../components/icons"
+import Pagination from "./Pagination"
+import Stack from "./Stack"
+import { useTranslation } from "react-i18next"
 
-export interface SearchTableProps<T extends Record<string, any>> extends Omit<DataTableProps<T>, 'items'> {
+export interface SearchTableProps<T extends Record<string, any>> extends Omit<
+    DataTableProps<T>,
+    "items"
+> {
     title?: ReactNode
     description?: ReactNode
     actions?: ReactNode
@@ -23,7 +26,7 @@ export interface SearchTableProps<T extends Record<string, any>> extends Omit<Da
     setParams: (params: SearchParams) => void
     enableSearch?: boolean
     searchPlaceholder?: string
-    tagEntity?: 'journeys' | 'lists' | 'users' | 'campaigns' // anything else we want to tag?
+    tagEntity?: "journeys" | "lists" | "users" | "campaigns" // anything else we want to tag?
 }
 
 const DEFAULT_ITEMS_PER_PAGE = 25
@@ -31,16 +34,14 @@ const DEFAULT_PAGE = 0
 
 const toTableParams = (searchParams: URLSearchParams): SearchParams => {
     return {
-        cursor: searchParams.get('cursor') ?? undefined,
-        page: searchParams.get('page') === 'prev' ? 'prev' : 'next',
-        limit: parseInt(searchParams.get('limit') ?? '25'),
-        q: searchParams.get('q') ?? undefined,
-        tag: searchParams.getAll('tag'),
-        sort: searchParams.get('sort') ?? undefined,
-        direction: searchParams.get('direction') ?? undefined,
-        filter: searchParams.get('filter')
-            ? JSON.parse(searchParams.get('filter')!)
-            : undefined,
+        cursor: searchParams.get("cursor") ?? undefined,
+        page: searchParams.get("page") === "prev" ? "prev" : "next",
+        limit: parseInt(searchParams.get("limit") ?? "25"),
+        search: searchParams.get("search") ?? undefined,
+        tag: searchParams.getAll("tag"),
+        sort: searchParams.get("sort") ?? undefined,
+        direction: searchParams.get("direction") ?? undefined,
+        filter: searchParams.get("filter") ? JSON.parse(searchParams.get("filter")!) : undefined,
     }
 }
 
@@ -49,7 +50,7 @@ const fromTableParams = (params: Partial<SearchParams>): Record<string, string> 
         cursor: params.cursor,
         page: params.page,
         limit: (params.limit ?? DEFAULT_ITEMS_PER_PAGE).toString(),
-        q: params.q,
+        search: params.search,
         tag: params.tag ?? [],
         sort: params.sort,
         direction: params.direction,
@@ -64,35 +65,44 @@ export const useTableSearchParams = (initialParams: Partial<SearchParams> = {}) 
         ...fromTableParams(initialParams),
     })
 
-    const setParams = useCallback<(params: SearchParams | ((prev: SearchParams) => SearchParams)) => void>(next => {
-        if (typeof next === 'function') {
-            setSearchParams(prev => fromTableParams(next(toTableParams(prev))))
-        } else {
-            setSearchParams(fromTableParams(next))
-        }
-    }, [setSearchParams])
+    const setParams = useCallback<
+        (params: SearchParams | ((prev: SearchParams) => SearchParams)) => void
+    >(
+        (next) => {
+            if (typeof next === "function") {
+                setSearchParams((prev) => fromTableParams(next(toTableParams(prev))))
+            } else {
+                setSearchParams(fromTableParams(next))
+            }
+        },
+        [setSearchParams],
+    )
 
     const str = searchParams.toString()
 
-    return useMemo(() => [
-        toTableParams(new URLSearchParams(str)),
-        setParams,
-    ] as const, [str, setParams])
+    return useMemo(
+        () => [toTableParams(new URLSearchParams(str)), setParams] as const,
+        [str, setParams],
+    )
 }
 
 /**
  * local state
  */
 // eslint-disable-next-line react-refresh/only-export-components
-export function useSearchTableState<T>(loader: (params: SearchParams) => Promise<SearchResult<T> | null>, initialParams?: Partial<SearchParams>) {
-
+export function useSearchTableState<T>(
+    loader: (params: SearchParams) => Promise<SearchResult<T> | null>,
+    initialParams?: Partial<SearchParams>,
+) {
     const [params, setParams] = useState<SearchParams>({
         limit: 25,
-        q: '',
-        ...initialParams ?? {},
+        search: "",
+        ...(initialParams ?? {}),
     })
 
-    const [results, , reload] = useResolver(useCallback(async () => await loader(params), [loader, params]))
+    const [results, , reload] = useResolver(
+        useCallback(async () => await loader(params), [loader, params]),
+    )
 
     return {
         params,
@@ -113,11 +123,15 @@ export interface SearchTableQueryState<T> {
  * global query string state
  */
 // eslint-disable-next-line react-refresh/only-export-components
-export function useSearchTableQueryState<T>(loader: (params: SearchParams) => Promise<SearchResult<T> | null>, initialParams?: Partial<SearchParams>): SearchTableQueryState<T> {
-
+export function useSearchTableQueryState<T>(
+    loader: (params: SearchParams) => Promise<SearchResult<T> | null>,
+    initialParams?: Partial<SearchParams>,
+): SearchTableQueryState<T> {
     const [params, setParams] = useTableSearchParams(initialParams)
 
-    const [results, , reload] = useResolver(useCallback(async () => await loader(params), [loader, params]))
+    const [results, , reload] = useResolver(
+        useCallback(async () => await loader(params), [loader, params]),
+    )
 
     return {
         params,
@@ -135,15 +149,17 @@ export function SearchTable<T extends Record<string, any>>({
     results,
     searchPlaceholder,
     setParams,
-    tagEntity,
+    tagEntity: _tagEntity,
     filters: additionalFilters = [],
     title,
     ...rest
 }: SearchTableProps<T>) {
     const { t } = useTranslation()
-    const [search, setSearch] = useDebounceControl(params.q ?? '', q => setParams({ ...params, q }))
+    const [search, setSearch] = useDebounceControl(params.search ?? "", (search) =>
+        setParams({ ...params, search }),
+    )
     const columnSort = params.sort
-        ? { sort: params.sort, direction: params.direction ?? 'asc' }
+        ? { sort: params.sort, direction: params.direction ?? "asc" }
         : undefined
     const filters = []
     if (enableSearch) {
@@ -152,7 +168,7 @@ export function SearchTable<T extends Record<string, any>>({
                 <TextInput
                     name="search"
                     value={search}
-                    placeholder={searchPlaceholder ?? t('search')}
+                    placeholder={searchPlaceholder ?? t("search")}
                     onChange={setSearch}
                     hideLabel={true}
                     icon={<SearchIcon />}
@@ -167,26 +183,14 @@ export function SearchTable<T extends Record<string, any>>({
 
     return (
         <>
-            {
-
-                (title || actions || description) && (
-                    <Heading
-                        size="h3"
-                        title={title}
-                        actions={actions}
-                    >
-                        {description}
-                    </Heading>
-                )
-            }
-            {
-                filters.length > 0 && (
-                    <Stack>
-                        {filters}
-                    </Stack>
-                )
-            }
-            <DataTable {...rest}
+            {(title || actions || description) && (
+                <Heading size="h3" title={title} actions={actions}>
+                    {description}
+                </Heading>
+            )}
+            {filters.length > 0 && <Stack>{filters}</Stack>}
+            <DataTable
+                {...rest}
                 items={results?.results}
                 isLoading={!results}
                 columnSort={columnSort}
@@ -194,14 +198,16 @@ export function SearchTable<T extends Record<string, any>>({
                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     const { sort: _sort, direction: _direction, ...prevParams } = params
                     setParams({ ...prevParams, ...onSort })
-                }} />
+                }}
+            />
             {results && (
                 <div>
                     <Pagination
                         nextCursor={results.nextCursor}
                         prevCursor={results.prevCursor}
-                        onPrev={cursor => setParams({ ...params, cursor, page: 'prev' })}
-                        onNext={cursor => setParams({ ...params, cursor, page: 'next' })} />
+                        onPrev={(cursor) => setParams({ ...params, cursor, page: "prev" })}
+                        onNext={(cursor) => setParams({ ...params, cursor, page: "next" })}
+                    />
                 </div>
             )}
         </>

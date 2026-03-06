@@ -8,7 +8,7 @@ import (
 	"github.com/lunogram/platform/internal/providers/channels"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
@@ -16,7 +16,7 @@ import (
 	internalProviders "github.com/lunogram/platform/internal/providers"
 )
 
-func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *users.State, registry *internalProviders.Registry) HandlerFunc {
+func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		var event schemas.SendCampaign
 		if err := json.Unmarshal(msg.Data(), &event); err != nil {

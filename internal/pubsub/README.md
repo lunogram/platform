@@ -10,34 +10,66 @@ Events flow through a multi-stage pipeline that handles storage, schema extracti
 
 ```mermaid
 graph TB
-    Client[Client/API] -->|Submit Event| EventSubject["events.projects.{project_id}"]
-    Client -->|Submit User| UserSubject[["users.projects.{project_id}"]]
+    Client[Client/API] -->|Submit User Event| EventSubject["users.events.process.{project_id}"]
+    Client -->|Submit User| UserSubject["users.process.{project_id}"]
+    Client -->|Submit Organization| OrgSubject["organizations.process.{project_id}"]
+    Client -->|Submit Org User| OrgUserSubject["organizations.users.process.{project_id}"]
+    Client -->|Submit Org Event| OrgEventSubject["organizations.events.process.{project_id}"]
+    Client -->|Send Campaign| CampaignSubject["campaigns.send.{project_id}.{campaign_id}"]
+    Client -->|Execute Action| ActionSubject["actions.execute.{project_id}"]
 
-    EventSubject -->|Consume| EventHandler["Event Handler"]
+    EventSubject -->|Consume| EventHandler["User Event Handler"]
     UserSubject -->|Consume| UserHandler["User Handler"]
+    OrgSubject -->|Consume| OrgHandler["Organization Handler"]
+    OrgUserSubject -->|Consume| OrgUserHandler["Organization User Handler"]
+    OrgEventSubject -->|Consume| OrgEventHandler["Organization Event Handler"]
+    CampaignSubject -->|Consume| CampaignHandler["Campaign Send Handler"]
+    ActionSubject -->|Consume| ActionHandler["Action Execute Handler"]
 
     %% Schema publishing
-    EventHandler --> EventSchemaSubject[["events.schemas.{project_id}"]]
-    UserHandler --> UserSchemaSubject[["users.schemas.{project_id}"]]
+    EventHandler --> EventSchemaSubject["users.events.schema.{project_id}"]
+    UserHandler --> UserSchemaSubject["users.schema.{project_id}"]
+    OrgHandler --> OrgSchemaSubject["organizations.schema.{project_id}"]
+    OrgUserHandler --> OrgUserSchemaSubject["organizations.users.schema.{project_id}"]
+    OrgEventHandler --> OrgEventSchemaSubject["organizations.events.schema.{project_id}"]
 
-    %% Recompute triggers from events
-    EventHandler -->|Affected Lists| ListSubject[["recompute.lists.{project_id}.{list_id}"]]
-    EventHandler -->|Affected Journeys| JourneySubject[["journeys.state.{project_id}.{journey_id}"]]
+    %% Recompute triggers from user events
+    EventHandler -->|Affected Lists| ListSubject["lists.recompute.{project_id}.{list_id}"]
+    EventHandler -->|Affected Journeys| JourneySubject["journeys.advance.{project_id}.{journey_id}"]
 
     %% Recompute triggers from users
     UserHandler -->|Affected Lists| ListSubject
     UserHandler -->|User system events| EventSubject
 
+    %% Recompute triggers from organizations
+    OrgHandler -->|Affected Lists| ListSubject
+    OrgHandler -->|Org system events| OrgEventSubject
+    OrgUserHandler -->|Affected Lists| ListSubject
+    OrgUserHandler -->|Org user system events| OrgEventSubject
+
+    %% Recompute triggers from organization events
+    OrgEventHandler -->|Affected Lists| ListSubject
+    OrgEventHandler -->|Journeys for all org users| JourneySubject
+
     %% Schema handlers
-    EventSchemaSubject -->|Consume| EventSchemaHandler["Event Schema Handler"]
+    EventSchemaSubject -->|Consume| EventSchemaHandler["User Event Schema Handler"]
     UserSchemaSubject -->|Consume| UserSchemaHandler["User Schema Handler"]
+    OrgSchemaSubject -->|Consume| OrgSchemaHandler["Organization Schema Handler"]
+    OrgUserSchemaSubject -->|Consume| OrgUserSchemaHandler["Organization User Schema Handler"]
+    OrgEventSchemaSubject -->|Consume| OrgEventSchemaHandler["Organization Event Schema Handler"]
+
+    %% Action schema publishing
+    ActionHandler --> ActionSchemaSubject["actions.schema.{project_id}"]
+    ActionSchemaSubject -->|Consume| ActionSchemaHandler["Action Schema Handler"]
 
     ListSubject -->|Consume| ListRecompute["List Recomputation"]
-    JourneySubject -->|Consume| JourneyState["Journey State"]
+    JourneySubject -->|Consume| JourneyState["Journey State Handler"]
 
-    ListRecompute -->|Publish Jobs| ListJobSubject[["jobs.lists.{project_id}.{list_id}"]]
-    ListRecompute -->|List Membership Change| JourneySubject
+    %% Journey self-advancement and action execution
+    JourneyState -->|Child Steps| JourneySubject
+    JourneyState -->|Execute Action| ActionSubject
+    ActionHandler -->|Reply via Inbox| JourneyState
+    ActionHandler -->|Reply via Inbox| Client
 
-    ListJobSubject -->|Consume| ListJobHandler["List Job Handler"]
-    JourneyState["Journey State Handler"]
+    ListRecompute -->|List Membership Change| EventSubject
 ```

@@ -8,14 +8,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/management"
 )
 
 const (
 	ActionStepType     = "action"
 	BalancerStepType   = "balancer"
+	CampaignStepType   = "campaign"
 	DelayStepType      = "delay"
 	EventStepType      = "event"
 	ExitStepType       = "exit"
@@ -32,23 +35,27 @@ type Publisher interface {
 
 type HandlerContext struct {
 	context.Context
-	DB        *sqlx.DB
-	Publisher Publisher
-	ProjectID uuid.UUID
-	UserID    uuid.UUID
-	Step      journey.JourneyVersionStep
-	Data      map[string]any
+	DB             *sqlx.DB
+	Publisher      Publisher
+	ProjectID      uuid.UUID
+	UserID         uuid.UUID
+	Step           journey.JourneyVersionStep
+	Data           map[string]any
+	Management     *management.State
+	ActionRegistry *actions.Registry
 }
 
-func Handle(parent context.Context, db *sqlx.DB, pub pubsub.Publisher, projectID, userID uuid.UUID, step journey.JourneyVersionStep, state *journey.JourneyUserState, data map[string]any) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
+func Handle(parent context.Context, db *sqlx.DB, pub pubsub.Publisher, projectID, userID uuid.UUID, step journey.JourneyVersionStep, state *journey.JourneyUserState, data map[string]any, mgmt *management.State, actionRegistry *actions.Registry) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
 	ctx := HandlerContext{
-		Context:   parent,
-		DB:        db,
-		Publisher: pub,
-		ProjectID: projectID,
-		UserID:    userID,
-		Step:      step,
-		Data:      data,
+		Context:        parent,
+		DB:             db,
+		Publisher:      pub,
+		ProjectID:      projectID,
+		UserID:         userID,
+		Step:           step,
+		Data:           data,
+		Management:     mgmt,
+		ActionRegistry: actionRegistry,
 	}
 
 	var s journey.JourneyUserState
@@ -61,6 +68,8 @@ func Handle(parent context.Context, db *sqlx.DB, pub pubsub.Publisher, projectID
 		return HandleAction(ctx, step, s)
 	case BalancerStepType:
 		return HandleBalancer(ctx, step, s)
+	case CampaignStepType:
+		return HandleCampaign(ctx, step, s)
 	case DelayStepType:
 		return HandleDelay(ctx, step, s)
 	case EventStepType:

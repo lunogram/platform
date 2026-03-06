@@ -27,7 +27,7 @@ export default function EntranceDetails() {
 
   const entrance = userSteps[0];
   const error = userSteps.find((s) => s.type === "error");
-  const displayName = user.full_name ?? user.email ?? user.phone ?? user.id;
+  const displayName = user?.full_name ?? user?.email ?? user?.phone ?? user?.id;
 
   return (
     <PageContent

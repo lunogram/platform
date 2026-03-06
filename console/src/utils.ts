@@ -1,10 +1,10 @@
-import { parseISO, formatDuration as dateFnsFormatDuration, type Duration } from 'date-fns'
-import { format, toZonedTime } from 'date-fns-tz'
-import { organizationRoles, projectRoles } from './types'
-import type { OrganizationRole, Preferences, Project, ProjectRole } from './types'
-import { v4 } from 'uuid'
-import type { UUID } from '@/types/common'
-import type { SignOut } from '@clerk/types'
+import { parseISO, formatDuration as dateFnsFormatDuration, type Duration } from "date-fns"
+import { format, toZonedTime } from "date-fns-tz"
+import { organizationRoles, projectRoles } from "./types"
+import type { OrganizationRole, Preferences, Project, ProjectRole } from "./types"
+import { v4 } from "uuid"
+import type { UUID } from "@/types/common"
+import type { SignOut } from "@clerk/types"
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -21,14 +21,14 @@ export function round(n: number, places?: number) {
 }
 
 export const prune = (obj: Record<string, any>): Record<string, any> => {
-    return Object.fromEntries(
-        Object.entries(obj)
-            .filter(([_, v]) => v != null && v !== ''),
-    )
+    return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v != null && v !== ""))
 }
 
 export function snakeToTitle(snake: string) {
-    return (snake ?? '').split('_').map(p => p.charAt(0).toUpperCase() + p.substring(1)).join(' ')
+    return (snake ?? "")
+        .split("_")
+        .map((p) => p.charAt(0).toUpperCase() + p.substring(1))
+        .join(" ")
 }
 
 export function camelToTitle(camel: string) {
@@ -39,7 +39,7 @@ export function camelToTitle(camel: string) {
 }
 
 export function combine(...parts: Array<string | number>) {
-    return parts.filter(item => item != null).join(' ')
+    return parts.filter((item) => item != null).join(" ")
 }
 
 export function localStorageGetJson<T extends object>(key: string) {
@@ -83,36 +83,30 @@ export function debounce(fn: Function, ms = 300) {
 type DateArg = number | string | Date
 
 function parseDate(date: DateArg) {
-    if (typeof date === 'number') {
+    if (typeof date === "number") {
         return new Date(date)
     }
-    if (typeof date === 'string') {
+    if (typeof date === "string") {
         return parseISO(date)
     }
     return date
 }
 
-export function formatDate(preferences: Preferences, date: DateArg, fmt: string = 'Pp', timeZone = preferences.timeZone) {
+export function formatDate(
+    preferences: Preferences,
+    date: DateArg,
+    fmt: string = "Pp",
+    timeZone = preferences.timeZone,
+) {
     const zonedDate = toZonedTime(parseDate(date), timeZone)
     return format(zonedDate, fmt)
 }
 
 export function formatDuration(_preferences: Preferences, duration: Duration) {
     return dateFnsFormatDuration(duration, {
-        delimiter: ', ',
+        delimiter: ", ",
         // TODO locale
     })
-}
-
-export function languageName(locale: string) {
-    try {
-        const languages = new Intl.DisplayNames([locale], {
-            type: 'language',
-        })
-        return languages.of(locale)
-    } catch {
-        return undefined
-    }
 }
 
 export function createComparator<T>(getter: (o: T) => any, desc = false) {
@@ -146,14 +140,14 @@ export function arrayMove<T>(arr: T[], currentIndex: number, targetIndex: number
     if (targetIndex >= arr.length) {
         let k = targetIndex - arr.length + 1
         while (k--) {
-            (arr as any).push(undefined)
+            ;(arr as any).push(undefined)
         }
     }
     arr.splice(targetIndex, 0, arr.splice(currentIndex, 1)[0])
     return arr
 }
 
-const RECENT_PROJECTS = 'recent-projects'
+const RECENT_PROJECTS = "recent-projects"
 
 type RecentProjects = Array<{
     id: UUID
@@ -161,12 +155,12 @@ type RecentProjects = Array<{
 }>
 
 export function getRecentProjects() {
-    return (sessionStorageGetJson<RecentProjects>(RECENT_PROJECTS) ?? [])
+    return sessionStorageGetJson<RecentProjects>(RECENT_PROJECTS) ?? []
 }
 
 export function pushRecentProject(id: UUID) {
     const stored = getRecentProjects()
-    const idx = stored.findIndex(p => p.id === id)
+    const idx = stored.findIndex((p) => p.id === id)
     if (idx !== -1) {
         arrayMove(stored, idx, 0)
     } else {
@@ -183,26 +177,43 @@ export function pushRecentProject(id: UUID) {
 }
 
 export function completedGettingStarted(project: Project) {
-    return (project.campaigns_count ?? 0) > 0 && (project.journeys_count ?? 0) > 0 && (project.users_count ?? 0) > 0 && (project.lists_count ?? 0) > 0
+    return (
+        (project.campaigns_count ?? 0) > 0 &&
+        (project.journeys_count ?? 0) > 0 &&
+        (project.users_count ?? 0) > 0 &&
+        (project.lists_count ?? 0) > 0
+    )
 }
 
 /**
  * @returns true if user has at least the minRole
  */
-export function checkProjectRole(minRole: ProjectRole, currentRole: ProjectRole = 'support') {
+export function checkProjectRole(minRole: ProjectRole, currentRole: ProjectRole = "support") {
     return projectRoles.indexOf(minRole) <= projectRoles.indexOf(currentRole)
 }
 
-export function checkOrganizationRole(minRole: OrganizationRole, currentRole: OrganizationRole = 'member') {
+export function checkOrganizationRole(
+    minRole: OrganizationRole,
+    currentRole: OrganizationRole = "member",
+) {
     return organizationRoles.indexOf(minRole) <= organizationRoles.indexOf(currentRole)
+}
+
+function clearAuthCookies() {
+    const cookieNames = ["__session", "oauth", "csrf_token"]
+    for (const name of cookieNames) {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+    }
 }
 
 export async function logout(signOut: SignOut | undefined) {
     if (signOut) {
         await signOut()
+    } else {
+        clearAuthCookies()
     }
 
-    window.location.href = '/login'
+    window.location.href = "/login"
 }
 
 export function cn(...inputs: ClassValue[]) {

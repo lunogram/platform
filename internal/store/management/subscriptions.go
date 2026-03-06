@@ -198,7 +198,7 @@ func (s *SubscriptionsStore) Unsubscribe(ctx context.Context, userID, subscripti
 	// Insert unsubscribe record
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO user_subscription (user_id, subscription_id, state, created_at, updated_at)
-		VALUES ($1, $2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, userID, subscriptionID)
+		VALUES ($1, $2, 1, NOW(), NOW())`, userID, subscriptionID)
 	return err
 }
 
@@ -253,7 +253,7 @@ func (s *SubscriptionsStore) ListSubscriptions(ctx context.Context, projectID uu
 func (s *SubscriptionsStore) UpdateSubscription(ctx context.Context, subscriptionID uuid.UUID, name string, isPublic bool) error {
 	stmt := `
 	UPDATE subscriptions
-	SET name = $1, is_public = $2, updated_at = CURRENT_TIMESTAMP
+	SET name = $1, is_public = $2, updated_at = NOW()
 	WHERE id = $3`
 
 	_, err := s.db.ExecContext(ctx, stmt, name, isPublic, subscriptionID)

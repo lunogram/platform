@@ -9,116 +9,225 @@ import (
 	"go.uber.org/zap"
 )
 
-func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream) error {
-	logger.Info("bootstrapping pubsub streams and consumers...")
+func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream, ns Namespace) error {
+	logger.Info("bootstrapping pubsub streams and consumers...", zap.String("namespace", string(ns)))
 	bootstrap := NewBootstrapper(logger, jet)
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
-		Name:        StreamUsers,
+		Name:        ns.Stream(StreamUsers),
 		Description: "Responsible for receiving incoming users",
-		Subjects:    []string{"users.>"},
+		Subjects:    []string{ns.Subject("users.process.>"), ns.Subject("users.schema.>")},
 		Discard:     jetstream.DiscardOld,
 		MaxAge:      24 * time.Hour,
 		Replicas:    1,
 	})
 
-	bootstrap.EnsureConsumer(ctx, StreamUsers, jetstream.ConsumerConfig{
-		Name:          ConsumerUsersProcess,
-		FilterSubject: "users.process.>",
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUsers), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerUsersProcess),
+		FilterSubject: ns.Subject("users.process.>"),
 		Description:   "Processes incoming users",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		MaxDeliver:    5,
 	})
 
-	bootstrap.EnsureConsumer(ctx, StreamUsers, jetstream.ConsumerConfig{
-		Name:          ConsumerUsersSchema,
-		FilterSubject: "users.schema.>",
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUsers), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerUsersSchema),
+		FilterSubject: ns.Subject("users.schema.>"),
 		Description:   "Processes user schema definitions",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		MaxDeliver:    5,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
-		Name:        StreamEvents,
-		Description: "Responsible for receiving incoming events",
-		Subjects:    []string{"events.>"},
+		Name:        ns.Stream(StreamUserEvents),
+		Description: "Responsible for receiving incoming user events",
+		Subjects:    []string{ns.Subject("users.events.>")},
 		Discard:     jetstream.DiscardOld,
 		MaxAge:      24 * time.Hour,
 		Replicas:    1,
 	})
 
-	bootstrap.EnsureConsumer(ctx, StreamEvents, jetstream.ConsumerConfig{
-		Name:          ConsumerEventsProcess,
-		FilterSubject: "events.process.>",
-		Description:   "Processes incoming events",
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUserEvents), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerUserEventsProcess),
+		FilterSubject: ns.Subject("users.events.process.>"),
+		Description:   "Processes incoming user events",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		MaxDeliver:    5,
 	})
 
-	bootstrap.EnsureConsumer(ctx, StreamEvents, jetstream.ConsumerConfig{
-		Name:          ConsumerEventsSchema,
-		FilterSubject: "events.schema.>",
-		Description:   "Processes event schema definitions",
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUserEvents), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerUserEventsSchema),
+		FilterSubject: ns.Subject("users.events.schema.>"),
+		Description:   "Processes user event schema definitions",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		MaxDeliver:    5,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
-		Name:        StreamLists,
+		Name:        ns.Stream(StreamLists),
 		Description: "List recomputation triggers",
-		Subjects:    []string{"lists.>"},
+		Subjects:    []string{ns.Subject("lists.>")},
 		Discard:     jetstream.DiscardOld,
 		MaxAge:      24 * time.Hour,
 		Replicas:    1,
 	})
 
-	bootstrap.EnsureConsumer(ctx, StreamLists, jetstream.ConsumerConfig{
-		Name:          ConsumerListsRecompute,
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamLists), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerListsRecompute),
 		Description:   "Processes list recomputation requests",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: "lists.recompute.>",
+		FilterSubject: ns.Subject("lists.recompute.>"),
 		MaxDeliver:    5,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
-		Name:        StreamJourneys,
+		Name:        ns.Stream(StreamJourneys),
 		Description: "Journey advancement and orchestration",
-		Subjects:    []string{"journeys.>"},
+		Subjects:    []string{ns.Subject("journeys.>")},
 		Discard:     jetstream.DiscardOld,
 		MaxAge:      24 * time.Hour,
 		Replicas:    1,
 	})
 
-	bootstrap.EnsureConsumer(ctx, StreamJourneys, jetstream.ConsumerConfig{
-		Name:          ConsumerJourneysAdvance,
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamJourneys), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerJourneysAdvance),
 		Description:   "Processes journey advancement requests",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: "journeys.advance.>",
+		FilterSubject: ns.Subject("journeys.advance.>"),
 		MaxDeliver:    5,
 	})
 
-	bootstrap.EnsureConsumer(ctx, StreamJourneys, jetstream.ConsumerConfig{
-		Name:          ConsumerJourneysAdvanceUser,
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamJourneys), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerJourneysAdvanceUser),
 		Description:   "Processes journey advancement requests per specific user",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: "journeys.advance.>",
+		FilterSubject: ns.Subject("journeys.advance.>"),
 		MaxDeliver:    5,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
-		Name:        StreamCampaigns,
+		Name:        ns.Stream(StreamCampaigns),
 		Description: "Campaign sending and execution",
-		Subjects:    []string{"campaigns.>"},
+		Subjects:    []string{ns.Subject("campaigns.>")},
 		Discard:     jetstream.DiscardOld,
 		MaxAge:      24 * time.Hour,
 		Replicas:    1,
 	})
 
-	bootstrap.EnsureConsumer(ctx, StreamCampaigns, jetstream.ConsumerConfig{
-		Name:          ConsumerCampaignsSend,
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamCampaigns), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerCampaignsSend),
 		Description:   "Processes campaign send requests",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: "campaigns.send.>",
+		FilterSubject: ns.Subject("campaigns.send.>"),
+		MaxDeliver:    5,
+	})
+
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        ns.Stream(StreamOrganizations),
+		Description: "Organization processing and schema extraction",
+		Subjects:    []string{ns.Subject("organizations.process.>"), ns.Subject("organizations.schema.>")},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizations), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationsProcess),
+		Description:   "Processes incoming organizations",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("organizations.process.>"),
+		MaxDeliver:    5,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizations), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationsSchema),
+		Description:   "Processes organization schema definitions",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("organizations.schema.>"),
+		MaxDeliver:    5,
+	})
+
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        ns.Stream(StreamOrganizationUsers),
+		Description: "Organization user membership processing",
+		Subjects:    []string{ns.Subject("organizations.users.>")},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationUsers), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationUsersProcess),
+		Description:   "Processes organization user memberships",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("organizations.users.process.>"),
+		MaxDeliver:    5,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationUsers), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationUsersSchema),
+		Description:   "Processes organization user schema definitions",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("organizations.users.schema.>"),
+		MaxDeliver:    5,
+	})
+
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        ns.Stream(StreamOrganizationEvents),
+		Description: "Organization event processing",
+		Subjects:    []string{ns.Subject("organizations.events.>")},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationEvents), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationEventsProcess),
+		Description:   "Processes incoming organization events",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("organizations.events.process.>"),
+		MaxDeliver:    5,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationEvents), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationEventsSchema),
+		Description:   "Processes organization event schema definitions",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("organizations.events.schema.>"),
+		MaxDeliver:    5,
+	})
+
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        ns.Stream(StreamActions),
+		Description: "Action schema extraction",
+		Subjects:    []string{ns.Subject("actions.schema.>")},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamActions), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerActionsSchema),
+		Description:   "Processes action execution schema definitions",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("actions.schema.>"),
+		MaxDeliver:    5,
+	})
+
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        ns.Stream(StreamProjects),
+		Description: "Project event processing",
+		Subjects:    []string{ns.Subject("projects.events.>")},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamProjects), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerProjectEventsProcess),
+		Description:   "Processes incoming project events",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("projects.events.>"),
 		MaxDeliver:    5,
 	})
 

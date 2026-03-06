@@ -1,13 +1,8 @@
-import * as React from 'react'
-import type {
-    ToasterProps,
-    ToastPosition} from 'react-hot-toast/headless';
-import {
-    resolveValue,
-    useToaster,
-} from 'react-hot-toast/headless'
-import ToastBar from './ToastBar'
-import './Toast.css'
+import * as React from "react"
+import type { ToasterProps, ToastPosition } from "react-hot-toast/headless"
+import { resolveValue, useToaster } from "react-hot-toast/headless"
+import ToastBar from "./ToastBar"
+import "./Toast.css"
 
 export interface ToastWrapperProps {
     id: string
@@ -17,27 +12,23 @@ export interface ToastWrapperProps {
     children?: React.ReactNode
 }
 
-const ToastWrapper = ({
-    id,
-    className,
-    style,
-    onHeightUpdate,
-    children,
-}: ToastWrapperProps) => {
-    const ref = React.useCallback((el: HTMLElement | null) => {
-        if (el) {
-            const updateHeight = () => {
-                const height = el.getBoundingClientRect().height
-                onHeightUpdate(id, height)
+const ToastWrapper = ({ id, className, style, onHeightUpdate, children }: ToastWrapperProps) => {
+    const ref = React.useCallback(
+        (el: HTMLElement | null) => {
+            if (el) {
+                const updateHeight = () => {
+                    const height = el.getBoundingClientRect().height
+                    onHeightUpdate(id, height)
+                }
+                updateHeight()
+                new MutationObserver(updateHeight).observe(el, {
+                    subtree: true,
+                    childList: true,
+                    characterData: true,
+                })
             }
-            updateHeight()
-            new MutationObserver(updateHeight).observe(el, {
-                subtree: true,
-                childList: true,
-                characterData: true,
-            })
-        }
-    }, [id, onHeightUpdate],
+        },
+        [id, onHeightUpdate],
     )
 
     return (
@@ -47,23 +38,20 @@ const ToastWrapper = ({
     )
 }
 
-const getPositionStyle = (
-    position: ToastPosition,
-    offset: number,
-): React.CSSProperties => {
-    const top = position.includes('top')
+const getPositionStyle = (position: ToastPosition, offset: number): React.CSSProperties => {
+    const top = position.includes("top")
     const verticalStyle: React.CSSProperties = top ? { top: 0 } : { bottom: 0 }
-    const horizontalStyle: React.CSSProperties = position.includes('center')
-        ? { justifyContent: 'center' }
-        : position.includes('right')
-            ? { justifyContent: 'flex-end' }
-            : {}
+    const horizontalStyle: React.CSSProperties = position.includes("center")
+        ? { justifyContent: "center" }
+        : position.includes("right")
+          ? { justifyContent: "flex-end" }
+          : {}
     return {
         left: 0,
         right: 0,
-        display: 'flex',
-        position: 'absolute',
-        transition: 'all 230ms cubic-bezier(.21,1.02,.73,1)',
+        display: "flex",
+        position: "absolute",
+        transition: "all 230ms cubic-bezier(.21,1.02,.73,1)",
         transform: `translateY(${offset * (top ? 1 : -1)}px)`,
         ...verticalStyle,
         ...horizontalStyle,
@@ -73,7 +61,7 @@ const getPositionStyle = (
 const DEFAULT_OFFSET = 16
 export const Toaster: React.FC<ToasterProps> = ({
     reverseOrder,
-    position = 'top-center',
+    position = "top-center",
     toastOptions,
     gutter,
     children,
@@ -85,13 +73,13 @@ export const Toaster: React.FC<ToasterProps> = ({
     return (
         <div
             style={{
-                position: 'fixed',
+                position: "fixed",
                 zIndex: 9999,
                 top: DEFAULT_OFFSET,
                 left: DEFAULT_OFFSET,
                 right: DEFAULT_OFFSET,
                 bottom: DEFAULT_OFFSET,
-                pointerEvents: 'none',
+                pointerEvents: "none",
                 ...containerStyle,
             }}
             className={containerClassName}
@@ -112,15 +100,16 @@ export const Toaster: React.FC<ToasterProps> = ({
                         id={t.id}
                         key={t.id}
                         onHeightUpdate={handlers.updateHeight}
-                        className={t.visible ? 'active' : ''}
+                        className={t.visible ? "active" : ""}
                         style={positionStyle}
                     >
-                        {t.type === 'custom'
-                            ? resolveValue(t.message, t)
-                            : children
-                                ? children(t)
-                                : <ToastBar toast={t} position={toastPosition} />
-                        }
+                        {t.type === "custom" ? (
+                            resolveValue(t.message, t)
+                        ) : children ? (
+                            children(t)
+                        ) : (
+                            <ToastBar toast={t} position={toastPosition} />
+                        )}
                     </ToastWrapper>
                 )
             })}

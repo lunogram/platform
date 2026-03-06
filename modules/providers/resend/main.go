@@ -32,14 +32,31 @@ func Manifest() int32 {
 			Channels: []providers.Channel{providers.ChannelEmail},
 			Config: &modules.JSONSchema{
 				Type: "object",
-				Properties: map[string]*modules.JSONSchema{
-					"data": {
-						Type: "object",
-						Properties: map[string]*modules.JSONSchema{
-							"apiKey": {Type: "string", Title: "Resend API Key", Format: "password"},
-							"from":   {Type: "string", Title: "Default From Address", Description: "Default 'from' email address"},
+				Properties: []modules.JSONSchemaProperty{
+					{
+						Name: "data",
+						Schema: &modules.JSONSchema{
+							Type: "object",
+							Properties: []modules.JSONSchemaProperty{
+								{
+									Name:   "apiKey",
+									Schema: &modules.JSONSchema{Type: "string", Title: "Resend API Key", Format: "password"},
+								},
+								{
+									Name:   "default_from",
+									Schema: &modules.JSONSchema{Type: "string", Title: "Default From Address", Description: "Default sender email address"},
+								},
+								{
+									Name:   "default_from_name",
+									Schema: &modules.JSONSchema{Type: "string", Title: "Default From Name", Description: "Default sender display name"},
+								},
+								{
+									Name:   "default_from_locked",
+									Schema: &modules.JSONSchema{Type: "boolean", Title: "Lock From Address", Description: "Prevent templates from overriding the from address"},
+								},
+							},
+							Required: []string{"apiKey"},
 						},
-						Required: []string{"apiKey"},
 					},
 				},
 			},

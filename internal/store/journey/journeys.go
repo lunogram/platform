@@ -326,7 +326,7 @@ func (s *JourneysStore) CreateJourney(ctx context.Context, journey Journey) (uui
 	return id, nil
 }
 
-func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Journeys, int, error) {
+func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string) (Journeys, int, error) {
 	query := `
 	SELECT
 		id,
@@ -339,6 +339,7 @@ func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, p
 		COUNT(*) OVER () AS total_count
 	FROM journeys
 	WHERE project_id = $1 AND deleted_at IS NULL
+	AND ($4 = '' OR name ILIKE '%' || $4 || '%')
 	ORDER BY created_at DESC
 	LIMIT $2 OFFSET $3`
 
@@ -348,7 +349,7 @@ func (s *JourneysStore) ListJourneys(ctx context.Context, projectID uuid.UUID, p
 	}
 
 	var results []rows
-	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset)
+	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset, search)
 	if err != nil {
 		return nil, 0, err
 	}

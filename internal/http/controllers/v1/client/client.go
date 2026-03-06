@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -11,11 +13,11 @@ import (
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
-func NewClientController(logger *zap.Logger, db *sqlx.DB, usrs *users.State, pub pubsub.Publisher) *ClientController {
+func NewClientController(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub pubsub.Publisher) *ClientController {
 	return &ClientController{
 		logger: logger,
 		db:     db,
@@ -27,7 +29,7 @@ func NewClientController(logger *zap.Logger, db *sqlx.DB, usrs *users.State, pub
 type ClientController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	users  *users.State
+	users  *subjects.State
 	pubsub pubsub.Publisher
 }
 
@@ -59,7 +61,7 @@ func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request) 
 	logger.Info("posting events")
 
 	for _, event := range events {
-		msg := schemas.Event{
+		msg := schemas.UserEvent{
 			ProjectID:   projectID,
 			Name:        event.Name,
 			AnonymousId: event.AnonymousId,
@@ -67,7 +69,7 @@ func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request) 
 			ExternalId:  event.ExternalId,
 		}
 
-		err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.EventsProcess(projectID)), msg)
+		err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), msg)
 		if err != nil {
 			logger.Error("failed to publish event", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal())
@@ -121,14 +123,14 @@ func (srv *ClientController) IdentifyUserClient(w http.ResponseWriter, r *http.R
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	usersStore := users.NewUsersStore(tx)
+	usersStore := subjects.NewUsersStore(tx)
 
 	var data map[string]any
 	if req.Data != nil {
 		data = *req.Data
 	}
 
-	params := users.UpsertUserParams{
+	params := subjects.UpsertUserParams{
 		AnonymousID: req.AnonymousId,
 		ExternalID:  req.ExternalId,
 		Email:       req.Email,
@@ -174,4 +176,365 @@ func (srv *ClientController) IdentifyUserClient(w http.ResponseWriter, r *http.R
 
 	logger.Info("user identified successfully", zap.String("user_id", user.ID.String()))
 	json.Write(w, http.StatusOK, user.OAPI())
+}
+
+func (srv *ClientController) UpsertOrganizationClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	scope := rbac.FromContext(ctx)
+	if scope == nil {
+		srv.logger.Error("rbac scope not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	projectID := scope.ProjectID
+	if projectID == uuid.Nil {
+		srv.logger.Error("project_id is required")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	var req oapi.OrganizationRequest
+	err := json.Decode(r.Body, &req)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.String("external_id", req.ExternalId),
+	)
+	logger.Info("upserting organization")
+
+	var data map[string]any
+	if req.Data != nil {
+		data = *req.Data
+	}
+
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+	orgsStore := subjects.NewOrganizationsStore(tx)
+
+	params := subjects.UpsertOrganizationParams{
+		ExternalID: req.ExternalId,
+		Name:       req.Name,
+		Data:       data,
+	}
+
+	orgID, err := orgsStore.UpsertOrganization(ctx, projectID, params)
+	if err != nil {
+		logger.Error("failed to upsert organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	org, err := orgsStore.GetOrganization(ctx, projectID, orgID)
+	if err != nil {
+		logger.Error("failed to get organization after upsert", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	// Publish to pubsub for schema extraction
+	msg := schemas.Organization{
+		ID:         org.ID,
+		ProjectID:  projectID,
+		ExternalID: org.ExternalID,
+		Name:       org.Name,
+		Data:       data,
+		Version:    org.Version,
+	}
+
+	err = srv.pubsub.Publish(ctx, schemas.OrganizationsProcess(projectID), msg)
+	if err != nil {
+		logger.Error("failed to publish organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("organization upserted", zap.String("organization_id", org.ID.String()))
+	json.Write(w, http.StatusOK, orgToClientOAPI(org))
+}
+
+func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	scope := rbac.FromContext(ctx)
+	if scope == nil {
+		srv.logger.Error("rbac scope not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	projectID := scope.ProjectID
+	if projectID == uuid.Nil {
+		srv.logger.Error("project_id is required")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	var req oapi.OrganizationUserRequest
+	err := json.Decode(r.Body, &req)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.String("org_external_id", req.OrganizationExternalId),
+		zap.String("user_external_id", req.UserExternalId),
+	)
+	logger.Info("adding user to organization")
+
+	tx, err := srv.db.BeginTxx(ctx, nil)
+	if err != nil {
+		logger.Error("failed to begin transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	defer tx.Rollback() //nolint:errcheck
+	orgsStore := subjects.NewOrganizationsStore(tx)
+	usersStore := subjects.NewUsersStore(tx)
+
+	// Look up organization by external ID
+	orgID, err := orgsStore.LookupOrganizationID(ctx, projectID, req.OrganizationExternalId)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("organization not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to lookup organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	// Look up user by external ID
+	userID, err := usersStore.LookupUserID(ctx, projectID, &req.UserExternalId, nil)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to lookup user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	var data map[string]any
+	if req.Data != nil {
+		data = *req.Data
+	}
+
+	orgUser, err := orgsStore.UpsertAndGetOrganizationMember(ctx, orgID, userID, data)
+	if err != nil {
+		logger.Error("failed to add user to organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	msg := schemas.OrganizationUser{
+		OrganizationID:         orgID,
+		OrganizationExternalID: req.OrganizationExternalId,
+		UserID:                 userID,
+		ProjectID:              projectID,
+		Data:                   data,
+		Version:                orgUser.Version,
+	}
+
+	err = srv.pubsub.Publish(ctx, schemas.OrganizationUsersProcess(projectID), msg)
+	if err != nil {
+		logger.Error("failed to publish organization user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		logger.Error("failed to commit transaction", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("user added to organization")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (srv *ClientController) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	scope := rbac.FromContext(ctx)
+	if scope == nil {
+		srv.logger.Error("rbac scope not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	projectID := scope.ProjectID
+	if projectID == uuid.Nil {
+		srv.logger.Error("project_id is required")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	var req oapi.RemoveOrganizationUserRequest
+	err := json.Decode(r.Body, &req)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.String("org_external_id", req.OrganizationExternalId),
+		zap.String("user_external_id", req.UserExternalId),
+	)
+	logger.Info("removing user from organization")
+
+	// Look up organization by external ID
+	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, req.OrganizationExternalId)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("organization not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to lookup organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	// Look up user by external ID
+	userID, err := srv.users.LookupUserID(ctx, projectID, &req.UserExternalId, nil)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to lookup user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	err = srv.users.RemoveUserFromOrganization(ctx, orgID, userID)
+	if err != nil {
+		logger.Error("failed to remove user from organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("user removed from organization")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *ClientController) PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	scope := rbac.FromContext(ctx)
+	if scope == nil {
+		srv.logger.Error("rbac scope not found in context")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	projectID := scope.ProjectID
+	if projectID == uuid.Nil {
+		srv.logger.Error("project_id is required")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	var events oapi.PostOrganizationEventsRequest
+	err := json.Decode(r.Body, &events)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Int("events", len(events)))
+	logger.Info("posting organization events")
+
+	for _, event := range events {
+		// Look up organization by external ID
+		orgID, err := srv.users.LookupOrganizationID(ctx, projectID, event.OrganizationExternalId)
+		if errors.Is(err, sql.ErrNoRows) {
+			logger.Warn("organization not found, skipping event",
+				zap.String("org_external_id", event.OrganizationExternalId),
+				zap.String("event_name", event.Name))
+			continue
+		}
+		if err != nil {
+			logger.Error("failed to lookup organization", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+
+		var data map[string]any
+		if event.Data != nil {
+			data = *event.Data
+		}
+
+		msg := schemas.OrganizationEvent{
+			Name:                   event.Name,
+			ProjectID:              projectID,
+			OrganizationID:         orgID,
+			OrganizationExternalID: event.OrganizationExternalId,
+			Data:                   data,
+		}
+
+		err = srv.pubsub.Publish(ctx, schemas.OrganizationEventsProcess(projectID), msg)
+		if err != nil {
+			logger.Error("failed to publish organization event", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+	}
+
+	logger.Info("organization events processed successfully")
+	w.WriteHeader(http.StatusAccepted)
+}
+
+// orgToClientOAPI converts a subjects.Organization to client oapi.Organization
+func orgToClientOAPI(org *subjects.Organization) oapi.Organization {
+	var data map[string]any
+	if org.Data != nil {
+		_ = json.Unmarshal(org.Data, &data)
+	}
+	if data == nil {
+		data = make(map[string]any)
+	}
+
+	return oapi.Organization{
+		Id:         org.ID,
+		ProjectId:  org.ProjectID,
+		ExternalId: org.ExternalID,
+		Name:       org.Name,
+		Data:       data,
+		Version:    org.Version,
+		CreatedAt:  org.CreatedAt,
+		UpdatedAt:  org.UpdatedAt,
+	}
 }

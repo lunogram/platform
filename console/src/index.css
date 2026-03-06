@@ -371,4 +371,15 @@ code {
     body {
         @apply bg-background text-foreground;
     }
+  .maplibregl-popup-content {
+    @apply bg-transparent! shadow-none! p-0! rounded-none!;
+    }
+  .maplibregl-popup-tip {
+    @apply hidden!;
+    }
+  .ambient-map .maplibregl-ctrl-attrib,
+  .ambient-map .maplibregl-ctrl-bottom-right,
+  .ambient-map .maplibregl-ctrl-bottom-left {
+    @apply hidden!;
+    }
 }

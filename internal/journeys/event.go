@@ -7,7 +7,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/osteele/liquid"
 )
 
@@ -34,13 +34,13 @@ func HandleEvent(ctx HandlerContext, step journey.JourneyVersionStep, state jour
 		}
 	}
 
-	usersStore := users.NewUsersStore(ctx.DB)
+	usersStore := subjects.NewUsersStore(ctx.DB)
 	user, err := usersStore.GetUser(ctx, ctx.ProjectID, ctx.UserID)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	event := schemas.Event{
+	event := schemas.UserEvent{
 		Name:        config.EventName,
 		ProjectID:   ctx.ProjectID,
 		UserID:      ctx.UserID,
@@ -49,7 +49,7 @@ func HandleEvent(ctx HandlerContext, step journey.JourneyVersionStep, state jour
 		Data:        payload,
 	}
 
-	err = ctx.Publisher.Publish(ctx, schemas.Subject(schemas.EventsProcess(ctx.ProjectID)), event)
+	err = ctx.Publisher.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(ctx.ProjectID)), event)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to publish event: %w", err)
 	}

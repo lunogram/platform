@@ -18,7 +18,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
@@ -26,7 +26,7 @@ func NewListsController(logger *zap.Logger, usersDB *sqlx.DB, projects *manageme
 	return &ListsController{
 		logger:        logger,
 		usersDB:       usersDB,
-		store:         users.NewState(usersDB),
+		store:         subjects.NewState(usersDB),
 		projects:      projects,
 		maxUploadSize: maxUploadSize,
 		pub:           pub,
@@ -36,7 +36,7 @@ func NewListsController(logger *zap.Logger, usersDB *sqlx.DB, projects *manageme
 type ListsController struct {
 	logger        *zap.Logger
 	usersDB       *sqlx.DB
-	store         *users.State
+	store         *subjects.State
 	projects      *management.ProjectsStore
 	maxUploadSize int64
 	pub           pubsub.Publisher
@@ -75,17 +75,26 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	lists := users.NewListsStore(tx)
-	rules := users.NewRulesStore(tx)
-	events := users.NewEventsStore(tx)
+	lists := subjects.NewListsStore(tx)
+	rules := subjects.NewRulesStore(tx)
+	events := subjects.NewEventsStore(tx)
 
 	var ruleID *uuid.UUID
 
 	if body.Type == oapi.CreateListTypeDynamic && body.Rule != nil {
-		for _, event := range body.Rule.Events() {
-			_, err := events.UpsertEvent(ctx, projectID, event)
+		for _, event := range body.Rule.UserEvents() {
+			_, err := events.UpsertEvent(ctx, projectID, event, subjects.SubjectTypeUser)
 			if err != nil {
 				logger.Error("failed to upsert event", zap.String("event", event), zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
+		}
+
+		for _, event := range body.Rule.OrganizationEvents() {
+			_, err := events.UpsertEvent(ctx, projectID, event, subjects.SubjectTypeOrganization)
+			if err != nil {
+				logger.Error("failed to upsert organization event", zap.String("event", event), zap.Error(err))
 				oapi.WriteProblem(w, err)
 				return
 			}
@@ -98,7 +107,22 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 			return
 		}
 
-		err = rules.SetRuleEventDependencies(ctx, projectID, id, body.Rule.Events())
+		eventDeps := make([]subjects.EventDependency, 0, len(body.Rule.UserEvents())+len(body.Rule.OrganizationEvents()))
+		for _, event := range body.Rule.UserEvents() {
+			eventDeps = append(eventDeps, subjects.EventDependency{
+				Name:        event,
+				SubjectType: subjects.SubjectTypeUser,
+			})
+		}
+
+		for _, event := range body.Rule.OrganizationEvents() {
+			eventDeps = append(eventDeps, subjects.EventDependency{
+				Name:        event,
+				SubjectType: subjects.SubjectTypeOrganization,
+			})
+		}
+
+		err = rules.SetRuleEventDependencies(ctx, projectID, id, eventDeps)
 		if err != nil {
 			logger.Error("failed to set rule event dependencies", zap.Error(err))
 			oapi.WriteProblem(w, err)
@@ -108,10 +132,10 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 		ruleID = &id
 	}
 
-	listID, err := lists.CreateList(ctx, users.List{
+	listID, err := lists.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      body.Name,
-		Type:      users.ListType(body.Type),
+		Type:      subjects.ListType(body.Type),
 		RuleID:    ruleID,
 	})
 	if err != nil {
@@ -148,7 +172,9 @@ func (srv *ListsController) ListLists(w http.ResponseWriter, r *http.Request, pr
 		Offset: params.Offset.ToInt(),
 	}
 
-	result, total, err := srv.store.ListLists(ctx, projectID, pagination)
+	search := params.Search.ToString()
+
+	result, total, err := srv.store.ListLists(ctx, projectID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list lists", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -220,19 +246,28 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 
 	defer tx.Rollback() //nolint:errcheck
 
-	lists := users.NewListsStore(tx)
-	rules := users.NewRulesStore(tx)
-	events := users.NewEventsStore(tx)
+	lists := subjects.NewListsStore(tx)
+	rules := subjects.NewRulesStore(tx)
+	events := subjects.NewEventsStore(tx)
 
-	update := users.ListUpdate{
+	update := subjects.ListUpdate{
 		Name: &body.Name,
 	}
 
 	if body.Rule != nil {
-		for _, event := range body.Rule.Events() {
-			_, err := events.UpsertEvent(ctx, projectID, event)
+		for _, event := range body.Rule.UserEvents() {
+			_, err := events.UpsertEvent(ctx, projectID, event, subjects.SubjectTypeUser)
 			if err != nil {
 				logger.Error("failed to upsert event", zap.String("event", event), zap.Error(err))
+				oapi.WriteProblem(w, err)
+				return
+			}
+		}
+
+		for _, event := range body.Rule.OrganizationEvents() {
+			_, err := events.UpsertEvent(ctx, projectID, event, subjects.SubjectTypeOrganization)
+			if err != nil {
+				logger.Error("failed to upsert organization event", zap.String("event", event), zap.Error(err))
 				oapi.WriteProblem(w, err)
 				return
 			}
@@ -245,7 +280,22 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 			return
 		}
 
-		err = rules.SetRuleEventDependencies(ctx, projectID, id, body.Rule.Events())
+		eventDeps := make([]subjects.EventDependency, 0, len(body.Rule.UserEvents())+len(body.Rule.OrganizationEvents()))
+		for _, event := range body.Rule.UserEvents() {
+			eventDeps = append(eventDeps, subjects.EventDependency{
+				Name:        event,
+				SubjectType: subjects.SubjectTypeUser,
+			})
+		}
+
+		for _, event := range body.Rule.OrganizationEvents() {
+			eventDeps = append(eventDeps, subjects.EventDependency{
+				Name:        event,
+				SubjectType: subjects.SubjectTypeOrganization,
+			})
+		}
+
+		err = rules.SetRuleEventDependencies(ctx, projectID, id, eventDeps)
 		if err != nil {
 			logger.Error("failed to set rule event dependencies", zap.Error(err))
 			oapi.WriteProblem(w, err)
@@ -380,7 +430,7 @@ func (srv *ListsController) ImportListUsers(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if list.Type != users.ListTypeStatic {
+	if list.Type != subjects.ListTypeStatic {
 		logger.Error("list is not static", zap.String("type", string(list.Type)))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("only static lists support user imports")))
 		return
@@ -437,7 +487,7 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	stores := users.NewState(tx)
+	stores := subjects.NewState(tx)
 
 	for {
 		record, err := reader.Read()
@@ -497,7 +547,9 @@ func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request,
 		Offset: params.Offset.ToInt(),
 	}
 
-	users, total, err := srv.store.SelectListUsers(ctx, projectID, listID, pagination)
+	search := params.Search.ToString()
+
+	users, total, err := srv.store.SelectListUsers(ctx, projectID, listID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list list users", zap.Error(err))
 		oapi.WriteProblem(w, err)

@@ -9,7 +9,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
-	"github.com/lunogram/platform/internal/store/users"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
@@ -17,17 +17,17 @@ func NewEventsController(logger *zap.Logger, db *sqlx.DB) *EventsController {
 	return &EventsController{
 		logger: logger,
 		db:     db,
-		store:  users.NewState(db),
+		store:  subjects.NewState(db),
 	}
 }
 
 type EventsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
-	store  *users.State
+	store  *subjects.State
 }
 
-func (srv *EventsController) ListEvents(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+func (srv *EventsController) ListUserEventSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 	_, ok := claim.FromContext(ctx)
 	if !ok {
@@ -37,9 +37,9 @@ func (srv *EventsController) ListEvents(w http.ResponseWriter, r *http.Request, 
 	}
 
 	logger := srv.logger.With(zap.String("project_id", projectID.String()))
-	logger.Info("listing events")
+	logger.Info("listing user event schemas")
 
-	events, err := srv.store.ListEvents(ctx, projectID)
+	events, err := srv.store.ListEventSchemas(ctx, projectID, subjects.SubjectTypeUser)
 	if err != nil {
 		logger.Error("failed to list events", zap.Error(err))
 		oapi.WriteProblem(w, err)

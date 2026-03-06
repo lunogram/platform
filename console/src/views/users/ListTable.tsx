@@ -1,17 +1,17 @@
-import type { Key } from 'react'
-import type { List, ListState, SearchParams, SearchResult } from '../../types'
-import { SearchTable, useSearchTableState } from '../../ui/SearchTable'
-import type { TagVariant } from '../../ui/Tag';
-import Tag from '../../ui/Tag'
-import { snakeToTitle } from '../../utils'
-import { useRoute } from '../router'
-import Menu, { MenuItem } from '../../ui/Menu'
-import { ArchiveIcon, DuplicateIcon, EditIcon } from '../../components/icons'
-import api from '../../api'
-import { useNavigate, useParams } from 'react-router'
-import { Translation, useTranslation } from 'react-i18next'
-import type { UUID } from '@/types/common'
-import { NIL } from 'uuid'
+import type { Key } from "react"
+import type { List, ListState, SearchParams, SearchResult } from "../../types"
+import { SearchTable, useSearchTableState } from "../../ui/SearchTable"
+import type { TagVariant } from "../../ui/Tag"
+import Tag from "../../ui/Tag"
+import { snakeToTitle } from "../../utils"
+import { useRoute } from "../router"
+import Menu, { MenuItem } from "../../ui/Menu"
+import { ArchiveIcon, DuplicateIcon, EditIcon } from "../../components/icons"
+import api from "../../api"
+import { useNavigate, useParams } from "react-router"
+import { Translation, useTranslation } from "react-i18next"
+import type { UUID } from "@/types/common"
+import { NIL } from "uuid"
 
 interface ListTableParams {
     search: (params: SearchParams) => Promise<SearchResult<List>>
@@ -20,22 +20,27 @@ interface ListTableParams {
     onSelectRow?: (list: List) => void
 }
 
-export const ListTag = ({ state, progress }: Pick<List, 'state' | 'progress'>) => {
+export const ListTag = ({ state, progress }: Pick<List, "state" | "progress">) => {
     const variant: Record<ListState, TagVariant> = {
-        draft: 'plain',
-        loading: 'info',
-        ready: 'success',
+        draft: "plain",
+        loading: "info",
+        ready: "success",
     }
 
     const complete = progress?.complete ?? 0
     const total = progress?.total ?? 0
     const percent = total > 0 ? complete / total : 0
-    const percentStr = percent.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 })
+    const percentStr = percent.toLocaleString(undefined, {
+        style: "percent",
+        minimumFractionDigits: 0,
+    })
 
-    return <Tag variant={variant[state]}>
-        <Translation>{(t) => t(state)}</Translation>
-        {progress && ` (${percentStr})`}
-    </Tag>
+    return (
+        <Tag variant={variant[state]}>
+            <Translation>{(t) => t(state)}</Translation>
+            {progress && ` (${percentStr})`}
+        </Tag>
+    )
 }
 
 export default function ListTable({ search, selectedRow, onSelectRow, title }: ListTableParams) {
@@ -71,52 +76,55 @@ export default function ListTable({ search, selectedRow, onSelectRow, title }: L
             itemKey={({ item }) => item.id}
             columns={[
                 {
-                    key: 'name',
-                    title: t('name'),
+                    key: "name",
+                    title: t("name"),
                     sortable: true,
-                    minWidth: '200px',
+                    minWidth: "200px",
                 },
                 {
-                    key: 'type',
-                    title: t('type'),
+                    key: "type",
+                    title: t("type"),
                     cell: ({ item: { type } }) => snakeToTitle(type),
                     sortable: true,
                 },
                 {
-                    key: 'users_count',
-                    title: t('users_count'),
+                    key: "users_count",
+                    title: t("users_count"),
                     cell: ({ item }) => item.users_count?.toLocaleString(),
                 },
                 {
-                    key: 'created_at',
-                    title: t('created_at'),
+                    key: "created_at",
+                    title: t("created_at"),
                     sortable: true,
                 },
                 {
-                    key: 'updated_at',
-                    title: t('updated_at'),
+                    key: "updated_at",
+                    title: t("updated_at"),
                     sortable: true,
                 },
                 {
-                    key: 'options',
-                    title: t('options'),
+                    key: "options",
+                    title: t("options"),
                     cell: ({ item }) => (
                         <Menu size="min">
                             <MenuItem onClick={() => handleOnSelectRow(item)}>
-                                <EditIcon />{t('edit')}
+                                <EditIcon />
+                                {t("edit")}
                             </MenuItem>
                             <MenuItem onClick={async () => await handleDuplicateList(item.id)}>
-                                <DuplicateIcon />{t('duplicate')}
+                                <DuplicateIcon />
+                                {t("duplicate")}
                             </MenuItem>
                             <MenuItem onClick={async () => await handleArchiveList(item.id)}>
-                                <ArchiveIcon />{t('archive')}
+                                <ArchiveIcon />
+                                {t("archive")}
                             </MenuItem>
                         </Menu>
                     ),
                 },
             ]}
             selectedRow={selectedRow}
-            onSelectRow={list => handleOnSelectRow(list)}
+            onSelectRow={(list) => handleOnSelectRow(list)}
             enableSearch
             tagEntity="lists"
         />

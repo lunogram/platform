@@ -1,12 +1,18 @@
-import type { ReactNode} from 'react';
-import { useState } from 'react'
-import type { DeepRequired, DefaultValues, FieldErrorsImpl, FieldValues, UseFormReturn } from 'react-hook-form';
-import { useForm } from 'react-hook-form'
-import type { NavigateFunction} from 'react-router';
-import { useNavigate } from 'react-router'
-import Alert from '../Alert'
-import { Button } from '@/components/ui/button'
-import { useTranslation } from 'react-i18next'
+import type { ReactNode } from "react"
+import { useState } from "react"
+import type {
+    DeepRequired,
+    DefaultValues,
+    FieldErrorsImpl,
+    FieldValues,
+    UseFormReturn,
+} from "react-hook-form"
+import { useForm } from "react-hook-form"
+import type { NavigateFunction } from "react-router"
+import { useNavigate } from "react-router"
+import Alert from "../Alert"
+import { Button } from "@/components/ui/button"
+import { useTranslation } from "react-i18next"
 
 interface FormWrapperProps<T extends FieldValues> {
     children: (form: UseFormReturn<T>) => ReactNode
@@ -27,19 +33,18 @@ export default function FormWrapper<T extends FieldValues>({
     onSubmit,
     onError,
 }: FormWrapperProps<T>) {
-
     const { t } = useTranslation()
     const navigate = useNavigate()
     const [isLoading, setIsLoading] = useState(false)
     const [submitError, setSubmitError] = useState<Error | any | undefined>()
-    submitLabel = submitLabel ?? t('submit')
+    submitLabel = submitLabel ?? t("submit")
 
     const form = useForm<T>({
         defaultValues,
         disabled,
     })
 
-    const handleSubmit = form.handleSubmit(async data => {
+    const handleSubmit = form.handleSubmit(async (data) => {
         setIsLoading(true)
         try {
             await onSubmit(data, navigate)
@@ -51,23 +56,24 @@ export default function FormWrapper<T extends FieldValues>({
         }
     })
 
-    const defaultError = 'Unable to submit the form an unknown error has occurred'
-    const handleFormErrors = (errors: Partial<FieldErrorsImpl<DeepRequired<T>>>): string | undefined => {
+    const defaultError = "Unable to submit the form an unknown error has occurred"
+    const handleFormErrors = (
+        errors: Partial<FieldErrorsImpl<DeepRequired<T>>>,
+    ): string | undefined => {
         const keys = Object.keys(errors)
         if (keys.length === 0) return undefined
 
         const key = keys[0]
         const error = errors[key]
         if (error) {
-
             // If nested, keep searching
             if (!error.type) {
                 return handleFormErrors(error)
-            } else if (error.type === 'required') {
+            } else if (error.type === "required") {
                 return `The \`${key}\` field is required`
-            } else if (error.type === 'minLength') {
+            } else if (error.type === "minLength") {
                 return `The \`${key}\` field has not met the minimum length`
-            } else if (error.message && typeof error.message === 'string') {
+            } else if (error.message && typeof error.message === "string") {
                 return error.message
             }
         }
@@ -92,16 +98,19 @@ export default function FormWrapper<T extends FieldValues>({
     return (
         <form onSubmit={handleSubmit} noValidate>
             <>
-                {error && <Alert variant="error" title="Error">{error}</Alert>}
+                {error && (
+                    <Alert variant="error" title="Error">
+                        {error}
+                    </Alert>
+                )}
                 {children(form)}
-                {showSubmitButton && <label className="form-submit">
-                    <Button
-                        type="submit"
-                        isLoading={isLoading}
-                        disabled={!isValid || disabled}>
-                        {submitLabel}
-                    </Button>
-                </label>}
+                {showSubmitButton && (
+                    <label className="form-submit">
+                        <Button type="submit" isLoading={isLoading} disabled={!isValid || disabled}>
+                            {submitLabel}
+                        </Button>
+                    </label>
+                )}
             </>
         </form>
     )
