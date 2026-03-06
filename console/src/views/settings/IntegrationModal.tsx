@@ -7,6 +7,7 @@ import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
 import type { Project, Provider, ProviderCreateParams, ProviderMeta } from "../../types"
+import type { SchemaProperty } from "@/components/SchemaFields"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -114,7 +115,16 @@ export function IntegrationForm({
                 <Input {...form.register("name", { required: true })} />
             </div>
 
-            <SchemaFields parent="data" schema={meta.schema.properties.data} form={form} />
+            <SchemaFields
+                parent="data"
+                schema={
+                    Array.isArray(meta.schema.properties)
+                        ? meta.schema.properties.find((p: SchemaProperty) => p.name === "data")
+                              ?.schema
+                        : meta.schema.properties?.data
+                }
+                form={form}
+            />
 
             <DialogFooter className="pt-2">
                 <Button type="submit" disabled={isSaving}>
