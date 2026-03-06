@@ -211,6 +211,11 @@ export interface RulePath {
     visibility: "public" | "hidden" | "classified"
 }
 
+export interface UserSchemaPath {
+    path: string
+    types: string[]
+}
+
 export interface EventSchemaPath {
     path: string
     types: string[]
@@ -233,7 +238,7 @@ export interface OrganizationSchemaPath {
 }
 
 export interface VariableSuggestions {
-    userPaths: RulePath[]
+    userPaths: UserSchemaPath[]
     eventPaths: EventSchema[]
     organizationEventPaths?: EventSchema[]
     organizationUserPaths?: OrganizationUserSchemaPath[]
@@ -731,10 +736,7 @@ export interface Provider {
     external_id?: string
 }
 
-export type ProviderCreateParams = Pick<
-    Provider,
-    "name" | "data" | "module" | "channel"
->
+export type ProviderCreateParams = Pick<Provider, "name" | "data" | "module" | "channel">
 export type ProviderUpdateParams = ProviderCreateParams
 export interface ProviderMeta {
     name: string

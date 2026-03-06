@@ -11,9 +11,9 @@ import {
 } from "@/components/ui/select"
 import { Combobox } from "../../../components/ui/combobox"
 import { Input } from "@/components/ui/input"
-import type { EventSchemaPath, OrganizationSchemaPath, RulePath } from "../../../types"
+import type { EventSchemaPath, OrganizationSchemaPath, UserSchemaPath } from "../../../types"
 
-type PathOption = RulePath | EventSchemaPath | OrganizationSchemaPath
+type PathOption = UserSchemaPath | EventSchemaPath | OrganizationSchemaPath
 
 export default function FilterRuleEdit({
     rule,
@@ -58,19 +58,14 @@ export default function FilterRuleEdit({
 
         let paths = suggestions.userPaths
         if (path) {
-            let search = path.toLowerCase()
-            if (search.startsWith(".")) search = "$" + search
-            if (!search.startsWith("$.")) search = "$." + search
-            paths = paths.filter((p) => p.path.toLowerCase().startsWith(search))
+            const search = path.toLowerCase()
+            paths = paths.filter((p) => p.path.toLowerCase().includes(search))
         }
         return paths
     }, [suggestions, isEventGroup, isOrganizationEventGroup, isOrganizationGroup, eventName, path])
 
     const getOptionDataType = (option: PathOption): string => {
-        if ("types" in option) {
-            return option.types[0] || "string"
-        }
-        return option.data_type
+        return option.types[0] || "string"
     }
 
     return (

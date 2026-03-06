@@ -661,6 +661,18 @@ func (srv *UsersController) GetUserJourneys(w http.ResponseWriter, r *http.Reque
 	json.Write(w, http.StatusOK, response)
 }
 
+// userDirectColumns are well-known columns that exist directly on the users table
+// and should be included in user schema suggestions without the .data prefix.
+var userDirectColumns = []oapi.SchemaPath{
+	{Path: ".email", Types: []string{"string"}},
+	{Path: ".phone", Types: []string{"string"}},
+	{Path: ".locale", Types: []string{"string"}},
+	{Path: ".timezone", Types: []string{"string"}},
+	{Path: ".external_id", Types: []string{"string"}},
+	{Path: ".anonymous_id", Types: []string{"string"}},
+	{Path: ".created_at", Types: []string{"date"}},
+}
+
 func (srv *UsersController) ListUserSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 	_, ok := claim.FromContext(ctx)
@@ -682,12 +694,17 @@ func (srv *UsersController) ListUserSchemas(w http.ResponseWriter, r *http.Reque
 
 	logger.Info("user schemas listed", zap.Int("count", len(schemas)))
 
-	results := make([]oapi.SchemaPath, len(schemas))
-	for i, schema := range schemas {
-		results[i] = oapi.SchemaPath{
-			Path:  schema.Path,
+	// Start with well-known user direct columns
+	results := make([]oapi.SchemaPath, 0, len(userDirectColumns)+len(schemas))
+	results = append(results, userDirectColumns...)
+
+	// Add discovered user data properties with .data prefix so that the
+	// query builder correctly targets the JSONB data column.
+	for _, schema := range schemas {
+		results = append(results, oapi.SchemaPath{
+			Path:  ".data" + schema.Path,
 			Types: []string(schema.Types),
-		}
+		})
 	}
 
 	response := struct {

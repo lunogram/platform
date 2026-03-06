@@ -36,6 +36,7 @@ import type {
     RulePath,
     SearchParams,
     SearchResult,
+    UserSchemaPath,
     Subscription,
     SubscriptionCreateParams,
     SubscriptionParams,
@@ -223,7 +224,7 @@ const api = {
 
             const userSuggestions = await client
                 .get<{
-                    results: VariableSuggestions["userPaths"]
+                    results: UserSchemaPath[]
                 }>(`${projectUrl(projectId)}/subjects/users/schema`)
                 .then((r) => r.data.results ?? [])
 

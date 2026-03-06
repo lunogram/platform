@@ -649,18 +649,37 @@ func TestListUserSchemas(t *testing.T) {
 	}
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
-	require.Len(t, response.Results, 5)
+
+	// 7 well-known direct columns + 5 discovered data properties
+	require.Len(t, response.Results, 12)
 
 	pathMap := make(map[string][]string)
 	for _, schema := range response.Results {
 		pathMap[schema.Path] = schema.Types
 	}
 
+	// Well-known user direct columns
+	require.Contains(t, pathMap, ".email")
 	require.Contains(t, pathMap[".email"], "string")
-	require.Contains(t, pathMap[".age"], "number")
-	require.Contains(t, pathMap[".plan"], "string")
-	require.Contains(t, pathMap[".preferences"], "object")
-	require.Contains(t, pathMap[".preferences.notifications"], "boolean")
+	require.Contains(t, pathMap, ".phone")
+	require.Contains(t, pathMap[".phone"], "string")
+	require.Contains(t, pathMap, ".locale")
+	require.Contains(t, pathMap[".locale"], "string")
+	require.Contains(t, pathMap, ".timezone")
+	require.Contains(t, pathMap[".timezone"], "string")
+	require.Contains(t, pathMap, ".external_id")
+	require.Contains(t, pathMap[".external_id"], "string")
+	require.Contains(t, pathMap, ".anonymous_id")
+	require.Contains(t, pathMap[".anonymous_id"], "string")
+	require.Contains(t, pathMap, ".created_at")
+	require.Contains(t, pathMap[".created_at"], "date")
+
+	// Discovered data properties should have .data prefix
+	require.Contains(t, pathMap[".data.email"], "string")
+	require.Contains(t, pathMap[".data.age"], "number")
+	require.Contains(t, pathMap[".data.plan"], "string")
+	require.Contains(t, pathMap[".data.preferences"], "object")
+	require.Contains(t, pathMap[".data.preferences.notifications"], "boolean")
 }
 
 func TestListUserSchemasEmpty(t *testing.T) {
@@ -681,7 +700,22 @@ func TestListUserSchemasEmpty(t *testing.T) {
 	}
 	err := json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
-	require.Empty(t, response.Results)
+
+	// Even with no discovered schemas, well-known direct columns should be present
+	require.Len(t, response.Results, 7)
+
+	pathMap := make(map[string][]string)
+	for _, schema := range response.Results {
+		pathMap[schema.Path] = schema.Types
+	}
+
+	require.Contains(t, pathMap, ".email")
+	require.Contains(t, pathMap, ".phone")
+	require.Contains(t, pathMap, ".locale")
+	require.Contains(t, pathMap, ".timezone")
+	require.Contains(t, pathMap, ".external_id")
+	require.Contains(t, pathMap, ".anonymous_id")
+	require.Contains(t, pathMap, ".created_at")
 }
 
 func TestListUserSchemasUnauthorized(t *testing.T) {
@@ -733,40 +767,42 @@ func TestListUserSchemasWithMultipleTypes(t *testing.T) {
 	}
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
-	require.Len(t, response.Results, 5)
+
+	// 7 well-known direct columns + 5 discovered data properties
+	require.Len(t, response.Results, 12)
 
 	pathMap := make(map[string][]string)
 	for _, schema := range response.Results {
 		pathMap[schema.Path] = schema.Types
 	}
 
-	// Verify .age has both number and string types
-	require.Contains(t, pathMap, ".age")
-	require.Len(t, pathMap[".age"], 2)
-	require.Contains(t, pathMap[".age"], "number")
-	require.Contains(t, pathMap[".age"], "string")
+	// Verify .data.age has both number and string types
+	require.Contains(t, pathMap, ".data.age")
+	require.Len(t, pathMap[".data.age"], 2)
+	require.Contains(t, pathMap[".data.age"], "number")
+	require.Contains(t, pathMap[".data.age"], "string")
 
-	// Verify .is_active has both boolean and string types
-	require.Contains(t, pathMap, ".is_active")
-	require.Len(t, pathMap[".is_active"], 2)
-	require.Contains(t, pathMap[".is_active"], "boolean")
-	require.Contains(t, pathMap[".is_active"], "string")
+	// Verify .data.is_active has both boolean and string types
+	require.Contains(t, pathMap, ".data.is_active")
+	require.Len(t, pathMap[".data.is_active"], 2)
+	require.Contains(t, pathMap[".data.is_active"], "boolean")
+	require.Contains(t, pathMap[".data.is_active"], "string")
 
-	// Verify .tags has both array and string types
-	require.Contains(t, pathMap, ".tags")
-	require.Len(t, pathMap[".tags"], 2)
-	require.Contains(t, pathMap[".tags"], "array")
-	require.Contains(t, pathMap[".tags"], "string")
+	// Verify .data.tags has both array and string types
+	require.Contains(t, pathMap, ".data.tags")
+	require.Len(t, pathMap[".data.tags"], 2)
+	require.Contains(t, pathMap[".data.tags"], "array")
+	require.Contains(t, pathMap[".data.tags"], "string")
 
-	// Verify .metadata has only object type
-	require.Contains(t, pathMap, ".metadata")
-	require.Len(t, pathMap[".metadata"], 1)
-	require.Contains(t, pathMap[".metadata"], "object")
+	// Verify .data.metadata has only object type
+	require.Contains(t, pathMap, ".data.metadata")
+	require.Len(t, pathMap[".data.metadata"], 1)
+	require.Contains(t, pathMap[".data.metadata"], "object")
 
-	// Verify .name has only string type
-	require.Contains(t, pathMap, ".name")
-	require.Len(t, pathMap[".name"], 1)
-	require.Contains(t, pathMap[".name"], "string")
+	// Verify .data.name has only string type
+	require.Contains(t, pathMap, ".data.name")
+	require.Len(t, pathMap[".data.name"], 1)
+	require.Contains(t, pathMap[".data.name"], "string")
 }
 
 func TestImportUsers(t *testing.T) {
