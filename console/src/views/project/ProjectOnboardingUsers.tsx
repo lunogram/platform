@@ -32,8 +32,8 @@ export default function ProjectOnboardingUsers() {
         await api.users.create(projectId, {
             anonymous_id: crypto.randomUUID(),
             data: {
-                first_name: admin.first_name,
-                last_name: admin.last_name,
+                full_name: admin.first_name + " " + admin.last_name,
+                admin: true,
             },
             email: admin.email,
             timezone: project.timezone,
@@ -43,11 +43,12 @@ export default function ProjectOnboardingUsers() {
     const next = async () => {
         setNextLoading(true)
         try {
+            await createInitialUser()
+
             if (file) {
                 await api.users.addImport(projectId, file)
-            } else {
-                await createInitialUser()
             }
+
             await navigate(`/projects/${projectId}/onboarding/getting-started`)
         } finally {
             setNextLoading(false)

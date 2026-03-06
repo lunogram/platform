@@ -188,10 +188,7 @@ export const createRouter = ({
                                     const project = await api.projects.get(projectId)
                                     if (
                                         !sessionStorage.getItem("skippedOnboarding") &&
-                                        project.campaigns_count === 0 &&
-                                        project.journeys_count === 0 &&
-                                        project.users_count === 0 &&
-                                        project.lists_count === 0
+                                        project.users_count === 0
                                     ) {
                                         return redirect("onboarding")
                                     }
