@@ -11,10 +11,11 @@ import {
     MoreHorizontal,
 } from "lucide-react"
 import { ProjectContext, OrganizationContext } from "../../contexts"
-import { PreferencesContext } from "../../ui/PreferencesContext"
+import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { getRandomColor } from "@/lib/colors"
 import { formatDate, cn } from "../../utils"
 import oapiClient from "../../oapi/client"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -31,6 +32,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { InlineEdit } from "@/components/ui/inline-edit"
 
 export default function OrganizationDetail() {
     const { t } = useTranslation()
@@ -38,7 +40,7 @@ export default function OrganizationDetail() {
     const location = useLocation()
     const [preferences] = useContext(PreferencesContext)
     const [project] = useContext(ProjectContext)
-    const [organization] = useContext(OrganizationContext)
+    const [organization, setOrganization] = useContext(OrganizationContext)
     const [isDeleteOpen, setIsDeleteOpen] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
 
@@ -104,9 +106,36 @@ export default function OrganizationDetail() {
                                 <Building2 className="h-7 w-7 text-white" />
                             </div>
                             <div className="space-y-1">
-                                <h1 className="text-2xl font-semibold tracking-tight">
-                                    {organization.name || organization.external_id}
-                                </h1>
+                                <InlineEdit
+                                    value={organization.name ?? ""}
+                                    onSave={async (name) => {
+                                        const { data } = await oapiClient.PATCH(
+                                            "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}",
+                                            {
+                                                params: {
+                                                    path: {
+                                                        projectID: project.id,
+                                                        organizationID: organization.id,
+                                                    },
+                                                },
+                                                body: { name },
+                                            },
+                                        )
+                                        if (data) {
+                                            setOrganization(data)
+                                            toast.success(
+                                                t("organization_updated", "Organization updated"),
+                                            )
+                                        }
+                                    }}
+                                    placeholder={organization.external_id}
+                                    triggerClassName="gap-1.5"
+                                    pencilSize="h-3.5 w-3.5"
+                                >
+                                    <h1 className="text-2xl font-semibold tracking-tight">
+                                        {organization.name || organization.external_id}
+                                    </h1>
+                                </InlineEdit>
                                 <p className="text-sm text-muted-foreground">
                                     <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
                                         {organization.external_id}

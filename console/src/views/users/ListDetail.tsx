@@ -8,16 +8,17 @@ import {
     MoreHorizontal,
     Send,
     Upload,
-    Pencil,
     RefreshCw,
     Archive,
     Search,
     AlertCircle,
     Users,
+    Eye,
 } from "lucide-react"
 import api from "../../api"
+import oapiClient from "../../oapi/client"
 import { ListContext, ProjectContext } from "../../contexts"
-import { PreferencesContext } from "../../ui/PreferencesContext"
+import { PreferencesContext } from "@/contexts/PreferencesContext"
 import type { DynamicList, ListUpdateParams, Rule, WrapperRule } from "../../types"
 import { formatDate, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
@@ -54,6 +55,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Label } from "@/components/ui/label"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { InlineEdit } from "@/components/ui/inline-edit"
 
 import type { ListState } from "../../types"
 
@@ -89,9 +92,13 @@ interface RuleSectionProps {
 
 function RuleSection({ list, isSaving, onRuleSave, onChange }: RuleSectionProps) {
     const { t } = useTranslation()
-    const [rule, setRule] = useState<Rule>(list.rule)
+    // Display draft_rule if available, otherwise fall back to published rule
+    const displayRule = list.draft_rule ?? list.rule
+    const [rule, setRule] = useState<Rule | null>(displayRule)
+    const [hasLocalEdits, setHasLocalEdits] = useState(false)
     const onSetRule = (rule: Rule) => {
         setRule(rule)
+        setHasLocalEdits(true)
         onChange?.(rule)
     }
     return (
@@ -106,13 +113,29 @@ function RuleSection({ list, isSaving, onRuleSave, onChange }: RuleSectionProps)
                         )}
                     </p>
                 </div>
-                <Button size="sm" onClick={() => onRuleSave(rule)} disabled={isSaving}>
-                    {isSaving ? <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                    {t("rules_save")}
-                </Button>
+                <div className="flex items-center gap-2">
+                    {hasLocalEdits && (
+                        <span className="text-xs text-amber-600 dark:text-amber-500">
+                            {t("unsaved_changes", "Unsaved changes")}
+                        </span>
+                    )}
+                    <Button
+                        size="sm"
+                        onClick={() => {
+                            if (rule) {
+                                setHasLocalEdits(false)
+                                onRuleSave(rule)
+                            }
+                        }}
+                        disabled={isSaving || !rule}
+                    >
+                        {isSaving ? <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                        {t("rules_save")}
+                    </Button>
+                </div>
             </div>
             <div className="rounded-lg border bg-card p-4">
-                <RuleBuilder rule={rule} setRule={onSetRule} />
+                {rule && <RuleBuilder rule={rule} setRule={onSetRule} />}
             </div>
         </div>
     )
@@ -124,12 +147,11 @@ export default function ListDetail() {
     const [project] = useContext(ProjectContext)
     const [preferences] = useContext(PreferencesContext)
     const [list, setList] = useContext(ListContext)
-    const [isEditListOpen, setIsEditListOpen] = useState(false)
     const [isUploadOpen, setIsUploadOpen] = useState(false)
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
+    const [savingAction, setSavingAction] = useState<"rule" | "publish" | "other" | null>(null)
     const [error, setError] = useState<string | undefined>()
-    const [editName, setEditName] = useState(list.name)
 
     // Users table state
     const [users, setUsers] = useState<any[] | null>(null)
@@ -139,25 +161,45 @@ export default function ListDetail() {
     const [pageDirection, setPageDirection] = useState<"next" | "prev" | undefined>()
     const [cursorHistory, setCursorHistory] = useState<string[]>([])
     const [nextCursor, setNextCursor] = useState<string | undefined>()
+    const [previewTotal, setPreviewTotal] = useState<number | null>(null)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
     const route = useRoute()
+
+    const isPreviewMode = list.type === "dynamic" && !!list.draft_rule
 
     const listColor = getRandomColor(list.name ?? list.id)
 
     const loadUsers = useCallback(async () => {
         try {
-            const result = await api.lists.users(project.id, list.id, {
-                limit: 25,
-                cursor,
-                page: pageDirection,
-                search: debouncedQuery || undefined,
-            })
-            setUsers(result.results)
-            setNextCursor(result.nextCursor || undefined)
+            if (isPreviewMode) {
+                const { data } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/lists/{listID}/users/preview",
+                    {
+                        params: {
+                            path: { projectID: project.id, listID: list.id },
+                            query: { limit: 25 },
+                        },
+                    },
+                )
+                setUsers(data?.results ?? [])
+                setPreviewTotal(data?.total ?? data?.results?.length ?? 0)
+                setNextCursor(undefined)
+            } else {
+                const result = await api.lists.users(project.id, list.id, {
+                    limit: 25,
+                    cursor,
+                    page: pageDirection,
+                    search: debouncedQuery || undefined,
+                })
+                setUsers(result.results)
+                setPreviewTotal(null)
+                setNextCursor(result.nextCursor || undefined)
+            }
         } catch {
             setUsers([])
+            setPreviewTotal(null)
         }
-    }, [project.id, list.id, cursor, pageDirection, debouncedQuery])
+    }, [project.id, list.id, cursor, pageDirection, debouncedQuery, isPreviewMode])
 
     useEffect(() => {
         loadUsers()
@@ -229,8 +271,12 @@ export default function ListDetail() {
         }
     }
 
-    const saveList = async ({ name, rule, published, tags }: ListUpdateParams) => {
+    const saveList = async (
+        { name, rule, published, tags }: ListUpdateParams,
+        action: "rule" | "publish" | "other" = "other",
+    ) => {
         setIsSaving(true)
+        setSavingAction(action)
         try {
             const value = await api.lists.update(project.id, list.id, {
                 name,
@@ -240,15 +286,15 @@ export default function ListDetail() {
             })
             setError(undefined)
             setList(value)
-            setIsEditListOpen(false)
             setHasUnsavedChanges(false)
+            loadUsers()
         } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error ? error.message : "An unexpected error occurred"
             setError(errorMessage)
-            setIsEditListOpen(false)
         } finally {
             setIsSaving(false)
+            setSavingAction(null)
         }
     }
 
@@ -301,13 +347,29 @@ export default function ListDetail() {
                             </div>
                             <div className="space-y-1">
                                 <div className="flex items-center gap-3">
-                                    <h1 className="text-2xl font-semibold tracking-tight">
-                                        {list.name}
-                                    </h1>
+                                    <InlineEdit
+                                        value={list.name}
+                                        onSave={async (name) => {
+                                            await saveList({ name })
+                                        }}
+                                        required
+                                        triggerClassName="gap-1.5"
+                                        pencilSize="h-3.5 w-3.5"
+                                    >
+                                        <h1 className="text-2xl font-semibold tracking-tight">
+                                            {list.name}
+                                        </h1>
+                                    </InlineEdit>
                                     {getStateBadge(list.state, t)}
                                 </div>
                                 <p className="text-sm text-muted-foreground flex items-center gap-2">
                                     <span>{snakeToTitle(list.type)}</span>
+                                    {list.version_number != null && (
+                                        <>
+                                            <span>·</span>
+                                            <span>v{list.version_number}</span>
+                                        </>
+                                    )}
                                     <span>·</span>
                                     <span>
                                         {list.state === "loading"
@@ -324,14 +386,23 @@ export default function ListDetail() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                            {list.state === "draft" && (
+                            {(list.state === "draft" ||
+                                (list.type === "dynamic" && list.draft_rule != null)) && (
                                 <Button
                                     size="sm"
                                     onClick={async () =>
-                                        await saveList({ name: list.name, published: true })
+                                        await saveList(
+                                            { name: list.name, published: true },
+                                            "publish",
+                                        )
                                     }
+                                    disabled={list.state === "loading" || isSaving}
                                 >
-                                    <Send className="mr-2 h-3.5 w-3.5" />
+                                    {savingAction === "publish" ? (
+                                        <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                        <Send className="mr-2 h-3.5 w-3.5" />
+                                    )}
                                     {t("publish")}
                                 </Button>
                             )}
@@ -345,17 +416,6 @@ export default function ListDetail() {
                                     {t("upload_list")}
                                 </Button>
                             )}
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                    setEditName(list.name)
-                                    setIsEditListOpen(true)
-                                }}
-                            >
-                                <Pencil className="mr-2 h-3.5 w-3.5" />
-                                {t("edit_list")}
-                            </Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -422,9 +482,9 @@ export default function ListDetail() {
                 {list.type === "dynamic" && (
                     <RuleSection
                         list={list}
-                        isSaving={isSaving}
+                        isSaving={savingAction === "rule"}
                         onRuleSave={async (rule) =>
-                            await saveList({ name: list.name, rule: rule as WrapperRule })
+                            await saveList({ name: list.name, rule: rule as WrapperRule }, "rule")
                         }
                         onChange={() => setHasUnsavedChanges(true)}
                     />
@@ -434,14 +494,54 @@ export default function ListDetail() {
                 <div className="space-y-4">
                     <div className="flex items-center justify-between gap-4">
                         <h3 className="text-base font-semibold">{t("users")}</h3>
-                        <div className="relative max-w-xs flex-1">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                placeholder={t("search_users", "Search users...")}
-                                value={searchQuery}
-                                onChange={(e) => handleSearch(e.target.value)}
-                                className="pl-9 h-8"
-                            />
+                        <div className="flex items-center gap-3">
+                            {isPreviewMode && (
+                                <div className="flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20 px-2.5 py-1.5">
+                                    <Eye className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                    <span className="text-xs text-amber-700 dark:text-amber-300 whitespace-nowrap">
+                                        {t("preview_mode", "Preview mode")}
+                                        {previewTotal != null && (
+                                            <>
+                                                {" · "}
+                                                <span className="font-medium">
+                                                    {previewTotal.toLocaleString()}{" "}
+                                                    {t("matching", "matching")}
+                                                </span>
+                                            </>
+                                        )}
+                                    </span>
+                                </div>
+                            )}
+                            {isPreviewMode ? (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div className="relative max-w-xs flex-1">
+                                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
+                                            <Input
+                                                placeholder={t("search_users", "Search users...")}
+                                                disabled
+                                                className="pl-9 h-8"
+                                            />
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        {t(
+                                            "search_disabled_preview",
+                                            "Search is not available in preview mode",
+                                        )}
+                                    </TooltipContent>
+                                </Tooltip>
+                            ) : (
+                                <div className="relative max-w-xs flex-1">
+                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        placeholder={t("search_users", "Search users...")}
+                                        value={searchQuery}
+                                        onChange={(e) => handleSearch(e.target.value)}
+                                        className="pl-9 h-8"
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -517,7 +617,7 @@ export default function ListDetail() {
                         </Table>
 
                         {/* Pagination */}
-                        {users && users.length > 0 && (
+                        {users && users.length > 0 && !isPreviewMode && (
                             <div className="flex items-center justify-between border-t px-4 py-3">
                                 <p className="text-sm text-muted-foreground">
                                     {users.length} {t("users").toLowerCase()}
@@ -549,49 +649,6 @@ export default function ListDetail() {
                     </div>
                 </div>
             </div>
-
-            {/* Edit List Dialog */}
-            <Dialog open={isEditListOpen} onOpenChange={setIsEditListOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{t("edit_list")}</DialogTitle>
-                        <DialogDescription>
-                            {t("edit_list_description", "Update the list name and settings.")}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form
-                        onSubmit={async (e) => {
-                            e.preventDefault()
-                            await saveList({ name: editName })
-                        }}
-                    >
-                        <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="list-name">{t("list_name")}</Label>
-                                <Input
-                                    id="list-name"
-                                    value={editName}
-                                    onChange={(e) => setEditName(e.target.value)}
-                                    required
-                                />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setIsEditListOpen(false)}
-                                disabled={isSaving}
-                            >
-                                {t("cancel")}
-                            </Button>
-                            <Button type="submit" disabled={isSaving}>
-                                {isSaving ? t("saving", "Saving...") : t("save")}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
 
             {/* Upload Users Dialog */}
             <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>

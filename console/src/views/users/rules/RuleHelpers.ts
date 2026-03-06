@@ -19,7 +19,7 @@ export interface GroupedRule extends Omit<Rule, "value"> {
 }
 
 export const trimPathDisplay = (path: string = "") =>
-    path.startsWith(".") ? path.substring(2) : path
+    path.startsWith("$.") ? path.substring(2) : path
 
 export const isEventWrapper = (rule: Rule): rule is EventRule => {
     return rule?.group === "event" && (rule?.path === ".name" || rule?.path === "name")

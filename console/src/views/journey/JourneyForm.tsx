@@ -1,13 +1,13 @@
 import { useContext } from "react"
-import { toast } from "react-hot-toast/headless"
+import { toast } from "sonner"
 import api from "../../api"
 import { ProjectContext } from "../../contexts"
 import type { Journey } from "../../types"
-import FormWrapper from "../../ui/form/FormWrapper"
-import TextInput from "../../ui/form/TextInput"
+import FormWrapper from "@/components/form/FormWrapper"
+import TextInput from "@/components/form/TextInput"
 import { useTranslation } from "react-i18next"
-import RadioInput from "../../ui/form/RadioInput"
-import { SingleSelect } from "../../ui/form/SingleSelect"
+import RadioInput from "@/components/form/RadioInput"
+import { SingleSelect } from "@/components/form/SingleSelect"
 
 interface JourneyFormProps {
     journey?: Journey
@@ -28,7 +28,8 @@ export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
         return option.key
     }
 
-    const isCreated = journey?.id && journey?.status !== "draft"
+    const isCreated = !!journey?.id
+    const isPublished = isCreated && journey?.status !== "draft"
     return (
         <FormWrapper<Journey>
             onSubmit={async ({ id, name, description, status, template_id, tags }) => {
@@ -65,7 +66,7 @@ export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
                             label={t("template")}
                         />
                     )}
-                    {isCreated && (
+                    {isPublished && (
                         <RadioInput.Field
                             form={form}
                             name="status"

@@ -31,7 +31,7 @@ export default function EventRuleEdit({ rule, setRule, eventName }: EventRuleEdi
                             setRule({ ...rule, operator: operator as typeof rule.operator })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs">
+                        <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs shadow-none">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -84,7 +84,7 @@ export default function EventRuleEdit({ rule, setRule, eventName }: EventRuleEdi
                         })
                     }
                 >
-                    <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-r-none text-xs">
+                    <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-r-none text-xs shadow-none">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -98,7 +98,7 @@ export default function EventRuleEdit({ rule, setRule, eventName }: EventRuleEdi
                 <Input
                     type="text"
                     placeholder="Count"
-                    className="h-8 w-16 rounded-none border-l-0 text-xs"
+                    className="h-8 w-16 rounded-none border-l-0 text-xs shadow-none"
                     value={frequency.count?.toString() ?? ""}
                     onChange={(e) => {
                         const count = e.target.value ? parseInt(e.target.value, 10) : undefined
@@ -123,7 +123,7 @@ export default function EventRuleEdit({ rule, setRule, eventName }: EventRuleEdi
                     <Input
                         type="text"
                         placeholder="Value"
-                        className="h-8 w-16 rounded-none border-l-0 text-xs"
+                        className="h-8 w-16 rounded-none border-l-0 text-xs shadow-none"
                         value={frequency.period.value.toString()}
                         onChange={(e) => {
                             if (frequency.period.type !== "rolling") return
@@ -155,7 +155,7 @@ export default function EventRuleEdit({ rule, setRule, eventName }: EventRuleEdi
                             })
                         }}
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-l-none border-l-0 text-xs">
+                        <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-l-none border-l-0 text-xs shadow-none">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -177,7 +177,7 @@ export default function EventRuleEdit({ rule, setRule, eventName }: EventRuleEdi
                             setRule({ ...rule, operator: operator as typeof rule.operator })
                         }
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs">
+                        <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs shadow-none">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

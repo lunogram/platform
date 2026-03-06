@@ -92,7 +92,7 @@ export default function WrapperRuleEdit({
                                 setRule({ ...rule, operator: operator as typeof rule.operator })
                             }
                         >
-                            <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs">
+                            <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs shadow-none">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -116,7 +116,7 @@ export default function WrapperRuleEdit({
                         <Button
                             size="sm"
                             variant="outline"
-                            className="h-8 shrink-0"
+                            className="h-8 shrink-0 shadow-none"
                             onClick={(controls as any).props.onClick}
                         >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -127,6 +127,11 @@ export default function WrapperRuleEdit({
                     !isOrganizationWrapper(rule) &&
                     controls}
             </div>
+
+            {/* User match section for organization rules - rendered before children */}
+            {isOrganizationWrapper(rule) && (
+                <OrganizationRuleEdit rule={rule} setRule={setRule} showUserMatch={true} />
+            )}
 
             {/* Children rules */}
             <div className="flex flex-col py-1 ml-2.5">
@@ -163,75 +168,111 @@ export default function WrapperRuleEdit({
                 ))}
             </div>
 
-            {/* User match section for organization rules - rendered after children */}
+            {/* Add Property Condition button for organization rules - rendered after children */}
             {isOrganizationWrapper(rule) && (
-                <OrganizationRuleEdit rule={rule} setRule={setRule} showUserMatch={true} />
+                <div className="flex gap-1.5 px-5 mt-2">
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="shadow-none"
+                        onClick={() => {
+                            setRule({
+                                ...rule,
+                                children: [
+                                    ...(rule?.children ?? []),
+                                    {
+                                        uuid: createUuid(),
+                                        root_uuid: root?.uuid,
+                                        parent_uuid: rule?.uuid,
+                                        path: "",
+                                        type: "string",
+                                        group: "organization" as const,
+                                        value: "",
+                                        operator: "=",
+                                    },
+                                ],
+                            })
+                        }}
+                    >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        {t("rule_add_org_property_condition")}
+                    </Button>
+                </div>
             )}
 
-            {/* Action buttons */}
-            <div className={`flex gap-1.5 px-5 mt-2${depth === 0 ? " ml-2.5" : ""}`}>
-                <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                        let childGroup: "user" | "event" | "organization_event" | "organization" =
-                            "user"
-                        if (rule?.group === "event" || rule?.group === "organization_event") {
-                            childGroup = rule.group
-                        } else if (rule?.group === "organization") {
-                            childGroup = "organization"
-                        }
+            {/* Action buttons (for non-organization rules) */}
+            {!isOrganizationWrapper(rule) && (
+                <div className={`flex gap-1.5 px-5 mt-2${depth === 0 ? " ml-2.5" : ""}`}>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="shadow-none"
+                        onClick={() => {
+                            let childGroup:
+                                | "user"
+                                | "event"
+                                | "organization_event"
+                                | "organization" = "user"
+                            if (rule?.group === "event" || rule?.group === "organization_event") {
+                                childGroup = rule.group
+                            }
 
-                        setRule({
-                            ...rule,
-                            children: [
-                                ...(rule?.children ?? []),
-                                {
-                                    uuid: createUuid(),
-                                    root_uuid: root?.uuid,
-                                    parent_uuid: rule?.uuid,
-                                    path: "",
-                                    type: "string",
-                                    group: childGroup,
-                                    value: "",
-                                    operator: "=",
-                                },
-                            ],
-                        })
-                    }}
-                >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    {rule?.group === "event" || rule?.group === "organization_event"
-                        ? t("rule_add_condition")
-                        : rule?.group === "organization"
-                          ? t("rule_add_org_property_condition")
-                          : t("rule_add_user_condition")}
-                </Button>
-                {depth === 0 && (rule?.group === "user" || rule?.group === "parent") && (
-                    <>
-                        <Button size="sm" variant="outline" onClick={() => handleAddEventWrapper()}>
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            {t("rule_add_event_condition")}
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAddOrganizationEventWrapper()}
-                        >
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            {t("rule_add_org_event_condition")}
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAddOrganizationWrapper()}
-                        >
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            {t("rule_add_org_condition")}
-                        </Button>
-                    </>
-                )}
-            </div>
+                            setRule({
+                                ...rule,
+                                children: [
+                                    ...(rule?.children ?? []),
+                                    {
+                                        uuid: createUuid(),
+                                        root_uuid: root?.uuid,
+                                        parent_uuid: rule?.uuid,
+                                        path: "",
+                                        type: "string",
+                                        group: childGroup,
+                                        value: "",
+                                        operator: "=",
+                                    },
+                                ],
+                            })
+                        }}
+                    >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        {rule?.group === "event" || rule?.group === "organization_event"
+                            ? t("rule_add_condition")
+                            : t("rule_add_user_condition")}
+                    </Button>
+                    {depth === 0 && (rule?.group === "user" || rule?.group === "parent") && (
+                        <>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="shadow-none"
+                                onClick={() => handleAddEventWrapper()}
+                            >
+                                <Plus className="h-3.5 w-3.5 mr-1" />
+                                {t("rule_add_event_condition")}
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="shadow-none"
+                                onClick={() => handleAddOrganizationEventWrapper()}
+                            >
+                                <Plus className="h-3.5 w-3.5 mr-1" />
+                                {t("rule_add_org_event_condition")}
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="shadow-none"
+                                onClick={() => handleAddOrganizationWrapper()}
+                            >
+                                <Plus className="h-3.5 w-3.5 mr-1" />
+                                {t("rule_add_org_condition")}
+                            </Button>
+                        </>
+                    )}
+                </div>
+            )}
         </div>
     )
 

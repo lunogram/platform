@@ -1,5 +1,5 @@
 import { useContext, useMemo } from "react"
-import { highlightSearch } from "../../../ui/utils"
+import { highlightSearch } from "@/lib/ui-utils"
 import type { RuleEditProps } from "./RuleHelpers"
 import { operatorTypes, VariablesContext, ruleTypes } from "./RuleHelpers"
 import {
@@ -75,7 +75,7 @@ export default function FilterRuleEdit({
                     value={rule?.type}
                     onValueChange={(type) => setRule({ ...rule, type: type as typeof rule.type })}
                 >
-                    <SelectTrigger className="h-8 w-auto min-w-[90px] rounded-r-none text-xs">
+                    <SelectTrigger className="h-8 w-auto min-w-[90px] rounded-r-none text-xs shadow-none">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -119,7 +119,7 @@ export default function FilterRuleEdit({
                         setRule({ ...rule, operator: operator as typeof rule.operator })
                     }
                 >
-                    <SelectTrigger className="h-8 w-auto min-w-[100px] rounded-none border-l-0 text-xs">
+                    <SelectTrigger className="h-8 w-auto min-w-[100px] rounded-none border-l-0 text-xs shadow-none">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -141,7 +141,7 @@ export default function FilterRuleEdit({
                         }
                         onValueChange={(value) => setRule({ ...rule, value })}
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-none border-l-0 text-xs">
+                        <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-none border-l-0 text-xs shadow-none">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -153,7 +153,7 @@ export default function FilterRuleEdit({
                     <Input
                         type="text"
                         placeholder="Value"
-                        className="h-8 min-w-[100px] w-auto rounded-none border-l-0 text-xs"
+                        className="h-8 min-w-[100px] w-auto rounded-none border-l-0 text-xs shadow-none"
                         value={rule?.value?.toString() ?? ""}
                         onChange={(e) => setRule({ ...rule, value: e.target.value })}
                     />

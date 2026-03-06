@@ -15,7 +15,7 @@ import oapiClient, { type Action } from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import { formatDate, snakeToTitle } from "../../utils"
 import { ProjectContext } from "../../contexts"
-import { PreferencesContext } from "../../ui/PreferencesContext"
+import { PreferencesContext } from "@/contexts/PreferencesContext"
 
 import { CreateAction } from "./CreateAction"
 

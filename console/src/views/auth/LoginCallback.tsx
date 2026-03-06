@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { useClerk } from "@clerk/clerk-react"
 import api from "../../api"
 import { AUTH_DRIVERS } from "../../types"
-import { Alert } from "../../ui"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { useTranslation } from "react-i18next"
 
 import "./Auth.css"
@@ -53,8 +53,9 @@ export default function LoginCallback() {
         return (
             <div className="auth login">
                 <div className="auth-step">
-                    <Alert variant="destructive" title={t("error")}>
-                        {error}
+                    <Alert variant="destructive">
+                        <AlertTitle>{t("error")}</AlertTitle>
+                        <AlertDescription>{error}</AlertDescription>
                     </Alert>
                 </div>
             </div>

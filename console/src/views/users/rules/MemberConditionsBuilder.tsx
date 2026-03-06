@@ -69,7 +69,7 @@ export default function MemberConditionsBuilder({ rule, setRule }: MemberConditi
                         setRule({ ...rule, operator: operator as typeof rule.operator })
                     }
                 >
-                    <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs">
+                    <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs shadow-none">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -96,7 +96,12 @@ export default function MemberConditionsBuilder({ rule, setRule }: MemberConditi
             </div>
 
             <div>
-                <Button size="sm" variant="outline" onClick={handleAddCondition}>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleAddCondition}
+                    className="shadow-none"
+                >
                     <Plus className="h-3.5 w-3.5 mr-1" />
                     {t("rule_add_member_condition")}
                 </Button>

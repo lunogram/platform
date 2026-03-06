@@ -1,7 +1,7 @@
 import type { JourneyStepType } from "../../../types"
-import SourceEditor from "../../../ui/SourceEditor"
 import { UpdateStepIcon } from "../../../components/icons"
-import { JsonPreview } from "../../../ui"
+import { CodeEditor } from "@/components/ui/code-editor"
+import { JsonEditor } from "@/components/ui/json-editor"
 import { useTranslation } from "react-i18next"
 
 interface UpdateConfig {
@@ -17,8 +17,8 @@ export const updateStep: JourneyStepType<UpdateConfig> = {
         const { t } = useTranslation()
         if (value?.template) {
             try {
-                const parsed = JSON.parse(value.template)
-                return <JsonPreview value={parsed} />
+                JSON.parse(value.template)
+                return <JsonEditor value={value.template} onChange={() => {}} readOnly />
             } catch {
                 return <>{t("user_update_empty")}</>
             }
@@ -32,20 +32,21 @@ export const updateStep: JourneyStepType<UpdateConfig> = {
         const { t } = useTranslation()
         return (
             <>
-                <p style={{ maxWidth: 400 }}>
+                <p className="max-w-[400px] text-sm text-muted-foreground">
                     {t("user_update_edit_desc1")}
                     {t("user_update_edit_desc2")}
-                    <code>{"user"}</code>
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{"user"}</code>
                     {t("user_update_edit_desc3")}
-                    <code>{"journey[data_key]"}</code>
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+                        {"journey[data_key]"}
+                    </code>
                     {"."}
                 </p>
-                <SourceEditor
-                    onChange={(template = "") => onChange({ ...value, template })}
+                <CodeEditor
+                    onChange={(template) => onChange({ ...value, template })}
                     value={value.template ?? ""}
-                    height={500}
-                    width="400px"
-                    language="handlebars"
+                    maxHeight={500}
+                    className="w-[400px]"
                 />
             </>
         )

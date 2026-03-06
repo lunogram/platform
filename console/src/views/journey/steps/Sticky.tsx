@@ -1,7 +1,8 @@
 import type { JourneyStepType } from "../../../types"
 import { StickyStepIcon } from "../../../components/icons"
 import { useTranslation } from "react-i18next"
-import TextInput from "../../../ui/form/TextInput"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import TextAutoLink from "./TextAutoLink"
 
 interface StickyConfig {
@@ -15,7 +16,7 @@ export const stickyStep: JourneyStepType<StickyConfig> = {
     description: "sticky_desc",
     Describe({ value }) {
         return (
-            <div style={{ maxWidth: 300 }}>
+            <div className="max-w-[300px]">
                 <TextAutoLink text={value.text ?? ""} />
             </div>
         )
@@ -23,13 +24,13 @@ export const stickyStep: JourneyStepType<StickyConfig> = {
     Edit({ onChange, value }) {
         const { t } = useTranslation()
         return (
-            <TextInput
-                name="sticky_text"
-                label={t("sticky_text_label")}
-                value={value.text ?? ""}
-                onChange={(text) => onChange({ ...value, text })} // Update the text field
-                textarea
-            />
+            <div className="space-y-1.5">
+                <Label className="text-sm font-medium">{t("sticky_text_label")}</Label>
+                <Textarea
+                    value={value.text ?? ""}
+                    onChange={(e) => onChange({ ...value, text: e.target.value })}
+                />
+            </div>
         )
     },
     hideBottomHandle: true,

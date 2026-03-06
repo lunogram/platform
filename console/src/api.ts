@@ -212,13 +212,6 @@ const api = {
 
             eventSuggestions = eventSuggestions.map((event) => {
                 event.schema ??= []
-                event.schema = event.schema.map((schemaPath) => {
-                    return {
-                        ...schemaPath,
-                        path: `.data${schemaPath.path}`,
-                    }
-                })
-
                 return event
             })
 
@@ -417,18 +410,14 @@ const api = {
                     .then((r) => r.data),
         },
         users: {
-            getState: async (
-                projectId: UUID,
-                journeyId: UUID,
-                userId: UUID,
-            ) => {
-                const response = await client.get<Array<{
-                    external_step_id: string
-                    step_type: string
-                    is_completed: boolean
-                }>>(
-                    `${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/state`,
-                )
+            getState: async (projectId: UUID, journeyId: UUID, userId: UUID) => {
+                const response = await client.get<
+                    Array<{
+                        external_step_id: string
+                        step_type: string
+                        is_completed: boolean
+                    }>
+                >(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/state`)
                 return response.data
             },
             trigger: async (projectId: UUID, journeyId: UUID, entranceId: UUID, user: User) =>
@@ -547,6 +536,12 @@ const api = {
                 .get<
                     SearchResult<User>
                 >(`${projectUrl(projectId)}/lists/${listId}/users`, { params })
+                .then((r) => r.data),
+        preview: async (projectId: UUID, listId: UUID, params: { limit?: number } = {}) =>
+            await client
+                .get<
+                    SearchResult<User>
+                >(`${projectUrl(projectId)}/lists/${listId}/users/preview`, { params })
                 .then((r) => r.data),
         upload: async (projectId: UUID, listId: UUID, file: File) => {
             const formData = new FormData()

@@ -76,7 +76,7 @@ export default function OrganizationRuleEdit({
                                 setRule({ ...rule, operator: operator as typeof rule.operator })
                             }
                         >
-                            <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs">
+                            <SelectTrigger className="h-8 w-auto min-w-[70px] text-xs shadow-none">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -105,7 +105,7 @@ export default function OrganizationRuleEdit({
                         handleUserMatchTypeChange(value as OrganizationUserMatch["type"])
                     }
                 >
-                    <SelectTrigger className="h-8 w-auto min-w-[180px] text-xs">
+                    <SelectTrigger className="h-8 w-auto min-w-[180px] text-xs shadow-none">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

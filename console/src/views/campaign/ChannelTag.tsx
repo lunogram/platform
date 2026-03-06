@@ -1,7 +1,6 @@
 import type { ChannelType } from "../../types"
 import { EmailIcon, PushIcon, TextIcon } from "../../components/icons"
-import type { TagProps } from "../../ui/Tag"
-import Tag from "../../ui/Tag"
+import { Badge, type BadgeProps } from "@/components/ui/badge"
 import { useTranslation } from "react-i18next"
 
 interface ChannelTagParams {
@@ -23,7 +22,7 @@ export default function ChannelTag({
     channel,
     showIcon = true,
     ...params
-}: ChannelTagParams & TagProps) {
+}: ChannelTagParams & BadgeProps) {
     const { t } = useTranslation()
 
     const title: Record<ChannelType, string> = {
@@ -32,14 +31,10 @@ export default function ChannelTag({
         push: t("push"),
     }
 
-    return Tag({
-        ...params,
-        children: (
-            <>
-                {showIcon && <ChannelIcon channel={channel} />}
-                {title[channel]}
-            </>
-        ),
-        variant: "plain",
-    })
+    return (
+        <Badge variant="secondary" {...params}>
+            {showIcon && <ChannelIcon channel={channel} />}
+            {title[channel]}
+        </Badge>
+    )
 }

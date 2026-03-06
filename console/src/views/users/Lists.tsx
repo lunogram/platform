@@ -20,7 +20,7 @@ import api from "../../api"
 import { useResolver } from "../../hooks"
 import { formatDate, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
-import { PreferencesContext } from "../../ui/PreferencesContext"
+import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { ListCreateForm } from "./ListCreateForm"
 import { ListsIcon as ListsPageIcon } from "@/components/icons"
 

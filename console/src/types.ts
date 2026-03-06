@@ -429,7 +429,9 @@ export type List = {
     name: string
     state: ListState
     type: ListType
-    rule?: WrapperRule
+    rule?: WrapperRule | null
+    draft_rule?: WrapperRule | null
+    version_number?: number | null
     users_count: number
     tags?: string[]
     progress?: {
@@ -442,7 +444,8 @@ export type List = {
 } & (
     | {
           type: "dynamic"
-          rule: WrapperRule
+          rule: WrapperRule | null
+          draft_rule: WrapperRule | null
       }
     | { type: "static" }
 )

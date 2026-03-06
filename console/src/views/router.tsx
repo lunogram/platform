@@ -404,7 +404,7 @@ export const createRouter = ({
                                         apiPath: api.journeys,
                                         paramName: "entityId",
                                         context: JourneyContext,
-                                        element: <JourneyEditor />,
+                                        element: <Outlet />,
                                         children: [
                                             {
                                                 index: true,
