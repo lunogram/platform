@@ -73,6 +73,10 @@ func TestHandleLink(t *testing.T) {
 
 				mock.ExpectQuery("INSERT INTO journey_user_state").
 					WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
+
+				mock.ExpectQuery("SELECT type FROM journey_version_steps").
+					WithArgs(versionID, "step-1").
+					WillReturnRows(sqlmock.NewRows([]string{"type"}).AddRow("action"))
 			},
 		},
 		"target journey with no entrance step": {
@@ -158,6 +162,16 @@ func TestHandleLink(t *testing.T) {
 
 				mock.ExpectQuery("INSERT INTO journey_user_state").
 					WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
+
+				mock.ExpectQuery("SELECT type FROM journey_version_steps").
+					WithArgs(versionID, "step-1").
+					WillReturnRows(sqlmock.NewRows([]string{"type"}).AddRow("action"))
+				mock.ExpectQuery("SELECT type FROM journey_version_steps").
+					WithArgs(versionID, "step-2").
+					WillReturnRows(sqlmock.NewRows([]string{"type"}).AddRow("condition"))
+				mock.ExpectQuery("SELECT type FROM journey_version_steps").
+					WithArgs(versionID, "step-3").
+					WillReturnRows(sqlmock.NewRows([]string{"type"}).AddRow("exit"))
 			},
 		},
 	}
