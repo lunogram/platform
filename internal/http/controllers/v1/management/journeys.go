@@ -17,20 +17,22 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewJourneysController(logger *zap.Logger, journeyDB *sqlx.DB, mgmt *management.State) *JourneysController {
+func NewJourneysController(logger *zap.Logger, journeyDB, subjectsDB *sqlx.DB, mgmt *management.State) *JourneysController {
 	return &JourneysController{
-		logger: logger,
-		db:     journeyDB,
-		mgmt:   mgmt,
-		jrny:   journey.NewState(journeyDB),
+		logger:     logger,
+		journeyDB:  journeyDB,
+		subjectsDB: subjectsDB,
+		mgmt:       mgmt,
+		jrny:       journey.NewState(journeyDB),
 	}
 }
 
 type JourneysController struct {
-	logger *zap.Logger
-	db     *sqlx.DB
-	mgmt   *management.State
-	jrny   *journey.State
+	logger     *zap.Logger
+	journeyDB  *sqlx.DB
+	subjectsDB *sqlx.DB
+	mgmt       *management.State
+	jrny       *journey.State
 }
 
 func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListJourneysParams) {
@@ -103,7 +105,7 @@ func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.journeyDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -228,7 +230,7 @@ func (srv *JourneysController) UpdateJourney(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.journeyDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -379,7 +381,7 @@ func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.journeyDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -388,7 +390,7 @@ func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Re
 	defer tx.Rollback() //nolint:errcheck
 
 	journeys := journey.NewJourneysStore(tx)
-	events := subjects.NewEventsStore(tx)
+	events := subjects.NewEventsStore(srv.subjectsDB)
 
 	versionID, err := journeys.EnsureDraftVersion(ctx, journeyID)
 	if err != nil {
@@ -460,7 +462,7 @@ func (srv *JourneysController) VersionJourney(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.journeyDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -526,7 +528,7 @@ func (srv *JourneysController) DuplicateJourney(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.journeyDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -604,7 +606,7 @@ func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tx, err := srv.db.BeginTxx(ctx, nil)
+	tx, err := srv.journeyDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("failed to begin transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)

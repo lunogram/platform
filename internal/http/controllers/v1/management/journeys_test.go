@@ -21,14 +21,14 @@ func TestCreateJourney(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, jrny := teststore.RunPostgreSQL(t)
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, mgmtState)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState)
 
 	type test struct {
 		body oapi.CreateJourneyJSONRequestBody
@@ -84,7 +84,7 @@ func TestListJourneys(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, jrny := teststore.RunPostgreSQL(t)
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -101,7 +101,7 @@ func TestListJourneys(t *testing.T) {
 	}
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, mgmtState)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState)
 
 	type test struct {
 		limit  int
@@ -168,7 +168,7 @@ func TestGetJourney(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, jrny := teststore.RunPostgreSQL(t)
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -184,7 +184,7 @@ func TestGetJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, mgmtState)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState)
 
 	type test struct {
 		journeyID uuid.UUID
@@ -228,7 +228,7 @@ func TestUpdateJourney(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, jrny := teststore.RunPostgreSQL(t)
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -242,7 +242,7 @@ func TestUpdateJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, mgmtState)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState)
 
 	type test struct {
 		body oapi.UpdateJourneyJSONRequestBody
@@ -308,7 +308,7 @@ func TestDeleteJourney(t *testing.T) {
 
 	logger := zaptest.NewLogger(t)
 	ctx := t.Context()
-	mgmt, _, jrny := teststore.RunPostgreSQL(t)
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
 
 	projects := management.NewProjectsStore(mgmt)
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
@@ -322,7 +322,7 @@ func TestDeleteJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, mgmtState)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState)
 
 	type test struct {
 		journeyID uuid.UUID
