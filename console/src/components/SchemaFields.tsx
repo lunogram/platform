@@ -20,6 +20,7 @@ import { VariableAutocompleteInput } from "@/components/ui/variable-autocomplete
 export interface SchemaProperty {
     name: string
     schema: Schema
+    hidden?: boolean
 }
 
 export interface Schema {
@@ -44,7 +45,9 @@ function normalizeProperties(
 ): [string, Schema][] {
     if (!properties) return []
     if (Array.isArray(properties)) {
-        return properties.map((p, i) => [p.name, { ...p.schema, order: p.schema.order ?? i }])
+        return properties
+            .filter((p) => !p.hidden)
+            .map((p, i) => [p.name, { ...p.schema, order: p.schema.order ?? i }])
     }
     return Object.entries(properties)
 }
