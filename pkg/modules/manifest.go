@@ -25,6 +25,7 @@ type Author struct {
 type JSONSchemaProperty struct {
 	Name   string      `json:"name"`
 	Schema *JSONSchema `json:"schema"`
+	Hidden bool        `json:"hidden,omitempty"`
 }
 
 // JSONSchema represents a JSON Schema object compatible with the frontend.
