@@ -178,6 +178,42 @@ func (s *RulesStore) UpdateRule(ctx context.Context, projectID, id uuid.UUID, up
 	return err
 }
 
+// DuplicateRule creates a copy of an existing rule (with a new ID) within the
+// same project. The duplicate inherits the rule definition, dependency flags,
+// and event dependencies of the original.
+func (s *RulesStore) DuplicateRule(ctx context.Context, projectID, ruleID uuid.UUID) (uuid.UUID, error) {
+	stmt := `
+	WITH src AS (
+		SELECT project_id, rule, depends_on_events, depends_on_users,
+			depends_on_organizations, depends_on_organization_users
+		FROM rules
+		WHERE project_id = $1 AND id = $2
+	),
+	new_rule AS (
+		INSERT INTO rules (project_id, rule, depends_on_events, depends_on_users,
+			depends_on_organizations, depends_on_organization_users, version)
+		SELECT project_id, rule, depends_on_events, depends_on_users,
+			depends_on_organizations, depends_on_organization_users, 1
+		FROM src
+		RETURNING id
+	),
+	copy_events AS (
+		INSERT INTO rules_events (rule_id, event_id)
+		SELECT nr.id, re.event_id
+		FROM new_rule nr, rules_events re
+		WHERE re.rule_id = $2
+	)
+	SELECT id FROM new_rule`
+
+	var newID uuid.UUID
+	err := s.db.GetContext(ctx, &newID, stmt, projectID, ruleID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return newID, nil
+}
+
 func (s *RulesStore) UnsafeDeleteRule(ctx context.Context, projectID, ruleID uuid.UUID) error {
 	query := `
 	DELETE FROM rules

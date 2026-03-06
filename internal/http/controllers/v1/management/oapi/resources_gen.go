@@ -55,15 +55,16 @@ const (
 
 // Defines values for JourneyStatus.
 const (
-	Archived  JourneyStatus = "archived"
-	Draft     JourneyStatus = "draft"
-	Published JourneyStatus = "published"
+	JourneyStatusArchived  JourneyStatus = "archived"
+	JourneyStatusDraft     JourneyStatus = "draft"
+	JourneyStatusPublished JourneyStatus = "published"
 )
 
 // Defines values for JourneyStepType.
 const (
 	JourneyStepTypeAction     JourneyStepType = "action"
 	JourneyStepTypeBalancer   JourneyStepType = "balancer"
+	JourneyStepTypeCampaign   JourneyStepType = "campaign"
 	JourneyStepTypeDelay      JourneyStepType = "delay"
 	JourneyStepTypeEntrance   JourneyStepType = "entrance"
 	JourneyStepTypeEvent      JourneyStepType = "event"
@@ -73,6 +74,13 @@ const (
 	JourneyStepTypeLink       JourneyStepType = "link"
 	JourneyStepTypeSticky     JourneyStepType = "sticky"
 	JourneyStepTypeUpdate     JourneyStepType = "update"
+)
+
+// Defines values for ListState.
+const (
+	ListStateDraft   ListState = "draft"
+	ListStateLoading ListState = "loading"
+	ListStateReady   ListState = "ready"
 )
 
 // Defines values for ListType.
@@ -531,19 +539,32 @@ type JourneyStepType string
 
 // List defines model for List.
 type List struct {
-	CreatedAt   time.Time           `json:"created_at"`
-	Id          openapi_types.UUID  `json:"id"`
-	Name        string              `json:"name"`
-	ProjectId   openapi_types.UUID  `json:"project_id"`
-	RefreshedAt *time.Time          `json:"refreshed_at,omitempty"`
-	Rule        *rules.RuleSet      `json:"rule,omitempty"`
-	RuleId      *openapi_types.UUID `json:"rule_id,omitempty"`
-	Tags        *[]string           `json:"tags,omitempty"`
-	Type        ListType            `json:"type"`
-	UpdatedAt   time.Time           `json:"updated_at"`
-	UsersCount  int                 `json:"users_count"`
-	Version     int                 `json:"version"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// DraftRule Draft rule definition (from the draft version, if one exists)
+	DraftRule   *rules.RuleSet     `json:"draft_rule,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	ProjectId   openapi_types.UUID `json:"project_id"`
+	RefreshedAt *time.Time         `json:"refreshed_at,omitempty"`
+
+	// Rule Published rule definition (from the published version)
+	Rule *rules.RuleSet `json:"rule,omitempty"`
+
+	// State draft = not yet published, ready = published and active, loading = recomputing
+	State      ListState `json:"state"`
+	Tags       *[]string `json:"tags,omitempty"`
+	Type       ListType  `json:"type"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	UsersCount int       `json:"users_count"`
+	Version    int       `json:"version"`
+
+	// VersionNumber Current version number of the active list version
+	VersionNumber *int `json:"version_number,omitempty"`
 }
+
+// ListState draft = not yet published, ready = published and active, loading = recomputing
+type ListState string
 
 // ListType defines model for List.Type.
 type ListType string
@@ -923,9 +944,12 @@ type UpdateJourney struct {
 
 // UpdateList defines model for UpdateList.
 type UpdateList struct {
-	Name string         `json:"name"`
-	Rule *rules.RuleSet `json:"rule,omitempty"`
-	Tags *[]string      `json:"tags,omitempty"`
+	Name string `json:"name"`
+
+	// Published When true, publishes the current draft rule making it active
+	Published *bool          `json:"published,omitempty"`
+	Rule      *rules.RuleSet `json:"rule,omitempty"`
+	Tags      *[]string      `json:"tags,omitempty"`
 }
 
 // UpdateOrganization defines model for UpdateOrganization.
@@ -1397,6 +1421,12 @@ type GetListUsersParams struct {
 
 	// Search Search query string
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// PreviewListUsersParams defines parameters for PreviewListUsers.
+type PreviewListUsersParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // ImportListUsersMultipartBody defines parameters for ImportListUsers.
@@ -2142,6 +2172,9 @@ type ClientInterface interface {
 
 	// GetListUsers request
 	GetListUsers(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewListUsers request
+	PreviewListUsers(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *PreviewListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ImportListUsersWithBody request with any body
 	ImportListUsersWithBody(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3311,6 +3344,18 @@ func (c *Client) DuplicateList(ctx context.Context, projectID openapi_types.UUID
 
 func (c *Client) GetListUsers(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetListUsersRequest(c.Server, projectID, listID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PreviewListUsers(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *PreviewListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewListUsersRequest(c.Server, projectID, listID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -7402,6 +7447,69 @@ func NewGetListUsersRequest(server string, projectID openapi_types.UUID, listID 
 	return req, nil
 }
 
+// NewPreviewListUsersRequest generates requests for PreviewListUsers
+func NewPreviewListUsersRequest(server string, projectID openapi_types.UUID, listID openapi_types.UUID, params *PreviewListUsersParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "listID", runtime.ParamLocationPath, listID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s/users/preview", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewImportListUsersRequestWithBody generates requests for ImportListUsers with any type of body
 func NewImportListUsersRequestWithBody(server string, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
@@ -7425,7 +7533,7 @@ func NewImportListUsersRequestWithBody(server string, projectID openapi_types.UU
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s/users", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s/users/preview", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -10751,6 +10859,9 @@ type ClientWithResponsesInterface interface {
 	// GetListUsersWithResponse request
 	GetListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams, reqEditors ...RequestEditorFn) (*GetListUsersResponse, error)
 
+	// PreviewListUsersWithResponse request
+	PreviewListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *PreviewListUsersParams, reqEditors ...RequestEditorFn) (*PreviewListUsersResponse, error)
+
 	// ImportListUsersWithBodyWithResponse request with any body
 	ImportListUsersWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportListUsersResponse, error)
 
@@ -12368,6 +12479,29 @@ func (r GetListUsersResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetListUsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PreviewListUsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewListUsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewListUsersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -14483,6 +14617,15 @@ func (c *ClientWithResponses) GetListUsersWithResponse(ctx context.Context, proj
 		return nil, err
 	}
 	return ParseGetListUsersResponse(rsp)
+}
+
+// PreviewListUsersWithResponse request returning *PreviewListUsersResponse
+func (c *ClientWithResponses) PreviewListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *PreviewListUsersParams, reqEditors ...RequestEditorFn) (*PreviewListUsersResponse, error) {
+	rsp, err := c.PreviewListUsers(ctx, projectID, listID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewListUsersResponse(rsp)
 }
 
 // ImportListUsersWithBodyWithResponse request with arbitrary body returning *ImportListUsersResponse
@@ -17101,6 +17244,39 @@ func ParseGetListUsersResponse(rsp *http.Response) (*GetListUsersResponse, error
 	return response, nil
 }
 
+// ParsePreviewListUsersResponse parses an HTTP response from a PreviewListUsersWithResponse call
+func ParsePreviewListUsersResponse(rsp *http.Response) (*PreviewListUsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewListUsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseImportListUsersResponse parses an HTTP response from a ImportListUsersWithResponse call
 func ParseImportListUsersResponse(rsp *http.Response) (*ImportListUsersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -19222,8 +19398,11 @@ type ServerInterface interface {
 	// Get list users
 	// (GET /api/admin/projects/{projectID}/lists/{listID}/users)
 	GetListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID, params GetListUsersParams)
+	// Preview list users
+	// (GET /api/admin/projects/{projectID}/lists/{listID}/users/preview)
+	PreviewListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID, params PreviewListUsersParams)
 	// Import list users
-	// (POST /api/admin/projects/{projectID}/lists/{listID}/users)
+	// (POST /api/admin/projects/{projectID}/lists/{listID}/users/preview)
 	ImportListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID)
 	// List locales
 	// (GET /api/admin/projects/{projectID}/locales)
@@ -19777,8 +19956,14 @@ func (_ Unimplemented) GetListUsers(w http.ResponseWriter, r *http.Request, proj
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Preview list users
+// (GET /api/admin/projects/{projectID}/lists/{listID}/users/preview)
+func (_ Unimplemented) PreviewListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID, params PreviewListUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Import list users
-// (POST /api/admin/projects/{projectID}/lists/{listID}/users)
+// (POST /api/admin/projects/{projectID}/lists/{listID}/users/preview)
 func (_ Unimplemented) ImportListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
@@ -22692,6 +22877,57 @@ func (siw *ServerInterfaceWrapper) GetListUsers(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// PreviewListUsers operation middleware
+func (siw *ServerInterfaceWrapper) PreviewListUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "listID" -------------
+	var listID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listID", chi.URLParam(r, "listID"), &listID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PreviewListUsersParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewListUsers(w, r, projectID, listID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ImportListUsers operation middleware
 func (siw *ServerInterfaceWrapper) ImportListUsers(w http.ResponseWriter, r *http.Request) {
 
@@ -25395,7 +25631,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/users", wrapper.GetListUsers)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/users", wrapper.ImportListUsers)
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/users/preview", wrapper.PreviewListUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/users/preview", wrapper.ImportListUsers)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/locales", wrapper.ListLocales)

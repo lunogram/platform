@@ -60,7 +60,7 @@ func (u User) UserEvent(name string) UserEvent {
 			"phone":    u.Phone,
 			"timezone": u.Timezone,
 			"locale":   u.Locale,
-			"data":     u.Data,
+			"traits":   u.Data,
 			"version":  u.Version,
 		},
 	}
@@ -104,7 +104,7 @@ func (o Organization) OrganizationEvent(name string) OrganizationEvent {
 			"id":          o.ID,
 			"external_id": o.ExternalID,
 			"name":        o.Name,
-			"data":        o.Data,
+			"traits":      o.Data,
 			"version":     o.Version,
 		},
 	}
@@ -131,7 +131,7 @@ func (ou OrganizationUser) OrganizationEvent(name string) OrganizationEvent {
 			"organization_id":          ou.OrganizationID,
 			"organization_external_id": ou.OrganizationExternalID,
 			"user_id":                  ou.UserID,
-			"data":                     ou.Data,
+			"traits":                   ou.Data,
 			"version":                  ou.Version,
 		},
 	}

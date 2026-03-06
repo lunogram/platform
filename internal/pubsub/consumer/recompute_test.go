@@ -112,8 +112,13 @@ func TestRecomputeListHandlerSuccess(t *testing.T) {
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
-		RuleID:    &ruleID,
 	})
+	require.NoError(t, err)
+
+	versionID, err := st.ListsStore.CreateVersion(ctx, listID, &ruleID)
+	require.NoError(t, err)
+
+	err = st.ListsStore.PublishVersion(ctx, listID, versionID)
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
@@ -161,7 +166,6 @@ func TestRecomputeListHandlerNoRule(t *testing.T) {
 		ProjectID: projectID,
 		Name:      "Test List Without Rule",
 		Type:      "static",
-		RuleID:    nil,
 	})
 	require.NoError(t, err)
 
@@ -230,8 +234,13 @@ func TestRecomputeListHandlerWithUserAddedEvent(t *testing.T) {
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
-		RuleID:    &ruleID,
 	})
+	require.NoError(t, err)
+
+	versionID, err := st.ListsStore.CreateVersion(ctx, listID, &ruleID)
+	require.NoError(t, err)
+
+	err = st.ListsStore.PublishVersion(ctx, listID, versionID)
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))

@@ -2,6 +2,7 @@ package v1
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -52,8 +53,14 @@ func (srv *EventsController) ListUserEventSchemas(w http.ResponseWriter, r *http
 	for i, event := range events {
 		schema := make([]oapi.SchemaPath, len(event.Schema))
 		for j, s := range event.Schema {
+			// Add .data prefix so paths target the JSONB data column,
+			// matching the user schema API convention.
+			path := s.Path
+			if path != ".data" && !strings.HasPrefix(path, ".data.") && !strings.HasPrefix(path, ".data[") {
+				path = ".data" + path
+			}
 			schema[j] = oapi.SchemaPath{
-				Path:  s.Path,
+				Path:  path,
 				Types: []string(s.Types),
 			}
 		}

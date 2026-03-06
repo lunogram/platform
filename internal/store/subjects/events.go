@@ -150,7 +150,8 @@ func (s *EventsStore) ListEventListDependencies(ctx context.Context, id uuid.UUI
 	stmt := `
 	SELECT l.id AS list_id
 	FROM rules_events re
-	JOIN lists l ON l.rule_id = re.rule_id
+	JOIN list_versions lv ON lv.rule_id = re.rule_id AND lv.status = 'published'
+	JOIN lists l ON l.id = lv.list_id
 	WHERE re.event_id = $1
 	AND l.deleted_at IS NULL`
 

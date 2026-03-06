@@ -2,6 +2,7 @@ package subjects
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -19,6 +20,14 @@ const (
 	ListTypeDynamic = "dynamic"
 )
 
+type ListVersionStatus string
+
+const (
+	ListVersionStatusDraft     ListVersionStatus = "draft"
+	ListVersionStatusPublished ListVersionStatus = "published"
+	ListVersionStatusArchived  ListVersionStatus = "archived"
+)
+
 type Lists []List
 
 func (lists Lists) OAPI() []oapi.List {
@@ -29,38 +38,66 @@ func (lists Lists) OAPI() []oapi.List {
 	return result
 }
 
+// ListVersion represents a single version record for a list.
+type ListVersion struct {
+	ID            uuid.UUID         `db:"id"`
+	ListID        uuid.UUID         `db:"list_id"`
+	VersionNumber int               `db:"version_number"`
+	Status        ListVersionStatus `db:"status"`
+	RuleID        *uuid.UUID        `db:"rule_id"`
+	CreatedAt     time.Time         `db:"created_at"`
+	PublishedAt   *time.Time        `db:"published_at"`
+}
+
 type List struct {
-	ID         uuid.UUID                   `db:"id"`
-	ProjectID  uuid.UUID                   `db:"project_id"`
-	Name       string                      `db:"name"`
-	Type       ListType                    `db:"type"`
-	RuleID     *uuid.UUID                  `db:"rule_id"`
-	Rule       *store.JSONB[rules.RuleSet] `db:"rule"`
-	Version    int                         `db:"version"`
-	UsersCount int                         `db:"users_count"`
-	CreatedAt  time.Time                   `db:"created_at"`
-	UpdatedAt  time.Time                   `db:"updated_at"`
+	ID            uuid.UUID                   `db:"id"`
+	ProjectID     uuid.UUID                   `db:"project_id"`
+	Name          string                      `db:"name"`
+	Type          ListType                    `db:"type"`
+	VersionID     *uuid.UUID                  `db:"version_id"`
+	State         ListVersionStatus           `db:"state"`
+	Rule          *store.JSONB[rules.RuleSet] `db:"rule"`
+	DraftRule     *store.JSONB[rules.RuleSet] `db:"draft_rule"`
+	VersionNumber int                         `db:"version_number"`
+	Version       int                         `db:"version"`
+	UsersCount    int                         `db:"users_count"`
+	CreatedAt     time.Time                   `db:"created_at"`
+	UpdatedAt     time.Time                   `db:"updated_at"`
 }
 
 func (list List) OAPI() oapi.List {
+	// Map DB version status to OAPI state: published -> ready, draft stays draft
+	state := oapi.ListStateDraft
+	switch list.State {
+	case ListVersionStatusPublished:
+		state = oapi.ListStateReady
+	case ListVersionStatusDraft:
+		state = oapi.ListStateDraft
+	}
+
 	result := oapi.List{
 		Id:         list.ID,
 		ProjectId:  list.ProjectID,
 		Name:       list.Name,
 		Type:       oapi.ListType(list.Type),
+		State:      state,
 		UsersCount: list.UsersCount,
 		Version:    list.Version,
 		CreatedAt:  list.CreatedAt,
 		UpdatedAt:  list.UpdatedAt,
 	}
 
-	if list.RuleID != nil {
-		ruleID := *list.RuleID
-		result.RuleId = &ruleID
+	if list.VersionNumber > 0 {
+		vn := list.VersionNumber
+		result.VersionNumber = &vn
 	}
 
 	if list.Rule != nil {
 		result.Rule = &list.Rule.Data
+	}
+
+	if list.DraftRule != nil {
+		result.DraftRule = &list.DraftRule.Data
 	}
 
 	return result
@@ -87,12 +124,12 @@ func (s *ListsStore) CountLists(ctx context.Context, projectID uuid.UUID) (int, 
 
 func (s *ListsStore) CreateList(ctx context.Context, list List) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO lists (project_id, name, type, rule_id, version)
-	VALUES ($1, $2, $3, $4, $5)
+	INSERT INTO lists (project_id, name, type, version)
+	VALUES ($1, $2, $3, $4)
 	RETURNING id`
 
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, list.ProjectID, list.Name, list.Type, list.RuleID, list.Version)
+	err := s.db.GetContext(ctx, &id, stmt, list.ProjectID, list.Name, list.Type, list.Version)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -100,35 +137,64 @@ func (s *ListsStore) CreateList(ctx context.Context, list List) (uuid.UUID, erro
 	return id, nil
 }
 
+// listSelectFields returns the common SELECT clause for list queries.
+// It joins through list_versions to derive state, published rule, draft rule, and version number.
+const listSelectFields = `
+	l.id,
+	l.project_id,
+	l.name,
+	l.type,
+	l.version_id,
+	COALESCE(active_v.status, 'draft') AS state,
+	pub_r.rule AS rule,
+	draft_r.rule AS draft_rule,
+	COALESCE(active_v.version_number, 0) AS version_number,
+	l.version`
+
+// listSelectJoins returns the common JOIN clause for list queries.
+// - active_v: the version pointed to by lists.version_id
+// - pub_v: the latest published version (for the published rule)
+// - pub_r: the rule from the published version
+// - draft_v: the draft version (if one exists)
+// - draft_r: the rule from the draft version
+const listSelectJoins = `
+	LEFT JOIN list_versions active_v ON l.version_id = active_v.id
+	LEFT JOIN LATERAL (
+		SELECT lv.rule_id
+		FROM list_versions lv
+		WHERE lv.list_id = l.id AND lv.status = 'published'
+		ORDER BY lv.version_number DESC
+		LIMIT 1
+	) pub_v ON TRUE
+	LEFT JOIN rules pub_r ON pub_v.rule_id = pub_r.id
+	LEFT JOIN list_versions draft_v ON draft_v.list_id = l.id AND draft_v.status = 'draft'
+	LEFT JOIN rules draft_r ON draft_v.rule_id = draft_r.id`
+
 func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string) (Lists, int, error) {
-	query := `
+	q := fmt.Sprintf(`
 	SELECT
-		l.id,
-		l.project_id,
-		l.name,
-		l.type,
-		l.rule_id,
-		r.rule,
-		l.version,
+		%s,
 		COUNT(lu.user_id) AS users_count,
 		l.created_at,
 		l.updated_at,
 		COUNT(*) OVER () AS total_count
 	FROM lists l
-	LEFT JOIN rules r ON l.rule_id = r.id
+	%s
 	LEFT JOIN list_users lu ON lu.list_id = l.id
 	WHERE l.project_id = $1
 	AND l.deleted_at IS NULL
-	AND ($4 = '' OR l.name ILIKE '%' || $4 || '%')
-	GROUP BY l.id, l.project_id, l.name, l.type, l.rule_id, r.rule, l.version, l.created_at, l.updated_at
+	AND ($4 = '' OR l.name ILIKE '%%' || $4 || '%%')
+	GROUP BY l.id, l.project_id, l.name, l.type, l.version_id,
+		active_v.status, pub_r.rule, draft_r.rule, active_v.version_number,
+		l.version, l.created_at, l.updated_at
 	ORDER BY l.updated_at DESC
-	LIMIT $2 OFFSET $3`
+	LIMIT $2 OFFSET $3`, listSelectFields, listSelectJoins)
 
 	var results []struct {
 		List
 		TotalCount int `db:"total_count"`
 	}
-	err := s.db.SelectContext(ctx, &results, query, projectID, pagination.Limit, pagination.Offset, search)
+	err := s.db.SelectContext(ctx, &results, q, projectID, pagination.Limit, pagination.Offset, search)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -147,20 +213,14 @@ func (s *ListsStore) ListLists(ctx context.Context, projectID uuid.UUID, paginat
 }
 
 func (s *ListsStore) GetList(ctx context.Context, projectID, listID uuid.UUID) (*List, error) {
-	query := `
+	q := fmt.Sprintf(`
 	SELECT
-		l.id,
-		l.project_id,
-		l.name,
-		l.type,
-		l.rule_id,
-		r.rule,
-		l.version,
+		%s,
 		COALESCE(lu.user_count, 0)::int AS users_count,
 		l.created_at,
 		l.updated_at
 	FROM lists l
-	LEFT JOIN rules r ON l.rule_id = r.id
+	%s
 	LEFT JOIN (
 		SELECT list_id, COUNT(*) AS user_count
 		FROM list_users
@@ -168,10 +228,10 @@ func (s *ListsStore) GetList(ctx context.Context, projectID, listID uuid.UUID) (
 	) lu ON lu.list_id = l.id
 	WHERE l.project_id = $1
 	AND l.id = $2
-	AND l.deleted_at IS NULL`
+	AND l.deleted_at IS NULL`, listSelectFields, listSelectJoins)
 
 	var list List
-	err := s.db.GetContext(ctx, &list, query, projectID, listID)
+	err := s.db.GetContext(ctx, &list, q, projectID, listID)
 	if err != nil {
 		return nil, err
 	}
@@ -180,22 +240,167 @@ func (s *ListsStore) GetList(ctx context.Context, projectID, listID uuid.UUID) (
 }
 
 type ListUpdate struct {
-	Name   *string
-	RuleID *uuid.UUID
+	Name *string
 }
 
 func (s *ListsStore) UpdateList(ctx context.Context, projectID, listID uuid.UUID, update ListUpdate) error {
 	stmt := `
 	UPDATE lists
 	SET
-		name    = COALESCE($3, name),
-		rule_id = COALESCE($4, rule_id)
+		name = COALESCE($3, name)
 	WHERE project_id = $1
 		AND id = $2
 		AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, stmt, projectID, listID, update.Name, update.RuleID)
+	_, err := s.db.ExecContext(ctx, stmt, projectID, listID, update.Name)
 	return err
+}
+
+// CreateVersion creates a new list version record.
+func (s *ListsStore) CreateVersion(ctx context.Context, listID uuid.UUID, ruleID *uuid.UUID) (uuid.UUID, error) {
+	stmt := `
+	INSERT INTO list_versions (list_id, version_number, status, rule_id)
+	VALUES ($1, COALESCE((SELECT MAX(version_number) FROM list_versions WHERE list_id = $1), 0) + 1, 'draft', $2)
+	RETURNING id`
+
+	var id uuid.UUID
+	err := s.db.GetContext(ctx, &id, stmt, listID, ruleID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
+}
+
+// SetListVersionID updates the lists.version_id pointer to the given version.
+func (s *ListsStore) SetListVersionID(ctx context.Context, listID, versionID uuid.UUID) error {
+	stmt := `UPDATE lists SET version_id = $2 WHERE id = $1`
+	_, err := s.db.ExecContext(ctx, stmt, listID, versionID)
+	return err
+}
+
+// EnsureDraftVersion returns the ID of an existing draft version for the list,
+// or creates a new one by copying the rule from the current published version.
+// It also swings lists.version_id to point to the draft.
+func (s *ListsStore) EnsureDraftVersion(ctx context.Context, projectID, listID uuid.UUID) (*ListVersion, error) {
+	// Check for existing draft
+	var existing ListVersion
+	err := s.db.GetContext(ctx, &existing, `
+		SELECT id, list_id, version_number, status, rule_id, created_at, published_at
+		FROM list_versions
+		WHERE list_id = $1 AND status = 'draft'`, listID)
+	if err == nil {
+		// Draft exists — ensure version_id points to it
+		err = s.SetListVersionID(ctx, listID, existing.ID)
+		if err != nil {
+			return nil, err
+		}
+		return &existing, nil
+	}
+	if err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	// No draft exists — get the published version's rule_id to copy
+	var publishedRuleID *uuid.UUID
+	err = s.db.GetContext(ctx, &publishedRuleID, `
+		SELECT rule_id FROM list_versions
+		WHERE list_id = $1 AND status = 'published'
+		ORDER BY version_number DESC LIMIT 1`, listID)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	// If there's a published rule, duplicate it for the draft
+	var newRuleID *uuid.UUID
+	if publishedRuleID != nil {
+		id, err := s.rules.DuplicateRule(ctx, projectID, *publishedRuleID)
+		if err != nil {
+			return nil, err
+		}
+		newRuleID = &id
+	}
+
+	// Create the new draft version
+	versionID, err := s.CreateVersion(ctx, listID, newRuleID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Swing version_id to the new draft
+	err = s.SetListVersionID(ctx, listID, versionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch and return the created version
+	var version ListVersion
+	err = s.db.GetContext(ctx, &version, `
+		SELECT id, list_id, version_number, status, rule_id, created_at, published_at
+		FROM list_versions WHERE id = $1`, versionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &version, nil
+}
+
+// GetDraftVersion returns the draft version for a list, if one exists.
+func (s *ListsStore) GetDraftVersion(ctx context.Context, listID uuid.UUID) (*ListVersion, error) {
+	var version ListVersion
+	err := s.db.GetContext(ctx, &version, `
+		SELECT id, list_id, version_number, status, rule_id, created_at, published_at
+		FROM list_versions
+		WHERE list_id = $1 AND status = 'draft'
+		ORDER BY version_number DESC LIMIT 1`, listID)
+	if err != nil {
+		return nil, err
+	}
+	return &version, nil
+}
+
+// GetPublishedVersion returns the published version for a list, if one exists.
+func (s *ListsStore) GetPublishedVersion(ctx context.Context, listID uuid.UUID) (*ListVersion, error) {
+	var version ListVersion
+	err := s.db.GetContext(ctx, &version, `
+		SELECT id, list_id, version_number, status, rule_id, created_at, published_at
+		FROM list_versions
+		WHERE list_id = $1 AND status = 'published'
+		ORDER BY version_number DESC LIMIT 1`, listID)
+	if err != nil {
+		return nil, err
+	}
+	return &version, nil
+}
+
+// UpdateVersionRuleID updates the rule_id on a list version.
+func (s *ListsStore) UpdateVersionRuleID(ctx context.Context, versionID, ruleID uuid.UUID) error {
+	stmt := `UPDATE list_versions SET rule_id = $2 WHERE id = $1`
+	_, err := s.db.ExecContext(ctx, stmt, versionID, ruleID)
+	return err
+}
+
+// PublishVersion archives any currently published version, promotes the draft
+// to published, and swings lists.version_id to the newly published version.
+func (s *ListsStore) PublishVersion(ctx context.Context, listID, versionID uuid.UUID) error {
+	// Archive currently published version(s)
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE list_versions SET status = 'archived'
+		WHERE list_id = $1 AND status = 'published'`, listID)
+	if err != nil {
+		return err
+	}
+
+	// Promote draft to published
+	_, err = s.db.ExecContext(ctx, `
+		UPDATE list_versions SET status = 'published', published_at = now()
+		WHERE id = $1 AND list_id = $2`, versionID, listID)
+	if err != nil {
+		return err
+	}
+
+	// Swing version_id to the published version
+	return s.SetListVersionID(ctx, listID, versionID)
 }
 
 func (s *ListsStore) AddUserToList(ctx context.Context, listID, userID uuid.UUID) error {
@@ -221,22 +426,52 @@ func (s *ListsStore) DeleteList(ctx context.Context, projectID, listID uuid.UUID
 }
 
 func (s *ListsStore) DuplicateList(ctx context.Context, projectID, listID uuid.UUID, newName string) (uuid.UUID, error) {
-	query := `
-	INSERT INTO lists (project_id, name, type, rule_id, version)
-	SELECT project_id, $1, type, rule_id, 0
+	// Create the new list (without version_id — it starts as a draft)
+	q := `
+	INSERT INTO lists (project_id, name, type, version)
+	SELECT project_id, $1, type, 0
 	FROM lists
 	WHERE project_id = $2
 	AND id = $3
 	AND deleted_at IS NULL
 	RETURNING id`
 
-	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, query, newName, projectID, listID)
+	var newListID uuid.UUID
+	err := s.db.GetContext(ctx, &newListID, q, newName, projectID, listID)
 	if err != nil {
 		return uuid.Nil, err
 	}
 
-	return id, nil
+	// Copy the published version's rule into a draft version for the new list
+	var publishedRuleID *uuid.UUID
+	err = s.db.GetContext(ctx, &publishedRuleID, `
+		SELECT lv.rule_id FROM list_versions lv
+		WHERE lv.list_id = $1 AND lv.status = 'published'
+		ORDER BY lv.version_number DESC LIMIT 1`, listID)
+	if err != nil && err != sql.ErrNoRows {
+		return uuid.Nil, err
+	}
+
+	if publishedRuleID != nil {
+		// Duplicate the rule
+		newRuleID, err := s.rules.DuplicateRule(ctx, projectID, *publishedRuleID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+
+		// Create a draft version for the new list
+		versionID, err := s.CreateVersion(ctx, newListID, &newRuleID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+
+		err = s.SetListVersionID(ctx, newListID, versionID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+	}
+
+	return newListID, nil
 }
 
 func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid.UUID, pagination store.Pagination, search string) (Users, int, error) {
@@ -289,11 +524,65 @@ func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid
 	return users, total, nil
 }
 
+// PreviewListUsers runs the given ruleset as a read-only query and returns the
+// matching users without modifying the list_users table. This is used to show a
+// preview of which users would be included when the draft rule is published.
+func (s *ListsStore) PreviewListUsers(ctx context.Context, projectID uuid.UUID, ruleset rules.RuleSet, limit int) (Users, int, error) {
+	builder := query.NewQueryBuilder(projectID, nil)
+	ruleQuery, err := builder.Query(ruleset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	sql := fmt.Sprintf(`
+	WITH matched AS MATERIALIZED (
+		%s
+	)
+	SELECT
+		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
+		EXISTS(
+			SELECT 1 FROM devices d
+			WHERE d.user_id = u.id
+			AND d.token IS NOT NULL
+			AND d.token != ''
+		) as has_push_device,
+		COUNT(*) OVER () AS total_count
+	FROM users u
+	INNER JOIN matched m ON u.id = m.id
+	ORDER BY u.created_at DESC
+	LIMIT %d`, ruleQuery.SQL, limit)
+
+	type result struct {
+		User
+		TotalCount int `db:"total_count"`
+	}
+
+	var results []result
+	err = s.db.SelectContext(ctx, &results, sql, ruleQuery.Args...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(results) == 0 {
+		return []User{}, 0, nil
+	}
+
+	total := results[0].TotalCount
+	users := make([]User, len(results))
+	for i, r := range results {
+		users[i] = r.User
+	}
+
+	return users, total, nil
+}
+
+// SelectListUsersDependency returns IDs of published lists whose rules depend on user data.
 func (s *ListsStore) SelectListUsersDependency(ctx context.Context, projectID uuid.UUID) ([]uuid.UUID, error) {
 	query := `
 	SELECT l.id
 	FROM lists l
-	JOIN rules r ON l.rule_id = r.id
+	JOIN list_versions lv ON lv.list_id = l.id AND lv.status = 'published'
+	JOIN rules r ON lv.rule_id = r.id
 	WHERE l.project_id = $1
 	AND r.depends_on_users = TRUE
 	AND l.deleted_at IS NULL`
@@ -307,12 +596,13 @@ func (s *ListsStore) SelectListUsersDependency(ctx context.Context, projectID uu
 	return result, nil
 }
 
-// SelectListOrganizationsDependency returns list IDs that have rules depending on organization data.
+// SelectListOrganizationsDependency returns IDs of published lists whose rules depend on organization data.
 func (s *ListsStore) SelectListOrganizationsDependency(ctx context.Context, projectID uuid.UUID) ([]uuid.UUID, error) {
 	query := `
 	SELECT l.id
 	FROM lists l
-	JOIN rules r ON l.rule_id = r.id
+	JOIN list_versions lv ON lv.list_id = l.id AND lv.status = 'published'
+	JOIN rules r ON lv.rule_id = r.id
 	WHERE l.project_id = $1
 	AND r.depends_on_organizations = TRUE
 	AND l.deleted_at IS NULL`
@@ -326,12 +616,13 @@ func (s *ListsStore) SelectListOrganizationsDependency(ctx context.Context, proj
 	return result, nil
 }
 
-// SelectListOrganizationUsersDependency returns list IDs that have rules depending on organization user data.
+// SelectListOrganizationUsersDependency returns IDs of published lists whose rules depend on organization user data.
 func (s *ListsStore) SelectListOrganizationUsersDependency(ctx context.Context, projectID uuid.UUID) ([]uuid.UUID, error) {
 	query := `
 	SELECT l.id
 	FROM lists l
-	JOIN rules r ON l.rule_id = r.id
+	JOIN list_versions lv ON lv.list_id = l.id AND lv.status = 'published'
+	JOIN rules r ON lv.rule_id = r.id
 	WHERE l.project_id = $1
 	AND r.depends_on_organization_users = TRUE
 	AND l.deleted_at IS NULL`
@@ -420,4 +711,24 @@ func (s *ListsStore) RecomputeList(ctx context.Context, projectID, listID uuid.U
 	}
 
 	return results, nil
+}
+
+// GetPublishedRule returns the published rule for a list by looking up the
+// published version's rule. Returns nil if no published version/rule exists.
+func (s *ListsStore) GetPublishedRule(ctx context.Context, listID uuid.UUID) (*rules.RuleSet, error) {
+	var ruleset store.JSONB[rules.RuleSet]
+	err := s.db.GetContext(ctx, &ruleset, `
+		SELECT r.rule
+		FROM list_versions lv
+		JOIN rules r ON lv.rule_id = r.id
+		WHERE lv.list_id = $1 AND lv.status = 'published'
+		ORDER BY lv.version_number DESC
+		LIMIT 1`, listID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &ruleset.Data, nil
 }
