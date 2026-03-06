@@ -97,9 +97,7 @@ export const journeyLinkStep: JourneyStepType<JourneyLinkConfig> = {
                         {t("target_journey")}
                         <span className="text-destructive"> *</span>
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                        {t("target_journey_desc")}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{t("target_journey_desc")}</p>
                     <div className="flex items-center gap-1.5">
                         <Combobox<JourneyOption>
                             onSearch={handleSearch}
@@ -122,9 +120,7 @@ export const journeyLinkStep: JourneyStepType<JourneyLinkConfig> = {
                                 className="h-8 w-8 shrink-0"
                                 type="button"
                                 onClick={() =>
-                                    window.open(
-                                        `/projects/${project.id}/journeys/${target.id}`,
-                                    )
+                                    window.open(`/projects/${project.id}/journeys/${target.id}`)
                                 }
                             >
                                 <ExternalLink className="h-4 w-4" />

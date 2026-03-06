@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import type { JourneyStepType, Rule, RulePath } from "../../../types"
 import { EntranceStepIcon } from "../../../components/icons"
 import RuleBuilder from "../../users/rules/RuleBuilder"
@@ -116,7 +117,6 @@ function ApiTriggerSection({ journeyId, stepId }: { journeyId: UUID; stepId: UUI
     )
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const entranceStep: JourneyStepType<EntranceConfig> = {
     name: "entrance",
     icon: <EntranceStepIcon />,
@@ -125,10 +125,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
     newData: async () => ({
         trigger: "none",
     }),
-    Describe({
-        project: { id: projectId },
-        value: { trigger, event_name, rule, references = [] },
-    }) {
+    Describe({ value: { trigger, event_name, rule, references = [] } }) {
         const { t } = useTranslation()
         const [preferences] = useContext(PreferencesContext)
 

@@ -92,9 +92,7 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
                     onSearch={handleSearch}
                     value={value.campaign_id === NIL ? "" : value.campaign_id}
                     displayValue={campaign?.name}
-                    onValueChange={(id) =>
-                        onChange({ ...value, campaign_id: (id || NIL) as UUID })
-                    }
+                    onValueChange={(id) => onChange({ ...value, campaign_id: (id || NIL) as UUID })}
                     placeholder={t("campaign.singular")}
                     renderOption={(option) => option.name}
                 />
