@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/lunogram/platform/internal/webhook"
@@ -39,6 +41,12 @@ func (r *recordingPublisher) Publish(_ context.Context, subject schemas.Subject,
 	}
 	r.messages = append(r.messages, publishedMessage{subject: subject, data: data})
 	return nil
+}
+
+type failingPublisher struct{}
+
+func (f *failingPublisher) Publish(_ context.Context, _ schemas.Subject, _ any) error {
+	return errors.New("publish failed")
 }
 
 func TestCreateProject(t *testing.T) {
@@ -447,4 +455,46 @@ func TestCreateProjectPublishesNATSEvent(t *testing.T) {
 	require.Equal(t, "NATS Test Project", event.Data["name"])
 	require.Equal(t, "America/New_York", event.Data["timezone"])
 	require.Equal(t, "en-US", event.Data["locale"])
+}
+
+func TestCreateProjectRollbackOnPublishFailure(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := t.Context()
+	mgmt, usrs, jrny := teststore.RunPostgreSQL(t)
+
+	orgs := management.NewOrganizationsStore(mgmt)
+	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
+	require.NoError(t, err)
+
+	pub := &failingPublisher{}
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, pub)
+
+	body := oapi.CreateProjectJSONRequestBody{
+		Name:     "Rollback Test Project",
+		Timezone: "America/New_York",
+		Locale:   "en-US",
+	}
+
+	bb, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/admin/projects", bytes.NewReader(bb))
+
+	claimAdmin := &rbac.Scope{
+		OrganizationID: orgID,
+	}
+	req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+
+	projects.CreateProject(res, req)
+
+	require.Equal(t, http.StatusInternalServerError, res.Code, "request should fail when publish fails")
+
+	// Verify the project was not persisted (transaction was rolled back)
+	mgmtState := management.NewState(mgmt)
+	_, total, err := mgmtState.ListProjects(ctx, orgID, store.Pagination{Limit: 10, Offset: 0}, "")
+	require.NoError(t, err)
+	require.Equal(t, 0, total, "project should not exist after rollback")
 }

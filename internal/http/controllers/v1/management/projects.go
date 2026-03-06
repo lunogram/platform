@@ -243,6 +243,24 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	if srv.pub != nil {
+		err = srv.pub.Publish(ctx, schemas.ProjectEventsProcess(scope.OrganizationID), schemas.ProjectEvent{
+			ID:             projectID,
+			Name:           schemas.EventProjectCreated,
+			OrganizationID: scope.OrganizationID,
+			Data: map[string]any{
+				"name":     body.Name,
+				"timezone": body.Timezone,
+				"locale":   body.Locale,
+			},
+		})
+		if err != nil {
+			logger.Error("failed to publish project created event", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		logger.Error("unexpected error while attempting to commit transaction", zap.Error(err))
@@ -272,22 +290,6 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		logger.Error("failed to call project created webhook", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
-	}
-
-	if srv.pub != nil {
-		err = srv.pub.Publish(ctx, schemas.ProjectEventsProcess(*project.OrganizationID), schemas.ProjectEvent{
-			ID:             project.ID,
-			Name:           schemas.EventProjectCreated,
-			OrganizationID: *project.OrganizationID,
-			Data: map[string]any{
-				"name":     project.Name,
-				"timezone": project.Timezone,
-				"locale":   project.Locale,
-			},
-		})
-		if err != nil {
-			logger.Error("failed to publish project created event", zap.Error(err))
-		}
 	}
 
 	json.Write(w, http.StatusCreated, project.OAPI())
