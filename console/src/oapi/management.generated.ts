@@ -228,6 +228,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/lists/{listID}/recount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recount list users
+         * @description Recalculates the user count for a dynamic list by re-evaluating the rules
+         */
+        post: operations["recountList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/lists/{listID}": {
         parameters: {
             query?: never;
@@ -294,26 +314,6 @@ export interface paths {
          * @description Imports users to a static list from a CSV file
          */
         post: operations["importListUsers"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/projects/{projectID}/lists/{listID}/recount": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Recount list users
-         * @description Recalculates the user count for a dynamic list by re-evaluating the rules
-         */
-        post: operations["recountList"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3462,6 +3462,32 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    recountList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The list ID */
+                listID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recount started successfully. The list state will be set to 'loading'. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getList: {
         parameters: {
             query?: never;
@@ -3629,32 +3655,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    recountList: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The project ID */
-                projectID: string;
-                /** @description The list ID */
-                listID: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Recount started successfully. The list state will be set to 'loading'. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["List"];
-                };
             };
             default: components["responses"]["Error"];
         };

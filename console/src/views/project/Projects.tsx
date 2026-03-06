@@ -26,9 +26,7 @@ export function Projects() {
             },
          })
     )
-    if (!res) return null
-    const projects = res.data?.results || []
-
+    const projects = res?.data?.results || [];
     const recents = useMemo(() => {
         const recents = getRecentProjects()
         if (!projects?.length || !recents.length) return []
@@ -43,20 +41,22 @@ export function Projects() {
                 a.push({
                     when,
                     project,
-                })
+                });
             }
-            return a
-        }, [])
-    }, [projects])
-    const [open, setOpen] = useState(false)
+            return a;
+        }, []);
+    }, [projects]);
+    const [open, setOpen] = useState(false);
 
     useEffect(() => {
-        if (projects && !projects.length) {
+        if (res && projects && !projects.length) {
             navigate("/onboarding/project")?.catch((e) => {
                 console.error("Failed to navigate to onboarding:", e)
             })
         }
-    }, [projects, navigate])
+    }, [res, projects, navigate]);
+
+    if (!res) return null;
 
     return (
         <PageContent

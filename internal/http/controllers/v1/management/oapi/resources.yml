@@ -552,6 +552,41 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  
+  /api/admin/projects/{projectID}/lists/{listID}/recount:
+    post:
+      summary: Recount list users
+      description: Recalculates the user count for a dynamic list by re-evaluating the rules
+      operationId: recountList
+      tags:
+        - Lists
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: listID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The list ID
+      responses:
+        "202":
+          description: Recount started successfully. The list state will be set to 'loading'.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/List"
+        default:
+          $ref: "#/components/responses/Error"
+          
   /api/admin/projects/{projectID}/lists/{listID}:
     get:
       summary: Get list by ID
