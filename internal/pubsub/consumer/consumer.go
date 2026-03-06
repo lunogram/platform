@@ -24,6 +24,7 @@ const (
 	StreamOrganizationUsers  = "organizations-users"
 	StreamOrganizationEvents = "organizations-events"
 	StreamActions            = "actions"
+	StreamProjects           = "projects"
 )
 
 // Subscription subjects for NATS core subscribers.
@@ -47,6 +48,7 @@ const (
 	ConsumerOrganizationEventsProcess = "organizations-events-process"
 	ConsumerOrganizationEventsSchema  = "organizations-events-schema"
 	ConsumerActionsSchema             = "actions-schema"
+	ConsumerProjectEventsProcess      = "projects-events-process"
 )
 
 // Serve starts all JetStream consumers and registers their handlers.

@@ -20,7 +20,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 	webhookCaller := webhook.NewCaller(logger.Named("webhook"), cfg.Webhook)
 
 	controller := &Controller{
-		ProjectsController:             NewProjectsController(logger, managementDB, usersDB, journeyDB, webhookCaller),
+		ProjectsController:             NewProjectsController(logger, managementDB, usersDB, journeyDB, webhookCaller, pub),
 		CampaignsController:            NewCampaignsController(logger, managementDB, usersDB),
 		TemplatesController:            NewTemplatesController(logger, managementDB),
 		AdminsController:               NewAdminsController(logger, managementDB),
