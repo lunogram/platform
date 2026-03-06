@@ -1,7 +1,7 @@
 import { useCallback, useContext, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Plus, Search, Puzzle, MoreHorizontal } from "lucide-react"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
@@ -48,10 +48,16 @@ export default function Integrations() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.providers.search(project.id, {
-                limit: 50,
-                search: debouncedQuery || undefined,
-            } as any)
+            const res = await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
+                params: {
+                    path: { projectID: project.id },
+                    query: {
+                        limit: 50,
+                        search: debouncedQuery || undefined,
+                    } as any,
+                },
+            })
+            return res.data ?? null
         }, [project.id, debouncedQuery]),
     )
 
@@ -59,7 +65,14 @@ export default function Integrations() {
 
     const handleArchive = async (id: UUID) => {
         if (!confirm(t("delete_integration_confirmation"))) return
-        await api.providers.delete(project.id, id)
+        await oapiClient.DELETE("/api/admin/projects/{projectID}/providers/{providerID}", {
+            params: {
+                path: {
+                    projectID: project.id,
+                    providerID: id,
+                },
+            },
+        })
         await reload()
     }
 

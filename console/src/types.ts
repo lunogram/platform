@@ -1,6 +1,7 @@
 import type { ComponentType, Dispatch, Key, ReactNode, SetStateAction } from "react"
 import type { FieldPath, FieldValues, UseFormReturn } from "react-hook-form"
 import type { Node } from "reactflow"
+import type { components } from "@/oapi/management.generated"
 import type { UUID } from "@/types/common"
 
 export type Class<T> = new () => T
@@ -241,7 +242,7 @@ export interface OrganizationSchemaPath {
 }
 
 export interface VariableSuggestions {
-    userPaths: UserSchemaPath[]
+    userPaths: EventSchemaPath[]
     eventPaths: EventSchema[]
     organizationEventPaths?: EventSchema[]
     organizationUserPaths?: OrganizationUserSchemaPath[]
@@ -422,8 +423,8 @@ export type List = {
     name: string
     state: ListState
     type: ListType
-    rule?: WrapperRule | null
-    draft_rule?: WrapperRule | null
+    rule?: any
+    draft_rule?: any
     version_number?: number | null
     users_count: number
     tags?: string[]
@@ -437,8 +438,8 @@ export type List = {
 } & (
     | {
           type: "dynamic"
-          rule: WrapperRule | null
-          draft_rule: WrapperRule | null
+          rule: any
+          draft_rule: any
       }
     | { type: "static" }
 )
@@ -468,12 +469,14 @@ export interface Journey {
     updated_at: string
     deleted_at?: string
     stats_at?: string
-    stats: Record<string, number>
+    stats?: Record<string, number>
 }
+
+export type JourneyStepKind = components["schemas"]["JourneyStepType"];
 
 export interface JourneyStep<T = any> {
     id: UUID
-    type: string
+    type: JourneyStepKind
     name: string
     data: T
     x: number
@@ -482,26 +485,15 @@ export interface JourneyStep<T = any> {
 
 export type JourneyStepParams = Omit<JourneyStep, "id">
 
-interface JourneyStepMapChild<E = any> {
-    external_id: string
-    path?: string
-    data?: E
+export type JourneyStepMapChild = components["schemas"]["JourneyStepChild"]
+
+export type JourneyStepMapEntry = components["schemas"]["JourneyStep"] & {
+    stats?: Record<string, number>
+    stats_at?: Date
+    id?: UUID
 }
 
-export interface JourneyStepMap {
-    [external_id: string]: {
-        type: string
-        name: string
-        data_key?: string
-        data?: Record<string, unknown>
-        x: number
-        y: number
-        children?: JourneyStepMapChild[]
-        stats?: Record<string, number>
-        stats_at?: Date
-        id?: UUID
-    }
-}
+export type JourneyStepMap = Record<string, JourneyStepMapEntry>
 
 export interface JourneyStepTypeEditProps<T> extends ControlledProps<T> {
     journey: Journey
@@ -719,7 +711,7 @@ export interface Provider {
 
     data: any
     is_default: boolean
-    setup: ProviderSetupMeta[]
+    setup?: ProviderSetupMeta[]
     external_id?: string
 }
 

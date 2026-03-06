@@ -10,7 +10,7 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 import { UserImportForm } from "@/components/ui/user-import-dialog"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import type { UUID } from "@/types/common"
 import { useContext, useState } from "react"
 import { NIL } from "uuid"
@@ -26,22 +26,29 @@ export default function ProjectOnboardingUsers() {
     const [skipLoading, setSkipLoading] = useState(false)
 
     async function createInitialUser() {
-        const admin = await api.admins.whoami()
-        if (!admin) return
+        const res = await oapiClient.GET("/api/admin/organizations/whoami")
+        if (!res.data) return
 
         let fullName
-        if (admin.first_name || admin.last_name) {
-            fullName = admin.last_name ? admin.first_name + " " + admin.last_name : admin.first_name
+        if (res.data.first_name || res.data.last_name) {
+            fullName = res.data.last_name ? res.data.first_name + " " + res.data.last_name : res.data.first_name
         }
 
-        await api.users.create(projectId, {
-            anonymous_id: crypto.randomUUID(),
-            data: {
-                full_name: fullName,
-                admin: true,
+        await oapiClient.POST("/api/admin/projects/{projectID}/users", {
+            params: {
+                path: {
+                    projectID: projectId,
+                },
             },
-            email: admin.email,
-            timezone: project.timezone,
+            body: {
+                anonymous_id: crypto.randomUUID(),
+                data: {
+                    full_name: fullName,
+                    admin: true,
+                },
+                email: res.data.email,
+                timezone: project.timezone,
+            },
         })
     }
 
@@ -51,7 +58,13 @@ export default function ProjectOnboardingUsers() {
             await createInitialUser()
 
             if (file) {
-                await api.users.addImport(projectId, file)
+                const formData = new FormData()
+                formData.append("file", file)
+                await fetch(`/api/admin/projects/${projectId}/users/import`, {
+                    method: "POST",
+                    credentials: "include",
+                    body: formData,
+                })
             }
 
             await navigate(`/projects/${projectId}/onboarding/getting-started`)

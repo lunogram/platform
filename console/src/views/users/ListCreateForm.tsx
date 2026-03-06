@@ -1,5 +1,5 @@
 import { useContext, useState } from "react"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import type { List } from "../../types"
 import { useTranslation } from "react-i18next"
@@ -25,13 +25,20 @@ export function ListCreateForm({ onCreated }: ListCreateFormProps) {
         setSaving(true)
         try {
             const rule = createWrapperRule()
-            const created = await api.lists.create(project.id, {
-                name,
-                type,
-                rule: type === "dynamic" ? rule : undefined,
-                is_visible: true,
+            const res = await oapiClient.POST('/api/admin/projects/{projectID}/lists', {
+                params: {
+                    path: { projectID: project.id },
+                },
+                body: {
+                    name,
+                    type,
+                    rule: type === "dynamic" ? rule : undefined,
+                    is_visible: true,
+                },
             })
-            onCreated?.(created)
+            if (res.data) {
+                onCreated?.(res.data as List)
+            }
         } finally {
             setSaving(false)
         }

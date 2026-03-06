@@ -15,8 +15,7 @@ import {
     Users,
     Eye,
 } from "lucide-react"
-import api from "../../api"
-import oapiClient from "../../oapi/client"
+import { oapiClient } from "@/oapi/client"
 import { ListContext, ProjectContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import type { DynamicList, ListUpdateParams, Rule, WrapperRule } from "../../types"
@@ -185,15 +184,26 @@ export default function ListDetail() {
                 setPreviewTotal(data?.total ?? data?.results?.length ?? 0)
                 setNextCursor(undefined)
             } else {
-                const result = await api.lists.users(project.id, list.id, {
-                    limit: 25,
-                    cursor,
-                    page: pageDirection,
-                    search: debouncedQuery || undefined,
-                })
-                setUsers(result.results)
+                const res = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/lists/{listID}/users",
+                    {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                listID: list.id,
+                            },
+                            query: {
+                                limit: 25,
+                                cursor,
+                                page: pageDirection,
+                                search: debouncedQuery || undefined,
+                            },
+                        },
+                    },
+                )
+                setUsers(res.data?.results ?? [])
                 setPreviewTotal(null)
-                setNextCursor(result.nextCursor || undefined)
+                setNextCursor(res.data?.nextCursor || undefined)
             }
         } catch {
             setUsers([])
@@ -206,9 +216,15 @@ export default function ListDetail() {
     }, [loadUsers])
 
     const refreshList = useCallback(() => {
-        api.lists
-            .get(project.id, list.id)
-            .then(setList)
+        oapiClient.GET("/api/admin/projects/{projectID}/lists/{listID}", {
+            params: {
+                path: {
+                    projectID: project.id,
+                    listID: list.id,
+                },
+            },
+        })
+            .then(res => { if (res.data) setList(res.data) })
             .then(() => loadUsers())
             .catch(() => {})
     }, [project.id, list.id, setList, loadUsers])
@@ -278,16 +294,26 @@ export default function ListDetail() {
         setIsSaving(true)
         setSavingAction(action)
         try {
-            const value = await api.lists.update(project.id, list.id, {
-                name,
-                rule,
-                published,
-                tags,
-            })
-            setError(undefined)
-            setList(value)
-            setHasUnsavedChanges(false)
-            loadUsers()
+            const res = await oapiClient.PATCH(
+                "/api/admin/projects/{projectID}/lists/{listID}",
+                {
+                    params: {
+                        path: {
+                            projectID: project.id,
+                            listID: list.id,
+                        },
+                    },
+                    body: { name, rule, published, tags },
+                },
+            )
+            if (res.error) {
+                setError(res.error.detail || res.error.title || "Failed to save list")
+            } else if (res.data) {
+                setError(undefined)
+                setList(res.data)
+                setHasUnsavedChanges(false)
+                loadUsers()
+            }
         } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error ? error.message : "An unexpected error occurred"
@@ -299,18 +325,37 @@ export default function ListDetail() {
     }
 
     const uploadUsers = async (file: File) => {
-        await api.lists.upload(project.id, list.id, file)
+        const formData = new FormData()
+        formData.append("file", file)
+        await fetch(`/api/admin/projects/${project.id}/lists/${list.id}/users`, {
+            method: "POST",
+            body: formData,
+        })
         refreshList()
         setIsUploadOpen(false)
     }
 
     const handleRecountList = async () => {
-        await api.lists.recount(project.id, list.id)
+        await oapiClient.POST('/api/admin/projects/{projectID}/lists/{listID}/recount', {
+            params: {
+                path: {
+                    projectID: project.id,
+                    listID: list.id,
+                },
+            },
+        })
         window.location.reload()
     }
 
     const handleArchiveList = async () => {
-        await api.lists.delete(project.id, list.id)
+        await oapiClient.DELETE("/api/admin/projects/{projectID}/lists/{listID}", {
+            params: {
+                path: {
+                    projectID: project.id,
+                    listID: list.id,
+                },
+            },
+        })
         await navigate(`/projects/${project.id}/lists`)
     }
 

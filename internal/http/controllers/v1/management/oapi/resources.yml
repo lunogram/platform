@@ -1459,6 +1459,251 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/journeys/{journeyID}/steps/{stepID}/users:
+    get:
+      summary: List users in journey step
+      description: Retrieves a paginated list of users currently in a specific journey step
+      operationId: listJourneyStepUsers
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: stepID
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The step external ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          $ref: "#/components/responses/JourneyUserStepListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/steps/{stepID}/users/{userID}/trigger:
+    post:
+      summary: Trigger user into journey entrance
+      description: Manually adds a user to a specific journey entrance step
+      operationId: triggerUserToJourneyStep
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: stepID
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The step external ID (must be an entrance step)
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        "201":
+          description: User added to journey entrance successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JourneyUserStep"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/steps/{stepID}/users/{userID}/skip:
+    post:
+      summary: Skip delay for user
+      description: Skips the delay for a user currently waiting in a delay step
+      operationId: skipJourneyStepDelay
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: stepID
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The step external ID (must be a delay step)
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        "200":
+          description: Delay skipped successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/steps/{stepID}/users/{userID}:
+    delete:
+      summary: Remove user from journey step
+      description: Removes a user from a specific journey step entrance
+      operationId: removeUserFromJourneyStep
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: stepID
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The step external ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        "204":
+          description: User removed from journey step successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}:
+    delete:
+      summary: Remove user from journey
+      description: Removes a user from all active entrances in a journey
+      operationId: removeUserFromJourney
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        "204":
+          description: User removed from journey successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/entrances:
+    get:
+      summary: List journey entrances
+      description: Retrieves a paginated list of user entrances for a journey
+      operationId: listJourneyEntrances
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
+      responses:
+        "200":
+          description: Journey entrances retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JourneyUserEntranceListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/profile:
     get:
       summary: Get current admin profile
@@ -4113,6 +4358,22 @@ components:
                     items:
                       $ref: "#/components/schemas/Journey"
 
+    JourneyUserStepListResponse:
+      description: Journey user steps retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/PaginatedResponse"
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/JourneyUserStep"
+
     TagListResponse:
       description: Tags retrieved successfully
       content:
@@ -6113,6 +6374,108 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/UserJourneyEntrance"
+
+    JourneyUserStep:
+      type: object
+      required:
+        - id
+        - entrance_id
+        - type
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        entrance_id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        type:
+          type: string
+          description: Status/type of the user step
+          enum: [waiting, completed, skipped, exited]
+          example: "waiting"
+        delay_until:
+          type: string
+          format: date-time
+          example: "2025-11-24T10:30:00.000Z"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+        ended_at:
+          type: string
+          format: date-time
+          example: "2025-11-24T10:30:00.000Z"
+        user:
+          $ref: "#/components/schemas/User"
+        journey:
+          $ref: "#/components/schemas/Journey"
+        step:
+          $ref: "#/components/schemas/JourneyStep"
+
+    JourneyUserStepList:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          required:
+            - results
+          properties:
+            results:
+              type: array
+              items:
+                $ref: "#/components/schemas/JourneyUserStep"
+
+    JourneyUserEntrance:
+      type: object
+      required:
+        - id
+        - entrance_id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        entrance_id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+        ended_at:
+          type: string
+          format: date-time
+          example: "2025-11-24T10:30:00.000Z"
+        user:
+          $ref: "#/components/schemas/User"
+        journey:
+          $ref: "#/components/schemas/Journey"
+
+    JourneyUserEntranceListResponse:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          required:
+            - results
+          properties:
+            results:
+              type: array
+              items:
+                $ref: "#/components/schemas/JourneyUserEntrance"
 
     JourneyStepMap:
       type: object

@@ -6,7 +6,7 @@ import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useResolver } from "../../hooks"
 import { formatDate, cn } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import type { SearchParams, UserEvent } from "../../types"
 import Iframe from "@/components/iframe"
 
@@ -115,7 +115,16 @@ export default function UserDetailEvents() {
                 offset: (page - 1) * limit,
                 search: debouncedQuery || undefined,
             }
-            return await api.users.events(project.id, user.id, params)
+            const res = await oapiClient.GET('/api/admin/projects/{projectID}/users/{userID}/events', {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        userID: user.id,
+                    },
+                    query: params,
+                },
+            })
+            return res.data
         }, [project.id, user.id, page, debouncedQuery]),
     )
 

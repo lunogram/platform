@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Combobox } from "@/components/ui/combobox"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import api from "../../../api"
+import oapiClient from "@/oapi/client"
 import { Button } from "@/components/ui/button"
 import { env } from "../../../config/env"
 import { useTranslation, Trans } from "react-i18next"
@@ -185,17 +185,18 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
         const handleSearch = useCallback(
             async (query: string): Promise<RulePath[]> => {
                 if (!cacheRef.current) {
-                    const suggestions = await api.projects.pathSuggestions(projectId)
-                    cacheRef.current = Array.isArray(suggestions?.eventPaths)
-                        ? suggestions.eventPaths.map((event, index) => ({
-                              id: `event-${index}` as UUID,
-                              name: event.name,
-                              path: event.name,
-                              type: "event" as const,
-                              data_type: "string" as const,
-                              visibility: "public" as const,
-                          }))
-                        : []
+                    const res = await oapiClient.GET('/api/admin/projects/{projectID}/events/schema', {
+                        params: { path: { projectID: projectId } },
+                    })
+                    const events = res.data?.results ?? []
+                    cacheRef.current = events.map((event, index) => ({
+                        id: `event-${index}` as UUID,
+                        name: event.name,
+                        path: event.name,
+                        type: "event" as const,
+                        data_type: "string" as const,
+                        visibility: "public" as const,
+                    }))
                 }
                 if (!query) return cacheRef.current
                 const lower = query.toLowerCase()

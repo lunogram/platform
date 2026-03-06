@@ -5,7 +5,7 @@ import { useController } from "react-hook-form"
 import { useCallback, useContext, useMemo } from "react"
 import { ProjectContext } from "../../../contexts"
 import { useResolver } from "../../../hooks"
-import api from "../../../api"
+import { oapiClient } from "@/oapi/client"
 import { snakeToTitle } from "../../../utils"
 import { emptySuggestions, VariablesContext } from "./RuleHelpers"
 import RuleEdit from "./RuleEdit"
@@ -30,7 +30,34 @@ export default function RuleBuilder({
 }: RuleBuilderParams) {
     const [{ id: projectId }] = useContext(ProjectContext)
     const [suggestions] = useResolver(
-        useCallback(async () => await api.projects.pathSuggestions(projectId), [projectId]),
+        useCallback(async () => {
+            const [eventsRes, usersRes] = await Promise.all([
+                oapiClient.GET('/api/admin/projects/{projectID}/events/schema', {
+                    params: { path: { projectID: projectId } }
+                }),
+                oapiClient.GET('/api/admin/projects/{projectID}/users/schema', {
+                    params: { path: { projectID: projectId } }
+                })
+            ])
+
+            if (!eventsRes.data || !usersRes.data) {
+                return emptySuggestions
+            }
+
+            const eventPaths = eventsRes.data.results.map(event => ({
+                id: event.id,
+                name: event.name,
+                schema: (event.schema ?? []).map(schemaPath => ({
+                    path: `.data${schemaPath.path}`,
+                    types: schemaPath.types,
+                }))
+            }))
+
+            return {
+                eventPaths,
+                userPaths: usersRes.data.results,
+            }
+        }, [projectId]),
     )
     return (
         <VariablesContext.Provider

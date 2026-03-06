@@ -15,7 +15,7 @@ import { ProjectContext } from "@/contexts"
 import { useNavigate, useParams } from "react-router"
 import type { UUID } from "@/types/common"
 import { NIL } from "uuid"
-import api from "@/api"
+import { oapiClient } from "@/oapi/client"
 import { cn } from "@/utils"
 import { t } from "i18next"
 import { Puzzle } from "lucide-react"
@@ -28,8 +28,23 @@ export default function ProjectGettingStarted() {
 
     useEffect(() => {
         const loadProject = async () => {
-            const projectState = await api.projects.get(projectId)
-            setProject(projectState)
+            const res = await oapiClient.GET('/api/admin/projects/{projectID}', {
+                params: {
+                    path: { projectID: projectId }
+                }
+            })
+            if (!res.data) return
+            const { role, ...projectData } = res.data
+            const validRole = 
+                role === 'support' || role === 'editor' || role === 'publisher' || role === 'admin' 
+                    ? role 
+                    : undefined
+            setProject({
+                ...projectData,
+                link_wrap_email: res.data.link_wrap_email ?? false,
+                link_wrap_push: res.data.link_wrap_push ?? false,
+                role: validRole,
+            })
         }
         loadProject().catch(console.error)
     }, [setProject, projectId])
@@ -43,13 +58,21 @@ export default function ProjectGettingStarted() {
     async function createOnboardingJourney() {
         setIsJourneyLoading(true)
         try {
-            const journey = await api.journeys.create(projectId, {
-                name: "Onboarding",
-                description: "Getting started with your first journey",
-                template_id: "onboarding",
-                status: "draft",
+            const res = await oapiClient.POST("/api/admin/projects/{projectID}/journeys", {
+                params: {
+                    path: {
+                        projectID: projectId
+                    }
+                },
+                body: {
+                    name: "Onboarding",
+                    description: "Getting started with your first journey",
+                    template_id: "onboarding",
+                    status: "draft",
+                },
             })
-            await navigate(`/projects/${projectId}/journeys/${journey.id}`)
+            if (!res.data) return
+            await navigate(`/projects/${projectId}/journeys/${res.data.id}`)
         } finally {
             setIsJourneyLoading(false)
         }

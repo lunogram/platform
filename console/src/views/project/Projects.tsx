@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import type { Project } from "../../types"
 import { Button } from "@/components/ui/button"
@@ -17,8 +17,17 @@ export function Projects() {
     const navigate = useNavigate()
     const { t } = useTranslation()
     const [preferences] = useContext(PreferencesContext)
-    const [response] = useResolver(api.projects.all)
-    const projects = response?.results
+    const [res] = useResolver(() => oapiClient.GET('/api/admin/projects', {
+            params: {
+                query: {
+                    limit: 50,
+                    offset: 0,
+                },
+            },
+         })
+    )
+    if (!res) return null
+    const projects = res.data?.results || []
 
     const recents = useMemo(() => {
         const recents = getRecentProjects()

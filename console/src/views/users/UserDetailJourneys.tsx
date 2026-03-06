@@ -6,7 +6,7 @@ import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -44,10 +44,19 @@ export default function UserDetailJourneys() {
 
     const [result] = useResolver(
         useCallback(async () => {
-            return await api.users.journeys.search(project.id, user.id, {
-                limit,
-                offset: (page - 1) * limit,
+            const res = await oapiClient.GET('/api/admin/projects/{projectID}/users/{userID}/journeys', {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        userID: user.id,
+                    },
+                    query: {
+                        limit,
+                        offset: (page - 1) * limit,
+                    },
+                },
             })
+            return res.data
         }, [project.id, user.id, page]),
     )
 

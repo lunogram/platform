@@ -5,7 +5,7 @@ import clsx from "clsx"
 import { JourneyContext, ProjectContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { SearchTable, useSearchTableState } from "@/components/search-table"
-import api from "../../api"
+import oapiClient from "@/oapi/client"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -89,8 +89,37 @@ export function JourneyStepUsers({ open, onClose, stepType, stepId, stepName }: 
 
     const state = useSearchTableState(
         useCallback(
-            async (params) =>
-                await api.journeys.steps.searchUsers(projectId, journeyId, stepId, params),
+            async (params) => {
+                const res = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/journeys/{journeyID}/steps/{stepID}/users",
+                    {
+                        params: {
+                            path: {
+                                projectID: projectId,
+                                journeyID: journeyId,
+                                stepID: stepId,
+                            },
+                            query: {
+                                limit: params.limit,
+                                offset: params.cursor ? +params.cursor : 0,
+                            },
+                        },
+                    },
+                )
+                if (!res.data) return null
+                const { results, limit, offset, total } = res.data
+                return {
+                    results,
+                    limit,
+                    nextCursor:
+                        typeof total === "number" &&
+                        typeof limit === "number" &&
+                        typeof offset === "number" &&
+                        offset + results.length < total
+                            ? String(offset + results.length)
+                            : "",
+                }
+            },
             [projectId, journeyId, stepId],
         ),
         {
@@ -100,13 +129,54 @@ export function JourneyStepUsers({ open, onClose, stepType, stepId, stepName }: 
         },
     )
 
-    const handleSkipDelay = async (stepId: UUID, user: User) => {
-        await api.journeys.users.skipDelay(projectId, journeyId, user.id, stepId)
+    const handleAddUserToEntrance = async (stepId: UUID, user: User) => {
+        await oapiClient.POST(
+            "/api/admin/projects/{projectID}/journeys/{journeyID}/steps/{stepID}/users/{userID}/trigger",
+            {
+                params: {
+                    path: {
+                        projectID: projectId,
+                        journeyID: journeyId,
+                        stepID: stepId,
+                        userID: user.id,
+                    },
+                },
+            },
+        )
         await state.reload()
     }
 
-    const handleRemoveFromJourney = async (stepId: UUID, user: User) => {
-        await api.journeys.users.removeFromJourney(projectId, journeyId, user.id, stepId)
+    const handleSkipDelay = async (stepId: UUID, user: User) => {
+        await oapiClient.POST(
+            "/api/admin/projects/{projectID}/journeys/{journeyID}/steps/{stepID}/users/{userID}/skip",
+            {
+                params: {
+                    path: {
+                        projectID: projectId,
+                        journeyID: journeyId,
+                        stepID: stepId,
+                        userID: user.id,
+                    },
+                },
+            },
+        )
+        await state.reload()
+    }
+
+    const handleRemoveFromJourney = async (_stepId: UUID, user: User) => {
+        await oapiClient.DELETE(
+            "/api/admin/projects/{projectID}/journeys/{journeyID}/steps/{stepID}/users/{userID}",
+            {
+                params: {
+                    path: {
+                        projectID: projectId,
+                        journeyID: journeyId,
+                        stepID: stepId,
+                        userID: user.id,
+                    },
+                },
+            },
+        )
         await state.reload()
     }
 

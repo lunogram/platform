@@ -22,7 +22,7 @@ import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { getRandomColor } from "@/lib/colors"
 import { formatDate, cn } from "../../utils"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import {
     getTimezoneCoordinates,
     getLocalTimeInTimezone,
@@ -87,11 +87,19 @@ export default function UserDetail() {
     const handleTimezoneChange = async (newTimezone: string) => {
         setIsSavingTimezone(true)
         try {
-            const updatedUser = await api.users.update(project.id, user.id, {
-                timezone: newTimezone,
-            } as User)
-            if (updatedUser) {
-                setUser(updatedUser)
+            const res = await oapiClient.PATCH('/api/admin/projects/{projectID}/users/{userID}', {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        userID: user.id,
+                    },
+                },
+                body: {
+                    timezone: newTimezone,
+                },
+            })
+            if (res.data) {
+                setUser(res.data)
                 toast.success(t("timezone_updated", "Timezone updated"))
             }
             setIsTimezoneOpen(false)
@@ -101,15 +109,25 @@ export default function UserDetail() {
             setIsSavingTimezone(false)
         }
     }
+        }
+    }
 
     const handleLocaleChange = async (newLocale: string) => {
         setIsSavingLocale(true)
         try {
-            const updatedUser = await api.users.update(project.id, user.id, {
-                locale: newLocale,
-            } as User)
-            if (updatedUser) {
-                setUser(updatedUser)
+            const res = await oapiClient.PATCH('/api/admin/projects/{projectID}/users/{userID}', {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        userID: user.id,
+                    },
+                },
+                body: {
+                    locale: newLocale,
+                },
+            })
+            if (res.data) {
+                setUser(res.data)
                 toast.success(t("locale_updated", "Locale updated"))
             }
             setIsLocaleOpen(false)
@@ -144,7 +162,14 @@ export default function UserDetail() {
     const deleteUser = async () => {
         setIsDeleting(true)
         try {
-            await api.users.delete(project.id, user.id)
+            await oapiClient.DELETE('/api/admin/projects/{projectID}/users/{userID}', {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        userID: user.id,
+                    },
+                },
+            })
             await navigate(`/projects/${project.id}/users`)
         } finally {
             setIsDeleting(false)
@@ -229,15 +254,19 @@ export default function UserDetail() {
                                     <InlineEdit
                                         value={user.email ?? ""}
                                         onSave={async (value) => {
-                                            const updatedUser = await api.users.update(
-                                                project.id,
-                                                user.id,
-                                                {
+                                            const res = await oapiClient.PATCH('/api/admin/projects/{projectID}/users/{userID}', {
+                                                params: {
+                                                    path: {
+                                                        projectID: project.id,
+                                                        userID: user.id,
+                                                    },
+                                                },
+                                                body: {
                                                     email: value || undefined,
-                                                } as User,
-                                            )
-                                            if (updatedUser) {
-                                                setUser(updatedUser)
+                                                },
+                                            })
+                                            if (res.data) {
+                                                setUser(res.data)
                                                 toast.success(t("email_updated", "Email updated"))
                                             }
                                         }}
@@ -254,15 +283,22 @@ export default function UserDetail() {
                                     <InlineEdit
                                         value={user.phone ?? ""}
                                         onSave={async (value) => {
-                                            const updatedUser = await api.users.update(
-                                                project.id,
-                                                user.id,
+                                            const res = await oapiClient.PATCH(
+                                                "/api/admin/projects/{projectID}/users/{userID}",
                                                 {
-                                                    phone: value || undefined,
-                                                } as User,
+                                                    params: {
+                                                        path: {
+                                                            projectID: project.id,
+                                                            userID: user.id,
+                                                        },
+                                                    },
+                                                    body: {
+                                                        phone: value || undefined,
+                                                    },
+                                                },
                                             )
-                                            if (updatedUser) {
-                                                setUser(updatedUser)
+                                            if (res.data) {
+                                                setUser(res.data)
                                                 toast.success(t("phone_updated", "Phone updated"))
                                             }
                                         }}

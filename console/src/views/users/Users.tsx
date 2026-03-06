@@ -20,7 +20,7 @@ import { formatDate } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { UsersIcon as UsersPageIcon } from "@/components/icons"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import type { UUID } from "@/types/common"
 import type { User } from "../../types"
 
@@ -87,6 +87,7 @@ export default function Users() {
     const limit = 25
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
+
     // Debounce search
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
@@ -99,11 +100,17 @@ export default function Users() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.users.search(projectId, {
-                limit,
-                offset: (page - 1) * limit,
-                search: debouncedQuery || undefined,
+            const res = await oapiClient.GET('/api/admin/projects/{projectID}/users', {
+                params: {
+                    path: { projectID: projectId },
+                    query: {
+                        limit,
+                        offset: (page - 1) * limit,
+                        search: debouncedQuery || undefined,
+                    },
+                },
             })
+            return res.data
         }, [projectId, debouncedQuery, page]),
     )
 
@@ -136,16 +143,21 @@ export default function Users() {
         setIsCreating(true)
         try {
             const locale = navigator.languages[0]?.split("-")[0] ?? "en"
-            const newUser: User = {
-                anonymous_id: crypto.randomUUID() as UUID,
+            const newUser = {
+                anonymous_id: crypto.randomUUID(),
                 email: newUserEmail.trim() || undefined,
                 phone: newUserPhone.trim() || undefined,
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 locale,
                 data: newUserFullName.trim() ? { full_name: newUserFullName.trim() } : {},
-            } as User
+            }
 
-            await api.users.create(projectId, newUser)
+            await oapiClient.POST('/api/admin/projects/{projectID}/users', {
+                params: {
+                    path: { projectID: projectId },
+                },
+                body: newUser,
+            })
             await reload()
             setIsCreateOpen(false)
             setNewUserFullName("")
@@ -157,7 +169,13 @@ export default function Users() {
     }
 
     const handleImportUsers = async (file: File) => {
-        await api.users.addImport(projectId, file)
+        const formData = new FormData()
+        formData.append('file', file)
+
+        await fetch(`/api/admin/projects/${projectId}/users`, {
+            method: 'POST',
+            body: formData,
+        })
         await reload()
     }
 

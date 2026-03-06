@@ -15,7 +15,7 @@ import {
     Archive,
 } from "lucide-react"
 
-import api from "../../api"
+import oapiClient from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
@@ -96,12 +96,19 @@ export default function Journeys() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.journeys.search(project.id, {
-                limit: 25,
-                cursor,
-                page: pageDirection,
-                search: debouncedQuery || undefined,
+            const res = await oapiClient.GET(`/api/admin/projects/{projectID}/journeys`, {
+                params: {
+                    path: { projectID: project.id },
+                    query: {
+                        limit: 25,
+                        cursor,
+                        page: pageDirection,
+                        search: debouncedQuery || undefined,
+                    },
+                },
             })
+            if (!res.data) return null
+            return res.data
         }, [project.id, debouncedQuery, cursor, pageDirection]),
     )
 
@@ -133,13 +140,33 @@ export default function Journeys() {
 
     const handleDuplicateJourney = async (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        const journey = await api.journeys.duplicate(project.id, id)
-        await navigate(journey.id.toString())
+        const res = await oapiClient.POST(
+            `/api/admin/projects/{projectID}/journeys/{journeyID}/duplicate`,
+            {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        journeyID: id,
+                    },
+                },
+            },
+        )
+        if (!res.data) {
+            return
+        }
+        await navigate(res.data.id)
     }
 
     const handleArchiveJourney = async (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        await api.journeys.delete(project.id, id)
+        await oapiClient.DELETE(`/api/admin/projects/{projectID}/journeys/{journeyID}`, {
+            params: {
+                path: {
+                    projectID: project.id,
+                    journeyID: id,
+                },
+            },
+        })
         await reload()
     }
 

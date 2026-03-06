@@ -16,7 +16,7 @@ import {
 } from "lucide-react"
 import { NIL } from "uuid"
 
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import { formatDate, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
@@ -91,11 +91,17 @@ export default function Lists() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.lists.search(projectId, {
-                limit: pageSize,
-                offset,
-                search: debouncedQuery || undefined,
+            const res = await oapiClient.GET('/api/admin/projects/{projectID}/lists', {
+                params: {
+                    path: { projectID: projectId },
+                    query: {
+                        limit: pageSize,
+                        offset,
+                        search: debouncedQuery || undefined,
+                    },
+                },
             })
+            return res.data
         }, [projectId, debouncedQuery, offset]),
     )
 
@@ -118,13 +124,23 @@ export default function Lists() {
 
     const handleDuplicateList = async (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        const list = await api.lists.duplicate(projectId, id)
-        await navigate(list.id.toString())
+        const res = await oapiClient.POST('/api/admin/projects/{projectID}/lists/{listID}/duplicate', {
+            params: {
+                path: { projectID: projectId, listID: id },
+            },
+        })
+        if (res.data) {
+            await navigate(res.data.id.toString())
+        }
     }
 
     const handleArchiveList = async (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        await api.lists.delete(projectId, id)
+        await oapiClient.DELETE('/api/admin/projects/{projectID}/lists/{listID}', {
+            params: {
+                path: { projectID: projectId, listID: id },
+            },
+        })
         await reload()
     }
 

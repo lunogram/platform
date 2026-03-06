@@ -4,8 +4,7 @@ import { Save, Smartphone, Monitor, Tablet, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { ProjectContext, UserContext } from "../../contexts"
 import { useResolver } from "../../hooks"
-import api from "../../api"
-import oapiClient from "../../oapi/client"
+import { oapiClient } from "@/oapi/client"
 
 import { Button } from "@/components/ui/button"
 import { AttributeEditor } from "@/components/ui/attribute-editor"
@@ -40,9 +39,17 @@ export default function UserDetailAttrs() {
     const handleSave = async () => {
         setIsSaving(true)
         try {
-            const updatedUser = await api.users.update(project.id, user.id, { data } as User)
-            if (updatedUser) {
-                setUser(updatedUser)
+            const res = await oapiClient.PATCH(`/api/admin/projects/{projectID}/users/{userID}`, {
+                params: {
+                    path: {
+                        projectID: project.id,
+                        userID: user.id,
+                    },
+                },
+                body: { data } as any,
+            })
+            if (res.data) {
+                setUser(res.data as User)
                 setIsDirty(false)
                 toast.success(t("save_success", "Attributes saved successfully"))
             }

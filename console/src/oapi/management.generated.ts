@@ -300,6 +300,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/lists/{listID}/recount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recount list users
+         * @description Recalculates the user count for a dynamic list by re-evaluating the rules
+         */
+        post: operations["recountList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects": {
         parameters: {
             query?: never;
@@ -478,6 +498,126 @@ export interface paths {
          * @description Publishes the current draft version of a journey
          */
         post: operations["publishJourney"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/steps/{stepID}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List users in journey step
+         * @description Retrieves a paginated list of users currently in a specific journey step
+         */
+        get: operations["listJourneyStepUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/steps/{stepID}/users/{userID}/trigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger user into journey entrance
+         * @description Manually adds a user to a specific journey entrance step
+         */
+        post: operations["triggerUserToJourneyStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/steps/{stepID}/users/{userID}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip delay for user
+         * @description Skips the delay for a user currently waiting in a delay step
+         */
+        post: operations["skipJourneyStepDelay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/steps/{stepID}/users/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove user from journey step
+         * @description Removes a user from a specific journey step entrance
+         */
+        delete: operations["removeUserFromJourneyStep"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove user from journey
+         * @description Removes a user from all active entrances in a journey
+         */
+        delete: operations["removeUserFromJourney"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/entrances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List journey entrances
+         * @description Retrieves a paginated list of user entrances for a journey
+         */
+        get: operations["listJourneyEntrances"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2271,6 +2411,82 @@ export interface components {
         UserJourneyList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["UserJourneyEntrance"][];
         };
+        JourneyUserStep: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            entrance_id: string;
+            /**
+             * @description Status/type of the user step
+             * @example waiting
+             * @enum {string}
+             */
+            type: "waiting" | "completed" | "skipped" | "exited";
+            /**
+             * Format: date-time
+             * @example 2025-11-24T10:30:00.000Z
+             */
+            delay_until?: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-19T14:18:42.960Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.021Z
+             */
+            updated_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-24T10:30:00.000Z
+             */
+            ended_at?: string;
+            user?: components["schemas"]["User"];
+            journey?: components["schemas"]["Journey"];
+            step?: components["schemas"]["JourneyStep"];
+        };
+        JourneyUserStepList: components["schemas"]["PaginatedResponse"] & {
+            results: components["schemas"]["JourneyUserStep"][];
+        };
+        JourneyUserEntrance: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            entrance_id: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-19T14:18:42.960Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.021Z
+             */
+            updated_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-24T10:30:00.000Z
+             */
+            ended_at?: string;
+            user?: components["schemas"]["User"];
+            journey?: components["schemas"]["Journey"];
+        };
+        JourneyUserEntranceListResponse: components["schemas"]["PaginatedResponse"] & {
+            results: components["schemas"]["JourneyUserEntrance"][];
+        };
         /** @description Map of journey steps keyed by external_id */
         JourneyStepMap: {
             [key: string]: components["schemas"]["JourneyStep"];
@@ -2711,6 +2927,17 @@ export interface components {
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
                     results: components["schemas"]["Journey"][];
+                };
+            };
+        };
+        /** @description Journey user steps retrieved successfully */
+        JourneyUserStepListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PaginatedResponse"] & {
+                    results: components["schemas"]["JourneyUserStep"][];
                 };
             };
         };
@@ -3406,6 +3633,32 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    recountList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The list ID */
+                listID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recount started successfully. The list state will be set to 'loading'. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listProjects: {
         parameters: {
             query?: {
@@ -3769,6 +4022,176 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Journey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listJourneyStepUsers: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The step external ID */
+                stepID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["JourneyUserStepListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
+    triggerUserToJourneyStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The step external ID (must be an entrance step) */
+                stepID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User added to journey entrance successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JourneyUserStep"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    skipJourneyStepDelay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The step external ID (must be a delay step) */
+                stepID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delay skipped successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeUserFromJourneyStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The step external ID */
+                stepID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User removed from journey step successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeUserFromJourney: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User removed from journey successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listJourneyEntrances: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Journey entrances retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JourneyUserEntranceListResponse"];
                 };
             };
             default: components["responses"]["Error"];

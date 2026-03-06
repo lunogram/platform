@@ -15,7 +15,7 @@ import {
     Archive,
 } from "lucide-react"
 
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { useResolver } from "../../hooks"
 import { formatDate, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
@@ -90,12 +90,26 @@ export default function Campaigns({ create = false }: CampaignsProps) {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.campaigns.search(project.id, {
-                limit: 25,
-                cursor,
-                page: pageDirection,
-                search: debouncedQuery || undefined,
+            const res = await oapiClient.GET("/api/admin/projects/{projectID}/campaigns", {
+                params: {
+                    path: { projectID: project.id },
+                    query: {
+                        q: debouncedQuery || undefined,
+                        limit: 25,
+                        cursor,
+                        page: pageDirection,
+                    },
+                },
             })
+            if (res.error || !res.data) {
+                return null
+            }
+            return {
+                results: res.data.results ?? [],
+                nextCursor: res.data.nextCursor ?? "",
+                limit: res.data.limit ?? 25,
+                total: res.data.total ?? 0,
+            }
         }, [project.id, debouncedQuery, cursor, pageDirection]),
     )
 
@@ -123,13 +137,27 @@ export default function Campaigns({ create = false }: CampaignsProps) {
 
     const handleDuplicateCampaign = async (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        const campaign = await api.campaigns.duplicate(project.id, id)
-        await navigate(`/projects/${project.id}/campaigns/${campaign.id.toString()}`)
+        const campaign = await oapiClient.POST("/api/admin/projects/{projectID}/campaigns/{campaignID}/duplicate", {
+            params: {
+                path: {
+                    projectID: project.id,
+                    campaignID: id,
+                },
+            },
+        })
+        await navigate(`/projects/${project.id}/campaigns/${campaign.data?.id.toString()}`)
     }
 
     const handleArchiveCampaign = async (e: React.MouseEvent, id: UUID) => {
         e.stopPropagation()
-        await api.campaigns.delete(project.id, id)
+        await oapiClient.DELETE("/api/admin/projects/{projectID}/campaigns/{campaignID}", {
+            params: {
+                path: {
+                    projectID: project.id,
+                    campaignID: id,
+                },
+            },
+        })
         await reload()
     }
 

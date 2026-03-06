@@ -1,6 +1,6 @@
 import { useContext, useState } from "react"
 import { toast } from "sonner"
-import api from "../../api"
+import oapiClient from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import type { Journey } from "../../types"
 import { useTranslation } from "react-i18next"
@@ -30,21 +30,41 @@ export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
         e.preventDefault()
         setSaving(true)
         try {
-            const saved = journey?.id
-                ? await api.journeys.update(project.id, journey.id, {
-                      name,
-                      description,
-                      status,
-                      tags: journey.tags,
+            const payload = {
+                name,
+                description,
+                status,
+                tags: journey?.tags,
+            }
+
+            const response = journey?.id
+                ? await oapiClient.PATCH(
+                      `/api/admin/projects/{projectID}/journeys/{journeyID}`,
+                      {
+                          params: {
+                              path: {
+                                  projectID: project.id,
+                                  journeyID: journey.id,
+                              },
+                          },
+                          body: payload,
+                      },
+                  )
+                : await oapiClient.POST(`/api/admin/projects/{projectID}/journeys`, {
+                      params: {
+                          path: {
+                              projectID: project.id,
+                          },
+                      },
+                      body: payload,
                   })
-                : await api.journeys.create(project.id, {
-                      name,
-                      description,
-                      status,
-                      tags: journey?.tags,
-                  })
+
+            if (!response.data) {
+                return
+            }
+
             toast.success(t("journey_saved"))
-            onSaved?.(saved)
+            onSaved?.(response.data)
         } finally {
             setSaving(false)
         }

@@ -2,7 +2,7 @@ import { useCallback, useContext, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Plus, Search, Bell, MoreHorizontal } from "lucide-react"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
@@ -53,7 +53,13 @@ export default function Subscriptions() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.subscriptions.search(project.id, { limit: 50 })
+            const res = await oapiClient.GET("/api/admin/projects/{projectID}/subscriptions", {
+                params: {
+                    path: { projectID: project.id },
+                    query: { limit: 50 },
+                },
+            })
+            return res.data ?? null
         }, [project.id]),
     )
 
@@ -207,9 +213,31 @@ export default function Subscriptions() {
                 onSave={async (data) => {
                     const { id, name, channel, is_public } = data
                     if (id) {
-                        await api.subscriptions.update(project.id, id, { name, is_public })
+                        await oapiClient.PATCH("/api/admin/projects/{projectID}/subscriptions/{subscriptionID}", {
+                            params: {
+                                path: {
+                                    projectID: project.id,
+                                    subscriptionID: id,
+                                },
+                            },
+                            body: {
+                                name,
+                                is_public,
+                            },
+                        })
                     } else {
-                        await api.subscriptions.create(project.id, { name, channel, is_public })
+                        await oapiClient.POST("/api/admin/projects/{projectID}/subscriptions", {
+                            params: {
+                                path: {
+                                    projectID: project.id,
+                                },
+                            },
+                            body: {
+                                name,
+                                channel,
+                                is_public,
+                            },
+                        })
                     }
                     await reload()
                     setEditing(null)

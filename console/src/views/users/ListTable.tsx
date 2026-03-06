@@ -7,7 +7,7 @@ import { snakeToTitle } from "../../utils"
 import { useRoute } from "../router"
 import Menu, { MenuItem } from "@/components/menu"
 import { ArchiveIcon, DuplicateIcon, EditIcon } from "../../components/icons"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import { useNavigate, useParams } from "react-router"
 import { Translation, useTranslation } from "react-i18next"
 import type { UUID } from "@/types/common"
@@ -58,12 +58,26 @@ export default function ListTable({ search, selectedRow, onSelectRow, title }: L
     }
 
     const handleDuplicateList = async (id: UUID) => {
-        const list = await api.lists.duplicate(projectId, id)
-        await navigate(list.id.toString())
+        const res = await oapiClient.POST(`/api/admin/projects/{projectID}/lists/{listID}/duplicate`, {
+            params: {
+                path: {
+                    projectID: projectId,
+                    listID: id,
+                },
+            },
+        })
+        await navigate(res.data?.id ? `lists/${res.data.id}` : 'lists')
     }
 
     const handleArchiveList = async (id: UUID) => {
-        await api.lists.delete(projectId, id)
+        await oapiClient.DELETE(`/api/admin/projects/{projectID}/lists/{listID}`, {
+            params: {
+                path: {
+                    projectID: projectId,
+                    listID: id,
+                },
+            },
+        })
         await state.reload()
     }
 

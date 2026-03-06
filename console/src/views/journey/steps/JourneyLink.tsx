@@ -1,5 +1,5 @@
 import { useCallback } from "react"
-import api from "../../../api"
+import oapiClient from "@/oapi/client"
 import type { Journey, JourneyStepType } from "../../../types"
 import { Combobox } from "@/components/ui/combobox"
 import { Label } from "@/components/ui/label"
@@ -41,7 +41,15 @@ export const journeyLinkStep: JourneyStepType<JourneyLinkConfig> = {
                     return journey
                 }
                 if (target_id) {
-                    return await api.journeys.get(project.id, target_id)
+                    const res = await oapiClient.GET('/api/admin/projects/{projectID}/journeys/{journeyID}', {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                journeyID: target_id,
+                            },
+                        },
+                    })
+                    return res.data ?? null
                 }
                 return null
             }, [project, journey, target_id]),
@@ -73,7 +81,15 @@ export const journeyLinkStep: JourneyStepType<JourneyLinkConfig> = {
         const [target] = useResolver(
             useCallback(async () => {
                 if (value.target_id && value.target_id !== NIL) {
-                    return await api.journeys.get(project.id, value.target_id)
+                    const res = await oapiClient.GET('/api/admin/projects/{projectID}/journeys/{journeyID}', {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                journeyID: value.target_id,
+                            },
+                        },
+                    })
+                    return res.data ?? null
                 }
                 return null
             }, [project.id, value.target_id]),
@@ -81,11 +97,17 @@ export const journeyLinkStep: JourneyStepType<JourneyLinkConfig> = {
 
         const handleSearch = useCallback(
             async (query: string): Promise<JourneyOption[]> => {
-                const result = await api.journeys.search(project.id, {
-                    search: query || undefined,
-                    limit: 50,
+                const res = await oapiClient.GET('/api/admin/projects/{projectID}/journeys', {
+                    params: {
+                        path: { projectID: project.id },
+                        query: {
+                            search: query || undefined,
+                            limit: 50,
+                        },
+                    },
                 })
-                return result.results.map((j) => ({ ...j, path: j.id }))
+                const results = res.data?.results ?? []
+                return results.map((j) => ({ ...j, path: j.id }))
             },
             [project.id],
         )

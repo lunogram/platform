@@ -9,7 +9,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
-import api from "../../api"
+import { oapiClient } from "@/oapi/client"
 import type { UUID } from "@/types/common"
 import { useState } from "react"
 import { NIL } from "uuid"
@@ -24,20 +24,33 @@ export default function ProjectOnboardingGettingStarted() {
     async function createOnboardingJourney() {
         setIsJourneyLoading(true)
         try {
-            const journeys = await api.journeys.search(projectId, { limit: 1 })
-            if (journeys.results.length > 0) {
-                await navigate(`/projects/${projectId}/journeys/${journeys.results[0].id}`)
+            const searchRes = await oapiClient.GET("/api/admin/projects/{projectID}/journeys", {
+                params: {
+                    path: { projectID: projectId },
+                    query: { limit: 1 },
+                },
+            })
+            if (searchRes.data?.results && searchRes.data.results.length > 0) {
+                await navigate(`/projects/${projectId}/journeys/${searchRes.data.results[0].id}`)
                 return
             }
 
-            const journey = await api.journeys.create(projectId, {
-                name: "Onboarding",
-                description: "Getting started with your first journey",
-                template_id: "onboarding",
-                status: "draft",
+            const res = await oapiClient.POST("/api/admin/projects/{projectID}/journeys", {
+                params: {
+                    path: {
+                        projectID: projectId
+                    }
+                },
+                body: {
+                    name: "Onboarding",
+                    description: "Getting started with your first journey",
+                    template_id: "onboarding",
+                    status: "draft",
+                },
             })
 
-            await navigate(`/projects/${projectId}/journeys/${journey.id}`)
+            if (!res.data) return
+            await navigate(`/projects/${projectId}/journeys/${res.data.id}`)
         } finally {
             setIsJourneyLoading(false)
         }
