@@ -249,9 +249,11 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 			Name:           schemas.EventProjectCreated,
 			OrganizationID: scope.OrganizationID,
 			Data: map[string]any{
-				"name":     body.Name,
-				"timezone": body.Timezone,
-				"locale":   body.Locale,
+				"id":              projectID,
+				"organization_id": scope.OrganizationID,
+				"name":            body.Name,
+				"timezone":        body.Timezone,
+				"locale":          body.Locale,
 			},
 		})
 		if err != nil {
