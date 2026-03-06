@@ -287,8 +287,6 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		})
 		if err != nil {
 			logger.Error("failed to publish project created event", zap.Error(err))
-			oapi.WriteProblem(w, err)
-			return
 		}
 	}
 
