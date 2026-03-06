@@ -29,10 +29,15 @@ export default function ProjectOnboardingUsers() {
         const admin = await api.admins.whoami()
         if (!admin) return
 
+        let fullName
+        if (admin.first_name && admin.last_name) {
+            fullName = admin.first_name + " " + admin.last_name
+        }
+
         await api.users.create(projectId, {
             anonymous_id: crypto.randomUUID(),
             data: {
-                full_name: admin.first_name + " " + admin.last_name,
+                full_name: fullName,
                 admin: true,
             },
             email: admin.email,
