@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode } from "react"
-import Heading from "@/components/Heading"
+import Heading from "@/components/heading"
 import { cn } from "@/utils"
 
 type PageHeaderProps = PropsWithChildren<{

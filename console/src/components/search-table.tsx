@@ -15,7 +15,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import CursorPagination from "@/components/Pagination"
+import CursorPagination from "@/components/pagination"
 import { CheckIcon, ChevronDownIcon, ChevronUpDownIcon, ChevronUpIcon } from "@/components/icons"
 import { CloseIcon } from "@/components/icons"
 import { Search } from "lucide-react"

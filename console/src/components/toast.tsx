@@ -2,7 +2,7 @@ import * as React from "react"
 import type { Toast, ToastPosition, ToasterProps } from "react-hot-toast/headless"
 import { resolveValue, useToaster } from "react-hot-toast/headless"
 import clsx from "clsx"
-import "./Toast.css"
+import "./toast.css"
 
 // ToastIcon
 const ToastIcon: React.FC<{ toast: Toast }> = ({ toast }) => {

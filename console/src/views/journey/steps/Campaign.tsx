@@ -8,7 +8,7 @@ import { CreateCampaign } from "@/views/campaign/CreateCampaign"
 import { useResolver } from "../../../hooks"
 import { useTranslation } from "react-i18next"
 import { ChannelIcon } from "../../campaign/ChannelTag"
-import Preview from "@/components/Preview"
+import Preview from "@/components/preview"
 import type { UUID } from "@/types/common"
 import { NIL } from "uuid"
 

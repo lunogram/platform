@@ -11,7 +11,7 @@ import {
     CloseIcon,
 } from "@/components/icons"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
-import "./DataTable.css"
+import "./data-table.css"
 
 type DataTableResolver<T, R> = (args: { item: T }) => R
 

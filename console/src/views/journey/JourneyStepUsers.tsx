@@ -4,7 +4,7 @@ import { formatDistanceToNow } from "date-fns"
 import clsx from "clsx"
 import { JourneyContext, ProjectContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
-import { SearchTable, useSearchTableState } from "@/components/SearchTable"
+import { SearchTable, useSearchTableState } from "@/components/search-table"
 import api from "../../api"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -23,9 +23,9 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import type { JourneyUserStep, User } from "../../types"
-import type { DataTableCol } from "@/components/SearchTable"
+import type { DataTableCol } from "@/components/search-table"
 import type { UUID } from "@/types/common"
-import Menu, { MenuItem } from "@/components/Menu"
+import Menu, { MenuItem } from "@/components/menu"
 import { FastForward, Trash2, Users } from "lucide-react"
 
 interface StepUsersProps {

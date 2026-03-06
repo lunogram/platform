@@ -8,7 +8,7 @@ import { formatDate, cn } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import api from "../../api"
 import type { SearchParams, UserEvent } from "../../types"
-import Iframe from "@/components/Iframe"
+import Iframe from "@/components/iframe"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"

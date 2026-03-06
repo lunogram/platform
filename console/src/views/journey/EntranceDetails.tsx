@@ -1,4 +1,4 @@
-import PageContent from "@/components/PageContent"
+import PageContent from "@/components/page-content"
 import {
     Table,
     TableBody,

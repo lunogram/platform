@@ -9,7 +9,7 @@ import oapiClient, { type Action, type ActionMeta, type TestActionResult } from 
 import { ProjectContext } from "@/contexts"
 import { useResolver } from "@/hooks"
 
-import { SchemaFields, type Schema } from "@/components/SchemaFields"
+import { SchemaFields, type Schema } from "@/components/schema-fields"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"

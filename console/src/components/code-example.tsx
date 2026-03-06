@@ -2,7 +2,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { CopyIcon } from "@/components/icons"
 import type { ReactNode } from "react"
-import Heading from "@/components/Heading"
+import Heading from "@/components/heading"
 
 interface CodeExampleProps {
     code: string

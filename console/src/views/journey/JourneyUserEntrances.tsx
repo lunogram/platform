@@ -1,6 +1,6 @@
 import { useCallback, useContext } from "react"
 import { JourneyContext, ProjectContext } from "../../contexts"
-import { SearchTable, useSearchTableQueryState } from "@/components/SearchTable"
+import { SearchTable, useSearchTableQueryState } from "@/components/search-table"
 import api from "../../api"
 
 export default function JourneyUserEntrances() {
