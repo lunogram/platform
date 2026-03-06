@@ -626,12 +626,11 @@ func (s *JourneysStore) GetUserJourneyCurrentState(ctx context.Context, projectI
 	LEFT JOIN journey_version_steps jvs ON jvs.version_id = jus.pinned_version_id AND jvs.external_id = jus.external_step_id
 	WHERE jus.journey_id = $1 
 		AND jus.user_id = $2
-		AND jus.journey_entry_id IN (
-			SELECT journey_entry_id 
+		AND jus.occurrence = (
+			SELECT MAX(occurrence)
 			FROM journey_user_state 
-			WHERE journey_id = $1 AND user_id = $2
-			ORDER BY entered_at DESC
-			LIMIT 1
+			WHERE journey_id = $1 
+				AND user_id = $2
 		)
 	ORDER BY jus.entered_at ASC`
 

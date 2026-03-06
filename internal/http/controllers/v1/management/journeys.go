@@ -330,7 +330,12 @@ func (srv *JourneysController) StreamUserJourneySteps(
 	enc := sse.NewEncoder(w)
 	enc.WriteEvent("message", "connected")
 	rc := http.NewResponseController(w)
-	rc.SetWriteDeadline(time.Time{})
+
+	err := rc.SetWriteDeadline(time.Time{})
+	if err != nil {
+		srv.logger.Error("failed to set write deadline", zap.Error(err))
+		return
+	}
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
@@ -343,12 +348,16 @@ func (srv *JourneysController) StreamUserJourneySteps(
 	subject := schemas.JourneysAdvance(projectID, journeyID, userID)
 
 	sub, err := nconn.Subscribe(string(subject), func(msg *nats.Msg) {
-		enc.WriteEvent("step", string(msg.Data))
+		enc.WriteEvent("step", json.RawMessage(msg.Data))
 	})
+
 	if err != nil {
+		enc.WriteHeader(http.StatusInternalServerError)
 		logger.Error("subscribe failed", zap.Error(err))
 		return
 	}
+
+	//nolint: errcheck
 	defer sub.Unsubscribe()
 
 	<-ctx.Done()

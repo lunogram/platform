@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import type { ReactFlowInstance } from "reactflow";
 import ReactFlow, {
   Background,
@@ -59,7 +59,8 @@ export default function JourneyEditor() {
   }>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [stepsLoaded, setStepsLoaded] = useState(false);
 
   const onUserEnteredNode = useCallback(
     (nodeId: string) => {
@@ -140,33 +141,49 @@ export default function JourneyEditor() {
   const { editNode, selected, updateEditNode, deleteNode, updateNodes } =
     useStepEditing(nodes, setNodes, () => setHasUnsavedChanges(true));
 
-  const { onConnect, onDrop, onNodeDoubleClick } = useJourneyFlowHandlers(
-    nodes,
-    setNodes,
-    setEdges,
-    flowInstance,
-    wrapper,
-    () => setHasUnsavedChanges(true),
-  );
-
-  const { users, triggerUser, skipDelayForActiveUser, followUser, restoreFollowing, activeUserId } = useUserSelection(
+  const {
+    users,
+    triggerUser,
+    skipDelayForActiveUser,
+    searchParams,
+    followUser,
+    STORAGE_KEY,
+  } = useUserSelection(
     project.id,
     journey.id,
     isUserModalOpen,
     onUserEnteredNode,
   );
 
-  const followUserRef = useRef(followUser);
-  followUserRef.current = followUser;
-  const restoreFollowingRef = useRef(restoreFollowing);
-  restoreFollowingRef.current = restoreFollowing;
-
   useEffect(() => {
-    const followParam = searchParams.get("follow");
-    if (followParam) {
-      restoreFollowingRef.current(followParam);
-    }
-  }, []);
+    if (!stepsLoaded) return;
+
+    const userId =
+      searchParams.get("follow") ??
+      sessionStorage.getItem(STORAGE_KEY(project.id, journey.id));
+    if (!userId) return;
+
+    const restore = async () => {
+      try {
+        const states = await api.journeys.users.getState(
+          project.id,
+          journey.id,
+          userId,
+        );
+        for (const state of states) {
+          onUserEnteredNode(state.external_step_id);
+        }
+      } catch (e) {
+        console.error("Failed to restore state:", e);
+      } finally {
+        followUser(userId);
+      }
+    };
+
+    void restore();
+    // stepsLoaded is the trigger — adding other deps would re-run this on every render cycle
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepsLoaded]);
 
   useEffect(() => {
     const load = async () => {
@@ -177,6 +194,7 @@ export default function JourneyEditor() {
       });
       setNodes(nodes);
       setEdges(edges);
+      setStepsLoaded(true);
     };
     void load();
   }, [project.id, journey.id, setNodes, setEdges, skipDelayForActiveUser]);
@@ -188,7 +206,7 @@ export default function JourneyEditor() {
       );
   }, [editNode, nodes, setNodes]);
 
-  useKeyboardShortcuts({
+  const { pushHistory } = useKeyboardShortcuts({
     nodes,
     edges,
     setNodes,
@@ -196,6 +214,16 @@ export default function JourneyEditor() {
     onNodesUpdated: () => setHasUnsavedChanges(true),
     enabled: journey.status === "draft",
   });
+  
+  const { onConnect, onDrop, onNodeDoubleClick } = useJourneyFlowHandlers(
+    nodes,
+    setNodes,
+    setEdges,
+    flowInstance,
+    wrapper,
+    () => setHasUnsavedChanges(true),
+    pushHistory,
+  );
 
   return (
     <Modal
@@ -384,7 +412,6 @@ export default function JourneyEditor() {
           setIsUserModalOpen(false);
           if (editNode?.id) triggerUser(editNode.id, u.id);
           onUserEnteredNode(editNode?.id ?? "");
-          setSearchParams({ follow: u.id });
         }}
       />
 

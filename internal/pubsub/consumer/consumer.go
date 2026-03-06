@@ -29,7 +29,6 @@ const (
 	ConsumerEventsSchema        = "events-schema"
 	ConsumerListsRecompute      = "lists-recompute"
 	ConsumerJourneysAdvance     = "journeys-advance"
-	ConsumerJourneysAdvanceUser = "journeys-advance-user"
 	ConsumerCampaignsSend       = "campaigns-send"
 )
 

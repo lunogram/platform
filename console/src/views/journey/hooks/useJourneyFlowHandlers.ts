@@ -11,7 +11,8 @@ export function useJourneyFlowHandlers(
   setEdges: Dispatch<SetStateAction<Edge[]>>,
   flowInstance: ReactFlowInstance | null,
   wrapper: React.RefObject<HTMLDivElement | null>,
-  setHasUnsavedChanges: (val: boolean) => void
+  setHasUnsavedChanges: (val: boolean) => void,
+  pushHistory: () => void,
 ) {
   const onConnect = useCallback(async (conn: Connection) => {
     const sourceNode = nodes.find((n) => n.id === conn.source);
@@ -19,7 +20,8 @@ export function useJourneyFlowHandlers(
     const data = stepType ? (await getStepType(stepType)?.newEdgeData?.() ?? {}) : {};
     setHasUnsavedChanges(true);
     setEdges((eds: Edge[]) => addEdge({ ...conn, type: STEP_STYLE, data }, eds));
-  }, [nodes, setEdges, setHasUnsavedChanges]);
+    pushHistory();
+  }, [nodes, setEdges, setHasUnsavedChanges, pushHistory]);
 
   const onDrop = useCallback(async (event: React.DragEvent) => {
     event.preventDefault();
@@ -46,7 +48,8 @@ export function useJourneyFlowHandlers(
 
     setHasUnsavedChanges(true);
     setNodes([...nodes, newNode]);
-  }, [flowInstance, nodes, setNodes, setHasUnsavedChanges, wrapper]);
+    pushHistory();
+  }, [flowInstance, nodes, setNodes, setHasUnsavedChanges, wrapper, pushHistory]);
 
   const onNodeDoubleClick = useCallback((_: unknown, n: JourneyNode) => {
     setNodes(nodes.map((x) => ({

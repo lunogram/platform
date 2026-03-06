@@ -21,6 +21,19 @@ export function useKeyboardShortcuts({
     enabled,
 }: ShortcutProps) {
     const clipboard = useRef<{ nodes: JourneyNode[]; edges: Edge[] } | null>(null);
+    const history = useRef<{ nodes: JourneyNode[], edges: Edge[] }[]>([]);
+
+    const pushHistory = useCallback(() => {
+        history.current.push({ nodes, edges });
+    }, [nodes, edges]);
+
+    const undo = useCallback(() => {
+        const prev = history.current.pop();
+        if (prev) {
+            setNodes(prev.nodes);
+            setEdges(prev.edges);
+        }
+    }, [setNodes, setEdges]);
 
     const copy = useCallback(() => {
         const selectedNodes = nodes.filter((n) => n.selected);
@@ -88,9 +101,12 @@ export function useKeyboardShortcuts({
             if (isMod && e.key === "c") copy();
             if (isMod && e.key === "v") paste();
             if (isMod && e.key === "d") duplicate(e);
+            if (isMod && e.key === "z") undo();
         };
 
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [enabled, copy, paste, duplicate]);
+    }, [enabled, copy, paste, duplicate, undo]);
+
+    return { pushHistory };
 }

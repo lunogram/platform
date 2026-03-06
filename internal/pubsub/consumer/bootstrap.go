@@ -97,14 +97,6 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		MaxDeliver:    5,
 	})
 
-	bootstrap.EnsureConsumer(ctx, StreamJourneys, jetstream.ConsumerConfig{
-		Name:          ConsumerJourneysAdvanceUser,
-		Description:   "Processes journey advancement requests per specific user",
-		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: "journeys.advance.>",
-		MaxDeliver:    5,
-	})
-
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
 		Name:        StreamCampaigns,
 		Description: "Campaign sending and execution",
