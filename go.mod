@@ -41,7 +41,6 @@ require (
 	go.opentelemetry.io/otel v1.38.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.18.0
-	golang.org/x/text v0.30.0
 )
 
 require (
@@ -310,6 +309,7 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20250210185358-939b2ce775ac // indirect
 	golang.org/x/mod v0.28.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.37.0 // indirect
 	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect
