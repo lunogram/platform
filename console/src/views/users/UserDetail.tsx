@@ -109,8 +109,6 @@ export default function UserDetail() {
             setIsSavingTimezone(false)
         }
     }
-        }
-    }
 
     const handleLocaleChange = async (newLocale: string) => {
         setIsSavingLocale(true)

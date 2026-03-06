@@ -1,12 +1,9 @@
 package v1
 
 import (
-	"net/http"
-
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/config"
-	mgmtoapi "github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/rbac"
@@ -14,7 +11,6 @@ import (
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/webhook"
 	"github.com/nats-io/nats.go/jetstream"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 	"go.uber.org/zap"
 )
 
@@ -70,8 +66,4 @@ type Controller struct {
 	*AuthController
 	*ApiKeysController
 	*ActionsController
-}
-
-func (c *Controller) ListJourneyEntrances(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, params mgmtoapi.ListJourneyEntrancesParams) {
-	w.WriteHeader(http.StatusNotImplemented)
 }
