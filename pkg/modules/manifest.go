@@ -11,6 +11,7 @@ type Metadata struct {
 	Title       string   `json:"title"`
 	Description string   `json:"description"`
 	Tags        []string `json:"tags"`
+	Hidden      bool     `json:"hidden,omitempty"`
 }
 
 // Author contains module author information.

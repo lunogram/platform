@@ -4145,6 +4145,9 @@ components:
           additionalProperties: true
           x-go-type: json.RawMessage
           description: JSON Schema for action payload
+        hidden:
+          type: boolean
+          description: Whether this module is hidden from the UI
 
     TestActionRequest:
       type: object
@@ -5010,6 +5013,9 @@ components:
           type: object
           additionalProperties: true
           x-go-type: json.RawMessage
+        hidden:
+          type: boolean
+          description: Whether this module is hidden from the UI
 
     Template:
       type: object

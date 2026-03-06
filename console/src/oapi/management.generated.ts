@@ -1698,6 +1698,8 @@ export interface components {
             payload_schema?: {
                 [key: string]: unknown;
             };
+            /** @description Whether this module is hidden from the UI */
+            hidden?: boolean;
         };
         TestActionRequest: {
             /**
@@ -2299,6 +2301,8 @@ export interface components {
             schema: {
                 [key: string]: unknown;
             };
+            /** @description Whether this module is hidden from the UI */
+            hidden?: boolean;
         };
         Template: {
             /**

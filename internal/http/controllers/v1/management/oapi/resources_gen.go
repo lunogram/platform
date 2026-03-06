@@ -142,6 +142,9 @@ type ActionMeta struct {
 	// Description Module description
 	Description *string `json:"description,omitempty"`
 
+	// Hidden Whether this module is hidden from the UI
+	Hidden *bool `json:"hidden,omitempty"`
+
 	// Name Human-readable module name
 	Name string `json:"name"`
 
@@ -761,11 +764,14 @@ type Provider struct {
 
 // ProviderMeta defines model for ProviderMeta.
 type ProviderMeta struct {
-	Description *string         `json:"description,omitempty"`
-	Group       string          `json:"group"`
-	Icon        *string         `json:"icon,omitempty"`
-	Name        string          `json:"name"`
-	Schema      json.RawMessage `json:"schema"`
+	Description *string `json:"description,omitempty"`
+	Group       string  `json:"group"`
+
+	// Hidden Whether this module is hidden from the UI
+	Hidden *bool           `json:"hidden,omitempty"`
+	Icon   *string         `json:"icon,omitempty"`
+	Name   string          `json:"name"`
+	Schema json.RawMessage `json:"schema"`
 
 	// Type Module ID
 	Type string  `json:"type"`

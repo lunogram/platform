@@ -202,6 +202,11 @@ func (srv *ActionsController) ListActionMeta(w http.ResponseWriter, r *http.Requ
 	for _, a := range allActions {
 		manifest := a.Manifest()
 
+		// Skip hidden modules from the UI listing
+		if manifest.Metadata.Hidden {
+			continue
+		}
+
 		m := oapi.ActionMeta{
 			Type:        manifest.Metadata.ID,
 			Name:        manifest.Metadata.Title,

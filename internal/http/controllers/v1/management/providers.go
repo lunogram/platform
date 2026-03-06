@@ -84,6 +84,12 @@ func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.
 
 	for _, p := range allProviders {
 		manifest := p.Manifest()
+
+		// Skip hidden modules from the UI listing
+		if manifest.Metadata.Hidden {
+			continue
+		}
+
 		for _, channel := range manifest.Spec.Channels {
 			schema, err := json.Marshal(manifest.Spec.Config)
 			if err != nil {
