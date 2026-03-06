@@ -400,7 +400,7 @@ func (srv *JourneysController) EnrollUser(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	externalStepIDStr := body.ExternalStepID
+	externalStepIDStr := body.ExternalStepID.String()
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
@@ -500,7 +500,7 @@ func (srv *JourneysController) AdvanceUserStep(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	externalStepIDStr := body.ExternalStepID
+	externalStepIDStr := body.ExternalStepID.String()
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
