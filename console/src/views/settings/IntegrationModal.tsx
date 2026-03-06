@@ -7,6 +7,7 @@ import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
 import type { Project, Provider, ProviderCreateParams, ProviderMeta } from "../../types"
+import type { SchemaProperty } from "@/components/SchemaFields"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,13 +20,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { SchemaFields } from "@/components/SchemaFields"
 interface IntegrationFormParams {
@@ -67,12 +61,10 @@ export function IntegrationForm({
             ? {
                   name: provider.name,
                   data: provider.data,
-                  rate_limit: provider.rate_limit,
-                  rate_interval: provider.rate_interval,
                   module,
                   channel,
               }
-            : { name: "", data: {}, rate_limit: 0, rate_interval: "second", module, channel },
+            : { name: "", data: {}, module, channel },
     })
 
     const handleSubmit = async (values: ProviderCreateParams) => {
@@ -123,36 +115,16 @@ export function IntegrationForm({
                 <Input {...form.register("name", { required: true })} />
             </div>
 
-            <SchemaFields parent="data" schema={meta.schema.properties.data} form={form} />
-
-            <div className="grid gap-2">
-                <Label>{t("rate_limit")}</Label>
-                <p className="text-sm text-muted-foreground">
-                    {t(
-                        "rate_limit_hint",
-                        "If you need to cap send rate, enter the maximum per interval limit.",
-                    )}
-                </p>
-                <Input type="number" {...form.register("rate_limit", { valueAsNumber: true })} />
-            </div>
-
-            <div className="grid gap-2">
-                <Label>{t("rate_interval")}</Label>
-                <Select
-                    value={form.watch("rate_interval") ?? "second"}
-                    onValueChange={(val) => form.setValue("rate_interval", val)}
-                >
-                    <SelectTrigger>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="second">{t("second")}</SelectItem>
-                        <SelectItem value="minute">{t("minute")}</SelectItem>
-                        <SelectItem value="hour">{t("hour")}</SelectItem>
-                        <SelectItem value="day">{t("day")}</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
+            <SchemaFields
+                parent="data"
+                schema={
+                    Array.isArray(meta.schema.properties)
+                        ? meta.schema.properties.find((p: SchemaProperty) => p.name === "data")
+                              ?.schema
+                        : meta.schema.properties?.data
+                }
+                form={form}
+            />
 
             <DialogFooter className="pt-2">
                 <Button type="submit" disabled={isSaving}>

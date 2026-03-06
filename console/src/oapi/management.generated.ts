@@ -2253,13 +2253,6 @@ export interface components {
             data?: components["schemas"]["EmailProviderData"] | components["schemas"]["SmsProviderData"] | components["schemas"]["PushProviderData"];
             /** @example true */
             is_default: boolean;
-            /** @example 0 */
-            rate_limit?: number;
-            /**
-             * @example second
-             * @enum {string}
-             */
-            rate_interval?: "second" | "minute" | "hour" | "day";
             /**
              * Format: date-time
              * @example 2025-11-05T13:38:03.861Z
@@ -2279,9 +2272,6 @@ export interface components {
             };
             /** @example false */
             is_default?: boolean;
-            rate_limit?: number;
-            /** @enum {string} */
-            rate_interval?: "second" | "minute" | "hour" | "day";
         };
         UpdateProvider: {
             /** @example My Email Provider */
@@ -2290,9 +2280,6 @@ export interface components {
                 [key: string]: unknown;
             };
             is_default?: boolean;
-            rate_limit?: number;
-            /** @enum {string} */
-            rate_interval?: "second" | "minute" | "hour" | "day";
         };
         ProviderMeta: {
             /**

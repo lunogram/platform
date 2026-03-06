@@ -727,15 +727,13 @@ export interface Provider {
 
     data: any
     is_default: boolean
-    rate_limit: number
-    rate_interval: string
     setup: ProviderSetupMeta[]
     external_id?: string
 }
 
 export type ProviderCreateParams = Pick<
     Provider,
-    "name" | "data" | "module" | "channel" | "rate_limit" | "rate_interval"
+    "name" | "data" | "module" | "channel"
 >
 export type ProviderUpdateParams = ProviderCreateParams
 export interface ProviderMeta {
