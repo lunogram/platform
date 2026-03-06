@@ -30,8 +30,8 @@ export default function ProjectOnboardingUsers() {
         if (!admin) return
 
         let fullName
-        if (admin.first_name && admin.last_name) {
-            fullName = admin.first_name + " " + admin.last_name
+        if (admin.first_name || admin.last_name) {
+            fullName = admin.last_name ? admin.first_name + " " + admin.last_name : admin.first_name
         }
 
         await api.users.create(projectId, {
