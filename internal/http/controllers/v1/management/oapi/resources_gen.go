@@ -748,15 +748,15 @@ type ProjectRole string
 // Provider defines model for Provider.
 type Provider struct {
 	// Channel Communication channel type
-	Channel      Channel               `json:"channel"`
-	CreatedAt    time.Time             `json:"created_at"`
-	Data         *json.RawMessage      `json:"data,omitempty"`
-	Id           openapi_types.UUID    `json:"id"`
-	IsDefault    bool                  `json:"is_default"`
-	Module       string                `json:"module"`
-	Name         string                `json:"name"`
-	ProjectId    openapi_types.UUID    `json:"project_id"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Channel   Channel            `json:"channel"`
+	CreatedAt time.Time          `json:"created_at"`
+	Data      *json.RawMessage   `json:"data,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+	IsDefault bool               `json:"is_default"`
+	Module    string             `json:"module"`
+	Name      string             `json:"name"`
+	ProjectId openapi_types.UUID `json:"project_id"`
+	UpdatedAt time.Time          `json:"updated_at"`
 }
 
 // ProviderMeta defines model for ProviderMeta.
