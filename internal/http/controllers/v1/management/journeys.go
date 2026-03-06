@@ -80,7 +80,7 @@ func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Reque
 	json.Write(w, http.StatusOK, response)
 }
 
-func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.CreateJourneyParams) {
 	ctx := r.Context()
 	body := oapi.CreateJourneyJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
@@ -144,6 +144,16 @@ func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Requ
 		zap.Stringer("journey_id", journeyID),
 		zap.Stringer("version_id", versionID))
 
+	if params.Publish != nil && *params.Publish {
+		err = journeys.PublishVersion(ctx, journeyID, versionID)
+		if err != nil {
+			logger.Error("failed to publish journey", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+		logger.Info("journey published immediately", zap.Stringer("version_id", versionID))
+	}
+
 	journey, err := journeys.GetJourney(ctx, projectID, journeyID)
 	if err != nil {
 		logger.Error("failed to get journey", zap.Error(err))
@@ -151,16 +161,16 @@ func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err = tx.Commit()
+	versionInfo, err := journeys.GetJourneyVersionInfo(ctx, journeyID)
 	if err != nil {
-		logger.Error("failed to commit transaction", zap.Error(err))
+		logger.Error("failed to get journey version info", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	versionInfo, err := srv.jrny.GetJourneyVersionInfo(ctx, journeyID)
+	err = tx.Commit()
 	if err != nil {
-		logger.Error("failed to get journey version info", zap.Error(err))
+		logger.Error("failed to commit transaction", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}

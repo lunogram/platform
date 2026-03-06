@@ -558,15 +558,6 @@ export interface JourneyEntranceDetail {
     userSteps: JourneyUserStep[]
 }
 
-export type CampaignState =
-    | "draft"
-    | "loading"
-    | "scheduled"
-    | "running"
-    | "finished"
-    | "aborting"
-    | "aborted"
-
 export interface CampaignDelivery {
     sent: number
     total: number
@@ -582,7 +573,6 @@ export interface Campaign {
     type: CampaignType
     name: string
     channel: ChannelType
-    state: CampaignState
     delivery: CampaignDelivery
     provider_id?: UUID
     provider?: Provider

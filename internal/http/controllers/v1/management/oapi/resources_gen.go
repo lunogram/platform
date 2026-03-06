@@ -55,9 +55,9 @@ const (
 
 // Defines values for JourneyStatus.
 const (
-	JourneyStatusArchived  JourneyStatus = "archived"
-	JourneyStatusDraft     JourneyStatus = "draft"
-	JourneyStatusPublished JourneyStatus = "published"
+	Archived  JourneyStatus = "archived"
+	Draft     JourneyStatus = "draft"
+	Published JourneyStatus = "published"
 )
 
 // Defines values for JourneyStepType.
@@ -73,13 +73,6 @@ const (
 	JourneyStepTypeLink       JourneyStepType = "link"
 	JourneyStepTypeSticky     JourneyStepType = "sticky"
 	JourneyStepTypeUpdate     JourneyStepType = "update"
-)
-
-// Defines values for ListState.
-const (
-	ListStateDraft   ListState = "draft"
-	ListStateLoading ListState = "loading"
-	ListStateReady   ListState = "ready"
 )
 
 // Defines values for ListType.
@@ -545,16 +538,12 @@ type List struct {
 	RefreshedAt *time.Time          `json:"refreshed_at,omitempty"`
 	Rule        *rules.RuleSet      `json:"rule,omitempty"`
 	RuleId      *openapi_types.UUID `json:"rule_id,omitempty"`
-	State       ListState           `json:"state"`
 	Tags        *[]string           `json:"tags,omitempty"`
 	Type        ListType            `json:"type"`
 	UpdatedAt   time.Time           `json:"updated_at"`
 	UsersCount  int                 `json:"users_count"`
 	Version     int                 `json:"version"`
 }
-
-// ListState defines model for List.State.
-type ListState string
 
 // ListType defines model for List.Type.
 type ListType string
@@ -934,10 +923,9 @@ type UpdateJourney struct {
 
 // UpdateList defines model for UpdateList.
 type UpdateList struct {
-	Name      string         `json:"name"`
-	Published *bool          `json:"published,omitempty"`
-	Rule      *rules.RuleSet `json:"rule,omitempty"`
-	Tags      *[]string      `json:"tags,omitempty"`
+	Name string         `json:"name"`
+	Rule *rules.RuleSet `json:"rule,omitempty"`
+	Tags *[]string      `json:"tags,omitempty"`
 }
 
 // UpdateOrganization defines model for UpdateOrganization.
@@ -1358,6 +1346,12 @@ type ListJourneysParams struct {
 
 	// Search Search query string
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// CreateJourneyParams defines parameters for CreateJourney.
+type CreateJourneyParams struct {
+	// Publish If true, immediately publish the journey after creation
+	Publish *bool `form:"publish,omitempty" json:"publish,omitempty"`
 }
 
 // ListApiKeysParams defines parameters for ListApiKeys.
@@ -2039,9 +2033,9 @@ type ClientInterface interface {
 	ListJourneys(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateJourneyWithBody request with any body
-	CreateJourneyWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateJourneyWithBody(ctx context.Context, projectID openapi_types.UUID, params *CreateJourneyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateJourney(ctx context.Context, projectID openapi_types.UUID, body CreateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateJourney(ctx context.Context, projectID openapi_types.UUID, params *CreateJourneyParams, body CreateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteJourney request
 	DeleteJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2885,8 +2879,8 @@ func (c *Client) ListJourneys(ctx context.Context, projectID openapi_types.UUID,
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateJourneyWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateJourneyRequestWithBody(c.Server, projectID, contentType, body)
+func (c *Client) CreateJourneyWithBody(ctx context.Context, projectID openapi_types.UUID, params *CreateJourneyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateJourneyRequestWithBody(c.Server, projectID, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2897,8 +2891,8 @@ func (c *Client) CreateJourneyWithBody(ctx context.Context, projectID openapi_ty
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateJourney(ctx context.Context, projectID openapi_types.UUID, body CreateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateJourneyRequest(c.Server, projectID, body)
+func (c *Client) CreateJourney(ctx context.Context, projectID openapi_types.UUID, params *CreateJourneyParams, body CreateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateJourneyRequest(c.Server, projectID, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6000,18 +5994,18 @@ func NewListJourneysRequest(server string, projectID openapi_types.UUID, params 
 }
 
 // NewCreateJourneyRequest calls the generic CreateJourney builder with application/json body
-func NewCreateJourneyRequest(server string, projectID openapi_types.UUID, body CreateJourneyJSONRequestBody) (*http.Request, error) {
+func NewCreateJourneyRequest(server string, projectID openapi_types.UUID, params *CreateJourneyParams, body CreateJourneyJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateJourneyRequestWithBody(server, projectID, "application/json", bodyReader)
+	return NewCreateJourneyRequestWithBody(server, projectID, params, "application/json", bodyReader)
 }
 
 // NewCreateJourneyRequestWithBody generates requests for CreateJourney with any type of body
-func NewCreateJourneyRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateJourneyRequestWithBody(server string, projectID openapi_types.UUID, params *CreateJourneyParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -6034,6 +6028,28 @@ func NewCreateJourneyRequestWithBody(server string, projectID openapi_types.UUID
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Publish != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "publish", runtime.ParamLocationQuery, *params.Publish); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("POST", queryURL.String(), body)
@@ -10319,9 +10335,9 @@ type ClientWithResponsesInterface interface {
 	ListJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*ListJourneysResponse, error)
 
 	// CreateJourneyWithBodyWithResponse request with any body
-	CreateJourneyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateJourneyResponse, error)
+	CreateJourneyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, params *CreateJourneyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateJourneyResponse, error)
 
-	CreateJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateJourneyResponse, error)
+	CreateJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, params *CreateJourneyParams, body CreateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateJourneyResponse, error)
 
 	// DeleteJourneyWithResponse request
 	DeleteJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteJourneyResponse, error)
@@ -13740,16 +13756,16 @@ func (c *ClientWithResponses) ListJourneysWithResponse(ctx context.Context, proj
 }
 
 // CreateJourneyWithBodyWithResponse request with arbitrary body returning *CreateJourneyResponse
-func (c *ClientWithResponses) CreateJourneyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateJourneyResponse, error) {
-	rsp, err := c.CreateJourneyWithBody(ctx, projectID, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateJourneyWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, params *CreateJourneyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateJourneyResponse, error) {
+	rsp, err := c.CreateJourneyWithBody(ctx, projectID, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateJourneyResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateJourneyResponse, error) {
-	rsp, err := c.CreateJourney(ctx, projectID, body, reqEditors...)
+func (c *ClientWithResponses) CreateJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, params *CreateJourneyParams, body CreateJourneyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateJourneyResponse, error) {
+	rsp, err := c.CreateJourney(ctx, projectID, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18533,7 +18549,7 @@ type ServerInterface interface {
 	ListJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListJourneysParams)
 	// Create journey
 	// (POST /api/admin/projects/{projectID}/journeys)
-	CreateJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	CreateJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params CreateJourneyParams)
 	// Delete journey
 	// (DELETE /api/admin/projects/{projectID}/journeys/{journeyID})
 	DeleteJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
@@ -19001,7 +19017,7 @@ func (_ Unimplemented) ListJourneys(w http.ResponseWriter, r *http.Request, proj
 
 // Create journey
 // (POST /api/admin/projects/{projectID}/journeys)
-func (_ Unimplemented) CreateJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+func (_ Unimplemented) CreateJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params CreateJourneyParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -20985,8 +21001,19 @@ func (siw *ServerInterfaceWrapper) CreateJourney(w http.ResponseWriter, r *http.
 
 	r = r.WithContext(ctx)
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateJourneyParams
+
+	// ------------- Optional query parameter "publish" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "publish", r.URL.Query(), &params.Publish)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "publish", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateJourney(w, r, projectID)
+		siw.Handler.CreateJourney(w, r, projectID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {

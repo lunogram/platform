@@ -937,6 +937,12 @@ paths:
             type: string
             format: uuid
           description: The project ID
+        - name: publish
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: If true, immediately publish the journey after creation
       requestBody:
         required: true
         content:
@@ -4844,8 +4850,6 @@ components:
           type: array
           items:
             type: string
-        published:
-          type: boolean
 
     List:
       type: object
@@ -4854,7 +4858,6 @@ components:
         - project_id
         - name
         - type
-        - state
         - users_count
         - version
         - is_visible
@@ -4875,10 +4878,6 @@ components:
           type: string
           enum: [static, dynamic]
           example: "dynamic"
-        state:
-          type: string
-          enum: [draft, ready, loading]
-          example: "ready"
         rule_id:
           type: string
           format: uuid

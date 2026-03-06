@@ -60,7 +60,7 @@ func TestCreateJourney(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/journeys", bytes.NewReader(bb))
-			journeys.CreateJourney(res, req, projectID)
+			journeys.CreateJourney(res, req, projectID, oapi.CreateJourneyParams{})
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
 

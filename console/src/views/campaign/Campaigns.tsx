@@ -26,7 +26,7 @@ import { CampaignsIcon } from "@/components/icons"
 
 import { CreateCampaign } from "./CreateCampaign"
 
-import type { Campaign, CampaignDelivery, CampaignState, ChannelType } from "@/types"
+import type { Campaign, CampaignDelivery, ChannelType } from "@/types"
 import type { UUID } from "@/types/common"
 
 import { Button } from "@/components/ui/button"
@@ -40,7 +40,6 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -52,24 +51,6 @@ const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
     text: Smartphone,
     push: MessageSquareDot,
-}
-
-function getStateBadge(state: CampaignState, t: (key: string) => string) {
-    const config: Record<CampaignState, { label: string; className: string }> = {
-        draft: { label: t("draft"), className: "bg-secondary text-secondary-foreground" },
-        loading: { label: t("loading"), className: "bg-blue-100 text-blue-700" },
-        scheduled: { label: t("scheduled"), className: "bg-blue-100 text-blue-700" },
-        running: { label: t("running"), className: "bg-blue-100 text-blue-700" },
-        finished: { label: t("finished"), className: "bg-green-100 text-green-700" },
-        aborting: { label: t("aborting"), className: "bg-red-100 text-red-700" },
-        aborted: { label: t("aborted"), className: "bg-red-100 text-red-700" },
-    }
-    const { label, className } = config[state] ?? config.draft
-    return (
-        <Badge variant="outline" className={`border-0 ${className}`}>
-            {label}
-        </Badge>
-    )
 }
 
 function formatDelivery(delivery: CampaignDelivery) {
@@ -211,7 +192,6 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     <TableHeader>
                         <TableRow>
                             <TableHead>{t("name")}</TableHead>
-                            <TableHead>{t("state")}</TableHead>
                             <TableHead>{t("delivery")}</TableHead>
                             <TableHead>{t("launched_at")}</TableHead>
                             <TableHead>{t("updated_at")}</TableHead>
@@ -232,9 +212,6 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <Skeleton className="h-5 w-16 rounded-md" />
-                                    </TableCell>
-                                    <TableCell>
                                         <Skeleton className="h-4 w-24" />
                                     </TableCell>
                                     <TableCell>
@@ -250,7 +227,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                             ))
                         ) : campaigns.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-32 text-center">
+                                <TableCell colSpan={5} className="h-32 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Megaphone className="h-8 w-8" />
                                         <p>
@@ -289,7 +266,6 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell>{getStateBadge(campaign.state, t)}</TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {campaign.delivery?.sent > 0
                                                 ? formatDelivery(campaign.delivery)
