@@ -98,7 +98,7 @@ func (s *OrganizationsStore) DeleteOrganization(ctx context.Context, id uuid.UUI
 func (s *OrganizationsStore) GetOrganizationIntegrations(ctx context.Context, orgID uuid.UUID) (Providers, error) {
 	stmt := `
 	SELECT p.id, p.project_id, p.module, p.channel, p.data, p.is_default,
-		   p.rate_limit, p.rate_interval, p.name, p.created_at, p.updated_at
+		   p.name, p.created_at, p.updated_at
 	FROM providers p
 	INNER JOIN projects pr ON pr.id = p.project_id
 	WHERE pr.organization_id = $1

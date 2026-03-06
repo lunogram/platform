@@ -53,14 +53,6 @@ const (
 	CreateListTypeStatic  CreateListType = "static"
 )
 
-// Defines values for CreateProviderRateInterval.
-const (
-	CreateProviderRateIntervalDay    CreateProviderRateInterval = "day"
-	CreateProviderRateIntervalHour   CreateProviderRateInterval = "hour"
-	CreateProviderRateIntervalMinute CreateProviderRateInterval = "minute"
-	CreateProviderRateIntervalSecond CreateProviderRateInterval = "second"
-)
-
 // Defines values for JourneyStatus.
 const (
 	JourneyStatusArchived  JourneyStatus = "archived"
@@ -111,26 +103,10 @@ const (
 	ProjectRoleSupport   ProjectRole = "support"
 )
 
-// Defines values for ProviderRateInterval.
-const (
-	ProviderRateIntervalDay    ProviderRateInterval = "day"
-	ProviderRateIntervalHour   ProviderRateInterval = "hour"
-	ProviderRateIntervalMinute ProviderRateInterval = "minute"
-	ProviderRateIntervalSecond ProviderRateInterval = "second"
-)
-
 // Defines values for SubscriptionState.
 const (
 	Subscribed   SubscriptionState = "subscribed"
 	Unsubscribed SubscriptionState = "unsubscribed"
-)
-
-// Defines values for UpdateProviderRateInterval.
-const (
-	Day    UpdateProviderRateInterval = "day"
-	Hour   UpdateProviderRateInterval = "hour"
-	Minute UpdateProviderRateInterval = "minute"
-	Second UpdateProviderRateInterval = "second"
 )
 
 // Defines values for AuthCallbackParamsDriver.
@@ -369,15 +345,10 @@ type CreateProject struct {
 
 // CreateProvider defines model for CreateProvider.
 type CreateProvider struct {
-	Data         *json.RawMessage            `json:"data,omitempty"`
-	IsDefault    *bool                       `json:"is_default,omitempty"`
-	Name         string                      `json:"name"`
-	RateInterval *CreateProviderRateInterval `json:"rate_interval,omitempty"`
-	RateLimit    *int32                      `json:"rate_limit,omitempty"`
+	Data      *json.RawMessage `json:"data,omitempty"`
+	IsDefault *bool            `json:"is_default,omitempty"`
+	Name      string           `json:"name"`
 }
-
-// CreateProviderRateInterval defines model for CreateProvider.RateInterval.
-type CreateProviderRateInterval string
 
 // CreateSubscription defines model for CreateSubscription.
 type CreateSubscription struct {
@@ -785,13 +756,8 @@ type Provider struct {
 	Module       string                `json:"module"`
 	Name         string                `json:"name"`
 	ProjectId    openapi_types.UUID    `json:"project_id"`
-	RateInterval *ProviderRateInterval `json:"rate_interval,omitempty"`
-	RateLimit    *int32                `json:"rate_limit,omitempty"`
-	UpdatedAt    time.Time             `json:"updated_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
-
-// ProviderRateInterval defines model for Provider.RateInterval.
-type ProviderRateInterval string
 
 // ProviderMeta defines model for ProviderMeta.
 type ProviderMeta struct {
@@ -994,15 +960,10 @@ type UpdateProjectAdmin struct {
 
 // UpdateProvider defines model for UpdateProvider.
 type UpdateProvider struct {
-	Data         *json.RawMessage            `json:"data,omitempty"`
-	IsDefault    *bool                       `json:"is_default,omitempty"`
-	Name         *string                     `json:"name,omitempty"`
-	RateInterval *UpdateProviderRateInterval `json:"rate_interval,omitempty"`
-	RateLimit    *int32                      `json:"rate_limit,omitempty"`
+	Data      *json.RawMessage `json:"data,omitempty"`
+	IsDefault *bool            `json:"is_default,omitempty"`
+	Name      *string          `json:"name,omitempty"`
 }
-
-// UpdateProviderRateInterval defines model for UpdateProvider.RateInterval.
-type UpdateProviderRateInterval string
 
 // UpdateSubscription defines model for UpdateSubscription.
 type UpdateSubscription struct {

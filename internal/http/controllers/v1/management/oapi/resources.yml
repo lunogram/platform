@@ -4942,14 +4942,6 @@ components:
         is_default:
           type: boolean
           example: true
-        rate_limit:
-          type: integer
-          example: 0
-          x-go-type: int32
-        rate_interval:
-          type: string
-          enum: [second, minute, hour, day]
-          example: "second"
         created_at:
           type: string
           format: date-time
@@ -4974,12 +4966,6 @@ components:
         is_default:
           type: boolean
           example: false
-        rate_limit:
-          type: integer
-          x-go-type: int32
-        rate_interval:
-          type: string
-          enum: [second, minute, hour, day]
 
     UpdateProvider:
       type: object
@@ -4993,12 +4979,6 @@ components:
           x-go-type: json.RawMessage
         is_default:
           type: boolean
-        rate_limit:
-          type: integer
-          x-go-type: int32
-        rate_interval:
-          type: string
-          enum: [second, minute, hour, day]
 
     ProviderMeta:
       type: object
