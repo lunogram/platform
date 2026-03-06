@@ -45,7 +45,7 @@ func TestHMACJWTGeneratorGenerate(t *testing.T) {
 			require.NotEmpty(t, token)
 			require.True(t, expiresAt.After(time.Now()))
 
-			parsedToken, err := jwt.ParseWithClaims(token, &jwt.RegisteredClaims{}, func(t *jwt.Token) (interface{}, error) {
+			parsedToken, err := jwt.ParseWithClaims(token, &jwt.RegisteredClaims{}, func(t *jwt.Token) (any, error) {
 				return []byte(tc.secret), nil
 			})
 			require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestHMACJWTGeneratorTokenValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("valid token with correct secret", func(t *testing.T) {
-		parsedToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
+		parsedToken, err := jwt.Parse(token, func(t *jwt.Token) (any, error) {
 			return []byte(secret), nil
 		})
 		require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestHMACJWTGeneratorTokenValidation(t *testing.T) {
 	})
 
 	t.Run("invalid token with wrong secret", func(t *testing.T) {
-		_, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
+		_, err := jwt.Parse(token, func(t *jwt.Token) (any, error) {
 			return []byte("wrong-secret"), nil
 		})
 		require.Error(t, err)

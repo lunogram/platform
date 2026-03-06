@@ -49,7 +49,7 @@ func (g *HMACJWTGenerator) TokenLife() time.Duration {
 
 // Keyfunc returns a jwt.Keyfunc for validating tokens
 func (g *HMACJWTGenerator) Keyfunc() jwt.Keyfunc {
-	return func(token *jwt.Token) (interface{}, error) {
+	return func(token *jwt.Token) (any, error) {
 		return g.secret, nil
 	}
 }

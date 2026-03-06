@@ -411,13 +411,13 @@ type EmailProviderData struct {
 type EmailTemplateData struct {
 	// Editor Editor configuration and content structure
 	Editor *struct {
-		Content *[]map[string]interface{} `json:"content,omitempty"`
+		Content *[]map[string]any `json:"content,omitempty"`
 		Root    *struct {
-			Props *map[string]interface{} `json:"props,omitempty"`
+			Props *map[string]any `json:"props,omitempty"`
 		} `json:"root,omitempty"`
-		Zones *map[string]interface{} `json:"zones,omitempty"`
+		Zones *map[string]any `json:"zones,omitempty"`
 	} `json:"editor,omitempty"`
-	From *map[string]interface{} `json:"from,omitempty"`
+	From *map[string]any `json:"from,omitempty"`
 
 	// Html HTML content of the email template
 	Html    *string `json:"html,omitempty"`
@@ -438,7 +438,7 @@ type ExperimentChildData struct {
 }
 
 // GateChildData Data for gate step children - typically empty, path determines branch
-type GateChildData = map[string]interface{}
+type GateChildData = map[string]any
 
 // IdentifyUser defines model for IdentifyUser.
 type IdentifyUser struct {
@@ -455,10 +455,10 @@ type IdentifyUser struct {
 }
 
 // IdentifyUser0 defines model for .
-type IdentifyUser0 = interface{}
+type IdentifyUser0 = any
 
 // IdentifyUser1 defines model for .
-type IdentifyUser1 = interface{}
+type IdentifyUser1 = any
 
 // Journey defines model for Journey.
 type Journey struct {
@@ -768,7 +768,7 @@ type ProviderMeta struct {
 }
 
 // PushProviderData defines model for PushProviderData.
-type PushProviderData = map[string]interface{}
+type PushProviderData = map[string]any
 
 // PushTemplateData defines model for PushTemplateData.
 type PushTemplateData struct {
@@ -776,7 +776,7 @@ type PushTemplateData struct {
 	Body *string `json:"body,omitempty"`
 
 	// Data Additional data payload for the push notification
-	Data *map[string]interface{} `json:"data,omitempty"`
+	Data *map[string]any `json:"data,omitempty"`
 
 	// Title Push notification title
 	Title *string `json:"title,omitempty"`
@@ -789,7 +789,7 @@ type SchemaPath struct {
 }
 
 // SmsProviderData defines model for SmsProviderData.
-type SmsProviderData = map[string]interface{}
+type SmsProviderData = map[string]any
 
 // SmsTemplateData defines model for SmsTemplateData.
 type SmsTemplateData struct {
@@ -871,7 +871,7 @@ type TestActionResult struct {
 	Error *string `json:"error,omitempty"`
 
 	// Metadata Additional response data (response body, headers, etc.)
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+	Metadata *map[string]any `json:"metadata,omitempty"`
 
 	// Status Execution status (success or error)
 	Status string `json:"status"`
