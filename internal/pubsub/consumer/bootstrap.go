@@ -206,6 +206,23 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		MaxDeliver:    5,
 	})
 
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        ns.Stream(StreamProjects),
+		Description: "Project event processing",
+		Subjects:    []string{ns.Subject("projects.events.>")},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamProjects), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerProjectEventsProcess),
+		Description:   "Processes incoming project events",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("projects.events.>"),
+		MaxDeliver:    5,
+	})
+
 	return bootstrap.Error()
 }
 

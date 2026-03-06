@@ -14,6 +14,8 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
@@ -25,7 +27,7 @@ import (
 	"golang.org/x/text/language/display"
 )
 
-func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, webhookCaller *webhook.Caller) *ProjectsController {
+func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, webhookCaller *webhook.Caller, pub pubsub.Publisher) *ProjectsController {
 	return &ProjectsController{
 		logger:       logger,
 		managementDB: managementDB,
@@ -33,6 +35,7 @@ func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB 
 		journey:      journey.NewState(journeyDB),
 		users:        subjects.NewState(usersDB),
 		webhook:      webhookCaller,
+		pub:          pub,
 	}
 }
 
@@ -43,6 +46,7 @@ type ProjectsController struct {
 	journey      *journey.State
 	users        *subjects.State
 	webhook      *webhook.Caller
+	pub          pubsub.Publisher
 }
 
 func (srv *ProjectsController) loadProjectCounts(ctx context.Context, project *management.Project) {
@@ -237,6 +241,26 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		logger.Error("failed to create default locale", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
+	}
+
+	if srv.pub != nil {
+		err = srv.pub.Publish(ctx, schemas.ProjectEventsProcess(scope.OrganizationID), schemas.ProjectEvent{
+			ID:             projectID,
+			Name:           schemas.EventProjectCreated,
+			OrganizationID: scope.OrganizationID,
+			Data: map[string]any{
+				"id":              projectID,
+				"organization_id": scope.OrganizationID,
+				"name":            body.Name,
+				"timezone":        body.Timezone,
+				"locale":          body.Locale,
+			},
+		})
+		if err != nil {
+			logger.Error("failed to publish project created event", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
 	}
 
 	err = tx.Commit()

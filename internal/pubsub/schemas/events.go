@@ -20,6 +20,8 @@ const (
 	EventOrganizationUserAdded   = "organization.user.added"
 	EventOrganizationUserUpdated = "organization.user.updated"
 	EventOrganizationUserRemoved = "organization.user.removed"
+
+	EventProjectCreated = "project.created"
 )
 
 // UserEvent represents a tracked event with associated user and project information.
@@ -242,4 +244,17 @@ type ActionSchema struct {
 // ActionsSchema returns the NATS subject for action schema updates.
 func ActionsSchema(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("actions.schema.%s", projectID))
+}
+
+// ProjectEvent represents an event that occurs on a project.
+type ProjectEvent struct {
+	ID             uuid.UUID      `json:"id"`
+	Name           string         `json:"name"`
+	OrganizationID uuid.UUID      `json:"organization_id"`
+	Data           map[string]any `json:"data"`
+}
+
+// ProjectEventsProcess returns the NATS subject for project event processing.
+func ProjectEventsProcess(organizationID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("projects.events.%s", organizationID))
 }
