@@ -113,7 +113,7 @@ export default function Actions({ create = false }: ActionsProps) {
     }
 
     return (
-        <div className="flex flex-col gap-6 p-6">
+        <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6">
             {/* Header */}
             <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-xl shrink-0 bg-muted [&>svg]:h-7 [&>svg]:w-7 [&>svg]:text-muted-foreground">
@@ -131,8 +131,8 @@ export default function Actions({ create = false }: ActionsProps) {
             </div>
 
             {/* Search and Actions */}
-            <div className="flex items-center justify-between gap-4">
-                <div className="relative max-w-sm flex-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="relative sm:max-w-sm flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder={t("search_actions", "Search actions...")}
@@ -150,8 +150,10 @@ export default function Actions({ create = false }: ActionsProps) {
                     <TableHeader>
                         <TableRow>
                             <TableHead>{t("name")}</TableHead>
-                            <TableHead>{t("type")}</TableHead>
-                            <TableHead>{t("updated_at")}</TableHead>
+                            <TableHead className="hidden sm:table-cell">{t("type")}</TableHead>
+                            <TableHead className="hidden md:table-cell">
+                                {t("updated_at")}
+                            </TableHead>
                             <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -165,10 +167,10 @@ export default function Actions({ create = false }: ActionsProps) {
                                             <Skeleton className="h-4 w-36" />
                                         </div>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-5 w-16 rounded-md" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
                                     <TableCell>
@@ -204,12 +206,12 @@ export default function Actions({ create = false }: ActionsProps) {
                                             <span className="font-medium">{action.name}</span>
                                         </div>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Badge variant="secondary">
                                             {snakeToTitle(action.type)}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">
+                                    <TableCell className="hidden md:table-cell text-muted-foreground">
                                         {formatDate(preferences, action.updated_at, "PP")}
                                     </TableCell>
                                     <TableCell>
@@ -262,18 +264,20 @@ export default function Actions({ create = false }: ActionsProps) {
                                     size="sm"
                                     onClick={handlePrevPage}
                                     disabled={!hasPrevPage}
+                                    aria-label={t("previous")}
                                 >
-                                    <ChevronLeft className="h-4 w-4 mr-1" />
-                                    {t("previous")}
+                                    <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                                    <span className="hidden sm:inline">{t("previous")}</span>
                                 </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={handleNextPage}
                                     disabled={!hasNextPage}
+                                    aria-label={t("next")}
                                 >
-                                    {t("next")}
-                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                    <span className="hidden sm:inline">{t("next")}</span>
+                                    <ChevronRight className="h-4 w-4 sm:ml-1" />
                                 </Button>
                             </div>
                         )}

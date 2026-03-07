@@ -129,7 +129,7 @@ export default function Lists() {
     }
 
     return (
-        <div className="flex flex-col gap-6 p-6">
+        <div className="flex flex-col gap-4 p-4 sm:gap-6 sm:p-6">
             {/* Header */}
             <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-xl shrink-0 bg-muted [&>svg]:h-7 [&>svg]:w-7 [&>svg]:text-muted-foreground">
@@ -147,8 +147,8 @@ export default function Lists() {
             </div>
 
             {/* Search and Actions */}
-            <div className="flex items-center justify-between gap-4">
-                <div className="relative max-w-sm flex-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="relative sm:max-w-sm flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder={t("search_lists", "Search lists...")}
@@ -157,10 +157,15 @@ export default function Lists() {
                         className="pl-9"
                     />
                 </div>
-                <Button onClick={() => setIsCreateOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    {t("create_list")}
-                </Button>
+                <div className="flex w-full items-center gap-2 sm:w-auto">
+                    <Button
+                        onClick={() => setIsCreateOpen(true)}
+                        className="flex-1 sm:flex-initial"
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        {t("create_list")}
+                    </Button>
+                </div>
             </div>
 
             {/* Table */}
@@ -169,11 +174,17 @@ export default function Lists() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>{t("name")}</TableHead>
-                            <TableHead>{t("type")}</TableHead>
-                            <TableHead>{t("users_count")}</TableHead>
+                            <TableHead className="hidden sm:table-cell">{t("type")}</TableHead>
+                            <TableHead className="hidden sm:table-cell">
+                                {t("users_count")}
+                            </TableHead>
                             <TableHead>{t("state")}</TableHead>
-                            <TableHead>{t("created_at")}</TableHead>
-                            <TableHead>{t("updated_at")}</TableHead>
+                            <TableHead className="hidden md:table-cell">
+                                {t("created_at")}
+                            </TableHead>
+                            <TableHead className="hidden md:table-cell">
+                                {t("updated_at")}
+                            </TableHead>
                             <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -187,19 +198,19 @@ export default function Lists() {
                                             <Skeleton className="h-4 w-36" />
                                         </div>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-16" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-16" />
                                     </TableCell>
                                     <TableCell>
                                         <Skeleton className="h-5 w-16 rounded-md" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
                                     <TableCell>
@@ -251,17 +262,17 @@ export default function Lists() {
                                                 <div className="font-medium">{list.name}</div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="hidden sm:table-cell text-muted-foreground">
                                             {snakeToTitle(list.type)}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="hidden sm:table-cell text-muted-foreground">
                                             {list.users_count?.toLocaleString() ?? "—"}
                                         </TableCell>
                                         <TableCell>{getStateBadge(list.state, t)}</TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="hidden md:table-cell text-muted-foreground">
                                             {formatDate(preferences, list.created_at, "PP")}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="hidden md:table-cell text-muted-foreground">
                                             {formatDate(preferences, list.updated_at, "PP")}
                                         </TableCell>
                                         <TableCell>
@@ -326,18 +337,20 @@ export default function Lists() {
                                     size="sm"
                                     onClick={handlePrevPage}
                                     disabled={!hasPrevPage}
+                                    aria-label={t("previous")}
                                 >
-                                    <ChevronLeft className="h-4 w-4 mr-1" />
-                                    {t("previous")}
+                                    <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                                    <span className="hidden sm:inline">{t("previous")}</span>
                                 </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={handleNextPage}
                                     disabled={!hasNextPage}
+                                    aria-label={t("next")}
                                 >
-                                    {t("next")}
-                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                    <span className="hidden sm:inline">{t("next")}</span>
+                                    <ChevronRight className="h-4 w-4 sm:ml-1" />
                                 </Button>
                             </div>
                         )}
@@ -369,7 +382,7 @@ export default function Lists() {
 
                 {/* Decorative elements */}
                 <div className="absolute -right-6 -bottom-6 flex gap-4">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 rotate-12 transition-all duration-500 ease-out group-hover:rotate-6 group-hover:-translate-y-2 group-hover:bg-primary/15">
+                    <div className="hidden sm:flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 rotate-12 transition-all duration-500 ease-out group-hover:rotate-6 group-hover:-translate-y-2 group-hover:bg-primary/15">
                         <ListFilter
                             className="h-10 w-10 text-primary/40 transition-all duration-500 group-hover:text-primary/60 group-hover:scale-110"
                             strokeWidth={1.25}

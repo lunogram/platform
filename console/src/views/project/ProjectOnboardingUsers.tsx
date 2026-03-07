@@ -71,7 +71,7 @@ export default function ProjectOnboardingUsers() {
     }
 
     return (
-        <Card className="w-full min-w-[400px] max-w-[600px]">
+        <Card className="w-full max-w-[600px]">
             <CardHeader>
                 <CardTitle className="text-lg">{t("onboarding_users_title")}</CardTitle>
                 <CardDescription>{t("onboarding_users_description")}</CardDescription>

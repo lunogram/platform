@@ -69,8 +69,8 @@ export default function Integrations() {
             <h2 className="text-2xl font-semibold tracking-tight">{t("integrations")}</h2>
 
             {/* Search and Actions */}
-            <div className="flex items-center justify-between gap-4">
-                <div className="relative max-w-sm flex-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="relative sm:max-w-sm flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder={t("search")}
@@ -84,6 +84,7 @@ export default function Integrations() {
                         setProvider(undefined)
                         setIsModalOpen(true)
                     }}
+                    className="flex-1 sm:flex-initial"
                 >
                     <Plus className="mr-2 h-4 w-4" />
                     {t("add_integration")}
@@ -96,8 +97,8 @@ export default function Integrations() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>{t("name")}</TableHead>
-                            <TableHead>{t("type")}</TableHead>
-                            <TableHead>{t("group")}</TableHead>
+                            <TableHead className="hidden sm:table-cell">{t("type")}</TableHead>
+                            <TableHead className="hidden sm:table-cell">{t("group")}</TableHead>
                             <TableHead className="w-[70px]" />
                         </TableRow>
                     </TableHeader>
@@ -108,10 +109,10 @@ export default function Integrations() {
                                     <TableCell>
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-20" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-16" />
                                     </TableCell>
                                     <TableCell>
@@ -157,10 +158,10 @@ export default function Integrations() {
                                     }}
                                 >
                                     <TableCell className="font-medium">{p.name}</TableCell>
-                                    <TableCell className="text-muted-foreground">
+                                    <TableCell className="hidden sm:table-cell text-muted-foreground">
                                         {p.module}
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Badge variant="secondary">{snakeToTitle(p.channel)}</Badge>
                                     </TableCell>
                                     <TableCell>

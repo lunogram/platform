@@ -66,8 +66,8 @@ export function CreateAction({ open = false }: CreateActionProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={() => setIsOpen(!isOpen)}>
-            <DialogTrigger>
-                <Button size="lg">
+            <DialogTrigger className="w-full sm:w-auto">
+                <Button size="lg" className="w-full sm:w-auto">
                     <PlusIcon /> {t("create_action", "Create Action")}
                 </Button>
             </DialogTrigger>

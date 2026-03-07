@@ -86,7 +86,7 @@ function MemberExpandedRow({
     return (
         <TableRow className="bg-muted/50 hover:bg-muted/50">
             <TableCell colSpan={5} className="p-0">
-                <div className="px-6 py-4 flex flex-col gap-3">
+                <div className="px-4 sm:px-6 py-4 flex flex-col gap-3">
                     {/* Member Attributes */}
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         {t("member_attributes")}
@@ -309,8 +309,8 @@ export default function OrganizationDetailMembers() {
     return (
         <div className="space-y-4">
             {/* Section Header */}
-            <div className="flex items-center justify-between gap-4">
-                <form onSubmit={handleSearch} className="flex-1 max-w-sm">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                <form onSubmit={handleSearch} className="flex-1 sm:max-w-sm">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
@@ -321,7 +321,7 @@ export default function OrganizationDetailMembers() {
                         />
                     </div>
                 </form>
-                <Button onClick={() => setIsAddMemberOpen(true)}>
+                <Button onClick={() => setIsAddMemberOpen(true)} className="flex-1 sm:flex-initial">
                     <Plus className="mr-2 h-4 w-4" />
                     {t("add_member")}
                 </Button>
@@ -334,8 +334,12 @@ export default function OrganizationDetailMembers() {
                         <TableRow>
                             <TableHead className="w-8 p-0"></TableHead>
                             <TableHead>{t("member")}</TableHead>
-                            <TableHead className="w-32">{t("external_id")}</TableHead>
-                            <TableHead className="w-20">{t("attributes")}</TableHead>
+                            <TableHead className="hidden sm:table-cell w-32">
+                                {t("external_id")}
+                            </TableHead>
+                            <TableHead className="hidden md:table-cell w-20">
+                                {t("attributes")}
+                            </TableHead>
                             <TableHead className="w-12"></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -352,10 +356,10 @@ export default function OrganizationDetailMembers() {
                                             <Skeleton className="h-4 w-36" />
                                         </div>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-20" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-12" />
                                     </TableCell>
                                     <TableCell></TableCell>
@@ -418,7 +422,7 @@ export default function OrganizationDetailMembers() {
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="hidden sm:table-cell">
                                                 {member.external_id ? (
                                                     <code className="text-sm text-muted-foreground">
                                                         {member.external_id}
@@ -427,7 +431,7 @@ export default function OrganizationDetailMembers() {
                                                     <span className="text-muted-foreground">—</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="hidden md:table-cell">
                                                 {attrCount > 0 ? (
                                                     <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
                                                         {attrCount}

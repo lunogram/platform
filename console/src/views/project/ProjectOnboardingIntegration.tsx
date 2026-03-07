@@ -36,7 +36,7 @@ export default function ProjectOnboardingIntegration() {
     }
 
     return (
-        <Card className="w-full min-w-[400px] max-w-[600px]">
+        <Card className="w-full max-w-[600px]">
             <CardHeader>
                 <CardTitle className="text-lg">{t("onboarding_integration_title")}</CardTitle>
                 <CardDescription>{t("onboarding_integration_description")}</CardDescription>

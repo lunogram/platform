@@ -179,8 +179,12 @@ export default function UserDetailOrganizations() {
                         <TableRow>
                             <TableHead className="w-8 p-0"></TableHead>
                             <TableHead>{t("name")}</TableHead>
-                            <TableHead>{t("external_id")}</TableHead>
-                            <TableHead>{t("created_at")}</TableHead>
+                            <TableHead className="hidden md:table-cell">
+                                {t("external_id")}
+                            </TableHead>
+                            <TableHead className="hidden sm:table-cell">
+                                {t("created_at")}
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -196,10 +200,10 @@ export default function UserDetailOrganizations() {
                                             <Skeleton className="h-4 w-36" />
                                         </div>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-24" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
                                 </TableRow>
@@ -262,7 +266,7 @@ export default function UserDetailOrganizations() {
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="hidden md:table-cell">
                                                 {org.external_id ? (
                                                     <code className="text-sm text-muted-foreground">
                                                         {org.external_id}
@@ -271,7 +275,7 @@ export default function UserDetailOrganizations() {
                                                     <span className="text-muted-foreground">—</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground">
+                                            <TableCell className="hidden sm:table-cell text-muted-foreground">
                                                 {formatDate(preferences, org.created_at, "PP")}
                                             </TableCell>
                                         </TableRow>

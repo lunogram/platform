@@ -118,7 +118,7 @@ export default function ProjectGettingStarted() {
     ]
 
     return (
-        <div className="flex flex-col gap-6 max-w-3xl mx-auto min-h-screen justify-center">
+        <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 max-w-3xl mx-auto min-h-screen justify-center">
             {/* Checklist */}
             <Card className="border rounded-lg">
                 <CardHeader className="border-b">
@@ -131,23 +131,29 @@ export default function ProjectGettingStarted() {
                         {checklistItems.map((item, i) => (
                             <li
                                 key={i}
-                                className="flex items-center gap-4 py-4 first:pt-2 last:pb-2"
+                                className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 py-4 first:pt-2 last:pb-2"
                             >
-                                <div
-                                    className={cn(
-                                        "w-6 h-6 flex items-center justify-center shrink-0 text-muted-foreground",
-                                        item.completed && "text-green-600",
-                                    )}
-                                >
-                                    {item.completed ? <CheckCircleIcon /> : item.icon}
+                                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                                    <div
+                                        className={cn(
+                                            "w-6 h-6 flex items-center justify-center shrink-0 text-muted-foreground [&>svg]:w-full [&>svg]:h-full",
+                                            item.completed && "text-green-600",
+                                        )}
+                                    >
+                                        {item.completed ? <CheckCircleIcon /> : item.icon}
+                                    </div>
+                                    <div className="flex flex-col flex-1 gap-1 min-w-0">
+                                        <strong className="text-sm font-medium">
+                                            {item.title}
+                                        </strong>
+                                        <small className="text-xs text-muted-foreground">
+                                            {item.description}
+                                        </small>
+                                    </div>
                                 </div>
-                                <div className="flex flex-col flex-1 gap-1">
-                                    <strong className="text-sm font-medium">{item.title}</strong>
-                                    <small className="text-xs text-muted-foreground">
-                                        {item.description}
-                                    </small>
-                                </div>
-                                {!item.completed && item.action}
+                                {!item.completed && (
+                                    <div className="sm:shrink-0 pl-9 sm:pl-0">{item.action}</div>
+                                )}
                             </li>
                         ))}
                     </ul>
@@ -156,8 +162,8 @@ export default function ProjectGettingStarted() {
 
             {/* Resources */}
             <Card className="border rounded-lg">
-                <CardContent className="flex flex-col sm:flex-row gap-8 p-6">
-                    <div className="flex-1 border-r border-border last:border-none pr-6">
+                <CardContent className="flex flex-col sm:flex-row gap-8 p-4 sm:p-6">
+                    <div className="flex-1 sm:border-r sm:border-border last:border-none sm:pr-6">
                         <div className="w-6 h-6 mb-2 text-muted-foreground">
                             <BookIcon />
                         </div>

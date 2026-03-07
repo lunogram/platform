@@ -141,7 +141,7 @@ export function IntegrationForm({
 interface IntegrationModalProps {
     open: boolean
     onClose: (open: boolean) => void
-    provider: Provider | undefined
+    provider?: Provider
     onChange: (provider: Provider) => void
 }
 

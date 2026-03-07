@@ -103,7 +103,7 @@ function RuleSection({ list, isSaving, onRuleSave, onChange }: RuleSectionProps)
     }
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h3 className="text-base font-semibold">{t("rules")}</h3>
                     <p className="text-sm text-muted-foreground">
@@ -323,7 +323,7 @@ export default function ListDetail() {
         <div className="flex flex-col min-h-full">
             {/* Header Section */}
             <div className="border-b bg-card/50">
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                     {/* Breadcrumb */}
                     <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
                         <Link
@@ -337,8 +337,8 @@ export default function ListDetail() {
                     </nav>
 
                     {/* List Identity */}
-                    <div className="flex items-start justify-between gap-6">
-                        <div className="flex items-start gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 sm:gap-6">
+                        <div className="flex items-start gap-4 min-w-0">
                             <div
                                 className="flex h-14 w-14 items-center justify-center rounded-xl shrink-0"
                                 style={{ backgroundColor: listColor }}
@@ -362,7 +362,7 @@ export default function ListDetail() {
                                     </InlineEdit>
                                     {getStateBadge(list.state, t)}
                                 </div>
-                                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                <p className="text-sm text-muted-foreground flex items-center flex-wrap gap-x-2 gap-y-1">
                                     <span>{snakeToTitle(list.type)}</span>
                                     {list.version_number != null && (
                                         <>
@@ -444,7 +444,7 @@ export default function ListDetail() {
 
             {/* Progress Bar for Loading State */}
             {list.state === "loading" && progress !== null && (
-                <div className="border-b bg-blue-50/50 dark:bg-blue-950/20 px-6 py-3">
+                <div className="border-b bg-blue-50/50 dark:bg-blue-950/20 px-4 sm:px-6 py-3">
                     <div className="flex items-center gap-3">
                         <RefreshCw className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
                         <div className="flex-1">
@@ -468,7 +468,7 @@ export default function ListDetail() {
             )}
 
             {/* Content Area */}
-            <div className="flex-1 p-6 space-y-6">
+            <div className="flex-1 p-4 sm:p-6 space-y-6">
                 {/* Error Alert */}
                 {error && (
                     <Alert variant="destructive">
@@ -492,9 +492,9 @@ export default function ListDetail() {
 
                 {/* Users Table */}
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                         <h3 className="text-base font-semibold">{t("users")}</h3>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                             {isPreviewMode && (
                                 <div className="flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20 px-2.5 py-1.5">
                                     <Eye className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
@@ -550,9 +550,13 @@ export default function ListDetail() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>{t("name")}</TableHead>
-                                    <TableHead>{t("external_id")}</TableHead>
+                                    <TableHead className="hidden md:table-cell">
+                                        {t("external_id")}
+                                    </TableHead>
                                     <TableHead>{t("email")}</TableHead>
-                                    <TableHead>{t("phone")}</TableHead>
+                                    <TableHead className="hidden sm:table-cell">
+                                        {t("phone")}
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -562,13 +566,13 @@ export default function ListDetail() {
                                             <TableCell>
                                                 <Skeleton className="h-4 w-32" />
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="hidden md:table-cell">
                                                 <Skeleton className="h-4 w-24" />
                                             </TableCell>
                                             <TableCell>
                                                 <Skeleton className="h-4 w-36" />
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="hidden sm:table-cell">
                                                 <Skeleton className="h-4 w-24" />
                                             </TableCell>
                                         </TableRow>
@@ -599,7 +603,7 @@ export default function ListDetail() {
                                             <TableCell className="font-medium">
                                                 {user.full_name || "—"}
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground">
+                                            <TableCell className="text-muted-foreground hidden md:table-cell">
                                                 <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
                                                     {user.external_id}
                                                 </code>
@@ -607,7 +611,7 @@ export default function ListDetail() {
                                             <TableCell className="text-muted-foreground">
                                                 {user.email || "—"}
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground">
+                                            <TableCell className="text-muted-foreground hidden sm:table-cell">
                                                 {user.phone || "—"}
                                             </TableCell>
                                         </TableRow>
@@ -629,18 +633,22 @@ export default function ListDetail() {
                                             size="sm"
                                             onClick={handlePrevPage}
                                             disabled={!hasPrevPage}
+                                            aria-label={t("previous")}
                                         >
-                                            <ChevronLeft className="h-4 w-4 mr-1" />
-                                            {t("previous")}
+                                            <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                                            <span className="hidden sm:inline">
+                                                {t("previous")}
+                                            </span>
                                         </Button>
                                         <Button
                                             variant="outline"
                                             size="sm"
                                             onClick={handleNextPage}
                                             disabled={!hasNextPage}
+                                            aria-label={t("next")}
                                         >
-                                            {t("next")}
-                                            <ChevronRight className="h-4 w-4 ml-1" />
+                                            <span className="hidden sm:inline">{t("next")}</span>
+                                            <ChevronRight className="h-4 w-4 sm:ml-1" />
                                         </Button>
                                     </div>
                                 )}

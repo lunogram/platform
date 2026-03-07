@@ -168,9 +168,12 @@ export default function ActionDetail() {
     if (!isNew && !existingAction) return null
 
     return (
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 overflow-hidden">
+        <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="flex flex-col md:flex-row flex-1 overflow-hidden"
+        >
             {/* Left: Form (scrollable) */}
-            <div className="h-full overflow-y-auto w-2/5 bg-background p-8">
+            <div className="h-full overflow-y-auto w-full md:w-2/5 bg-background p-4 sm:p-8">
                 <div className="space-y-6">
                     {/* Header */}
                     <div className="flex items-center gap-3">
@@ -244,7 +247,7 @@ export default function ActionDetail() {
                     )}
 
                     {/* Actions */}
-                    <div className="flex items-center gap-3 border-t pt-6">
+                    <div className="flex flex-wrap items-center gap-3 border-t pt-6">
                         <Button type="submit" disabled={isSaving || !selectedType}>
                             {isSaving
                                 ? t("saving", "Saving...")

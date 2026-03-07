@@ -13,12 +13,17 @@ interface PreviewState {
   input: Record<string, any>
 }
 
-/** Post the current height to the parent frame */
+/** Post the current height to the parent frame.
+ *  Uses getBoundingClientRect on the #root element + body padding
+ *  instead of document.documentElement.scrollHeight which reports
+ *  inflated values inside iframes on mobile Safari. */
 function postHeight() {
-  const height = Math.max(
-    document.documentElement.scrollHeight,
-    document.body.scrollHeight,
-  )
+  const root = document.getElementById('root')
+  if (!root) return
+  const style = getComputedStyle(document.body)
+  const paddingY =
+    parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+  const height = Math.ceil(root.getBoundingClientRect().height + paddingY)
   window.parent.postMessage({ type: 'resize', height }, '*')
 }
 

@@ -138,7 +138,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
     }
 
     return (
-        <div className="flex flex-col gap-6 p-6">
+        <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6">
             {/* Header */}
             <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-xl shrink-0 bg-muted [&>svg]:h-7 [&>svg]:w-7 [&>svg]:text-muted-foreground">
@@ -161,18 +161,21 @@ export default function Campaigns({ create = false }: CampaignsProps) {
             {project.has_provider === false && (
                 <Alert>
                     <AlertTitle>{t("setup")}</AlertTitle>
-                    <AlertDescription className="flex items-center justify-between">
+                    <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <span>{t("setup_integration_description")}</span>
-                        <Link to={`/projects/${project.id}/settings/integrations`}>
-                            <Button>{t("setup_integration")}</Button>
+                        <Link
+                            to={`/projects/${project.id}/settings/integrations`}
+                            className="shrink-0"
+                        >
+                            <Button className="w-full sm:w-auto">{t("setup_integration")}</Button>
                         </Link>
                     </AlertDescription>
                 </Alert>
             )}
 
             {/* Search and Actions */}
-            <div className="flex items-center justify-between gap-4">
-                <div className="relative max-w-sm flex-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="relative sm:max-w-sm flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder={t("search_campaigns", "Search campaigns...")}
@@ -190,9 +193,13 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     <TableHeader>
                         <TableRow>
                             <TableHead>{t("name")}</TableHead>
-                            <TableHead>{t("delivery")}</TableHead>
-                            <TableHead>{t("launched_at")}</TableHead>
-                            <TableHead>{t("updated_at")}</TableHead>
+                            <TableHead className="hidden sm:table-cell">{t("delivery")}</TableHead>
+                            <TableHead className="hidden md:table-cell">
+                                {t("launched_at")}
+                            </TableHead>
+                            <TableHead className="hidden md:table-cell">
+                                {t("updated_at")}
+                            </TableHead>
                             <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -209,13 +216,13 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                             </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-24" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
                                     <TableCell>
@@ -264,19 +271,19 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="hidden sm:table-cell text-muted-foreground">
                                             {campaign.delivery?.sent > 0
                                                 ? formatDelivery(campaign.delivery)
                                                 : "—"}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="hidden md:table-cell text-muted-foreground">
                                             {campaign.send_at
                                                 ? formatDate(preferences, campaign.send_at, "Pp")
                                                 : campaign.type === "trigger"
                                                   ? t("api_triggered")
                                                   : "—"}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="hidden md:table-cell text-muted-foreground">
                                             {formatDate(preferences, campaign.updated_at, "PP")}
                                         </TableCell>
                                         <TableCell>
@@ -341,18 +348,20 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                     size="sm"
                                     onClick={handlePrevPage}
                                     disabled={!hasPrevPage}
+                                    aria-label={t("previous")}
                                 >
-                                    <ChevronLeft className="h-4 w-4 mr-1" />
-                                    {t("previous")}
+                                    <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                                    <span className="hidden sm:inline">{t("previous")}</span>
                                 </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={handleNextPage}
                                     disabled={!hasNextPage}
+                                    aria-label={t("next")}
                                 >
-                                    {t("next")}
-                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                    <span className="hidden sm:inline">{t("next")}</span>
+                                    <ChevronRight className="h-4 w-4 sm:ml-1" />
                                 </Button>
                             </div>
                         )}
@@ -361,7 +370,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
             </div>
 
             {/* Tip Card */}
-            <div className="group relative overflow-hidden rounded-lg bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border p-6">
+            <div className="group relative overflow-hidden rounded-lg bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border p-4 sm:p-6">
                 <div className="relative z-10 max-w-md">
                     <h3 className="font-semibold text-foreground">
                         {t("campaign_tip_title", "Automate campaigns via API")}
@@ -384,7 +393,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
 
                 {/* Decorative elements */}
                 <div className="absolute -right-6 -bottom-6 flex gap-4">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 rotate-12 transition-all duration-500 ease-out group-hover:rotate-6 group-hover:-translate-y-2 group-hover:bg-primary/15">
+                    <div className="hidden sm:flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 rotate-12 transition-all duration-500 ease-out group-hover:rotate-6 group-hover:-translate-y-2 group-hover:bg-primary/15">
                         <Megaphone
                             className="h-10 w-10 text-primary/40 transition-all duration-500 group-hover:text-primary/60 group-hover:scale-110"
                             strokeWidth={1.25}

@@ -47,8 +47,8 @@ export function DefaultUserDropdown({ user }: UserDropdownProps) {
                                 isCollapsed && "justify-center",
                             )}
                         >
-                            <Avatar className="size-8">
-                                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
+                            <Avatar className="size-8 [[data-mobile=true]_&]:size-10">
+                                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium [[data-mobile=true]_&]:text-sm">
                                     {initials}
                                 </AvatarFallback>
                             </Avatar>

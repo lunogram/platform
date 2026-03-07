@@ -2,6 +2,7 @@ import { Check, ChevronsUpDown, Plus } from "lucide-react"
 import { useNavigate } from "react-router"
 import type { Project } from "@/types"
 import { getRandomColor, getRandomIcon } from "@/lib/colors"
+import { navigateFromOverlay } from "@/lib/ui-utils"
 
 import {
     DropdownMenu,
@@ -10,7 +11,12 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+import {
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    useSidebar,
+} from "@/components/ui/sidebar"
 
 export function ProjectSwitcher({
     projects,
@@ -20,6 +26,7 @@ export function ProjectSwitcher({
     currentProject: Project
 }) {
     const navigate = useNavigate()
+    const { setOpenMobile } = useSidebar()
     const projectColor = currentProject?.name ? getRandomColor(currentProject.name) : "#6366f1"
     const projectIcon = currentProject?.name ? getRandomIcon(currentProject.name) : "folder"
 
@@ -33,10 +40,12 @@ export function ProjectSwitcher({
                             className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-pointer"
                         >
                             <div
-                                className="flex aspect-square size-8 items-center justify-center rounded-lg text-white"
+                                className="flex aspect-square size-8 items-center justify-center rounded-lg text-white [[data-mobile=true]_&]:size-10 [[data-mobile=true]_&]:rounded-xl"
                                 style={{ backgroundColor: projectColor }}
                             >
-                                <i className={`fa-solid fa-${projectIcon} text-sm`} />
+                                <i
+                                    className={`fa-solid fa-${projectIcon} text-sm [[data-mobile=true]_&]:text-base`}
+                                />
                             </div>
                             <div className="flex flex-col gap-0.5 leading-none">
                                 <span className="font-semibold">Projects</span>
@@ -54,7 +63,13 @@ export function ProjectSwitcher({
                         {projects.map((project) => (
                             <DropdownMenuItem
                                 key={project.id}
-                                onSelect={() => navigate(`/projects/${project.id}`)}
+                                onSelect={() => {
+                                    navigateFromOverlay(
+                                        navigate,
+                                        () => setOpenMobile(false),
+                                        `/projects/${project.id}`,
+                                    )
+                                }}
                                 className="cursor-pointer"
                             >
                                 {project.name}
@@ -63,7 +78,13 @@ export function ProjectSwitcher({
                         ))}
                         {projects.length > 0 && <DropdownMenuSeparator />}
                         <DropdownMenuItem
-                            onSelect={() => navigate("/onboarding/project")}
+                            onSelect={() => {
+                                navigateFromOverlay(
+                                    navigate,
+                                    () => setOpenMobile(false),
+                                    "/onboarding/project",
+                                )
+                            }}
                             className="gap-2 cursor-pointer"
                         >
                             <Plus className="size-4" />

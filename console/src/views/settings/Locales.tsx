@@ -87,8 +87,8 @@ export default function Locales() {
             <h2 className="text-2xl font-semibold tracking-tight">{t("locales")}</h2>
 
             {/* Search and Actions */}
-            <div className="flex items-center justify-between gap-4">
-                <div className="relative max-w-sm flex-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="relative sm:max-w-sm flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder={t("search")}
@@ -97,7 +97,7 @@ export default function Locales() {
                         className="pl-9"
                     />
                 </div>
-                <Button onClick={() => setOpen(true)}>
+                <Button onClick={() => setOpen(true)} className="flex-1 sm:flex-initial">
                     <Plus className="mr-2 h-4 w-4" />
                     {t("create_locale")}
                 </Button>

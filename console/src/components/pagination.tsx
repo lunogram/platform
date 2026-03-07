@@ -7,10 +7,10 @@ import {
 } from "@/components/ui/pagination"
 
 interface PaginationProps {
-    prevCursor: string | undefined
-    nextCursor: string | undefined
-    onPrev: (cursor: string | undefined) => void
-    onNext: (cursor: string | undefined) => void
+    prevCursor?: string
+    nextCursor?: string
+    onPrev: (cursor?: string) => void
+    onNext: (cursor?: string) => void
 }
 
 export default function CursorPagination({

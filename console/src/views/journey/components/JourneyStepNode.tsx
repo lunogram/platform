@@ -159,7 +159,7 @@ export const JourneyStepNode = memo(
                         {typeName === "entrance" && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <span className="inline-flex">
+                                    <span className="inline-flex pointer-events-auto">
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation()

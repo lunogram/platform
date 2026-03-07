@@ -52,9 +52,9 @@ function EventExpandedRow({ event }: EventExpandedRowProps) {
     return (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
             <TableCell colSpan={4} className="p-0">
-                <div className="px-6 py-4 space-y-4">
+                <div className="px-4 sm:px-6 py-4 space-y-4">
                     {/* Event Info */}
-                    <div className="flex gap-8">
+                    <div className="flex flex-col sm:flex-row gap-4 sm:gap-8">
                         <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                                 {t("event_id")}
@@ -143,8 +143,8 @@ export default function OrganizationDetailEvents() {
                         <TableRow>
                             <TableHead className="w-8 p-0"></TableHead>
                             <TableHead>{t("event_name")}</TableHead>
-                            <TableHead>{t("timestamp")}</TableHead>
-                            <TableHead className="w-24">{t("data")}</TableHead>
+                            <TableHead className="hidden sm:table-cell">{t("timestamp")}</TableHead>
+                            <TableHead className="hidden md:table-cell w-24">{t("data")}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -160,10 +160,10 @@ export default function OrganizationDetailEvents() {
                                             <Skeleton className="h-4 w-32" />
                                         </div>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-12" />
                                     </TableCell>
                                 </TableRow>
@@ -223,7 +223,7 @@ export default function OrganizationDetailEvents() {
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground">
+                                            <TableCell className="hidden sm:table-cell text-muted-foreground">
                                                 <div className="flex items-center gap-1.5">
                                                     <Clock className="h-3.5 w-3.5" />
                                                     {formatDate(
@@ -233,7 +233,7 @@ export default function OrganizationDetailEvents() {
                                                     )}
                                                 </div>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="hidden md:table-cell">
                                                 {hasData ? (
                                                     <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
                                                         {Object.keys(event.data!).length}

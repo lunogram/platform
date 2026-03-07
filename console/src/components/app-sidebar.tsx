@@ -14,6 +14,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarRail,
+    useSidebar,
 } from "@/components/ui/sidebar"
 import { Link, useLocation } from "react-router"
 import type { SidebarLink } from "@/types/sidebar"
@@ -37,6 +38,7 @@ export function AppSidebar({
     const [project] = useContext(ProjectContext)
     const profile = useContext(AdminContext)
     const location = useLocation()
+    const { setOpenMobile } = useSidebar()
 
     const getUserDisplayName = (profile: Admin | null) => {
         if (profile?.first_name && profile?.last_name) {
@@ -75,7 +77,10 @@ export function AppSidebar({
                                     return (
                                         <SidebarMenuItem key={item.key}>
                                             <SidebarMenuButton asChild isActive={isActive}>
-                                                <Link to={item.to}>
+                                                <Link
+                                                    to={item.to}
+                                                    onClick={() => setOpenMobile(false)}
+                                                >
                                                     {item.icon}
                                                     {typeof item.children === "function"
                                                         ? item.children({
@@ -98,12 +103,12 @@ export function AppSidebar({
                     href="/api/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 rounded-lg border bg-sidebar-accent p-3 text-sm transition-colors hover:bg-sidebar-accent/80"
+                    className="flex items-center gap-3 rounded-lg border bg-sidebar-accent p-3 text-sm transition-colors hover:bg-sidebar-accent/80 [[data-mobile=true]_&]:p-4 [[data-mobile=true]_&]:text-base [[data-mobile=true]_&]:gap-4"
                 >
                     <BookIcon />
                     <div className="flex flex-col">
                         <span className="font-medium">{t("sidebar.api_docs.title")}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground [[data-mobile=true]_&]:text-sm">
                             {t("sidebar.api_docs.description")}
                         </span>
                     </div>

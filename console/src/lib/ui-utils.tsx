@@ -61,3 +61,25 @@ export const highlightSearch = (text: string, search: string, matchClassName = "
     text && search
         ? text.replaceAll(search, `<strong class="${matchClassName}">$&</strong>`)
         : (text ?? "")
+
+/**
+ * Navigate from inside a Radix-based overlay (Sheet, Dialog, DropdownMenu).
+ *
+ * Radix sets `pointer-events: none` on `<body>` while an overlay is open.
+ * When `navigate()` fires from inside the overlay, React Router unmounts the
+ * component tree before Radix can run its cleanup, leaving the stale style
+ * behind and making the entire page unclickable.
+ *
+ * Calling `setOpenMobile(false)` alone is not enough because the state update
+ * is asynchronous — React Router's synchronous unmount wins the race.
+ * We therefore manually strip the style before navigating.
+ */
+export function navigateFromOverlay(
+    navigate: (to: string) => void,
+    closeMobile: () => void,
+    to: string,
+) {
+    closeMobile()
+    document.body.style.removeProperty("pointer-events")
+    navigate(to)
+}

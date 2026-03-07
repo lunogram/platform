@@ -60,7 +60,7 @@ export default function UserDetailJourneys() {
     return (
         <div className="space-y-4">
             {/* Journeys Table */}
-            <div className="border rounded-lg">
+            <div className="border rounded-lg overflow-x-auto scrollbar-none">
                 <Table>
                     <TableHeader>
                         <TableRow>

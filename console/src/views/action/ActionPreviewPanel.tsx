@@ -6,7 +6,7 @@ import { ActionPreviewIframe } from "@/components/action-preview-iframe"
 import type { ActionFormValues } from "./action-form-types"
 
 interface ActionPreviewPanelProps {
-    selectedType: string | undefined
+    selectedType?: string
     projectId: string
     /** Watched form values for live preview updates */
     config: ActionFormValues["config"]
@@ -30,8 +30,8 @@ export function ActionPreviewPanel({
     )
 
     return (
-        <div className="flex flex-col w-3/5 border-l overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex flex-col w-full md:w-3/5 border-t md:border-t-0 md:border-l overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8">
                 {selectedType ? (
                     <ActionPreviewIframe
                         actionType={selectedType}

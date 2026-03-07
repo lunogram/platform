@@ -1,5 +1,5 @@
 import { useContext, useState } from "react"
-import { Outlet, useNavigate, NavLink, useLocation, Link } from "react-router"
+import { Outlet, useNavigate, useLocation, Link } from "react-router"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
@@ -46,6 +46,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { NavTabs } from "@/components/ui/nav-tabs"
 import {
     Command,
     CommandEmpty,
@@ -169,7 +170,7 @@ export default function UserDetail() {
                         if (!coordinates) return null
                         return (
                             <div
-                                className="ambient-map absolute inset-y-0 left-[30%] right-0 hidden lg:block pointer-events-none overflow-hidden opacity-[0.45] dark:opacity-[0.35]"
+                                className="ambient-map absolute inset-y-0 left-[50%] xl:left-[30%] right-0 hidden lg:block pointer-events-none overflow-hidden opacity-[0.45] dark:opacity-[0.35]"
                                 style={{
                                     maskImage:
                                         "linear-gradient(to right, transparent 0%, black 40%)",
@@ -197,7 +198,7 @@ export default function UserDetail() {
                         )
                     })()}
 
-                <div className="p-6 pb-0 relative z-20">
+                <div className="p-4 pb-0 relative z-20">
                     {/* Breadcrumb */}
                     <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
                         <Link
@@ -796,33 +797,12 @@ export default function UserDetail() {
                     </div>
 
                     {/* Navigation Tabs */}
-                    <nav className="flex gap-1 mt-6 -mb-px">
-                        {tabs.map((tab) => {
-                            const Icon = tab.icon
-                            const isActive = activeTab === tab.key
-                            return (
-                                <NavLink
-                                    key={tab.key}
-                                    to={tab.to}
-                                    end={tab.to === ""}
-                                    className={cn(
-                                        "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors",
-                                        isActive
-                                            ? "border-primary text-foreground bg-background"
-                                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                                    )}
-                                >
-                                    <Icon className="h-4 w-4" />
-                                    {tab.label}
-                                </NavLink>
-                            )
-                        })}
-                    </nav>
+                    <NavTabs tabs={tabs} activeTab={activeTab} className="mt-6" />
                 </div>
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 p-6">
+            <div className="flex-1 p-4 sm:p-6">
                 <Outlet />
             </div>
 

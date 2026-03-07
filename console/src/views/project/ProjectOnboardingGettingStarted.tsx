@@ -48,7 +48,7 @@ export default function ProjectOnboardingGettingStarted() {
     }
 
     return (
-        <Card className="w-full min-w-[400px] max-w-[600px]">
+        <Card className="w-full max-w-[600px]">
             <CardHeader>
                 <CardTitle className="text-lg">{t("getting-started")}</CardTitle>
                 <CardDescription>

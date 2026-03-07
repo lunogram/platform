@@ -15,8 +15,10 @@ import * as journeySteps from "../steps/index"
 import api from "../../../api"
 import oapiClient, { type Action } from "@/oapi/client"
 import { useResolver } from "@/hooks"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { NavTabs } from "@/components/ui/nav-tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { JourneyForm } from "../JourneyForm"
@@ -24,12 +26,12 @@ import { useTranslation } from "react-i18next"
 import { JourneyStepUsers } from "../JourneyStepUsers"
 import type { UUID } from "@/types/common"
 import { UserSelectionModal } from "../JourneyUserSelectionModal"
-import { ChevronLeft, GripVertical, Zap, Webhook, Blocks, SquareFunction } from "lucide-react"
+import { ChevronLeft, GripVertical, Info, Zap, Webhook, Blocks, SquareFunction } from "lucide-react"
 
 import { JourneyStepNode } from "../components/JourneyStepNode"
 import { JourneyStepEdge } from "../components/JourneyStepEdge"
 import { DATA_FORMAT, stepCategoryColors } from "../hooks/JourneyEditor.constants"
-import type { JourneyNodeData } from "./JourneyEditor.types"
+import type { JourneyNode, JourneyNodeData } from "./JourneyEditor.types"
 import { cloneNodes, getStepType, stepsToNodes } from "./JourneyEditor.utils"
 
 import "./JourneyEditor.css"
@@ -62,6 +64,7 @@ export default function JourneyEditor() {
     const [editOpen, setEditOpen] = useState(false)
     const [userModalEntranceId, setUserModalEntranceId] = useState<string | null>(null)
     const [sidebarTab, setSidebarTab] = useState<"components" | "actions">("components")
+    const isMobile = useIsMobile()
 
     const [stepsLoaded, setStepsLoaded] = useState(false)
 
@@ -276,10 +279,13 @@ export default function JourneyEditor() {
         pushHistory,
     )
 
+    const isArchived = journey.status === "archived"
+    const isEditable = !isArchived && !isMobile
+
     return (
-        <div className="flex flex-col h-screen overflow-hidden">
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
             {/* Header toolbar */}
-            <div className="flex items-center gap-3 px-4 py-2.5 border-b bg-background shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-2.5 border-b bg-background shrink-0">
                 <Button
                     variant="ghost"
                     size="sm"
@@ -287,15 +293,17 @@ export default function JourneyEditor() {
                     className="gap-1 text-muted-foreground hover:text-foreground"
                 >
                     <ChevronLeft className="h-4 w-4" />
-                    {t("journeys")}
+                    <span className="hidden sm:inline">{t("journeys")}</span>
                 </Button>
 
-                <div className="h-4 w-px bg-border" />
+                <div className="h-4 w-px bg-border hidden sm:block" />
 
-                <h1 className="flex-1 text-base font-semibold truncate">{journey.name}</h1>
+                <h1 className="flex-1 text-sm sm:text-base font-semibold truncate">
+                    {journey.name}
+                </h1>
 
-                <div className="flex items-center gap-2 shrink-0">
-                    {journey.status === "archived" ? (
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                    {isArchived ? (
                         <Badge variant="destructive">{t("journey_archived")}</Badge>
                     ) : (
                         <>
@@ -308,28 +316,40 @@ export default function JourneyEditor() {
                                 </Badge>
                             )}
                             {hasUnsavedChanges && (
-                                <span className="text-xs text-amber-600 dark:text-amber-500">
+                                <span className="hidden sm:inline text-xs text-amber-600 dark:text-amber-500">
                                     {t("unsaved_changes", "Unsaved changes")}
                                 </span>
                             )}
-                            <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>
-                                {t("edit_details")}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => saveSteps(nodes, edges)}
-                                isLoading={saving}
-                            >
-                                {t("journey_draft_save")}
-                            </Button>
-                            <Button
-                                size="sm"
-                                onClick={() => publishJourney(nodes, edges)}
-                                isLoading={publishing}
-                            >
-                                {t("publish")}
-                            </Button>
+                            {!isMobile && (
+                                <>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setEditOpen(true)}
+                                        className="hidden sm:inline-flex"
+                                    >
+                                        {t("edit_details")}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => saveSteps(nodes, edges)}
+                                        isLoading={saving}
+                                    >
+                                        <span className="hidden sm:inline">
+                                            {t("journey_draft_save")}
+                                        </span>
+                                        <span className="sm:hidden">{t("save", "Save")}</span>
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={() => publishJourney(nodes, edges)}
+                                        isLoading={publishing}
+                                    >
+                                        {t("publish")}
+                                    </Button>
+                                </>
+                            )}
                         </>
                     )}
                 </div>
@@ -337,7 +357,13 @@ export default function JourneyEditor() {
 
             {/* Main content: canvas + sidebar */}
             <div className={cn("flex flex-1 min-h-0", editNode && "journey-editing")}>
-                <div className="flex-1" ref={wrapper}>
+                <div className="flex-1 relative flex flex-col" ref={wrapper}>
+                    {isMobile && !isArchived && (
+                        <div className="flex items-center justify-center gap-2 bg-muted/90 border-b px-4 py-2.5 text-sm text-muted-foreground">
+                            <Info className="h-4 w-4 shrink-0" />
+                            {t("journey_view_only_mobile", "View only, edit on desktop")}
+                        </div>
+                    )}
                     <ReactFlow
                         nodeTypes={nodeTypes}
                         edgeTypes={edgeTypes}
@@ -345,33 +371,41 @@ export default function JourneyEditor() {
                         edges={edges}
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
-                        onConnect={onConnect}
+                        onConnect={isEditable ? onConnect : undefined}
                         onInit={setFlowInstance}
-                        onNodeDoubleClick={onNodeDoubleClick}
-                        onDrop={onDrop}
-                        onDragOver={(e) => {
-                            e.preventDefault()
-                            e.dataTransfer.dropEffect = "move"
-                        }}
+                        onNodeDoubleClick={isEditable ? onNodeDoubleClick : undefined}
+                        onDrop={isEditable ? onDrop : undefined}
+                        onDragOver={
+                            isEditable
+                                ? (e) => {
+                                      e.preventDefault()
+                                      e.dataTransfer.dropEffect = "move"
+                                  }
+                                : undefined
+                        }
                         onPaneClick={onPaneClick}
-                        nodesDraggable={journey.status !== "archived"}
-                        nodesConnectable={journey.status !== "archived"}
-                        deleteKeyCode={["Backspace", "Delete"]}
+                        nodesDraggable={isEditable}
+                        nodesConnectable={isEditable}
+                        elementsSelectable={isEditable}
+                        deleteKeyCode={isEditable ? ["Backspace", "Delete"] : []}
                         panOnScroll
-                        selectNodesOnDrag
+                        selectNodesOnDrag={isEditable}
                         fitView
+                        minZoom={0.1}
                         fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
                     >
                         <Background className="!bg-muted/30" />
                         {!editNode && (
                             <>
-                                <Controls showInteractive={journey.status !== "archived"} />
-                                <MiniMap
-                                    nodeClassName={(n) =>
-                                        `journey-minimap ${getStepType(n.data.type)?.category ?? "unknown"}`
-                                    }
-                                />
-                                {journey.status !== "archived" && (
+                                <Controls showInteractive={isEditable} />
+                                {!isMobile && (
+                                    <MiniMap
+                                        nodeClassName={(n) =>
+                                            `journey-minimap ${getStepType(n.data.type)?.category ?? "unknown"}`
+                                        }
+                                    />
+                                )}
+                                {isEditable && (
                                     <Panel position="top-left">
                                         {selected.length ? (
                                             <Button
@@ -402,7 +436,7 @@ export default function JourneyEditor() {
                                                 {`Duplicate Selected Steps (${selected.length})`}
                                             </Button>
                                         ) : (
-                                            <span className="text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-3 py-1.5 rounded-md border shadow-sm">
+                                            <span className="hidden sm:inline text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-3 py-1.5 rounded-md border shadow-sm">
                                                 Shift+Drag to Multi Select
                                             </span>
                                         )}
@@ -413,8 +447,8 @@ export default function JourneyEditor() {
                     </ReactFlow>
                 </div>
 
-                {/* Right sidebar */}
-                {journey.status !== "archived" && (
+                {/* Desktop: inline right sidebar */}
+                {isEditable && (
                     <div
                         className={cn(
                             "border-l bg-background shrink-0 flex flex-col",
@@ -436,56 +470,26 @@ export default function JourneyEditor() {
                             />
                         ) : (
                             <>
-                                <nav className="flex gap-1 px-4 pt-3 border-b shrink-0">
-                                    {(
-                                        [
-                                            {
-                                                key: "components",
-                                                label: t("components"),
-                                                icon: Blocks,
-                                            },
-                                            {
-                                                key: "actions",
-                                                label: t("actions.plural", "Actions"),
-                                                icon: SquareFunction,
-                                                badge: actions?.length,
-                                            },
-                                        ] as const
-                                    ).map((tab) => {
-                                        const Icon = tab.icon
-                                        const isActive = sidebarTab === tab.key
-                                        return (
-                                            <button
-                                                type="button"
-                                                key={tab.key}
-                                                onClick={() =>
-                                                    setSidebarTab(
-                                                        tab.key as "components" | "actions",
-                                                    )
-                                                }
-                                                className={cn(
-                                                    "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors",
-                                                    isActive
-                                                        ? "border-primary text-foreground bg-background"
-                                                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                                                )}
-                                            >
-                                                <Icon className="h-4 w-4" />
-                                                {tab.label}
-                                                {"badge" in tab &&
-                                                    tab.badge != null &&
-                                                    tab.badge > 0 && (
-                                                        <Badge
-                                                            variant="secondary"
-                                                            className="h-5 min-w-5 px-1 text-[10px]"
-                                                        >
-                                                            {tab.badge}
-                                                        </Badge>
-                                                    )}
-                                            </button>
-                                        )
-                                    })}
-                                </nav>
+                                <NavTabs
+                                    className="px-4 pt-3 border-b shrink-0"
+                                    tabs={[
+                                        {
+                                            key: "components",
+                                            label: t("components"),
+                                            icon: Blocks,
+                                        },
+                                        {
+                                            key: "actions",
+                                            label: t("actions.plural", "Actions"),
+                                            icon: SquareFunction,
+                                            badge: actions?.length,
+                                        },
+                                    ]}
+                                    value={sidebarTab}
+                                    onChange={(key) =>
+                                        setSidebarTab(key as "components" | "actions")
+                                    }
+                                />
                                 <ScrollArea className="flex-1">
                                     {sidebarTab === "components" && (
                                         <div className="p-4 space-y-1.5">

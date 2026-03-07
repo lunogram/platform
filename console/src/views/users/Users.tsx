@@ -166,7 +166,7 @@ export default function Users() {
     }
 
     return (
-        <div className="flex flex-col gap-6 p-6">
+        <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6">
             {/* Header */}
             <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-xl shrink-0 bg-muted [&>svg]:h-7 [&>svg]:w-7 [&>svg]:text-muted-foreground">
@@ -184,8 +184,8 @@ export default function Users() {
             </div>
 
             {/* Search and Actions */}
-            <div className="flex items-center justify-between gap-4">
-                <div className="relative max-w-sm flex-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="relative sm:max-w-sm flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder={t("search_users")}
@@ -194,12 +194,22 @@ export default function Users() {
                         className="pl-9"
                     />
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={() => setIsBulkImportOpen(true)}>
+                <div className="flex w-full items-center gap-2 sm:w-auto">
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsBulkImportOpen(true)}
+                        className="flex-1 sm:flex-initial"
+                    >
                         <Upload className="mr-2 h-4 w-4" />
-                        {t("import_users", "Import users")}
+                        <span className="hidden sm:inline">
+                            {t("import_users", "Import users")}
+                        </span>
+                        <span className="sm:hidden">{t("import", "Import")}</span>
                     </Button>
-                    <Button onClick={() => setIsCreateOpen(true)}>
+                    <Button
+                        onClick={() => setIsCreateOpen(true)}
+                        className="flex-1 sm:flex-initial"
+                    >
                         <Plus className="mr-2 h-4 w-4" />
                         {t("create_user")}
                     </Button>
@@ -212,9 +222,13 @@ export default function Users() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>{t("name")}</TableHead>
-                            <TableHead>{t("email")}</TableHead>
-                            <TableHead>{t("external_id")}</TableHead>
-                            <TableHead>{t("created_at")}</TableHead>
+                            <TableHead className="hidden sm:table-cell">{t("email")}</TableHead>
+                            <TableHead className="hidden lg:table-cell">
+                                {t("external_id")}
+                            </TableHead>
+                            <TableHead className="hidden md:table-cell">
+                                {t("created_at")}
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -231,13 +245,13 @@ export default function Users() {
                                             </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-36" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden lg:table-cell">
                                         <Skeleton className="h-4 w-24" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
                                 </TableRow>
@@ -297,10 +311,10 @@ export default function Users() {
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="hidden sm:table-cell text-muted-foreground">
                                             {user.email ?? "—"}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="hidden lg:table-cell">
                                             {user.external_id ? (
                                                 <code className="text-sm text-muted-foreground">
                                                     {user.external_id}
@@ -309,7 +323,7 @@ export default function Users() {
                                                 <span className="text-muted-foreground">—</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="hidden md:table-cell text-muted-foreground">
                                             {formatDate(preferences, user.created_at, "PP")}
                                         </TableCell>
                                     </TableRow>
@@ -332,9 +346,10 @@ export default function Users() {
                                     size="sm"
                                     onClick={() => setPage((p) => p - 1)}
                                     disabled={!hasPrevPage}
+                                    aria-label={t("previous")}
                                 >
-                                    <ChevronLeft className="h-4 w-4 mr-1" />
-                                    {t("previous")}
+                                    <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                                    <span className="hidden sm:inline">{t("previous")}</span>
                                 </Button>
                                 <span className="text-sm text-muted-foreground px-2">
                                     {page} / {totalPages}
@@ -344,9 +359,10 @@ export default function Users() {
                                     size="sm"
                                     onClick={() => setPage((p) => p + 1)}
                                     disabled={!hasNextPage}
+                                    aria-label={t("next")}
                                 >
-                                    {t("next")}
-                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                    <span className="hidden sm:inline">{t("next")}</span>
+                                    <ChevronRight className="h-4 w-4 sm:ml-1" />
                                 </Button>
                             </div>
                         )}
@@ -378,7 +394,7 @@ export default function Users() {
 
                 {/* Decorative elements with hover animations */}
                 <div className="absolute -right-6 -bottom-6 flex gap-4">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 rotate-12 transition-all duration-500 ease-out group-hover:rotate-6 group-hover:-translate-y-2 group-hover:bg-primary/15">
+                    <div className="hidden sm:flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 rotate-12 transition-all duration-500 ease-out group-hover:rotate-6 group-hover:-translate-y-2 group-hover:bg-primary/15">
                         <UserCircle2
                             className="h-10 w-10 text-primary/40 transition-all duration-500 group-hover:text-primary/60 group-hover:scale-110"
                             strokeWidth={1.25}

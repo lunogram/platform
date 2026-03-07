@@ -5,7 +5,7 @@ export type PreviewMode = "action-config" | "function-call"
 
 interface ActionPreviewIframeProps {
     /** Action module type, e.g. "webhook" */
-    actionType: string | undefined
+    actionType?: string
     /** Project ID used to fetch the preview HTML */
     projectId: string
     /** Preview mode — determines the data shape sent to the iframe */

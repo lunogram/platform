@@ -120,7 +120,7 @@ export default function Organizations() {
     }
 
     return (
-        <div className="flex flex-col gap-6 p-6">
+        <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6">
             {/* Header */}
             <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-xl shrink-0 bg-muted [&>svg]:h-7 [&>svg]:w-7 [&>svg]:text-muted-foreground">
@@ -138,8 +138,8 @@ export default function Organizations() {
             </div>
 
             {/* Search and Create */}
-            <div className="flex items-center justify-between gap-4">
-                <div className="relative max-w-sm flex-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="relative sm:max-w-sm flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder={t("search_organizations")}
@@ -148,7 +148,7 @@ export default function Organizations() {
                         className="pl-9"
                     />
                 </div>
-                <Button onClick={() => setIsCreateOpen(true)}>
+                <Button onClick={() => setIsCreateOpen(true)} className="flex-1 sm:flex-initial">
                     <Plus className="mr-2 h-4 w-4" />
                     {t("create_organization")}
                 </Button>
@@ -160,8 +160,12 @@ export default function Organizations() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>{t("name")}</TableHead>
-                            <TableHead>{t("created_at")}</TableHead>
-                            <TableHead>{t("updated_at")}</TableHead>
+                            <TableHead className="hidden sm:table-cell">
+                                {t("created_at")}
+                            </TableHead>
+                            <TableHead className="hidden md:table-cell">
+                                {t("updated_at")}
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -178,10 +182,10 @@ export default function Organizations() {
                                             </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
                                 </TableRow>
@@ -237,10 +241,10 @@ export default function Organizations() {
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="hidden sm:table-cell text-muted-foreground">
                                             {formatDate(preferences, org.created_at, "PP")}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="hidden md:table-cell text-muted-foreground">
                                             {formatDate(preferences, org.updated_at, "PP")}
                                         </TableCell>
                                     </TableRow>
@@ -263,9 +267,10 @@ export default function Organizations() {
                                     size="sm"
                                     onClick={() => setPage((p) => p - 1)}
                                     disabled={!hasPrevPage}
+                                    aria-label={t("previous")}
                                 >
-                                    <ChevronLeft className="h-4 w-4 mr-1" />
-                                    {t("previous")}
+                                    <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                                    <span className="hidden sm:inline">{t("previous")}</span>
                                 </Button>
                                 <span className="text-sm text-muted-foreground px-2">
                                     {page} / {totalPages}
@@ -275,9 +280,10 @@ export default function Organizations() {
                                     size="sm"
                                     onClick={() => setPage((p) => p + 1)}
                                     disabled={!hasNextPage}
+                                    aria-label={t("next")}
                                 >
-                                    {t("next")}
-                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                    <span className="hidden sm:inline">{t("next")}</span>
+                                    <ChevronRight className="h-4 w-4 sm:ml-1" />
                                 </Button>
                             </div>
                         )}
@@ -309,7 +315,7 @@ export default function Organizations() {
 
                 {/* Decorative elements with hover animations */}
                 <div className="absolute -right-6 -bottom-6 flex gap-4">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 rotate-12 transition-all duration-500 ease-out group-hover:rotate-6 group-hover:-translate-y-2 group-hover:bg-primary/15">
+                    <div className="hidden sm:flex h-20 w-20 items-center justify-center rounded-xl bg-primary/10 rotate-12 transition-all duration-500 ease-out group-hover:rotate-6 group-hover:-translate-y-2 group-hover:bg-primary/15">
                         <Building2
                             className="h-10 w-10 text-primary/40 transition-all duration-500 group-hover:text-primary/60 group-hover:scale-110"
                             strokeWidth={1.25}

@@ -170,7 +170,7 @@ export type EventRulePeriod =
 export interface EventRuleFrequency {
     period: EventRulePeriod
     operator: Operator
-    count: number | undefined
+    count?: number
 }
 
 export type EventRule = {

@@ -54,7 +54,7 @@ function EventExpandedRow({ event }: EventExpandedRowProps) {
             <TableCell colSpan={4} className="p-0">
                 <div className="px-6 py-4 space-y-4">
                     {/* Event Info */}
-                    <div className="flex gap-8">
+                    <div className="flex flex-col sm:flex-row gap-4 sm:gap-8">
                         <div className="space-y-1">
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                                 {t("event_id", "Event ID")}
@@ -156,7 +156,7 @@ export default function UserDetailEvents() {
                         <TableRow>
                             <TableHead className="w-8 p-0"></TableHead>
                             <TableHead>{t("event_name", "Event")}</TableHead>
-                            <TableHead>{t("timestamp")}</TableHead>
+                            <TableHead className="hidden sm:table-cell">{t("timestamp")}</TableHead>
                             <TableHead className="w-24">{t("data")}</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -173,7 +173,7 @@ export default function UserDetailEvents() {
                                             <Skeleton className="h-4 w-32" />
                                         </div>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
                                     <TableCell>
@@ -236,7 +236,7 @@ export default function UserDetailEvents() {
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground">
+                                            <TableCell className="hidden sm:table-cell text-muted-foreground">
                                                 <div className="flex items-center gap-1.5">
                                                     <Clock className="h-3.5 w-3.5" />
                                                     {formatDate(
@@ -333,7 +333,7 @@ export default function UserDetailEvents() {
                         <DialogTitle className="font-mono">{previewEvent?.name}</DialogTitle>
                     </DialogHeader>
                     {previewEvent && (
-                        <div className="grid grid-cols-2 gap-4 min-h-[60vh]">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-h-[60vh]">
                             <div className="space-y-3 overflow-auto">
                                 <p className="text-sm text-muted-foreground">
                                     {formatDate(preferences, previewEvent.created_at, "PPpp")}

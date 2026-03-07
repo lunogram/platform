@@ -22,7 +22,7 @@ export default function ProjectOnboarding() {
     )
 
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-muted/40 p-10">
+        <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-muted/40 p-4 sm:p-10">
             {/* Step indicator */}
             <div className="flex items-center gap-1.5">
                 {steps.map((_, i) => (

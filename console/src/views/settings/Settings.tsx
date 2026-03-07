@@ -1,11 +1,11 @@
-import { Outlet, NavLink, useLocation } from "react-router"
+import { Outlet, useLocation } from "react-router"
 import { useTranslation } from "react-i18next"
 import { useContext } from "react"
 import { Settings as SettingsLucideIcon, Globe, Key, Puzzle, Bell } from "lucide-react"
 import { ProjectContext } from "../../contexts"
 import { ProjectRoleRequired } from "../project/ProjectRoleRequired"
 import { SettingsIcon } from "@/components/icons"
-import { cn } from "../../utils"
+import { NavTabs } from "@/components/ui/nav-tabs"
 
 export default function Settings() {
     const { t } = useTranslation()
@@ -29,16 +29,16 @@ export default function Settings() {
             <div className="flex flex-col min-h-full">
                 {/* Header Section */}
                 <div className="border-b bg-card/50">
-                    <div className="p-6 pb-0">
-                        <div className="flex items-start gap-4">
-                            <div className="flex h-14 w-14 items-center justify-center rounded-xl shrink-0 bg-muted [&>svg]:h-7 [&>svg]:w-7 [&>svg]:text-muted-foreground">
+                    <div className="p-4 sm:p-6 pb-0">
+                        <div className="flex items-start gap-3 sm:gap-4">
+                            <div className="flex h-10 w-10 sm:h-14 sm:w-14 items-center justify-center rounded-xl shrink-0 bg-muted [&>svg]:h-5 [&>svg]:w-5 sm:[&>svg]:h-7 sm:[&>svg]:w-7 [&>svg]:text-muted-foreground">
                                 <SettingsIcon />
                             </div>
                             <div className="space-y-1">
-                                <h1 className="text-2xl font-semibold tracking-tight">
+                                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
                                     {t("settings")}
                                 </h1>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-sm text-muted-foreground hidden sm:block">
                                     {t(
                                         "settings_description",
                                         "Manage your project configuration, integrations, and preferences.",
@@ -48,33 +48,12 @@ export default function Settings() {
                         </div>
 
                         {/* Navigation Tabs */}
-                        <nav className="flex gap-1 mt-6 -mb-px">
-                            {tabs.map((tab) => {
-                                const Icon = tab.icon
-                                const isActive = activeTab === tab.key
-                                return (
-                                    <NavLink
-                                        key={tab.key}
-                                        to={tab.to}
-                                        end={tab.to === ""}
-                                        className={cn(
-                                            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors",
-                                            isActive
-                                                ? "border-primary text-foreground bg-background"
-                                                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                                        )}
-                                    >
-                                        <Icon className="h-4 w-4" />
-                                        {tab.label}
-                                    </NavLink>
-                                )
-                            })}
-                        </nav>
+                        <NavTabs tabs={tabs} activeTab={activeTab} className="mt-4 sm:mt-6" />
                     </div>
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 p-6">
+                <div className="flex-1 p-4 sm:p-6">
                     <Outlet />
                 </div>
             </div>

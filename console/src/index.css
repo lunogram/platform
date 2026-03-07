@@ -154,8 +154,13 @@ body {
         @apply border-border outline-ring/50;
     }
 
+    html {
+        height: 100%;
+    }
+
     body {
         @apply bg-background text-foreground;
+        min-height: 100%;
     }
     .maplibregl-popup-content {
         @apply bg-transparent! shadow-none! p-0! rounded-none!;

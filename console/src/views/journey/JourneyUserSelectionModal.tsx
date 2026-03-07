@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
-    DialogDescription,
 } from "@/components/ui/dialog"
 import {
     Table,
@@ -17,7 +18,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import { Search } from "lucide-react"
+import { Search, UserCircle2, Play } from "lucide-react"
+import { getRandomColor } from "@/lib/colors"
 import type { User } from "@/types"
 
 interface UserSelectionModalProps {
@@ -27,136 +29,175 @@ interface UserSelectionModalProps {
     onSelect: (user: User) => void
 }
 
-/**
- * Represents a column definition to safely access either
- * root properties or nested 'data' properties.
- */
-interface ColumnDef {
-    key: string
-    label: string
-    source: "root" | "data"
+function getUserDisplayName(user: User): string {
+    if (user.full_name) return user.full_name
+    if ((user.data as Record<string, unknown>)?.full_name)
+        return (user.data as Record<string, unknown>).full_name as string
+    if (user.email) return user.email
+    return user.external_id ?? "Unknown"
+}
+
+function getUserInitials(user: User): string {
+    const name = getUserDisplayName(user)
+    const parts = name.trim().split(/[\s@.]+/)
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    }
+    return name.substring(0, 2).toUpperCase()
+}
+
+function getUserSubtext(user: User): string | null {
+    if (user.full_name && user.email) return user.email
+    if (user.full_name && user.external_id) return user.external_id
+    if (user.email && user.external_id) return user.external_id
+    return null
 }
 
 export function UserSelectionModal({ users, isOpen, onClose, onSelect }: UserSelectionModalProps) {
+    const { t } = useTranslation()
     const [searchTerm, setSearchTerm] = useState("")
 
-    // 1. Generate columns dynamically from the first user's structure
-    const columns = useMemo<ColumnDef[]>(() => {
-        if (users.length === 0) return []
-
-        const cols: ColumnDef[] = [
-            { key: "id", label: "ID", source: "root" },
-            { key: "full_name", label: "Full Name", source: "root" },
-            { key: "email", label: "Email", source: "root" },
-            { key: "timezone", label: "Timezone", source: "root" },
-        ]
-
-        // Dynamically add keys found in the 'data' object
-        const dataKeys = Object.keys(users[0].data)
-        dataKeys.forEach((key) => {
-            // Avoid duplicating columns if they exist in root
-            if (!cols.find((c) => c.key === key)) {
-                cols.push({ key, label: key, source: "data" })
-            }
-        })
-
-        return cols
-    }, [users])
-
-    // 2. Simple filter logic based on stringified user object
     const filteredUsers = useMemo(() => {
+        if (!searchTerm.trim()) return users
+        const term = searchTerm.toLowerCase()
         return users.filter((user) => {
-            const searchableString = JSON.stringify(user).toLowerCase()
-            return searchableString.includes(searchTerm.toLowerCase())
+            const searchable = [
+                user.full_name,
+                user.email,
+                user.external_id,
+                user.phone,
+                user.timezone,
+                ...Object.values(user.data).map(String),
+            ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase()
+            return searchable.includes(term)
         })
     }, [users, searchTerm])
 
-    // Helper to extract value safely without 'any'
-    const getCellValue = (user: User, col: ColumnDef): string => {
-        if (col.source === "root") {
-            const value = user[col.key as keyof User]
-            return value ? String(value) : "-"
-        }
-        const dataValue = user.data[col.key]
-        return dataValue !== undefined && dataValue !== null ? String(dataValue) : "-"
-    }
-
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-5xl w-[95vw] h-[80vh] flex flex-col p-0 overflow-hidden">
-                <DialogHeader className="p-6 pb-2">
-                    <DialogTitle>Select User</DialogTitle>
+            <DialogContent className="sm:max-w-2xl max-h-[85vh] min-h-[400px] flex flex-col gap-0 p-0">
+                <DialogHeader className="px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4">
+                    <DialogTitle>
+                        {t("select_user", "Select User")}
+                    </DialogTitle>
                     <DialogDescription>
-                        Choose a user to initiate the journey. Search by name, ID, or attributes.
+                        {t(
+                            "select_user_description",
+                            "Choose a user to initiate the journey.",
+                        )}
                     </DialogDescription>
-
-                    <div className="relative mt-4">
+                    <div className="relative mt-3">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            placeholder="Filter users..."
+                            placeholder={t("search_users", "Search users...")}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10"
+                            className="pl-9"
                         />
                     </div>
                 </DialogHeader>
 
-                <div className="flex-1 min-h-0 border-t mt-2">
-                    <ScrollArea className="h-full">
-                        <div className="p-6 pt-0">
-                            <Table>
-                                <TableHeader className="bg-background sticky top-0 z-10">
-                                    <TableRow>
-                                        {columns.map((col) => (
-                                            <TableHead
-                                                key={`${col.source}-${col.key}`}
-                                                className="capitalize whitespace-nowrap"
-                                            >
-                                                {col.label.replace("_", " ")}
-                                            </TableHead>
-                                        ))}
-                                        <TableHead className="text-right">Action</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredUsers.length > 0 ? (
-                                        filteredUsers.map((user) => (
-                                            <TableRow key={user.id} className="group">
-                                                {columns.map((col) => (
-                                                    <TableCell
-                                                        key={`${col.source}-${col.key}`}
-                                                        className="max-w-[200px] truncate"
+                <div className="flex-1 min-h-0 overflow-auto border-t">
+                    <Table>
+                        <TableHeader className="bg-background sticky top-0 z-10">
+                            <TableRow>
+                                <TableHead>{t("user", "User")}</TableHead>
+                                <TableHead className="hidden sm:table-cell">
+                                    {t("email", "Email")}
+                                </TableHead>
+                                <TableHead className="hidden md:table-cell">
+                                    {t("timezone", "Timezone")}
+                                </TableHead>
+                                <TableHead className="w-[1%]" />
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredUsers.length > 0 ? (
+                                filteredUsers.map((user) => {
+                                    const color = getRandomColor(
+                                        user.email ?? user.external_id ?? user.id,
+                                    )
+                                    const subtext = getUserSubtext(user)
+                                    return (
+                                        <TableRow
+                                            key={user.id}
+                                            className="group cursor-pointer"
+                                            onClick={() => onSelect(user)}
+                                        >
+                                            <TableCell>
+                                                <div className="flex items-center gap-3 py-0.5">
+                                                    <div
+                                                        className="flex h-8 w-8 items-center justify-center rounded-full text-white text-xs font-medium shrink-0"
+                                                        style={{ backgroundColor: color }}
                                                     >
-                                                        {getCellValue(user, col)}
-                                                    </TableCell>
-                                                ))}
-                                                <TableCell className="text-right">
-                                                    <Button
-                                                        variant="secondary"
-                                                        size="sm"
-                                                        onClick={() => onSelect(user)}
-                                                    >
-                                                        Select
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell
-                                                colSpan={columns.length + 1}
-                                                className="h-32 text-center"
-                                            >
-                                                No users found.
+                                                        {getUserInitials(user)}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="font-medium text-sm truncate">
+                                                            {getUserDisplayName(user)}
+                                                        </div>
+                                                        {subtext && (
+                                                            <div className="text-xs text-muted-foreground truncate">
+                                                                {subtext}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="hidden sm:table-cell text-muted-foreground">
+                                                {user.email ?? "—"}
+                                            </TableCell>
+                                            <TableCell className="hidden md:table-cell text-muted-foreground">
+                                                {user.timezone ?? "—"}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        onSelect(user)
+                                                    }}
+                                                >
+                                                    <Play className="h-3.5 w-3.5 mr-1.5 fill-current" />
+                                                    {t("run", "Run")}
+                                                </Button>
                                             </TableCell>
                                         </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                        <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
+                                    )
+                                })
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-32 text-center">
+                                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                                            <UserCircle2 className="h-8 w-8" />
+                                            <p>
+                                                {searchTerm
+                                                    ? t("no_users_found", "No users found")
+                                                    : t("no_users_yet", "No users yet")}
+                                            </p>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
                 </div>
+
+                {filteredUsers.length > 0 && (
+                    <div className="border-t px-4 py-3 sm:px-6">
+                        <p className="text-sm text-muted-foreground">
+                            {filteredUsers.length}{" "}
+                            {filteredUsers.length === 1
+                                ? t("user", "user")
+                                : t("users", "users")}
+                        </p>
+                    </div>
+                )}
             </DialogContent>
         </Dialog>
     )

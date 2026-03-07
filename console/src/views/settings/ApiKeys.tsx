@@ -96,8 +96,8 @@ export default function ProjectApiKeys() {
             <h2 className="text-2xl font-semibold tracking-tight">{t("api_keys")}</h2>
 
             {/* Search and Actions */}
-            <div className="flex items-center justify-between gap-4">
-                <div className="relative max-w-sm flex-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="relative sm:max-w-sm flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder={t("search")}
@@ -106,7 +106,10 @@ export default function ProjectApiKeys() {
                         className="pl-9"
                     />
                 </div>
-                <Button onClick={() => setEditing({ scope: "public", role: "support" })}>
+                <Button
+                    onClick={() => setEditing({ scope: "public", role: "support" })}
+                    className="flex-1 sm:flex-initial"
+                >
                     <Plus className="mr-2 h-4 w-4" />
                     {t("create_key")}
                 </Button>
@@ -119,9 +122,11 @@ export default function ProjectApiKeys() {
                         <TableRow>
                             <TableHead>{t("name")}</TableHead>
                             <TableHead>{t("scope")}</TableHead>
-                            <TableHead>{t("role")}</TableHead>
-                            <TableHead>{t("value")}</TableHead>
-                            <TableHead>{t("description")}</TableHead>
+                            <TableHead className="hidden sm:table-cell">{t("role")}</TableHead>
+                            <TableHead className="hidden md:table-cell">{t("value")}</TableHead>
+                            <TableHead className="hidden lg:table-cell">
+                                {t("description")}
+                            </TableHead>
                             <TableHead className="w-[70px]" />
                         </TableRow>
                     </TableHeader>
@@ -135,13 +140,13 @@ export default function ProjectApiKeys() {
                                     <TableCell>
                                         <Skeleton className="h-4 w-16" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-16" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-40" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden lg:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
                                     <TableCell>
@@ -194,12 +199,12 @@ export default function ProjectApiKeys() {
                                             {snakeToTitle(apiKey.scope)}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">
+                                    <TableCell className="hidden sm:table-cell text-muted-foreground">
                                         {apiKey.scope === "public"
                                             ? "—"
                                             : snakeToTitle(apiKey.role ?? "")}
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                         <div className="flex items-center gap-2">
                                             <code className="text-sm text-muted-foreground truncate max-w-[200px]">
                                                 {apiKey.value}
@@ -216,7 +221,7 @@ export default function ProjectApiKeys() {
                                             </Button>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">
+                                    <TableCell className="hidden lg:table-cell text-muted-foreground">
                                         {apiKey.description ?? "—"}
                                     </TableCell>
                                     <TableCell>

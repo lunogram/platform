@@ -1,5 +1,5 @@
 import { useContext, useState } from "react"
-import { Outlet, useNavigate, NavLink, useLocation, Link } from "react-router"
+import { Outlet, useNavigate, useLocation, Link } from "react-router"
 import { useTranslation } from "react-i18next"
 import {
     Building2,
@@ -13,7 +13,7 @@ import {
 import { ProjectContext, OrganizationContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { getRandomColor } from "@/lib/colors"
-import { formatDate, cn } from "../../utils"
+import { formatDate } from "../../utils"
 import oapiClient from "../../oapi/client"
 import { toast } from "sonner"
 
@@ -33,6 +33,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { InlineEdit } from "@/components/ui/inline-edit"
+import { NavTabs } from "@/components/ui/nav-tabs"
 
 export default function OrganizationDetail() {
     const { t } = useTranslation()
@@ -81,7 +82,7 @@ export default function OrganizationDetail() {
         <div className="flex flex-col min-h-full">
             {/* Header Section */}
             <div className="border-b bg-card/50">
-                <div className="p-6 pb-0">
+                <div className="p-4 sm:p-6 pb-0">
                     {/* Breadcrumb */}
                     <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
                         <Link
@@ -98,14 +99,14 @@ export default function OrganizationDetail() {
 
                     {/* Organization Identity */}
                     <div className="flex items-start justify-between gap-6">
-                        <div className="flex items-start gap-4">
+                        <div className="flex items-start gap-4 min-w-0">
                             <div
                                 className="flex h-14 w-14 items-center justify-center rounded-xl shrink-0"
                                 style={{ backgroundColor: orgColor }}
                             >
                                 <Building2 className="h-7 w-7 text-white" />
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-1 min-w-0">
                                 <InlineEdit
                                     value={organization.name ?? ""}
                                     onSave={async (name) => {
@@ -168,33 +169,12 @@ export default function OrganizationDetail() {
                     </div>
 
                     {/* Navigation Tabs - Integrated with header */}
-                    <nav className="flex gap-1 mt-6 -mb-px">
-                        {tabs.map((tab) => {
-                            const Icon = tab.icon
-                            const isActive = activeTab === tab.key
-                            return (
-                                <NavLink
-                                    key={tab.key}
-                                    to={tab.to}
-                                    end={tab.to === ""}
-                                    className={cn(
-                                        "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors",
-                                        isActive
-                                            ? "border-primary text-foreground bg-background"
-                                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                                    )}
-                                >
-                                    <Icon className="h-4 w-4" />
-                                    {tab.label}
-                                </NavLink>
-                            )
-                        })}
-                    </nav>
+                    <NavTabs tabs={tabs} activeTab={activeTab} className="mt-6" />
                 </div>
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 p-6">
+            <div className="flex-1 p-4 sm:p-6">
                 <Outlet />
             </div>
 

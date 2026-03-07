@@ -81,7 +81,7 @@ export default function UserDetailSubscriptions() {
     return (
         <div className="space-y-4">
             {/* Section Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h2 className="text-base font-medium">{t("subscriptions")}</h2>
                     <p className="text-sm text-muted-foreground mt-0.5">
@@ -92,7 +92,12 @@ export default function UserDetailSubscriptions() {
                     </p>
                 </div>
                 {subscriptions && subscriptions.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={handleUnsubscribeAll}>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleUnsubscribeAll}
+                        className="self-start sm:self-auto shrink-0"
+                    >
                         <BellOff className="mr-2 h-4 w-4" />
                         {t("unsubscribe_all")}
                     </Button>
@@ -105,7 +110,7 @@ export default function UserDetailSubscriptions() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>{t("name")}</TableHead>
-                            <TableHead>{t("channel")}</TableHead>
+                            <TableHead className="hidden sm:table-cell">{t("channel")}</TableHead>
                             <TableHead className="w-28 text-right">{t("subscribed")}</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -116,7 +121,7 @@ export default function UserDetailSubscriptions() {
                                     <TableCell>
                                         <Skeleton className="h-4 w-32" />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-20" />
                                     </TableCell>
                                     <TableCell className="text-right">
@@ -147,7 +152,7 @@ export default function UserDetailSubscriptions() {
                             subscriptions.map((sub) => (
                                 <TableRow key={sub.subscription_id}>
                                     <TableCell className="font-medium">{sub.name}</TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden sm:table-cell">
                                         <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded">
                                             {snakeToTitle(sub.channel)}
                                         </span>

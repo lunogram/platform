@@ -7,7 +7,7 @@ export default function OnboardingProject() {
     const { t } = useTranslation()
     const navigate = useNavigate()
     return (
-        <Card className="w-full min-w-[400px] max-w-[600px]">
+        <Card className="w-full max-w-[600px]">
             <CardHeader>
                 <CardTitle className="text-2xl">{t("onboarding_project_setup_title")}</CardTitle>
                 <CardDescription>{t("onboarding_project_setup_description")}</CardDescription>
