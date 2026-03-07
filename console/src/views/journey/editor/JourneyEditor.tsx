@@ -571,7 +571,7 @@ export default function JourneyEditor() {
                                                     <p className="text-xs text-muted-foreground/70 mt-1">
                                                         {t(
                                                             "actions_drag_desc",
-                                                            "Drag an action to add it as a step",
+                                                            "Create an action to add it as a step",
                                                         )}
                                                     </p>
                                                 </div>
