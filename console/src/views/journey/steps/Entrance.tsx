@@ -121,7 +121,7 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
     category: "entrance",
     description: "entrance_desc",
     newData: async () => ({
-        trigger: "none",
+        trigger: "event",
     }),
     Describe({ value: { trigger, event_name, rule, references = [] } }) {
         const { t } = useTranslation()
