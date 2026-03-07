@@ -9,6 +9,14 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	// DefaultBackOff defines the retry backoff durations for consumers.
+	DefaultBackOff = []time.Duration{1 * time.Second, 5 * time.Second, 30 * time.Second, 2 * time.Minute, 10 * time.Minute}
+
+	// DefaultMaxDeliver is the maximum number of delivery attempts for a message.
+	DefaultMaxDeliver = len(DefaultBackOff)
+)
+
 func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream, ns Namespace) error {
 	logger.Info("bootstrapping pubsub streams and consumers...", zap.String("namespace", string(ns)))
 	bootstrap := NewBootstrapper(logger, jet)
@@ -27,7 +35,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		FilterSubject: ns.Subject("users.process.>"),
 		Description:   "Processes incoming users",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUsers), jetstream.ConsumerConfig{
@@ -35,7 +44,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		FilterSubject: ns.Subject("users.schema.>"),
 		Description:   "Processes user schema definitions",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -52,7 +62,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		FilterSubject: ns.Subject("users.events.process.>"),
 		Description:   "Processes incoming user events",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUserEvents), jetstream.ConsumerConfig{
@@ -60,7 +71,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		FilterSubject: ns.Subject("users.events.schema.>"),
 		Description:   "Processes user event schema definitions",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -77,7 +89,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes list recomputation requests",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("lists.recompute.>"),
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -94,7 +107,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes journey advancement requests",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("journeys.advance.>"),
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamJourneys), jetstream.ConsumerConfig{
@@ -102,7 +116,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes journey advancement requests per specific user",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("journeys.advance.>"),
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -119,7 +134,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes campaign send requests",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("campaigns.send.>"),
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -136,7 +152,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes incoming organizations",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("organizations.process.>"),
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizations), jetstream.ConsumerConfig{
@@ -144,7 +161,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes organization schema definitions",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("organizations.schema.>"),
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -161,7 +179,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes organization user memberships",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("organizations.users.process.>"),
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationUsers), jetstream.ConsumerConfig{
@@ -169,7 +188,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes organization user schema definitions",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("organizations.users.schema.>"),
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -186,7 +206,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes incoming organization events",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("organizations.events.process.>"),
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationEvents), jetstream.ConsumerConfig{
@@ -194,7 +215,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes organization event schema definitions",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("organizations.events.schema.>"),
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -211,7 +233,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes action execution schema definitions",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("actions.schema.>"),
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -228,7 +251,8 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes incoming project events",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("projects.events.>"),
-		MaxDeliver:    5,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
 	})
 
 	return bootstrap.Error()
