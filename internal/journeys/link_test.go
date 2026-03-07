@@ -71,6 +71,10 @@ func TestHandleLink(t *testing.T) {
 					WithArgs(versionID).
 					WillReturnRows(stepRows)
 
+				mock.ExpectQuery("SELECT EXISTS").
+					WithArgs(targetJourneyID, userID, "entrance-1", false).
+					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+
 				mock.ExpectQuery("INSERT INTO journey_user_state").
 					WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
 
@@ -159,6 +163,10 @@ func TestHandleLink(t *testing.T) {
 				mock.ExpectQuery("SELECT (.+) FROM journey_version_steps").
 					WithArgs(versionID).
 					WillReturnRows(stepRows)
+
+				mock.ExpectQuery("SELECT EXISTS").
+					WithArgs(targetJourneyID, userID, "entrance-1", false).
+					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 				mock.ExpectQuery("INSERT INTO journey_user_state").
 					WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))

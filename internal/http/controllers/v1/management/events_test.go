@@ -111,12 +111,12 @@ func TestListUserEventSchemas(t *testing.T) {
 	for _, s := range purchaseEvent.Schema {
 		pathMap[s.Path] = s.Types
 	}
-	require.Contains(t, pathMap, ".product_id")
-	require.Contains(t, pathMap, ".amount")
-	require.Contains(t, pathMap, ".currency")
-	require.Contains(t, pathMap[".product_id"], "string")
-	require.Contains(t, pathMap[".amount"], "number")
-	require.Contains(t, pathMap[".currency"], "string")
+	require.Contains(t, pathMap, ".data.product_id")
+	require.Contains(t, pathMap, ".data.amount")
+	require.Contains(t, pathMap, ".data.currency")
+	require.Contains(t, pathMap[".data.product_id"], "string")
+	require.Contains(t, pathMap[".data.amount"], "number")
+	require.Contains(t, pathMap[".data.currency"], "string")
 
 	require.NotNil(t, pageEvent)
 	require.Equal(t, eventID2, pageEvent.Id)
@@ -126,8 +126,8 @@ func TestListUserEventSchemas(t *testing.T) {
 	for _, s := range pageEvent.Schema {
 		pagePathMap[s.Path] = s.Types
 	}
-	require.Contains(t, pagePathMap, ".page")
-	require.Contains(t, pagePathMap, ".referrer")
+	require.Contains(t, pagePathMap, ".data.page")
+	require.Contains(t, pagePathMap, ".data.referrer")
 
 	require.NotNil(t, logoutEvent)
 	require.Empty(t, logoutEvent.Schema)
@@ -215,19 +215,19 @@ func TestListUserEventSchemasWithMultipleTypes(t *testing.T) {
 	}
 
 	// Verify .user_id has both string and number types
-	require.Contains(t, pathMap, ".user_id")
-	require.Len(t, pathMap[".user_id"], 2)
-	require.Contains(t, pathMap[".user_id"], "number")
-	require.Contains(t, pathMap[".user_id"], "string")
+	require.Contains(t, pathMap, ".data.user_id")
+	require.Len(t, pathMap[".data.user_id"], 2)
+	require.Contains(t, pathMap[".data.user_id"], "number")
+	require.Contains(t, pathMap[".data.user_id"], "string")
 
 	// Verify .metadata has both object and string types
-	require.Contains(t, pathMap, ".metadata")
-	require.Len(t, pathMap[".metadata"], 2)
-	require.Contains(t, pathMap[".metadata"], "object")
-	require.Contains(t, pathMap[".metadata"], "string")
+	require.Contains(t, pathMap, ".data.metadata")
+	require.Len(t, pathMap[".data.metadata"], 2)
+	require.Contains(t, pathMap[".data.metadata"], "object")
+	require.Contains(t, pathMap[".data.metadata"], "string")
 
 	// Verify .tags has only array type
-	require.Contains(t, pathMap, ".tags")
-	require.Len(t, pathMap[".tags"], 1)
-	require.Contains(t, pathMap[".tags"], "array")
+	require.Contains(t, pathMap, ".data.tags")
+	require.Len(t, pathMap[".data.tags"], 1)
+	require.Contains(t, pathMap[".data.tags"], "array")
 }
