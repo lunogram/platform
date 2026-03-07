@@ -12,7 +12,9 @@ export interface JourneyNodeData {
     visited?: boolean
     active?: boolean
     editing?: boolean
+    hasUnsavedChanges?: boolean
     skipDelay?: (stepId: string) => Promise<void>
+    openUserModal?: (nodeId: string) => void
     setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void
 }
 

@@ -39,6 +39,7 @@ export function stepsToNodes(
     actions: {
         setViewUsersStep?: (step: { stepId: UUID; stepType: string }) => void
         skipDelay?: (stepId: string) => Promise<void>
+        openUserModal?: (nodeId: string) => void
     },
 ) {
     const nodes: JourneyNode[] = []

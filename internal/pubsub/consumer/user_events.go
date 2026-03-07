@@ -157,6 +157,20 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 
 			logger.Info("triggering journey entrance step", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("step_id", dep.StepID))
 
+			multiple := entrance.Multiple != nil && *entrance.Multiple
+			concurrent := entrance.Concurrent != nil && *entrance.Concurrent
+
+			eligible, err := jrny.CheckEntryEligibility(ctx, dep.JourneyID, event.UserID, dep.ExternalID, multiple, concurrent)
+			if err != nil {
+				logger.Error("failed to check journey entry eligibility", zap.Error(err))
+				return err
+			}
+
+			if !eligible {
+				logger.Info("user not eligible to enter journey", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("user_id", event.UserID), zap.Bool("multiple", multiple), zap.Bool("concurrent", concurrent))
+				continue
+			}
+
 			entry, err := uuid.NewRandom()
 			if err != nil {
 				logger.Error("failed to generate journey entry ID", zap.Error(err))

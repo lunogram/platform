@@ -359,9 +359,8 @@ func (srv *JourneysController) StreamUserJourneySteps(
 	logger.Info("streaming user journey steps")
 
 	nconn := srv.jet.Conn()
-	subject := schemas.JourneysAdvance(projectID, journeyID, userID)
-
-	sub, err := nconn.Subscribe(string(subject), func(msg *nats.Msg) {
+	journeyAdvanceSubject := schemas.JourneysAdvance(projectID, journeyID, userID)
+	journeyAdvanceSub, err := nconn.Subscribe(string(journeyAdvanceSubject), func(msg *nats.Msg) {
 		enc.WriteEvent("step", json.RawMessage(msg.Data))
 	})
 
@@ -372,7 +371,21 @@ func (srv *JourneysController) StreamUserJourneySteps(
 	}
 
 	//nolint: errcheck
-	defer sub.Unsubscribe()
+	defer journeyAdvanceSub.Unsubscribe()
+
+	executedSubject := schemas.JourneysStepExecuted(projectID, journeyID, userID)
+	executedSub, err := nconn.Subscribe(string(executedSubject), func(msg *nats.Msg) {
+		enc.WriteEvent("step_executed", json.RawMessage(msg.Data))
+	})
+
+	if err != nil {
+		enc.WriteHeader(http.StatusInternalServerError)
+		logger.Error("subscribe to step executed failed", zap.Error(err))
+		return
+	}
+
+	//nolint: errcheck
+	defer executedSub.Unsubscribe()
 
 	<-ctx.Done()
 	logger.Info("client disconnected")
@@ -413,10 +426,10 @@ func (srv *JourneysController) GetUserJourneyState(w http.ResponseWriter, r *htt
 	json.Write(w, http.StatusOK, response)
 }
 
-func (srv *JourneysController) EnrollUser(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID, userID uuid.UUID) {
+func (srv *JourneysController) TriggerUser(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID, userID uuid.UUID) {
 	ctx := r.Context()
 
-	body := oapi.EnrollUserJSONRequestBody{}
+	body := oapi.TriggerUserJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
@@ -432,7 +445,7 @@ func (srv *JourneysController) EnrollUser(w http.ResponseWriter, r *http.Request
 		zap.String("external_step_id", externalStepIDStr),
 	)
 
-	logger.Info("enrolling user in journey")
+	logger.Info("triggering user into journey")
 
 	journeys := journey.NewJourneysStore(srv.journeyDB)
 
@@ -446,6 +459,12 @@ func (srv *JourneysController) EnrollUser(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		logger.Error("failed to get journey", zap.Error(err))
 		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if currJourney.VersionID == nil {
+		logger.Info("no published version for journey, returning error")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("journey has no published version")))
 		return
 	}
 
@@ -470,22 +489,8 @@ func (srv *JourneysController) EnrollUser(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if currJourney.VersionID == nil {
-		logger.Info("no published version for journey, returning error")
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("journey has no published version")))
-		return
-	}
-
-	step, err := srv.subjects.GetEventJourneyStep(ctx, externalStepIDStr, *currJourney.VersionID)
-	if err != nil {
-		logger.Error("failed to get event journey step dependencies", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	for _, child := range step.Children {
-		journeysStore := journey.NewJourneysStore(srv.journeyDB)
-		stepType, err := journeysStore.GetStepType(ctx, *currJourney.VersionID, child.ChildExternalID)
+	for _, child := range journeyStep.Children {
+		stepType, err := journeys.GetStepType(ctx, *currJourney.VersionID, child.ChildExternalID)
 		if err != nil {
 			logger.Error("failed to get step type for child", zap.Error(err))
 			continue
@@ -493,7 +498,7 @@ func (srv *JourneysController) EnrollUser(w http.ResponseWriter, r *http.Request
 
 		step := consumer.JourneyStep{
 			ProjectID:      currJourney.ProjectID,
-			JourneyID:      step.JourneyID,
+			JourneyID:      journeyID,
 			JourneyEntryID: journeyStep.ID,
 			ExternalStepID: child.ChildExternalID,
 			UserID:         userID,
@@ -509,8 +514,8 @@ func (srv *JourneysController) EnrollUser(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	logger.Info("journey run for user")
-	json.Write(w, http.StatusOK, "Journey run successfully for user")
+	logger.Info("journey triggered for user")
+	json.Write(w, http.StatusOK, "Journey triggered successfully for user")
 }
 
 func (srv *JourneysController) AdvanceUserStep(w http.ResponseWriter, r *http.Request, projectID, journeyID, userID uuid.UUID) {

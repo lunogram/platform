@@ -39,6 +39,8 @@ export const gateStep: JourneyStepType<GateConfig> = {
                 rule={value.rule}
                 setRule={(rule) => onChange({ ...value, rule })}
                 headerPrefix={t("does_user_match")}
+                userOnly={true}
+                journeyContext={true}
             />
         )
     },

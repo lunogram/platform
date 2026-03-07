@@ -3,6 +3,7 @@ package query
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/rules"
@@ -10,11 +11,12 @@ import (
 
 // QueryBuilder builds PostgreSQL queries from rule definitions
 type QueryBuilder struct {
-	projectID   uuid.UUID
-	userID      *uuid.UUID // Optional: filter for specific user
-	args        []any
-	joins       []string
-	joinCounter int
+	projectID      uuid.UUID
+	userID         *uuid.UUID // Optional: filter for specific user
+	sinceTimestamp *time.Time // Optional: timestamp for "since_entered" period type
+	args           []any
+	joins          []string
+	joinCounter    int
 }
 
 // QueryResult contains the generated SQL and arguments
@@ -32,6 +34,12 @@ func NewQueryBuilder(projectID uuid.UUID, userID *uuid.UUID) *QueryBuilder {
 		joins:       []string{},
 		joinCounter: 0,
 	}
+}
+
+// WithSinceTimestamp sets the timestamp used for "since_entered" period type
+func (qb *QueryBuilder) WithSinceTimestamp(t time.Time) *QueryBuilder {
+	qb.sinceTimestamp = &t
+	return qb
 }
 
 // arg adds a value to the args list and returns the placeholder index

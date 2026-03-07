@@ -70,95 +70,103 @@ export default function FilterRuleEdit({
 
     return (
         <div className="relative flex items-start gap-2.5 -ml-px pl-5 py-1.5 border-l border-border last:border-l-transparent after:content-[''] after:absolute after:left-[-1px] after:top-0 after:w-5 after:h-5 after:border-b after:border-l after:border-border after:rounded-bl-md">
-            <div className="flex items-center">
-                <Select
-                    value={rule?.type}
-                    onValueChange={(type) => setRule({ ...rule, type: type as typeof rule.type })}
-                >
-                    <SelectTrigger className="h-8 w-auto min-w-[90px] rounded-r-none text-xs shadow-none">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {ruleTypes.map((t) => (
-                            <SelectItem key={t.key} value={t.key}>
-                                {t.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <Combobox
-                    value={rule?.path}
-                    onValueChange={(selectedPath: string) => {
-                        const suggestion = pathSuggestions.find((s) => s.path === selectedPath)
-                        if (suggestion) {
-                            setRule({
-                                ...rule,
-                                type: getOptionDataType(suggestion) as typeof rule.type,
-                                path: suggestion.path,
-                            })
-                        } else {
-                            setRule({ ...rule, path: selectedPath })
-                        }
-                    }}
-                    options={pathSuggestions}
-                    placeholder="Path"
-                    required
-                    inputClassName="rounded-none border-l-0"
-                    buttonClassName="rounded-none"
-                    renderOption={(option, search) => (
-                        <span
-                            dangerouslySetInnerHTML={{
-                                __html: highlightSearch(option.path, search),
-                            }}
-                        />
-                    )}
-                />
-                <Select
-                    value={rule?.operator}
-                    onValueChange={(operator) =>
-                        setRule({ ...rule, operator: operator as typeof rule.operator })
-                    }
-                >
-                    <SelectTrigger className="h-8 w-auto min-w-[100px] rounded-none border-l-0 text-xs shadow-none">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {(operatorTypes[rule?.type] ?? []).map((op) => (
-                            <SelectItem key={op.key} value={op.key}>
-                                {op.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                {hasValue && rule.type === "boolean" ? (
+            <div className="flex flex-wrap items-center gap-y-1.5">
+                <div className="flex items-center">
                     <Select
-                        value={
-                            rule.value === "true"
-                                ? "true"
-                                : rule.value === "false"
-                                  ? "false"
-                                  : undefined
+                        value={rule?.type}
+                        onValueChange={(type) =>
+                            setRule({ ...rule, type: type as typeof rule.type })
                         }
-                        onValueChange={(value) => setRule({ ...rule, value })}
                     >
-                        <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-none border-l-0 text-xs shadow-none">
+                        <SelectTrigger className="h-8 w-auto min-w-[90px] rounded-r-none text-xs shadow-none">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="true">True</SelectItem>
-                            <SelectItem value="false">False</SelectItem>
+                            {ruleTypes.map((t) => (
+                                <SelectItem key={t.key} value={t.key}>
+                                    {t.label}
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
-                ) : (
-                    <Input
-                        type="text"
-                        placeholder="Value"
-                        className="h-8 min-w-[100px] w-auto rounded-none border-l-0 text-xs shadow-none"
-                        value={rule?.value?.toString() ?? ""}
-                        onChange={(e) => setRule({ ...rule, value: e.target.value })}
+                    <Combobox
+                        value={rule?.path}
+                        onValueChange={(selectedPath: string) => {
+                            const suggestion = pathSuggestions.find(
+                                (s) => s.path === selectedPath,
+                            )
+                            if (suggestion) {
+                                setRule({
+                                    ...rule,
+                                    type: getOptionDataType(suggestion) as typeof rule.type,
+                                    path: suggestion.path,
+                                })
+                            } else {
+                                setRule({ ...rule, path: selectedPath })
+                            }
+                        }}
+                        options={pathSuggestions}
+                        placeholder="Path"
+                        required
+                        inputClassName="rounded-none border-l-0"
+                        buttonClassName="rounded-none"
+                        renderOption={(option, search) => (
+                            <span
+                                dangerouslySetInnerHTML={{
+                                    __html: highlightSearch(option.path, search),
+                                }}
+                            />
+                        )}
                     />
-                )}
-                {controls}
+                </div>
+                <div className="flex items-center">
+                    <Select
+                        value={rule?.operator}
+                        onValueChange={(operator) =>
+                            setRule({ ...rule, operator: operator as typeof rule.operator })
+                        }
+                    >
+                        <SelectTrigger className="h-8 w-auto min-w-[100px] rounded-r-none text-xs shadow-none">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {(operatorTypes[rule?.type] ?? []).map((op) => (
+                                <SelectItem key={op.key} value={op.key}>
+                                    {op.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {hasValue && rule.type === "boolean" ? (
+                        <Select
+                            value={
+                                rule.value === "true"
+                                    ? "true"
+                                    : rule.value === "false"
+                                      ? "false"
+                                      : undefined
+                            }
+                            onValueChange={(value) => setRule({ ...rule, value })}
+                        >
+                            <SelectTrigger className="h-8 w-auto min-w-[80px] rounded-l-none border-l-0 text-xs shadow-none">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="true">True</SelectItem>
+                                <SelectItem value="false">False</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    ) : (
+                        <Input
+                            type="text"
+                            placeholder="Value"
+                            className="h-8 min-w-[100px] w-auto rounded-l-none border-l-0 text-xs shadow-none"
+                            value={rule?.value?.toString() ?? ""}
+                            onChange={(e) => setRule({ ...rule, value: e.target.value })}
+                        />
+                    )}
+                    {controls}
+                </div>
             </div>
         </div>
     )

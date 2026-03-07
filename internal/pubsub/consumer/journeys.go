@@ -67,6 +67,21 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 
 		if next.CompletedAt != nil {
 			logger.Info("journey completed")
+
+			executed := schemas.JourneyStepExecuted{
+				ProjectID:      event.ProjectID,
+				JourneyID:      event.JourneyID,
+				JourneyEntryID: event.JourneyEntryID,
+				UserID:         event.UserID,
+				ExternalStepID: step.ExternalID,
+				StepType:       step.Type,
+			}
+
+			err = pub.Publish(ctx, schemas.JourneysStepExecuted(event.ProjectID, event.JourneyID, event.UserID), executed)
+			if err != nil {
+				logger.Error("failed to publish journey step executed event", zap.Error(err))
+				return err
+			}
 		}
 
 		next.ID, err = jrny.CreateUserJourneyState(ctx, next)

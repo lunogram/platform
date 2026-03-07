@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react"
-import api, { apiUrl } from "@/api"
+import { apiUrl } from "@/api"
+import oapiClient from "@/oapi/client"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 import type { User } from "@/types"
@@ -13,6 +14,7 @@ export function useUserSelection(
     journeyId: string,
     isOpen: boolean,
     onUserEnteredNode: (external_id: string) => void,
+    onStepExecuted: (external_id: string) => void,
 ) {
     const { t } = useTranslation()
     const [users, setUsers] = useState<User[]>([])
@@ -20,13 +22,24 @@ export function useUserSelection(
 
     useEffect(() => {
         if (isOpen && users.length === 0) {
-            api.users.list(projectId, { limit: 100 }).then((r) => setUsers(r.results))
+            oapiClient
+                .GET("/api/admin/projects/{projectID}/subjects/users", {
+                    params: {
+                        path: { projectID: projectId },
+                        query: { limit: 100 },
+                    },
+                })
+                .then(({ data }) => {
+                    if (data?.results) setUsers(data.results as User[])
+                })
         }
     }, [isOpen, projectId, users.length])
     const eventSourceRef = useRef<EventSource | null>(null)
     const activeUserIdRef = useRef<string | null>(null)
     const onUserEnteredNodeRef = useRef(onUserEnteredNode)
     onUserEnteredNodeRef.current = onUserEnteredNode
+    const onStepExecutedRef = useRef(onStepExecuted)
+    onStepExecutedRef.current = onStepExecuted
 
     const stopFollowing = useCallback(() => {
         if (eventSourceRef.current) {
@@ -62,14 +75,19 @@ export function useUserSelection(
                 withCredentials: true,
             })
 
-            es.addEventListener("step", (e) => {
-                const data = JSON.parse(e.data)
-                onUserEnteredNodeRef.current(data.external_step_id)
+			es.addEventListener("step", (e) => {
+				const data = JSON.parse(e.data)
+				onUserEnteredNodeRef.current(data.external_step_id)
 
-                if (data.step_type === "exit") {
-                    stopFollowing()
-                }
-            })
+				if (data.step_type === "exit") {
+					stopFollowing()
+				}
+			})
+
+			es.addEventListener("step_executed", (e) => {
+				const data = JSON.parse(e.data)
+				onStepExecutedRef.current(data.external_step_id)
+			})
 
             es.onerror = (e) => {
                 console.error("EventSource error:", e)
@@ -89,7 +107,20 @@ export function useUserSelection(
         async (stepId: string, userId: string) => {
             try {
                 followUser(userId)
-                await api.journeys.users.trigger(projectId, journeyId, stepId, userId)
+                const { error } = await oapiClient.POST(
+                    "/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}",
+                    {
+                        params: {
+                            path: {
+                                projectID: projectId,
+                                journeyID: journeyId,
+                                userID: userId,
+                            },
+                        },
+                        body: { externalStepID: stepId },
+                    },
+                )
+                if (error) throw new Error(error.detail ?? "Failed to trigger user")
                 toast.success(t("user_triggered"))
             } catch (e) {
                 toast.error(`Error: ${e}`)
@@ -101,7 +132,20 @@ export function useUserSelection(
     const skipDelay = useCallback(
         async (stepId: string, userId: string) => {
             try {
-                await api.journeys.users.skipDelay(projectId, journeyId, userId, stepId)
+                const { error } = await oapiClient.PUT(
+                    "/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}",
+                    {
+                        params: {
+                            path: {
+                                projectID: projectId,
+                                journeyID: journeyId,
+                                userID: userId,
+                            },
+                        },
+                        body: { externalStepID: stepId },
+                    },
+                )
+                if (error) throw new Error(error.detail ?? "Failed to skip delay")
                 toast.success(t("user_skipped"))
             } catch (e) {
                 toast.error(`Error: ${e}`)

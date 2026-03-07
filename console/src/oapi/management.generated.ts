@@ -462,10 +462,10 @@ export interface paths {
          */
         put: operations["AdvanceUserStep"];
         /**
-         * Manually enrolls a user in a journey
-         * @description Enrolls a user in a journey, typically used for testing or manual overrides
+         * Trigger a user into a journey
+         * @description Triggers a user into a journey at a specific entrance step, typically used for testing or manual overrides
          */
-        post: operations["enrollUser"];
+        post: operations["triggerUser"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4580,7 +4580,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    enrollUser: {
+    triggerUser: {
         parameters: {
             query?: never;
             header?: never;

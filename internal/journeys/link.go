@@ -44,6 +44,28 @@ func HandleLink(ctx HandlerContext, step journey.JourneyVersionStep, state journ
 		return state, nil, fmt.Errorf("target journey has no entrance step")
 	}
 
+	// Check entry eligibility based on entrance step settings
+	entranceData := oapi.EntranceStepData{}
+	if len(entrance.Data) > 0 {
+		if err := json.Unmarshal(entrance.Data, &entranceData); err != nil {
+			return state, nil, fmt.Errorf("failed to decode entrance step data: %w", err)
+		}
+	}
+
+	multiple := entranceData.Multiple != nil && *entranceData.Multiple
+	concurrent := entranceData.Concurrent != nil && *entranceData.Concurrent
+
+	eligible, err := journeysStore.CheckEntryEligibility(ctx, targetJourneyID, ctx.UserID, entrance.ExternalID, multiple, concurrent)
+	if err != nil {
+		return state, nil, fmt.Errorf("failed to check journey entry eligibility: %w", err)
+	}
+
+	if !eligible {
+		// User is not eligible; complete this link step without entering the target journey
+		state.CompletedAt = Now()
+		return state, step.Children, nil
+	}
+
 	entry, err := uuid.NewRandom()
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to generate journey entry ID: %w", err)

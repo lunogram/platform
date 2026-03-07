@@ -37,6 +37,8 @@ export default function WrapperRuleEdit({
     controls,
     depth = 0,
     eventName = "",
+    userOnly = false,
+    journeyContext = false,
 }: RuleEditProps<WrapperRule>) {
     const { t } = useTranslation()
 
@@ -71,7 +73,7 @@ export default function WrapperRuleEdit({
         <div className="w-full flex flex-col items-start pb-2.5 rounded-md">
             {/* Header */}
             <div
-                className={`w-full flex justify-start gap-1.5 text-sm ${isOrganizationEventWrapper(rule) || isOrganizationWrapper(rule) ? "items-start" : "items-center"}`}
+                className={`w-full flex justify-start gap-1.5 text-sm ${isOrganizationEventWrapper(rule) || isOrganizationWrapper(rule) || isEventWrapper(rule) ? "items-start" : "items-center"}`}
             >
                 {isOrganizationWrapper(rule) ? (
                     <OrganizationRuleEdit rule={rule} setRule={setRule} showUserMatch={false} />
@@ -82,7 +84,7 @@ export default function WrapperRuleEdit({
                         eventName={eventName}
                     />
                 ) : isEventWrapper(rule) ? (
-                    <EventRuleEdit rule={rule} setRule={setRule} eventName={eventName} />
+                    <EventRuleEdit rule={rule} setRule={setRule} eventName={eventName} journeyContext={journeyContext} />
                 ) : (
                     <>
                         {t("rule_include_users_matching")}
@@ -149,6 +151,8 @@ export default function WrapperRuleEdit({
                         group={rule?.group}
                         eventName={rule?.value}
                         depth={depth + 1}
+                        userOnly={userOnly}
+                        journeyContext={journeyContext}
                         controls={
                             <Button
                                 size="sm"
@@ -202,7 +206,9 @@ export default function WrapperRuleEdit({
 
             {/* Action buttons (for non-organization rules) */}
             {!isOrganizationWrapper(rule) && (
-                <div className={`flex gap-1.5 px-5 mt-2${depth === 0 ? " ml-2.5" : ""}`}>
+                <div
+                    className={`flex flex-wrap gap-1.5 px-5 mt-2${depth === 0 ? " ml-2.5" : ""}`}
+                >
                     <Button
                         size="sm"
                         variant="outline"
@@ -251,24 +257,28 @@ export default function WrapperRuleEdit({
                                 <Plus className="h-3.5 w-3.5 mr-1" />
                                 {t("rule_add_event_condition")}
                             </Button>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="shadow-none"
-                                onClick={() => handleAddOrganizationEventWrapper()}
-                            >
-                                <Plus className="h-3.5 w-3.5 mr-1" />
-                                {t("rule_add_org_event_condition")}
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="shadow-none"
-                                onClick={() => handleAddOrganizationWrapper()}
-                            >
-                                <Plus className="h-3.5 w-3.5 mr-1" />
-                                {t("rule_add_org_condition")}
-                            </Button>
+                            {!userOnly && (
+                                <>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="shadow-none"
+                                        onClick={() => handleAddOrganizationEventWrapper()}
+                                    >
+                                        <Plus className="h-3.5 w-3.5 mr-1" />
+                                        {t("rule_add_org_event_condition")}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="shadow-none"
+                                        onClick={() => handleAddOrganizationWrapper()}
+                                    >
+                                        <Plus className="h-3.5 w-3.5 mr-1" />
+                                        {t("rule_add_org_condition")}
+                                    </Button>
+                                </>
+                            )}
                         </>
                     )}
                 </div>

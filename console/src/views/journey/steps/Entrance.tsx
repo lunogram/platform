@@ -2,20 +2,18 @@
 import type { JourneyStepType, Rule, RulePath } from "../../../types"
 import { EntranceStepIcon } from "../../../components/icons"
 import RuleBuilder from "../../users/rules/RuleBuilder"
-import { useCallback, useContext, useMemo, useState } from "react"
+import { useCallback, useContext, useRef, useState } from "react"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Combobox } from "@/components/ui/combobox"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import api from "../../../api"
-import { useResolver } from "../../../hooks"
 import { Button } from "@/components/ui/button"
 import { env } from "../../../config/env"
 import { useTranslation, Trans } from "react-i18next"
 import { createSimpleEventRule, isEventWrapper } from "../../users/rules/RuleHelpers"
 import { ruleDescription } from "../../users/rules/RuleDescriptions"
-import { highlightSearch } from "@/lib/ui-utils"
 import { Badge } from "@/components/ui/badge"
 import { Webhook, Zap, Copy, Check } from "lucide-react"
 import { Link } from "react-router"
@@ -182,23 +180,28 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
     Edit({ onChange, project: { id: projectId }, journey: { id: journeyId }, stepId, value }) {
         const { t } = useTranslation()
 
-        const [suggestions] = useResolver(
-            useCallback(async () => await api.projects.pathSuggestions(projectId), [projectId]),
-        )
+        const cacheRef = useRef<RulePath[] | null>(null)
 
-        const eventOptions: RulePath[] = useMemo(
-            () =>
-                Array.isArray(suggestions?.eventPaths)
-                    ? suggestions.eventPaths.map((event, index) => ({
-                          id: `event-${index}`,
-                          name: event.name,
-                          path: event.name,
-                          type: "event" as const,
-                          data_type: "string" as const,
-                          visibility: "public" as const,
-                      }))
-                    : [],
-            [suggestions],
+        const handleSearch = useCallback(
+            async (query: string): Promise<RulePath[]> => {
+                if (!cacheRef.current) {
+                    const suggestions = await api.projects.pathSuggestions(projectId)
+                    cacheRef.current = Array.isArray(suggestions?.eventPaths)
+                        ? suggestions.eventPaths.map((event, index) => ({
+                              id: `event-${index}` as UUID,
+                              name: event.name,
+                              path: event.name,
+                              type: "event" as const,
+                              data_type: "string" as const,
+                              visibility: "public" as const,
+                          }))
+                        : []
+                }
+                if (!query) return cacheRef.current
+                const lower = query.toLowerCase()
+                return cacheRef.current.filter((o) => o.name.toLowerCase().includes(lower))
+            },
+            [projectId],
         )
 
         return (
@@ -234,8 +237,10 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                                 {t("event_name")}
                                 <span className="text-destructive">*</span>
                             </Label>
-                            <Combobox
+                            <Combobox<RulePath>
+                                onSearch={handleSearch}
                                 value={value.event_name ?? ""}
+                                displayValue={value.event_name}
                                 onValueChange={(event_name) => {
                                     const currentRule = value.rule
                                     const updatedRule = currentRule
@@ -247,16 +252,8 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                                         rule: updatedRule,
                                     })
                                 }}
-                                options={eventOptions}
                                 placeholder={t("event_name")}
-                                required
-                                renderOption={(option, search) => (
-                                    <span
-                                        dangerouslySetInnerHTML={{
-                                            __html: highlightSearch(option.name, search),
-                                        }}
-                                    />
-                                )}
+                                renderOption={(option) => option.name}
                             />
                         </div>
                         {value.event_name && (

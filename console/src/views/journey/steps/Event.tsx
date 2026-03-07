@@ -1,6 +1,5 @@
 import type { JourneyStepType } from "../../../types"
 import { EventStepIcon } from "../../../components/icons"
-import { CodeEditor } from "@/components/ui/code-editor"
 import { JsonEditor } from "@/components/ui/json-editor"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -30,7 +29,7 @@ export const eventStep: JourneyStepType<EventConfig> = {
     },
     newData: async () => ({
         template: "{\n\n}\n",
-        event_name: "Journey Triggered",
+        event_name: "user.updated",
     }),
     Edit: ({ onChange, value }) => {
         const { t } = useTranslation()
@@ -43,7 +42,7 @@ export const eventStep: JourneyStepType<EventConfig> = {
                         onChange={(e) => onChange({ ...value, event_name: e.target.value })}
                     />
                 </div>
-                <p className="max-w-[400px] text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                     {t("trigger_event_desc1")}
                     {t("trigger_event_desc2")}
                     <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{"user"}</code>
@@ -53,11 +52,11 @@ export const eventStep: JourneyStepType<EventConfig> = {
                     </code>
                     {"."}
                 </p>
-                <CodeEditor
+                <JsonEditor
                     onChange={(template) => onChange({ ...value, template })}
                     value={value.template ?? ""}
-                    minHeight={500}
                     maxHeight={500}
+                    className="rounded-md border"
                 />
             </>
         )

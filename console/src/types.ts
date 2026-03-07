@@ -163,6 +163,9 @@ export type EventRulePeriod =
           start_date: string
           end_date?: string
       }
+    | {
+          type: "since_entered"
+      }
 
 export interface EventRuleFrequency {
     period: EventRulePeriod
@@ -514,6 +517,7 @@ export interface JourneyStepTypeEditProps<T> extends ControlledProps<T> {
     journey: Journey
     project: Project
     stepId?: UUID // if already saved
+    onSaveDraft?: () => Promise<void>
 }
 
 export interface JourneyStepTypeEdgeProps<T, E> extends ControlledProps<E> {

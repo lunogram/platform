@@ -4,13 +4,15 @@ import type { Campaign, JourneyStepType } from "../../../types"
 import { Combobox } from "@/components/ui/combobox"
 import { Label } from "@/components/ui/label"
 import { ActionStepIcon } from "../../../components/icons"
-import { CreateCampaign } from "@/views/campaign/CreateCampaign"
 import { useResolver } from "../../../hooks"
 import { useTranslation } from "react-i18next"
 import { ChannelIcon } from "../../campaign/ChannelTag"
+import { CreateCampaign } from "../../campaign/CreateCampaign"
 import Preview from "@/components/preview"
 import type { UUID } from "@/types/common"
 import { NIL } from "uuid"
+import { PlusIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface CampaignConfig {
     campaign_id: UUID
@@ -58,8 +60,10 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
     newData: async () => ({
         campaign_id: NIL as UUID,
     }),
-    Edit({ project: { id: projectId }, onChange, value }) {
+    Edit({ project, onChange, value, onSaveDraft }) {
         const { t } = useTranslation()
+        const projectId = project.id
+
         const [campaign] = useResolver(
             useCallback(async () => {
                 if (value.campaign_id && value.campaign_id !== NIL) {
@@ -72,9 +76,8 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
         const handleSearch = useCallback(
             async (query: string): Promise<CampaignOption[]> => {
                 const result = await api.campaigns.search(projectId, {
-                    search: query,
+                    search: query || undefined,
                     limit: 50,
-                    filter: { type: "trigger" },
                 })
                 return result.results.map((c) => ({ ...c, path: c.id }))
             },
@@ -82,26 +85,44 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
         )
 
         return (
-            <div className="space-y-1.5">
-                <Label className="text-sm font-medium">
-                    {t("campaign.singular")}
-                    <span className="text-destructive"> *</span>
-                </Label>
-                <p className="text-sm text-muted-foreground">{t("send_campaign_desc")}</p>
-                <Combobox<CampaignOption>
-                    onSearch={handleSearch}
-                    value={value.campaign_id === NIL ? "" : value.campaign_id}
-                    displayValue={campaign?.name}
-                    onValueChange={(id) => onChange({ ...value, campaign_id: (id || NIL) as UUID })}
-                    placeholder={t("campaign.singular")}
-                    renderOption={(option) => option.name}
+            <div className="space-y-3">
+                <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">
+                        {t("campaign.singular")}
+                        <span className="text-destructive"> *</span>
+                    </Label>
+                    <p className="text-sm text-muted-foreground">{t("send_campaign_desc")}</p>
+                    <Combobox<CampaignOption>
+                        onSearch={handleSearch}
+                        value={value.campaign_id === NIL ? "" : value.campaign_id}
+                        displayValue={campaign?.name}
+                        onValueChange={(id) => onChange({ ...value, campaign_id: (id || NIL) as UUID })}
+                        placeholder={t("campaign.singular")}
+                        renderOption={(option) => option.name}
+                    />
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-xs text-muted-foreground">{t("or")}</span>
+                    <div className="h-px flex-1 bg-border" />
+                </div>
+                <CreateCampaign
+                    onBeforeCreate={onSaveDraft}
+                    trigger={
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                        >
+                            <PlusIcon className="h-4 w-4" />
+                            {t("campaign.create.action")}
+                        </Button>
+                    }
                 />
-                <CreateCampaign />
             </div>
         )
     },
     validate: ({ campaign_id }) => {
         return !!campaign_id && campaign_id !== NIL
     },
-    hasDataKey: true,
 }

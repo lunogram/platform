@@ -22,7 +22,7 @@ func HandleGate(ctx HandlerContext, step journey.JourneyVersionStep, state journ
 		return state, nil, err
 	}
 
-	selected, err := selectGateBranch(ctx, step, config)
+	selected, err := selectGateBranch(ctx, step, config, state)
 	if err != nil {
 		return state, nil, err
 	}
@@ -43,7 +43,7 @@ func HandleGate(ctx HandlerContext, step journey.JourneyVersionStep, state journ
 	return state, []journey.JourneyVersionStepChild{*selected}, nil
 }
 
-func selectGateBranch(ctx HandlerContext, step journey.JourneyVersionStep, config oapi.GateStepData) (*journey.JourneyVersionStepChild, error) {
+func selectGateBranch(ctx HandlerContext, step journey.JourneyVersionStep, config oapi.GateStepData, state journey.JourneyUserState) (*journey.JourneyVersionStepChild, error) {
 	if len(step.Children) == 0 {
 		return nil, nil
 	}
@@ -65,7 +65,8 @@ func selectGateBranch(ctx HandlerContext, step journey.JourneyVersionStep, confi
 		}
 	}
 
-	builder := query.NewQueryBuilder(ctx.ProjectID, &ctx.UserID)
+	builder := query.NewQueryBuilder(ctx.ProjectID, &ctx.UserID).
+		WithSinceTimestamp(state.EnteredAt)
 	query, err := builder.Query(config.Rule)
 	if err != nil {
 		return nil, err

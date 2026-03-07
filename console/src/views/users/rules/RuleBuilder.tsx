@@ -16,9 +16,18 @@ interface RuleBuilderParams {
     setRule: (rule: Rule) => void
     headerPrefix?: ReactNode
     eventName?: string
+    userOnly?: boolean
+    journeyContext?: boolean
 }
 
-export default function RuleBuilder({ eventName, headerPrefix, rule, setRule }: RuleBuilderParams) {
+export default function RuleBuilder({
+    eventName,
+    headerPrefix,
+    rule,
+    setRule,
+    userOnly,
+    journeyContext,
+}: RuleBuilderParams) {
     const [{ id: projectId }] = useContext(ProjectContext)
     const [suggestions] = useResolver(
         useCallback(async () => await api.projects.pathSuggestions(projectId), [projectId]),
@@ -34,6 +43,8 @@ export default function RuleBuilder({ eventName, headerPrefix, rule, setRule }: 
                 group={eventName ? "event" : "parent"}
                 eventName={eventName}
                 headerPrefix={headerPrefix}
+                userOnly={userOnly}
+                journeyContext={journeyContext}
             />
         </VariablesContext.Provider>
     )

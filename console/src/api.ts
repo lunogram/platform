@@ -420,16 +420,6 @@ const api = {
                 >(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/state`)
                 return response.data
             },
-            trigger: async (projectId: UUID, journeyId: UUID, entranceId: UUID, user: User) =>
-                await client
-                    .post<JourneyEntranceDetail>(
-                        `${projectUrl(projectId)}/journeys/${journeyId}/trigger`,
-                        {
-                            entrance_id: entranceId,
-                            user: { external_id: user.external_id },
-                        },
-                    )
-                    .then((r) => r.data),
             skipDelay: async (projectId: UUID, journeyId: UUID, userId: UUID, stepId: UUID) =>
                 await client
                     .post<JourneyEntranceDetail>(

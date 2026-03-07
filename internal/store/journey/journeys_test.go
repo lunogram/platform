@@ -3,6 +3,7 @@ package journey
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
@@ -544,6 +545,129 @@ func TestJourneysStoreEnsureDraftVersionCopiesSteps(t *testing.T) {
 	draftChildren, err := store.GetJourneyVersionStepsChildren(ctx, newDraftID)
 	require.NoError(t, err)
 	assert.Len(t, draftChildren, 1, "connections should be copied to new draft")
+}
+
+func TestCheckEntryEligibility(t *testing.T) {
+	t.Parallel()
+
+	store, _ := NewContainerStore(t)
+	ctx := context.Background()
+	projectID := uuid.New()
+	userID := uuid.New()
+
+	journeyID, err := store.CreateJourney(ctx, Journey{
+		ProjectID: projectID,
+		Name:      "Entry Eligibility Journey",
+	})
+	require.NoError(t, err)
+
+	versionID, err := store.CreateJourneyVersion(ctx, journeyID, "draft")
+	require.NoError(t, err)
+
+	stepMap := oapi.JourneyStepMap{
+		"entrance-1": {
+			Type: "entrance",
+			X:    0,
+			Y:    0,
+			Children: []oapi.JourneyStepChild{
+				{ExternalId: "step-2"},
+			},
+		},
+		"step-2": {
+			Type: "exit",
+			X:    100,
+			Y:    100,
+		},
+	}
+
+	_, err = store.SetJourneySteps(ctx, versionID, stepMap)
+	require.NoError(t, err)
+
+	err = store.PublishVersion(ctx, journeyID, versionID)
+	require.NoError(t, err)
+
+	t.Run("allows first entry when multiple=false", func(t *testing.T) {
+		newUserID := uuid.New()
+		eligible, err := store.CheckEntryEligibility(ctx, journeyID, newUserID, "entrance-1", false, false)
+		require.NoError(t, err)
+		assert.True(t, eligible)
+	})
+
+	t.Run("blocks re-entry when multiple=false", func(t *testing.T) {
+		entryID := uuid.New()
+		completedAt := time.Now()
+		_, err := store.CreateUserJourneyState(ctx, JourneyUserState{
+			JourneyID:      journeyID,
+			JourneyEntryID: entryID,
+			UserID:         userID,
+			ExternalStepID: "entrance-1",
+			CompletedAt:    &completedAt,
+		})
+		require.NoError(t, err)
+
+		eligible, err := store.CheckEntryEligibility(ctx, journeyID, userID, "entrance-1", false, false)
+		require.NoError(t, err)
+		assert.False(t, eligible)
+	})
+
+	t.Run("blocks re-entry when multiple=false even with concurrent=true", func(t *testing.T) {
+		eligible, err := store.CheckEntryEligibility(ctx, journeyID, userID, "entrance-1", false, true)
+		require.NoError(t, err)
+		assert.False(t, eligible)
+	})
+
+	t.Run("allows re-entry when multiple=true and prior entry completed", func(t *testing.T) {
+		eligible, err := store.CheckEntryEligibility(ctx, journeyID, userID, "entrance-1", true, false)
+		require.NoError(t, err)
+		assert.True(t, eligible)
+	})
+
+	t.Run("blocks concurrent entry when multiple=true concurrent=false and entry is active", func(t *testing.T) {
+		activeUserID := uuid.New()
+		entryID := uuid.New()
+		// Create an active entry (no completed_at)
+		_, err := store.CreateUserJourneyState(ctx, JourneyUserState{
+			JourneyID:      journeyID,
+			JourneyEntryID: entryID,
+			UserID:         activeUserID,
+			ExternalStepID: "entrance-1",
+		})
+		require.NoError(t, err)
+
+		eligible, err := store.CheckEntryEligibility(ctx, journeyID, activeUserID, "entrance-1", true, false)
+		require.NoError(t, err)
+		assert.False(t, eligible)
+	})
+
+	t.Run("allows concurrent entry when both multiple=true and concurrent=true", func(t *testing.T) {
+		concurrentUserID := uuid.New()
+		entryID := uuid.New()
+		// Create an active entry
+		_, err := store.CreateUserJourneyState(ctx, JourneyUserState{
+			JourneyID:      journeyID,
+			JourneyEntryID: entryID,
+			UserID:         concurrentUserID,
+			ExternalStepID: "entrance-1",
+		})
+		require.NoError(t, err)
+
+		eligible, err := store.CheckEntryEligibility(ctx, journeyID, concurrentUserID, "entrance-1", true, true)
+		require.NoError(t, err)
+		assert.True(t, eligible)
+	})
+
+	t.Run("different journey does not affect eligibility", func(t *testing.T) {
+		otherJourneyID, err := store.CreateJourney(ctx, Journey{
+			ProjectID: projectID,
+			Name:      "Other Journey",
+		})
+		require.NoError(t, err)
+
+		// userID already has an entry in the first journey, but not in this one
+		eligible, err := store.CheckEntryEligibility(ctx, otherJourneyID, userID, "entrance-1", false, false)
+		require.NoError(t, err)
+		assert.True(t, eligible)
+	})
 }
 
 func TestJourneysStoreMultiExecutionSteps(t *testing.T) {

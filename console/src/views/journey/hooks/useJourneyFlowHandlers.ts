@@ -1,5 +1,6 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react"
 import { addEdge, type Connection, type Edge, type ReactFlowInstance } from "reactflow"
+import { useTranslation } from "react-i18next"
 import { createUuid } from "@/utils"
 import { DATA_FORMAT, STEP_STYLE } from "./JourneyEditor.constants"
 import { getStepType } from "../editor/JourneyEditor.utils"
@@ -14,6 +15,8 @@ export function useJourneyFlowHandlers(
     setHasUnsavedChanges: (val: boolean) => void,
     pushHistory: () => void,
 ) {
+    const { t } = useTranslation()
+
     const onConnect = useCallback(
         async (conn: Connection) => {
             const sourceNode = nodes.find((n) => n.id === conn.source)
@@ -40,13 +43,31 @@ export function useJourneyFlowHandlers(
                 y: event.clientY - bounds.top - (payload.y ?? 0),
             })
 
+            const defaultData = type.newData ? await type.newData() : {}
+
+            // If the dragged payload includes initial data (e.g. action_id from an
+            // action card), merge it into the default step data.
+            const data = payload.data
+                ? { ...defaultData, ...payload.data }
+                : defaultData
+
+            // Auto-name entrance steps when another entrance already exists
+            let name = payload.name as string | undefined
+            if (payload.type === "entrance" && !name) {
+                const entranceCount = nodes.filter((n) => n.data.type === "entrance").length
+                if (entranceCount > 0) {
+                    name = `${t("entrance")} ${entranceCount + 1}`
+                }
+            }
+
             const newNode: JourneyNode = {
                 id: createUuid(),
                 position: { x, y },
                 type: "step",
                 data: {
                     type: payload.type,
-                    data: type.newData ? await type.newData() : {},
+                    name,
+                    data,
                 },
             }
 
@@ -54,7 +75,7 @@ export function useJourneyFlowHandlers(
             setNodes([...nodes, newNode])
             pushHistory()
         },
-        [flowInstance, nodes, setNodes, setHasUnsavedChanges, wrapper, pushHistory],
+        [flowInstance, nodes, setNodes, setHasUnsavedChanges, wrapper, pushHistory, t],
     )
 
     const onNodeDoubleClick = useCallback(

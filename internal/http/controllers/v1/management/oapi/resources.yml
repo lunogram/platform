@@ -1188,9 +1188,9 @@ paths:
         default:
           $ref: "#/components/responses/Error"
     post:
-      summary: Manually enrolls a user in a journey
-      description: Enrolls a user in a journey, typically used for testing or manual overrides
-      operationId: enrollUser
+      summary: Trigger a user into a journey
+      description: Triggers a user into a journey at a specific entrance step, typically used for testing or manual overrides
+      operationId: triggerUser
       tags:
         - Journeys
       security:

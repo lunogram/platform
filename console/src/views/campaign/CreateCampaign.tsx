@@ -37,15 +37,20 @@ interface Channel {
 
 interface CreateCampaignProps {
     open?: boolean
+    onBeforeCreate?: () => Promise<void>
+    trigger?: React.ReactNode
 }
 
-export function CreateCampaign({ open = false }: CreateCampaignProps) {
+export function CreateCampaign({ open = false, onBeforeCreate, trigger }: CreateCampaignProps) {
     const [project] = useContext(ProjectContext)
     const navigate = useNavigate()
     const { t } = useTranslation()
     const [isOpen, setIsOpen] = useState(open)
 
     async function create(channel: ChannelType) {
+        if (onBeforeCreate) {
+            await onBeforeCreate()
+        }
         const campaign = await api.campaigns.create(project.id, {
             name: generateProjectName(),
             channel: channel,
@@ -79,10 +84,12 @@ export function CreateCampaign({ open = false }: CreateCampaignProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={() => setIsOpen(!isOpen)}>
-            <DialogTrigger>
-                <Button size="lg">
-                    <PlusIcon /> {t("campaign.create.action")}
-                </Button>
+            <DialogTrigger asChild>
+                {trigger ?? (
+                    <Button size="lg">
+                        <PlusIcon /> {t("campaign.create.action")}
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>

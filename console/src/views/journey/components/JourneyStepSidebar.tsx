@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -23,11 +22,10 @@ interface JourneyStepSidebarProps {
     nodes: JourneyNode[]
     project: Project
     journey: Journey
-    hasUnsavedChanges: boolean
     onUpdate: (partial: Partial<JourneyNode["data"]>) => void
     onDelete: (id: string) => void
-    onOpenUserModal: () => void
     onViewUsers: (stepId: string, stepType: string, stepName: string) => void
+    onSaveDraft: () => Promise<void>
 }
 
 export function JourneyStepSidebar({
@@ -35,11 +33,10 @@ export function JourneyStepSidebar({
     nodes,
     project,
     journey,
-    hasUnsavedChanges,
     onUpdate,
     onDelete,
-    onOpenUserModal,
     onViewUsers,
+    onSaveDraft,
 }: JourneyStepSidebarProps) {
     const { t } = useTranslation()
     const type = editNode.data.type ? getStepType(editNode.data.type) : null
@@ -65,30 +62,6 @@ export function JourneyStepSidebar({
                     {type.icon}
                 </span>
                 <h4 className="flex-1 text-sm font-semibold truncate">{t(type.name)}</h4>
-
-                {/* Entrance Step "Run" */}
-                {editNode.data.type === "entrance" && (
-                    <TooltipProvider>
-                        <Tooltip delayDuration={300}>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs"
-                                    disabled={hasUnsavedChanges}
-                                    onClick={() => onOpenUserModal()}
-                                >
-                                    Run
-                                </Button>
-                            </TooltipTrigger>
-                            {hasUnsavedChanges && (
-                                <TooltipContent side="top">
-                                    <p>Save changes before running.</p>
-                                </TooltipContent>
-                            )}
-                        </Tooltip>
-                    </TooltipProvider>
-                )}
 
                 {/* More menu */}
                 <DropdownMenu>
@@ -197,6 +170,7 @@ export function JourneyStepSidebar({
                             journey,
                             stepId: editNode.data.stepId,
                             nodes,
+                            onSaveDraft,
                         })}
                 </div>
             </ScrollArea>

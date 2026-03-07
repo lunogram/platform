@@ -78,6 +78,7 @@ export function useJourneyPersistence(
         publishing,
         hasUnsavedChanges,
         setHasUnsavedChanges,
+        saveDraft,
         saveSteps,
         publishJourney,
     }

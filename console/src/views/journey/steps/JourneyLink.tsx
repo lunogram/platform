@@ -82,7 +82,7 @@ export const journeyLinkStep: JourneyStepType<JourneyLinkConfig> = {
         const handleSearch = useCallback(
             async (query: string): Promise<JourneyOption[]> => {
                 const result = await api.journeys.search(project.id, {
-                    search: query,
+                    search: query || undefined,
                     limit: 50,
                 })
                 return result.results.map((j) => ({ ...j, path: j.id }))

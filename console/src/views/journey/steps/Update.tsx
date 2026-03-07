@@ -1,6 +1,5 @@
 import type { JourneyStepType } from "../../../types"
 import { UpdateStepIcon } from "../../../components/icons"
-import { CodeEditor } from "@/components/ui/code-editor"
 import { JsonEditor } from "@/components/ui/json-editor"
 import { useTranslation } from "react-i18next"
 
@@ -32,7 +31,7 @@ export const updateStep: JourneyStepType<UpdateConfig> = {
         const { t } = useTranslation()
         return (
             <>
-                <p className="max-w-[400px] text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                     {t("user_update_edit_desc1")}
                     {t("user_update_edit_desc2")}
                     <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{"user"}</code>
@@ -42,11 +41,11 @@ export const updateStep: JourneyStepType<UpdateConfig> = {
                     </code>
                     {"."}
                 </p>
-                <CodeEditor
+                <JsonEditor
                     onChange={(template) => onChange({ ...value, template })}
                     value={value.template ?? ""}
                     maxHeight={500}
-                    className="w-[400px]"
+                    className="rounded-md border"
                 />
             </>
         )

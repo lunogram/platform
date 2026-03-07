@@ -291,4 +291,6 @@ export interface RuleEditProps<T extends Rule = Rule> {
     depth?: number
     controls?: ReactNode
     headerPrefix?: ReactNode
+    userOnly?: boolean
+    journeyContext?: boolean
 }

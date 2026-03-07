@@ -87,8 +87,8 @@ export function Combobox<T extends PathOption>({
 
         if (debounceRef.current) clearTimeout(debounceRef.current)
 
+        setLoading(true)
         debounceRef.current = setTimeout(async () => {
-            setLoading(true)
             try {
                 const results = await onSearch(searchQuery)
                 setSearchResults(results)
@@ -104,7 +104,7 @@ export function Combobox<T extends PathOption>({
 
     // Load initial results when popover opens in async mode
     React.useEffect(() => {
-        if (isAsync && open && searchResults.length === 0 && !loading) {
+        if (isAsync && open && searchResults.length === 0) {
             setSearchQuery("")
         }
     }, [open, isAsync]) // eslint-disable-line react-hooks/exhaustive-deps

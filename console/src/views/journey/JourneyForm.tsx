@@ -8,13 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface JourneyFormProps {
@@ -27,14 +20,11 @@ export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
     const [project] = useContext(ProjectContext)
     const [name, setName] = useState(journey?.name ?? "")
     const [description, setDescription] = useState(journey?.description ?? "")
-    const [templateId, setTemplateId] = useState(journey?.template_id ?? "")
     const [status, setStatus] = useState(journey?.status ?? "draft")
     const [saving, setSaving] = useState(false)
 
     const isCreated = !!journey?.id
     const isPublished = isCreated && journey?.status !== "draft"
-
-    const templates = [{ key: "onboarding", label: "Onboarding" }]
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
@@ -51,7 +41,6 @@ export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
                       name,
                       description,
                       status,
-                      template_id: templateId || undefined,
                       tags: journey?.tags,
                   })
             toast.success(t("journey_saved"))
@@ -86,23 +75,6 @@ export function JourneyForm({ journey, onSaved }: JourneyFormProps) {
                     rows={3}
                 />
             </div>
-            {!isCreated && templates.length > 0 && (
-                <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">{t("template")}</Label>
-                    <Select value={templateId} onValueChange={setTemplateId}>
-                        <SelectTrigger>
-                            <SelectValue placeholder={t("template")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {templates.map((tmpl) => (
-                                <SelectItem key={tmpl.key} value={tmpl.key}>
-                                    {tmpl.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
             {isPublished && (
                 <div className="space-y-1.5">
                     <Label className="text-sm font-medium">

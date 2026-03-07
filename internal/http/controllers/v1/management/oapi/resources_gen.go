@@ -1378,8 +1378,8 @@ type CreateJourneyParams struct {
 	Publish *bool `form:"publish,omitempty" json:"publish,omitempty"`
 }
 
-// EnrollUserJSONBody defines parameters for EnrollUser.
-type EnrollUserJSONBody struct {
+// TriggerUserJSONBody defines parameters for TriggerUser.
+type TriggerUserJSONBody struct {
 	// ExternalStepID The ID of the journey entry to enroll the user in
 	ExternalStepID openapi_types.UUID `json:"externalStepID"`
 }
@@ -1624,8 +1624,8 @@ type UpdateJourneyJSONRequestBody = UpdateJourney
 // SetJourneyStepsJSONRequestBody defines body for SetJourneySteps for application/json ContentType.
 type SetJourneyStepsJSONRequestBody = JourneyStepMap
 
-// EnrollUserJSONRequestBody defines body for EnrollUser for application/json ContentType.
-type EnrollUserJSONRequestBody EnrollUserJSONBody
+// TriggerUserJSONRequestBody defines body for TriggerUser for application/json ContentType.
+type TriggerUserJSONRequestBody TriggerUserJSONBody
 
 // AdvanceUserStepJSONRequestBody defines body for AdvanceUserStep for application/json ContentType.
 type AdvanceUserStepJSONRequestBody AdvanceUserStepJSONBody
@@ -2113,10 +2113,10 @@ type ClientInterface interface {
 	// StreamUserJourneySteps request
 	StreamUserJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EnrollUserWithBody request with any body
-	EnrollUserWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// TriggerUserWithBody request with any body
+	TriggerUserWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	EnrollUser(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body EnrollUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	TriggerUser(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body TriggerUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AdvanceUserStepWithBody request with any body
 	AdvanceUserStepWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3090,8 +3090,8 @@ func (c *Client) StreamUserJourneySteps(ctx context.Context, projectID openapi_t
 	return c.Client.Do(req)
 }
 
-func (c *Client) EnrollUserWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEnrollUserRequestWithBody(c.Server, projectID, journeyID, userID, contentType, body)
+func (c *Client) TriggerUserWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTriggerUserRequestWithBody(c.Server, projectID, journeyID, userID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3102,8 +3102,8 @@ func (c *Client) EnrollUserWithBody(ctx context.Context, projectID openapi_types
 	return c.Client.Do(req)
 }
 
-func (c *Client) EnrollUser(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body EnrollUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEnrollUserRequest(c.Server, projectID, journeyID, userID, body)
+func (c *Client) TriggerUser(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body TriggerUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTriggerUserRequest(c.Server, projectID, journeyID, userID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6574,19 +6574,19 @@ func NewStreamUserJourneyStepsRequest(server string, projectID openapi_types.UUI
 	return req, nil
 }
 
-// NewEnrollUserRequest calls the generic EnrollUser builder with application/json body
-func NewEnrollUserRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body EnrollUserJSONRequestBody) (*http.Request, error) {
+// NewTriggerUserRequest calls the generic TriggerUser builder with application/json body
+func NewTriggerUserRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body TriggerUserJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewEnrollUserRequestWithBody(server, projectID, journeyID, userID, "application/json", bodyReader)
+	return NewTriggerUserRequestWithBody(server, projectID, journeyID, userID, "application/json", bodyReader)
 }
 
-// NewEnrollUserRequestWithBody generates requests for EnrollUser with any type of body
-func NewEnrollUserRequestWithBody(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewTriggerUserRequestWithBody generates requests for TriggerUser with any type of body
+func NewTriggerUserRequestWithBody(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -10799,10 +10799,10 @@ type ClientWithResponsesInterface interface {
 	// StreamUserJourneyStepsWithResponse request
 	StreamUserJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamUserJourneyStepsResponse, error)
 
-	// EnrollUserWithBodyWithResponse request with any body
-	EnrollUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnrollUserResponse, error)
+	// TriggerUserWithBodyWithResponse request with any body
+	TriggerUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TriggerUserResponse, error)
 
-	EnrollUserWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body EnrollUserJSONRequestBody, reqEditors ...RequestEditorFn) (*EnrollUserResponse, error)
+	TriggerUserWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body TriggerUserJSONRequestBody, reqEditors ...RequestEditorFn) (*TriggerUserResponse, error)
 
 	// AdvanceUserStepWithBodyWithResponse request with any body
 	AdvanceUserStepWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdvanceUserStepResponse, error)
@@ -12117,14 +12117,14 @@ func (r StreamUserJourneyStepsResponse) StatusCode() int {
 	return 0
 }
 
-type EnrollUserResponse struct {
+type TriggerUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSONDefault  *Error
 }
 
 // Status returns HTTPResponse.Status
-func (r EnrollUserResponse) Status() string {
+func (r TriggerUserResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -12132,7 +12132,7 @@ func (r EnrollUserResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r EnrollUserResponse) StatusCode() int {
+func (r TriggerUserResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -14427,21 +14427,21 @@ func (c *ClientWithResponses) StreamUserJourneyStepsWithResponse(ctx context.Con
 	return ParseStreamUserJourneyStepsResponse(rsp)
 }
 
-// EnrollUserWithBodyWithResponse request with arbitrary body returning *EnrollUserResponse
-func (c *ClientWithResponses) EnrollUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnrollUserResponse, error) {
-	rsp, err := c.EnrollUserWithBody(ctx, projectID, journeyID, userID, contentType, body, reqEditors...)
+// TriggerUserWithBodyWithResponse request with arbitrary body returning *TriggerUserResponse
+func (c *ClientWithResponses) TriggerUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TriggerUserResponse, error) {
+	rsp, err := c.TriggerUserWithBody(ctx, projectID, journeyID, userID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseEnrollUserResponse(rsp)
+	return ParseTriggerUserResponse(rsp)
 }
 
-func (c *ClientWithResponses) EnrollUserWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body EnrollUserJSONRequestBody, reqEditors ...RequestEditorFn) (*EnrollUserResponse, error) {
-	rsp, err := c.EnrollUser(ctx, projectID, journeyID, userID, body, reqEditors...)
+func (c *ClientWithResponses) TriggerUserWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body TriggerUserJSONRequestBody, reqEditors ...RequestEditorFn) (*TriggerUserResponse, error) {
+	rsp, err := c.TriggerUser(ctx, projectID, journeyID, userID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseEnrollUserResponse(rsp)
+	return ParseTriggerUserResponse(rsp)
 }
 
 // AdvanceUserStepWithBodyWithResponse request with arbitrary body returning *AdvanceUserStepResponse
@@ -16740,15 +16740,15 @@ func ParseStreamUserJourneyStepsResponse(rsp *http.Response) (*StreamUserJourney
 	return response, nil
 }
 
-// ParseEnrollUserResponse parses an HTTP response from a EnrollUserWithResponse call
-func ParseEnrollUserResponse(rsp *http.Response) (*EnrollUserResponse, error) {
+// ParseTriggerUserResponse parses an HTTP response from a TriggerUserWithResponse call
+func ParseTriggerUserResponse(rsp *http.Response) (*TriggerUserResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &EnrollUserResponse{
+	response := &TriggerUserResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -19350,9 +19350,9 @@ type ServerInterface interface {
 	// Stream user journey steps
 	// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
 	StreamUserJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
-	// Manually enrolls a user in a journey
+	// Trigger a user into a journey
 	// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
-	EnrollUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
+	TriggerUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
 	// Advance user step
 	// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
 	AdvanceUserStep(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
@@ -19860,9 +19860,9 @@ func (_ Unimplemented) StreamUserJourneySteps(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Manually enrolls a user in a journey
+// Trigger a user into a journey
 // (POST /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
-func (_ Unimplemented) EnrollUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
+func (_ Unimplemented) TriggerUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -22173,8 +22173,8 @@ func (siw *ServerInterfaceWrapper) StreamUserJourneySteps(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
-// EnrollUser operation middleware
-func (siw *ServerInterfaceWrapper) EnrollUser(w http.ResponseWriter, r *http.Request) {
+// TriggerUser operation middleware
+func (siw *ServerInterfaceWrapper) TriggerUser(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -22212,7 +22212,7 @@ func (siw *ServerInterfaceWrapper) EnrollUser(w http.ResponseWriter, r *http.Req
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.EnrollUser(w, r, projectID, journeyID, userID)
+		siw.Handler.TriggerUser(w, r, projectID, journeyID, userID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25583,7 +25583,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.StreamUserJourneySteps)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.EnrollUser)
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.TriggerUser)
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.AdvanceUserStep)

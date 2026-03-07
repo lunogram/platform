@@ -2,10 +2,11 @@ import { memo, useCallback, useContext, Fragment, createElement, useEffect } fro
 import type { Connection, NodeProps } from "reactflow"
 import { Handle, Position, useReactFlow, getConnectedEdges } from "reactflow"
 import { useTranslation } from "react-i18next"
-import { FastForward, User } from "lucide-react"
+import { FastForward, Play, User } from "lucide-react"
 import { ProjectContext, JourneyContext } from "@/contexts"
 import { cn } from "@/utils"
 import { KeyIcon } from "@/components/icons"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { getStepType } from "../editor/JourneyEditor.utils"
 import { stepCategoryColors, stepCategoryBorderColors } from "../hooks/JourneyEditor.constants"
 
@@ -22,6 +23,8 @@ export const JourneyStepNode = memo(
             data_key,
             editing,
             skipDelay,
+            openUserModal,
+            hasUnsavedChanges = false,
             visited = false,
             active = false,
         } = {},
@@ -107,11 +110,11 @@ export const JourneyStepNode = memo(
                         !isValid
                             ? "border-2 border-red-500 ring-2 ring-red-200 dark:ring-red-900"
                             : isActiveVisual
-                              ? "border-[3px] border-orange-500 shadow-lg scale-105 journey-active-pulse"
+                              ? "border-2 border-orange-500 shadow-lg scale-105 journey-active-pulse"
                               : isExitCompletedVisual
-                                ? "border-[3px] border-green-500 shadow-lg"
+                                ? "border-2 border-green-500 shadow-lg"
                                 : isVisitedVisual
-                                  ? "border-[3px] border-green-500"
+                                  ? "border-2 border-green-500"
                                   : selected
                                     ? cn("border-2", categoryBorderClass)
                                     : "border border-border",
@@ -137,7 +140,7 @@ export const JourneyStepNode = memo(
                         <span className="flex-1 text-sm font-medium truncate">
                             {name || t(type.name)}
                         </span>
-                        {category !== "info" && typeName === "delay" && (
+                        {typeName === "delay" && active && (
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation()
@@ -146,12 +149,41 @@ export const JourneyStepNode = memo(
                                 }}
                                 className={cn(
                                     "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors",
-                                    "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-400 dark:hover:bg-amber-900/60",
+                                    "cursor-pointer bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-400 dark:hover:bg-amber-900/60",
                                 )}
                             >
                                 <FastForward size={12} className="fill-current" />
                                 {t("Skip")}
                             </button>
+                        )}
+                        {typeName === "entrance" && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span className="inline-flex">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                if (!hasUnsavedChanges) openUserModal?.(id)
+                                            }}
+                                            disabled={hasUnsavedChanges}
+                                            className={cn(
+                                                "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors",
+                                                hasUnsavedChanges
+                                                    ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                                                    : "cursor-pointer bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-400 dark:hover:bg-emerald-900/60",
+                                            )}
+                                        >
+                                            <Play size={12} className="fill-current" />
+                                            {t("run", "Run")}
+                                        </button>
+                                    </span>
+                                </TooltipTrigger>
+                                {hasUnsavedChanges && (
+                                    <TooltipContent>
+                                        {t("save_before_running", "Save the draft before running.")}
+                                    </TooltipContent>
+                                )}
+                            </Tooltip>
                         )}
                     </div>
 
@@ -193,7 +225,7 @@ export const JourneyStepNode = memo(
                                         className="absolute text-xs text-muted-foreground font-medium"
                                         style={{
                                             left,
-                                            bottom: 10,
+                                            bottom: -20,
                                             transform: "translate(-50%, 0)",
                                         }}
                                     >

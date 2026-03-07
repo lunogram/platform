@@ -83,6 +83,16 @@ type JourneyStep struct {
 	StateID        *uuid.UUID `json:"state_id,omitempty"`
 }
 
+// JourneyStepExecuted is published when a user completes their final step in a journey.
+type JourneyStepExecuted struct {
+	ProjectID      uuid.UUID `json:"project_id"`
+	JourneyID      uuid.UUID `json:"journey_id"`
+	JourneyEntryID uuid.UUID `json:"journey_entry_id"`
+	UserID         uuid.UUID `json:"user_id"`
+	ExternalStepID string    `json:"external_step_id"`
+	StepType       string    `json:"step_type"`
+}
+
 // Organization represents an organization with associated project information.
 type Organization struct {
 	ID         uuid.UUID      `json:"id"`
@@ -180,6 +190,11 @@ func ListsRecompute(projectID uuid.UUID, listID uuid.UUID) Subject {
 // JourneysAdvance returns the NATS subject for journey advancement.
 func JourneysAdvance(projectID uuid.UUID, journeyID uuid.UUID, userID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("journeys.advance.%s.%s.%s", projectID, journeyID, userID))
+}
+
+// JourneysStepExecuted returns the NATS subject for journey step execution notifications.
+func JourneysStepExecuted(projectID uuid.UUID, journeyID uuid.UUID, userID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("journeys.step_executed.%s.%s.%s", projectID, journeyID, userID))
 }
 
 // OrganizationsProcess returns the NATS subject for organization processing.

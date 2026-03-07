@@ -617,7 +617,7 @@ type UserJourneyState struct {
 
 func (s *JourneysStore) GetUserJourneyCurrentState(ctx context.Context, projectID, journeyID, userID uuid.UUID) ([]UserJourneyState, error) {
 	query := `
-	SELECT 
+	SELECT
 		jus.external_step_id,
 		COALESCE(jvs.type, '') AS step_type,
 		jus.entered_at,
@@ -625,13 +625,21 @@ func (s *JourneysStore) GetUserJourneyCurrentState(ctx context.Context, projectI
 		jus.updated_at AS visited_at
 	FROM journey_user_state jus
 	LEFT JOIN journey_version_steps jvs ON jvs.version_id = jus.pinned_version_id AND jvs.external_id = jus.external_step_id
-	WHERE jus.journey_id = $1 
+	WHERE jus.journey_id = $1
 		AND jus.user_id = $2
+		AND jus.journey_entry_id = (
+			SELECT journey_entry_id
+			FROM journey_user_state
+			WHERE journey_id = $1
+			AND user_id = $2
+			ORDER BY entered_at DESC
+			LIMIT 1
+		)
 		AND jus.occurrence = (
 			SELECT MAX(occurrence)
-			FROM journey_user_state 
-			WHERE journey_id = $1 
-				AND user_id = $2
+			FROM journey_user_state sub
+			WHERE sub.journey_entry_id = jus.journey_entry_id
+			AND sub.external_step_id = jus.external_step_id
 		)
 	ORDER BY jus.entered_at ASC`
 
@@ -911,6 +919,40 @@ func (s *JourneysStore) CopyVersionContent(ctx context.Context, sourceVersionID,
 
 	_, err = s.db.ExecContext(ctx, copyEvents, targetVersionID, sourceVersionID)
 	return err
+}
+
+// CheckEntryEligibility checks whether a user is allowed to enter a journey based on
+// the entrance step's multiple/concurrent entry settings.
+//
+//   - If multiple is false: the user cannot re-enter a journey they have any
+//     prior entry for (i.e. an entrance state row exists for this journey+user).
+//   - If multiple is true but concurrent is false: the user can re-enter only if
+//     they have no currently active (non-completed) entrance entry.
+//   - If both are true: entry is always allowed.
+//
+// Returns true if the user is allowed to enter, false otherwise.
+func (s *JourneysStore) CheckEntryEligibility(ctx context.Context, journeyID, userID uuid.UUID, entranceExternalStepID string, multiple, concurrent bool) (bool, error) {
+	// If both flags are enabled, always allow entry
+	if multiple && concurrent {
+		return true, nil
+	}
+
+	// When multiple is true, only active (non-completed) entries block re-entry.
+	// When multiple is false, any prior entry blocks re-entry.
+	query := `
+	SELECT EXISTS(
+		SELECT 1 FROM journey_user_state
+		WHERE journey_id = $1 AND user_id = $2 AND external_step_id = $3
+		AND ($4 = false OR completed_at IS NULL)
+	)`
+
+	var exists bool
+	err := s.db.GetContext(ctx, &exists, query, journeyID, userID, entranceExternalStepID, multiple)
+	if err != nil {
+		return false, err
+	}
+
+	return !exists, nil
 }
 
 func (s *JourneysStore) CreateUserJourneyState(ctx context.Context, state JourneyUserState) (uuid.UUID, error) {
