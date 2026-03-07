@@ -1135,12 +1135,28 @@ func (e *UserJourneyEntrance) OAPI() oapi.UserJourneyEntrance {
 
 func (s *JourneysStore) ListUserJourneyEntrances(ctx context.Context, projectID, userID uuid.UUID, pagination store.Pagination) (UserJourneyEntrances, int, error) {
 	query := `
+	WITH unique_entrances AS (
+		SELECT DISTINCT ON (jus.journey_entry_id)
+			jus.id,
+			jus.journey_entry_id,
+			jus.journey_id,
+			jus.entered_at,
+			jus.updated_at,
+			jus.completed_at
+		FROM journey_user_state jus
+		WHERE jus.user_id = $1
+			AND jus.journey_id IN (
+				SELECT id FROM journeys
+				WHERE project_id = $2 AND deleted_at IS NULL
+			)
+		ORDER BY jus.journey_entry_id, jus.entered_at ASC
+	)
 	SELECT
-		jus.id,
-		jus.id AS entrance_id,
-		jus.entered_at AS created_at,
-		jus.updated_at,
-		jus.completed_at AS ended_at,
+		ue.id,
+		ue.journey_entry_id AS entrance_id,
+		ue.entered_at AS created_at,
+		ue.updated_at,
+		ue.completed_at AS ended_at,
 		j.id AS journey_id,
 		j.name AS journey_name,
 		j.description AS journey_description,
@@ -1149,14 +1165,9 @@ func (s *JourneysStore) ListUserJourneyEntrances(ctx context.Context, projectID,
 		j.created_at AS journey_created_at,
 		j.updated_at AS journey_updated_at,
 		COUNT(*) OVER () AS total_count
-	FROM journey_user_state jus
-	LEFT JOIN journeys j ON j.id = jus.journey_id AND j.project_id = $2 AND j.deleted_at IS NULL
-	WHERE jus.user_id = $1
-		AND jus.journey_id IN (
-			SELECT id FROM journeys
-			WHERE project_id = $2 AND deleted_at IS NULL
-		)
-	ORDER BY jus.entered_at DESC
+	FROM unique_entrances ue
+	LEFT JOIN journeys j ON j.id = ue.journey_id AND j.project_id = $2 AND j.deleted_at IS NULL
+	ORDER BY ue.entered_at DESC
 	LIMIT $3 OFFSET $4`
 
 	type row struct {
