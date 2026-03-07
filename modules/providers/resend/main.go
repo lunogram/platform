@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/extism/go-pdk"
@@ -10,6 +12,26 @@ import (
 	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/resend/resend-go/v3"
 )
+
+// safeTransport wraps the Extism HTTPTransport to guarantee that resp.Body is
+// never nil. The standard http.Client contract promises a non-nil Body, but the
+// Extism PDK transport can return nil when the response has no content. Third-
+// party libraries like the Resend SDK call resp.Body.Close() unconditionally,
+// which causes a nil-panic in WASM without this wrapper.
+type safeTransport struct {
+	inner http.RoundTripper
+}
+
+func (t *safeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.inner.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Body == nil {
+		resp.Body = io.NopCloser(bytes.NewReader(nil))
+	}
+	return resp, nil
+}
 
 //go:export manifest
 func Manifest() int32 {
@@ -111,7 +133,7 @@ func Send() int32 {
 
 	// Create HTTP client for WASM
 	httpClient := &http.Client{
-		Transport: &pdkhttp.HTTPTransport{},
+		Transport: &safeTransport{inner: &pdkhttp.HTTPTransport{}},
 	}
 
 	client := resend.NewCustomClient(httpClient, req.Config.APIKey)

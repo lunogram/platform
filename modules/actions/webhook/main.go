@@ -165,14 +165,19 @@ func Execute() int32 {
 		pdk.SetError(fmt.Errorf("webhook request failed: %w", err))
 		return -1
 	}
-	defer resp.Body.Close()
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
 
 	// Read response body (cap at 64KB to avoid memory issues in WASM).
-	const maxBodySize = 64 * 1024
-	limitedReader := io.LimitReader(resp.Body, maxBodySize)
-	respBody, err := io.ReadAll(limitedReader)
-	if err != nil {
-		pdk.Log(pdk.LogWarn, fmt.Sprintf("failed to read response body: %v", err))
+	var respBody []byte
+	if resp.Body != nil {
+		const maxBodySize = 64 * 1024
+		limitedReader := io.LimitReader(resp.Body, maxBodySize)
+		respBody, err = io.ReadAll(limitedReader)
+		if err != nil {
+			pdk.Log(pdk.LogWarn, fmt.Sprintf("failed to read response body: %v", err))
+		}
 	}
 
 	// Collect response headers.
