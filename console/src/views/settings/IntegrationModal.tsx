@@ -21,7 +21,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
-import { SchemaFields } from "@/components/schema-fields"
+import { FormSchemaFields } from "@/components/schema-fields"
 interface IntegrationFormParams {
     project: Project
     meta: ProviderMeta
@@ -115,7 +115,7 @@ export function IntegrationForm({
                 <Input {...form.register("name", { required: true })} />
             </div>
 
-            <SchemaFields
+            <FormSchemaFields
                 parent="data"
                 schema={
                     Array.isArray(meta.schema.properties)

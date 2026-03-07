@@ -22,14 +22,14 @@ type ActionsStore struct {
 	db store.DB
 }
 
-func (s *ActionsStore) UpsertActionSchema(ctx context.Context, actionID uuid.UUID, paths rules.Paths) error {
+func (s *ActionsStore) UpsertActionSchema(ctx context.Context, actionID uuid.UUID, functionID string, paths rules.Paths) error {
 	stmt := `
-	INSERT INTO action_schemas (action_id, path, data_type)
-	VALUES ($1, $2, $3)
-	ON CONFLICT (action_id, path, data_type) DO NOTHING`
+	INSERT INTO action_schemas (action_id, function_id, path, data_type)
+	VALUES ($1, $2, $3, $4)
+	ON CONFLICT (action_id, function_id, path, data_type) DO NOTHING`
 
 	for _, path := range paths {
-		_, err := s.db.ExecContext(ctx, stmt, actionID, path.Path, path.Type)
+		_, err := s.db.ExecContext(ctx, stmt, actionID, functionID, path.Path, path.Type)
 		if err != nil {
 			return err
 		}
@@ -43,18 +43,18 @@ type ActionSchema struct {
 	Schema   []ActionSchemaPath
 }
 
-func (s *ActionsStore) ListActionSchemas(ctx context.Context, actionID uuid.UUID) ([]ActionSchemaPath, error) {
+func (s *ActionsStore) ListActionSchemas(ctx context.Context, actionID uuid.UUID, functionID string) ([]ActionSchemaPath, error) {
 	stmt := `
 	SELECT
 		as2.path,
 		COALESCE(array_agg(DISTINCT as2.data_type ORDER BY as2.data_type) FILTER (WHERE as2.data_type IS NOT NULL), '{}') as types
 	FROM action_schemas as2
-	WHERE as2.action_id = $1
+	WHERE as2.action_id = $1 AND as2.function_id = $2
 	GROUP BY as2.path
 	ORDER BY as2.path`
 
 	var rows []ActionSchemaPath
-	err := s.db.SelectContext(ctx, &rows, stmt, actionID)
+	err := s.db.SelectContext(ctx, &rows, stmt, actionID, functionID)
 	if err != nil {
 		return nil, err
 	}

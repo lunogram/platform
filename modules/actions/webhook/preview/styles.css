@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-base: #1e1e2e;
+  --color-mantle: #181825;
+  --color-crust: #11111b;
+  --color-surface0: #313244;
+  --color-overlay0: #6c7086;
+  --color-subtext0: #a6adc8;
+  --color-text: #cdd6f4;
+  --color-green: #a6e3a1;
+  --color-blue: #89b4fa;
+  --color-peach: #fab387;
+  --color-mauve: #cba6f7;
+  --color-red: #f38ba8;
+  --color-teal: #89dceb;
+  --color-surface1: #45475a;
+  --color-overlay1: #585b70;
+}

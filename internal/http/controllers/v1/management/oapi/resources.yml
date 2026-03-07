@@ -3747,8 +3747,8 @@ paths:
 
   /api/admin/projects/{projectID}/actions/test:
     post:
-      summary: Test an action
-      description: Executes an action with the provided payload and variables without requiring the action to be saved first. Returns the execution result including status, HTTP status code, and response metadata.
+      summary: Test an action configuration
+      description: Validates an action's configuration (e.g. API keys, OAuth credentials, bearer tokens) by calling the module's validate function. Does not require the action to be saved first.
       operationId: testAction
       tags:
         - Actions
@@ -3778,10 +3778,10 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/actions/{actionID}/schema:
+  /api/admin/projects/{projectID}/actions/{actionID}/functions/{functionID}/schema:
     get:
-      summary: List action schemas
-      description: Retrieves the schema paths for an action's execution result metadata
+      summary: List action function schemas
+      description: Retrieves the schema paths for an action function's execution result metadata
       operationId: listActionSchemas
       tags:
         - Actions
@@ -3802,6 +3802,12 @@ paths:
             type: string
             format: uuid
           description: The action ID
+        - name: functionID
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The function ID within the action module
       responses:
         "200":
           description: Action schemas retrieved successfully
@@ -3809,6 +3815,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ActionSchemaListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/actions/{actionID}/functions/{functionID}/test:
+    post:
+      summary: Test action function execution
+      description: Tests executing an action function with the given input, useful for validating function calls in the journey editor
+      operationId: testActionFunction
+      tags:
+        - Actions
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: actionID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The action ID
+        - name: functionID
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The function ID within the action module
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestActionFunctionRequest"
+      responses:
+        "200":
+          description: Action function test executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestActionFunctionResult"
         default:
           $ref: "#/components/responses/Error"
 
@@ -4352,6 +4404,7 @@ components:
       required:
         - type
         - name
+        - functions
       properties:
         type:
           type: string
@@ -4369,64 +4422,89 @@ components:
           type: object
           additionalProperties: true
           x-go-type: json.RawMessage
-          description: JSON Schema for action configuration
-        payload_schema:
-          type: object
-          additionalProperties: true
-          x-go-type: json.RawMessage
-          description: JSON Schema for action payload
+          description: JSON Schema for module-level configuration (API keys, etc.)
+        functions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionFunction"
+          description: Available functions in this action module
         hidden:
           type: boolean
           description: Whether this module is hidden from the UI
+
+    ActionFunction:
+      type: object
+      required:
+        - id
+        - title
+      properties:
+        id:
+          type: string
+          description: Function identifier
+          example: "send_request"
+        title:
+          type: string
+          description: Human-readable function name
+          example: "Send Request"
+        description:
+          type: string
+          description: Function description
+          example: "Send an HTTP request to an external endpoint"
+        input_schema:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+          description: JSON Schema for function input
 
     TestActionRequest:
       type: object
       required:
         - type
-        - payload
       properties:
-        action_id:
-          type: string
-          format: uuid
-          description: ID of the action instance to test (optional, used for schema tracking)
         type:
           $ref: "#/components/schemas/ActionType"
         config:
           type: object
           additionalProperties: true
           x-go-type: json.RawMessage
-          description: Action configuration (used when testing unsaved actions)
-        payload:
-          type: object
-          additionalProperties: true
-          x-go-type: json.RawMessage
-          description: Action payload (varies by type)
-        variables:
-          type: object
-          additionalProperties: true
-          x-go-type: json.RawMessage
-          description: Variable values for substitution
+          description: Action configuration to validate (API keys, OAuth tokens, etc.)
 
     TestActionResult:
       type: object
       required:
-        - status
+        - status_code
       properties:
-        status:
-          type: string
-          description: Execution status (success or error)
-          example: "success"
         status_code:
           type: integer
-          description: HTTP status code (for HTTP-based actions)
+          description: Status code returned by the validation (e.g. 200 for success, 400/401/500 for errors)
+          example: 200
+        message:
+          type: string
+          description: Human-readable validation message
+          example: "Configuration is valid"
+
+    TestActionFunctionRequest:
+      type: object
+      properties:
+        input:
+          type: object
+          additionalProperties: true
+          description: Input parameters for the function execution
+
+    TestActionFunctionResult:
+      type: object
+      required:
+        - status_code
+      properties:
+        status_code:
+          type: integer
+          description: Status code returned by the function execution (e.g. 200 for success, 400/500 for errors)
           example: 200
         metadata:
           type: object
           additionalProperties: true
-          description: Additional response data (response body, headers, etc.)
-        error:
-          type: string
-          description: Error message if execution failed
+          description: Metadata returned by the function execution
+          example: { "response_body": "OK" }
 
     JourneyStepType:
       type: string

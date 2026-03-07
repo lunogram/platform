@@ -47,9 +47,7 @@ export function useJourneyFlowHandlers(
 
             // If the dragged payload includes initial data (e.g. action_id from an
             // action card), merge it into the default step data.
-            const data = payload.data
-                ? { ...defaultData, ...payload.data }
-                : defaultData
+            const data = payload.data ? { ...defaultData, ...payload.data } : defaultData
 
             // Auto-name entrance steps when another entrance already exists
             let name = payload.name as string | undefined

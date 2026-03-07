@@ -2,31 +2,23 @@ import { Controller, useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router"
-import { useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { ArrowLeft } from "lucide-react"
+import { useCallback, useContext, useEffect, useState } from "react"
+import { ArrowLeft, CheckCircle2, XCircle, Loader2 } from "lucide-react"
 
 import oapiClient, { type Action, type ActionMeta, type TestActionResult } from "@/oapi/client"
 import { ProjectContext } from "@/contexts"
 import { useResolver } from "@/hooks"
 
-import { SchemaFields, type Schema } from "@/components/schema-fields"
+import { FormSchemaFields, type Schema } from "@/components/schema-fields"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { snakeToTitle } from "@/utils"
+import { cn, snakeToTitle } from "@/utils"
 
-import {
-    actionFormSchema,
-    storedToForm,
-    variablesToMap,
-    type ActionFormValues,
-    type StoredVariable,
-} from "./action-form-types"
+import { actionFormSchema, type ActionFormValues } from "./action-form-types"
 import { ActionPreviewPanel } from "./ActionPreviewPanel"
-import { TestVariablesDialog } from "./TestVariablesDialog"
-import { VariablesSection } from "./VariablesSection"
 
 export default function ActionDetail() {
     const [project] = useContext(ProjectContext)
@@ -41,9 +33,6 @@ export default function ActionDetail() {
     const [isSaving, setIsSaving] = useState(false)
     const [isTesting, setIsTesting] = useState(false)
     const [testResult, setTestResult] = useState<TestActionResult | null>(null)
-    const [activeTab, setActiveTab] = useState<string>("preview")
-    const [showTestModal, setShowTestModal] = useState(false)
-    const [testVariableValues, setTestVariableValues] = useState<Record<string, string>>({})
     const [actionMetas] = useResolver(
         useCallback(async () => {
             const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/actions/meta", {
@@ -87,7 +76,6 @@ export default function ActionDetail() {
             name: "",
             config: {},
             payload: {},
-            variables: [],
         },
     })
 
@@ -98,7 +86,6 @@ export default function ActionDetail() {
                 name: existingAction.name,
                 config: (stored.config as Record<string, unknown>) ?? {},
                 payload: (stored.payload as Record<string, unknown>) ?? {},
-                variables: storedToForm(stored.variables as StoredVariable[]),
             })
         }
     }, [existingAction, actionMetas, form])
@@ -106,25 +93,14 @@ export default function ActionDetail() {
     // Watch form values for live preview updates
     const config = useWatch({ control: form.control, name: "config" })
     const payload = useWatch({ control: form.control, name: "payload" })
-    const variables = useWatch({ control: form.control, name: "variables" })
-
-    // Derive variable names for autocomplete in payload fields
-    const variableNames = useMemo(
-        () => (variables ?? []).map((v) => v.name.trim()).filter(Boolean),
-        [variables],
-    )
 
     const onSubmit = async (data: ActionFormValues) => {
         if (!selectedType) return
         setIsSaving(true)
         try {
-            const vars = (data.variables ?? []).filter((v) => v.name.trim())
             const actionConfig: Record<string, unknown> = {
                 config: data.config ?? {},
                 payload: data.payload ?? {},
-            }
-            if (vars.length > 0) {
-                actionConfig.variables = vars
             }
 
             const body = {
@@ -152,40 +128,17 @@ export default function ActionDetail() {
         }
     }
 
-    /** Open the test variables modal if variables exist, otherwise run test directly */
-    const onTestClick = () => {
-        const formData = form.getValues()
-        const vars = (formData.variables ?? []).filter((v) => v.name.trim())
-        if (vars.length > 0) {
-            // Pre-populate modal with default values
-            const defaults: Record<string, string> = {}
-            for (const v of vars) {
-                defaults[v.name.trim()] = v.default
-            }
-            setTestVariableValues(defaults)
-            setShowTestModal(true)
-        } else {
-            executeTest()
-        }
-    }
-
-    /** Execute the test action with the given variable overrides */
-    const executeTest = async (overrides?: Record<string, string>) => {
+    /** Validate the action configuration by calling the module's validate function */
+    const executeTest = async () => {
         if (!selectedType) return
         setIsTesting(true)
         setTestResult(null)
-        setActiveTab("results")
         try {
             const formData = form.getValues()
-            const body: Record<string, unknown> = {
+
+            const body = {
                 type: selectedType,
                 config: formData.config ?? {},
-                payload: formData.payload ?? {},
-                variables: variablesToMap(formData.variables, overrides),
-            }
-            // Include action_id only for saved actions.
-            if (entityId && !isNew) {
-                body.action_id = entityId
             }
             const { data, error } = await oapiClient.POST(
                 "/api/admin/projects/{projectID}/actions/test",
@@ -198,14 +151,14 @@ export default function ActionDetail() {
                 setTestResult(data)
             } else {
                 setTestResult({
-                    status: "error",
-                    error: error?.detail ?? "Unknown error",
+                    status_code: 0,
+                    message: error?.detail ?? "Unknown error",
                 })
             }
         } catch (e) {
             setTestResult({
-                status: "error",
-                error: e instanceof Error ? e.message : "Request failed",
+                status_code: 0,
+                message: e instanceof Error ? e.message : "Request failed",
             })
         } finally {
             setIsTesting(false)
@@ -265,19 +218,15 @@ export default function ActionDetail() {
                         />
                     </FieldGroup>
 
-                    {/* Variables */}
-                    <VariablesSection form={form} />
-
                     {/* Config section (from config_schema) */}
                     {selectedMeta?.config_schema && (
                         <div className="border-t pt-6">
-                            <SchemaFields
+                            <FormSchemaFields
                                 title="Configuration"
                                 description={selectedMeta.description}
                                 parent="config"
                                 schema={selectedMeta.config_schema as unknown as Schema}
                                 form={form}
-                                variableNames={variableNames}
                             />
                         </div>
                     )}
@@ -285,12 +234,11 @@ export default function ActionDetail() {
                     {/* Payload section (from payload_schema) */}
                     {selectedMeta?.payload_schema && (
                         <div className="border-t pt-6">
-                            <SchemaFields
+                            <FormSchemaFields
                                 title="Payload"
                                 parent="payload"
                                 schema={selectedMeta.payload_schema as unknown as Schema}
                                 form={form}
-                                variableNames={variableNames}
                             />
                         </div>
                     )}
@@ -309,7 +257,7 @@ export default function ActionDetail() {
                             variant="outline"
                             disabled={isTesting || !selectedType}
                             isLoading={isTesting}
-                            onClick={onTestClick}
+                            onClick={executeTest}
                         >
                             {t("test", "Test")}
                         </Button>
@@ -321,31 +269,53 @@ export default function ActionDetail() {
                             {t("cancel")}
                         </Button>
                     </div>
+
+                    {/* Inline test result banner */}
+                    {isTesting && (
+                        <div className="flex items-center gap-3 rounded-lg border px-4 py-3 text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                            <span className="text-sm">
+                                {t("executing_test", "Executing test...")}
+                            </span>
+                        </div>
+                    )}
+                    {!isTesting &&
+                        testResult &&
+                        (() => {
+                            const isError =
+                                testResult.status_code >= 400 || testResult.status_code === 0
+                            return (
+                                <div
+                                    className={cn(
+                                        "flex items-center gap-3 rounded-lg border px-4 py-3",
+                                        isError
+                                            ? "border-destructive/30 bg-destructive/5 text-destructive"
+                                            : "border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400",
+                                    )}
+                                >
+                                    {isError ? (
+                                        <XCircle className="h-4 w-4 shrink-0" />
+                                    ) : (
+                                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                    )}
+                                    <span className="text-sm font-medium">
+                                        {testResult.message ||
+                                            (isError
+                                                ? t("test_failed", "Test failed")
+                                                : t("test_passed", "Test passed"))}
+                                    </span>
+                                </div>
+                            )
+                        })()}
                 </div>
             </div>
 
-            {/* Right: Preview / Results tabs */}
+            {/* Right: Preview panel */}
             <ActionPreviewPanel
                 selectedType={selectedType}
                 projectId={project.id}
-                isTesting={isTesting}
-                testResult={testResult}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
                 config={config}
                 payload={payload}
-                variables={variables}
-            />
-
-            {/* Test Variables Modal */}
-            <TestVariablesDialog
-                open={showTestModal}
-                onOpenChange={setShowTestModal}
-                form={form}
-                testVariableValues={testVariableValues}
-                setTestVariableValues={setTestVariableValues}
-                isTesting={isTesting}
-                onRunTest={executeTest}
             />
         </form>
     )

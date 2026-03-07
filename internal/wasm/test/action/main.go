@@ -27,27 +27,32 @@ func Manifest() int32 {
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: actions.ActionSpec{
-			Config: &modules.JSONSchema{
-				Type: "object",
-				Properties: []modules.JSONSchemaProperty{
-					{
-						Name: "api_key",
-						Schema: &modules.JSONSchema{
-							Type:        "string",
-							Description: "Test API key",
-						},
+		Config: &modules.JSONSchema{
+			Type: "object",
+			Properties: []modules.JSONSchemaProperty{
+				{
+					Name: "api_key",
+					Schema: &modules.JSONSchema{
+						Type:        "string",
+						Description: "Test API key",
 					},
 				},
 			},
-			Payload: &modules.JSONSchema{
-				Type: "object",
-				Properties: []modules.JSONSchemaProperty{
-					{
-						Name: "message",
-						Schema: &modules.JSONSchema{
-							Type:        "string",
-							Description: "Test message",
+		},
+		Functions: []actions.ActionFunction{
+			{
+				ID:          "run",
+				Title:       "Run Test",
+				Description: "Execute test action",
+				Input: &modules.JSONSchema{
+					Type: "object",
+					Properties: []modules.JSONSchemaProperty{
+						{
+							Name: "message",
+							Schema: &modules.JSONSchema{
+								Type:        "string",
+								Description: "Test message",
+							},
 						},
 					},
 				},
@@ -64,8 +69,39 @@ func Manifest() int32 {
 	return 0
 }
 
-//go:export execute
-func Execute() int32 {
+//go:export validate
+func Validate() int32 {
+	var req actions.ValidateRequest[Config]
+	err := pdk.InputJSON(&req)
+	if err != nil {
+		pdk.SetError(err)
+		return -1
+	}
+
+	statusCode := 200
+	message := "Configuration is valid"
+
+	if req.Config.APIKey == "" {
+		statusCode = 400
+		message = "API key is required"
+	}
+
+	response := actions.ValidateResponse{
+		StatusCode: statusCode,
+		Message:    message,
+	}
+
+	err = pdk.OutputJSON(response)
+	if err != nil {
+		pdk.SetError(err)
+		return -1
+	}
+
+	return 0
+}
+
+//go:export run
+func Run() int32 {
 	var req actions.ExecuteRequest[Config]
 	err := pdk.InputJSON(&req)
 	if err != nil {
@@ -74,12 +110,11 @@ func Execute() int32 {
 	}
 
 	response := actions.ExecuteResponse{
-		Status: "completed",
+		StatusCode: 200,
 		Metadata: map[string]any{
-			"action":    "test",
-			"api_key":   req.Config.APIKey,
-			"payload":   string(req.Payload),
-			"variables": req.Variables,
+			"action":  "test",
+			"api_key": req.Config.APIKey,
+			"input":   string(req.Input),
 		},
 	}
 

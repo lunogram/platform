@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	stdjson "encoding/json"
 	"errors"
 	"net/http"
@@ -213,8 +214,8 @@ func (srv *ActionsController) ListActionMeta(w http.ResponseWriter, r *http.Requ
 			Description: &manifest.Metadata.Description,
 		}
 
-		if manifest.Spec.Config != nil {
-			schema, err := json.Marshal(manifest.Spec.Config)
+		if manifest.Config != nil {
+			schema, err := json.Marshal(manifest.Config)
 			if err != nil {
 				logger.Error("failed to marshal config schema", zap.String("module", manifest.Metadata.ID), zap.Error(err))
 				oapi.WriteProblem(w, err)
@@ -224,16 +225,26 @@ func (srv *ActionsController) ListActionMeta(w http.ResponseWriter, r *http.Requ
 			m.ConfigSchema = &raw
 		}
 
-		if manifest.Spec.Payload != nil {
-			schema, err := json.Marshal(manifest.Spec.Payload)
-			if err != nil {
-				logger.Error("failed to marshal payload schema", zap.String("module", manifest.Metadata.ID), zap.Error(err))
-				oapi.WriteProblem(w, err)
-				return
+		functions := make([]oapi.ActionFunction, len(manifest.Functions))
+		for i, fn := range manifest.Functions {
+			af := oapi.ActionFunction{
+				Id:          fn.ID,
+				Title:       fn.Title,
+				Description: &fn.Description,
 			}
-			raw := json.RawMessage(schema)
-			m.PayloadSchema = &raw
+			if fn.Input != nil {
+				schema, err := json.Marshal(fn.Input)
+				if err != nil {
+					logger.Error("failed to marshal function input schema", zap.String("module", manifest.Metadata.ID), zap.String("function", fn.ID), zap.Error(err))
+					oapi.WriteProblem(w, err)
+					return
+				}
+				raw := json.RawMessage(schema)
+				af.InputSchema = &raw
+			}
+			functions[i] = af
 		}
+		m.Functions = functions
 
 		meta = append(meta, m)
 	}
@@ -266,7 +277,8 @@ func (srv *ActionsController) GetActionPreview(w http.ResponseWriter, r *http.Re
 }
 
 func (srv *ActionsController) TestAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
-	ctx := r.Context()
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 
 	body := oapi.TestActionJSONRequestBody{}
@@ -277,23 +289,13 @@ func (srv *ActionsController) TestAction(w http.ResponseWriter, r *http.Request,
 	}
 
 	logger = logger.With(zap.String("action_type", string(body.Type)))
-	logger.Info("testing action")
+	logger.Info("validating action config")
 
 	// Validate the action type exists before publishing.
 	if _, exists := srv.registry.Get(string(body.Type)); !exists {
 		logger.Warn("unknown action type")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("unknown action type")))
 		return
-	}
-
-	// Build variables map from raw JSON.
-	var variables map[string]any
-	if body.Variables != nil {
-		if err := stdjson.Unmarshal(*body.Variables, &variables); err != nil {
-			logger.Error("failed to unmarshal variables", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid variables")))
-			return
-		}
 	}
 
 	// Build config from request body (allows testing unsaved actions).
@@ -309,59 +311,134 @@ func (srv *ActionsController) TestAction(w http.ResponseWriter, r *http.Request,
 		config = map[string]any{}
 	}
 
-	// Resolve optional action ID.
-	var actionID uuid.UUID
-	if body.ActionId != nil {
-		actionID = uuid.UUID(*body.ActionId)
-	}
-
-	// Publish the action execution request via NATS and wait for reply.
-	executeReq := schemas.ExecuteAction{
+	// Publish the action validation request via NATS and wait for reply.
+	validateReq := schemas.ValidateAction{
 		ProjectID: projectID,
-		ActionID:  actionID,
 		Type:      string(body.Type),
 		Config:    config,
-		Payload:   body.Payload,
-		Variables: variables,
 	}
 
-	data, err := srv.req.Call(ctx, schemas.ActionsExecute(projectID), executeReq, 30*time.Second)
+	data, err := srv.req.Call(ctx, schemas.ActionsValidate(projectID), validateReq)
 	if err != nil {
-		logger.Error("action execution request failed", zap.Error(err))
+		logger.Error("action validation request failed", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var result schemas.ValidateActionResponse
+	if err := stdjson.Unmarshal(data, &result); err != nil {
+		logger.Error("failed to unmarshal validation response", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	resp := oapi.TestActionResult{
+		StatusCode: result.StatusCode,
+	}
+
+	if result.Message != "" {
+		resp.Message = &result.Message
+	}
+
+	logger.Info("action validation completed", zap.Int("status_code", result.StatusCode))
+	json.Write(w, http.StatusOK, resp)
+}
+
+func (srv *ActionsController) TestActionFunction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID, functionID string) {
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.Stringer("action_id", actionID),
+		zap.String("function_id", functionID),
+	)
+	logger.Info("testing action function")
+
+	body := oapi.TestActionFunctionJSONRequestBody{}
+	if err := json.Decode(r.Body, &body); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// Fetch the action from the database to get its type and config.
+	action, err := srv.store.ActionsStore.GetAction(ctx, projectID, actionID)
+	if errors.Is(err, store.ErrNoRows) {
+		logger.Info("action not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("Action not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to fetch action", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// Build config map from the stored action config.
+	var config map[string]any
+	if action.Config.Data != nil {
+		raw, err := stdjson.Marshal(action.Config.Data)
+		if err != nil {
+			logger.Error("failed to marshal action config", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+		if err := stdjson.Unmarshal(raw, &config); err != nil {
+			logger.Error("failed to unmarshal action config", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	}
+	if config == nil {
+		config = map[string]any{}
+	}
+
+	// Publish the action execute request via NATS and wait for reply.
+	executeReq := schemas.ExecuteAction{
+		ProjectID:  projectID,
+		ActionID:   actionID,
+		Type:       action.Type,
+		FunctionID: functionID,
+		Config:     config,
+		Input:      body.Input,
+	}
+
+	data, err := srv.req.Call(ctx, schemas.ActionsExecute(projectID), executeReq)
+	if err != nil {
+		logger.Error("action function test request failed", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	var result schemas.ExecuteActionResponse
 	if err := stdjson.Unmarshal(data, &result); err != nil {
-		logger.Error("failed to unmarshal action response", zap.Error(err))
+		logger.Error("failed to unmarshal execute response", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	resp := oapi.TestActionResult{
-		Status:     result.Status,
+	if result.Error != "" {
+		logger.Warn("action function returned error", zap.String("error", result.Error))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(result.Error)))
+		return
+	}
+
+	resp := oapi.TestActionFunctionResult{
 		StatusCode: result.StatusCode,
 	}
-
-	if result.Error != "" {
-		resp.Error = &result.Error
-	}
-
 	if result.Metadata != nil {
 		resp.Metadata = &result.Metadata
 	}
 
-	logger.Info("action test completed", zap.String("status", result.Status))
+	logger.Info("action function test completed", zap.Int("status_code", result.StatusCode))
 	json.Write(w, http.StatusOK, resp)
 }
 
-func (srv *ActionsController) ListActionSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID) {
+func (srv *ActionsController) ListActionSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID, functionID string) {
 	ctx := r.Context()
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("action_id", actionID))
 	logger.Info("listing action schemas")
 
-	paths, err := srv.subjects.ListActionSchemas(ctx, actionID)
+	paths, err := srv.subjects.ListActionSchemas(ctx, actionID, functionID)
 	if err != nil {
 		logger.Error("failed to list action schemas", zap.Error(err))
 		oapi.WriteProblem(w, err)

@@ -6,7 +6,9 @@
     "dev": "vite"
   },
   "dependencies": {
-    "preact": "^10.25.0"
+    "@tailwindcss/vite": "^4.2.1",
+    "preact": "^10.25.0",
+    "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.9.0",

@@ -73,15 +73,11 @@ function EventExpandedRow({ event }: EventExpandedRowProps) {
 
                     {/* Event Data */}
                     {hasData && (
-                        <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                                {t("event_data", "Event data")}
-                            </p>
-                            <JsonView
-                                data={event.data as Record<string, unknown>}
-                                defaultExpanded
-                            />
-                        </div>
+                        <JsonView
+                            data={event.data as Record<string, unknown>}
+                            title={t("event_data", "Event data")}
+                            defaultExpanded
+                        />
                     )}
                 </div>
             </TableCell>
@@ -348,6 +344,7 @@ export default function UserDetailEvents() {
                                         ...previewEvent.data,
                                         created_at: previewEvent.created_at,
                                     }}
+                                    title={t("event_data", "Event data")}
                                     defaultExpanded
                                 />
                             </div>

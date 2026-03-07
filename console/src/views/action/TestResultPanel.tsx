@@ -3,16 +3,13 @@ import { CheckCircle2, XCircle } from "lucide-react"
 
 import type { TestActionResult } from "@/oapi/client"
 
-import { CodeEditor } from "@/components/ui/code-editor"
 import { cn } from "@/utils"
 
 export function TestResultPanel({ result }: { result: TestActionResult }) {
     const { t } = useTranslation()
-    const isError = result.status === "error"
-    const hasMetadata = result.metadata && Object.keys(result.metadata).length > 0
-    const statusLabel = result.status || "unknown"
-
-    const metadataJson = hasMetadata ? JSON.stringify(result.metadata, null, 2) : ""
+    // status_code === 0 is a client-side sentinel indicating the request
+    // failed before reaching the action (e.g. network error).
+    const isError = result.status_code >= 400 || result.status_code === 0
 
     return (
         <div className="space-y-4">
@@ -30,31 +27,26 @@ export function TestResultPanel({ result }: { result: TestActionResult }) {
                 ) : (
                     <CheckCircle2 className="h-5 w-5 shrink-0" />
                 )}
-                <span className="text-sm font-medium">
-                    {statusLabel}
-                    {result.status_code != null && ` · ${result.status_code}`}
-                </span>
+                <span className="text-sm font-medium">{result.status_code}</span>
             </div>
 
-            {/* Error message */}
-            {result.error && (
-                <div className="rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                    {result.error}
+            {/* Validation message */}
+            {result.message && (
+                <div
+                    className={cn(
+                        "rounded-lg border px-4 py-3 text-sm",
+                        isError
+                            ? "border-destructive/50 bg-destructive/5 text-destructive"
+                            : "border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400",
+                    )}
+                >
+                    {result.message}
                 </div>
             )}
 
-            {/* Metadata */}
-            {metadataJson ? (
-                <CodeEditor
-                    value={metadataJson}
-                    onChange={() => {}}
-                    readOnly
-                    minHeight={80}
-                    maxHeight={400}
-                />
-            ) : (
+            {!result.message && (
                 <p className="text-sm text-muted-foreground">
-                    {t("no_response_data", "No response data returned.")}
+                    {t("no_validation_message", "No validation message returned.")}
                 </p>
             )}
         </div>

@@ -1,7 +1,6 @@
 import { Plus, Trash2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { VariableAutocompleteInput } from "@/components/ui/variable-autocomplete-input"
 
 interface KeyValuePair {
     key: string
@@ -13,7 +12,8 @@ interface KeyValueEditorProps {
     onChange: (value: Record<string, string>) => void
     keyPlaceholder?: string
     valuePlaceholder?: string
-    variableNames?: string[]
+    /** Label for the add-row button (defaults to "Add Row"). */
+    addLabel?: string
 }
 
 function toRows(obj: Record<string, string>): KeyValuePair[] {
@@ -37,7 +37,7 @@ export function KeyValueEditor({
     onChange,
     keyPlaceholder = "Key",
     valuePlaceholder = "Value",
-    variableNames,
+    addLabel = "Add Row",
 }: KeyValueEditorProps) {
     const rows = toRows(value ?? {})
 
@@ -70,22 +70,12 @@ export function KeyValueEditor({
                         placeholder={keyPlaceholder}
                         className="flex-1"
                     />
-                    {variableNames && variableNames.length > 0 ? (
-                        <VariableAutocompleteInput
-                            variableNames={variableNames}
-                            value={row.value}
-                            onChange={(val) => setRow(i, "value", val)}
-                            placeholder={valuePlaceholder}
-                            className="flex-1"
-                        />
-                    ) : (
-                        <Input
-                            value={row.value}
-                            onChange={(e) => setRow(i, "value", e.target.value)}
-                            placeholder={valuePlaceholder}
-                            className="flex-1"
-                        />
-                    )}
+                    <Input
+                        value={row.value}
+                        onChange={(e) => setRow(i, "value", e.target.value)}
+                        placeholder={valuePlaceholder}
+                        className="flex-1"
+                    />
                     <Button
                         type="button"
                         variant="ghost"
@@ -100,7 +90,7 @@ export function KeyValueEditor({
             ))}
             <Button type="button" variant="outline" size="sm" onClick={addRow} className="mt-1">
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Add Header
+                {addLabel}
             </Button>
         </div>
     )

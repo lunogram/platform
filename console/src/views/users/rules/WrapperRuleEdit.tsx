@@ -84,7 +84,12 @@ export default function WrapperRuleEdit({
                         eventName={eventName}
                     />
                 ) : isEventWrapper(rule) ? (
-                    <EventRuleEdit rule={rule} setRule={setRule} eventName={eventName} journeyContext={journeyContext} />
+                    <EventRuleEdit
+                        rule={rule}
+                        setRule={setRule}
+                        eventName={eventName}
+                        journeyContext={journeyContext}
+                    />
                 ) : (
                     <>
                         {t("rule_include_users_matching")}
@@ -206,9 +211,7 @@ export default function WrapperRuleEdit({
 
             {/* Action buttons (for non-organization rules) */}
             {!isOrganizationWrapper(rule) && (
-                <div
-                    className={`flex flex-wrap gap-1.5 px-5 mt-2${depth === 0 ? " ml-2.5" : ""}`}
-                >
+                <div className={`flex flex-wrap gap-1.5 px-5 mt-2${depth === 0 ? " ml-2.5" : ""}`}>
                     <Button
                         size="sm"
                         variant="outline"

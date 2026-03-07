@@ -92,9 +92,7 @@ export default function FilterRuleEdit({
                     <Combobox
                         value={rule?.path}
                         onValueChange={(selectedPath: string) => {
-                            const suggestion = pathSuggestions.find(
-                                (s) => s.path === selectedPath,
-                            )
+                            const suggestion = pathSuggestions.find((s) => s.path === selectedPath)
                             if (suggestion) {
                                 setRule({
                                     ...rule,

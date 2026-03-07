@@ -229,18 +229,17 @@ func OrganizationEventsSchema(projectID uuid.UUID) Subject {
 
 // ExecuteAction represents a request to execute an action via NATS.
 type ExecuteAction struct {
-	ProjectID uuid.UUID      `json:"project_id"`
-	ActionID  uuid.UUID      `json:"action_id"`
-	Type      string         `json:"type"`
-	Config    map[string]any `json:"config"`
-	Payload   any            `json:"payload,omitempty"`
-	Variables map[string]any `json:"variables,omitempty"`
+	ProjectID  uuid.UUID      `json:"project_id"`
+	ActionID   uuid.UUID      `json:"action_id"`
+	Type       string         `json:"type"`
+	FunctionID string         `json:"function_id"`
+	Config     map[string]any `json:"config"`
+	Input      any            `json:"input,omitempty"`
 }
 
 // ExecuteActionResponse is the reply sent back through the NATS inbox.
 type ExecuteActionResponse struct {
-	Status     string         `json:"status"`
-	StatusCode *int           `json:"status_code,omitempty"`
+	StatusCode int            `json:"status_code"`
 	Metadata   map[string]any `json:"metadata,omitempty"`
 	Error      string         `json:"error,omitempty"`
 }
@@ -250,11 +249,30 @@ func ActionsExecute(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("actions.execute.%s", projectID))
 }
 
+// ValidateAction represents a request to validate an action's configuration via NATS.
+type ValidateAction struct {
+	ProjectID uuid.UUID      `json:"project_id"`
+	Type      string         `json:"type"`
+	Config    map[string]any `json:"config"`
+}
+
+// ValidateActionResponse is the reply sent back through the NATS inbox.
+type ValidateActionResponse struct {
+	StatusCode int    `json:"status_code"`
+	Message    string `json:"message,omitempty"`
+}
+
+// ActionsValidate returns the NATS subject for action validation requests.
+func ActionsValidate(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("actions.validate.%s", projectID))
+}
+
 // ActionSchema represents an action execution result for schema extraction.
 type ActionSchema struct {
-	ProjectID uuid.UUID      `json:"project_id"`
-	ActionID  uuid.UUID      `json:"action_id"`
-	Metadata  map[string]any `json:"metadata"`
+	ProjectID  uuid.UUID      `json:"project_id"`
+	ActionID   uuid.UUID      `json:"action_id"`
+	FunctionID string         `json:"function_id"`
+	Metadata   map[string]any `json:"metadata"`
 }
 
 // ActionsSchema returns the NATS subject for action schema updates.

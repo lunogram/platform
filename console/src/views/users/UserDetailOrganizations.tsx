@@ -58,15 +58,11 @@ function OrgExpandedRow({ organization }: OrgExpandedRowProps) {
                 <div className="px-6 py-4 space-y-4">
                     {/* Organization Data */}
                     {hasData && (
-                        <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                                {t("organization_data", "Organization data")}
-                            </p>
-                            <JsonView
-                                data={organization.data as Record<string, unknown>}
-                                defaultExpanded
-                            />
-                        </div>
+                        <JsonView
+                            data={organization.data as Record<string, unknown>}
+                            title={t("organization_data", "Organization data")}
+                            defaultExpanded
+                        />
                     )}
 
                     {!hasData && (

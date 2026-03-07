@@ -74,7 +74,8 @@ func (p *publisher) Publish(ctx context.Context, subject schemas.Subject, v any)
 // Caller sends a message to a NATS subject and waits for a reply via the inbox pattern.
 type Caller interface {
 	// Call sends a JSON-encoded message and waits for a JSON response.
-	Call(ctx context.Context, subject schemas.Subject, v any, timeout time.Duration) ([]byte, error)
+	// The caller is responsible for setting a deadline on the context.
+	Call(ctx context.Context, subject schemas.Subject, v any) ([]byte, error)
 }
 
 type caller struct {
@@ -88,14 +89,11 @@ func NewCaller(jet jetstream.JetStream, namespace string) Caller {
 	return &caller{conn: jet.Conn(), namespace: namespace}
 }
 
-func (r *caller) Call(ctx context.Context, subject schemas.Subject, v any, timeout time.Duration) ([]byte, error) {
+func (r *caller) Call(ctx context.Context, subject schemas.Subject, v any) ([]byte, error) {
 	payload, err := json.Marshal(v)
 	if err != nil {
 		return nil, err
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
 
 	subj := string(subject)
 	if r.namespace != "" {
@@ -128,6 +126,6 @@ func NewNoopCaller() Caller {
 	return &noopCaller{}
 }
 
-func (n *noopCaller) Call(ctx context.Context, subject schemas.Subject, v any, timeout time.Duration) ([]byte, error) {
+func (n *noopCaller) Call(ctx context.Context, subject schemas.Subject, v any) ([]byte, error) {
 	return nil, nil
 }

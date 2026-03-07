@@ -298,6 +298,7 @@ function ApiKeyDialog({ editing, onClose, onSave, isSaving }: ApiKeyDialogProps)
         values: editing ?? undefined,
     })
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const scope = form.watch("scope")
     const isUpdate = !!editing?.id
 

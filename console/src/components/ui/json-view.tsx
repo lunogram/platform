@@ -1,18 +1,15 @@
-import * as React from "react"
-import { useState, useCallback } from "react"
-import { ChevronRight, ChevronDown, Copy, Check, Pencil } from "lucide-react"
+import { useState, useCallback, useRef, useEffect } from "react"
+import { ChevronRight, ChevronDown, Copy, Check } from "lucide-react"
 import { cn } from "@/utils"
-import { Button } from "./button"
-import { Textarea } from "./textarea"
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
 interface JsonViewProps {
     data: Record<string, unknown> | unknown[] | null | undefined
-    editable?: boolean
-    onChange?: (data: Record<string, unknown>) => void
     className?: string
     defaultExpanded?: boolean
+    /** Custom title displayed in the header. */
+    title?: string
 }
 
 interface JsonNodeProps {
@@ -41,7 +38,6 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodePr
             return <span className="text-blue-600 dark:text-blue-400">{value}</span>
         }
         if (typeof value === "string") {
-            // Check if it's a URL
             if (value.match(/^https?:\/\//)) {
                 return (
                     <a
@@ -50,21 +46,23 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodePr
                         rel="noopener noreferrer"
                         className="text-emerald-600 dark:text-emerald-400 hover:underline"
                     >
-                        "{value}"
+                        &quot;{value}&quot;
                     </a>
                 )
             }
-            return <span className="text-emerald-600 dark:text-emerald-400">"{value}"</span>
+            return (
+                <span className="text-emerald-600 dark:text-emerald-400">&quot;{value}&quot;</span>
+            )
         }
         return null
     }
 
     if (!isObject) {
         return (
-            <div className="flex items-start py-0.5">
+            <div className="flex items-start leading-6">
                 {keyName !== undefined && (
                     <>
-                        <span className="text-foreground font-medium">{keyName}</span>
+                        <span className="text-foreground/80">{keyName}</span>
                         <span className="text-muted-foreground mx-1">:</span>
                     </>
                 )}
@@ -83,10 +81,10 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodePr
 
     if (isEmpty) {
         return (
-            <div className="flex items-start py-0.5">
+            <div className="flex items-start leading-6">
                 {keyName !== undefined && (
                     <>
-                        <span className="text-foreground font-medium">{keyName}</span>
+                        <span className="text-foreground/80">{keyName}</span>
                         <span className="text-muted-foreground mx-1">:</span>
                     </>
                 )}
@@ -100,28 +98,28 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodePr
     }
 
     return (
-        <div className="py-0.5">
+        <div>
             <div
-                className="flex items-start cursor-pointer hover:bg-muted/50 -mx-1 px-1 rounded"
+                className="flex items-start leading-6 cursor-pointer group/node -mx-1 px-1 rounded hover:bg-muted/60 transition-colors"
                 onClick={() => setIsExpanded(!isExpanded)}
             >
-                <span className="text-muted-foreground mr-1 flex-shrink-0 w-4">
+                <span className="text-muted-foreground mr-0.5 shrink-0 w-4 flex items-center justify-center">
                     {isExpanded ? (
-                        <ChevronDown className="h-4 w-4" />
+                        <ChevronDown className="h-3.5 w-3.5" />
                     ) : (
-                        <ChevronRight className="h-4 w-4" />
+                        <ChevronRight className="h-3.5 w-3.5" />
                     )}
                 </span>
                 {keyName !== undefined && (
                     <>
-                        <span className="text-foreground font-medium">{keyName}</span>
+                        <span className="text-foreground/80">{keyName}</span>
                         <span className="text-muted-foreground mx-1">:</span>
                     </>
                 )}
                 <span className="text-muted-foreground">{bracketOpen}</span>
                 {!isExpanded && (
                     <>
-                        <span className="text-muted-foreground mx-1">
+                        <span className="text-muted-foreground/60 mx-1 text-xs">
                             {isArray ? `${entries.length} items` : `${entries.length} keys`}
                         </span>
                         <span className="text-muted-foreground">{bracketClose}</span>
@@ -131,7 +129,7 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodePr
             </div>
             {isExpanded && (
                 <>
-                    <div className="ml-5 border-l border-border pl-3">
+                    <div className="ml-4 pl-3 border-l border-border/50">
                         {entries.map(([key, val], index) => (
                             <JsonNode
                                 key={key}
@@ -143,8 +141,8 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodePr
                             />
                         ))}
                     </div>
-                    <div className="flex">
-                        <span className="text-muted-foreground ml-5">{bracketClose}</span>
+                    <div className="flex leading-6">
+                        <span className="text-muted-foreground ml-4">{bracketClose}</span>
                         {!isLast && <span className="text-muted-foreground">,</span>}
                     </div>
                 </>
@@ -153,51 +151,29 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast }: JsonNodePr
     )
 }
 
-export function JsonView({
-    data,
-    editable = false,
-    onChange,
-    className,
-    defaultExpanded = true,
-}: JsonViewProps) {
+export function JsonView({ data, className, defaultExpanded = true, title }: JsonViewProps) {
     const [copied, setCopied] = useState(false)
-    const [isEditing, setIsEditing] = useState(false)
-    const [editValue, setEditValue] = useState("")
-    const [parseError, setParseError] = useState<string | null>(null)
+    const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Clean up copy timer on unmount
+    useEffect(() => {
+        return () => {
+            if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+        }
+    }, [])
 
     const handleCopy = useCallback(async () => {
         await navigator.clipboard.writeText(JSON.stringify(data, null, 2))
         setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
+        if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+        copyTimerRef.current = setTimeout(() => setCopied(false), 2000)
     }, [data])
-
-    const handleEdit = useCallback(() => {
-        setEditValue(JSON.stringify(data, null, 2))
-        setParseError(null)
-        setIsEditing(true)
-    }, [data])
-
-    const handleSave = useCallback(() => {
-        try {
-            const parsed = JSON.parse(editValue)
-            onChange?.(parsed)
-            setIsEditing(false)
-            setParseError(null)
-        } catch {
-            setParseError("Invalid JSON")
-        }
-    }, [editValue, onChange])
-
-    const handleCancel = useCallback(() => {
-        setIsEditing(false)
-        setParseError(null)
-    }, [])
 
     if (data === null || data === undefined) {
         return (
             <div
                 className={cn(
-                    "rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground italic",
+                    "rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground italic",
                     className,
                 )}
             >
@@ -206,60 +182,35 @@ export function JsonView({
         )
     }
 
-    if (isEditing) {
-        return (
-            <div className={cn("rounded-lg border bg-card", className)}>
-                <div className="border-b bg-muted/30 px-3 py-2 flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Edit JSON
-                    </span>
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleCancel}>
-                            Cancel
-                        </Button>
-                        <Button size="sm" onClick={handleSave}>
-                            Save
-                        </Button>
-                    </div>
-                </div>
-                <div className="p-3">
-                    <Textarea
-                        value={editValue}
-                        onChange={(e) => {
-                            setEditValue(e.target.value)
-                            setParseError(null)
-                        }}
-                        className="font-mono text-sm min-h-[200px] resize-y"
-                        placeholder="Enter JSON..."
-                    />
-                    {parseError && <p className="text-sm text-destructive mt-2">{parseError}</p>}
-                </div>
-            </div>
-        )
-    }
-
     return (
-        <div className={cn("rounded-lg border bg-card", className)}>
-            <div className="border-b bg-muted/30 px-3 py-2 flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    JSON
-                </span>
-                <div className="flex items-center gap-1">
-                    {editable && onChange && (
-                        <Button variant="ghost" size="sm" onClick={handleEdit} className="h-7 px-2">
-                            <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+        <div className={cn("relative rounded-md border", className)}>
+            {/* Toolbar */}
+            <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+                <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                    title="Copy to clipboard"
+                >
+                    {copied ? (
+                        <Check className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                        <Copy className="h-3.5 w-3.5" />
                     )}
-                    <Button variant="ghost" size="sm" onClick={handleCopy} className="h-7 px-2">
-                        {copied ? (
-                            <Check className="h-3.5 w-3.5 text-green-500" />
-                        ) : (
-                            <Copy className="h-3.5 w-3.5" />
-                        )}
-                    </Button>
-                </div>
+                </button>
             </div>
-            <div className="p-3 font-mono text-sm overflow-auto max-h-[400px]">
+
+            {/* Header */}
+            {title && (
+                <div className="px-3 py-2 border-b bg-muted/30">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        {title}
+                    </span>
+                </div>
+            )}
+
+            {/* Tree */}
+            <div className="p-3 font-mono text-[13px] overflow-auto max-h-100">
                 <JsonNode
                     value={data as JsonValue}
                     depth={0}

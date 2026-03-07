@@ -29,7 +29,8 @@ const (
 
 // Subscription subjects for NATS core subscribers.
 const (
-	SubjectActionsExecute = "actions.execute.>"
+	SubjectActionsExecute  = "actions.execute.>"
+	SubjectActionsValidate = "actions.validate.>"
 )
 
 // Consumer names for NATS JetStream subscribers.
@@ -72,4 +73,5 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsSchema), OrganizationEventSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamActions), ns.Consumer(ConsumerActionsSchema), ActionSchemasHandler(logger, usrs))
 	router.HandleCaller(ns.Subject(SubjectActionsExecute), ActionExecuteHandler(logger, actionRegistry, pub))
+	router.HandleCaller(ns.Subject(SubjectActionsValidate), ActionValidateHandler(logger, actionRegistry))
 }

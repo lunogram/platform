@@ -1,6 +1,6 @@
 import type { JourneyStepType } from "../../../types"
 import { UpdateStepIcon } from "../../../components/icons"
-import { JsonEditor } from "@/components/ui/json-editor"
+import { CodeEditor } from "@/components/ui/code-editor"
 import { useTranslation } from "react-i18next"
 
 interface UpdateConfig {
@@ -17,7 +17,14 @@ export const updateStep: JourneyStepType<UpdateConfig> = {
         if (value?.template) {
             try {
                 JSON.parse(value.template)
-                return <JsonEditor value={value.template} onChange={() => {}} readOnly />
+                return (
+                    <CodeEditor
+                        value={value.template}
+                        onChange={() => {}}
+                        readOnly
+                        language="json"
+                    />
+                )
             } catch {
                 return <>{t("user_update_empty")}</>
             }
@@ -41,10 +48,11 @@ export const updateStep: JourneyStepType<UpdateConfig> = {
                     </code>
                     {"."}
                 </p>
-                <JsonEditor
+                <CodeEditor
                     onChange={(template) => onChange({ ...value, template })}
                     value={value.template ?? ""}
                     maxHeight={500}
+                    language="json"
                     className="rounded-md border"
                 />
             </>

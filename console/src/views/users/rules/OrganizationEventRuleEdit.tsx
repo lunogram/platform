@@ -26,6 +26,16 @@ interface OrganizationEventRuleEditProps {
     setRule: (rule: OrganizationEventRule) => void
 }
 
+const DEFAULT_FREQUENCY = {
+    period: {
+        type: "rolling" as const,
+        unit: "day" as const,
+        value: 30,
+    },
+    operator: ">=" as const,
+    count: 1,
+}
+
 export default function OrganizationEventRuleEdit({
     rule,
     setRule,
@@ -33,17 +43,7 @@ export default function OrganizationEventRuleEdit({
 }: OrganizationEventRuleEditProps) {
     const { t } = useTranslation()
 
-    const defaultFrequency = {
-        period: {
-            type: "rolling" as const,
-            unit: "day" as const,
-            value: 30,
-        },
-        operator: ">=" as const,
-        count: 1,
-    }
-
-    const frequency = rule.frequency ?? defaultFrequency
+    const frequency = rule.frequency ?? DEFAULT_FREQUENCY
 
     const userMatch = rule.user_match ?? {
         type: "all" as const,
@@ -54,7 +54,7 @@ export default function OrganizationEventRuleEdit({
         if (!rule.frequency || !rule.user_match) {
             setRule({
                 ...rule,
-                frequency: rule.frequency ?? defaultFrequency,
+                frequency: rule.frequency ?? DEFAULT_FREQUENCY,
                 user_match: rule.user_match ?? { type: "all" },
             })
         }

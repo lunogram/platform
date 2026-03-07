@@ -75,19 +75,19 @@ export function useUserSelection(
                 withCredentials: true,
             })
 
-			es.addEventListener("step", (e) => {
-				const data = JSON.parse(e.data)
-				onUserEnteredNodeRef.current(data.external_step_id)
+            es.addEventListener("step", (e) => {
+                const data = JSON.parse(e.data)
+                onUserEnteredNodeRef.current(data.external_step_id)
 
-				if (data.step_type === "exit") {
-					stopFollowing()
-				}
-			})
+                if (data.step_type === "exit") {
+                    stopFollowing()
+                }
+            })
 
-			es.addEventListener("step_executed", (e) => {
-				const data = JSON.parse(e.data)
-				onStepExecutedRef.current(data.external_step_id)
-			})
+            es.addEventListener("step_executed", (e) => {
+                const data = JSON.parse(e.data)
+                onStepExecutedRef.current(data.external_step_id)
+            })
 
             es.onerror = (e) => {
                 console.error("EventSource error:", e)

@@ -22,25 +22,49 @@ type Action struct {
 	*wasm.Module[actiontypes.ActionManifest]
 }
 
-// Execute invokes the action's execute function.
-func (a *Action) Execute(ctx context.Context, req *actiontypes.ExecuteRequest[json.RawMessage]) (*actiontypes.ExecuteResponse, error) {
+// Execute invokes the named function within the action's WASM module.
+func (a *Action) Execute(ctx context.Context, functionName string, req *actiontypes.ExecuteRequest[json.RawMessage]) (*actiontypes.ExecuteResponse, error) {
 	payload, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal execute request: %w", err)
 	}
 
-	code, res, err := a.Call(ctx, "execute", payload)
+	code, res, err := a.Call(ctx, functionName, payload)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call action execute: %w", err)
+		return nil, fmt.Errorf("failed to call action function %q: %w", functionName, err)
 	}
 
 	if code != 0 {
-		return nil, fmt.Errorf("action execute returned code %d: %s", code, string(res))
+		return nil, fmt.Errorf("action function %q returned code %d: %s", functionName, code, string(res))
 	}
 
 	var response actiontypes.ExecuteResponse
 	if err := json.Unmarshal(res, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal execute response: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal execute response for function %q: %w", functionName, err)
+	}
+
+	return &response, nil
+}
+
+// Validate invokes the action's validate function to check the configuration.
+func (a *Action) Validate(ctx context.Context, req *actiontypes.ValidateRequest[json.RawMessage]) (*actiontypes.ValidateResponse, error) {
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal validate request: %w", err)
+	}
+
+	code, res, err := a.Call(ctx, "validate", payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call action validate: %w", err)
+	}
+
+	if code != 0 {
+		return nil, fmt.Errorf("action validate returned code %d: %s", code, string(res))
+	}
+
+	var response actiontypes.ValidateResponse
+	if err := json.Unmarshal(res, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal validate response: %w", err)
 	}
 
 	return &response, nil

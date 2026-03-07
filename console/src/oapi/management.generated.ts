@@ -1526,8 +1526,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Test an action
-         * @description Executes an action with the provided payload and variables without requiring the action to be saved first. Returns the execution result including status, HTTP status code, and response metadata.
+         * Test an action configuration
+         * @description Validates an action's configuration (e.g. API keys, OAuth credentials, bearer tokens) by calling the module's validate function. Does not require the action to be saved first.
          */
         post: operations["testAction"];
         delete?: never;
@@ -1536,7 +1536,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/actions/{actionID}/schema": {
+    "/api/admin/projects/{projectID}/actions/{actionID}/functions/{functionID}/schema": {
         parameters: {
             query?: never;
             header?: never;
@@ -1544,12 +1544,32 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List action schemas
-         * @description Retrieves the schema paths for an action's execution result metadata
+         * List action function schemas
+         * @description Retrieves the schema paths for an action function's execution result metadata
          */
         get: operations["listActionSchemas"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/actions/{actionID}/functions/{functionID}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test action function execution
+         * @description Tests executing an action function with the given input, useful for validating function calls in the journey editor
+         */
+        post: operations["testActionFunction"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1758,54 +1778,76 @@ export interface components {
              * @example Send HTTP webhooks to external services
              */
             description?: string;
-            /** @description JSON Schema for action configuration */
+            /** @description JSON Schema for module-level configuration (API keys, etc.) */
             config_schema?: {
                 [key: string]: unknown;
             };
-            /** @description JSON Schema for action payload */
-            payload_schema?: {
-                [key: string]: unknown;
-            };
+            /** @description Available functions in this action module */
+            functions: components["schemas"]["ActionFunction"][];
             /** @description Whether this module is hidden from the UI */
             hidden?: boolean;
         };
-        TestActionRequest: {
+        ActionFunction: {
             /**
-             * Format: uuid
-             * @description ID of the action instance to test (optional, used for schema tracking)
+             * @description Function identifier
+             * @example send_request
              */
-            action_id?: string;
+            id: string;
+            /**
+             * @description Human-readable function name
+             * @example Send Request
+             */
+            title: string;
+            /**
+             * @description Function description
+             * @example Send an HTTP request to an external endpoint
+             */
+            description?: string;
+            /** @description JSON Schema for function input */
+            input_schema?: {
+                [key: string]: unknown;
+            };
+        };
+        TestActionRequest: {
             type: components["schemas"]["ActionType"];
-            /** @description Action configuration (used when testing unsaved actions) */
+            /** @description Action configuration to validate (API keys, OAuth tokens, etc.) */
             config?: {
-                [key: string]: unknown;
-            };
-            /** @description Action payload (varies by type) */
-            payload: {
-                [key: string]: unknown;
-            };
-            /** @description Variable values for substitution */
-            variables?: {
                 [key: string]: unknown;
             };
         };
         TestActionResult: {
             /**
-             * @description Execution status (success or error)
-             * @example success
-             */
-            status: string;
-            /**
-             * @description HTTP status code (for HTTP-based actions)
+             * @description Status code returned by the validation (e.g. 200 for success, 400/401/500 for errors)
              * @example 200
              */
-            status_code?: number;
-            /** @description Additional response data (response body, headers, etc.) */
+            status_code: number;
+            /**
+             * @description Human-readable validation message
+             * @example Configuration is valid
+             */
+            message?: string;
+        };
+        TestActionFunctionRequest: {
+            /** @description Input parameters for the function execution */
+            input?: {
+                [key: string]: unknown;
+            };
+        };
+        TestActionFunctionResult: {
+            /**
+             * @description Status code returned by the function execution (e.g. 200 for success, 400/500 for errors)
+             * @example 200
+             */
+            status_code: number;
+            /**
+             * @description Metadata returned by the function execution
+             * @example {
+             *       "response_body": "OK"
+             *     }
+             */
             metadata?: {
                 [key: string]: unknown;
             };
-            /** @description Error message if execution failed */
-            error?: string;
         };
         /**
          * @description Journey step type
@@ -6696,6 +6738,8 @@ export interface operations {
                 projectID: string;
                 /** @description The action ID */
                 actionID: string;
+                /** @description The function ID within the action module */
+                functionID: string;
             };
             cookie?: never;
         };
@@ -6708,6 +6752,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActionSchemaListResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testActionFunction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The action ID */
+                actionID: string;
+                /** @description The function ID within the action module */
+                functionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestActionFunctionRequest"];
+            };
+        };
+        responses: {
+            /** @description Action function test executed successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestActionFunctionResult"];
                 };
             };
             default: components["responses"]["Error"];

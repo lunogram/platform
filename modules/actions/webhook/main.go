@@ -20,8 +20,8 @@ var previewHTML []byte
 // WebhookConfig is currently empty — authentication is handled via headers in the payload.
 type WebhookConfig struct{}
 
-// WebhookPayload defines the HTTP request to make.
-type WebhookPayload struct {
+// WebhookInput defines the HTTP request to make.
+type WebhookInput struct {
 	Method   string            `json:"method"`
 	Endpoint string            `json:"endpoint"`
 	Headers  map[string]string `json:"headers,omitempty"`
@@ -44,47 +44,53 @@ func Manifest() int32 {
 			Email: "dev@lunogram.io",
 			URL:   "https://lunogram.com",
 		},
-		Spec: actions.ActionSpec{
-			Payload: &modules.JSONSchema{
-				Type: "object",
-				Properties: []modules.JSONSchemaProperty{
-					{
-						Name: "method",
-						Schema: &modules.JSONSchema{
-							Type:        "string",
-							Title:       "HTTP Method",
-							Description: "HTTP method for the request",
-							Enum:        []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+		Functions: []actions.ActionFunction{
+			{
+				ID:          "send_request",
+				Title:       "Send Request",
+				Description: "Send an HTTP request to an external endpoint",
+				Input: &modules.JSONSchema{
+					Type: "object",
+					Properties: []modules.JSONSchemaProperty{
+						{
+							Name: "method",
+							Schema: &modules.JSONSchema{
+								Type:        "string",
+								Title:       "HTTP Method",
+								Description: "HTTP method for the request",
+								Enum:        []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+							},
+						},
+						{
+							Name: "endpoint",
+							Schema: &modules.JSONSchema{
+								Type:        "string",
+								Title:       "Endpoint URL",
+								Description: "URL to send the request to",
+								Preview:     "https://api.example.com/webhook",
+							},
+						},
+						{
+							Name: "headers",
+							Schema: &modules.JSONSchema{
+								Type:        "object",
+								Title:       "Headers",
+								Description: "HTTP headers to include in the request",
+								Format:      "key-value",
+							},
+						},
+						{
+							Name: "body",
+							Schema: &modules.JSONSchema{
+								Type:        "string",
+								Title:       "Request Body",
+								Description: "Body of the HTTP request (supports JSON, XML, or plain text)",
+								Format:      "code",
+							},
 						},
 					},
-					{
-						Name: "endpoint",
-						Schema: &modules.JSONSchema{
-							Type:        "string",
-							Title:       "Endpoint URL",
-							Description: "URL to send the request to",
-						},
-					},
-					{
-						Name: "headers",
-						Schema: &modules.JSONSchema{
-							Type:        "object",
-							Title:       "Headers",
-							Description: "HTTP headers to include in the request",
-							Format:      "key-value",
-						},
-					},
-					{
-						Name: "body",
-						Schema: &modules.JSONSchema{
-							Type:        "string",
-							Title:       "Request Body",
-							Description: "Body of the HTTP request (supports JSON, XML, or plain text)",
-							Format:      "code",
-						},
-					},
+					Required: []string{"method", "endpoint"},
 				},
-				Required: []string{"method", "endpoint"},
 			},
 		},
 	}
@@ -98,8 +104,32 @@ func Manifest() int32 {
 	return 0
 }
 
-//go:export execute
-func Execute() int32 {
+//go:export validate
+func Validate() int32 {
+	var req actions.ValidateRequest[WebhookConfig]
+	err := pdk.InputJSON(&req)
+	if err != nil {
+		pdk.SetError(fmt.Errorf("failed to parse validate request: %w", err))
+		return -1
+	}
+
+	// The webhook module has no module-level config to validate (authentication
+	// is handled via headers in the payload), so validation always succeeds.
+	response := actions.ValidateResponse{
+		StatusCode: 200,
+		Message:    "Webhook configuration is valid",
+	}
+
+	if err := pdk.OutputJSON(response); err != nil {
+		pdk.SetError(err)
+		return -1
+	}
+
+	return 0
+}
+
+//go:export send_request
+func SendRequest() int32 {
 	var req actions.ExecuteRequest[WebhookConfig]
 	err := pdk.InputJSON(&req)
 	if err != nil {
@@ -107,10 +137,10 @@ func Execute() int32 {
 		return -1
 	}
 
-	// Unmarshal the payload.
-	var payload WebhookPayload
-	if err := json.Unmarshal(req.Payload, &payload); err != nil {
-		pdk.SetError(fmt.Errorf("failed to parse webhook payload: %w", err))
+	// Unmarshal the input.
+	var payload WebhookInput
+	if err := json.Unmarshal(req.Input, &payload); err != nil {
+		pdk.SetError(fmt.Errorf("failed to parse webhook input: %w", err))
 		return -1
 	}
 
@@ -124,7 +154,6 @@ func Execute() int32 {
 		return -1
 	}
 
-	// Variables are already substituted by the host before reaching the WASM module.
 	endpoint := payload.Endpoint
 	body := payload.Body
 
@@ -187,10 +216,6 @@ func Execute() int32 {
 	}
 
 	statusCode := resp.StatusCode
-	status := "success"
-	if statusCode >= 400 {
-		status = "error"
-	}
 
 	// Try to decode the response body as JSON so it's returned as a
 	// structured object rather than an escaped string.
@@ -201,8 +226,7 @@ func Execute() int32 {
 	}
 
 	response := actions.ExecuteResponse{
-		Status:     status,
-		StatusCode: &statusCode,
+		StatusCode: statusCode,
 		Metadata: map[string]any{
 			"method":   payload.Method,
 			"endpoint": endpoint,

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Braces, Plus, Trash2, ChevronRight, List, Code } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { JsonEditor } from "@/components/ui/json-editor"
+import { CodeEditor } from "@/components/ui/code-editor"
 import { Input } from "@/components/ui/input"
 import {
     Select,
@@ -583,10 +583,11 @@ export function AttributeEditor({
                 )
             ) : (
                 <div>
-                    <JsonEditor
+                    <CodeEditor
                         value={codeValue}
                         onChange={handleCodeChange}
                         onError={setCodeError}
+                        language="json"
                         minHeight={150}
                         maxHeight={400}
                     />

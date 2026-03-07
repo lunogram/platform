@@ -162,7 +162,6 @@ export default function JourneyEditor() {
         publishing,
         hasUnsavedChanges,
         setHasUnsavedChanges,
-        saveDraft,
         saveSteps,
         publishJourney,
     } = useJourneyPersistence(project, journey, setJourney, setNodes, setEdges)
@@ -178,7 +177,13 @@ export default function JourneyEditor() {
     }, [saveSteps, nodes, edges])
 
     const { users, triggerUser, skipDelayForActiveUser, searchParams, followUser, STORAGE_KEY } =
-        useUserSelection(project.id, journey.id, !!userModalEntranceId, onUserEnteredNode, onStepExecuted)
+        useUserSelection(
+            project.id,
+            journey.id,
+            !!userModalEntranceId,
+            onUserEnteredNode,
+            onStepExecuted,
+        )
 
     useEffect(() => {
         if (!stepsLoaded) return
@@ -212,10 +217,7 @@ export default function JourneyEditor() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [stepsLoaded])
 
-    const openUserModal = useCallback(
-        (nodeId: string) => setUserModalEntranceId(nodeId),
-        [],
-    )
+    const openUserModal = useCallback((nodeId: string) => setUserModalEntranceId(nodeId), [])
 
     useEffect(() => {
         if (stepsLoaded) return
@@ -231,7 +233,15 @@ export default function JourneyEditor() {
             setStepsLoaded(true)
         }
         void load()
-    }, [project.id, journey.id, setNodes, setEdges, skipDelayForActiveUser, openUserModal])
+    }, [
+        project.id,
+        journey.id,
+        setNodes,
+        setEdges,
+        stepsLoaded,
+        skipDelayForActiveUser,
+        openUserModal,
+    ])
 
     const onPaneClick = useCallback(() => {
         if (editNode) setNodes(nodes.map((n) => ({ ...n, data: { ...n.data, editing: false } })))
@@ -343,7 +353,7 @@ export default function JourneyEditor() {
                             e.preventDefault()
                             e.dataTransfer.dropEffect = "move"
                         }}
-                        onClick={onPaneClick}
+                        onPaneClick={onPaneClick}
                         nodesDraggable={journey.status !== "archived"}
                         nodesConnectable={journey.status !== "archived"}
                         deleteKeyCode={["Backspace", "Delete"]}
@@ -427,17 +437,32 @@ export default function JourneyEditor() {
                         ) : (
                             <>
                                 <nav className="flex gap-1 px-4 pt-3 border-b shrink-0">
-                                    {([
-                                        { key: "components", label: t("components"), icon: Blocks },
-                                        { key: "actions", label: t("actions.plural", "Actions"), icon: SquareFunction, badge: actions?.length },
-                                    ] as const).map((tab) => {
+                                    {(
+                                        [
+                                            {
+                                                key: "components",
+                                                label: t("components"),
+                                                icon: Blocks,
+                                            },
+                                            {
+                                                key: "actions",
+                                                label: t("actions.plural", "Actions"),
+                                                icon: SquareFunction,
+                                                badge: actions?.length,
+                                            },
+                                        ] as const
+                                    ).map((tab) => {
                                         const Icon = tab.icon
                                         const isActive = sidebarTab === tab.key
                                         return (
                                             <button
                                                 type="button"
                                                 key={tab.key}
-                                                onClick={() => setSidebarTab(tab.key as "components" | "actions")}
+                                                onClick={() =>
+                                                    setSidebarTab(
+                                                        tab.key as "components" | "actions",
+                                                    )
+                                                }
                                                 className={cn(
                                                     "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors",
                                                     isActive
@@ -447,11 +472,16 @@ export default function JourneyEditor() {
                                             >
                                                 <Icon className="h-4 w-4" />
                                                 {tab.label}
-                                                {"badge" in tab && tab.badge != null && tab.badge > 0 && (
-                                                    <Badge variant="secondary" className="h-5 min-w-5 px-1 text-[10px]">
-                                                        {tab.badge}
-                                                    </Badge>
-                                                )}
+                                                {"badge" in tab &&
+                                                    tab.badge != null &&
+                                                    tab.badge > 0 && (
+                                                        <Badge
+                                                            variant="secondary"
+                                                            className="h-5 min-w-5 px-1 text-[10px]"
+                                                        >
+                                                            {tab.badge}
+                                                        </Badge>
+                                                    )}
                                             </button>
                                         )
                                     })}
@@ -461,10 +491,19 @@ export default function JourneyEditor() {
                                         <div className="p-4 space-y-1.5">
                                             {Object.entries(journeySteps)
                                                 .filter(([key]) => key !== "action")
-                                                .sort(createComparator((x) => {
-                                                    const order = { entrance: 0, flow: 1, delay: 2, action: 3, exit: 4, info: 5 }
-                                                    return order[x[1].category] ?? 99
-                                                }))
+                                                .sort(
+                                                    createComparator((x) => {
+                                                        const order = {
+                                                            entrance: 0,
+                                                            flow: 1,
+                                                            delay: 2,
+                                                            action: 3,
+                                                            exit: 4,
+                                                            info: 5,
+                                                        }
+                                                        return order[x[1].category] ?? 99
+                                                    }),
+                                                )
                                                 .map(([key, type]) => (
                                                     <div
                                                         key={key}
@@ -564,9 +603,7 @@ export default function JourneyEditor() {
                                                                         x:
                                                                             event.clientX -
                                                                             rect.left,
-                                                                        y:
-                                                                            event.clientY -
-                                                                            rect.top,
+                                                                        y: event.clientY - rect.top,
                                                                     }),
                                                                 )
                                                             }}

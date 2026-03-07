@@ -96,7 +96,9 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
                         onSearch={handleSearch}
                         value={value.campaign_id === NIL ? "" : value.campaign_id}
                         displayValue={campaign?.name}
-                        onValueChange={(id) => onChange({ ...value, campaign_id: (id || NIL) as UUID })}
+                        onValueChange={(id) =>
+                            onChange({ ...value, campaign_id: (id || NIL) as UUID })
+                        }
                         placeholder={t("campaign.singular")}
                         renderOption={(option) => option.name}
                     />
@@ -109,11 +111,7 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
                 <CreateCampaign
                     onBeforeCreate={onSaveDraft}
                     trigger={
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                        >
+                        <Button variant="outline" size="sm" className="w-full">
                             <PlusIcon className="h-4 w-4" />
                             {t("campaign.create.action")}
                         </Button>

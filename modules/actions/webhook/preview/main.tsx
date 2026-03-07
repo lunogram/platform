@@ -2,17 +2,19 @@ import { render } from 'preact'
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks'
 import { WebhookPreview } from './WebhookPreview'
 
+export type PreviewMode = 'action-config' | 'function-call'
+
 interface PreviewState {
+  mode: PreviewMode
   actionType: string
   config: Record<string, any>
   payload: Record<string, any>
-  variables: Record<string, string>
+  functionId: string
+  input: Record<string, any>
 }
 
 /** Post the current height to the parent frame */
 function postHeight() {
-  // Use scrollHeight on the document to capture the full content height
-  // including margins that collapse outside the root div
   const height = Math.max(
     document.documentElement.scrollHeight,
     document.body.scrollHeight,
@@ -22,16 +24,16 @@ function postHeight() {
 
 function App() {
   const [state, setState] = useState<PreviewState>({
+    mode: 'action-config',
     actionType: '',
     config: {},
     payload: {},
-    variables: {},
+    functionId: '',
+    input: {},
   })
   const rootRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number>(0)
 
-  // Debounced height post — coalesce rapid ResizeObserver callbacks
-  // into a single rAF
   const debouncedPostHeight = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(() => {
@@ -44,15 +46,16 @@ function App() {
       const data = event.data
       if (data && data.type === 'preview-update') {
         setState({
+          mode: data.mode ?? 'action-config',
           actionType: data.actionType ?? '',
           config: data.config ?? {},
           payload: data.payload ?? {},
-          variables: data.variables ?? {},
+          functionId: data.functionId ?? '',
+          input: data.input ?? {},
         })
       }
     }
     window.addEventListener('message', handler)
-    // Signal to the parent that the listener is ready
     window.parent.postMessage({ type: 'preview-ready' }, '*')
     return () => window.removeEventListener('message', handler)
   }, [])
@@ -69,10 +72,8 @@ function App() {
     return () => observer.disconnect()
   }, [debouncedPostHeight])
 
-  // Post height after every render (state change triggers re-render,
-  // which may change content before ResizeObserver fires)
+  // Post height after every render
   useEffect(() => {
-    // Use rAF so layout has completed before measuring
     requestAnimationFrame(postHeight)
   })
 
@@ -84,10 +85,12 @@ function App() {
   return (
     <div ref={rootRef}>
       <WebhookPreview
+        mode={state.mode}
         actionType={state.actionType}
         config={state.config}
         payload={state.payload}
-        variables={state.variables}
+        functionId={state.functionId}
+        input={state.input}
       />
     </div>
   )

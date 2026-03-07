@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo } from "react"
 import type { UseFormReturn } from "react-hook-form"
 import { snakeToTitle } from "@/utils"
 
@@ -15,7 +15,6 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { CodeEditor } from "@/components/ui/code-editor"
 import { KeyValueEditor } from "@/components/ui/key-value-editor"
-import { VariableAutocompleteInput } from "@/components/ui/variable-autocomplete-input"
 
 export interface SchemaProperty {
     name: string
@@ -33,12 +32,12 @@ export interface Schema {
     minLength?: number
     format?: string
     order?: number
+    preview?: string
 }
 
 /**
- * Normalize properties from either the new array format
- * `[{ name, schema }]` or the legacy object format `{ name: schema }`
- * into an ordered array of `[name, schema]` tuples.
+ * Normalize properties from either the array format `[{ name, schema }]`
+ * or the legacy object format `{ name: schema }` into ordered tuples.
  */
 function normalizeProperties(
     properties: SchemaProperty[] | Record<string, Schema> | undefined,
@@ -53,67 +52,57 @@ function normalizeProperties(
 }
 
 export interface SchemaFieldsProps {
+    /** Optional heading rendered above the fields. */
     title?: string
+    /** Optional description rendered below the title. */
     description?: string
-    parent: string
+    /** The JSON schema describing the fields. */
     schema: Schema
-    form: UseFormReturn<any>
-    variableNames?: string[]
+    /** Current values keyed by property name. */
+    value: Record<string, unknown>
+    /** Called when any field value changes. */
+    onChange: (v: Record<string, unknown>) => void
 }
 
-export function SchemaFields({
-    title,
-    description,
-    parent,
-    form,
-    schema,
-    variableNames,
-}: SchemaFieldsProps) {
-    // Stable reference to form methods to avoid re-triggering the effect
-    // when the form object identity changes across renders.
-    const formRef = useRef(form)
-    formRef.current = form
-
+export function SchemaFields({ title, description, schema, value, onChange }: SchemaFieldsProps) {
     const entries = normalizeProperties(schema?.properties)
 
-    // Set default values for enum fields that haven't been touched yet
+    const entryKeys = useMemo(() => entries.map(([k]) => k).join(","), [entries])
+
+    // Auto-select the first enum value for any unset enum fields.
     useEffect(() => {
         if (!entries.length) return
+        const defaults: Record<string, unknown> = {}
         for (const [key, item] of entries) {
-            if (item.enum && item.enum.length > 0) {
-                const fieldName = `${parent}.${key}`
-                const current = formRef.current.getValues(fieldName)
-                if (!current) {
-                    formRef.current.setValue(fieldName, item.enum[0], { shouldDirty: false })
-                }
+            if (item.enum && item.enum.length > 0 && !value[key]) {
+                defaults[key] = item.enum[0]
             }
         }
-    }, [schema, parent])
+        if (Object.keys(defaults).length > 0) {
+            onChange({ ...value, ...defaults })
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [entryKeys])
 
-    if (!entries.length) {
-        return null
-    }
+    if (!entries.length) return null
 
-    const sorted = [...entries].sort((a, b) => {
-        const orderA = a[1].order ?? 0
-        const orderB = b[1].order ?? 0
-        return orderA - orderB
-    })
+    const sorted = [...entries].sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0))
+
+    const set = (key: string, v: unknown) => onChange({ ...value, [key]: v })
 
     return (
-        <div className="grid gap-4">
+        <div className="grid gap-3">
             {title && <h4 className="text-sm font-medium">{snakeToTitle(title)}</h4>}
             {description && <p className="text-sm text-muted-foreground">{description}</p>}
             {sorted.map(([key, item]) => {
                 const required = schema.required?.includes(key)
                 const fieldTitle = item.title ?? snakeToTitle(key)
-                const fieldName = `${parent}.${key}`
 
-                // format: "code" — render CodeEditor
+                // format: "code"
                 if (item.format === "code") {
                     return (
-                        <div key={key} className="grid gap-2">
-                            <Label className="inline-flex items-center gap-1">
+                        <div key={key} className="grid gap-1.5">
+                            <Label className="inline-flex items-center gap-1 text-sm font-medium">
                                 {fieldTitle}
                                 {required && <span className="text-destructive">*</span>}
                             </Label>
@@ -121,23 +110,20 @@ export function SchemaFields({
                                 <p className="text-sm text-muted-foreground">{item.description}</p>
                             )}
                             <CodeEditor
-                                value={form.watch(fieldName) ?? ""}
-                                onChange={(val) =>
-                                    form.setValue(fieldName, val, { shouldDirty: true })
-                                }
+                                value={(value[key] as string) ?? ""}
+                                onChange={(val) => set(key, val)}
                                 minHeight={120}
                                 maxHeight={300}
-                                variableNames={variableNames}
                             />
                         </div>
                     )
                 }
 
-                // format: "key-value" — render KeyValueEditor
+                // format: "key-value"
                 if (item.format === "key-value") {
                     return (
-                        <div key={key} className="grid gap-2">
-                            <Label className="inline-flex items-center gap-1">
+                        <div key={key} className="grid gap-1.5">
+                            <Label className="inline-flex items-center gap-1 text-sm font-medium">
                                 {fieldTitle}
                                 {required && <span className="text-destructive">*</span>}
                             </Label>
@@ -145,20 +131,18 @@ export function SchemaFields({
                                 <p className="text-sm text-muted-foreground">{item.description}</p>
                             )}
                             <KeyValueEditor
-                                value={(form.watch(fieldName) as Record<string, string>) ?? {}}
-                                onChange={(val) =>
-                                    form.setValue(fieldName, val, { shouldDirty: true })
-                                }
-                                variableNames={variableNames}
+                                value={(value[key] as Record<string, string>) ?? {}}
+                                onChange={(val) => set(key, val)}
                             />
                         </div>
                     )
                 }
 
+                // enum (select)
                 if (item.enum) {
                     return (
-                        <div key={key} className="grid gap-2">
-                            <Label className="inline-flex items-center gap-1">
+                        <div key={key} className="grid gap-1.5">
+                            <Label className="inline-flex items-center gap-1 text-sm font-medium">
                                 {fieldTitle}
                                 {required && <span className="text-destructive">*</span>}
                             </Label>
@@ -166,34 +150,30 @@ export function SchemaFields({
                                 <p className="text-sm text-muted-foreground">{item.description}</p>
                             )}
                             <Select
-                                value={form.watch(fieldName) ?? ""}
-                                onValueChange={(val) =>
-                                    form.setValue(fieldName, val, { shouldDirty: true })
-                                }
+                                value={(value[key] as string) ?? ""}
+                                onValueChange={(val) => set(key, val)}
                             >
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {item.enum.map((value: string) => (
-                                        <SelectItem key={value} value={value}>
-                                            {snakeToTitle(value)}
+                                    {item.enum.map((v: string) => (
+                                        <SelectItem key={v} value={v}>
+                                            {snakeToTitle(v)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
                     )
-                } else if (item.type === "string" || item.type === "number") {
+                }
+
+                // string / number
+                if (item.type === "string" || item.type === "number") {
                     const useTextarea = (item.minLength ?? 0) >= 80
-                    const useAutocomplete =
-                        item.type === "string" &&
-                        !useTextarea &&
-                        variableNames &&
-                        variableNames.length > 0
                     return (
-                        <div key={key} className="grid gap-2">
-                            <Label className="inline-flex items-center gap-1">
+                        <div key={key} className="grid gap-1.5">
+                            <Label className="inline-flex items-center gap-1 text-sm font-medium">
                                 {fieldTitle}
                                 {required && <span className="text-destructive">*</span>}
                             </Label>
@@ -202,32 +182,33 @@ export function SchemaFields({
                             )}
                             {useTextarea ? (
                                 <Textarea
-                                    {...form.register(fieldName, {
-                                        required,
-                                        minLength: item.minLength,
-                                    })}
-                                />
-                            ) : useAutocomplete ? (
-                                <VariableAutocompleteInput
-                                    variableNames={variableNames}
-                                    value={form.watch(fieldName) ?? ""}
-                                    onChange={(val) =>
-                                        form.setValue(fieldName, val, { shouldDirty: true })
-                                    }
+                                    value={(value[key] as string) ?? ""}
+                                    onChange={(e) => set(key, e.target.value)}
+                                    placeholder={item.preview}
                                 />
                             ) : (
                                 <Input
                                     type={item.type === "number" ? "number" : "text"}
-                                    {...form.register(fieldName, {
-                                        required,
-                                        minLength: item.minLength,
-                                        valueAsNumber: item.type === "number",
-                                    })}
+                                    value={(value[key] as string | number) ?? ""}
+                                    onChange={(e) =>
+                                        set(
+                                            key,
+                                            item.type === "number"
+                                                ? e.target.value === ""
+                                                    ? undefined
+                                                    : Number(e.target.value)
+                                                : e.target.value,
+                                        )
+                                    }
+                                    placeholder={item.preview}
                                 />
                             )}
                         </div>
                     )
-                } else if (item.type === "boolean") {
+                }
+
+                // boolean
+                if (item.type === "boolean") {
                     return (
                         <div
                             key={key}
@@ -242,28 +223,92 @@ export function SchemaFields({
                                 )}
                             </div>
                             <Switch
-                                checked={form.watch(fieldName) ?? false}
-                                onCheckedChange={(checked) =>
-                                    form.setValue(fieldName, checked, { shouldDirty: true })
-                                }
+                                checked={(value[key] as boolean) ?? false}
+                                onCheckedChange={(checked) => set(key, checked)}
                             />
                         </div>
                     )
-                } else if (item.type === "object") {
+                }
+
+                // nested object
+                if (item.type === "object" && item.properties) {
                     return (
-                        <SchemaFields
-                            key={key}
-                            form={form}
-                            title={fieldTitle}
-                            description={item.description}
-                            parent={fieldName}
-                            schema={item}
-                            variableNames={variableNames}
-                        />
+                        <div key={key} className="grid gap-1.5">
+                            <Label className="text-sm font-medium">{fieldTitle}</Label>
+                            {item.description && (
+                                <p className="text-sm text-muted-foreground">{item.description}</p>
+                            )}
+                            <SchemaFields
+                                schema={item}
+                                value={(value[key] as Record<string, unknown>) ?? {}}
+                                onChange={(nested) => set(key, nested)}
+                            />
+                        </div>
                     )
                 }
+
                 return null
             })}
         </div>
+    )
+}
+
+export interface FormSchemaFieldsProps {
+    /** Optional heading rendered above the fields. */
+    title?: string
+    /** Optional description rendered below the title. */
+    description?: string
+    /** The form field path prefix (e.g. "config"). */
+    parent: string
+    /** The JSON schema describing the fields. */
+    schema: Schema
+    /** The react-hook-form instance. */
+    form: UseFormReturn<any>
+}
+
+/**
+ * Adapter that bridges `SchemaFields` to a `react-hook-form` instance.
+ *
+ * It reads/writes values through `form.watch` / `form.setValue` so the
+ * underlying form state stays in sync.
+ */
+export function FormSchemaFields({
+    title,
+    description,
+    parent,
+    form,
+    schema,
+}: FormSchemaFieldsProps) {
+    const watched = form.watch(parent) ?? {}
+
+    // Derive valid keys from the current schema so we can clean up stale ones
+    const schemaKeys = useMemo(() => {
+        const entries = normalizeProperties(schema?.properties)
+        return new Set(entries.map(([k]) => k))
+    }, [schema])
+
+    return (
+        <SchemaFields
+            title={title}
+            description={description}
+            schema={schema}
+            value={watched}
+            onChange={(next) => {
+                // Diff and set only the keys that changed so we don't
+                // unnecessarily mark untouched fields as dirty.
+                for (const key of Object.keys(next)) {
+                    const fieldName = `${parent}.${key}`
+                    if (next[key] !== watched[key]) {
+                        form.setValue(fieldName, next[key], { shouldDirty: true })
+                    }
+                }
+                // Remove stale keys that no longer exist in the current schema
+                for (const key of Object.keys(watched)) {
+                    if (!schemaKeys.has(key) && !(key in next)) {
+                        form.setValue(`${parent}.${key}`, undefined, { shouldDirty: true })
+                    }
+                }
+            }}
+        />
     )
 }

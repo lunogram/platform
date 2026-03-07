@@ -34,7 +34,10 @@ export type Action = components["schemas"]["Action"]
 export type CreateAction = components["schemas"]["CreateAction"]
 export type UpdateAction = components["schemas"]["UpdateAction"]
 export type ActionMeta = components["schemas"]["ActionMeta"]
+export type ActionFunction = components["schemas"]["ActionFunction"]
 export type TestActionRequest = components["schemas"]["TestActionRequest"]
 export type TestActionResult = components["schemas"]["TestActionResult"]
+export type TestActionFunctionRequest = components["schemas"]["TestActionFunctionRequest"]
+export type TestActionFunctionResult = components["schemas"]["TestActionFunctionResult"]
 
 export default oapiClient

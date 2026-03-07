@@ -41,4 +41,5 @@ type JSONSchema struct {
 	Enum        []string             `json:"enum,omitempty"`
 	MinLength   *int                 `json:"minLength,omitempty"`
 	MaxLength   *int                 `json:"maxLength,omitempty"`
+	Preview     string               `json:"preview,omitempty"`
 }

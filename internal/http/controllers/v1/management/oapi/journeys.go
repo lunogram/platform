@@ -1,6 +1,8 @@
 package oapi
 
 import (
+	"encoding/json"
+
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/rules"
 )
@@ -50,7 +52,9 @@ type CampaignStepData struct {
 
 // ActionStepData represents data for action step - execute WASM action
 type ActionStepData struct {
-	ActionId uuid.UUID `json:"action_id"`
+	ActionId   uuid.UUID       `json:"action_id"`
+	FunctionId string          `json:"function_id"`
+	Input      json.RawMessage `json:"input,omitempty"`
 }
 
 // GateStepData represents data for gate step - conditional branching

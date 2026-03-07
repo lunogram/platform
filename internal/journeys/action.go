@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -30,21 +29,26 @@ func HandleAction(ctx HandlerContext, step journey.JourneyVersionStep, state jou
 
 	req := &actiontypes.ExecuteRequest[json.RawMessage]{}
 
-	req.Config, err = actions.MarshalAndRender(action.Config.Data, ctx.Data)
+	req.Config, err = json.Marshal(action.Config.Data)
 	if err != nil {
-		return state, nil, fmt.Errorf("failed to render action config: %w", err)
+		return state, nil, fmt.Errorf("failed to marshal action config: %w", err)
 	}
 
-	result, err := module.Execute(ctx, req)
+	if config.Input != nil {
+		req.Input = config.Input
+	}
+
+	result, err := module.Execute(ctx, config.FunctionId, req)
 	if err != nil {
 		return state, nil, fmt.Errorf("action execution failed: %w", err)
 	}
 
 	if result.Metadata != nil {
 		schema := schemas.ActionSchema{
-			ProjectID: ctx.ProjectID,
-			ActionID:  config.ActionId,
-			Metadata:  result.Metadata,
+			ProjectID:  ctx.ProjectID,
+			ActionID:   config.ActionId,
+			FunctionID: config.FunctionId,
+			Metadata:   result.Metadata,
 		}
 
 		err = ctx.Publisher.Publish(ctx, schemas.ActionsSchema(ctx.ProjectID), schema)

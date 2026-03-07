@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from "react"
+import { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { EditorState, Compartment } from "@codemirror/state"
 import {
     EditorView,
@@ -7,31 +7,45 @@ import {
     highlightActiveLine,
     highlightActiveLineGutter,
 } from "@codemirror/view"
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands"
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands"
 import { json } from "@codemirror/lang-json"
 import { foldGutter, indentOnInput, bracketMatching, foldKeymap } from "@codemirror/language"
-import {
-    autocompletion,
-    completionKeymap,
-    type CompletionContext,
-    type CompletionResult,
-} from "@codemirror/autocomplete"
+import { linter, lintGutter } from "@codemirror/lint"
+import type { Diagnostic } from "@codemirror/lint"
+import { autocompletion, completionKeymap } from "@codemirror/autocomplete"
 import { githubLight } from "@fsegurai/codemirror-theme-github-light"
 import { githubDark } from "@fsegurai/codemirror-theme-github-dark"
-import { Copy, Check, WandSparkles } from "lucide-react"
+import { Copy, Check, WandSparkles, AlertCircle } from "lucide-react"
 import { cn } from "@/utils"
+
+type EditorLanguage = "json" | "auto" | "none"
 
 interface CodeEditorProps {
     value: string
     onChange: (value: string) => void
+    /** Called when the JSON validation state changes (only applies when language is "json"). */
+    onError?: (error: string | null) => void
     className?: string
     minHeight?: number
     maxHeight?: number
     readOnly?: boolean
     placeholder?: string
-    variableNames?: string[]
+    /**
+     * Language mode for the editor.
+     * - `"json"` — enables JSON syntax, linting, and validation
+     * - `"auto"` — auto-detects JSON from content, no linting (default)
+     * - `"none"` — plain text, no language support
+     */
+    language?: EditorLanguage
+    /**
+     * When true (default), the JSON linter requires the root value to be an
+     * object (`{}`). Set to false to also allow arrays and other root types.
+     * Only applies when `language` is `"json"`.
+     */
+    requireObject?: boolean
 }
 
+// Minimal overrides for integration
 const baseTheme = EditorView.theme({
     "&": {
         fontSize: "13px",
@@ -68,72 +82,79 @@ function canFormatAsJson(value: string): boolean {
     }
 }
 
+// Custom JSON linter that validates syntax and optionally structure
+function createJsonLinter(requireObject: boolean) {
+    return linter((view) => {
+        const diagnostics: Diagnostic[] = []
+        const doc = view.state.doc.toString()
+
+        if (!doc.trim()) return diagnostics
+
+        try {
+            const parsed = JSON.parse(doc)
+            if (
+                requireObject &&
+                (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+            ) {
+                diagnostics.push({
+                    from: 0,
+                    to: doc.length,
+                    severity: "error",
+                    message: "Root must be a JSON object",
+                })
+            }
+        } catch (e) {
+            const message = e instanceof Error ? e.message : "Invalid JSON"
+            const posMatch = message.match(/position\s+(\d+)/i)
+            const pos = posMatch ? parseInt(posMatch[1], 10) : 0
+
+            diagnostics.push({
+                from: Math.min(pos, doc.length),
+                to: Math.min(pos + 1, doc.length),
+                severity: "error",
+                message: message,
+            })
+        }
+
+        return diagnostics
+    })
+}
+
 export function CodeEditor({
     value,
     onChange,
+    onError,
     className,
     minHeight = 100,
     maxHeight = 400,
     readOnly = false,
     placeholder,
-    variableNames,
+    language = "auto",
+    requireObject = true,
 }: CodeEditorProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const viewRef = useRef<EditorView | null>(null)
+    const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const [copied, setCopied] = useState(false)
+    const [error, setError] = useState<string | null>(null)
     const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"))
 
+    const isJsonMode = language === "json"
+
+    // Create compartments once per component instance
     const themeCompartment = useMemo(() => new Compartment(), [])
     const editableCompartment = useMemo(() => new Compartment(), [])
     const languageCompartment = useMemo(() => new Compartment(), [])
-    const completionCompartment = useMemo(() => new Compartment(), [])
 
+    // Store callbacks in refs to avoid recreating the editor
     const onChangeRef = useRef(onChange)
+    const validateJsonRef = useRef<(doc: string) => void>(() => {})
+
     useEffect(() => {
         onChangeRef.current = onChange
     }, [onChange])
 
-    // Keep variable names in a ref so the completion source always has the latest
-    const variableNamesRef = useRef(variableNames)
-    useEffect(() => {
-        variableNamesRef.current = variableNames
-    }, [variableNames])
-
-    // Build a CodeMirror completion source for {{ variable }} patterns
-    const variableCompletionSource = useCallback(
-        (ctx: CompletionContext): CompletionResult | null => {
-            const names = variableNamesRef.current
-            if (!names || names.length === 0) return null
-
-            const pos = ctx.pos
-            const line = ctx.state.doc.lineAt(pos)
-            const textBefore = line.text.slice(0, pos - line.from)
-
-            // Find the last `{{` before cursor with no closing `}}`
-            const lastBrace = textBefore.lastIndexOf("{{")
-            if (lastBrace === -1) return null
-
-            const between = textBefore.slice(lastBrace + 2)
-            if (between.includes("}}")) return null
-
-            // The filter text is everything after `{{` (trimmed)
-            const filterText = between.trimStart()
-            const from = line.from + lastBrace + 2 + (between.length - between.trimStart().length)
-
-            return {
-                from,
-                options: names.map((name) => ({
-                    label: name,
-                    apply: ` ${name} }}`,
-                    type: "variable",
-                })),
-                filter: true,
-            }
-        },
-        [],
-    )
-
-    // Track dark mode
+    // Track dark mode changes
     useEffect(() => {
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
@@ -146,6 +167,53 @@ export function CodeEditor({
         return () => observer.disconnect()
     }, [])
 
+    // Validate JSON and report errors (only used in json mode)
+    const validateJson = useCallback(
+        (doc: string) => {
+            if (!isJsonMode) return
+
+            if (!doc.trim()) {
+                setError(null)
+                onError?.(null)
+                return
+            }
+
+            try {
+                const parsed = JSON.parse(doc)
+                if (
+                    requireObject &&
+                    (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+                ) {
+                    const err = "Root must be a JSON object"
+                    setError(err)
+                    onError?.(err)
+                } else {
+                    setError(null)
+                    onError?.(null)
+                }
+            } catch (e) {
+                const err = e instanceof Error ? e.message : "Invalid JSON"
+                setError(err)
+                onError?.(err)
+            }
+        },
+        [isJsonMode, onError, requireObject],
+    )
+
+    useEffect(() => {
+        validateJsonRef.current = validateJson
+    }, [validateJson])
+
+    // Determine the initial language extensions
+    const getLanguageExtensions = useCallback(
+        (content: string) => {
+            if (language === "json") return [json(), createJsonLinter(requireObject), lintGutter()]
+            if (language === "auto" && isJsonContent(content)) return [json()]
+            return []
+        },
+        [language, requireObject],
+    )
+
     // Initialize editor
     useEffect(() => {
         if (!containerRef.current) return
@@ -154,6 +222,7 @@ export function CodeEditor({
             if (update.docChanged) {
                 const doc = update.state.doc.toString()
                 onChangeRef.current(doc)
+                validateJsonRef.current(doc)
             }
         })
 
@@ -166,13 +235,14 @@ export function CodeEditor({
             indentOnInput(),
             bracketMatching(),
             autocompletion(),
-            completionCompartment.of(
-                variableNames && variableNames.length > 0
-                    ? [autocompletion({ override: [variableCompletionSource] })]
-                    : [],
-            ),
-            languageCompartment.of(isJsonContent(value) ? json() : []),
-            keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap, ...completionKeymap]),
+            languageCompartment.of(getLanguageExtensions(value)),
+            keymap.of([
+                ...defaultKeymap,
+                ...historyKeymap,
+                ...foldKeymap,
+                ...completionKeymap,
+                ...(isJsonMode ? [indentWithTab] : []),
+            ]),
             baseTheme,
             themeCompartment.of(isDark ? githubDark : githubLight),
             editableCompartment.of(EditorView.editable.of(!readOnly)),
@@ -181,7 +251,9 @@ export function CodeEditor({
             ...(placeholder
                 ? [EditorView.contentAttributes.of({ "aria-placeholder": placeholder })]
                 : []),
-            EditorView.contentAttributes.of({ "aria-label": "Code Editor" }),
+            EditorView.contentAttributes.of({
+                "aria-label": isJsonMode ? "JSON Editor" : "Code Editor",
+            }),
         ]
 
         const state = EditorState.create({
@@ -196,45 +268,39 @@ export function CodeEditor({
 
         viewRef.current = view
 
+        if (isJsonMode) {
+            validateJson(value)
+        }
+
         return () => {
             view.destroy()
             viewRef.current = null
+            if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [themeCompartment, editableCompartment, languageCompartment, completionCompartment])
+    }, [themeCompartment, editableCompartment, languageCompartment])
 
-    // Update theme
+    // Update theme when dark mode changes
     useEffect(() => {
         const view = viewRef.current
         if (!view) return
+
         view.dispatch({
             effects: themeCompartment.reconfigure(isDark ? githubDark : githubLight),
         })
     }, [isDark, themeCompartment])
 
-    // Update editable
+    // Update editable state
     useEffect(() => {
         const view = viewRef.current
         if (!view) return
+
         view.dispatch({
             effects: editableCompartment.reconfigure(EditorView.editable.of(!readOnly)),
         })
     }, [readOnly, editableCompartment])
 
-    // Update variable completions
-    useEffect(() => {
-        const view = viewRef.current
-        if (!view) return
-        view.dispatch({
-            effects: completionCompartment.reconfigure(
-                variableNames && variableNames.length > 0
-                    ? [autocompletion({ override: [variableCompletionSource] })]
-                    : [],
-            ),
-        })
-    }, [variableNames, completionCompartment, variableCompletionSource])
-
-    // Sync external value & auto-detect language
+    // Sync external value changes & auto-detect language
     useEffect(() => {
         const view = viewRef.current
         if (!view) return
@@ -250,39 +316,34 @@ export function CodeEditor({
             })
         }
 
-        // Update language mode based on content
-        view.dispatch({
-            effects: languageCompartment.reconfigure(isJsonContent(value) ? json() : []),
-        })
-    }, [value, languageCompartment])
+        // Update language mode based on content (only in auto mode)
+        if (language === "auto") {
+            view.dispatch({
+                effects: languageCompartment.reconfigure(isJsonContent(value) ? [json()] : []),
+            })
+        }
+    }, [value, language, languageCompartment])
 
     const handleCopy = async () => {
         await navigator.clipboard.writeText(value)
         setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
+        if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+        copyTimerRef.current = setTimeout(() => setCopied(false), 2000)
     }
 
     const handleFormat = () => {
         try {
             const parsed = JSON.parse(value)
             const formatted = JSON.stringify(parsed, null, 2)
+            // Only update via onChange — the sync effect will push the
+            // formatted value into the CodeMirror editor.
             onChange(formatted)
-
-            const view = viewRef.current
-            if (view) {
-                view.dispatch({
-                    changes: {
-                        from: 0,
-                        to: view.state.doc.length,
-                        insert: formatted,
-                    },
-                })
-            }
         } catch {
-            // Not valid JSON, nothing to format
+            // Can't format invalid JSON
         }
     }
 
+    // Calculate dynamic height based on line count
     const lineCount = value.split("\n").length
     const lineHeight = 20
     const padding = 24
@@ -290,13 +351,14 @@ export function CodeEditor({
         Math.max(lineCount * lineHeight + padding, minHeight),
         maxHeight,
     )
-    const showFormat = canFormatAsJson(value)
+
+    const showFormat = isJsonMode ? !error : canFormatAsJson(value)
 
     return (
         <div className={cn("relative rounded-md border", className)}>
             {/* Toolbar */}
             <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-                {showFormat && (
+                {showFormat && !readOnly && (
                     <button
                         type="button"
                         onClick={handleFormat}
@@ -326,6 +388,14 @@ export function CodeEditor({
                 style={{ minHeight, maxHeight, height: calculatedHeight }}
                 className="overflow-auto"
             />
+
+            {/* Error banner (JSON mode only) */}
+            {isJsonMode && error && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-destructive/10 border-t border-destructive/20">
+                    <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                    <p className="text-xs text-destructive">{error}</p>
+                </div>
+            )}
         </div>
     )
 }

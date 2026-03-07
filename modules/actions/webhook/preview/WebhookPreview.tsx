@@ -1,59 +1,29 @@
-import type { JSX } from "preact";
 import { useState } from "preact/hooks";
-import "./WebhookPreview.css";
+import type { PreviewMode } from "./main";
 
 interface Props {
+  mode: PreviewMode;
   actionType: string;
   config: Record<string, any>;
   payload: Record<string, any>;
-  variables: Record<string, string>;
+  functionId: string;
+  input: Record<string, any>;
 }
 
-const METHOD_CLASS: Record<string, string> = {
-  GET: "badge--get",
-  POST: "badge--post",
-  PUT: "badge--put",
-  PATCH: "badge--patch",
-  DELETE: "badge--delete",
+const METHOD_COLORS: Record<string, string> = {
+  GET: "bg-green text-crust",
+  POST: "bg-blue text-crust",
+  PUT: "bg-peach text-crust",
+  PATCH: "bg-mauve text-crust",
+  DELETE: "bg-red text-crust",
 };
 
-function highlightLiquid(text: string): (string | JSX.Element)[] {
-  const parts: (string | JSX.Element)[] = [];
-  const regex = /(\{\{.*?\}\})/g;
-  let last = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > last) {
-      parts.push(text.slice(last, match.index));
-    }
-    parts.push(<span class="liquid">{match[1]}</span>);
-    last = regex.lastIndex;
-  }
-  if (last < text.length) {
-    parts.push(text.slice(last));
-  }
-  return parts;
-}
-
-function formatJson(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string") {
-    try {
-      return JSON.stringify(JSON.parse(value), null, 2);
-    } catch {
-      return value;
-    }
-  }
-  return JSON.stringify(value, null, 2);
-}
-
-function buildCurl(config: Record<string, any>): string {
-  const method = (config.method ?? "GET").toUpperCase();
-  const url = config.url ?? config.endpoint ?? "";
-  const headers: Record<string, string> = config.headers ?? {};
-  const body = config.body;
-
+function buildCurl(
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+): string {
   const parts = [];
 
   if (method !== "GET") {
@@ -74,106 +44,135 @@ function buildCurl(config: Record<string, any>): string {
   return "curl " + parts.join(" \\\n  ");
 }
 
-function KeyValueTable({
-  entries,
-  emptyMessage,
-}: {
-  entries: [string, string][];
-  emptyMessage: string;
-}) {
-  if (entries.length === 0) {
-    return <div class="empty-table">{emptyMessage}</div>;
-  }
+/**
+ * Resolve the webhook-specific fields from the function's input object
+ * (function-call mode).
+ */
+function resolveFields(props: Props) {
+  const src = props.input ?? {};
+  return {
+    method: ((src.method as string) ?? "GET").toUpperCase(),
+    url: (src.endpoint ?? src.url ?? "") as string,
+    headers: (src.headers as Record<string, string>) ?? {},
+    body: src.body,
+  };
+}
 
+const CAPABILITIES = [
+  { label: "HTTP Methods", detail: "GET, POST, PUT, PATCH, DELETE" },
+  { label: "Custom Headers", detail: "Add authentication and custom headers" },
+  { label: "Request Body", detail: "Send JSON or raw payloads" },
+  { label: "Dynamic Input", detail: "Map journey data into each request" },
+];
+
+function ActionConfigPreview() {
   return (
-    <table class="table">
-      <thead>
-        <tr>
-          <th class="th">Name</th>
-          <th class="th">Value</th>
-        </tr>
-      </thead>
-      <tbody>
-        {entries.map(([key, value]) => (
-          <tr key={key}>
-            <td class="td">{key}</td>
-            <td class="td">{highlightLiquid(String(value))}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div class="flex flex-col gap-0.5">
+      <div class="bg-mantle px-3.5 py-4 rounded-t-lg">
+        <div class="text-sm font-semibold text-text mb-2">Webhook Action</div>
+        <p class="text-[13px] text-subtext0 leading-relaxed m-0">
+          Make HTTP requests to any external API or service. Configure the
+          base URL and default headers here, then define per-step request
+          details inside your journeys.
+        </p>
+      </div>
+      <div class="bg-mantle px-3.5 py-3">
+        <div class="flex justify-between items-center mb-1.5">
+          <div class="text-[10px] uppercase tracking-wider text-overlay0 font-semibold">
+            Capabilities
+          </div>
+        </div>
+        <ul class="list-none m-0 p-0 flex flex-col gap-2">
+          {CAPABILITIES.map((cap) => (
+            <li key={cap.label} class="flex items-baseline gap-2.5 text-xs">
+              <span class="text-text font-semibold whitespace-nowrap">
+                {cap.label}
+              </span>
+              <span class="text-overlay0">{cap.detail}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div class="bg-mantle px-3.5 py-3 rounded-b-lg">
+        <div class="flex justify-between items-center mb-1.5">
+          <div class="text-[10px] uppercase tracking-wider text-overlay0 font-semibold">
+            Example
+          </div>
+        </div>
+        <pre class="block bg-crust rounded px-3 py-2.5 text-xs overflow-x-auto overflow-y-auto max-h-[300px] whitespace-pre-wrap break-all text-text m-0">
+          {`curl -X POST 'https://api.example.com/endpoint' \\
+  -H 'Content-Type: application/json' \\
+  -d '{"key": "value"}'`}
+        </pre>
+      </div>
+    </div>
   );
 }
 
-export function WebhookPreview({ config, variables }: Props) {
-  const [copied, setCopied] = useState(false);
+function MethodBadge({
+  method,
+  hasMethod,
+}: {
+  method: string;
+  hasMethod: boolean;
+}) {
+  if (!hasMethod) {
+    return (
+      <span class="inline-block px-2 py-0.5 rounded text-xs font-bold text-overlay1 bg-surface0 mr-2.5 align-middle">
+        {method}
+      </span>
+    );
+  }
+  return (
+    <span
+      class={`inline-block px-2 py-0.5 rounded text-xs font-bold mr-2.5 align-middle ${METHOD_COLORS[method] ?? ""}`}
+    >
+      {method}
+    </span>
+  );
+}
 
-  const method = ((config.method as string) ?? "GET").toUpperCase();
-  const url = (config.url ?? config.endpoint ?? "") as string;
-  const headers: Record<string, string> =
-    (config.headers as Record<string, string>) ?? {};
-  const body = config.body;
-  const headerEntries = Object.entries(headers);
-  const variableEntries = Object.entries(variables ?? {});
+export function WebhookPreview(props: Props) {
+  if (props.mode === "action-config") {
+    return <ActionConfigPreview />;
+  }
+
+  const [copied, setCopied] = useState(false);
+  const { method, url, headers, body } = resolveFields(props);
 
   const hasUrl = url !== "";
-  const hasBody = body !== null && body !== undefined && body !== "";
-  const hasMethod = config.method !== undefined && config.method !== "";
-
-  const badgeClass = hasMethod
-    ? `badge ${METHOD_CLASS[method] ?? ""}`
-    : "badge--empty";
+  const hasMethod = !!(props.input?.method);
 
   return (
-    <div class="container">
+    <div class="flex flex-col gap-0.5">
       {/* Method + URL */}
-      <div class="section">
+      <div class="bg-mantle px-3.5 py-3 rounded-t-lg">
         <div>
-          <span class={badgeClass}>{method}</span>
+          <MethodBadge method={method} hasMethod={hasMethod} />
           {hasUrl ? (
-            <span class="url">{highlightLiquid(url)}</span>
+            <span class="text-teal break-all align-middle text-[13px]">
+              {url}
+            </span>
           ) : (
-            <span class="placeholder">https://api.example.com/endpoint</span>
+            <span class="text-surface1 italic text-xs">
+              https://api.example.com/endpoint
+            </span>
           )}
         </div>
       </div>
 
-      {/* Headers */}
-      <div class="section">
-        <div class="label">Headers</div>
-        <KeyValueTable
-          entries={headerEntries as [string, string][]}
-          emptyMessage="No headers configured"
-        />
-      </div>
-
-      {/* Body */}
-      <div class="section">
-        <div class="label">Body</div>
-        {hasBody ? (
-          <pre class="code">{highlightLiquid(formatJson(body))}</pre>
-        ) : (
-          <div class="empty-table">No request body</div>
-        )}
-      </div>
-
-      {/* Variables */}
-      <div class="section">
-        <div class="label">Variables</div>
-        <KeyValueTable
-          entries={variableEntries as [string, string][]}
-          emptyMessage="No variables defined"
-        />
-      </div>
-
-      {/* curl snippet — always visible */}
-      <div class="section">
-        <div class="section-header">
-          <div class="section-header__label">curl</div>
+      {/* curl snippet */}
+      <div class="bg-mantle px-3.5 py-3 rounded-b-lg">
+        <div class="flex justify-between items-center mb-1.5">
+          <div class="text-[10px] uppercase tracking-wider text-overlay0 font-semibold">
+            curl
+          </div>
           <button
-            class={`copy-button${copied ? " copy-button--copied" : ""}`}
+            class={`bg-surface0 border-none rounded text-xs px-2 py-0.5 cursor-pointer font-[inherit] leading-snug ${
+              copied ? "text-green" : "text-text"
+            }`}
             onClick={() => {
-              const curl = buildCurl(config);
+              const curl = buildCurl(method, url, headers, body);
               window.parent.postMessage(
                 { type: "copy-to-clipboard", text: curl },
                 "*",
@@ -185,7 +184,9 @@ export function WebhookPreview({ config, variables }: Props) {
             {copied ? "Copied!" : "Copy"}
           </button>
         </div>
-        <pre class="code">{highlightLiquid(buildCurl(config))}</pre>
+        <pre class="block bg-crust rounded px-3 py-2.5 text-xs overflow-x-auto overflow-y-auto max-h-[300px] whitespace-pre-wrap break-all text-text m-0">
+          {buildCurl(method, url, headers, body)}
+        </pre>
       </div>
     </div>
   );

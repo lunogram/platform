@@ -18,7 +18,12 @@ interface EventRuleEditProps {
     journeyContext?: boolean
 }
 
-export default function EventRuleEdit({ rule, setRule, eventName, journeyContext = false }: EventRuleEditProps) {
+export default function EventRuleEdit({
+    rule,
+    setRule,
+    eventName,
+    journeyContext = false,
+}: EventRuleEditProps) {
     const { t } = useTranslation()
 
     if (eventName) {
@@ -103,9 +108,7 @@ export default function EventRuleEdit({ rule, setRule, eventName, journeyContext
                         className="h-8 w-16 rounded-none border-l-0 text-xs shadow-none"
                         value={frequency.count?.toString() ?? ""}
                         onChange={(e) => {
-                            const count = e.target.value
-                                ? parseInt(e.target.value, 10)
-                                : undefined
+                            const count = e.target.value ? parseInt(e.target.value, 10) : undefined
                             setRule({
                                 ...rule,
                                 frequency: {

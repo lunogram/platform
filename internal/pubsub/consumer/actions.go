@@ -26,16 +26,16 @@ func ActionSchemasHandler(logger *zap.Logger, usrs *subjects.State) HandlerFunc 
 			return err
 		}
 
-		logger.Info("incoming action schema", zap.Stringer("action_id", event.ActionID), zap.Stringer("project_id", event.ProjectID))
+		logger.Info("incoming action schema", zap.Stringer("action_id", event.ActionID), zap.String("function_id", event.FunctionID), zap.Stringer("project_id", event.ProjectID))
 
 		paths := rules.ParsePaths(event.Metadata)
-		err = usrs.UpsertActionSchema(ctx, event.ActionID, paths)
+		err = usrs.UpsertActionSchema(ctx, event.ActionID, event.FunctionID, paths)
 		if err != nil {
 			logger.Error("failed to upsert action schema", zap.Error(err))
 			return err
 		}
 
-		logger.Info("action schema processed successfully", zap.Stringer("action_id", event.ActionID))
+		logger.Info("action schema processed successfully", zap.Stringer("action_id", event.ActionID), zap.String("function_id", event.FunctionID))
 		return nil
 	}
 }
@@ -55,7 +55,7 @@ func ActionExecuteHandler(logger *zap.Logger, actionRegistry *actions.Registry, 
 			return
 		}
 
-		log := logger.With(zap.String("action_type", req.Type), zap.Stringer("project_id", req.ProjectID), zap.Stringer("action_id", req.ActionID))
+		log := logger.With(zap.String("action_type", req.Type), zap.String("function_id", req.FunctionID), zap.Stringer("project_id", req.ProjectID), zap.Stringer("action_id", req.ActionID))
 
 		module, exists := actionRegistry.Get(req.Type)
 		if !exists {
@@ -66,42 +66,42 @@ func ActionExecuteHandler(logger *zap.Logger, actionRegistry *actions.Registry, 
 
 		execReq := &actiontypes.ExecuteRequest[json.RawMessage]{}
 
-		execReq.Config, action = actions.MarshalAndRender(req.Config, req.Variables)
-		if action != nil {
-			log.Error("failed to render config", zap.Error(action))
-			respondWithError(msg, log, "failed to render config")
+		var err error
+		execReq.Config, err = json.Marshal(req.Config)
+		if err != nil {
+			log.Error("failed to marshal config", zap.Error(err))
+			respondWithError(msg, log, "failed to marshal config")
 			return
 		}
 
-		if req.Payload != nil {
-			execReq.Payload, action = actions.MarshalAndRender(req.Payload, req.Variables)
-			if action != nil {
-				log.Error("failed to render payload", zap.Error(action))
-				respondWithError(msg, log, "failed to render payload")
+		if req.Input != nil {
+			execReq.Input, err = json.Marshal(req.Input)
+			if err != nil {
+				log.Error("failed to marshal input", zap.Error(err))
+				respondWithError(msg, log, "failed to marshal input")
 				return
 			}
 		}
 
 		log.Info("calling WASM execute")
 
-		result, action := module.Execute(ctx, execReq)
-		if action != nil {
-			log.Error("action execution failed", zap.Error(action))
-			respondWithError(msg, log, "action execution failed: "+action.Error())
+		result, execErr := module.Execute(ctx, req.FunctionID, execReq)
+		if execErr != nil {
+			log.Error("action execution failed", zap.Error(execErr))
+			respondWithError(msg, log, "action execution failed: "+execErr.Error())
 			return
 		}
 
-		log.Info("action execution completed", zap.String("status", result.Status))
+		log.Info("action execution completed", zap.Int("status_code", result.StatusCode))
 
 		resp := schemas.ExecuteActionResponse{
-			Status:     result.Status,
 			StatusCode: result.StatusCode,
 			Metadata:   result.Metadata,
 		}
 
-		data, action := json.Marshal(resp)
-		if action != nil {
-			log.Error("failed to marshal response", zap.Error(action))
+		data, marshalErr := json.Marshal(resp)
+		if marshalErr != nil {
+			log.Error("failed to marshal response", zap.Error(marshalErr))
 			respondWithError(msg, log, "failed to marshal response")
 			return
 		}
@@ -113,9 +113,10 @@ func ActionExecuteHandler(logger *zap.Logger, actionRegistry *actions.Registry, 
 		// Publish metadata to NATS for schema extraction if present and action is saved
 		if result.Metadata != nil && req.ActionID != uuid.Nil {
 			schemaMsg := schemas.ActionSchema{
-				ProjectID: req.ProjectID,
-				ActionID:  req.ActionID,
-				Metadata:  result.Metadata,
+				ProjectID:  req.ProjectID,
+				ActionID:   req.ActionID,
+				FunctionID: req.FunctionID,
+				Metadata:   result.Metadata,
 			}
 			if pubErr := pub.Publish(ctx, schemas.ActionsSchema(req.ProjectID), schemaMsg); pubErr != nil {
 				// Non-fatal: schema extraction failure should not block the response
@@ -123,15 +124,96 @@ func ActionExecuteHandler(logger *zap.Logger, actionRegistry *actions.Registry, 
 			}
 		}
 
-		log.Info("action executed successfully", zap.String("status", result.Status))
+		log.Info("action executed successfully", zap.Int("status_code", result.StatusCode))
+	}
+}
+
+// ActionValidateHandler creates a handler that processes action config validation
+// requests using NATS core request/reply.
+func ActionValidateHandler(logger *zap.Logger, actionRegistry *actions.Registry) CallerHandlerFunc {
+	return func(ctx context.Context, msg *nats.Msg) {
+		logger.Info("received action validation request")
+
+		var req schemas.ValidateAction
+		if err := json.Unmarshal(msg.Data, &req); err != nil {
+			logger.Error("failed to unmarshal validate request", zap.Error(err))
+			respondWithValidateError(msg, logger, "failed to parse request")
+			return
+		}
+
+		log := logger.With(zap.String("action_type", req.Type), zap.Stringer("project_id", req.ProjectID))
+
+		module, exists := actionRegistry.Get(req.Type)
+		if !exists {
+			log.Warn("unknown action type")
+			respondWithValidateError(msg, log, "unknown action type: "+req.Type)
+			return
+		}
+
+		validateReq := &actiontypes.ValidateRequest[json.RawMessage]{}
+
+		var err error
+		validateReq.Config, err = json.Marshal(req.Config)
+		if err != nil {
+			log.Error("failed to marshal config", zap.Error(err))
+			respondWithValidateError(msg, log, "failed to marshal config")
+			return
+		}
+
+		log.Info("calling WASM validate")
+
+		result, err := module.Validate(ctx, validateReq)
+		if err != nil {
+			log.Error("action validation failed", zap.Error(err))
+			respondWithValidateError(msg, log, "action validation failed: "+err.Error())
+			return
+		}
+
+		log.Info("action validation completed", zap.Int("status_code", result.StatusCode))
+
+		resp := schemas.ValidateActionResponse{
+			StatusCode: result.StatusCode,
+			Message:    result.Message,
+		}
+
+		data, err := json.Marshal(resp)
+		if err != nil {
+			log.Error("failed to marshal response", zap.Error(err))
+			respondWithValidateError(msg, log, "failed to marshal response")
+			return
+		}
+
+		if err := msg.Respond(data); err != nil {
+			log.Error("failed to send reply", zap.Error(err))
+		}
+
+		log.Info("action validated successfully", zap.Int("status_code", result.StatusCode))
+	}
+}
+
+// respondWithValidateError sends a validation error response back through the NATS reply subject.
+func respondWithValidateError(msg *nats.Msg, log *zap.Logger, errMsg string) {
+	resp := schemas.ValidateActionResponse{
+		StatusCode: 500,
+		Message:    errMsg,
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		log.Error("failed to marshal error response", zap.Error(err))
+		return
+	}
+
+	if err := msg.Respond(data); err != nil {
+		log.Error("failed to send error reply", zap.Error(err))
 	}
 }
 
 // respondWithError sends an error response back through the NATS reply subject.
 func respondWithError(msg *nats.Msg, log *zap.Logger, errMsg string) {
 	resp := schemas.ExecuteActionResponse{
-		Status: "error",
-		Error:  errMsg,
+		StatusCode: 500,
+		Error:      errMsg,
 	}
 
 	data, err := json.Marshal(resp)
