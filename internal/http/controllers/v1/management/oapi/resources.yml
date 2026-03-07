@@ -725,6 +725,41 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/lists/{listID}/users/preview:
+    get:
+      summary: Preview list users
+      description: Returns a limited preview of users that match the list's draft rule without modifying list membership
+      operationId: previewListUsers
+      tags:
+        - Lists
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: listID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The list ID
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Preview users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserList"
+        default:
+          $ref: "#/components/responses/Error"
+
     post:
       summary: Import list users
       description: Imports users to a static list from a CSV file
@@ -1060,6 +1095,195 @@ paths:
           description: Journey deleted successfully
         default:
           $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}/state:
+    get:
+      summary: Get user journey state
+      description: Retrieves the current state of a user in a journey
+      operationId: getUserJourneyState
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        "200":
+          description: User journey state retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    external_step_id:
+                      type: string
+                    step_type:
+                      type: string
+                    is_completed:
+                      type: boolean
+        default:
+          $ref: "#/components/responses/Error"
+  
+  /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}:
+    get:
+      summary: Stream user journey steps
+      description: Streams the current steps and progress of a specific user in a journey in real-time using Server-Sent Events (SSE)
+      operationId: streamUserJourneySteps
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID to check journey status for
+      responses:
+        "200":
+          description: Server-Sent Event stream of user journey step updates
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-Sent Events stream. Events include "connected" on connection and "step" events with journey step data.
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      summary: Trigger a user into a journey
+      description: Triggers a user into a journey at a specific entrance step, typically used for testing or manual overrides
+      operationId: triggerUser
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID to enroll in the journey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - externalStepID
+              properties:
+                externalStepID:
+                  type: string
+                  format: uuid
+                  description: The ID of the journey entry to enroll the user in
+      responses:
+        "200":
+          description: User enrolled in journey successfully
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      summary: Advance user step
+      description: Advances the current step for a user in a journey and moves to the next step
+      operationId: AdvanceUserStep
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID whose current step should be advanced
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - externalStepID
+              properties:
+                externalStepID:
+                  type: string
+                  format: uuid
+                  description: The external ID of the current step to advance
+      responses:
+        "200":
+          description: Current step advanced successfully
+        default:
+          $ref: "#/components/responses/Error"
+
 
   /api/admin/projects/{projectID}/journeys/{journeyID}/steps:
     get:
@@ -4211,6 +4435,7 @@ components:
         - exit
         - delay
         - action
+        - campaign
         - gate
         - experiment
         - link
@@ -4228,7 +4453,7 @@ components:
       properties:
         trigger:
           type: string
-          enum: [none, event, schedule]
+          enum: [none, event]
           description: Trigger type for entrance
           example: "event"
         event_name:
@@ -4253,14 +4478,6 @@ components:
           type: boolean
           description: Allow concurrent journey runs
           example: false
-        list_id:
-          type: string
-          format: uuid
-          description: List ID for scheduled entrance
-        schedule:
-          type: string
-          description: RRule schedule string
-          example: "FREQ=DAILY;BYHOUR=9;BYMINUTE=0"
 
     ExitStepData:
       type: object
@@ -4312,9 +4529,9 @@ components:
             minimum: 0
             maximum: 6
 
-    ActionStepData:
+    CampaignStepData:
       type: object
-      description: Data for action step - send campaign
+      description: Data for campaign step - send campaign
       required:
         - campaign_id
       properties:
@@ -4322,6 +4539,19 @@ components:
           type: string
           format: uuid
           description: Campaign to send
+          example: "52f3f921-1343-48af-b795-87c0fd3b44aa"
+          x-go-type: uuid.UUID
+
+    ActionStepData:
+      type: object
+      description: Data for action step - execute WASM action
+      required:
+        - action_id
+      properties:
+        action_id:
+          type: string
+          format: uuid
+          description: Action to execute
           example: "52f3f921-1343-48af-b795-87c0fd3b44aa"
           x-go-type: uuid.UUID
 
@@ -4850,6 +5080,9 @@ components:
           type: array
           items:
             type: string
+        published:
+          type: boolean
+          description: When true, publishes the current draft rule making it active
 
     List:
       type: object
@@ -4858,6 +5091,7 @@ components:
         - project_id
         - name
         - type
+        - state
         - users_count
         - version
         - is_visible
@@ -4878,13 +5112,25 @@ components:
           type: string
           enum: [static, dynamic]
           example: "dynamic"
-        rule_id:
+        state:
           type: string
-          format: uuid
+          enum: [draft, ready, loading]
+          example: "draft"
+          description: "draft = not yet published, ready = published and active, loading = recomputing"
         rule:
           type: object
           additionalProperties: true
           x-go-type: rules.RuleSet
+          description: "Published rule definition (from the published version)"
+        draft_rule:
+          type: object
+          additionalProperties: true
+          x-go-type: rules.RuleSet
+          description: "Draft rule definition (from the draft version, if one exists)"
+        version_number:
+          type: integer
+          example: 1
+          description: "Current version number of the active list version"
         version:
           type: integer
           example: 1

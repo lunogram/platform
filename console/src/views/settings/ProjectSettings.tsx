@@ -1,6 +1,6 @@
 import { useContext, useState } from "react"
 import { ProjectContext } from "../../contexts"
-import { toast } from "react-hot-toast/headless"
+import { toast } from "sonner"
 import ProjectForm from "../project/ProjectForm"
 import { useTranslation } from "react-i18next"
 import api from "../../api"

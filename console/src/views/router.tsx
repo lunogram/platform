@@ -35,7 +35,7 @@ import TemplateContent from "./campaign/template/Content"
 import TemplateReview from "./campaign/template/Review"
 import EmailEditor from "./campaign/template/mail/editor/Editor"
 import Journeys from "./journey/Journeys"
-import JourneyEditor from "./journey/JourneyEditor"
+import JourneyEditor from "./journey/editor/JourneyEditor"
 import Actions from "./action/Actions"
 import ActionDetail from "./action/ActionDetail"
 import ProjectSettings from "./settings/ProjectSettings"
@@ -404,7 +404,7 @@ export const createRouter = ({
                                         apiPath: api.journeys,
                                         paramName: "entityId",
                                         context: JourneyContext,
-                                        element: <JourneyEditor />,
+                                        element: <Outlet />,
                                         children: [
                                             {
                                                 index: true,

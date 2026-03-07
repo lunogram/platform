@@ -7,7 +7,7 @@ import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
 import type { Project, Provider, ProviderCreateParams, ProviderMeta } from "../../types"
-import type { SchemaProperty } from "@/components/SchemaFields"
+import type { SchemaProperty } from "@/components/schema-fields"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,7 +21,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
-import { SchemaFields } from "@/components/SchemaFields"
+import { SchemaFields } from "@/components/schema-fields"
 interface IntegrationFormParams {
     project: Project
     meta: ProviderMeta

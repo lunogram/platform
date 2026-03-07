@@ -40,6 +40,7 @@ const (
 	ConsumerUserEventsSchema          = "users-events-schema"
 	ConsumerListsRecompute            = "lists-recompute"
 	ConsumerJourneysAdvance           = "journeys-advance"
+	ConsumerJourneysAdvanceUser       = "journeys-advance-user"
 	ConsumerCampaignsSend             = "campaigns-send"
 	ConsumerOrganizationsProcess      = "organizations-process"
 	ConsumerOrganizationsSchema       = "organizations-schema"

@@ -36,6 +36,12 @@ func (controller *Controller) ReconcileJourneyResumptions(ctx context.Context) {
 	}
 
 	for _, state := range states {
+		stepType, err := controller.journeys.GetStepType(ctx, *state.PinnedVersionID, state.ExternalStepID)
+		if err != nil {
+			controller.logger.Error("failed to get step type", zap.Error(err), zap.Stringer("journey_id", state.JourneyID), zap.String("step_id", state.ExternalStepID))
+			continue
+		}
+
 		step := schemas.JourneyStep{
 			ProjectID:      state.ProjectID,
 			JourneyID:      state.JourneyID,
@@ -43,10 +49,11 @@ func (controller *Controller) ReconcileJourneyResumptions(ctx context.Context) {
 			VersionID:      state.PinnedVersionID,
 			UserID:         state.UserID,
 			ExternalStepID: state.ExternalStepID,
+			StepType:       stepType,
 			StateID:        &state.ID,
 		}
 
-		err = controller.pub.Publish(ctx, schemas.JourneysAdvance(state.ProjectID, state.JourneyID), step)
+		err = controller.pub.Publish(ctx, schemas.JourneysAdvance(state.ProjectID, state.JourneyID, state.UserID), step)
 		if err != nil {
 			controller.logger.Error("failed to publish journey step", zap.Error(err), zap.Stringer("journey_id", state.JourneyID), zap.Stringer("journey_entry_id", state.JourneyEntryID))
 		}

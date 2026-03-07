@@ -59,14 +59,22 @@ func (qb *QueryBuilder) buildFrequencyRule(rule *rules.Rule) (string, error) {
 	freq := rule.Frequency
 
 	// Build time period condition
-	if freq.Period.Type != rules.PeriodTypeRolling {
-		return "", fmt.Errorf("only rolling periods are currently supported")
+	var timeCondition string
+	switch freq.Period.Type {
+	case rules.PeriodTypeRolling:
+		interval := fmt.Sprintf("%d %s", freq.Period.Value, freq.Period.Unit.SQL())
+		timeCondition = fmt.Sprintf("ue.created_at >= NOW() - %s::interval", qb.arg(interval))
+	case rules.PeriodTypeSinceEntered:
+		if qb.sinceTimestamp == nil {
+			return "", fmt.Errorf("since_entered period type requires a since timestamp")
+		}
+		timeCondition = fmt.Sprintf("ue.created_at >= %s", qb.arg(*qb.sinceTimestamp))
+	default:
+		return "", fmt.Errorf("unsupported period type: %s", freq.Period.Type)
 	}
 
-	interval := fmt.Sprintf("%d %s", freq.Period.Value, freq.Period.Unit.SQL())
-
 	// Start with base event conditions
-	eventConditions := []string{fmt.Sprintf("ue.created_at >= NOW() - %s::interval", qb.arg(interval))}
+	eventConditions := []string{timeCondition}
 
 	// Event name condition
 	if rule.Value != nil {

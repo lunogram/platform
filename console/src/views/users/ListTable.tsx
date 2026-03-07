@@ -1,11 +1,11 @@
 import type { Key } from "react"
 import type { List, ListState, SearchParams, SearchResult } from "../../types"
-import { SearchTable, useSearchTableState } from "../../ui/SearchTable"
-import type { TagVariant } from "../../ui/Tag"
-import Tag from "../../ui/Tag"
+import { SearchTable, useSearchTableState } from "@/components/search-table"
+import { Badge } from "@/components/ui/badge"
+import type { BadgeProps } from "@/components/ui/badge"
 import { snakeToTitle } from "../../utils"
 import { useRoute } from "../router"
-import Menu, { MenuItem } from "../../ui/Menu"
+import Menu, { MenuItem } from "@/components/menu"
 import { ArchiveIcon, DuplicateIcon, EditIcon } from "../../components/icons"
 import api from "../../api"
 import { useNavigate, useParams } from "react-router"
@@ -21,10 +21,10 @@ interface ListTableParams {
 }
 
 export const ListTag = ({ state, progress }: Pick<List, "state" | "progress">) => {
-    const variant: Record<ListState, TagVariant> = {
-        draft: "plain",
-        loading: "info",
-        ready: "success",
+    const variant: Record<ListState, BadgeProps["variant"]> = {
+        draft: "secondary",
+        loading: "default",
+        ready: "outline",
     }
 
     const complete = progress?.complete ?? 0
@@ -36,10 +36,10 @@ export const ListTag = ({ state, progress }: Pick<List, "state" | "progress">) =
     })
 
     return (
-        <Tag variant={variant[state]}>
+        <Badge variant={variant[state]}>
             <Translation>{(t) => t(state)}</Translation>
             {progress && ` (${percentStr})`}
-        </Tag>
+        </Badge>
     )
 }
 
@@ -91,6 +91,11 @@ export default function ListTable({ search, selectedRow, onSelectRow, title }: L
                     key: "users_count",
                     title: t("users_count"),
                     cell: ({ item }) => item.users_count?.toLocaleString(),
+                },
+                {
+                    key: "state",
+                    title: t("state"),
+                    cell: ({ item }) => <ListTag state={item.state} progress={item.progress} />,
                 },
                 {
                     key: "created_at",

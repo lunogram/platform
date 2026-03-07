@@ -1,0 +1,62 @@
+/* ===================================================
+   JourneyEditor.css — Minimal overrides only.
+   All layout/component styling is now handled by Tailwind.
+   This file retains: ReactFlow overrides, animations,
+   editing opacity states, and step-type Describe styles
+   that haven't been migrated to Tailwind yet.
+   =================================================== */
+
+/* --- Editing state: dim non-editing nodes --- */
+.journey-editing .react-flow__node {
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
+}
+
+.journey-editing .react-flow__node:has(.journey-editing-active) {
+    opacity: 1;
+}
+
+/* --- Active pulse animation (orange border glow) --- */
+@keyframes busy-pulse {
+    0% {
+        border-color: rgba(249, 115, 22, 1);
+        box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4);
+    }
+    70% {
+        border-color: rgba(249, 115, 22, 1);
+        box-shadow: 0 0 0 10px rgba(249, 115, 22, 0);
+    }
+    100% {
+        border-color: rgba(249, 115, 22, 1);
+        box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+    }
+}
+
+.journey-active-pulse {
+    animation: busy-pulse 2s infinite;
+}
+
+/* --- ReactFlow handle overrides --- */
+.react-flow__handle {
+    width: 10px;
+    height: 10px;
+}
+
+.react-flow__handle-connecting {
+    background: var(--color-red);
+}
+
+.react-flow__handle-valid {
+    background: var(--color-green);
+}
+
+/* --- ReactFlow edge path width --- */
+.react-flow__edge-path,
+.react-flow__connection-path {
+    stroke-width: 2;
+}
+
+/* --- Hide ReactFlow attribution --- */
+.react-flow__attribution {
+    display: none;
+}

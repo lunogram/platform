@@ -2,6 +2,7 @@ package subjects
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -28,6 +29,17 @@ type Event struct {
 	Name        string      `db:"name"`
 	SubjectType SubjectType `db:"subject_type"`
 	Schema      []EventSchemaPath
+}
+
+type JourneyEntranceStep struct {
+	JourneyID  uuid.UUID                        `db:"journey_id"`
+	VersionID  uuid.UUID                        `db:"version_id"`
+	StepID     uuid.UUID                        `db:"step_id"`
+	ExternalID string                           `db:"external_id"`
+	Type       string                           `db:"type"`
+	DataKey    *string                          `db:"data_key"`
+	Data       *json.RawMessage                 `db:"data"`
+	Children   store.JourneyVersionStepChildren `db:"children"`
 }
 
 func NewEventsStore(db store.DB) *EventsStore {
@@ -138,7 +150,8 @@ func (s *EventsStore) ListEventListDependencies(ctx context.Context, id uuid.UUI
 	stmt := `
 	SELECT l.id AS list_id
 	FROM rules_events re
-	JOIN lists l ON l.rule_id = re.rule_id
+	JOIN list_versions lv ON lv.rule_id = re.rule_id AND lv.status = 'published'
+	JOIN lists l ON l.id = lv.list_id
 	WHERE re.event_id = $1
 	AND l.deleted_at IS NULL`
 
@@ -149,4 +162,63 @@ func (s *EventsStore) ListEventListDependencies(ctx context.Context, id uuid.UUI
 	}
 
 	return ids, nil
+}
+
+func (s *EventsStore) ListEventJourneyDependencies(ctx context.Context, eventID uuid.UUID) ([]JourneyEntranceStep, error) {
+	query := `
+	SELECT
+		j.id AS journey_id,
+		jv.id AS version_id,
+		jvs.id AS step_id,
+		jvs.external_id,
+		jvs.type,
+		jvs.data_key,
+		jvs.data,
+		COALESCE(
+			json_agg(row_to_json(c)) FILTER (WHERE c.version_id IS NOT NULL),
+			'[]'
+		) AS children
+	FROM journeys j
+	JOIN journey_versions jv ON jv.id = j.version_id AND jv.status = 'published'
+	JOIN journey_version_step_events jvse ON jvse.version_id = jv.id
+	JOIN journey_version_steps jvs ON jvs.version_id = jv.id AND jvs.external_id = jvse.external_id
+	LEFT JOIN journey_version_step_children c ON jvs.version_id = c.version_id AND jvs.external_id = c.parent_external_id
+	WHERE jvse.event_id = $1
+	AND j.deleted_at IS NULL
+	AND jvs.type = 'entrance'
+	GROUP BY j.id, jv.id, jvs.id`
+
+	var entrances []JourneyEntranceStep
+	err := s.db.SelectContext(ctx, &entrances, query, eventID)
+	return entrances, err
+}
+
+func (s *EventsStore) GetEventJourneyStep(ctx context.Context, externalStepID string, versionID uuid.UUID) (JourneyEntranceStep, error) {
+	query := `
+	SELECT
+		j.id AS journey_id,
+		jv.id AS version_id,
+		jvs.id AS step_id,
+		jvs.external_id,
+		jvs.type,
+		jvs.data_key,
+		jvs.data,
+		COALESCE(
+			json_agg(row_to_json(c)) FILTER (WHERE c.version_id IS NOT NULL),
+			'[]'
+		) AS children
+	FROM journeys j
+	JOIN journey_versions jv ON jv.id = j.version_id
+	JOIN journey_version_steps jvs ON jvs.version_id = jv.id
+	LEFT JOIN journey_version_step_children c ON jvs.version_id = c.version_id 
+		AND jvs.external_id = c.parent_external_id
+	WHERE jv.id = $2
+		AND jvs.external_id = $1
+		AND j.deleted_at IS NULL
+		AND jvs.type = 'entrance'
+	GROUP BY j.id, jv.id, jvs.id`
+
+	var entrances JourneyEntranceStep
+	err := s.db.GetContext(ctx, &entrances, query, externalStepID, versionID)
+	return entrances, err
 }

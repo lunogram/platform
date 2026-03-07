@@ -20,7 +20,7 @@ import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import { ProjectContext } from "../../contexts"
-import { PreferencesContext } from "../../ui/PreferencesContext"
+import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { JourneyForm } from "./JourneyForm"
 import { JourneysIcon } from "@/components/icons"
 

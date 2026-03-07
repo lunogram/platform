@@ -1,8 +1,8 @@
 import type { JourneyStepType } from "../../../types"
-import SourceEditor from "../../../ui/SourceEditor"
 import { EventStepIcon } from "../../../components/icons"
-import { JsonPreview } from "../../../ui"
-import TextInput from "../../../ui/form/TextInput"
+import { JsonEditor } from "@/components/ui/json-editor"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { useTranslation } from "react-i18next"
 
 interface EventConfig {
@@ -19,8 +19,8 @@ export const eventStep: JourneyStepType<EventConfig> = {
         const { t } = useTranslation()
         if (value?.template) {
             try {
-                const parsed = JSON.parse(value.template)
-                return <JsonPreview value={parsed} />
+                JSON.parse(value.template)
+                return <JsonEditor value={value.template} onChange={() => {}} readOnly />
             } catch {
                 return <>{t("trigger_event_empty")}</>
             }
@@ -29,34 +29,36 @@ export const eventStep: JourneyStepType<EventConfig> = {
     },
     newData: async () => ({
         template: "{\n\n}\n",
-        event_name: "Journey Triggered",
+        event_name: "user.updated",
     }),
     Edit: ({ onChange, value }) => {
         const { t } = useTranslation()
         return (
-            <div style={{ maxWidth: 400 }}>
-                <TextInput
-                    name="event_name"
-                    label={t("event_name")}
-                    value={value.event_name}
-                    onChange={(event_name) => onChange({ ...value, event_name })}
-                />
-                <p>
+            <>
+                <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">{t("event_name")}</Label>
+                    <Input
+                        value={value.event_name}
+                        onChange={(e) => onChange({ ...value, event_name: e.target.value })}
+                    />
+                </div>
+                <p className="text-sm text-muted-foreground">
                     {t("trigger_event_desc1")}
                     {t("trigger_event_desc2")}
-                    <code>{"user"}</code>
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{"user"}</code>
                     {t("trigger_event_desc3")}
-                    <code>{"journey[data_key]"}</code>
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+                        {"journey[data_key]"}
+                    </code>
                     {"."}
                 </p>
-                <SourceEditor
-                    onChange={(template = "") => onChange({ ...value, template })}
+                <JsonEditor
+                    onChange={(template) => onChange({ ...value, template })}
                     value={value.template ?? ""}
-                    height={500}
-                    width="400px"
-                    language="handlebars"
+                    maxHeight={500}
+                    className="rounded-md border"
                 />
-            </div>
+            </>
         )
     },
 }

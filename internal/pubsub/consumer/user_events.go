@@ -25,6 +25,7 @@ type JourneyStep struct {
 	VersionID      *uuid.UUID `json:"version_id,omitempty"`
 	UserID         uuid.UUID  `json:"user_id"`
 	ExternalStepID string     `json:"external_step_id"`
+	StepType       string     `json:"step_type"`
 	StateID        *uuid.UUID `json:"state_id,omitempty"`
 }
 
@@ -156,6 +157,20 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 
 			logger.Info("triggering journey entrance step", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("step_id", dep.StepID))
 
+			multiple := entrance.Multiple != nil && *entrance.Multiple
+			concurrent := entrance.Concurrent != nil && *entrance.Concurrent
+
+			eligible, err := jrny.CheckEntryEligibility(ctx, dep.JourneyID, event.UserID, dep.ExternalID, multiple, concurrent)
+			if err != nil {
+				logger.Error("failed to check journey entry eligibility", zap.Error(err))
+				return err
+			}
+
+			if !eligible {
+				logger.Info("user not eligible to enter journey", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("user_id", event.UserID), zap.Bool("multiple", multiple), zap.Bool("concurrent", concurrent))
+				continue
+			}
+
 			entry, err := uuid.NewRandom()
 			if err != nil {
 				logger.Error("failed to generate journey entry ID", zap.Error(err))
@@ -186,15 +201,22 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 			}
 
 			for _, child := range dep.Children {
+				stepType, err := jrny.GetStepType(ctx, dep.VersionID, child.ChildExternalID)
+				if err != nil {
+					logger.Error("failed to get step type for child", zap.Error(err))
+					continue
+				}
+
 				step := JourneyStep{
 					ProjectID:      event.ProjectID,
 					JourneyID:      dep.JourneyID,
 					JourneyEntryID: entry,
 					ExternalStepID: child.ChildExternalID,
 					UserID:         event.UserID,
+					StepType:       stepType,
 				}
 
-				err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID), step)
+				err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID, event.UserID), step)
 				if err != nil {
 					logger.Error("failed to publish journey state to project subject", zap.Error(err))
 					return err

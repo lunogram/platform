@@ -1,7 +1,7 @@
 import { useContext, useState } from "react"
 import { Outlet, useNavigate, NavLink, useLocation, Link } from "react-router"
 import { useTranslation } from "react-i18next"
-import { toast } from "react-hot-toast/headless"
+import { toast } from "sonner"
 import {
     Trash2,
     FileText,
@@ -19,7 +19,7 @@ import {
     Check,
 } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
-import { PreferencesContext } from "../../ui/PreferencesContext"
+import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { getRandomColor } from "@/lib/colors"
 import { formatDate, cn } from "../../utils"
 import api from "../../api"
@@ -54,7 +54,7 @@ import {
     CommandItem,
     CommandList,
 } from "@/components/ui/command"
-import { Input } from "@/components/ui/input"
+import { InlineEdit } from "@/components/ui/inline-edit"
 import type { User } from "../../types"
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -78,12 +78,6 @@ export default function UserDetail() {
     const [isDeleting, setIsDeleting] = useState(false)
     const [isTimezoneOpen, setIsTimezoneOpen] = useState(false)
     const [isSavingTimezone, setIsSavingTimezone] = useState(false)
-    const [isEmailOpen, setIsEmailOpen] = useState(false)
-    const [isSavingEmail, setIsSavingEmail] = useState(false)
-    const [emailValue, setEmailValue] = useState(user.email ?? "")
-    const [isPhoneOpen, setIsPhoneOpen] = useState(false)
-    const [isSavingPhone, setIsSavingPhone] = useState(false)
-    const [phoneValue, setPhoneValue] = useState(user.phone ?? "")
     const [isLocaleOpen, setIsLocaleOpen] = useState(false)
     const [isSavingLocale, setIsSavingLocale] = useState(false)
 
@@ -104,52 +98,6 @@ export default function UserDetail() {
             toast.error(t("timezone_update_error", "Failed to update timezone"))
         } finally {
             setIsSavingTimezone(false)
-        }
-    }
-
-    const handleEmailChange = async () => {
-        const trimmedEmail = emailValue.trim()
-        if (trimmedEmail === (user.email ?? "")) {
-            setIsEmailOpen(false)
-            return
-        }
-        setIsSavingEmail(true)
-        try {
-            const updatedUser = await api.users.update(project.id, user.id, {
-                email: trimmedEmail || undefined,
-            } as User)
-            if (updatedUser) {
-                setUser(updatedUser)
-                toast.success(t("email_updated", "Email updated"))
-            }
-            setIsEmailOpen(false)
-        } catch {
-            toast.error(t("email_update_error", "Failed to update email"))
-        } finally {
-            setIsSavingEmail(false)
-        }
-    }
-
-    const handlePhoneChange = async () => {
-        const trimmedPhone = phoneValue.trim()
-        if (trimmedPhone === (user.phone ?? "")) {
-            setIsPhoneOpen(false)
-            return
-        }
-        setIsSavingPhone(true)
-        try {
-            const updatedUser = await api.users.update(project.id, user.id, {
-                phone: trimmedPhone || undefined,
-            } as User)
-            if (updatedUser) {
-                setUser(updatedUser)
-                toast.success(t("phone_updated", "Phone updated"))
-            }
-            setIsPhoneOpen(false)
-        } catch {
-            toast.error(t("phone_update_error", "Failed to update phone"))
-        } finally {
-            setIsSavingPhone(false)
         }
     }
 
@@ -277,277 +225,55 @@ export default function UserDetail() {
                                 </h1>
                                 <p className="text-sm text-muted-foreground flex items-center flex-wrap gap-x-0">
                                     {/* 1. Email */}
-                                    {user.email ? (
-                                        <>
-                                            <Popover
-                                                open={isEmailOpen}
-                                                onOpenChange={(open) => {
-                                                    setIsEmailOpen(open)
-                                                    if (open) setEmailValue(user.email ?? "")
-                                                }}
-                                            >
-                                                <PopoverTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors group"
-                                                    >
-                                                        <Mail className="h-3 w-3" />
-                                                        <span>{user.email}</span>
-                                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
-                                                    </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-72 p-3" align="start">
-                                                    <form
-                                                        onSubmit={(e) => {
-                                                            e.preventDefault()
-                                                            handleEmailChange()
-                                                        }}
-                                                        className="flex flex-col gap-2"
-                                                    >
-                                                        <Input
-                                                            type="email"
-                                                            value={emailValue}
-                                                            onChange={(e) =>
-                                                                setEmailValue(e.target.value)
-                                                            }
-                                                            placeholder={t(
-                                                                "email_placeholder",
-                                                                "user@example.com",
-                                                            )}
-                                                            autoFocus
-                                                            disabled={isSavingEmail}
-                                                        />
-                                                        <div className="flex justify-end gap-2">
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() =>
-                                                                    setIsEmailOpen(false)
-                                                                }
-                                                                disabled={isSavingEmail}
-                                                            >
-                                                                {t("cancel")}
-                                                            </Button>
-                                                            <Button
-                                                                type="submit"
-                                                                size="sm"
-                                                                disabled={isSavingEmail}
-                                                            >
-                                                                {isSavingEmail
-                                                                    ? t("saving", "Saving...")
-                                                                    : t("save")}
-                                                            </Button>
-                                                        </div>
-                                                    </form>
-                                                </PopoverContent>
-                                            </Popover>
-                                            <span className="mx-2">·</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Popover
-                                                open={isEmailOpen}
-                                                onOpenChange={(open) => {
-                                                    setIsEmailOpen(open)
-                                                    if (open) setEmailValue("")
-                                                }}
-                                            >
-                                                <PopoverTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors text-muted-foreground/60 hover:text-muted-foreground group"
-                                                    >
-                                                        <Mail className="h-3 w-3" />
-                                                        {t("set_email", "Set email")}
-                                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
-                                                    </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-72 p-3" align="start">
-                                                    <form
-                                                        onSubmit={(e) => {
-                                                            e.preventDefault()
-                                                            handleEmailChange()
-                                                        }}
-                                                        className="flex flex-col gap-2"
-                                                    >
-                                                        <Input
-                                                            type="email"
-                                                            value={emailValue}
-                                                            onChange={(e) =>
-                                                                setEmailValue(e.target.value)
-                                                            }
-                                                            placeholder={t(
-                                                                "email_placeholder",
-                                                                "user@example.com",
-                                                            )}
-                                                            autoFocus
-                                                            disabled={isSavingEmail}
-                                                        />
-                                                        <div className="flex justify-end gap-2">
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() =>
-                                                                    setIsEmailOpen(false)
-                                                                }
-                                                                disabled={isSavingEmail}
-                                                            >
-                                                                {t("cancel")}
-                                                            </Button>
-                                                            <Button
-                                                                type="submit"
-                                                                size="sm"
-                                                                disabled={isSavingEmail}
-                                                            >
-                                                                {isSavingEmail
-                                                                    ? t("saving", "Saving...")
-                                                                    : t("save")}
-                                                            </Button>
-                                                        </div>
-                                                    </form>
-                                                </PopoverContent>
-                                            </Popover>
-                                            <span className="mx-2">·</span>
-                                        </>
-                                    )}
+                                    <InlineEdit
+                                        value={user.email ?? ""}
+                                        onSave={async (value) => {
+                                            const updatedUser = await api.users.update(
+                                                project.id,
+                                                user.id,
+                                                {
+                                                    email: value || undefined,
+                                                } as User,
+                                            )
+                                            if (updatedUser) {
+                                                setUser(updatedUser)
+                                                toast.success(t("email_updated", "Email updated"))
+                                            }
+                                        }}
+                                        icon={<Mail className="h-3 w-3" />}
+                                        placeholder={t("set_email", "Set email")}
+                                        type="email"
+                                        inputPlaceholder={t(
+                                            "email_placeholder",
+                                            "user@example.com",
+                                        )}
+                                    />
+                                    <span className="mx-2">·</span>
                                     {/* 2. Phone */}
-                                    {user.phone ? (
-                                        <>
-                                            <Popover
-                                                open={isPhoneOpen}
-                                                onOpenChange={(open) => {
-                                                    setIsPhoneOpen(open)
-                                                    if (open) setPhoneValue(user.phone ?? "")
-                                                }}
-                                            >
-                                                <PopoverTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors group"
-                                                    >
-                                                        <Phone className="h-3 w-3" />
-                                                        <span>{user.phone}</span>
-                                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
-                                                    </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-72 p-3" align="start">
-                                                    <form
-                                                        onSubmit={(e) => {
-                                                            e.preventDefault()
-                                                            handlePhoneChange()
-                                                        }}
-                                                        className="flex flex-col gap-2"
-                                                    >
-                                                        <Input
-                                                            type="tel"
-                                                            value={phoneValue}
-                                                            onChange={(e) =>
-                                                                setPhoneValue(e.target.value)
-                                                            }
-                                                            placeholder={t(
-                                                                "phone_placeholder",
-                                                                "+1 (555) 000-0000",
-                                                            )}
-                                                            autoFocus
-                                                            disabled={isSavingPhone}
-                                                        />
-                                                        <div className="flex justify-end gap-2">
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() =>
-                                                                    setIsPhoneOpen(false)
-                                                                }
-                                                                disabled={isSavingPhone}
-                                                            >
-                                                                {t("cancel")}
-                                                            </Button>
-                                                            <Button
-                                                                type="submit"
-                                                                size="sm"
-                                                                disabled={isSavingPhone}
-                                                            >
-                                                                {isSavingPhone
-                                                                    ? t("saving", "Saving...")
-                                                                    : t("save")}
-                                                            </Button>
-                                                        </div>
-                                                    </form>
-                                                </PopoverContent>
-                                            </Popover>
-                                            <span className="mx-2">·</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Popover
-                                                open={isPhoneOpen}
-                                                onOpenChange={(open) => {
-                                                    setIsPhoneOpen(open)
-                                                    if (open) setPhoneValue("")
-                                                }}
-                                            >
-                                                <PopoverTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 -my-0.5 hover:bg-muted transition-colors text-muted-foreground/60 hover:text-muted-foreground group"
-                                                    >
-                                                        <Phone className="h-3 w-3" />
-                                                        {t("set_phone", "Set phone")}
-                                                        <Pencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
-                                                    </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-72 p-3" align="start">
-                                                    <form
-                                                        onSubmit={(e) => {
-                                                            e.preventDefault()
-                                                            handlePhoneChange()
-                                                        }}
-                                                        className="flex flex-col gap-2"
-                                                    >
-                                                        <Input
-                                                            type="tel"
-                                                            value={phoneValue}
-                                                            onChange={(e) =>
-                                                                setPhoneValue(e.target.value)
-                                                            }
-                                                            placeholder={t(
-                                                                "phone_placeholder",
-                                                                "+1 (555) 000-0000",
-                                                            )}
-                                                            autoFocus
-                                                            disabled={isSavingPhone}
-                                                        />
-                                                        <div className="flex justify-end gap-2">
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() =>
-                                                                    setIsPhoneOpen(false)
-                                                                }
-                                                                disabled={isSavingPhone}
-                                                            >
-                                                                {t("cancel")}
-                                                            </Button>
-                                                            <Button
-                                                                type="submit"
-                                                                size="sm"
-                                                                disabled={isSavingPhone}
-                                                            >
-                                                                {isSavingPhone
-                                                                    ? t("saving", "Saving...")
-                                                                    : t("save")}
-                                                            </Button>
-                                                        </div>
-                                                    </form>
-                                                </PopoverContent>
-                                            </Popover>
-                                            <span className="mx-2">·</span>
-                                        </>
-                                    )}
+                                    <InlineEdit
+                                        value={user.phone ?? ""}
+                                        onSave={async (value) => {
+                                            const updatedUser = await api.users.update(
+                                                project.id,
+                                                user.id,
+                                                {
+                                                    phone: value || undefined,
+                                                } as User,
+                                            )
+                                            if (updatedUser) {
+                                                setUser(updatedUser)
+                                                toast.success(t("phone_updated", "Phone updated"))
+                                            }
+                                        }}
+                                        icon={<Phone className="h-3 w-3" />}
+                                        placeholder={t("set_phone", "Set phone")}
+                                        type="tel"
+                                        inputPlaceholder={t(
+                                            "phone_placeholder",
+                                            "+1 (555) 000-0000",
+                                        )}
+                                    />
+                                    <span className="mx-2">·</span>
                                     {/* 3. Locale */}
                                     {user.locale ? (
                                         <>

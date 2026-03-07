@@ -7,7 +7,7 @@ import {
     highlightActiveLine,
     highlightActiveLineGutter,
 } from "@codemirror/view"
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands"
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands"
 import { json } from "@codemirror/lang-json"
 import { foldGutter, indentOnInput, bracketMatching, foldKeymap } from "@codemirror/language"
 import { linter, lintGutter } from "@codemirror/lint"
@@ -173,7 +173,7 @@ export function JsonEditor({
             json(),
             createJsonLinter(),
             lintGutter(),
-            keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap, ...completionKeymap]),
+            keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap, ...completionKeymap, indentWithTab]),
             baseTheme,
             themeCompartment.of(isDark ? githubDark : githubLight),
             editableCompartment.of(EditorView.editable.of(!readOnly)),
@@ -277,6 +277,7 @@ export function JsonEditor({
     return (
         <div className={cn("relative", className)}>
             {/* Toolbar */}
+            {!readOnly && (
             <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
                 <button
                     onClick={handleFormat}
@@ -303,6 +304,7 @@ export function JsonEditor({
                     )}
                 </button>
             </div>
+            )}
 
             {/* Editor */}
             <div

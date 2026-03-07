@@ -1,16 +1,29 @@
 import { isRouteErrorResponse, Navigate, useNavigate, useRouteError } from "react-router"
-import type { AlertProps } from "../ui/Alert"
-import Alert from "../ui/Alert"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { logout } from "../utils"
 import { useClerk } from "@clerk/clerk-react"
 
 import "./ErrorPage.css"
 
-const ErrorAlert = (props: AlertProps) => {
+const ErrorAlert = ({
+    variant,
+    title,
+    actions,
+    children,
+}: {
+    variant?: "default" | "destructive"
+    title: string
+    actions?: React.ReactNode
+    children?: React.ReactNode
+}) => {
     return (
         <section className="error-page">
-            <Alert {...props} />
+            <Alert variant={variant}>
+                <AlertTitle>{title}</AlertTitle>
+                <AlertDescription>{children}</AlertDescription>
+                {actions && <div className="mt-2 flex gap-2">{actions}</div>}
+            </Alert>
         </section>
     )
 }
@@ -45,7 +58,7 @@ export default function ErrorPage({ status = 500 }: { status?: number }) {
 
         return (
             <ErrorAlert
-                variant="plain"
+                variant="default"
                 title="Looks Like You're Lost!"
                 actions={
                     <Button
@@ -63,7 +76,7 @@ export default function ErrorPage({ status = 500 }: { status?: number }) {
     }
 
     return (
-        <ErrorAlert variant="error" title={`Error [${status.toString()}]`}>
+        <ErrorAlert variant="destructive" title={`Error [${status.toString()}]`}>
             {message}
         </ErrorAlert>
     )
@@ -74,7 +87,7 @@ export function AccessDenied() {
 
     return (
         <ErrorAlert
-            variant="warn"
+            variant="default"
             title="Access Denied"
             actions={
                 <>

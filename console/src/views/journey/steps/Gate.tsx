@@ -2,7 +2,7 @@ import { useContext } from "react"
 import type { JourneyStepType, Rule } from "../../../types"
 import { GateStepIcon } from "../../../components/icons"
 import RuleBuilder from "../../users/rules/RuleBuilder"
-import { PreferencesContext } from "../../../ui/PreferencesContext"
+import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useTranslation } from "react-i18next"
 import { ruleDescription } from "../../users/rules/RuleDescriptions"
 import { createWrapperRule } from "../../users/rules/RuleHelpers"
@@ -21,7 +21,7 @@ export const gateStep: JourneyStepType<GateConfig> = {
         const [preferences] = useContext(PreferencesContext)
         if (value.rule) {
             return (
-                <div style={{ maxWidth: 300 }}>
+                <div className="max-w-[300px]">
                     {t("has_done") + " "}
                     {ruleDescription(preferences, value.rule, [], value.rule.operator)}
                 </div>
@@ -39,6 +39,8 @@ export const gateStep: JourneyStepType<GateConfig> = {
                 rule={value.rule}
                 setRule={(rule) => onChange({ ...value, rule })}
                 headerPrefix={t("does_user_match")}
+                userOnly={true}
+                journeyContext={true}
             />
         )
     },

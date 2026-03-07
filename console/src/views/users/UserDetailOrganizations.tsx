@@ -9,7 +9,7 @@ import {
     Search,
 } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
-import { PreferencesContext } from "../../ui/PreferencesContext"
+import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useResolver } from "../../hooks"
 import { useRoute } from "../router"
 import { formatDate, cn } from "../../utils"

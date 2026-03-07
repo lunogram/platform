@@ -60,7 +60,7 @@ func (u User) UserEvent(name string) UserEvent {
 			"phone":    u.Phone,
 			"timezone": u.Timezone,
 			"locale":   u.Locale,
-			"data":     u.Data,
+			"traits":   u.Data,
 			"version":  u.Version,
 		},
 	}
@@ -79,7 +79,18 @@ type JourneyStep struct {
 	VersionID      *uuid.UUID `json:"version_id,omitempty"`
 	UserID         uuid.UUID  `json:"user_id"`
 	ExternalStepID string     `json:"external_step_id"`
+	StepType       string     `json:"step_type"`
 	StateID        *uuid.UUID `json:"state_id,omitempty"`
+}
+
+// JourneyStepExecuted is published when a user completes their final step in a journey.
+type JourneyStepExecuted struct {
+	ProjectID      uuid.UUID `json:"project_id"`
+	JourneyID      uuid.UUID `json:"journey_id"`
+	JourneyEntryID uuid.UUID `json:"journey_entry_id"`
+	UserID         uuid.UUID `json:"user_id"`
+	ExternalStepID string    `json:"external_step_id"`
+	StepType       string    `json:"step_type"`
 }
 
 // Organization represents an organization with associated project information.
@@ -103,7 +114,7 @@ func (o Organization) OrganizationEvent(name string) OrganizationEvent {
 			"id":          o.ID,
 			"external_id": o.ExternalID,
 			"name":        o.Name,
-			"data":        o.Data,
+			"traits":      o.Data,
 			"version":     o.Version,
 		},
 	}
@@ -130,7 +141,7 @@ func (ou OrganizationUser) OrganizationEvent(name string) OrganizationEvent {
 			"organization_id":          ou.OrganizationID,
 			"organization_external_id": ou.OrganizationExternalID,
 			"user_id":                  ou.UserID,
-			"data":                     ou.Data,
+			"traits":                   ou.Data,
 			"version":                  ou.Version,
 		},
 	}
@@ -177,8 +188,13 @@ func ListsRecompute(projectID uuid.UUID, listID uuid.UUID) Subject {
 }
 
 // JourneysAdvance returns the NATS subject for journey advancement.
-func JourneysAdvance(projectID uuid.UUID, journeyID uuid.UUID) Subject {
-	return Subject(fmt.Sprintf("journeys.advance.%s.%s", projectID, journeyID))
+func JourneysAdvance(projectID uuid.UUID, journeyID uuid.UUID, userID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("journeys.advance.%s.%s.%s", projectID, journeyID, userID))
+}
+
+// JourneysStepExecuted returns the NATS subject for journey step execution notifications.
+func JourneysStepExecuted(projectID uuid.UUID, journeyID uuid.UUID, userID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("journeys.step_executed.%s.%s.%s", projectID, journeyID, userID))
 }
 
 // OrganizationsProcess returns the NATS subject for organization processing.

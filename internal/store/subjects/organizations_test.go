@@ -805,12 +805,17 @@ func TestSelectListOrganizationsDependency(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Create a list using this rule
+	// Create a list and publish a version with this rule
 	listID, err := db.CreateList(ctx, List{
 		ProjectID: projectID,
-		RuleID:    &ruleID,
 		Name:      "Org Dependent List",
 	})
+	require.NoError(t, err)
+
+	versionID, err := db.CreateVersion(ctx, listID, &ruleID)
+	require.NoError(t, err)
+
+	err = db.PublishVersion(ctx, listID, versionID)
 	require.NoError(t, err)
 
 	// Should find the list as a dependency
@@ -836,12 +841,17 @@ func TestSelectListOrganizationsDependencyNoMatch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Create a list using this rule
+	// Create a list and publish a version with this rule
 	listID, err := db.CreateList(ctx, List{
 		ProjectID: projectID,
-		RuleID:    &ruleID,
 		Name:      "User Dependent List",
 	})
+	require.NoError(t, err)
+
+	versionID, err := db.CreateVersion(ctx, listID, &ruleID)
+	require.NoError(t, err)
+
+	err = db.PublishVersion(ctx, listID, versionID)
 	require.NoError(t, err)
 
 	// Should NOT find the list as an organization dependency
@@ -866,12 +876,17 @@ func TestSelectListOrganizationUsersDependency(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Create a list using this rule
+	// Create a list and publish a version with this rule
 	listID, err := db.CreateList(ctx, List{
 		ProjectID: projectID,
-		RuleID:    &ruleID,
 		Name:      "Org User Dependent List",
 	})
+	require.NoError(t, err)
+
+	versionID, err := db.CreateVersion(ctx, listID, &ruleID)
+	require.NoError(t, err)
+
+	err = db.PublishVersion(ctx, listID, versionID)
 	require.NoError(t, err)
 
 	// Should find the list as a dependency
@@ -897,12 +912,17 @@ func TestSelectListOrganizationUsersDependencyNoMatch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Create a list using this rule
+	// Create a list and publish a version with this rule
 	listID, err := db.CreateList(ctx, List{
 		ProjectID: projectID,
-		RuleID:    &ruleID,
 		Name:      "Org Dependent List",
 	})
+	require.NoError(t, err)
+
+	versionID, err := db.CreateVersion(ctx, listID, &ruleID)
+	require.NoError(t, err)
+
+	err = db.PublishVersion(ctx, listID, versionID)
 	require.NoError(t, err)
 
 	// Should NOT find the list as an organization user dependency

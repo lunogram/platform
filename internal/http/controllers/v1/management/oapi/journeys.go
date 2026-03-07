@@ -21,8 +21,6 @@ type DelayStepDataFormat string
 type EntranceStepData struct {
 	Trigger    *string        `json:"trigger,omitempty"`
 	EventName  *string        `json:"event_name,omitempty"`
-	ListId     *string        `json:"list_id,omitempty"`
-	Schedule   *string        `json:"schedule,omitempty"`
 	Rule       *rules.RuleSet `json:"rule,omitempty"`
 	UserRule   *rules.RuleSet `json:"user_rule,omitempty"`
 	Concurrent *bool          `json:"concurrent,omitempty"`

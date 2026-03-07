@@ -1,6 +1,6 @@
 import { Combobox } from "../../../components/ui/combobox"
 import type { Rule, RulePath } from "../../../types"
-import { highlightSearch, usePopperSelectDropdown } from "../../../ui/utils"
+import { highlightSearch, usePopperSelectDropdown } from "@/lib/ui-utils"
 import { useContext } from "react"
 import { VariablesContext } from "./RuleHelpers"
 

@@ -1,7 +1,7 @@
 import { useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Save } from "lucide-react"
-import { toast } from "react-hot-toast/headless"
+import { toast } from "sonner"
 import { ProjectContext, OrganizationContext } from "../../contexts"
 import oapiClient from "../../oapi/client"
 

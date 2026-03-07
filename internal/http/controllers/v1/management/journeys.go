@@ -4,26 +4,36 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/http/sse"
+	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/pubsub/consumer"
+	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
-func NewJourneysController(logger *zap.Logger, journeyDB, subjectsDB *sqlx.DB, mgmt *management.State) *JourneysController {
+func NewJourneysController(logger *zap.Logger, journeyDB, subjectsDB *sqlx.DB, mgmt *management.State, pub pubsub.Publisher, jet jetstream.JetStream) *JourneysController {
 	return &JourneysController{
 		logger:     logger,
 		journeyDB:  journeyDB,
 		subjectsDB: subjectsDB,
 		mgmt:       mgmt,
 		jrny:       journey.NewState(journeyDB),
+		subjects:   subjects.NewState(subjectsDB),
+		pub:        pub,
+		jet:        jet,
 	}
 }
 
@@ -32,7 +42,10 @@ type JourneysController struct {
 	journeyDB  *sqlx.DB
 	subjectsDB *sqlx.DB
 	mgmt       *management.State
+	subjects   *subjects.State
 	jrny       *journey.State
+	pub        pubsub.Publisher
+	jet        jetstream.JetStream
 }
 
 func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListJourneysParams) {
@@ -318,6 +331,246 @@ func (srv *JourneysController) DeleteJourney(w http.ResponseWriter, r *http.Requ
 
 	logger.Info("journey deleted")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *JourneysController) StreamUserJourneySteps(
+	w http.ResponseWriter,
+	r *http.Request,
+	projectID uuid.UUID,
+	journeyID uuid.UUID,
+	userID uuid.UUID,
+) {
+	ctx := r.Context()
+	enc := sse.NewEncoder(w)
+	enc.WriteEvent("message", "connected")
+	rc := http.NewResponseController(w)
+
+	err := rc.SetWriteDeadline(time.Time{})
+	if err != nil {
+		srv.logger.Error("failed to set write deadline", zap.Error(err))
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.Stringer("journey_id", journeyID),
+		zap.Stringer("user_id", userID),
+	)
+	logger.Info("streaming user journey steps")
+
+	nconn := srv.jet.Conn()
+	journeyAdvanceSubject := schemas.JourneysAdvance(projectID, journeyID, userID)
+	journeyAdvanceSub, err := nconn.Subscribe(string(journeyAdvanceSubject), func(msg *nats.Msg) {
+		enc.WriteEvent("step", json.RawMessage(msg.Data))
+	})
+
+	if err != nil {
+		enc.WriteHeader(http.StatusInternalServerError)
+		logger.Error("subscribe failed", zap.Error(err))
+		return
+	}
+
+	//nolint: errcheck
+	defer journeyAdvanceSub.Unsubscribe()
+
+	executedSubject := schemas.JourneysStepExecuted(projectID, journeyID, userID)
+	executedSub, err := nconn.Subscribe(string(executedSubject), func(msg *nats.Msg) {
+		enc.WriteEvent("step_executed", json.RawMessage(msg.Data))
+	})
+
+	if err != nil {
+		enc.WriteHeader(http.StatusInternalServerError)
+		logger.Error("subscribe to step executed failed", zap.Error(err))
+		return
+	}
+
+	//nolint: errcheck
+	defer executedSub.Unsubscribe()
+
+	<-ctx.Done()
+	logger.Info("client disconnected")
+}
+
+func (srv *JourneysController) GetUserJourneyState(w http.ResponseWriter, r *http.Request, projectID, journeyID, userID uuid.UUID) {
+	ctx := r.Context()
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.Stringer("journey_id", journeyID),
+		zap.Stringer("user_id", userID),
+	)
+	logger.Info("getting user journey state")
+
+	states, err := srv.jrny.GetUserJourneyCurrentState(ctx, projectID, journeyID, userID)
+	if err != nil {
+		logger.Error("failed to get user journey state", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	type responseItem struct {
+		ExternalStepID string `json:"external_step_id"`
+		StepType       string `json:"step_type"`
+		IsCompleted    bool   `json:"is_completed"`
+	}
+
+	response := make([]responseItem, len(states))
+	for i, state := range states {
+		response[i] = responseItem{
+			ExternalStepID: state.ExternalStepID,
+			StepType:       state.StepType,
+			IsCompleted:    state.CompletedAt != nil,
+		}
+	}
+
+	json.Write(w, http.StatusOK, response)
+}
+
+func (srv *JourneysController) TriggerUser(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID, userID uuid.UUID) {
+	ctx := r.Context()
+
+	body := oapi.TriggerUserJSONRequestBody{}
+	err := json.Decode(r.Body, &body)
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	externalStepIDStr := body.ExternalStepID.String()
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.Stringer("journey_id", journeyID),
+		zap.Stringer("user_id", userID),
+		zap.String("external_step_id", externalStepIDStr),
+	)
+
+	logger.Info("triggering user into journey")
+
+	journeys := journey.NewJourneysStore(srv.journeyDB)
+
+	currJourney, err := journeys.GetJourney(ctx, projectID, journeyID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("journey not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to get journey", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if currJourney.VersionID == nil {
+		logger.Info("no published version for journey, returning error")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("journey has no published version")))
+		return
+	}
+
+	journeyStep, err := journeys.GetJourneyStep(ctx, journeyID, externalStepIDStr, currJourney.VersionID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("journey step not found", zap.String("external_step_id", externalStepIDStr))
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey step not found")))
+		return
+	}
+
+	_, err = journeys.CreateUserJourneyState(ctx, journey.JourneyUserState{
+		UserID:          userID,
+		JourneyID:       journeyID,
+		JourneyEntryID:  journeyStep.ID,
+		ExternalStepID:  externalStepIDStr,
+		PinnedVersionID: currJourney.VersionID,
+	})
+
+	if err != nil {
+		logger.Error("failed to create user journey state", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	for _, child := range journeyStep.Children {
+		stepType, err := journeys.GetStepType(ctx, *currJourney.VersionID, child.ChildExternalID)
+		if err != nil {
+			logger.Error("failed to get step type for child", zap.Error(err))
+			continue
+		}
+
+		step := consumer.JourneyStep{
+			ProjectID:      currJourney.ProjectID,
+			JourneyID:      journeyID,
+			JourneyEntryID: journeyStep.ID,
+			ExternalStepID: child.ChildExternalID,
+			UserID:         userID,
+			VersionID:      currJourney.VersionID,
+			StepType:       stepType,
+		}
+
+		err = srv.pub.Publish(ctx, schemas.JourneysAdvance(currJourney.ProjectID, step.JourneyID, step.UserID), step)
+		if err != nil {
+			logger.Error("failed to publish journey state to project subject", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	}
+
+	logger.Info("journey triggered for user")
+	json.Write(w, http.StatusOK, "Journey triggered successfully for user")
+}
+
+func (srv *JourneysController) AdvanceUserStep(w http.ResponseWriter, r *http.Request, projectID, journeyID, userID uuid.UUID) {
+	ctx := r.Context()
+
+	body := oapi.AdvanceUserStepJSONRequestBody{}
+	err := json.Decode(r.Body, &body)
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	externalStepIDStr := body.ExternalStepID.String()
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.Stringer("journey_id", journeyID),
+		zap.Stringer("user_id", userID),
+		zap.String("external_step_id", externalStepIDStr),
+	)
+	logger.Info("skipping user journey step")
+
+	state, err := srv.jrny.ResumeUserJourneyStep(ctx, journeyID, userID, externalStepIDStr)
+	if err != nil {
+		logger.Error("failed to skip user journey step", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	stepType, err := srv.jrny.GetStepType(ctx, *state.PinnedVersionID, state.ExternalStepID)
+	if err != nil {
+		logger.Error("failed to get step type", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	step := schemas.JourneyStep{
+		ProjectID:      projectID,
+		JourneyID:      state.JourneyID,
+		JourneyEntryID: state.JourneyEntryID,
+		VersionID:      state.PinnedVersionID,
+		UserID:         state.UserID,
+		ExternalStepID: state.ExternalStepID,
+		StepType:       stepType,
+		StateID:        &state.ID,
+	}
+
+	err = srv.pub.Publish(ctx, schemas.JourneysAdvance(projectID, state.JourneyID, state.UserID), step)
+	if err != nil {
+		logger.Error("failed to publish skipped journey step", zap.Error(err), zap.Stringer("state_id", state.ID))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	json.Write(w, http.StatusOK, "User journey step skipped")
 }
 
 func (srv *JourneysController) GetJourneySteps(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {

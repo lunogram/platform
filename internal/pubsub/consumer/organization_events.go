@@ -154,6 +154,9 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 
 			logger.Info("triggering journey entrance step for organization users", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("step_id", dep.StepID))
 
+			multiple := entrance.Multiple != nil && *entrance.Multiple
+			concurrent := entrance.Concurrent != nil && *entrance.Concurrent
+
 			data, err := json.Marshal(event.Data)
 			if err != nil {
 				logger.Error("failed to marshal journey entry data", zap.Error(err))
@@ -174,6 +177,18 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 					rows.Close()
 					logger.Error("failed to scan user ID", zap.Error(err))
 					return err
+				}
+
+				eligible, err := jrny.CheckEntryEligibility(ctx, dep.JourneyID, userID, dep.ExternalID, multiple, concurrent)
+				if err != nil {
+					rows.Close()
+					logger.Error("failed to check journey entry eligibility", zap.Error(err), zap.Stringer("user_id", userID))
+					return err
+				}
+
+				if !eligible {
+					logger.Info("user not eligible to enter journey", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("user_id", userID))
+					continue
 				}
 
 				entry, err := uuid.NewRandom()
@@ -209,7 +224,7 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 						UserID:         userID,
 					}
 
-					err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID), step)
+					err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID, userID), step)
 					if err != nil {
 						rows.Close()
 						logger.Error("failed to publish journey state", zap.Error(err), zap.Stringer("user_id", userID))

@@ -289,12 +289,17 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = usersState.ListsStore.CreateList(ctx, subjects.List{
+	listID, err := usersState.ListsStore.CreateList(ctx, subjects.List{
 		ProjectID: projectID,
 		Name:      "Test List",
 		Type:      "static",
-		RuleID:    &ruleID,
 	})
+	require.NoError(t, err)
+
+	versionID, err := usersState.ListsStore.CreateVersion(ctx, listID, &ruleID)
+	require.NoError(t, err)
+
+	err = usersState.ListsStore.PublishVersion(ctx, listID, versionID)
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
@@ -457,8 +462,13 @@ func TestPublishUserRecomputeListsSuccess(t *testing.T) {
 		ProjectID: projectID,
 		Name:      "Adult List",
 		Type:      "static",
-		RuleID:    &ruleID,
 	})
+	require.NoError(t, err)
+
+	versionID, err := usersState.ListsStore.CreateVersion(ctx, listID, &ruleID)
+	require.NoError(t, err)
+
+	err = usersState.ListsStore.PublishVersion(ctx, listID, versionID)
 	require.NoError(t, err)
 
 	_, err = jet.CreateStream(ctx, jetstream.StreamConfig{

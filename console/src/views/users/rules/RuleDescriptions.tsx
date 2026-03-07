@@ -120,7 +120,14 @@ export function ruleDescription(
             nodes.push("user property ")
         }
 
-        nodes.push(<code key={nodes.length}>{trimPathDisplay(rule.path)}</code>)
+        nodes.push(
+            <code
+                key={nodes.length}
+                className="rounded bg-muted px-1 py-0.5 font-mono text-[0.9em]"
+            >
+                {trimPathDisplay(rule.path)}
+            </code>,
+        )
 
         nodes.push(
             " " +
@@ -143,7 +150,14 @@ export function ruleDescription(
                     }
                 }
                 if (value.includes("{{")) {
-                    nodes.push(<code key={nodes.length}>{value}</code>)
+                    nodes.push(
+                        <code
+                            key={nodes.length}
+                            className="rounded bg-muted px-1 py-0.5 font-mono text-[0.9em]"
+                        >
+                            {value}
+                        </code>,
+                    )
                 } else {
                     value = value.trim()
                     if (rule.type === "boolean") value = "true"

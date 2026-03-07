@@ -1,7 +1,7 @@
 import { useCallback, useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Save, Smartphone, Monitor, Tablet, Trash2 } from "lucide-react"
-import { toast } from "react-hot-toast/headless"
+import { toast } from "sonner"
 import { ProjectContext, UserContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import api from "../../api"

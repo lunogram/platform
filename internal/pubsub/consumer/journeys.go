@@ -30,7 +30,7 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 			return err
 		}
 
-		data, err := jrny.GetJourneyEntryData(ctx, event.JourneyEntryID, event.UserID)
+		data, err := jrny.GetJourneyEntryData(ctx, db, event.JourneyEntryID, event.UserID)
 		if err != nil {
 			logger.Error("failed to get journey entry data", zap.Error(err))
 			return err
@@ -67,6 +67,21 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 
 		if next.CompletedAt != nil {
 			logger.Info("journey completed")
+
+			executed := schemas.JourneyStepExecuted{
+				ProjectID:      event.ProjectID,
+				JourneyID:      event.JourneyID,
+				JourneyEntryID: event.JourneyEntryID,
+				UserID:         event.UserID,
+				ExternalStepID: step.ExternalID,
+				StepType:       step.Type,
+			}
+
+			err = pub.Publish(ctx, schemas.JourneysStepExecuted(event.ProjectID, event.JourneyID, event.UserID), executed)
+			if err != nil {
+				logger.Error("failed to publish journey step executed event", zap.Error(err))
+				return err
+			}
 		}
 
 		next.ID, err = jrny.CreateUserJourneyState(ctx, next)
@@ -76,6 +91,12 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 		}
 
 		for _, child := range children {
+			stepType, err := jrny.GetStepType(ctx, *event.VersionID, child.ChildExternalID)
+			if err != nil {
+				logger.Error("failed to get step type for child", zap.Error(err))
+				continue
+			}
+
 			next := schemas.JourneyStep{
 				ProjectID:      event.ProjectID,
 				JourneyID:      event.JourneyID,
@@ -83,15 +104,16 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 				VersionID:      event.VersionID,
 				UserID:         event.UserID,
 				ExternalStepID: child.ChildExternalID,
+				StepType:       stepType,
 			}
 
-			err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, event.JourneyID), next)
+			err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, event.JourneyID, event.UserID), next)
 			if err != nil {
 				logger.Error("failed to publish next journey step", zap.Error(err))
 				return err
 			}
 
-			logger.Info("published next journey step", zap.String("step_id", child.ChildExternalID))
+			logger.Info("published next journey step", zap.String("step_id", child.ChildExternalID), zap.String("step_type", stepType))
 		}
 
 		logger.Info("journey step processed successfully!")

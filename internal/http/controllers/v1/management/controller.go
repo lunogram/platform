@@ -9,10 +9,11 @@ import (
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/webhook"
+	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry) (_ *Controller, err error) {
+func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry) (_ *Controller, err error) {
 	mgmt := management.NewState(managementDB)
 	projects := management.NewProjectsStore(managementDB)
 
@@ -28,7 +29,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		EventsController:               NewEventsController(logger, usersDB),
 		TagsController:                 NewTagsController(logger, managementDB),
 		LocalesController:              NewLocalesController(logger, managementDB),
-		JourneysController:             NewJourneysController(logger, journeyDB, usersDB, mgmt),
+		JourneysController:             NewJourneysController(logger, journeyDB, usersDB, mgmt, pub, jet),
 		OrganizationsController:        NewOrganizationsController(logger, managementDB),
 		SubjectOrganizationsController: NewSubjectOrganizationsController(logger, usersDB, pub),
 		ListsController:                NewListsController(logger, usersDB, projects, pub, cfg.Storage.MaxUploadSize),

@@ -289,6 +289,26 @@ export interface paths {
          */
         get: operations["getListUsers"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/lists/{listID}/users/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview list users
+         * @description Returns a limited preview of users that match the list's draft rule without modifying list membership
+         */
+        get: operations["previewListUsers"];
+        put?: never;
         /**
          * Import list users
          * @description Imports users to a static list from a CSV file
@@ -402,6 +422,54 @@ export interface paths {
          * @description Updates journey properties such as name, description, and status
          */
         patch: operations["updateJourney"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get user journey state
+         * @description Retrieves the current state of a user in a journey
+         */
+        get: operations["getUserJourneyState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream user journey steps
+         * @description Streams the current steps and progress of a specific user in a journey in real-time using Server-Sent Events (SSE)
+         */
+        get: operations["streamUserJourneySteps"];
+        /**
+         * Advance user step
+         * @description Advances the current step for a user in a journey and moves to the next step
+         */
+        put: operations["AdvanceUserStep"];
+        /**
+         * Trigger a user into a journey
+         * @description Triggers a user into a journey at a specific entrance step, typically used for testing or manual overrides
+         */
+        post: operations["triggerUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/projects/{projectID}/journeys/{journeyID}/steps": {
@@ -1744,7 +1812,7 @@ export interface components {
          * @example entrance
          * @enum {string}
          */
-        JourneyStepType: "entrance" | "exit" | "delay" | "action" | "gate" | "experiment" | "link" | "sticky" | "balancer" | "update" | "event";
+        JourneyStepType: "entrance" | "exit" | "delay" | "action" | "campaign" | "gate" | "experiment" | "link" | "sticky" | "balancer" | "update" | "event";
         /** @description Data for entrance step - entry point into journey */
         EntranceStepData: {
             /**
@@ -1752,7 +1820,7 @@ export interface components {
              * @example event
              * @enum {string}
              */
-            trigger?: "none" | "event" | "schedule";
+            trigger?: "none" | "event";
             /**
              * @description Event name that triggers entrance
              * @example user_signup
@@ -1776,16 +1844,6 @@ export interface components {
              * @example false
              */
             concurrent?: boolean;
-            /**
-             * Format: uuid
-             * @description List ID for scheduled entrance
-             */
-            list_id?: string;
-            /**
-             * @description RRule schedule string
-             * @example FREQ=DAILY;BYHOUR=9;BYMINUTE=0
-             */
-            schedule?: string;
         };
         /** @description Data for exit step - exits user from journey */
         ExitStepData: {
@@ -1831,14 +1889,23 @@ export interface components {
             /** @description Days to exclude (0=Sunday, 6=Saturday) */
             exclusion_days?: number[];
         };
-        /** @description Data for action step - send campaign */
-        ActionStepData: {
+        /** @description Data for campaign step - send campaign */
+        CampaignStepData: {
             /**
              * Format: uuid
              * @description Campaign to send
              * @example 52f3f921-1343-48af-b795-87c0fd3b44aa
              */
             campaign_id: string;
+        };
+        /** @description Data for action step - execute WASM action */
+        ActionStepData: {
+            /**
+             * Format: uuid
+             * @description Action to execute
+             * @example 52f3f921-1343-48af-b795-87c0fd3b44aa
+             */
+            action_id: string;
         };
         /** @description Data for gate step - conditional branching */
         GateStepData: {
@@ -2191,6 +2258,8 @@ export interface components {
                 [key: string]: unknown;
             };
             tags?: string[];
+            /** @description When true, publishes the current draft rule making it active */
+            published?: boolean;
         };
         List: {
             /**
@@ -2207,11 +2276,25 @@ export interface components {
              * @enum {string}
              */
             type: "static" | "dynamic";
-            /** Format: uuid */
-            rule_id?: string;
+            /**
+             * @description draft = not yet published, ready = published and active, loading = recomputing
+             * @example draft
+             * @enum {string}
+             */
+            state: "draft" | "ready" | "loading";
+            /** @description Published rule definition (from the published version) */
             rule?: {
                 [key: string]: unknown;
             };
+            /** @description Draft rule definition (from the draft version, if one exists) */
+            draft_rule?: {
+                [key: string]: unknown;
+            };
+            /**
+             * @description Current version number of the active list version
+             * @example 1
+             */
+            version_number?: number;
             /** @example 1 */
             version: number;
             /** @example 1250 */
@@ -4077,6 +4160,35 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    previewListUsers: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The list ID */
+                listID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Preview users retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     importListUsers: {
         parameters: {
             query?: never;
@@ -4368,6 +4480,138 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Journey"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getUserJourneyState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User journey state retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        external_step_id?: string;
+                        step_type?: string;
+                        is_completed?: boolean;
+                    }[];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    streamUserJourneySteps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The user ID to check journey status for */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-Sent Event stream of user journey step updates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    AdvanceUserStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The user ID whose current step should be advanced */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description The external ID of the current step to advance
+                     */
+                    externalStepID: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Current step advanced successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    triggerUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The user ID to enroll in the journey */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description The ID of the journey entry to enroll the user in
+                     */
+                    externalStepID: string;
+                };
+            };
+        };
+        responses: {
+            /** @description User enrolled in journey successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

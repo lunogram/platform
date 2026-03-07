@@ -327,7 +327,7 @@ func TestSelectGateBranch(t *testing.T) {
 				Rule: ruleSet,
 			}
 
-			child, err := selectGateBranch(hctx, step, gateData)
+			child, err := selectGateBranch(hctx, step, gateData, journey.JourneyUserState{})
 
 			if tc.expectedErr {
 				assert.Error(t, err)

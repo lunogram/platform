@@ -20,8 +20,8 @@ import { useResolver } from "../../hooks"
 import { formatDate, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import { ProjectContext } from "../../contexts"
-import { PreferencesContext } from "../../ui/PreferencesContext"
-import { Alert } from "../../ui"
+import { PreferencesContext } from "@/contexts/PreferencesContext"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { CampaignsIcon } from "@/components/icons"
 
 import { CreateCampaign } from "./CreateCampaign"
@@ -159,16 +159,14 @@ export default function Campaigns({ create = false }: CampaignsProps) {
 
             {/* Provider setup banner */}
             {project.has_provider === false && (
-                <Alert
-                    variant="plain"
-                    title={t("setup")}
-                    actions={
+                <Alert>
+                    <AlertTitle>{t("setup")}</AlertTitle>
+                    <AlertDescription className="flex items-center justify-between">
+                        <span>{t("setup_integration_description")}</span>
                         <Link to={`/projects/${project.id}/settings/integrations`}>
                             <Button>{t("setup_integration")}</Button>
                         </Link>
-                    }
-                >
-                    {t("setup_integration_description")}
+                    </AlertDescription>
                 </Alert>
             )}
 

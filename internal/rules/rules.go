@@ -95,8 +95,9 @@ func (op Operator) SQL() string {
 type PeriodType string
 
 const (
-	PeriodTypeRolling  PeriodType = "rolling"
-	PeriodTypeAbsolute PeriodType = "absolute"
+	PeriodTypeRolling      PeriodType = "rolling"
+	PeriodTypeAbsolute     PeriodType = "absolute"
+	PeriodTypeSinceEntered PeriodType = "since_entered"
 )
 
 // PeriodUnit defines the unit of time for a period

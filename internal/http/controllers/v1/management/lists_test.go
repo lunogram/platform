@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/cloudproud/graceful"
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
@@ -571,7 +572,7 @@ func TestCreateListWithOrganizationEvents(t *testing.T) {
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
 	require.Equal(t, body.Name, response.Name)
-	require.NotNil(t, response.RuleId, "rule should be created")
+	require.NotNil(t, response.DraftRule, "draft rule should be created")
 
 	// Verify events are created with correct subject types
 	eventsStore := subjects.NewEventsStore(usrs)
@@ -596,9 +597,14 @@ func TestCreateListWithOrganizationEvents(t *testing.T) {
 	require.True(t, orgEventNames["purchase.completed"], "should have purchase.completed org event")
 	require.True(t, orgEventNames["subscription.upgraded"], "should have subscription.upgraded org event")
 
-	// Verify rules_events dependencies are created correctly
+	// Verify rules_events dependencies are created correctly by getting the draft version's rule
+	listsStore := subjects.NewListsStore(usrs)
+	draftVersion, err := listsStore.GetDraftVersion(ctx, response.Id)
+	require.NoError(t, err)
+	require.NotNil(t, draftVersion.RuleID, "draft version should have a rule_id")
+
 	rulesStore := subjects.NewRulesStore(usrs)
-	ruleData, err := rulesStore.GetRule(ctx, projectID, *response.RuleId)
+	ruleData, err := rulesStore.GetRule(ctx, projectID, *draftVersion.RuleID)
 	require.NoError(t, err)
 	require.Len(t, ruleData.Events, 3, "should have 3 event dependencies (1 user + 2 org)")
 
@@ -683,7 +689,7 @@ func TestUpdateListWithOrganizationEvents(t *testing.T) {
 	var response oapi.List
 	err = json.Unmarshal(res.Body.Bytes(), &response)
 	require.NoError(t, err)
-	require.NotNil(t, response.RuleId, "rule should be created")
+	require.NotNil(t, response.DraftRule, "draft rule should be created")
 
 	// Verify events are created with correct subject types
 	eventsStore := subjects.NewEventsStore(usrs)
@@ -700,9 +706,489 @@ func TestUpdateListWithOrganizationEvents(t *testing.T) {
 	require.Len(t, orgEvents, 1, "should have 1 organization event")
 	require.Equal(t, "org.plan.upgraded", orgEvents[0].Name)
 
-	// Verify rules_events dependencies
+	// Verify rules_events dependencies via the draft version
+	listsStoreForUpdate := subjects.NewListsStore(usrs)
+	draftVersionForUpdate, err := listsStoreForUpdate.GetDraftVersion(ctx, listID)
+	require.NoError(t, err)
+	require.NotNil(t, draftVersionForUpdate.RuleID, "draft version should have a rule_id")
+
 	rulesStore := subjects.NewRulesStore(usrs)
-	ruleData, err := rulesStore.GetRule(ctx, projectID, *response.RuleId)
+	ruleData, err := rulesStore.GetRule(ctx, projectID, *draftVersionForUpdate.RuleID)
 	require.NoError(t, err)
 	require.Len(t, ruleData.Events, 2, "should have 2 event dependencies")
+}
+
+func TestCreateDynamicListWithRule_IsDraft(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := graceful.NewContext(t.Context())
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
+	cfg := config.Node{
+		Nats: config.Nats{
+			URL: container.RunNATS(t),
+		},
+	}
+
+	jet, err := pubsub.New(ctx, cfg)
+	require.NoError(t, err)
+
+	err = consumer.Bootstrap(ctx, logger, jet, "")
+	require.NoError(t, err)
+
+	pub := pubsub.NewPublisher(jet, "")
+
+	projects := management.NewProjectsStore(mgmt)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+
+	rule := rules.RuleSet{
+		Rule: rules.Rule{
+			UUID:     uuid.New(),
+			Path:     "user.data.age",
+			Group:    rules.RuleGroupUser,
+			Type:     rules.RuleTypeNumber,
+			Operator: rules.OperatorGreaterEqual,
+			Value:    float64(18),
+		},
+	}
+
+	body := oapi.CreateListJSONRequestBody{
+		Name: "Dynamic Draft List",
+		Type: oapi.CreateListTypeDynamic,
+		Rule: &rule,
+	}
+
+	bb, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+	controller.CreateList(res, req, projectID)
+
+	require.Equal(t, 201, res.Code, res.Body.String())
+
+	var response oapi.List
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	// New dynamic lists with a rule should start as draft
+	require.Equal(t, oapi.ListStateDraft, response.State)
+	require.NotNil(t, response.DraftRule, "draft_rule should be populated")
+	require.Nil(t, response.Rule, "published rule should be nil for draft list")
+}
+
+func TestUpdateListSavesRuleToDraft(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := graceful.NewContext(t.Context())
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
+	cfg := config.Node{
+		Nats: config.Nats{
+			URL: container.RunNATS(t),
+		},
+	}
+
+	jet, err := pubsub.New(ctx, cfg)
+	require.NoError(t, err)
+
+	err = consumer.Bootstrap(ctx, logger, jet, "")
+	require.NoError(t, err)
+
+	pub := pubsub.NewPublisher(jet, "")
+
+	projects := management.NewProjectsStore(mgmt)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	// Create a dynamic list without a rule
+	listsStore := subjects.NewListsStore(usrs)
+	listID, err := listsStore.CreateList(ctx, subjects.List{
+		ProjectID: projectID,
+		Name:      "Dynamic List",
+		Type:      "dynamic",
+	})
+	require.NoError(t, err)
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+
+	// Update with a rule — should save to draft version
+	rule := rules.RuleSet{
+		Rule: rules.Rule{
+			UUID:     uuid.New(),
+			Path:     "user.data.name",
+			Group:    rules.RuleGroupUser,
+			Type:     rules.RuleTypeString,
+			Operator: rules.OperatorEquals,
+			Value:    "Alice",
+		},
+	}
+
+	body := oapi.UpdateListJSONRequestBody{
+		Name: "Updated Dynamic List",
+		Rule: &rule,
+	}
+
+	bb, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/v1/lists/"+listID.String(), bytes.NewReader(bb))
+	controller.UpdateList(res, req, projectID, listID)
+
+	require.Equal(t, 200, res.Code, res.Body.String())
+
+	var response oapi.List
+	err = json.Unmarshal(res.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	require.Equal(t, oapi.ListStateDraft, response.State)
+	require.NotNil(t, response.DraftRule, "draft_rule should be populated after update with rule")
+	require.Nil(t, response.Rule, "published rule should be nil — not published yet")
+}
+
+func TestUpdateListPublish(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := graceful.NewContext(t.Context())
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
+	cfg := config.Node{
+		Nats: config.Nats{
+			URL: container.RunNATS(t),
+		},
+	}
+
+	jet, err := pubsub.New(ctx, cfg)
+	require.NoError(t, err)
+
+	err = consumer.Bootstrap(ctx, logger, jet, "")
+	require.NoError(t, err)
+
+	pub := pubsub.NewPublisher(jet, "")
+
+	projects := management.NewProjectsStore(mgmt)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+
+	// Create a dynamic list with a rule (starts as draft)
+	rule := rules.RuleSet{
+		Rule: rules.Rule{
+			UUID:     uuid.New(),
+			Path:     "user.data.age",
+			Group:    rules.RuleGroupUser,
+			Type:     rules.RuleTypeNumber,
+			Operator: rules.OperatorGreaterEqual,
+			Value:    float64(21),
+		},
+	}
+
+	createBody := oapi.CreateListJSONRequestBody{
+		Name: "Publishable List",
+		Type: oapi.CreateListTypeDynamic,
+		Rule: &rule,
+	}
+
+	bb, err := json.Marshal(createBody)
+	require.NoError(t, err)
+
+	createRes := httptest.NewRecorder()
+	createReq := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+	controller.CreateList(createRes, createReq, projectID)
+
+	require.Equal(t, 201, createRes.Code, createRes.Body.String())
+
+	var created oapi.List
+	err = json.Unmarshal(createRes.Body.Bytes(), &created)
+	require.NoError(t, err)
+	require.Equal(t, oapi.ListStateDraft, created.State)
+
+	// Now publish the list
+	updateBody := oapi.UpdateListJSONRequestBody{
+		Name:      "Publishable List",
+		Published: ptr(true),
+	}
+
+	bb, err = json.Marshal(updateBody)
+	require.NoError(t, err)
+
+	updateRes := httptest.NewRecorder()
+	updateReq := httptest.NewRequest("PATCH", "/v1/lists/"+created.Id.String(), bytes.NewReader(bb))
+	controller.UpdateList(updateRes, updateReq, projectID, created.Id)
+
+	require.Equal(t, 200, updateRes.Code, updateRes.Body.String())
+
+	var published oapi.List
+	err = json.Unmarshal(updateRes.Body.Bytes(), &published)
+	require.NoError(t, err)
+
+	require.Equal(t, oapi.ListStateReady, published.State, "state should be 'ready' after publish")
+	require.NotNil(t, published.Rule, "published rule should be populated after publish")
+	require.Nil(t, published.DraftRule, "draft_rule should be nil after publish (no pending draft)")
+}
+
+func TestPreviewListUsers(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := graceful.NewContext(t.Context())
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
+	cfg := config.Node{
+		Nats: config.Nats{
+			URL: container.RunNATS(t),
+		},
+	}
+
+	jet, err := pubsub.New(ctx, cfg)
+	require.NoError(t, err)
+
+	err = consumer.Bootstrap(ctx, logger, jet, "")
+	require.NoError(t, err)
+
+	pub := pubsub.NewPublisher(jet, "")
+
+	projects := management.NewProjectsStore(mgmt)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	// Create users with different data
+	usersStore := subjects.NewUsersStore(usrs)
+	_, err = usersStore.CreateUser(ctx, subjects.User{
+		ProjectID:  projectID,
+		ExternalID: ptr("alice"),
+		Email:      ptr("alice@example.com"),
+		Data:       []byte(`{"name":"Alice","age":30}`),
+	})
+	require.NoError(t, err)
+
+	_, err = usersStore.CreateUser(ctx, subjects.User{
+		ProjectID:  projectID,
+		ExternalID: ptr("bob"),
+		Email:      ptr("bob@example.com"),
+		Data:       []byte(`{"name":"Bob","age":17}`),
+	})
+	require.NoError(t, err)
+
+	_, err = usersStore.CreateUser(ctx, subjects.User{
+		ProjectID:  projectID,
+		ExternalID: ptr("carol"),
+		Email:      ptr("carol@example.com"),
+		Data:       []byte(`{"name":"Carol","age":25}`),
+	})
+	require.NoError(t, err)
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+
+	// Create a dynamic list with a rule: age >= 18
+	rule := rules.RuleSet{
+		Rule: rules.Rule{
+			UUID:     uuid.New(),
+			Path:     "user.data.age",
+			Group:    rules.RuleGroupUser,
+			Type:     rules.RuleTypeNumber,
+			Operator: rules.OperatorGreaterEqual,
+			Value:    float64(18),
+		},
+	}
+
+	createBody := oapi.CreateListJSONRequestBody{
+		Name: "Preview Test List",
+		Type: oapi.CreateListTypeDynamic,
+		Rule: &rule,
+	}
+
+	bb, err := json.Marshal(createBody)
+	require.NoError(t, err)
+
+	createRes := httptest.NewRecorder()
+	createReq := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+	controller.CreateList(createRes, createReq, projectID)
+
+	require.Equal(t, 201, createRes.Code, createRes.Body.String())
+
+	var created oapi.List
+	err = json.Unmarshal(createRes.Body.Bytes(), &created)
+	require.NoError(t, err)
+	require.Equal(t, oapi.ListStateDraft, created.State)
+	require.NotNil(t, created.DraftRule)
+
+	t.Run("returns matching users for draft rule", func(t *testing.T) {
+		limit := oapi.Limit(25)
+		params := oapi.PreviewListUsersParams{
+			Limit: &limit,
+		}
+
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", fmt.Sprintf("/v1/lists/%s/users/preview", created.Id), nil)
+		controller.PreviewListUsers(res, req, projectID, created.Id, params)
+
+		require.Equal(t, 200, res.Code, res.Body.String())
+
+		var response oapi.UserList
+		err := json.Unmarshal(res.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Equal(t, 2, response.Total, "should match Alice and Carol (age >= 18)")
+		require.Len(t, response.Results, 2)
+
+		extIDs := make(map[string]bool)
+		for _, u := range response.Results {
+			if u.ExternalId != nil {
+				extIDs[*u.ExternalId] = true
+			}
+		}
+		require.True(t, extIDs["alice"])
+		require.True(t, extIDs["carol"])
+	})
+
+	t.Run("fails for static list", func(t *testing.T) {
+		staticBody := oapi.CreateListJSONRequestBody{
+			Name: "Static List",
+			Type: oapi.CreateListTypeStatic,
+		}
+
+		bb, err := json.Marshal(staticBody)
+		require.NoError(t, err)
+
+		staticRes := httptest.NewRecorder()
+		staticReq := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+		controller.CreateList(staticRes, staticReq, projectID)
+		require.Equal(t, 201, staticRes.Code)
+
+		var staticList oapi.List
+		err = json.Unmarshal(staticRes.Body.Bytes(), &staticList)
+		require.NoError(t, err)
+
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", fmt.Sprintf("/v1/lists/%s/users/preview", staticList.Id), nil)
+		controller.PreviewListUsers(res, req, projectID, staticList.Id, oapi.PreviewListUsersParams{})
+
+		require.Equal(t, 400, res.Code, "should reject preview for static list")
+	})
+
+	t.Run("fails for list with no draft rule", func(t *testing.T) {
+		noDraftBody := oapi.CreateListJSONRequestBody{
+			Name: "No Draft Rule",
+			Type: oapi.CreateListTypeDynamic,
+		}
+
+		bb, err := json.Marshal(noDraftBody)
+		require.NoError(t, err)
+
+		noDraftRes := httptest.NewRecorder()
+		noDraftReq := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+		controller.CreateList(noDraftRes, noDraftReq, projectID)
+		require.Equal(t, 201, noDraftRes.Code)
+
+		var noDraftList oapi.List
+		err = json.Unmarshal(noDraftRes.Body.Bytes(), &noDraftList)
+		require.NoError(t, err)
+
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", fmt.Sprintf("/v1/lists/%s/users/preview", noDraftList.Id), nil)
+		controller.PreviewListUsers(res, req, projectID, noDraftList.Id, oapi.PreviewListUsersParams{})
+
+		require.Equal(t, 400, res.Code, "should reject preview when no draft rule exists")
+	})
+
+	t.Run("returns 404 for non-existent list", func(t *testing.T) {
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/v1/lists/"+uuid.New().String()+"/users/preview", nil)
+		controller.PreviewListUsers(res, req, projectID, uuid.New(), oapi.PreviewListUsersParams{})
+
+		require.Equal(t, 404, res.Code, "should return 404 for non-existent list")
+	})
+}
+
+func TestDuplicatePublishedList_CreatesDraft(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := graceful.NewContext(t.Context())
+	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
+	cfg := config.Node{
+		Nats: config.Nats{
+			URL: container.RunNATS(t),
+		},
+	}
+
+	jet, err := pubsub.New(ctx, cfg)
+	require.NoError(t, err)
+
+	err = consumer.Bootstrap(ctx, logger, jet, "")
+	require.NoError(t, err)
+
+	pub := pubsub.NewPublisher(jet, "")
+
+	projects := management.NewProjectsStore(mgmt)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+
+	// Create and publish a dynamic list
+	rule := rules.RuleSet{
+		Rule: rules.Rule{
+			UUID:     uuid.New(),
+			Path:     "user.data.score",
+			Group:    rules.RuleGroupUser,
+			Type:     rules.RuleTypeNumber,
+			Operator: rules.OperatorGreaterEqual,
+			Value:    float64(100),
+		},
+	}
+
+	createBody := oapi.CreateListJSONRequestBody{
+		Name: "Original Published List",
+		Type: oapi.CreateListTypeDynamic,
+		Rule: &rule,
+	}
+
+	bb, err := json.Marshal(createBody)
+	require.NoError(t, err)
+
+	createRes := httptest.NewRecorder()
+	createReq := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+	controller.CreateList(createRes, createReq, projectID)
+	require.Equal(t, 201, createRes.Code, createRes.Body.String())
+
+	var created oapi.List
+	err = json.Unmarshal(createRes.Body.Bytes(), &created)
+	require.NoError(t, err)
+
+	// Publish the list
+	publishBody := oapi.UpdateListJSONRequestBody{
+		Name:      "Original Published List",
+		Published: ptr(true),
+	}
+
+	bb, err = json.Marshal(publishBody)
+	require.NoError(t, err)
+
+	publishRes := httptest.NewRecorder()
+	publishReq := httptest.NewRequest("PATCH", "/v1/lists/"+created.Id.String(), bytes.NewReader(bb))
+	controller.UpdateList(publishRes, publishReq, projectID, created.Id)
+	require.Equal(t, 200, publishRes.Code, publishRes.Body.String())
+
+	// Duplicate the published list
+	dupRes := httptest.NewRecorder()
+	dupReq := httptest.NewRequest("POST", "/v1/lists/"+created.Id.String()+"/duplicate", nil)
+	controller.DuplicateList(dupRes, dupReq, projectID, created.Id)
+
+	require.Equal(t, 201, dupRes.Code, dupRes.Body.String())
+
+	var duplicated oapi.List
+	err = json.Unmarshal(dupRes.Body.Bytes(), &duplicated)
+	require.NoError(t, err)
+
+	require.NotEqual(t, created.Id, duplicated.Id)
+	require.Equal(t, "Copy of Original Published List", duplicated.Name)
+	// Duplicated list should start as draft
+	require.Equal(t, oapi.ListStateDraft, duplicated.State, "duplicated list should be draft")
+	require.NotNil(t, duplicated.DraftRule, "duplicated list should have a draft_rule (copied from published)")
+	require.Nil(t, duplicated.Rule, "duplicated list should not have a published rule")
 }

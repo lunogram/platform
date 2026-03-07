@@ -55,15 +55,16 @@ const (
 
 // Defines values for JourneyStatus.
 const (
-	Archived  JourneyStatus = "archived"
-	Draft     JourneyStatus = "draft"
-	Published JourneyStatus = "published"
+	JourneyStatusArchived  JourneyStatus = "archived"
+	JourneyStatusDraft     JourneyStatus = "draft"
+	JourneyStatusPublished JourneyStatus = "published"
 )
 
 // Defines values for JourneyStepType.
 const (
 	JourneyStepTypeAction     JourneyStepType = "action"
 	JourneyStepTypeBalancer   JourneyStepType = "balancer"
+	JourneyStepTypeCampaign   JourneyStepType = "campaign"
 	JourneyStepTypeDelay      JourneyStepType = "delay"
 	JourneyStepTypeEntrance   JourneyStepType = "entrance"
 	JourneyStepTypeEvent      JourneyStepType = "event"
@@ -73,6 +74,13 @@ const (
 	JourneyStepTypeLink       JourneyStepType = "link"
 	JourneyStepTypeSticky     JourneyStepType = "sticky"
 	JourneyStepTypeUpdate     JourneyStepType = "update"
+)
+
+// Defines values for ListState.
+const (
+	ListStateDraft   ListState = "draft"
+	ListStateLoading ListState = "loading"
+	ListStateReady   ListState = "ready"
 )
 
 // Defines values for ListType.
@@ -531,19 +539,32 @@ type JourneyStepType string
 
 // List defines model for List.
 type List struct {
-	CreatedAt   time.Time           `json:"created_at"`
-	Id          openapi_types.UUID  `json:"id"`
-	Name        string              `json:"name"`
-	ProjectId   openapi_types.UUID  `json:"project_id"`
-	RefreshedAt *time.Time          `json:"refreshed_at,omitempty"`
-	Rule        *rules.RuleSet      `json:"rule,omitempty"`
-	RuleId      *openapi_types.UUID `json:"rule_id,omitempty"`
-	Tags        *[]string           `json:"tags,omitempty"`
-	Type        ListType            `json:"type"`
-	UpdatedAt   time.Time           `json:"updated_at"`
-	UsersCount  int                 `json:"users_count"`
-	Version     int                 `json:"version"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// DraftRule Draft rule definition (from the draft version, if one exists)
+	DraftRule   *rules.RuleSet     `json:"draft_rule,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	ProjectId   openapi_types.UUID `json:"project_id"`
+	RefreshedAt *time.Time         `json:"refreshed_at,omitempty"`
+
+	// Rule Published rule definition (from the published version)
+	Rule *rules.RuleSet `json:"rule,omitempty"`
+
+	// State draft = not yet published, ready = published and active, loading = recomputing
+	State      ListState `json:"state"`
+	Tags       *[]string `json:"tags,omitempty"`
+	Type       ListType  `json:"type"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	UsersCount int       `json:"users_count"`
+	Version    int       `json:"version"`
+
+	// VersionNumber Current version number of the active list version
+	VersionNumber *int `json:"version_number,omitempty"`
 }
+
+// ListState draft = not yet published, ready = published and active, loading = recomputing
+type ListState string
 
 // ListType defines model for List.Type.
 type ListType string
@@ -923,9 +944,12 @@ type UpdateJourney struct {
 
 // UpdateList defines model for UpdateList.
 type UpdateList struct {
-	Name string         `json:"name"`
-	Rule *rules.RuleSet `json:"rule,omitempty"`
-	Tags *[]string      `json:"tags,omitempty"`
+	Name string `json:"name"`
+
+	// Published When true, publishes the current draft rule making it active
+	Published *bool          `json:"published,omitempty"`
+	Rule      *rules.RuleSet `json:"rule,omitempty"`
+	Tags      *[]string      `json:"tags,omitempty"`
 }
 
 // UpdateOrganization defines model for UpdateOrganization.
@@ -1354,6 +1378,18 @@ type CreateJourneyParams struct {
 	Publish *bool `form:"publish,omitempty" json:"publish,omitempty"`
 }
 
+// TriggerUserJSONBody defines parameters for TriggerUser.
+type TriggerUserJSONBody struct {
+	// ExternalStepID The ID of the journey entry to enroll the user in
+	ExternalStepID openapi_types.UUID `json:"externalStepID"`
+}
+
+// AdvanceUserStepJSONBody defines parameters for AdvanceUserStep.
+type AdvanceUserStepJSONBody struct {
+	// ExternalStepID The external ID of the current step to advance
+	ExternalStepID openapi_types.UUID `json:"externalStepID"`
+}
+
 // ListApiKeysParams defines parameters for ListApiKeys.
 type ListApiKeysParams struct {
 	// Limit Maximum number of items to return
@@ -1385,6 +1421,12 @@ type GetListUsersParams struct {
 
 	// Search Search query string
 	Search *Search `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// PreviewListUsersParams defines parameters for PreviewListUsers.
+type PreviewListUsersParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // ImportListUsersMultipartBody defines parameters for ImportListUsers.
@@ -1581,6 +1623,12 @@ type UpdateJourneyJSONRequestBody = UpdateJourney
 
 // SetJourneyStepsJSONRequestBody defines body for SetJourneySteps for application/json ContentType.
 type SetJourneyStepsJSONRequestBody = JourneyStepMap
+
+// TriggerUserJSONRequestBody defines body for TriggerUser for application/json ContentType.
+type TriggerUserJSONRequestBody TriggerUserJSONBody
+
+// AdvanceUserStepJSONRequestBody defines body for AdvanceUserStep for application/json ContentType.
+type AdvanceUserStepJSONRequestBody AdvanceUserStepJSONBody
 
 // CreateApiKeyJSONRequestBody defines body for CreateApiKey for application/json ContentType.
 type CreateApiKeyJSONRequestBody = CreateApiKey
@@ -2062,6 +2110,22 @@ type ClientInterface interface {
 
 	SetJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// StreamUserJourneySteps request
+	StreamUserJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// TriggerUserWithBody request with any body
+	TriggerUserWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	TriggerUser(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body TriggerUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdvanceUserStepWithBody request with any body
+	AdvanceUserStepWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AdvanceUserStep(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body AdvanceUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserJourneyState request
+	GetUserJourneyState(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// VersionJourney request
 	VersionJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2108,6 +2172,9 @@ type ClientInterface interface {
 
 	// GetListUsers request
 	GetListUsers(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewListUsers request
+	PreviewListUsers(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *PreviewListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ImportListUsersWithBody request with any body
 	ImportListUsersWithBody(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3011,6 +3078,78 @@ func (c *Client) SetJourneySteps(ctx context.Context, projectID openapi_types.UU
 	return c.Client.Do(req)
 }
 
+func (c *Client) StreamUserJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStreamUserJourneyStepsRequest(c.Server, projectID, journeyID, userID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TriggerUserWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTriggerUserRequestWithBody(c.Server, projectID, journeyID, userID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TriggerUser(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body TriggerUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTriggerUserRequest(c.Server, projectID, journeyID, userID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AdvanceUserStepWithBody(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdvanceUserStepRequestWithBody(c.Server, projectID, journeyID, userID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AdvanceUserStep(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body AdvanceUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdvanceUserStepRequest(c.Server, projectID, journeyID, userID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetUserJourneyState(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserJourneyStateRequest(c.Server, projectID, journeyID, userID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) VersionJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewVersionJourneyRequest(c.Server, projectID, journeyID)
 	if err != nil {
@@ -3205,6 +3344,18 @@ func (c *Client) DuplicateList(ctx context.Context, projectID openapi_types.UUID
 
 func (c *Client) GetListUsers(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetListUsersRequest(c.Server, projectID, listID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PreviewListUsers(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *PreviewListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewListUsersRequest(c.Server, projectID, listID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -6375,6 +6526,224 @@ func NewSetJourneyStepsRequestWithBody(server string, projectID openapi_types.UU
 	return req, nil
 }
 
+// NewStreamUserJourneyStepsRequest generates requests for StreamUserJourneySteps
+func NewStreamUserJourneyStepsRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "journeyID", runtime.ParamLocationPath, journeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewTriggerUserRequest calls the generic TriggerUser builder with application/json body
+func NewTriggerUserRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body TriggerUserJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewTriggerUserRequestWithBody(server, projectID, journeyID, userID, "application/json", bodyReader)
+}
+
+// NewTriggerUserRequestWithBody generates requests for TriggerUser with any type of body
+func NewTriggerUserRequestWithBody(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "journeyID", runtime.ParamLocationPath, journeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAdvanceUserStepRequest calls the generic AdvanceUserStep builder with application/json body
+func NewAdvanceUserStepRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body AdvanceUserStepJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdvanceUserStepRequestWithBody(server, projectID, journeyID, userID, "application/json", bodyReader)
+}
+
+// NewAdvanceUserStepRequestWithBody generates requests for AdvanceUserStep with any type of body
+func NewAdvanceUserStepRequestWithBody(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "journeyID", runtime.ParamLocationPath, journeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetUserJourneyStateRequest generates requests for GetUserJourneyState
+func NewGetUserJourneyStateRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "journeyID", runtime.ParamLocationPath, journeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users/%s/state", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewVersionJourneyRequest generates requests for VersionJourney
 func NewVersionJourneyRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -7078,6 +7447,69 @@ func NewGetListUsersRequest(server string, projectID openapi_types.UUID, listID 
 	return req, nil
 }
 
+// NewPreviewListUsersRequest generates requests for PreviewListUsers
+func NewPreviewListUsersRequest(server string, projectID openapi_types.UUID, listID openapi_types.UUID, params *PreviewListUsersParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "listID", runtime.ParamLocationPath, listID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s/users/preview", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewImportListUsersRequestWithBody generates requests for ImportListUsers with any type of body
 func NewImportListUsersRequestWithBody(server string, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
@@ -7101,7 +7533,7 @@ func NewImportListUsersRequestWithBody(server string, projectID openapi_types.UU
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s/users", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/lists/%s/users/preview", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -10364,6 +10796,22 @@ type ClientWithResponsesInterface interface {
 
 	SetJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetJourneyStepsResponse, error)
 
+	// StreamUserJourneyStepsWithResponse request
+	StreamUserJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamUserJourneyStepsResponse, error)
+
+	// TriggerUserWithBodyWithResponse request with any body
+	TriggerUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TriggerUserResponse, error)
+
+	TriggerUserWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body TriggerUserJSONRequestBody, reqEditors ...RequestEditorFn) (*TriggerUserResponse, error)
+
+	// AdvanceUserStepWithBodyWithResponse request with any body
+	AdvanceUserStepWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdvanceUserStepResponse, error)
+
+	AdvanceUserStepWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body AdvanceUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*AdvanceUserStepResponse, error)
+
+	// GetUserJourneyStateWithResponse request
+	GetUserJourneyStateWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserJourneyStateResponse, error)
+
 	// VersionJourneyWithResponse request
 	VersionJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*VersionJourneyResponse, error)
 
@@ -10410,6 +10858,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetListUsersWithResponse request
 	GetListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *GetListUsersParams, reqEditors ...RequestEditorFn) (*GetListUsersResponse, error)
+
+	// PreviewListUsersWithResponse request
+	PreviewListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *PreviewListUsersParams, reqEditors ...RequestEditorFn) (*PreviewListUsersResponse, error)
 
 	// ImportListUsersWithBodyWithResponse request with any body
 	ImportListUsersWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportListUsersResponse, error)
@@ -11644,6 +12095,99 @@ func (r SetJourneyStepsResponse) StatusCode() int {
 	return 0
 }
 
+type StreamUserJourneyStepsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r StreamUserJourneyStepsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StreamUserJourneyStepsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type TriggerUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r TriggerUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TriggerUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AdvanceUserStepResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AdvanceUserStepResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdvanceUserStepResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetUserJourneyStateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]struct {
+		ExternalStepId *string `json:"external_step_id,omitempty"`
+		IsCompleted    *bool   `json:"is_completed,omitempty"`
+		StepType       *string `json:"step_type,omitempty"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserJourneyStateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserJourneyStateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type VersionJourneyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11935,6 +12479,29 @@ func (r GetListUsersResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetListUsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PreviewListUsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserList
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewListUsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewListUsersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13851,6 +14418,58 @@ func (c *ClientWithResponses) SetJourneyStepsWithResponse(ctx context.Context, p
 	return ParseSetJourneyStepsResponse(rsp)
 }
 
+// StreamUserJourneyStepsWithResponse request returning *StreamUserJourneyStepsResponse
+func (c *ClientWithResponses) StreamUserJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamUserJourneyStepsResponse, error) {
+	rsp, err := c.StreamUserJourneySteps(ctx, projectID, journeyID, userID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStreamUserJourneyStepsResponse(rsp)
+}
+
+// TriggerUserWithBodyWithResponse request with arbitrary body returning *TriggerUserResponse
+func (c *ClientWithResponses) TriggerUserWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TriggerUserResponse, error) {
+	rsp, err := c.TriggerUserWithBody(ctx, projectID, journeyID, userID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTriggerUserResponse(rsp)
+}
+
+func (c *ClientWithResponses) TriggerUserWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body TriggerUserJSONRequestBody, reqEditors ...RequestEditorFn) (*TriggerUserResponse, error) {
+	rsp, err := c.TriggerUser(ctx, projectID, journeyID, userID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTriggerUserResponse(rsp)
+}
+
+// AdvanceUserStepWithBodyWithResponse request with arbitrary body returning *AdvanceUserStepResponse
+func (c *ClientWithResponses) AdvanceUserStepWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdvanceUserStepResponse, error) {
+	rsp, err := c.AdvanceUserStepWithBody(ctx, projectID, journeyID, userID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdvanceUserStepResponse(rsp)
+}
+
+func (c *ClientWithResponses) AdvanceUserStepWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, body AdvanceUserStepJSONRequestBody, reqEditors ...RequestEditorFn) (*AdvanceUserStepResponse, error) {
+	rsp, err := c.AdvanceUserStep(ctx, projectID, journeyID, userID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdvanceUserStepResponse(rsp)
+}
+
+// GetUserJourneyStateWithResponse request returning *GetUserJourneyStateResponse
+func (c *ClientWithResponses) GetUserJourneyStateWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserJourneyStateResponse, error) {
+	rsp, err := c.GetUserJourneyState(ctx, projectID, journeyID, userID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserJourneyStateResponse(rsp)
+}
+
 // VersionJourneyWithResponse request returning *VersionJourneyResponse
 func (c *ClientWithResponses) VersionJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, reqEditors ...RequestEditorFn) (*VersionJourneyResponse, error) {
 	rsp, err := c.VersionJourney(ctx, projectID, journeyID, reqEditors...)
@@ -13998,6 +14617,15 @@ func (c *ClientWithResponses) GetListUsersWithResponse(ctx context.Context, proj
 		return nil, err
 	}
 	return ParseGetListUsersResponse(rsp)
+}
+
+// PreviewListUsersWithResponse request returning *PreviewListUsersResponse
+func (c *ClientWithResponses) PreviewListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, listID openapi_types.UUID, params *PreviewListUsersParams, reqEditors ...RequestEditorFn) (*PreviewListUsersResponse, error) {
+	rsp, err := c.PreviewListUsers(ctx, projectID, listID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewListUsersResponse(rsp)
 }
 
 // ImportListUsersWithBodyWithResponse request with arbitrary body returning *ImportListUsersResponse
@@ -16086,6 +16714,121 @@ func ParseSetJourneyStepsResponse(rsp *http.Response) (*SetJourneyStepsResponse,
 	return response, nil
 }
 
+// ParseStreamUserJourneyStepsResponse parses an HTTP response from a StreamUserJourneyStepsWithResponse call
+func ParseStreamUserJourneyStepsResponse(rsp *http.Response) (*StreamUserJourneyStepsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StreamUserJourneyStepsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTriggerUserResponse parses an HTTP response from a TriggerUserWithResponse call
+func ParseTriggerUserResponse(rsp *http.Response) (*TriggerUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TriggerUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdvanceUserStepResponse parses an HTTP response from a AdvanceUserStepWithResponse call
+func ParseAdvanceUserStepResponse(rsp *http.Response) (*AdvanceUserStepResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdvanceUserStepResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetUserJourneyStateResponse parses an HTTP response from a GetUserJourneyStateWithResponse call
+func ParseGetUserJourneyStateResponse(rsp *http.Response) (*GetUserJourneyStateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserJourneyStateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []struct {
+			ExternalStepId *string `json:"external_step_id,omitempty"`
+			IsCompleted    *bool   `json:"is_completed,omitempty"`
+			StepType       *string `json:"step_type,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseVersionJourneyResponse parses an HTTP response from a VersionJourneyWithResponse call
 func ParseVersionJourneyResponse(rsp *http.Response) (*VersionJourneyResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -16477,6 +17220,39 @@ func ParseGetListUsersResponse(rsp *http.Response) (*GetListUsersResponse, error
 	}
 
 	response := &GetListUsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePreviewListUsersResponse parses an HTTP response from a PreviewListUsersWithResponse call
+func ParsePreviewListUsersResponse(rsp *http.Response) (*PreviewListUsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewListUsersResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -18571,6 +19347,18 @@ type ServerInterface interface {
 	// Set journey steps
 	// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/steps)
 	SetJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
+	// Stream user journey steps
+	// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+	StreamUserJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
+	// Trigger a user into a journey
+	// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+	TriggerUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
+	// Advance user step
+	// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+	AdvanceUserStep(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
+	// Get user journey state
+	// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}/state)
+	GetUserJourneyState(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
 	// Create journey version
 	// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/version)
 	VersionJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
@@ -18610,8 +19398,11 @@ type ServerInterface interface {
 	// Get list users
 	// (GET /api/admin/projects/{projectID}/lists/{listID}/users)
 	GetListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID, params GetListUsersParams)
+	// Preview list users
+	// (GET /api/admin/projects/{projectID}/lists/{listID}/users/preview)
+	PreviewListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID, params PreviewListUsersParams)
 	// Import list users
-	// (POST /api/admin/projects/{projectID}/lists/{listID}/users)
+	// (POST /api/admin/projects/{projectID}/lists/{listID}/users/preview)
 	ImportListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID)
 	// List locales
 	// (GET /api/admin/projects/{projectID}/locales)
@@ -19063,6 +19854,30 @@ func (_ Unimplemented) SetJourneySteps(w http.ResponseWriter, r *http.Request, p
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Stream user journey steps
+// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+func (_ Unimplemented) StreamUserJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Trigger a user into a journey
+// (POST /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+func (_ Unimplemented) TriggerUser(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Advance user step
+// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+func (_ Unimplemented) AdvanceUserStep(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get user journey state
+// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}/state)
+func (_ Unimplemented) GetUserJourneyState(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Create journey version
 // (POST /api/admin/projects/{projectID}/journeys/{journeyID}/version)
 func (_ Unimplemented) VersionJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
@@ -19141,8 +19956,14 @@ func (_ Unimplemented) GetListUsers(w http.ResponseWriter, r *http.Request, proj
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Preview list users
+// (GET /api/admin/projects/{projectID}/lists/{listID}/users/preview)
+func (_ Unimplemented) PreviewListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID, params PreviewListUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Import list users
-// (POST /api/admin/projects/{projectID}/lists/{listID}/users)
+// (POST /api/admin/projects/{projectID}/lists/{listID}/users/preview)
 func (_ Unimplemented) ImportListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, listID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
@@ -21303,6 +22124,202 @@ func (siw *ServerInterfaceWrapper) SetJourneySteps(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// StreamUserJourneySteps operation middleware
+func (siw *ServerInterfaceWrapper) StreamUserJourneySteps(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StreamUserJourneySteps(w, r, projectID, journeyID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TriggerUser operation middleware
+func (siw *ServerInterfaceWrapper) TriggerUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TriggerUser(w, r, projectID, journeyID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdvanceUserStep operation middleware
+func (siw *ServerInterfaceWrapper) AdvanceUserStep(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdvanceUserStep(w, r, projectID, journeyID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUserJourneyState operation middleware
+func (siw *ServerInterfaceWrapper) GetUserJourneyState(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserJourneyState(w, r, projectID, journeyID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // VersionJourney operation middleware
 func (siw *ServerInterfaceWrapper) VersionJourney(w http.ResponseWriter, r *http.Request) {
 
@@ -21851,6 +22868,57 @@ func (siw *ServerInterfaceWrapper) GetListUsers(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetListUsers(w, r, projectID, listID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewListUsers operation middleware
+func (siw *ServerInterfaceWrapper) PreviewListUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "listID" -------------
+	var listID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listID", chi.URLParam(r, "listID"), &listID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PreviewListUsersParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewListUsers(w, r, projectID, listID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -24512,6 +25580,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/steps", wrapper.SetJourneySteps)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.StreamUserJourneySteps)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.TriggerUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.AdvanceUserStep)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}/state", wrapper.GetUserJourneyState)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/version", wrapper.VersionJourney)
 	})
 	r.Group(func(r chi.Router) {
@@ -24551,7 +25631,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/users", wrapper.GetListUsers)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/users", wrapper.ImportListUsers)
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/users/preview", wrapper.PreviewListUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/lists/{listID}/users/preview", wrapper.ImportListUsers)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/locales", wrapper.ListLocales)
