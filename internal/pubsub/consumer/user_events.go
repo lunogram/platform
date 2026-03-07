@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -144,7 +145,13 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 			}
 
 			if entrance.Rule != nil {
-				match, err := evaluator.Evaluate(*entrance.Rule, event.Data)
+				// TODO: we might want to pass the entire event
+				data := map[string]any{
+					"data": event.Data,
+				}
+
+				fmt.Println(data, entrance.Rule)
+				match, err := evaluator.Evaluate(*entrance.Rule, data)
 				if err != nil {
 					logger.Error("failed to evaluate journey entrance rule", zap.Error(err))
 					return err
