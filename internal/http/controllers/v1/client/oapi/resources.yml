@@ -372,18 +372,18 @@ components:
         phone:
           type: string
           nullable: true
-          example: "+1234567890"
+          example: "+31612345678"
           description: E.164 formatted phone number
           x-go-type: string
           format: phone
         timezone:
           type: string
           nullable: true
-          example: "America/Chicago"
+          example: "Europe/Amsterdam"
         locale:
           type: string
           nullable: true
-          example: "en-US"
+          example: "nl-NL"
         data:
           type: object
           additionalProperties: true
