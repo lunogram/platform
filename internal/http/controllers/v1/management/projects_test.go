@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/claim/rbac"
 	"github.com/lunogram/platform/internal/config"
+	"github.com/lunogram/platform/internal/rbac"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
@@ -71,7 +71,12 @@ func TestCreateProject(t *testing.T) {
 	admin, err := admins.GetAdmin(ctx, adminID)
 	require.NoError(t, err)
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil)
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(admin.OrganizationID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil, engine)
 
 	type test struct {
 		body oapi.CreateProjectJSONRequestBody
@@ -105,11 +110,7 @@ func TestCreateProject(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/api/admin/projects", bytes.NewReader(bb))
-
-			claimAdmin := &rbac.Scope{
-				OrganizationID: admin.OrganizationID,
-			}
-			req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+			req = req.WithContext(actorCtx)
 
 			projects.CreateProject(res, req)
 
@@ -164,15 +165,16 @@ func TestListProjects(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil)
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(admin.OrganizationID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil, engine)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects", nil)
-
-	claimAdmin := &rbac.Scope{
-		OrganizationID: admin.OrganizationID,
-	}
-	req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+	req = req.WithContext(actorCtx)
 
 	limit := oapi.PaginationLimit(10)
 	offset := oapi.PaginationOffset(0)
@@ -226,15 +228,16 @@ func TestGetProject(t *testing.T) {
 	err = projectStore.AddProjectAdmin(ctx, projectID, adminID, "admin")
 	require.NoError(t, err)
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil)
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(admin.OrganizationID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil, engine)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String(), nil)
-
-	claimAdmin := &rbac.Scope{
-		OrganizationID: admin.OrganizationID,
-	}
-	req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+	req = req.WithContext(actorCtx)
 
 	projects.GetProject(res, req, projectID)
 
@@ -281,7 +284,12 @@ func TestUpdateProject(t *testing.T) {
 	err = projectStore.AddProjectAdmin(ctx, projectID, adminID, "admin")
 	require.NoError(t, err)
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil)
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(admin.OrganizationID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, nil, engine)
 
 	type test struct {
 		body oapi.UpdateProjectJSONRequestBody
@@ -310,11 +318,7 @@ func TestUpdateProject(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String(), bytes.NewReader(bb))
-
-			claimAdmin := &rbac.Scope{
-				OrganizationID: admin.OrganizationID,
-			}
-			req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+			req = req.WithContext(actorCtx)
 
 			projects.UpdateProject(res, req, projectID)
 
@@ -349,7 +353,7 @@ func TestCreateProjectWebhook(t *testing.T) {
 	require.NoError(t, err)
 
 	admins := management.NewAdminsStore(mgmt)
-	_, err = admins.CreateAdmin(ctx, management.Admin{
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
 		OrganizationID: orgID,
 		Email:          "test@example.com",
 		Role:           "admin",
@@ -377,7 +381,12 @@ func TestCreateProjectWebhook(t *testing.T) {
 		ProjectCreatedURL: webhookServer.URL,
 	})
 
-	projects := NewProjectsController(logger, mgmt, usrs, jrny, caller, nil)
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(orgID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, caller, nil, engine)
 
 	body := oapi.CreateProjectJSONRequestBody{
 		Name:     "Webhook Test Project",
@@ -390,11 +399,7 @@ func TestCreateProjectWebhook(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/admin/projects", bytes.NewReader(bb))
-
-	claimAdmin := &rbac.Scope{
-		OrganizationID: orgID,
-	}
-	req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+	req = req.WithContext(actorCtx)
 
 	projects.CreateProject(res, req)
 
@@ -418,8 +423,22 @@ func TestCreateProjectPublishesNATSEvent(t *testing.T) {
 	orgID, err := orgs.CreateOrganization(ctx, "Test Organization")
 	require.NoError(t, err)
 
+	admins := management.NewAdminsStore(mgmt)
+	adminID, err := admins.CreateAdmin(ctx, management.Admin{
+		OrganizationID: orgID,
+		Email:          "test@example.com",
+		Role:           "admin",
+	})
+	require.NoError(t, err)
+
 	pub := &recordingPublisher{}
-	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, pub)
+
+	actor := rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+		rbac.WithOrganizationID(orgID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, pub, engine)
 
 	body := oapi.CreateProjectJSONRequestBody{
 		Name:     "NATS Test Project",
@@ -432,11 +451,7 @@ func TestCreateProjectPublishesNATSEvent(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/admin/projects", bytes.NewReader(bb))
-
-	claimAdmin := &rbac.Scope{
-		OrganizationID: orgID,
-	}
-	req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+	req = req.WithContext(actorCtx)
 
 	projects.CreateProject(res, req)
 
@@ -469,7 +484,13 @@ func TestCreateProjectRollbackOnPublishFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := &failingPublisher{}
-	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, pub)
+
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "")
+
+	projects := NewProjectsController(logger, mgmt, usrs, jrny, nil, pub, engine)
 
 	body := oapi.CreateProjectJSONRequestBody{
 		Name:     "Rollback Test Project",
@@ -482,11 +503,7 @@ func TestCreateProjectRollbackOnPublishFailure(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/admin/projects", bytes.NewReader(bb))
-
-	claimAdmin := &rbac.Scope{
-		OrganizationID: orgID,
-	}
-	req = req.WithContext(rbac.WithScope(req.Context(), claimAdmin))
+	req = req.WithContext(actorCtx)
 
 	projects.CreateProject(res, req)
 

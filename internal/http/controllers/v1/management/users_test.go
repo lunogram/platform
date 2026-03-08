@@ -12,14 +12,13 @@ import (
 	"testing"
 
 	"github.com/cloudproud/graceful"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -39,7 +38,7 @@ var noExternalIDImportUsersCSV string
 //go:embed test/users/out-of-order.csv
 var outOfOrderImportUsersCSV string
 
-func TNewUsersController(t *testing.T) (*UsersController, uuid.UUID) {
+func TNewUsersController(t *testing.T) (*UsersController, uuid.UUID, context.Context) {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -73,23 +72,21 @@ func TNewUsersController(t *testing.T) (*UsersController, uuid.UUID) {
 	})
 	require.NoError(t, err)
 
-	mgmt := management.NewState(mgmtDB)
-	controller := NewUsersController(logger, pub, usrsDB, jrnyDB, mgmt, 32<<20)
-	return controller, projectID
-}
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-func validSession() claim.Session {
-	return claim.Session{
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject: uuid.New().String(),
-		},
-	}
+	mgmt := management.NewState(mgmtDB)
+	controller := NewUsersController(logger, pub, usrsDB, jrnyDB, mgmt, 32<<20, engine)
+	return controller, projectID, actorCtx
 }
 
 func TestListUsers(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -104,7 +101,7 @@ func TestListUsers(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.ListUsers(res, req, projectID, oapi.ListUsersParams{})
 
@@ -120,7 +117,7 @@ func TestListUsers(t *testing.T) {
 func TestIdentifyUser(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 
 	body := oapi.IdentifyUser{
 		ExternalId: ptr("user_new_123"),
@@ -133,7 +130,7 @@ func TestIdentifyUser(t *testing.T) {
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/admin/projects/"+projectID.String()+"/users", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.IdentifyUser(res, req, projectID)
 
@@ -149,7 +146,7 @@ func TestIdentifyUser(t *testing.T) {
 func TestGetUser(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -163,7 +160,7 @@ func TestGetUser(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String(), nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.GetUser(res, req, projectID, userID)
 
@@ -179,7 +176,7 @@ func TestGetUser(t *testing.T) {
 func TestUpdateUser(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -202,7 +199,7 @@ func TestUpdateUser(t *testing.T) {
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String(), bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.UpdateUser(res, req, projectID, userID)
 
@@ -223,7 +220,7 @@ func TestUpdateUser(t *testing.T) {
 func TestDeleteUser(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -236,7 +233,7 @@ func TestDeleteUser(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String(), nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.DeleteUser(res, req, projectID, userID)
 
@@ -249,7 +246,7 @@ func TestDeleteUser(t *testing.T) {
 func TestVersionIncrementsOnUpdate(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -272,7 +269,7 @@ func TestVersionIncrementsOnUpdate(t *testing.T) {
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String(), bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.UpdateUser(res, req, projectID, userID)
 	require.Equal(t, 200, res.Code)
@@ -286,7 +283,7 @@ func TestVersionIncrementsOnUpdate(t *testing.T) {
 func TestGetUserEvents(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -309,7 +306,7 @@ func TestGetUserEvents(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/events", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.GetUserEvents(res, req, projectID, userID, oapi.GetUserEventsParams{})
 
@@ -326,13 +323,13 @@ func TestGetUserEvents(t *testing.T) {
 func TestGetUserEventsNotFound(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 
 	nonExistentUserID := uuid.New()
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+nonExistentUserID.String()+"/events", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.GetUserEvents(res, req, projectID, nonExistentUserID, oapi.GetUserEventsParams{})
 
@@ -342,7 +339,7 @@ func TestGetUserEventsNotFound(t *testing.T) {
 func TestGetUserSubscriptions(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -375,7 +372,7 @@ func TestGetUserSubscriptions(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/subscriptions", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.GetUserSubscriptions(res, req, projectID, userID, oapi.GetUserSubscriptionsParams{})
 
@@ -399,7 +396,7 @@ func TestGetUserSubscriptions(t *testing.T) {
 func TestUpdateUserSubscriptions(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -432,7 +429,7 @@ func TestUpdateUserSubscriptions(t *testing.T) {
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/subscriptions", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.UpdateUserSubscriptions(res, req, projectID, userID)
 
@@ -448,7 +445,7 @@ func TestUpdateUserSubscriptions(t *testing.T) {
 func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -473,7 +470,7 @@ func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/subscriptions", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.UpdateUserSubscriptions(res, req, projectID, userID)
 
@@ -483,7 +480,7 @@ func TestUpdateUserSubscriptionsNotFound(t *testing.T) {
 func TestGetUserJourneys(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -530,7 +527,7 @@ func TestGetUserJourneys(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/journeys", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.GetUserJourneys(res, req, projectID, userID, oapi.GetUserJourneysParams{})
 
@@ -549,7 +546,7 @@ func TestGetUserJourneys(t *testing.T) {
 func TestGetUserJourneysPagination(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -599,7 +596,7 @@ func TestGetUserJourneysPagination(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/"+userID.String()+"/journeys", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.GetUserJourneys(res, req, projectID, userID, oapi.GetUserJourneysParams{
 		Limit:  &limit,
@@ -621,7 +618,7 @@ func TestGetUserJourneysPagination(t *testing.T) {
 func TestListUserSchemas(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -638,7 +635,7 @@ func TestListUserSchemas(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/user-schemas", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.ListUserSchemas(res, req, projectID)
 
@@ -685,11 +682,11 @@ func TestListUserSchemas(t *testing.T) {
 func TestListUserSchemasEmpty(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.ListUserSchemas(res, req, projectID)
 
@@ -721,7 +718,7 @@ func TestListUserSchemasEmpty(t *testing.T) {
 func TestListUserSchemasUnauthorized(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, _ := TNewUsersController(t)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
@@ -734,7 +731,7 @@ func TestListUserSchemasUnauthorized(t *testing.T) {
 func TestListUserSchemasWithMultipleTypes(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := TNewUsersController(t)
+	controller, projectID, actorCtx := TNewUsersController(t)
 	ctx := context.Background()
 
 	usersStore := controller.users.UsersStore
@@ -756,7 +753,7 @@ func TestListUserSchemasWithMultipleTypes(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/users/schema", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.ListUserSchemas(res, req, projectID)
 
@@ -866,9 +863,15 @@ func TestImportUsers(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+				rbac.WithOrganizationID(orgID),
+				rbac.WithProjectID(projectID),
+			)
+			engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
 			usersStore := subjects.NewUsersStore(usrsDB)
 			mgmt := management.NewState(mgmtDB)
-			controller := NewUsersController(logger, pub, usrsDB, jrnyDB, mgmt, 32<<20)
+			controller := NewUsersController(logger, pub, usrsDB, jrnyDB, mgmt, 32<<20, engine)
 
 			body := &bytes.Buffer{}
 			writer := multipart.NewWriter(body)
@@ -889,7 +892,7 @@ func TestImportUsers(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", fmt.Sprintf("/api/admin/projects/%s/users/import", projectID), body)
 			req.Header.Set("Content-Type", writer.FormDataContentType())
-			req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+			req = req.WithContext(actorCtx)
 
 			controller.ImportUsers(res, req, projectID)
 

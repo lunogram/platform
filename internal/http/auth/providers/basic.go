@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/auth"
+	"github.com/lunogram/platform/internal/rbac/access"
 	"github.com/lunogram/platform/internal/store/management"
 )
 
@@ -23,13 +25,15 @@ type BasicProvider struct {
 	config    config.BasicAuth
 	mgmt      *management.State
 	generator TokenGenerator
+	rbac      RBACWriter
 }
 
-func NewBasicProvider(cfg config.BasicAuth, mgmt *management.State, generator TokenGenerator) *BasicProvider {
+func NewBasicProvider(cfg config.BasicAuth, mgmt *management.State, generator TokenGenerator, rbac RBACWriter) *BasicProvider {
 	return &BasicProvider{
 		config:    cfg,
 		mgmt:      mgmt,
 		generator: generator,
+		rbac:      rbac,
 	}
 }
 
@@ -96,6 +100,17 @@ func (p *BasicProvider) findOrCreateAdmin(ctx context.Context, email string) (*m
 	admin.ID, err = p.mgmt.CreateAdmin(ctx, *admin)
 	if err != nil {
 		return nil, err
+	}
+
+	// Grant the new admin the owner role on the organization in the RBAC engine
+	// so that subsequent permission checks (e.g. read profile, list/create
+	// projects) succeed.
+	if p.rbac != nil {
+		for _, t := range access.OrganizationRoleTuples(admin.ID, admin.OrganizationID, admin.Role) {
+			if err := p.rbac.WriteTuple(ctx, t.User, t.Relation, t.Object); err != nil {
+				return nil, fmt.Errorf("failed to write RBAC tuple for new admin: %w", err)
+			}
+		}
 	}
 
 	return admin, nil

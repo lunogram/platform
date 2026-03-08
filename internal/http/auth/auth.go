@@ -11,9 +11,8 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/lunogram/platform/internal/claim"
-	"github.com/lunogram/platform/internal/claim/rbac"
 	"github.com/lunogram/platform/internal/config"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 )
 
@@ -86,19 +85,18 @@ func WithJWT(config config.Auth, mgmt *management.State) Handler {
 			return ctx, ErrUnauthorized
 		}
 
-		session := claim.Session{
-			RegisteredClaims: claims,
-		}
-
-		admin, err := mgmt.GetAdminBySubject(ctx, session)
+		admin, err := mgmt.GetAdminBySubject(ctx, claims.Issuer, claims.Subject)
 		if err != nil {
 			return ctx, ErrUnauthorized
 		}
 
-		ctx = claim.WithSession(ctx, session)
-		return rbac.WithScope(ctx, &rbac.Scope{
-			OrganizationID: admin.OrganizationID,
-		}), nil
+		actor := rbac.NewActor(
+			rbac.ActorAdmin,
+			admin.ID.String(),
+			rbac.WithOrganizationID(admin.OrganizationID),
+		)
+
+		return rbac.WithActor(ctx, actor), nil
 	}
 }
 
@@ -113,12 +111,14 @@ func WithKey(mgmt *management.State) Handler {
 			return ctx, ErrUnauthorized
 		}
 
-		ctx = rbac.WithScope(ctx, &rbac.Scope{
-			OrganizationID: key.OrganizationID,
-			ProjectID:      key.ProjectID,
-		})
+		actor := rbac.NewActor(
+			rbac.ActorAPIKey,
+			key.ID,
+			rbac.WithOrganizationID(key.OrganizationID),
+			rbac.WithProjectID(key.ProjectID),
+		)
 
-		return ctx, nil
+		return rbac.WithActor(ctx, actor), nil
 	}
 }
 

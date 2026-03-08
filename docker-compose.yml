@@ -16,6 +16,7 @@ services:
       POSTGRES_MANAGEMENT_URI: postgres://postgres:postgrespw@postgres:5432/management?sslmode=disable
       POSTGRES_SUBJECTS_URI: postgres://postgres:postgrespw@postgres:5432/subjects?sslmode=disable
       POSTGRES_JOURNEY_URI: postgres://postgres:postgrespw@postgres:5432/journey?sslmode=disable
+      RBAC_POSTGRES_URI: postgres://postgres:postgrespw@postgres:5432/rbac?sslmode=disable
       REDIS_ADDRESS: redis://redis:6379
       NATS_URL: nats://nats:4222
       # Authentication

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
@@ -27,7 +28,13 @@ func TestTagCreation(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	tags := NewTagsController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	tags := NewTagsController(logger, mgmt, engine)
 
 	type test struct {
 		body oapi.CreateTagJSONRequestBody
@@ -56,6 +63,7 @@ func TestTagCreation(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/tags", bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			tags.CreateTag(res, req, projectID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -92,7 +100,13 @@ func TestListTags(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	tags := NewTagsController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	tags := NewTagsController(logger, mgmt, engine)
 
 	type test struct {
 		params   oapi.ListTagsParams
@@ -128,6 +142,7 @@ func TestListTags(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/tags", nil)
+			req = req.WithContext(actorCtx)
 			tags.ListTags(res, req, projectID, test.params)
 
 			require.Equal(t, 200, res.Code, res.Body.String())
@@ -156,7 +171,13 @@ func TestGetTag(t *testing.T) {
 	tagID, err := tagsStore.CreateTag(ctx, projectID, "test-tag")
 	require.NoError(t, err)
 
-	tags := NewTagsController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	tags := NewTagsController(logger, mgmt, engine)
 
 	type test struct {
 		tagID uuid.UUID
@@ -178,6 +199,7 @@ func TestGetTag(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", fmt.Sprintf("/v1/tags/%s", test.tagID), nil)
+			req = req.WithContext(actorCtx)
 			tags.GetTag(res, req, projectID, test.tagID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -208,7 +230,13 @@ func TestUpdateTag(t *testing.T) {
 	tagID, err := tagsStore.CreateTag(ctx, projectID, "old-name")
 	require.NoError(t, err)
 
-	tags := NewTagsController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	tags := NewTagsController(logger, mgmt, engine)
 
 	type test struct {
 		tagID uuid.UUID
@@ -240,6 +268,7 @@ func TestUpdateTag(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("PATCH", fmt.Sprintf("/v1/tags/%s", test.tagID), bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			tags.UpdateTag(res, req, projectID, test.tagID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -269,7 +298,13 @@ func TestDeleteTag(t *testing.T) {
 	tagID, err := tagsStore.CreateTag(ctx, projectID, "to-delete")
 	require.NoError(t, err)
 
-	tags := NewTagsController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	tags := NewTagsController(logger, mgmt, engine)
 
 	type test struct {
 		tagID uuid.UUID
@@ -291,6 +326,7 @@ func TestDeleteTag(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("DELETE", fmt.Sprintf("/v1/tags/%s", test.tagID), nil)
+			req = req.WithContext(actorCtx)
 			tags.DeleteTag(res, req, projectID, test.tagID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())

@@ -98,10 +98,10 @@ const (
 
 // Defines values for ProjectRole.
 const (
-	ProjectRoleAdmin     ProjectRole = "admin"
-	ProjectRoleEditor    ProjectRole = "editor"
-	ProjectRolePublisher ProjectRole = "publisher"
-	ProjectRoleSupport   ProjectRole = "support"
+	ProjectRoleAdmin   ProjectRole = "admin"
+	ProjectRoleClient  ProjectRole = "client"
+	ProjectRoleEditor  ProjectRole = "editor"
+	ProjectRoleSupport ProjectRole = "support"
 )
 
 // Defines values for SubscriptionState.
@@ -873,16 +873,6 @@ type Template struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// Tenant defines model for Tenant.
-type Tenant struct {
-	CreatedAt                 time.Time           `json:"created_at"`
-	Id                        openapi_types.UUID  `json:"id"`
-	Name                      string              `json:"name"`
-	NotificationProviderId    *openapi_types.UUID `json:"notification_provider_id,omitempty"`
-	TrackingDeeplinkMirrorUrl *string             `json:"tracking_deeplink_mirror_url,omitempty"`
-	UpdatedAt                 time.Time           `json:"updated_at"`
-}
-
 // TestActionFunctionRequest defines model for TestActionFunctionRequest.
 type TestActionFunctionRequest struct {
 	// Input Input parameters for the function execution
@@ -1013,11 +1003,6 @@ type UpdateTag struct {
 type UpdateTemplate struct {
 	// Data Template-specific data based on type. Structure varies by template type.
 	Data *json.RawMessage `json:"data"`
-}
-
-// UpdateTenant defines model for UpdateTenant.
-type UpdateTenant struct {
-	TrackingDeeplinkMirrorUrl *string `json:"tracking_deeplink_mirror_url,omitempty"`
 }
 
 // UpdateUser defines model for UpdateUser.
@@ -1705,9 +1690,6 @@ type CreateTagJSONRequestBody = CreateTag
 // UpdateTagJSONRequestBody defines body for UpdateTag for application/json ContentType.
 type UpdateTagJSONRequestBody = UpdateTag
 
-// UpdateTenantJSONRequestBody defines body for UpdateTenant for application/json ContentType.
-type UpdateTenantJSONRequestBody = UpdateTenant
-
 // CreateAdminJSONRequestBody defines body for CreateAdmin for application/json ContentType.
 type CreateAdminJSONRequestBody = CreateAdmin
 
@@ -2369,17 +2351,6 @@ type ClientInterface interface {
 
 	UpdateTag(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, body UpdateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DeleteTenant request
-	DeleteTenant(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetTenant request
-	GetTenant(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateTenantWithBody request with any body
-	UpdateTenantWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateTenant(ctx context.Context, body UpdateTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListAdmins request
 	ListAdmins(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2398,9 +2369,6 @@ type ClientInterface interface {
 	UpdateAdminWithBody(ctx context.Context, adminID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateAdmin(ctx context.Context, adminID openapi_types.UUID, body UpdateAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetTenantIntegrations request
-	GetTenantIntegrations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// Whoami request
 	Whoami(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -4145,54 +4113,6 @@ func (c *Client) UpdateTag(ctx context.Context, projectID openapi_types.UUID, ta
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteTenant(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteTenantRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetTenant(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetTenantRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateTenantWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateTenantRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateTenant(ctx context.Context, body UpdateTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateTenantRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) ListAdmins(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListAdminsRequest(c.Server, params)
 	if err != nil {
@@ -4267,18 +4187,6 @@ func (c *Client) UpdateAdminWithBody(ctx context.Context, adminID openapi_types.
 
 func (c *Client) UpdateAdmin(ctx context.Context, adminID openapi_types.UUID, body UpdateAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateAdminRequest(c.Server, adminID, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetTenantIntegrations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetTenantIntegrationsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -10218,100 +10126,6 @@ func NewUpdateTagRequestWithBody(server string, projectID openapi_types.UUID, ta
 	return req, nil
 }
 
-// NewDeleteTenantRequest generates requests for DeleteTenant
-func NewDeleteTenantRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/tenant")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetTenantRequest generates requests for GetTenant
-func NewGetTenantRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/tenant")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewUpdateTenantRequest calls the generic UpdateTenant builder with application/json body
-func NewUpdateTenantRequest(server string, body UpdateTenantJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateTenantRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewUpdateTenantRequestWithBody generates requests for UpdateTenant with any type of body
-func NewUpdateTenantRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/tenant")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PATCH", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewListAdminsRequest generates requests for ListAdmins
 func NewListAdminsRequest(server string, params *ListAdminsParams) (*http.Request, error) {
 	var err error
@@ -10544,33 +10358,6 @@ func NewUpdateAdminRequestWithBody(server string, adminID openapi_types.UUID, co
 	}
 
 	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetTenantIntegrationsRequest generates requests for GetTenantIntegrations
-func NewGetTenantIntegrationsRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/admin/tenant/integrations")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
 
 	return req, nil
 }
@@ -11152,17 +10939,6 @@ type ClientWithResponsesInterface interface {
 
 	UpdateTagWithResponse(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, body UpdateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTagResponse, error)
 
-	// DeleteTenantWithResponse request
-	DeleteTenantWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeleteTenantResponse, error)
-
-	// GetTenantWithResponse request
-	GetTenantWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTenantResponse, error)
-
-	// UpdateTenantWithBodyWithResponse request with any body
-	UpdateTenantWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateTenantResponse, error)
-
-	UpdateTenantWithResponse(ctx context.Context, body UpdateTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTenantResponse, error)
-
 	// ListAdminsWithResponse request
 	ListAdminsWithResponse(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*ListAdminsResponse, error)
 
@@ -11181,9 +10957,6 @@ type ClientWithResponsesInterface interface {
 	UpdateAdminWithBodyWithResponse(ctx context.Context, adminID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAdminResponse, error)
 
 	UpdateAdminWithResponse(ctx context.Context, adminID openapi_types.UUID, body UpdateAdminJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAdminResponse, error)
-
-	// GetTenantIntegrationsWithResponse request
-	GetTenantIntegrationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTenantIntegrationsResponse, error)
 
 	// WhoamiWithResponse request
 	WhoamiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*WhoamiResponse, error)
@@ -13766,74 +13539,6 @@ func (r UpdateTagResponse) StatusCode() int {
 	return 0
 }
 
-type DeleteTenantResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteTenantResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteTenantResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetTenantResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *Tenant
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r GetTenantResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetTenantResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type UpdateTenantResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *Tenant
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateTenantResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateTenantResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ListAdminsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -13942,29 +13647,6 @@ func (r UpdateAdminResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateAdminResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetTenantIntegrationsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *[]Provider
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r GetTenantIntegrationsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetTenantIntegrationsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -15324,41 +15006,6 @@ func (c *ClientWithResponses) UpdateTagWithResponse(ctx context.Context, project
 	return ParseUpdateTagResponse(rsp)
 }
 
-// DeleteTenantWithResponse request returning *DeleteTenantResponse
-func (c *ClientWithResponses) DeleteTenantWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*DeleteTenantResponse, error) {
-	rsp, err := c.DeleteTenant(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteTenantResponse(rsp)
-}
-
-// GetTenantWithResponse request returning *GetTenantResponse
-func (c *ClientWithResponses) GetTenantWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTenantResponse, error) {
-	rsp, err := c.GetTenant(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetTenantResponse(rsp)
-}
-
-// UpdateTenantWithBodyWithResponse request with arbitrary body returning *UpdateTenantResponse
-func (c *ClientWithResponses) UpdateTenantWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateTenantResponse, error) {
-	rsp, err := c.UpdateTenantWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateTenantResponse(rsp)
-}
-
-func (c *ClientWithResponses) UpdateTenantWithResponse(ctx context.Context, body UpdateTenantJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTenantResponse, error) {
-	rsp, err := c.UpdateTenant(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateTenantResponse(rsp)
-}
-
 // ListAdminsWithResponse request returning *ListAdminsResponse
 func (c *ClientWithResponses) ListAdminsWithResponse(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*ListAdminsResponse, error) {
 	rsp, err := c.ListAdmins(ctx, params, reqEditors...)
@@ -15418,15 +15065,6 @@ func (c *ClientWithResponses) UpdateAdminWithResponse(ctx context.Context, admin
 		return nil, err
 	}
 	return ParseUpdateAdminResponse(rsp)
-}
-
-// GetTenantIntegrationsWithResponse request returning *GetTenantIntegrationsResponse
-func (c *ClientWithResponses) GetTenantIntegrationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTenantIntegrationsResponse, error) {
-	rsp, err := c.GetTenantIntegrations(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetTenantIntegrationsResponse(rsp)
 }
 
 // WhoamiWithResponse request returning *WhoamiResponse
@@ -19005,98 +18643,6 @@ func ParseUpdateTagResponse(rsp *http.Response) (*UpdateTagResponse, error) {
 	return response, nil
 }
 
-// ParseDeleteTenantResponse parses an HTTP response from a DeleteTenantWithResponse call
-func ParseDeleteTenantResponse(rsp *http.Response) (*DeleteTenantResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteTenantResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetTenantResponse parses an HTTP response from a GetTenantWithResponse call
-func ParseGetTenantResponse(rsp *http.Response) (*GetTenantResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetTenantResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Tenant
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateTenantResponse parses an HTTP response from a UpdateTenantWithResponse call
-func ParseUpdateTenantResponse(rsp *http.Response) (*UpdateTenantResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateTenantResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Tenant
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseListAdminsResponse parses an HTTP response from a ListAdminsWithResponse call
 func ParseListAdminsResponse(rsp *http.Response) (*ListAdminsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -19238,39 +18784,6 @@ func ParseUpdateAdminResponse(rsp *http.Response) (*UpdateAdminResponse, error) 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Admin
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetTenantIntegrationsResponse parses an HTTP response from a GetTenantIntegrationsWithResponse call
-func ParseGetTenantIntegrationsResponse(rsp *http.Response) (*GetTenantIntegrationsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetTenantIntegrationsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []Provider
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -19741,15 +19254,6 @@ type ServerInterface interface {
 	// Update tag
 	// (PATCH /api/admin/projects/{projectID}/tags/{tagID})
 	UpdateTag(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tagID openapi_types.UUID)
-	// Delete tenant
-	// (DELETE /api/admin/tenant)
-	DeleteTenant(w http.ResponseWriter, r *http.Request)
-	// Get current tenant
-	// (GET /api/admin/tenant)
-	GetTenant(w http.ResponseWriter, r *http.Request)
-	// Update tenant
-	// (PATCH /api/admin/tenant)
-	UpdateTenant(w http.ResponseWriter, r *http.Request)
 	// List organization admins
 	// (GET /api/admin/tenant/admins)
 	ListAdmins(w http.ResponseWriter, r *http.Request, params ListAdminsParams)
@@ -19765,9 +19269,6 @@ type ServerInterface interface {
 	// Update admin
 	// (PATCH /api/admin/tenant/admins/{adminID})
 	UpdateAdmin(w http.ResponseWriter, r *http.Request, adminID openapi_types.UUID)
-	// Get tenant integrations
-	// (GET /api/admin/tenant/integrations)
-	GetTenantIntegrations(w http.ResponseWriter, r *http.Request)
 	// Get current admin
 	// (GET /api/admin/tenant/whoami)
 	Whoami(w http.ResponseWriter, r *http.Request)
@@ -20452,24 +19953,6 @@ func (_ Unimplemented) UpdateTag(w http.ResponseWriter, r *http.Request, project
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Delete tenant
-// (DELETE /api/admin/tenant)
-func (_ Unimplemented) DeleteTenant(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Get current tenant
-// (GET /api/admin/tenant)
-func (_ Unimplemented) GetTenant(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Update tenant
-// (PATCH /api/admin/tenant)
-func (_ Unimplemented) UpdateTenant(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // List organization admins
 // (GET /api/admin/tenant/admins)
 func (_ Unimplemented) ListAdmins(w http.ResponseWriter, r *http.Request, params ListAdminsParams) {
@@ -20497,12 +19980,6 @@ func (_ Unimplemented) GetAdmin(w http.ResponseWriter, r *http.Request, adminID 
 // Update admin
 // (PATCH /api/admin/tenant/admins/{adminID})
 func (_ Unimplemented) UpdateAdmin(w http.ResponseWriter, r *http.Request, adminID openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Get tenant integrations
-// (GET /api/admin/tenant/integrations)
-func (_ Unimplemented) GetTenantIntegrations(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -25268,66 +24745,6 @@ func (siw *ServerInterfaceWrapper) UpdateTag(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
-// DeleteTenant operation middleware
-func (siw *ServerInterfaceWrapper) DeleteTenant(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteTenant(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetTenant operation middleware
-func (siw *ServerInterfaceWrapper) GetTenant(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetTenant(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// UpdateTenant operation middleware
-func (siw *ServerInterfaceWrapper) UpdateTenant(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateTenant(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // ListAdmins operation middleware
 func (siw *ServerInterfaceWrapper) ListAdmins(w http.ResponseWriter, r *http.Request) {
 
@@ -25481,26 +24898,6 @@ func (siw *ServerInterfaceWrapper) UpdateAdmin(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateAdmin(w, r, adminID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetTenantIntegrations operation middleware
-func (siw *ServerInterfaceWrapper) GetTenantIntegrations(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetTenantIntegrations(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -26041,15 +25438,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/tags/{tagID}", wrapper.UpdateTag)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/admin/tenant", wrapper.DeleteTenant)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/admin/tenant", wrapper.GetTenant)
-	})
-	r.Group(func(r chi.Router) {
-		r.Patch(options.BaseURL+"/api/admin/tenant", wrapper.UpdateTenant)
-	})
-	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/tenant/admins", wrapper.ListAdmins)
 	})
 	r.Group(func(r chi.Router) {
@@ -26063,9 +25451,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/admin/tenant/admins/{adminID}", wrapper.UpdateAdmin)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/admin/tenant/integrations", wrapper.GetTenantIntegrations)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/tenant/whoami", wrapper.Whoami)

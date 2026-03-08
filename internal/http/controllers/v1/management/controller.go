@@ -6,6 +6,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/webhook"
@@ -13,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry) (_ *Controller, err error) {
+func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry, engine *rbac.Engine) (_ *Controller, err error) {
 	mgmt := management.NewState(managementDB)
 	projects := management.NewProjectsStore(managementDB)
 
@@ -21,26 +22,25 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 	webhookCaller := webhook.NewCaller(logger.Named("webhook"), cfg.Webhook)
 
 	controller := &Controller{
-		ProjectsController:             NewProjectsController(logger, managementDB, usersDB, journeyDB, webhookCaller, pub),
-		CampaignsController:            NewCampaignsController(logger, managementDB, usersDB),
-		TemplatesController:            NewTemplatesController(logger, managementDB),
-		AdminsController:               NewAdminsController(logger, managementDB),
-		UsersController:                NewUsersController(logger, pub, usersDB, journeyDB, mgmt, cfg.Storage.MaxUploadSize),
-		EventsController:               NewEventsController(logger, usersDB),
-		TagsController:                 NewTagsController(logger, managementDB),
-		LocalesController:              NewLocalesController(logger, managementDB),
-		JourneysController:             NewJourneysController(logger, journeyDB, usersDB, mgmt, pub, jet),
-		OrganizationsController:        NewOrganizationsController(logger, managementDB),
-		SubjectOrganizationsController: NewSubjectOrganizationsController(logger, usersDB, pub),
-		ListsController:                NewListsController(logger, usersDB, projects, pub, cfg.Storage.MaxUploadSize),
-		DocumentsController:            NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize),
-		ProvidersController:            NewProvidersController(logger, managementDB, registry),
-		SubscriptionsController:        NewSubscriptionsController(logger, managementDB),
-		ApiKeysController:              NewApiKeysController(logger, managementDB),
-		ActionsController:              NewActionsController(logger, managementDB, req, usersDB, actionRegistry),
+		ProjectsController:      NewProjectsController(logger, managementDB, usersDB, journeyDB, webhookCaller, pub, engine),
+		CampaignsController:     NewCampaignsController(logger, managementDB, usersDB, engine),
+		TemplatesController:     NewTemplatesController(logger, managementDB, engine),
+		AdminsController:        NewAdminsController(logger, managementDB, engine),
+		UsersController:         NewUsersController(logger, pub, usersDB, journeyDB, mgmt, cfg.Storage.MaxUploadSize, engine),
+		EventsController:        NewEventsController(logger, usersDB, engine),
+		TagsController:          NewTagsController(logger, managementDB, engine),
+		LocalesController:       NewLocalesController(logger, managementDB, engine),
+		JourneysController:      NewJourneysController(logger, journeyDB, usersDB, mgmt, pub, jet, engine),
+		OrganizationsController: NewOrganizationsController(logger, usersDB, pub, engine),
+		ListsController:         NewListsController(logger, usersDB, projects, pub, cfg.Storage.MaxUploadSize, engine),
+		DocumentsController:     NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize, engine),
+		ProvidersController:     NewProvidersController(logger, managementDB, registry, engine),
+		SubscriptionsController: NewSubscriptionsController(logger, managementDB, engine),
+		ApiKeysController:       NewApiKeysController(logger, managementDB, engine),
+		ActionsController:       NewActionsController(logger, managementDB, req, usersDB, actionRegistry, engine),
 	}
 
-	controller.AuthController, err = NewAuthController(logger, managementDB, cfg)
+	controller.AuthController, err = NewAuthController(logger, managementDB, cfg, engine)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,6 @@ type Controller struct {
 	*LocalesController
 	*JourneysController
 	*OrganizationsController
-	*SubjectOrganizationsController
 	*ListsController
 	*DocumentsController
 	*ProvidersController

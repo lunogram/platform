@@ -20,7 +20,7 @@ func TestBasicProviderDriver(t *testing.T) {
 	t.Parallel()
 
 	generator := NewHMACJWTGenerator("test-secret", time.Hour)
-	provider := NewBasicProvider(config.BasicAuth{}, nil, generator)
+	provider := NewBasicProvider(config.BasicAuth{}, nil, generator, nil)
 	require.Equal(t, "basic", provider.Driver())
 }
 
@@ -81,7 +81,7 @@ func TestBasicProviderAuthenticate(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			generator := NewHMACJWTGenerator("test-secret", time.Hour)
-			provider := NewBasicProvider(tc.config, nil, generator)
+			provider := NewBasicProvider(tc.config, nil, generator, nil)
 
 			body, err := json.Marshal(tc.requestBody)
 			require.NoError(t, err)
@@ -118,7 +118,7 @@ func TestBasicProviderAuthenticateWithExistingAdmin(t *testing.T) {
 		Password: "secret",
 	}
 	generator := NewHMACJWTGenerator("test-secret", time.Hour)
-	provider := NewBasicProvider(providerConfig, stores, generator)
+	provider := NewBasicProvider(providerConfig, stores, generator, nil)
 
 	body, err := json.Marshal(map[string]string{
 		"email":    "admin@example.com",
@@ -146,7 +146,7 @@ func TestBasicProviderAuthenticateCreatesNewAdmin(t *testing.T) {
 		Password: "secret",
 	}
 	generator := NewHMACJWTGenerator("test-secret", time.Hour)
-	provider := NewBasicProvider(providerConfig, stores, generator)
+	provider := NewBasicProvider(providerConfig, stores, generator, nil)
 
 	body, err := json.Marshal(map[string]string{
 		"email":    "newadmin@example.com",
@@ -172,7 +172,7 @@ func TestBasicProviderWebhook(t *testing.T) {
 	t.Parallel()
 
 	generator := NewHMACJWTGenerator("test-secret", time.Hour)
-	provider := NewBasicProvider(config.BasicAuth{}, nil, generator)
+	provider := NewBasicProvider(config.BasicAuth{}, nil, generator, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/basic/webhook", nil)
 	err := provider.Webhook(context.Background(), req)
@@ -189,7 +189,7 @@ func TestBasicProviderEmptyBody(t *testing.T) {
 		Password: "secret",
 	}
 	generator := NewHMACJWTGenerator("test-secret", time.Hour)
-	provider := NewBasicProvider(cfg, nil, generator)
+	provider := NewBasicProvider(cfg, nil, generator, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/login/basic/callback", nil)
 	req.Header.Set("Content-Type", "application/json")
@@ -207,7 +207,7 @@ func TestBasicProviderInvalidJSON(t *testing.T) {
 		Password: "secret",
 	}
 	generator := NewHMACJWTGenerator("test-secret", time.Hour)
-	provider := NewBasicProvider(cfg, nil, generator)
+	provider := NewBasicProvider(cfg, nil, generator, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/auth/login/basic/callback", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("Content-Type", "application/json")

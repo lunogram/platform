@@ -14,7 +14,13 @@ var (
 	DefaultBackOff = []time.Duration{1 * time.Second, 5 * time.Second, 30 * time.Second, 2 * time.Minute, 10 * time.Minute}
 
 	// DefaultMaxDeliver is the maximum number of delivery attempts for a message.
-	DefaultMaxDeliver = len(DefaultBackOff)
+	// Must be greater than len(DefaultBackOff) per NATS requirements.
+	DefaultMaxDeliver = len(DefaultBackOff) + 1
+
+	// UnlimitedMaxDeliver is used for consumers that should retry indefinitely.
+	// NATS requires MaxDeliver > len(BackOff) when BackOff is set, so we use
+	// a large finite value instead of -1.
+	UnlimitedMaxDeliver = 1_000_000
 )
 
 func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream, ns Namespace) error {
@@ -36,7 +42,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes incoming users",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    -1,
+		MaxDeliver:    UnlimitedMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUsers), jetstream.ConsumerConfig{
@@ -63,7 +69,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		Description:   "Processes incoming user events",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    -1,
+		MaxDeliver:    UnlimitedMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUserEvents), jetstream.ConsumerConfig{
@@ -90,7 +96,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("lists.recompute.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    -1,
+		MaxDeliver:    UnlimitedMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -108,7 +114,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("journeys.advance.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    -1,
+		MaxDeliver:    UnlimitedMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamJourneys), jetstream.ConsumerConfig{
@@ -117,7 +123,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("journeys.advance.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    -1,
+		MaxDeliver:    UnlimitedMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -135,7 +141,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("campaigns.send.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    -1,
+		MaxDeliver:    UnlimitedMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
@@ -153,7 +159,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("organizations.process.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    -1,
+		MaxDeliver:    UnlimitedMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizations), jetstream.ConsumerConfig{
@@ -180,7 +186,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("organizations.users.process.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    -1,
+		MaxDeliver:    UnlimitedMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationUsers), jetstream.ConsumerConfig{
@@ -207,7 +213,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("organizations.events.process.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    -1,
+		MaxDeliver:    UnlimitedMaxDeliver,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationEvents), jetstream.ConsumerConfig{
@@ -252,7 +258,7 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		FilterSubject: ns.Subject("projects.events.>"),
 		BackOff:       DefaultBackOff,
-		MaxDeliver:    -1,
+		MaxDeliver:    UnlimitedMaxDeliver,
 	})
 
 	return bootstrap.Error()

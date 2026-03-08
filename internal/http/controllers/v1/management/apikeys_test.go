@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lunogram/platform/internal/rbac"
+
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
@@ -22,11 +24,26 @@ func TestCreateApiKey(t *testing.T) {
 	ctx := t.Context()
 	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
-	projects := management.NewProjectsStore(mgmt)
-	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	orgsStore := management.NewOrganizationsStore(mgmt)
+	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)
 
-	controller := NewApiKeysController(logger, mgmt)
+	projects := management.NewProjectsStore(mgmt)
+	projectID, err := projects.CreateProject(ctx, management.Project{
+		OrganizationID: &orgID,
+		Name:           DefaultProject.Name,
+		Timezone:       DefaultProject.Timezone,
+		Locale:         DefaultProject.Locale,
+	})
+	require.NoError(t, err)
+
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewApiKeysController(logger, mgmt, engine)
 
 	type test struct {
 		body oapi.CreateApiKeyJSONRequestBody
@@ -77,6 +94,7 @@ func TestCreateApiKey(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/apikeys", bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			controller.CreateApiKey(res, req, projectID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -100,8 +118,17 @@ func TestListApiKeys(t *testing.T) {
 	ctx := t.Context()
 	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
+	orgsStore := management.NewOrganizationsStore(mgmt)
+	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
+	require.NoError(t, err)
+
 	projects := management.NewProjectsStore(mgmt)
-	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	projectID, err := projects.CreateProject(ctx, management.Project{
+		OrganizationID: &orgID,
+		Name:           DefaultProject.Name,
+		Timezone:       DefaultProject.Timezone,
+		Locale:         DefaultProject.Locale,
+	})
 	require.NoError(t, err)
 
 	apiKeysStore := management.NewApiKeysStore(mgmt)
@@ -111,7 +138,13 @@ func TestListApiKeys(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	controller := NewApiKeysController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewApiKeysController(logger, mgmt, engine)
 
 	type test struct {
 		params oapi.ListApiKeysParams
@@ -139,6 +172,7 @@ func TestListApiKeys(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/apikeys", nil)
+			req = req.WithContext(actorCtx)
 			controller.ListApiKeys(res, req, projectID, test.params)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -160,15 +194,30 @@ func TestGetApiKey(t *testing.T) {
 	ctx := t.Context()
 	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
+	orgsStore := management.NewOrganizationsStore(mgmt)
+	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
+	require.NoError(t, err)
+
 	projects := management.NewProjectsStore(mgmt)
-	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	projectID, err := projects.CreateProject(ctx, management.Project{
+		OrganizationID: &orgID,
+		Name:           DefaultProject.Name,
+		Timezone:       DefaultProject.Timezone,
+		Locale:         DefaultProject.Locale,
+	})
 	require.NoError(t, err)
 
 	apiKeysStore := management.NewApiKeysStore(mgmt)
 	apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
 	require.NoError(t, err)
 
-	controller := NewApiKeysController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewApiKeysController(logger, mgmt, engine)
 
 	type test struct {
 		keyID uuid.UUID
@@ -190,6 +239,7 @@ func TestGetApiKey(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/apikeys/"+test.keyID.String(), nil)
+			req = req.WithContext(actorCtx)
 			controller.GetApiKey(res, req, projectID, test.keyID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -212,12 +262,28 @@ func TestUpdateApiKey(t *testing.T) {
 	ctx := t.Context()
 	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
+	orgsStore := management.NewOrganizationsStore(mgmt)
+	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
+	require.NoError(t, err)
+
 	projects := management.NewProjectsStore(mgmt)
-	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	projectID, err := projects.CreateProject(ctx, management.Project{
+		OrganizationID: &orgID,
+		Name:           DefaultProject.Name,
+		Timezone:       DefaultProject.Timezone,
+		Locale:         DefaultProject.Locale,
+	})
 	require.NoError(t, err)
 
 	apiKeysStore := management.NewApiKeysStore(mgmt)
-	controller := NewApiKeysController(logger, mgmt)
+
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewApiKeysController(logger, mgmt, engine)
 
 	type test struct {
 		body oapi.UpdateApiKeyJSONRequestBody
@@ -258,6 +324,7 @@ func TestUpdateApiKey(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("PATCH", "/v1/apikeys/"+apiKey.ID.String(), bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			controller.UpdateApiKey(res, req, projectID, apiKey.ID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -279,15 +346,30 @@ func TestDeleteApiKey(t *testing.T) {
 	ctx := t.Context()
 	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
+	orgsStore := management.NewOrganizationsStore(mgmt)
+	orgID, err := orgsStore.CreateOrganization(ctx, "Test Org")
+	require.NoError(t, err)
+
 	projects := management.NewProjectsStore(mgmt)
-	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	projectID, err := projects.CreateProject(ctx, management.Project{
+		OrganizationID: &orgID,
+		Name:           DefaultProject.Name,
+		Timezone:       DefaultProject.Timezone,
+		Locale:         DefaultProject.Locale,
+	})
 	require.NoError(t, err)
 
 	apiKeysStore := management.NewApiKeysStore(mgmt)
 	apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
 	require.NoError(t, err)
 
-	controller := NewApiKeysController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewApiKeysController(logger, mgmt, engine)
 
 	type test struct {
 		code int
@@ -303,6 +385,7 @@ func TestDeleteApiKey(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("DELETE", "/v1/apikeys/"+apiKey.ID.String(), nil)
+			req = req.WithContext(actorCtx)
 			controller.DeleteApiKey(res, req, projectID, apiKey.ID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())

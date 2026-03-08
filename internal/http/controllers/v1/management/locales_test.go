@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
@@ -27,7 +28,13 @@ func TestCreateLocale(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	locales := NewLocalesController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	locales := NewLocalesController(logger, mgmt, engine)
 
 	type test struct {
 		body oapi.CreateLocaleJSONRequestBody
@@ -58,6 +65,7 @@ func TestCreateLocale(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/locales", bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			locales.CreateLocale(res, req, projectID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -104,7 +112,13 @@ func TestListLocales(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	controller := NewLocalesController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewLocalesController(logger, mgmt, engine)
 
 	type test struct {
 		params oapi.ListLocalesParams
@@ -139,6 +153,7 @@ func TestListLocales(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/locales", nil)
+			req = req.WithContext(actorCtx)
 			controller.ListLocales(res, req, projectID, test.params)
 
 			require.Equal(t, 200, res.Code, res.Body.String())
@@ -173,7 +188,13 @@ func TestGetLocale(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewLocalesController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewLocalesController(logger, mgmt, engine)
 
 	type test struct {
 		localeID string
@@ -199,6 +220,7 @@ func TestGetLocale(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/locales/"+test.localeID, nil)
+			req = req.WithContext(actorCtx)
 			controller.GetLocale(res, req, projectID, test.localeID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -233,10 +255,17 @@ func TestDeleteLocale(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewLocalesController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewLocalesController(logger, mgmt, engine)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/v1/locales/"+localeID.String(), nil)
+	req = req.WithContext(actorCtx)
 	controller.DeleteLocale(res, req, projectID, localeID)
 
 	require.Equal(t, 204, res.Code, res.Body.String())
@@ -252,8 +281,15 @@ func TestLocaleProjectNotFound(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
-	controller := NewLocalesController(logger, mgmt)
 	invalidProjectID := uuid.New()
+
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(invalidProjectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, t.Context(), actor, "owner", "admin")
+
+	controller := NewLocalesController(logger, mgmt, engine)
 
 	t.Run("create locale - project not found", func(t *testing.T) {
 		body := oapi.CreateLocaleJSONRequestBody{
@@ -265,6 +301,7 @@ func TestLocaleProjectNotFound(t *testing.T) {
 
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("POST", "/v1/locales", bytes.NewReader(bb))
+		req = req.WithContext(actorCtx)
 		controller.CreateLocale(res, req, invalidProjectID)
 
 		require.Equal(t, 404, res.Code, res.Body.String())
@@ -273,6 +310,7 @@ func TestLocaleProjectNotFound(t *testing.T) {
 	t.Run("list locales - project not found", func(t *testing.T) {
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", "/v1/locales", nil)
+		req = req.WithContext(actorCtx)
 		controller.ListLocales(res, req, invalidProjectID, oapi.ListLocalesParams{})
 
 		require.Equal(t, 404, res.Code, res.Body.String())
@@ -281,6 +319,7 @@ func TestLocaleProjectNotFound(t *testing.T) {
 	t.Run("get locale - project not found", func(t *testing.T) {
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", "/v1/locales/en", nil)
+		req = req.WithContext(actorCtx)
 		controller.GetLocale(res, req, invalidProjectID, "en")
 
 		require.Equal(t, 404, res.Code, res.Body.String())
@@ -289,6 +328,7 @@ func TestLocaleProjectNotFound(t *testing.T) {
 	t.Run("delete locale - project not found", func(t *testing.T) {
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("DELETE", "/v1/locales/"+uuid.New().String(), nil)
+		req = req.WithContext(actorCtx)
 		controller.DeleteLocale(res, req, invalidProjectID, uuid.New())
 
 		require.Equal(t, 404, res.Code, res.Body.String())

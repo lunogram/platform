@@ -15,13 +15,14 @@ import (
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
-func NewActionsController(logger *zap.Logger, db *sqlx.DB, req pubsub.Caller, usersDB *sqlx.DB, actionRegistry *actions.Registry) *ActionsController {
+func NewActionsController(logger *zap.Logger, db *sqlx.DB, req pubsub.Caller, usersDB *sqlx.DB, actionRegistry *actions.Registry, engine *rbac.Engine) *ActionsController {
 	return &ActionsController{
 		logger:   logger,
 		db:       db,
@@ -29,6 +30,7 @@ func NewActionsController(logger *zap.Logger, db *sqlx.DB, req pubsub.Caller, us
 		registry: actionRegistry,
 		req:      req,
 		subjects: subjects.NewState(usersDB),
+		engine:   engine,
 	}
 }
 
@@ -39,10 +41,16 @@ type ActionsController struct {
 	registry *actions.Registry
 	req      pubsub.Caller
 	subjects *subjects.State
+	engine   *rbac.Engine
 }
 
 func (srv *ActionsController) CreateAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	body := oapi.CreateActionJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -78,6 +86,11 @@ func (srv *ActionsController) CreateAction(w http.ResponseWriter, r *http.Reques
 
 func (srv *ActionsController) ListActions(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListActionsParams) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("listing actions")
 
@@ -104,6 +117,11 @@ func (srv *ActionsController) ListActions(w http.ResponseWriter, r *http.Request
 
 func (srv *ActionsController) GetAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("action_id", actionID))
 	logger.Info("getting action")
 
@@ -125,10 +143,14 @@ func (srv *ActionsController) GetAction(w http.ResponseWriter, r *http.Request, 
 }
 
 func (srv *ActionsController) UpdateAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("action_id", actionID))
 	logger.Info("updating action")
-
-	ctx := r.Context()
 	body := oapi.UpdateActionJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -179,6 +201,11 @@ func (srv *ActionsController) UpdateAction(w http.ResponseWriter, r *http.Reques
 
 func (srv *ActionsController) DeleteAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("action_id", actionID))
 	logger.Info("deleting action")
 
@@ -194,6 +221,12 @@ func (srv *ActionsController) DeleteAction(w http.ResponseWriter, r *http.Reques
 }
 
 func (srv *ActionsController) ListActionMeta(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("listing action meta")
 
@@ -254,6 +287,12 @@ func (srv *ActionsController) ListActionMeta(w http.ResponseWriter, r *http.Requ
 }
 
 func (srv *ActionsController) GetActionPreview(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionType string) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("action_type", actionType))
 	logger.Info("getting action preview")
 
@@ -277,6 +316,11 @@ func (srv *ActionsController) GetActionPreview(w http.ResponseWriter, r *http.Re
 }
 
 func (srv *ActionsController) TestAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
+	if err := srv.engine.Allowed(r.Context(), rbac.Update, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
@@ -345,6 +389,11 @@ func (srv *ActionsController) TestAction(w http.ResponseWriter, r *http.Request,
 }
 
 func (srv *ActionsController) TestActionFunction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID, functionID string) {
+	if err := srv.engine.Allowed(r.Context(), rbac.Update, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	logger := srv.logger.With(
@@ -435,6 +484,11 @@ func (srv *ActionsController) TestActionFunction(w http.ResponseWriter, r *http.
 
 func (srv *ActionsController) ListActionSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID, functionID string) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("action_id", actionID))
 	logger.Info("listing action schemas")
 

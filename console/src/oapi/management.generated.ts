@@ -648,54 +648,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/tenant": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get current tenant
-         * @description Retrieves the current tenant for the authenticated admin
-         */
-        get: operations["getTenant"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete tenant
-         * @description Soft deletes the current tenant (requires owner role)
-         */
-        delete: operations["deleteTenant"];
-        options?: never;
-        head?: never;
-        /**
-         * Update tenant
-         * @description Updates tenant properties (requires owner role)
-         */
-        patch: operations["updateTenant"];
-        trace?: never;
-    };
-    "/api/admin/tenant/integrations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get tenant integrations
-         * @description Retrieves all provider integrations for the tenant
-         */
-        get: operations["getTenantIntegrations"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/projects/{projectID}/subjects/users": {
         parameters: {
             query?: never;
@@ -2037,7 +1989,7 @@ export interface components {
          * @example admin
          * @enum {string}
          */
-        ProjectRole: "support" | "editor" | "publisher" | "admin";
+        ProjectRole: "support" | "client" | "editor" | "admin";
         /**
          * @description User subscription state
          * @example subscribed
@@ -2559,33 +2511,6 @@ export interface components {
             first_name?: string;
             /** @example Smith */
             last_name?: string;
-        };
-        Tenant: {
-            /**
-             * Format: uuid
-             * @example 7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b
-             */
-            id: string;
-            /** @example Acme Corporation */
-            name: string;
-            /** @example https://acme.com/track */
-            tracking_deeplink_mirror_url?: string;
-            /** Format: uuid */
-            notification_provider_id?: string;
-            /**
-             * Format: date-time
-             * @example 2025-11-19T14:18:42.960Z
-             */
-            created_at: string;
-            /**
-             * Format: date-time
-             * @example 2025-11-23T17:20:00.021Z
-             */
-            updated_at: string;
-        };
-        UpdateTenant: {
-            /** @example https://acme.com/track */
-            tracking_deeplink_mirror_url?: string;
         };
         User: {
             /**
@@ -4956,92 +4881,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Admin"];
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    getTenant: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Tenant retrieved successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Tenant"];
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    deleteTenant: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Tenant deleted successfully */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    updateTenant: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateTenant"];
-            };
-        };
-        responses: {
-            /** @description Tenant updated successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Tenant"];
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    getTenantIntegrations: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Integrations retrieved successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Provider"][];
                 };
             };
             default: components["responses"]["Error"];

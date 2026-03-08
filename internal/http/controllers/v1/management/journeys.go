@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
@@ -24,7 +25,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewJourneysController(logger *zap.Logger, journeyDB, subjectsDB *sqlx.DB, mgmt *management.State, pub pubsub.Publisher, jet jetstream.JetStream) *JourneysController {
+func NewJourneysController(logger *zap.Logger, journeyDB, subjectsDB *sqlx.DB, mgmt *management.State, pub pubsub.Publisher, jet jetstream.JetStream, engine *rbac.Engine) *JourneysController {
 	return &JourneysController{
 		logger:     logger,
 		journeyDB:  journeyDB,
@@ -34,6 +35,7 @@ func NewJourneysController(logger *zap.Logger, journeyDB, subjectsDB *sqlx.DB, m
 		subjects:   subjects.NewState(subjectsDB),
 		pub:        pub,
 		jet:        jet,
+		engine:     engine,
 	}
 }
 
@@ -46,10 +48,15 @@ type JourneysController struct {
 	jrny       *journey.State
 	pub        pubsub.Publisher
 	jet        jetstream.JetStream
+	engine     *rbac.Engine
 }
 
 func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListJourneysParams) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 
 	pagination := store.Pagination{
@@ -95,6 +102,10 @@ func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Reque
 
 func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.CreateJourneyParams) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	body := oapi.CreateJourneyJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -193,6 +204,10 @@ func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Requ
 
 func (srv *JourneysController) GetJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
 		zap.Stringer("journey_id", journeyID),
@@ -226,6 +241,10 @@ func (srv *JourneysController) GetJourney(w http.ResponseWriter, r *http.Request
 
 func (srv *JourneysController) UpdateJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	body := oapi.UpdateJourneyJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -302,6 +321,10 @@ func (srv *JourneysController) UpdateJourney(w http.ResponseWriter, r *http.Requ
 
 func (srv *JourneysController) DeleteJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
 		zap.Stringer("journey_id", journeyID),
@@ -341,6 +364,10 @@ func (srv *JourneysController) StreamUserJourneySteps(
 	userID uuid.UUID,
 ) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	enc := sse.NewEncoder(w)
 	enc.WriteEvent("message", "connected")
 	rc := http.NewResponseController(w)
@@ -393,6 +420,10 @@ func (srv *JourneysController) StreamUserJourneySteps(
 
 func (srv *JourneysController) GetUserJourneyState(w http.ResponseWriter, r *http.Request, projectID, journeyID, userID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
@@ -428,6 +459,10 @@ func (srv *JourneysController) GetUserJourneyState(w http.ResponseWriter, r *htt
 
 func (srv *JourneysController) TriggerUser(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID, userID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	body := oapi.TriggerUserJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
@@ -520,6 +555,10 @@ func (srv *JourneysController) TriggerUser(w http.ResponseWriter, r *http.Reques
 
 func (srv *JourneysController) AdvanceUserStep(w http.ResponseWriter, r *http.Request, projectID, journeyID, userID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	body := oapi.AdvanceUserStepJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
@@ -575,6 +614,10 @@ func (srv *JourneysController) AdvanceUserStep(w http.ResponseWriter, r *http.Re
 
 func (srv *JourneysController) GetJourneySteps(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("journey_id", journeyID))
 	logger.Info("getting journey steps")
@@ -617,6 +660,10 @@ func (srv *JourneysController) GetJourneySteps(w http.ResponseWriter, r *http.Re
 
 func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
 		zap.Stringer("journey_id", journeyID),
@@ -705,6 +752,10 @@ func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Re
 
 func (srv *JourneysController) VersionJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
 		zap.Stringer("journey_id", journeyID),
@@ -771,6 +822,10 @@ func (srv *JourneysController) VersionJourney(w http.ResponseWriter, r *http.Req
 
 func (srv *JourneysController) DuplicateJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
 		zap.Stringer("journey_id", journeyID),
@@ -835,6 +890,10 @@ func (srv *JourneysController) DuplicateJourney(w http.ResponseWriter, r *http.R
 
 func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
 		zap.Stringer("journey_id", journeyID),

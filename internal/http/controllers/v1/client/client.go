@@ -7,22 +7,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/internal/claim/rbac"
 	"github.com/lunogram/platform/internal/http/controllers/v1/client/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
-func NewClientController(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub pubsub.Publisher) *ClientController {
+func NewClientController(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub pubsub.Publisher, engine *rbac.Engine) *ClientController {
 	return &ClientController{
 		logger: logger,
 		db:     db,
 		users:  usrs,
 		pubsub: pub,
+		engine: engine,
 	}
 }
 
@@ -31,22 +32,26 @@ type ClientController struct {
 	db     *sqlx.DB
 	users  *subjects.State
 	pubsub pubsub.Publisher
+	engine *rbac.Engine
 }
 
 func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	scope := rbac.FromContext(ctx)
-	if scope == nil {
-		srv.logger.Error("rbac scope not found in context")
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
 
-	projectID := scope.ProjectID
+	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
 		srv.logger.Error("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -83,18 +88,21 @@ func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request) 
 
 func (srv *ClientController) IdentifyUserClient(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	scope := rbac.FromContext(ctx)
-	if scope == nil {
-		srv.logger.Error("rbac scope not found in context")
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
 
-	projectID := scope.ProjectID
+	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
 		srv.logger.Error("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("users", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -180,18 +188,21 @@ func (srv *ClientController) IdentifyUserClient(w http.ResponseWriter, r *http.R
 
 func (srv *ClientController) UpsertOrganizationClient(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	scope := rbac.FromContext(ctx)
-	if scope == nil {
-		srv.logger.Error("rbac scope not found in context")
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
 
-	projectID := scope.ProjectID
+	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
 		srv.logger.Error("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -274,18 +285,21 @@ func (srv *ClientController) UpsertOrganizationClient(w http.ResponseWriter, r *
 
 func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	scope := rbac.FromContext(ctx)
-	if scope == nil {
-		srv.logger.Error("rbac scope not found in context")
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
 
-	projectID := scope.ProjectID
+	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
 		srv.logger.Error("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -382,18 +396,21 @@ func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r 
 
 func (srv *ClientController) RemoveOrganizationUserClient(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	scope := rbac.FromContext(ctx)
-	if scope == nil {
-		srv.logger.Error("rbac scope not found in context")
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
 
-	projectID := scope.ProjectID
+	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
 		srv.logger.Error("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -451,18 +468,21 @@ func (srv *ClientController) RemoveOrganizationUserClient(w http.ResponseWriter,
 
 func (srv *ClientController) PostOrganizationEventsClient(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	scope := rbac.FromContext(ctx)
-	if scope == nil {
-		srv.logger.Error("rbac scope not found in context")
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
 
-	projectID := scope.ProjectID
+	projectID := actor.ProjectID
 	if projectID == uuid.Nil {
 		srv.logger.Error("project_id is required")
 		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 

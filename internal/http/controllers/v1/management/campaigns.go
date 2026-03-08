@@ -10,17 +10,19 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
-func NewCampaignsController(logger *zap.Logger, managementDB, usersDB *sqlx.DB) *CampaignsController {
+func NewCampaignsController(logger *zap.Logger, managementDB, usersDB *sqlx.DB, engine *rbac.Engine) *CampaignsController {
 	return &CampaignsController{
 		logger:  logger,
 		mgmtDB:  managementDB,
 		usersDB: usersDB,
 		mgmt:    management.NewState(managementDB),
+		engine:  engine,
 	}
 }
 
@@ -29,10 +31,16 @@ type CampaignsController struct {
 	mgmtDB  *sqlx.DB
 	usersDB *sqlx.DB
 	mgmt    *management.State
+	engine  *rbac.Engine
 }
 
 func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("campaigns", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	body := oapi.CreateCampaignJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -128,6 +136,11 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 
 func (srv *CampaignsController) ListCampaigns(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListCampaignsParams) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("campaigns", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("listing campaigns")
 
@@ -154,6 +167,11 @@ func (srv *CampaignsController) ListCampaigns(w http.ResponseWriter, r *http.Req
 
 func (srv *CampaignsController) GetCampaign(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("campaigns", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID))
 	logger.Info("getting campaign")
 
@@ -175,10 +193,14 @@ func (srv *CampaignsController) GetCampaign(w http.ResponseWriter, r *http.Reque
 }
 
 func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("campaigns", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID))
 	logger.Info("updating campaign")
-
-	ctx := r.Context()
 	body := oapi.UpdateCampaignJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -224,6 +246,11 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 
 func (srv *CampaignsController) DeleteCampaign(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("campaigns", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID))
 	logger.Info("deleting campaign")
 
@@ -253,6 +280,11 @@ func (srv *CampaignsController) DeleteCampaign(w http.ResponseWriter, r *http.Re
 
 func (srv *CampaignsController) DuplicateCampaign(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("campaigns", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID))
 	logger.Info("duplicating campaign")
 
@@ -324,6 +356,11 @@ func (srv *CampaignsController) DuplicateCampaign(w http.ResponseWriter, r *http
 
 func (srv *CampaignsController) GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, params oapi.GetCampaignUsersParams) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("campaigns", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID))
 	logger.Info("getting campaign users")
 

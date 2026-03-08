@@ -17,6 +17,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
@@ -61,7 +62,13 @@ func TestListCreation(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	lists := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	lists := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	type test struct {
 		body oapi.CreateListJSONRequestBody
@@ -92,6 +99,7 @@ func TestListCreation(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			lists.CreateList(res, req, projectID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -156,7 +164,13 @@ func TestListLists(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	type test struct {
 		limit  int
@@ -198,6 +212,7 @@ func TestListLists(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/lists", nil)
+			req = req.WithContext(actorCtx)
 			controller.ListLists(res, req, projectID, params)
 
 			require.Equal(t, 200, res.Code, res.Body.String())
@@ -243,10 +258,17 @@ func TestGetList(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/v1/lists/"+listID.String(), nil)
+	req = req.WithContext(actorCtx)
 	controller.GetList(res, req, projectID, listID)
 
 	require.Equal(t, 200, res.Code, res.Body.String())
@@ -290,7 +312,13 @@ func TestUpdateList(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	body := oapi.UpdateListJSONRequestBody{
 		Name: "Updated List",
@@ -301,6 +329,7 @@ func TestUpdateList(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/v1/lists/"+listID.String(), bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
 	controller.UpdateList(res, req, projectID, listID)
 
 	require.Equal(t, 200, res.Code, res.Body.String())
@@ -343,10 +372,17 @@ func TestDeleteList(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/v1/lists/"+listID.String(), nil)
+	req = req.WithContext(actorCtx)
 	controller.DeleteList(res, req, projectID, listID)
 
 	require.Equal(t, 204, res.Code, res.Body.String())
@@ -387,10 +423,17 @@ func TestDuplicateList(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/v1/lists/"+listID.String()+"/duplicate", nil)
+	req = req.WithContext(actorCtx)
 	controller.DuplicateList(res, req, projectID, listID)
 
 	require.Equal(t, 201, res.Code, res.Body.String())
@@ -466,7 +509,13 @@ func TestImportListUsers(t *testing.T) {
 			listID, err := listsStore.CreateList(ctx, list)
 			require.NoError(t, err)
 
-			controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+			actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+				rbac.WithOrganizationID(uuid.New()),
+				rbac.WithProjectID(projectID),
+			)
+			engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+			controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 			body := &bytes.Buffer{}
 			writer := multipart.NewWriter(body)
@@ -486,6 +535,7 @@ func TestImportListUsers(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", fmt.Sprintf("/v1/lists/%s/users", listID), body)
+			req = req.WithContext(actorCtx)
 			req.Header.Set("Content-Type", writer.FormDataContentType())
 
 			controller.ImportListUsers(res, req, projectID, listID)
@@ -524,7 +574,13 @@ func TestCreateListWithOrganizationEvents(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	// Create a rule with both user events and organization events
 	// This tests that events with the same name but different subject_types are handled correctly
@@ -564,6 +620,7 @@ func TestCreateListWithOrganizationEvents(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
 	controller.CreateList(res, req, projectID)
 
 	require.Equal(t, 201, res.Code, res.Body.String())
@@ -649,7 +706,13 @@ func TestUpdateListWithOrganizationEvents(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	// Update the list with a rule containing organization events
 	rule := rules.RuleSet{
@@ -682,6 +745,7 @@ func TestUpdateListWithOrganizationEvents(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/v1/lists/"+listID.String(), bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
 	controller.UpdateList(res, req, projectID, listID)
 
 	require.Equal(t, 200, res.Code, res.Body.String())
@@ -742,7 +806,13 @@ func TestCreateDynamicListWithRule_IsDraft(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	rule := rules.RuleSet{
 		Rule: rules.Rule{
@@ -766,6 +836,7 @@ func TestCreateDynamicListWithRule_IsDraft(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
 	controller.CreateList(res, req, projectID)
 
 	require.Equal(t, 201, res.Code, res.Body.String())
@@ -813,7 +884,13 @@ func TestUpdateListSavesRuleToDraft(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	// Update with a rule — should save to draft version
 	rule := rules.RuleSet{
@@ -837,6 +914,7 @@ func TestUpdateListSavesRuleToDraft(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/v1/lists/"+listID.String(), bytes.NewReader(bb))
+	req = req.WithContext(actorCtx)
 	controller.UpdateList(res, req, projectID, listID)
 
 	require.Equal(t, 200, res.Code, res.Body.String())
@@ -874,7 +952,13 @@ func TestUpdateListPublish(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	// Create a dynamic list with a rule (starts as draft)
 	rule := rules.RuleSet{
@@ -899,6 +983,7 @@ func TestUpdateListPublish(t *testing.T) {
 
 	createRes := httptest.NewRecorder()
 	createReq := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+	createReq = createReq.WithContext(actorCtx)
 	controller.CreateList(createRes, createReq, projectID)
 
 	require.Equal(t, 201, createRes.Code, createRes.Body.String())
@@ -919,6 +1004,7 @@ func TestUpdateListPublish(t *testing.T) {
 
 	updateRes := httptest.NewRecorder()
 	updateReq := httptest.NewRequest("PATCH", "/v1/lists/"+created.Id.String(), bytes.NewReader(bb))
+	updateReq = updateReq.WithContext(actorCtx)
 	controller.UpdateList(updateRes, updateReq, projectID, created.Id)
 
 	require.Equal(t, 200, updateRes.Code, updateRes.Body.String())
@@ -982,7 +1068,13 @@ func TestPreviewListUsers(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	// Create a dynamic list with a rule: age >= 18
 	rule := rules.RuleSet{
@@ -1007,6 +1099,7 @@ func TestPreviewListUsers(t *testing.T) {
 
 	createRes := httptest.NewRecorder()
 	createReq := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+	createReq = createReq.WithContext(actorCtx)
 	controller.CreateList(createRes, createReq, projectID)
 
 	require.Equal(t, 201, createRes.Code, createRes.Body.String())
@@ -1025,6 +1118,7 @@ func TestPreviewListUsers(t *testing.T) {
 
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", fmt.Sprintf("/v1/lists/%s/users/preview", created.Id), nil)
+		req = req.WithContext(actorCtx)
 		controller.PreviewListUsers(res, req, projectID, created.Id, params)
 
 		require.Equal(t, 200, res.Code, res.Body.String())
@@ -1056,6 +1150,7 @@ func TestPreviewListUsers(t *testing.T) {
 
 		staticRes := httptest.NewRecorder()
 		staticReq := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+		staticReq = staticReq.WithContext(actorCtx)
 		controller.CreateList(staticRes, staticReq, projectID)
 		require.Equal(t, 201, staticRes.Code)
 
@@ -1065,6 +1160,7 @@ func TestPreviewListUsers(t *testing.T) {
 
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", fmt.Sprintf("/v1/lists/%s/users/preview", staticList.Id), nil)
+		req = req.WithContext(actorCtx)
 		controller.PreviewListUsers(res, req, projectID, staticList.Id, oapi.PreviewListUsersParams{})
 
 		require.Equal(t, 400, res.Code, "should reject preview for static list")
@@ -1081,6 +1177,7 @@ func TestPreviewListUsers(t *testing.T) {
 
 		noDraftRes := httptest.NewRecorder()
 		noDraftReq := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+		noDraftReq = noDraftReq.WithContext(actorCtx)
 		controller.CreateList(noDraftRes, noDraftReq, projectID)
 		require.Equal(t, 201, noDraftRes.Code)
 
@@ -1090,6 +1187,7 @@ func TestPreviewListUsers(t *testing.T) {
 
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", fmt.Sprintf("/v1/lists/%s/users/preview", noDraftList.Id), nil)
+		req = req.WithContext(actorCtx)
 		controller.PreviewListUsers(res, req, projectID, noDraftList.Id, oapi.PreviewListUsersParams{})
 
 		require.Equal(t, 400, res.Code, "should reject preview when no draft rule exists")
@@ -1098,6 +1196,7 @@ func TestPreviewListUsers(t *testing.T) {
 	t.Run("returns 404 for non-existent list", func(t *testing.T) {
 		res := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", "/v1/lists/"+uuid.New().String()+"/users/preview", nil)
+		req = req.WithContext(actorCtx)
 		controller.PreviewListUsers(res, req, projectID, uuid.New(), oapi.PreviewListUsersParams{})
 
 		require.Equal(t, 404, res.Code, "should return 404 for non-existent list")
@@ -1128,7 +1227,13 @@ func TestDuplicatePublishedList_CreatesDraft(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewListsController(logger, usrs, projects, pub, testMaxUploadSize, engine)
 
 	// Create and publish a dynamic list
 	rule := rules.RuleSet{
@@ -1153,6 +1258,7 @@ func TestDuplicatePublishedList_CreatesDraft(t *testing.T) {
 
 	createRes := httptest.NewRecorder()
 	createReq := httptest.NewRequest("POST", "/v1/lists", bytes.NewReader(bb))
+	createReq = createReq.WithContext(actorCtx)
 	controller.CreateList(createRes, createReq, projectID)
 	require.Equal(t, 201, createRes.Code, createRes.Body.String())
 
@@ -1171,12 +1277,14 @@ func TestDuplicatePublishedList_CreatesDraft(t *testing.T) {
 
 	publishRes := httptest.NewRecorder()
 	publishReq := httptest.NewRequest("PATCH", "/v1/lists/"+created.Id.String(), bytes.NewReader(bb))
+	publishReq = publishReq.WithContext(actorCtx)
 	controller.UpdateList(publishRes, publishReq, projectID, created.Id)
 	require.Equal(t, 200, publishRes.Code, publishRes.Body.String())
 
 	// Duplicate the published list
 	dupRes := httptest.NewRecorder()
 	dupReq := httptest.NewRequest("POST", "/v1/lists/"+created.Id.String()+"/duplicate", nil)
+	dupReq = dupReq.WithContext(actorCtx)
 	controller.DuplicateList(dupRes, dupReq, projectID, created.Id)
 
 	require.Equal(t, 201, dupRes.Code, dupRes.Body.String())

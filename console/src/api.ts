@@ -20,8 +20,6 @@ import type {
     ListCreateParams,
     ListUpdateParams,
     Locale,
-    Tenant,
-    TenantUpdateParams,
     Project,
     ProjectAdmin,
     ProjectAdminInviteParams,
@@ -659,13 +657,6 @@ const api = {
                 .then((r) => r.data),
         all: async (projectId: UUID) =>
             await client.get<Tag[]>(`${projectUrl(projectId)}/tags`).then((r) => r.data),
-    },
-
-    tenant: {
-        get: async () => await client.get<Tenant>("/admin/tenant").then((r) => r.data),
-        update: async (id: UUID, params: TenantUpdateParams) =>
-            await client.patch<Tenant>(`/admin/tenant`, params).then((r) => r.data),
-        delete: async () => await client.delete("/admin/tenant").then((r) => r.data),
     },
 
     locales: {

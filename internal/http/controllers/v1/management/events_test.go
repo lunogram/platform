@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/claim"
+	"github.com/lunogram/platform/internal/rbac"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/rules"
@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func setupEventsController(t *testing.T) (*EventsController, uuid.UUID) {
+func setupEventsController(t *testing.T) (*EventsController, uuid.UUID, context.Context) {
 	t.Helper()
 
 	logger := zaptest.NewLogger(t)
@@ -38,14 +38,20 @@ func setupEventsController(t *testing.T) (*EventsController, uuid.UUID) {
 	})
 	require.NoError(t, err)
 
-	controller := NewEventsController(logger, usrs)
-	return controller, projectID
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewEventsController(logger, usrs, engine)
+	return controller, projectID, actorCtx
 }
 
 func TestListUserEventSchemas(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := setupEventsController(t)
+	controller, projectID, actorCtx := setupEventsController(t)
 	ctx := context.Background()
 
 	eventsStore := controller.store.EventsStore
@@ -76,7 +82,7 @@ func TestListUserEventSchemas(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/subjects/user/events/schema", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.ListUserEventSchemas(res, req, projectID)
 
@@ -136,11 +142,11 @@ func TestListUserEventSchemas(t *testing.T) {
 func TestListUserEventSchemasEmpty(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := setupEventsController(t)
+	controller, projectID, actorCtx := setupEventsController(t)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/subjects/user/events/schema", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.ListUserEventSchemas(res, req, projectID)
 
@@ -157,7 +163,7 @@ func TestListUserEventSchemasEmpty(t *testing.T) {
 func TestListUserEventSchemasUnauthorized(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := setupEventsController(t)
+	controller, projectID, _ := setupEventsController(t)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/subjects/user/events/schema", nil)
@@ -170,7 +176,7 @@ func TestListUserEventSchemasUnauthorized(t *testing.T) {
 func TestListUserEventSchemasWithMultipleTypes(t *testing.T) {
 	t.Parallel()
 
-	controller, projectID := setupEventsController(t)
+	controller, projectID, actorCtx := setupEventsController(t)
 	ctx := context.Background()
 
 	eventsStore := controller.store.EventsStore
@@ -192,7 +198,7 @@ func TestListUserEventSchemasWithMultipleTypes(t *testing.T) {
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/admin/projects/"+projectID.String()+"/subjects/user/events/schema", nil)
-	req = req.WithContext(claim.WithSession(req.Context(), validSession()))
+	req = req.WithContext(actorCtx)
 
 	controller.ListUserEventSchemas(res, req, projectID)
 

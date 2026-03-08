@@ -18,6 +18,7 @@ import (
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -57,14 +58,24 @@ func run() error {
 
 	if migrate || conf.DatabaseMigrate {
 		logger.Info("running database migrations...")
+		logger.Info("running management migration")
 		if err := management.Migrate(conf.Store.ManagementURI); err != nil {
 			return fmt.Errorf("management migration failed: %w", err)
 		}
+
+		logger.Info("running subjects migration")
 		if err := subjects.Migrate(conf.Store.SubjectsURI); err != nil {
 			return fmt.Errorf("subjects migration failed: %w", err)
 		}
+
+		logger.Info("running journey migration")
 		if err := journey.Migrate(conf.Store.JourneyURI); err != nil {
 			return fmt.Errorf("journey migration failed: %w", err)
+		}
+
+		logger.Info("running rbac migration")
+		if err := rbac.Migrate(conf.RBAC); err != nil {
+			return fmt.Errorf("rbac migration failed: %w", err)
 		}
 		if migrate {
 			return nil
@@ -137,9 +148,17 @@ func run() error {
 		return err
 	}
 
+	logger.Info("initializing rbac engine")
+
+	rbacEngine, err := rbac.NewEngine(ctx, conf.RBAC)
+	if err != nil {
+		return fmt.Errorf("failed to initialize rbac engine: %w", err)
+	}
+	defer rbacEngine.Close()
+
 	logger.Info("starting http server")
 
-	server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, req, providersRegisrtry, actionRegistry)
+	server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, req, providersRegisrtry, actionRegistry, rbacEngine)
 	if err != nil {
 		return err
 	}

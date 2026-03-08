@@ -28,13 +28,25 @@ type AuthResult struct {
 	ExpiresAt   time.Time
 }
 
-func NewProvider(cfg config.Auth, mgmt *management.State, logger *zap.Logger) (Provider, error) {
+// RBACWriter is the subset of the RBAC engine needed by auth providers to
+// grant organization-level roles when a new admin is provisioned. Accepting
+// an interface instead of the concrete *rbac.Engine avoids an import cycle
+// and makes unit-testing straightforward (callers can supply a no-op or a
+// recording implementation).
+type RBACWriter interface {
+	// WriteTuple adds a single relationship tuple to the authorization store.
+	// For admin provisioning this is typically:
+	//   WriteTuple(ctx, "user:<admin-uuid>", "owner", "organization:<org-uuid>")
+	WriteTuple(ctx context.Context, user, relation, object string) error
+}
+
+func NewProvider(cfg config.Auth, mgmt *management.State, logger *zap.Logger, rbac RBACWriter) (Provider, error) {
 	switch cfg.Driver {
 	case "basic":
 		generator := NewHMACJWTGenerator(cfg.JWTSecret, cfg.TokenLife)
-		return NewBasicProvider(cfg.Basic, mgmt, generator), nil
+		return NewBasicProvider(cfg.Basic, mgmt, generator, rbac), nil
 	case "clerk":
-		return NewClerkProvider(cfg.Clerk, mgmt, logger, cfg.JWKS.Unwrap())
+		return NewClerkProvider(cfg.Clerk, mgmt, logger, cfg.JWKS.Unwrap(), rbac)
 	default:
 		return nil, ErrUnknownDriver
 	}

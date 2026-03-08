@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/store"
@@ -81,9 +80,9 @@ func (s *AdminsStore) GetAdminByExternalID(ctx context.Context, externalID strin
 	return &admin, nil
 }
 
-func (s *AdminsStore) GetAdminBySubject(ctx context.Context, session claim.Session) (*Admin, error) {
-	if session.Issuer != "" {
-		admin, err := s.GetAdminByExternalID(ctx, session.Subject)
+func (s *AdminsStore) GetAdminBySubject(ctx context.Context, issuer, subject string) (*Admin, error) {
+	if issuer != "" {
+		admin, err := s.GetAdminByExternalID(ctx, subject)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}
@@ -92,7 +91,7 @@ func (s *AdminsStore) GetAdminBySubject(ctx context.Context, session claim.Sessi
 		}
 	}
 
-	adminID, err := uuid.Parse(session.Subject)
+	adminID, err := uuid.Parse(subject)
 	if err != nil {
 		return nil, problem.ErrUnauthorized(problem.Describe("invalid token"))
 	}

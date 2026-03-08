@@ -12,6 +12,7 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	internalProviders "github.com/lunogram/platform/internal/providers"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
@@ -36,7 +37,13 @@ func TestListProviders(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, mgmt, registry)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewProvidersController(logger, mgmt, registry, engine)
 
 	type test struct {
 		params oapi.ListProvidersParams
@@ -57,6 +64,7 @@ func TestListProviders(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/providers", nil)
+			req = req.WithContext(actorCtx)
 			controller.ListProviders(res, req, projectID, test.params)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -88,7 +96,13 @@ func TestListAllProviders(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, mgmt, registry)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewProvidersController(logger, mgmt, registry, engine)
 
 	type test struct {
 		code int
@@ -104,6 +118,7 @@ func TestListAllProviders(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/providers/all", nil)
+			req = req.WithContext(actorCtx)
 			controller.ListAllProviders(res, req, projectID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -135,7 +150,13 @@ func TestListProviderMeta(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, mgmt, registry)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewProvidersController(logger, mgmt, registry, engine)
 
 	type test struct {
 		code int
@@ -151,6 +172,7 @@ func TestListProviderMeta(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/providers/meta", nil)
+			req = req.WithContext(actorCtx)
 			controller.ListProviderMeta(res, req, projectID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -182,7 +204,13 @@ func TestGetProvider(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, mgmt, registry)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewProvidersController(logger, mgmt, registry, engine)
 
 	type test struct {
 		providerID uuid.UUID
@@ -200,6 +228,7 @@ func TestGetProvider(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/providers/email/test/"+test.providerID.String(), nil)
+			req = req.WithContext(actorCtx)
 			controller.GetProvider(res, req, projectID, "email", "test", test.providerID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -225,7 +254,13 @@ func TestDeleteProvider(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, mgmt, registry)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewProvidersController(logger, mgmt, registry, engine)
 
 	type test struct {
 		providerID uuid.UUID
@@ -243,6 +278,7 @@ func TestDeleteProvider(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("DELETE", "/v1/providers/"+test.providerID.String(), nil)
+			req = req.WithContext(actorCtx)
 			controller.DeleteProvider(res, req, projectID, test.providerID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -268,7 +304,13 @@ func TestCreateProviderWithInvalidModule(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, mgmt, registry)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewProvidersController(logger, mgmt, registry, engine)
 
 	type test struct {
 		body oapi.CreateProviderJSONRequestBody
@@ -291,6 +333,7 @@ func TestCreateProviderWithInvalidModule(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/providers/email/invalid-module", bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			controller.CreateProvider(res, req, projectID, "email", "invalid-module")
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -316,7 +359,13 @@ func TestUpdateProvider(t *testing.T) {
 	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
 	require.NoError(t, err)
 
-	controller := NewProvidersController(logger, mgmt, registry)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewProvidersController(logger, mgmt, registry, engine)
 
 	type test struct {
 		body       oapi.UpdateProviderJSONRequestBody
@@ -341,6 +390,7 @@ func TestUpdateProvider(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("PATCH", "/v1/providers/email/test/"+test.providerID.String(), bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			controller.UpdateProvider(res, req, projectID, "email", "test", test.providerID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())

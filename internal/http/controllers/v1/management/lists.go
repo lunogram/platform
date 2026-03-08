@@ -16,6 +16,7 @@ import (
 	"github.com/lunogram/platform/internal/importer"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
@@ -23,7 +24,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewListsController(logger *zap.Logger, usersDB *sqlx.DB, projects *management.ProjectsStore, pub pubsub.Publisher, maxUploadSize int64) *ListsController {
+func NewListsController(logger *zap.Logger, usersDB *sqlx.DB, projects *management.ProjectsStore, pub pubsub.Publisher, maxUploadSize int64, engine *rbac.Engine) *ListsController {
 	return &ListsController{
 		logger:        logger,
 		usersDB:       usersDB,
@@ -31,6 +32,7 @@ func NewListsController(logger *zap.Logger, usersDB *sqlx.DB, projects *manageme
 		projects:      projects,
 		maxUploadSize: maxUploadSize,
 		pub:           pub,
+		engine:        engine,
 	}
 }
 
@@ -41,10 +43,16 @@ type ListsController struct {
 	projects      *management.ProjectsStore
 	maxUploadSize int64
 	pub           pubsub.Publisher
+	engine        *rbac.Engine
 }
 
 func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	body := oapi.CreateListJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -136,6 +144,11 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 
 func (srv *ListsController) ListLists(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListListsParams) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("listing lists")
 
@@ -164,6 +177,11 @@ func (srv *ListsController) ListLists(w http.ResponseWriter, r *http.Request, pr
 
 func (srv *ListsController) GetList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
 	logger.Info("getting list")
 
@@ -185,10 +203,14 @@ func (srv *ListsController) GetList(w http.ResponseWriter, r *http.Request, proj
 }
 
 func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
 	logger.Info("updating list")
-
-	ctx := r.Context()
 	body := oapi.UpdateListJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -386,6 +408,11 @@ func (srv *ListsController) upsertRuleEvents(ctx context.Context, logger *zap.Lo
 
 func (srv *ListsController) DeleteList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
 	logger.Info("deleting list")
 
@@ -415,6 +442,11 @@ func (srv *ListsController) DeleteList(w http.ResponseWriter, r *http.Request, p
 
 func (srv *ListsController) DuplicateList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
 	logger.Info("duplicating list")
 
@@ -452,6 +484,11 @@ func (srv *ListsController) DuplicateList(w http.ResponseWriter, r *http.Request
 
 func (srv *ListsController) ImportListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
 	logger.Info("importing users to list")
 
@@ -564,6 +601,11 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 
 func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID, params oapi.GetListUsersParams) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
 	logger.Info("getting list users")
 
@@ -605,6 +647,11 @@ func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request,
 
 func (srv *ListsController) PreviewListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID, params oapi.PreviewListUsersParams) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
 	logger.Info("previewing list users")
 

@@ -9,16 +9,18 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
-func NewApiKeysController(logger *zap.Logger, db *sqlx.DB) *ApiKeysController {
+func NewApiKeysController(logger *zap.Logger, db *sqlx.DB, engine *rbac.Engine) *ApiKeysController {
 	return &ApiKeysController{
 		logger: logger,
 		db:     db,
 		store:  management.NewState(db),
+		engine: engine,
 	}
 }
 
@@ -26,10 +28,17 @@ type ApiKeysController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	store  *management.State
+	engine *rbac.Engine
 }
 
 func (srv *ApiKeysController) CreateApiKey(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	body := oapi.CreateApiKeyJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -59,6 +68,12 @@ func (srv *ApiKeysController) CreateApiKey(w http.ResponseWriter, r *http.Reques
 
 func (srv *ApiKeysController) ListApiKeys(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListApiKeysParams) {
 	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("listing API keys")
 
@@ -85,6 +100,12 @@ func (srv *ApiKeysController) ListApiKeys(w http.ResponseWriter, r *http.Request
 
 func (srv *ApiKeysController) GetApiKey(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, keyID uuid.UUID) {
 	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("key_id", keyID))
 	logger.Info("getting API key")
 
@@ -106,10 +127,16 @@ func (srv *ApiKeysController) GetApiKey(w http.ResponseWriter, r *http.Request, 
 }
 
 func (srv *ApiKeysController) UpdateApiKey(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, keyID uuid.UUID) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("key_id", keyID))
 	logger.Info("updating API key")
 
-	ctx := r.Context()
 	body := oapi.UpdateApiKeyJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -150,6 +177,12 @@ func (srv *ApiKeysController) UpdateApiKey(w http.ResponseWriter, r *http.Reques
 
 func (srv *ApiKeysController) DeleteApiKey(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, keyID uuid.UUID) {
 	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("key_id", keyID))
 	logger.Info("deleting API key")
 

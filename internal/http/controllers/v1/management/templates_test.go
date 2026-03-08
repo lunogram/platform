@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lunogram/platform/internal/rbac"
+
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
@@ -39,7 +41,13 @@ func TestGetTemplate(t *testing.T) {
 	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewTemplatesController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewTemplatesController(logger, mgmt, engine)
 
 	type test struct {
 		id   uuid.UUID
@@ -61,6 +69,7 @@ func TestGetTemplate(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/campaigns/"+campaignID.String()+"/templates/"+test.id.String(), nil)
+			req = req.WithContext(actorCtx)
 			controller.GetTemplate(res, req, projectID, campaignID, test.id)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -87,7 +96,13 @@ func TestCreateTemplate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	controller := NewTemplatesController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewTemplatesController(logger, mgmt, engine)
 
 	type test struct {
 		body any
@@ -122,6 +137,7 @@ func TestCreateTemplate(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/campaigns/"+campaignID.String()+"/templates", bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			controller.CreateTemplate(res, req, projectID, campaignID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -153,7 +169,13 @@ func TestUpdateTemplate(t *testing.T) {
 	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewTemplatesController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewTemplatesController(logger, mgmt, engine)
 
 	type test struct {
 		id   uuid.UUID
@@ -185,6 +207,7 @@ func TestUpdateTemplate(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("PATCH", "/v1/campaigns/"+campaignID.String()+"/templates/"+test.id.String(), bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			controller.UpdateTemplate(res, req, projectID, campaignID, test.id)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -216,7 +239,13 @@ func TestDeleteTemplate(t *testing.T) {
 	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewTemplatesController(logger, mgmt)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewTemplatesController(logger, mgmt, engine)
 
 	type test struct {
 		id   uuid.UUID
@@ -238,6 +267,7 @@ func TestDeleteTemplate(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("DELETE", "/v1/campaigns/"+campaignID.String()+"/templates/"+test.id.String(), nil)
+			req = req.WithContext(actorCtx)
 			controller.DeleteTemplate(res, req, projectID, campaignID, test.id)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/auth"
+	"github.com/lunogram/platform/internal/rbac/access"
 	"github.com/lunogram/platform/internal/store/management"
 	svix "github.com/svix/svix-webhooks/go"
 	"go.uber.org/zap"
@@ -30,9 +32,10 @@ type ClerkProvider struct {
 	logger        *zap.Logger
 	users         *user.Client
 	keyFunc       jwt.Keyfunc
+	rbac          RBACWriter
 }
 
-func NewClerkProvider(cfg config.ClerkAuth, mgmt *management.State, logger *zap.Logger, keyFunc jwt.Keyfunc) (_ *ClerkProvider, err error) {
+func NewClerkProvider(cfg config.ClerkAuth, mgmt *management.State, logger *zap.Logger, keyFunc jwt.Keyfunc, rbac RBACWriter) (_ *ClerkProvider, err error) {
 	provider := &ClerkProvider{
 		config: cfg,
 		mgmt:   mgmt,
@@ -43,6 +46,7 @@ func NewClerkProvider(cfg config.ClerkAuth, mgmt *management.State, logger *zap.
 			},
 		}),
 		keyFunc: keyFunc,
+		rbac:    rbac,
 	}
 
 	if cfg.WebhookSecret != "" {
@@ -107,6 +111,17 @@ func (p *ClerkProvider) Authenticate(ctx context.Context, w http.ResponseWriter,
 	admin.ID, err = p.mgmt.CreateAdmin(ctx, *admin)
 	if err != nil {
 		return nil, err
+	}
+
+	// Grant the new admin the owner role on the organization in the RBAC engine
+	// so that subsequent permission checks (e.g. read profile, list/create
+	// projects) succeed.
+	if p.rbac != nil {
+		for _, t := range access.OrganizationRoleTuples(admin.ID, admin.OrganizationID, admin.Role) {
+			if err := p.rbac.WriteTuple(ctx, t.User, t.Relation, t.Object); err != nil {
+				return nil, fmt.Errorf("failed to write RBAC tuple for new admin: %w", err)
+			}
+		}
 	}
 
 	return ctx, nil
@@ -193,8 +208,23 @@ func (p *ClerkProvider) handleUserCreated(ctx context.Context, data json.RawMess
 		Role:           "owner",
 	}
 
-	_, err = p.mgmt.CreateAdmin(ctx, newAdmin)
-	return err
+	adminID, err := p.mgmt.CreateAdmin(ctx, newAdmin)
+	if err != nil {
+		return err
+	}
+
+	// Grant the new admin the owner role on the organization in the RBAC engine
+	// so that subsequent permission checks (e.g. read profile, list/create
+	// projects) succeed.
+	if p.rbac != nil {
+		for _, t := range access.OrganizationRoleTuples(adminID, orgID, newAdmin.Role) {
+			if err := p.rbac.WriteTuple(ctx, t.User, t.Relation, t.Object); err != nil {
+				return fmt.Errorf("failed to write RBAC tuple for new admin: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (p *ClerkProvider) handleUserUpdated(ctx context.Context, data json.RawMessage) error {

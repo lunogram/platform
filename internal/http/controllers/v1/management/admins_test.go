@@ -8,9 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/claim"
+	"github.com/lunogram/platform/internal/rbac"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/management"
@@ -38,31 +37,31 @@ func TestGetProfileWithInternalAdmin(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	admins := NewAdminsController(logger, mgmt)
-
 	type test struct {
-		session claim.Session
+		actor   *rbac.Actor
+		orgRole string
 		code    int
 	}
 
 	tests := map[string]test{
 		"success with UUID subject": {
-			session: claim.Session{
-				RegisteredClaims: jwt.RegisteredClaims{
-					Subject: adminID.String(),
-				},
-			},
-			code: 200,
+			actor: rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+				rbac.WithOrganizationID(orgID),
+			),
+			orgRole: "member",
+			code:    200,
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			engine, actorCtx := rbac.TestSetup(t, ctx, tt.actor, tt.orgRole, "")
+			admins := NewAdminsController(logger, mgmt, engine)
+
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/api/admin/profile", nil)
 
-			ctx := claim.WithSession(req.Context(), tt.session)
-			req = req.WithContext(ctx)
+			req = req.WithContext(actorCtx)
 
 			admins.GetProfile(res, req)
 
@@ -92,41 +91,38 @@ func TestGetProfileWithExternalAdmin(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	admins := NewAdminsController(logger, mgmt)
-
 	type test struct {
-		session claim.Session
+		actor   *rbac.Actor
+		orgRole string
 		code    int
 	}
 
 	tests := map[string]test{
 		"success with external ID": {
-			session: claim.Session{
-				RegisteredClaims: jwt.RegisteredClaims{
-					Subject: externalID,
-					Issuer:  "https://clerk.example.com",
-				},
-			},
-			code: 200,
+			actor: rbac.NewActor(rbac.ActorAdmin, externalID,
+				rbac.WithOrganizationID(orgID),
+			),
+			orgRole: "owner",
+			code:    200,
 		},
 		"fallback to UUID when external ID not found": {
-			session: claim.Session{
-				RegisteredClaims: jwt.RegisteredClaims{
-					Subject: adminID.String(),
-					Issuer:  "https://clerk.example.com",
-				},
-			},
-			code: 200,
+			actor: rbac.NewActor(rbac.ActorAdmin, adminID.String(),
+				rbac.WithOrganizationID(orgID),
+			),
+			orgRole: "owner",
+			code:    200,
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			engine, actorCtx := rbac.TestSetup(t, ctx, tt.actor, tt.orgRole, "")
+			admins := NewAdminsController(logger, mgmt, engine)
+
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/api/admin/profile", nil)
 
-			ctx := claim.WithSession(req.Context(), tt.session)
-			req = req.WithContext(ctx)
+			req = req.WithContext(actorCtx)
 
 			admins.GetProfile(res, req)
 
@@ -141,50 +137,38 @@ func TestGetProfileErrors(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	mgmt, _, _ := teststore.RunPostgreSQL(t)
 
-	admins := NewAdminsController(logger, mgmt)
-
 	type test struct {
-		setupContext func(context.Context) context.Context
-		code         int
+		setup func(t *testing.T, ctx context.Context) (*rbac.Engine, context.Context)
+		code  int
 	}
 
 	tests := map[string]test{
 		"no session in context": {
-			setupContext: func(ctx context.Context) context.Context {
-				return ctx
+			setup: func(t *testing.T, ctx context.Context) (*rbac.Engine, context.Context) {
+				return rbac.NewTestEngine(t), ctx
 			},
 			code: 401,
 		},
 		"empty subject": {
-			setupContext: func(ctx context.Context) context.Context {
-				session := claim.Session{
-					RegisteredClaims: jwt.RegisteredClaims{
-						Subject: "",
-					},
-				}
-				return claim.WithSession(ctx, session)
+			setup: func(t *testing.T, ctx context.Context) (*rbac.Engine, context.Context) {
+				actor := &rbac.Actor{ID: ""}
+				return rbac.NewTestEngine(t), rbac.WithActor(ctx, actor)
 			},
 			code: 401,
 		},
 		"admin not found": {
-			setupContext: func(ctx context.Context) context.Context {
-				session := claim.Session{
-					RegisteredClaims: jwt.RegisteredClaims{
-						Subject: uuid.New().String(),
-					},
-				}
-				return claim.WithSession(ctx, session)
+			setup: func(t *testing.T, ctx context.Context) (*rbac.Engine, context.Context) {
+				actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+					rbac.WithOrganizationID(uuid.New()),
+				)
+				return rbac.TestSetup(t, ctx, actor, "owner", "")
 			},
 			code: 404,
 		},
 		"invalid UUID format": {
-			setupContext: func(ctx context.Context) context.Context {
-				session := claim.Session{
-					RegisteredClaims: jwt.RegisteredClaims{
-						Subject: "not-a-valid-uuid",
-					},
-				}
-				return claim.WithSession(ctx, session)
+			setup: func(t *testing.T, ctx context.Context) (*rbac.Engine, context.Context) {
+				actor := &rbac.Actor{ID: "not-a-valid-uuid"}
+				return rbac.NewTestEngine(t), rbac.WithActor(ctx, actor)
 			},
 			code: 401,
 		},
@@ -195,8 +179,10 @@ func TestGetProfileErrors(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/api/admin/profile", nil)
 
-			ctx := tt.setupContext(req.Context())
+			engine, ctx := tt.setup(t, req.Context())
 			req = req.WithContext(ctx)
+
+			admins := NewAdminsController(logger, mgmt, engine)
 
 			admins.GetProfile(res, req)
 
@@ -242,7 +228,8 @@ func TestListProjectAdmins(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	controller := NewAdminsController(logger, mgmt)
+	engine := rbac.NewTestEngine(t)
+	controller := NewAdminsController(logger, mgmt, engine)
 
 	type test struct {
 		limit  int
@@ -284,6 +271,11 @@ func TestListProjectAdmins(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/project_admins", nil)
+			actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+				rbac.WithOrganizationID(orgID),
+				rbac.WithProjectID(projectID),
+			)
+			req = req.WithContext(rbac.WithActor(req.Context(), actor))
 			controller.ListProjectAdmins(res, req, projectID, params)
 
 			require.Equal(t, 200, res.Code, res.Body.String())
@@ -333,7 +325,8 @@ func TestGetProjectAdmin(t *testing.T) {
 	err = admins.AddAdminToProject(ctx, projectID, adminID, "admin")
 	require.NoError(t, err)
 
-	controller := NewAdminsController(logger, mgmt)
+	engine := rbac.NewTestEngine(t)
+	controller := NewAdminsController(logger, mgmt, engine)
 
 	type test struct {
 		adminID uuid.UUID
@@ -355,6 +348,11 @@ func TestGetProjectAdmin(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/project_admins/"+test.adminID.String(), nil)
+			actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+				rbac.WithOrganizationID(orgID),
+				rbac.WithProjectID(projectID),
+			)
+			req = req.WithContext(rbac.WithActor(req.Context(), actor))
 			controller.GetProjectAdmin(res, req, projectID, test.adminID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -403,7 +401,8 @@ func TestUpdateProjectAdmin(t *testing.T) {
 	err = admins.AddAdminToProject(ctx, projectID, adminID, "support")
 	require.NoError(t, err)
 
-	controller := NewAdminsController(logger, mgmt)
+	engine := rbac.NewTestEngine(t)
+	controller := NewAdminsController(logger, mgmt, engine)
 
 	type test struct {
 		body oapi.UpdateProjectAdminJSONRequestBody
@@ -432,6 +431,11 @@ func TestUpdateProjectAdmin(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("PATCH", "/v1/project_admins/"+adminID.String(), bytes.NewReader(bb))
+			actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+				rbac.WithOrganizationID(orgID),
+				rbac.WithProjectID(projectID),
+			)
+			req = req.WithContext(rbac.WithActor(req.Context(), actor))
 			controller.UpdateProjectAdmin(res, req, projectID, adminID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -479,10 +483,16 @@ func TestDeleteProjectAdmin(t *testing.T) {
 	err = admins.AddAdminToProject(ctx, projectID, adminID, "admin")
 	require.NoError(t, err)
 
-	controller := NewAdminsController(logger, mgmt)
+	engine := rbac.NewTestEngine(t)
+	controller := NewAdminsController(logger, mgmt, engine)
 
 	res := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/v1/project_admins/"+adminID.String(), nil)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	controller.DeleteProjectAdmin(res, req, projectID, adminID)
 
 	require.Equal(t, 204, res.Code, res.Body.String())

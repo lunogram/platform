@@ -11,6 +11,7 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
@@ -20,11 +21,12 @@ import (
 // It intentionally allows only the most common forms (language, language-region, language-script-region).
 var validLocaleKey = regexp.MustCompile(`^[a-z]{2,3}(-[A-Za-z]{4})?(-[A-Z]{2}|-[0-9]{3})?$`)
 
-func NewLocalesController(logger *zap.Logger, db *sqlx.DB) *LocalesController {
+func NewLocalesController(logger *zap.Logger, db *sqlx.DB, engine *rbac.Engine) *LocalesController {
 	return &LocalesController{
 		logger: logger,
 		db:     db,
 		store:  management.NewState(db),
+		engine: engine,
 	}
 }
 
@@ -32,10 +34,16 @@ type LocalesController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	store  *management.State
+	engine *rbac.Engine
 }
 
 func (srv *LocalesController) CreateLocale(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("locales", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	body := oapi.CreateLocaleJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -96,6 +104,11 @@ func (srv *LocalesController) CreateLocale(w http.ResponseWriter, r *http.Reques
 
 func (srv *LocalesController) ListLocales(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListLocalesParams) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("locales", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("listing locales")
 
@@ -143,6 +156,11 @@ func (srv *LocalesController) ListLocales(w http.ResponseWriter, r *http.Request
 
 func (srv *LocalesController) GetLocale(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, localeID string) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("locales", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("locale_id", localeID))
 	logger.Info("getting locale")
 
@@ -177,6 +195,11 @@ func (srv *LocalesController) GetLocale(w http.ResponseWriter, r *http.Request, 
 
 func (srv *LocalesController) DeleteLocale(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, localeID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("locales", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("locale_id", localeID))
 	logger.Info("deleting locale")
 

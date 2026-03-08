@@ -7,20 +7,21 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
-func NewAdminsController(logger *zap.Logger, db *sqlx.DB) *AdminsController {
+func NewAdminsController(logger *zap.Logger, db *sqlx.DB, engine *rbac.Engine) *AdminsController {
 	return &AdminsController{
 		logger: logger,
 		db:     db,
 		store:  management.NewState(db),
+		engine: engine,
 	}
 }
 
@@ -28,21 +29,51 @@ type AdminsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	store  *management.State
+	engine *rbac.Engine
 }
 
 func (srv *AdminsController) GetProfile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	session, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	actor := rbac.FromContext(ctx)
+	if actor == nil || actor.ID == "" {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
 
-	logger := srv.logger.With(zap.String("subject", session.Subject))
+	logger := srv.logger.With(zap.String("admin_id", actor.ID))
 	logger.Info("getting profile")
 
-	admin, err := srv.store.GetAdminBySubject(ctx, session)
+	// Try to resolve the admin: first attempt as UUID, then as external ID.
+	adminID, parseErr := uuid.Parse(actor.ID)
+	if parseErr != nil {
+		// Not a valid UUID — treat as external ID.
+		admin, err := srv.store.GetAdminByExternalID(ctx, actor.ID)
+		if errors.Is(err, sql.ErrNoRows) {
+			oapi.WriteProblem(w, problem.ErrUnauthorized())
+			return
+		}
+		if err != nil {
+			logger.Error("failed to get admin by external ID", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+
+		if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		logger.Info("profile retrieved")
+		json.Write(w, http.StatusOK, admin.OAPI())
+		return
+	}
+
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	admin, err := srv.store.GetAdmin(ctx, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
@@ -61,17 +92,39 @@ func (srv *AdminsController) GetProfile(w http.ResponseWriter, r *http.Request) 
 
 func (srv *AdminsController) Whoami(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	session, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	actor := rbac.FromContext(ctx)
+	if actor == nil || actor.ID == "" {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
 		return
 	}
 
-	logger := srv.logger.With(zap.String("subject", session.Subject))
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(zap.String("admin_id", actor.ID))
 	logger.Info("getting current admin")
 
-	admin, err := srv.store.GetAdminBySubject(ctx, session)
+	adminID, parseErr := uuid.Parse(actor.ID)
+	if parseErr != nil {
+		admin, err := srv.store.GetAdminByExternalID(ctx, actor.ID)
+		if errors.Is(err, sql.ErrNoRows) {
+			oapi.WriteProblem(w, problem.ErrUnauthorized())
+			return
+		}
+		if err != nil {
+			logger.Error("failed to get admin by external ID", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal())
+			return
+		}
+
+		logger.Info("current admin retrieved")
+		json.Write(w, http.StatusOK, admin.OAPI())
+		return
+	}
+
+	admin, err := srv.store.GetAdmin(ctx, adminID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("admin not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
@@ -90,29 +143,14 @@ func (srv *AdminsController) Whoami(w http.ResponseWriter, r *http.Request) {
 
 func (srv *AdminsController) ListAdmins(w http.ResponseWriter, r *http.Request, params oapi.ListAdminsParams) {
 	ctx := r.Context()
-	session, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
-		return
-	}
-
-	admin, err := srv.store.GetAdminBySubject(ctx, session)
-	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Info("admin not found")
-		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
-		return
-	}
-
-	if err != nil {
-		srv.logger.Error("failed to get admin", zap.Error(err))
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	logger := srv.logger.With(
-		zap.String("organization_id", admin.OrganizationID.String()),
-		zap.String("admin_id", admin.ID.String()),
+		zap.String("organization_id", actor.OrganizationID.String()),
 	)
 
 	pagination := store.Pagination{
@@ -131,7 +169,7 @@ func (srv *AdminsController) ListAdmins(w http.ResponseWriter, r *http.Request, 
 
 	logger.Info("listing admins", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	admins, total, err := srv.store.ListAdmins(ctx, admin.OrganizationID, pagination, search)
+	admins, total, err := srv.store.ListAdmins(ctx, actor.OrganizationID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list admins", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -157,22 +195,8 @@ func (srv *AdminsController) ListAdmins(w http.ResponseWriter, r *http.Request, 
 
 func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	session, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
-		return
-	}
-
-	admin, err := srv.store.GetAdminBySubject(ctx, session)
-	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Info("admin not found")
-		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
-		return
-	}
-
-	if err != nil {
-		srv.logger.Error("failed to get admin", zap.Error(err))
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -185,16 +209,10 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 	}
 
 	logger := srv.logger.With(
-		zap.String("organization_id", admin.OrganizationID.String()),
+		zap.String("organization_id", actor.OrganizationID.String()),
 		zap.String("email", string(body.Email)),
 		zap.String("role", string(body.Role)),
 	)
-
-	if !srv.hasPermission(admin.Role, string(body.Role)) {
-		logger.Error("insufficient permissions")
-		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("insufficient permissions to assign this role")))
-		return
-	}
 
 	logger.Info("creating or updating admin")
 
@@ -239,7 +257,7 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 	}
 
 	newAdmin := management.Admin{
-		OrganizationID: admin.OrganizationID,
+		OrganizationID: actor.OrganizationID,
 		Email:          string(body.Email),
 		FirstName:      body.FirstName,
 		LastName:       body.LastName,
@@ -266,28 +284,14 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 
 func (srv *AdminsController) GetAdmin(w http.ResponseWriter, r *http.Request, adminID uuid.UUID) {
 	ctx := r.Context()
-	session, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
-		return
-	}
-
-	currentAdmin, err := srv.store.GetAdminBySubject(ctx, session)
-	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Info("admin not found")
-		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
-		return
-	}
-
-	if err != nil {
-		srv.logger.Error("failed to get admin", zap.Error(err))
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	logger := srv.logger.With(
-		zap.String("organization_id", currentAdmin.OrganizationID.String()),
+		zap.String("organization_id", actor.OrganizationID.String()),
 		zap.String("admin_id", adminID.String()),
 	)
 
@@ -306,7 +310,7 @@ func (srv *AdminsController) GetAdmin(w http.ResponseWriter, r *http.Request, ad
 		return
 	}
 
-	if admin.OrganizationID != currentAdmin.OrganizationID {
+	if admin.OrganizationID != actor.OrganizationID {
 		logger.Info("admin not in organization")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
@@ -318,22 +322,8 @@ func (srv *AdminsController) GetAdmin(w http.ResponseWriter, r *http.Request, ad
 
 func (srv *AdminsController) UpdateAdmin(w http.ResponseWriter, r *http.Request, adminID uuid.UUID) {
 	ctx := r.Context()
-	session, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
-		return
-	}
-
-	currentAdmin, err := srv.store.GetAdminBySubject(ctx, session)
-	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Info("admin not found")
-		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
-		return
-	}
-
-	if err != nil {
-		srv.logger.Error("failed to get admin", zap.Error(err))
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -351,7 +341,7 @@ func (srv *AdminsController) UpdateAdmin(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	if admin.OrganizationID != currentAdmin.OrganizationID {
+	if admin.OrganizationID != actor.OrganizationID {
 		srv.logger.Info("admin not in organization")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
@@ -365,15 +355,9 @@ func (srv *AdminsController) UpdateAdmin(w http.ResponseWriter, r *http.Request,
 	}
 
 	logger := srv.logger.With(
-		zap.String("organization_id", currentAdmin.OrganizationID.String()),
+		zap.String("organization_id", actor.OrganizationID.String()),
 		zap.String("admin_id", adminID.String()),
 	)
-
-	if body.Role != nil && !srv.hasPermission(currentAdmin.Role, string(*body.Role)) {
-		logger.Error("insufficient permissions")
-		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("insufficient permissions to assign this role")))
-		return
-	}
 
 	logger.Info("updating admin")
 
@@ -417,22 +401,8 @@ func (srv *AdminsController) UpdateAdmin(w http.ResponseWriter, r *http.Request,
 
 func (srv *AdminsController) DeleteAdmin(w http.ResponseWriter, r *http.Request, adminID uuid.UUID) {
 	ctx := r.Context()
-	session, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
-		return
-	}
-
-	currentAdmin, err := srv.store.GetAdminBySubject(ctx, session)
-	if errors.Is(err, sql.ErrNoRows) {
-		srv.logger.Info("admin not found")
-		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
-		return
-	}
-
-	if err != nil {
-		srv.logger.Error("failed to get admin", zap.Error(err))
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -450,22 +420,16 @@ func (srv *AdminsController) DeleteAdmin(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	if admin.OrganizationID != currentAdmin.OrganizationID {
+	if admin.OrganizationID != actor.OrganizationID {
 		srv.logger.Info("admin not in organization")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
 		return
 	}
 
 	logger := srv.logger.With(
-		zap.String("organization_id", currentAdmin.OrganizationID.String()),
+		zap.String("organization_id", actor.OrganizationID.String()),
 		zap.String("admin_id", adminID.String()),
 	)
-
-	if !srv.hasPermission(currentAdmin.Role, admin.Role) {
-		logger.Error("insufficient permissions")
-		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("insufficient permissions to delete this admin")))
-		return
-	}
 
 	logger.Info("deleting admin")
 
@@ -478,24 +442,6 @@ func (srv *AdminsController) DeleteAdmin(w http.ResponseWriter, r *http.Request,
 
 	logger.Info("admin deleted")
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (srv *AdminsController) hasPermission(currentRole, targetRole string) bool {
-	roles := []string{"member", "admin", "owner"}
-
-	currentIndex := -1
-	targetIndex := -1
-
-	for i, role := range roles {
-		if role == currentRole {
-			currentIndex = i
-		}
-		if role == targetRole {
-			targetIndex = i
-		}
-	}
-
-	return currentIndex >= targetIndex
 }
 
 // Project Admin methods

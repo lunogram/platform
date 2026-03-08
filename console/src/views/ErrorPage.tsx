@@ -83,21 +83,12 @@ export default function ErrorPage({ status = 500 }: { status?: number }) {
 }
 
 export function AccessDenied() {
-    const { signOut } = useClerk()
-
     return (
         <ErrorAlert
             variant="default"
             title="Access Denied"
             actions={
                 <>
-                    <Button
-                        onClick={async () => {
-                            await logout(signOut)
-                        }}
-                    >
-                        Logout
-                    </Button>
                     <Button
                         onClick={() => {
                             window.location.href = "/"

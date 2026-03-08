@@ -9,13 +9,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/internal/claim"
-	"github.com/lunogram/platform/internal/claim/rbac"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/rbac/access"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
@@ -27,7 +27,7 @@ import (
 	"golang.org/x/text/language/display"
 )
 
-func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, webhookCaller *webhook.Caller, pub pubsub.Publisher) *ProjectsController {
+func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, webhookCaller *webhook.Caller, pub pubsub.Publisher, engine *rbac.Engine) *ProjectsController {
 	return &ProjectsController{
 		logger:       logger,
 		managementDB: managementDB,
@@ -36,6 +36,7 @@ func NewProjectsController(logger *zap.Logger, managementDB, usersDB, journeyDB 
 		users:        subjects.NewState(usersDB),
 		webhook:      webhookCaller,
 		pub:          pub,
+		engine:       engine,
 	}
 }
 
@@ -47,6 +48,7 @@ type ProjectsController struct {
 	users        *subjects.State
 	webhook      *webhook.Caller
 	pub          pubsub.Publisher
+	engine       *rbac.Engine
 }
 
 func (srv *ProjectsController) loadProjectCounts(ctx context.Context, project *management.Project) {
@@ -69,11 +71,9 @@ func (srv *ProjectsController) loadProjectCounts(ctx context.Context, project *m
 
 func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Request, params oapi.ListProjectsParams) {
 	ctx := r.Context()
-
-	scope := rbac.FromContext(ctx)
-	if scope == nil {
-		srv.logger.Error("admin not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -90,7 +90,7 @@ func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Reque
 		search = string(*params.Search)
 	}
 
-	projects, total, err := srv.store.ListProjects(ctx, scope.OrganizationID, pagination, search)
+	projects, total, err := srv.store.ListProjects(ctx, actor.OrganizationID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list projects", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -113,16 +113,13 @@ func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Reque
 
 func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-
-	scope := rbac.FromContext(ctx)
-	if scope == nil {
-		srv.logger.Error("admin not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
-	logger.Info("getting project")
 
 	project, err := srv.store.GetProject(ctx, projectID)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -145,11 +142,9 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 
 func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	scope := rbac.FromContext(ctx)
-	if scope == nil {
-		srv.logger.Error("admin not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -176,7 +171,7 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	subscriptions := management.NewSubscriptionsStore(tx)
 
 	projectID, err := projects.CreateProject(ctx, management.Project{
-		OrganizationID:    &scope.OrganizationID,
+		OrganizationID:    &actor.OrganizationID,
 		Name:              body.Name,
 		Description:       body.Description,
 		Timezone:          body.Timezone,
@@ -192,18 +187,17 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// NOTE: we add the session as admin to the project if available, the
-	// session is not available for API key requests
-	session, has := claim.FromContext(ctx)
-	if has {
-		admin, err := srv.store.GetAdminBySubject(ctx, session)
-		if errors.Is(err, sql.ErrNoRows) {
-			logger.Info("admin not found")
-			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("admin not found")))
+	// NOTE: we add the admin as a project admin after creation if the
+	// caller is a human (JWT). API key callers don't get added.
+	if actor.Type == rbac.ActorAdmin {
+		adminID, parseErr := uuid.Parse(actor.ID)
+		if parseErr != nil {
+			logger.Error("failed to parse actor ID as UUID", zap.Error(parseErr))
+			oapi.WriteProblem(w, parseErr)
 			return
 		}
 
-		err = projects.AddProjectAdmin(ctx, projectID, admin.ID, "admin")
+		err = projects.AddProjectAdmin(ctx, projectID, adminID, "admin")
 		if err != nil {
 			logger.Error("failed to add admin to project", zap.Error(err))
 			oapi.WriteProblem(w, err)
@@ -244,13 +238,13 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	}
 
 	if srv.pub != nil {
-		err = srv.pub.Publish(ctx, schemas.ProjectEventsProcess(scope.OrganizationID), schemas.ProjectEvent{
+		err = srv.pub.Publish(ctx, schemas.ProjectEventsProcess(actor.OrganizationID), schemas.ProjectEvent{
 			ID:             projectID,
 			Name:           schemas.EventProjectCreated,
-			OrganizationID: scope.OrganizationID,
+			OrganizationID: actor.OrganizationID,
 			Data: map[string]any{
 				"id":              projectID,
-				"organization_id": scope.OrganizationID,
+				"organization_id": actor.OrganizationID,
 				"name":            body.Name,
 				"timezone":        body.Timezone,
 				"locale":          body.Locale,
@@ -266,6 +260,16 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 	err = tx.Commit()
 	if err != nil {
 		logger.Error("unexpected error while attempting to commit transaction", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// Write the RBAC tuples that link the project to its organization and
+	// connect every resource type to the project. Without these tuples,
+	// project-scoped permission checks (e.g. listing providers) will fail
+	// with 403 Forbidden.
+	if err := access.ProvisionProject(ctx, srv.engine, actor.OrganizationID, projectID); err != nil {
+		logger.Error("failed to provision RBAC tuples for project", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -299,11 +303,9 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 
 func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-
-	scope := rbac.FromContext(ctx)
-	if scope == nil {
-		srv.logger.Error("admin not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -350,11 +352,9 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 
 func (srv *ProjectsController) DeleteProject(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-
-	scope := rbac.FromContext(ctx)
-	if scope == nil {
-		srv.logger.Error("admin not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
+	actor := rbac.FromContext(ctx)
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -379,6 +379,11 @@ func (srv *ProjectsController) DeleteProject(w http.ResponseWriter, r *http.Requ
 		logger.Error("failed to delete project", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
+	}
+
+	// Clean up the RBAC tuples that were created by ProvisionProject.
+	if err := access.DeprovisionProject(ctx, srv.engine, actor.OrganizationID, projectID); err != nil {
+		logger.Error("failed to deprovision RBAC tuples for project", zap.Error(err))
 	}
 
 	logger.Info("project deleted")

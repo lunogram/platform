@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lunogram/platform/internal/rbac"
+
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
@@ -27,7 +29,13 @@ func TestCampaignCreation(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := NewCampaignsController(logger, mgmt, usrs)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	campaigns := NewCampaignsController(logger, mgmt, usrs, engine)
 
 	type test struct {
 		body oapi.CreateCampaignJSONRequestBody
@@ -49,6 +57,7 @@ func TestCampaignCreation(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/campaigns", bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			campaigns.CreateCampaign(res, req, projectID)
 
 			require.Equal(t, 201, res.Code, res.Body.String())
@@ -67,13 +76,13 @@ func TestListCampaigns(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := management.NewCampaignsStore(mgmt)
+	campaignsStore := management.NewCampaignsStore(mgmt)
 	templates := management.NewTemplatesStore(mgmt)
 
 	// NOTE: create some test campaigns
 	campaignNames := []string{"Welcome Campaign", "Newsletter Campaign", "Promo Blast"}
 	for _, name := range campaignNames {
-		campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
+		campaignID, err := campaignsStore.CreateCampaign(ctx, management.Campaign{
 			ProjectID: projectID,
 			Name:      name,
 			Channel:   "email",
@@ -84,7 +93,13 @@ func TestListCampaigns(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	controller := NewCampaignsController(logger, mgmt, usrs)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewCampaignsController(logger, mgmt, usrs, engine)
 
 	type test struct {
 		limit  int
@@ -145,6 +160,7 @@ func TestListCampaigns(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/campaigns", nil)
+			req = req.WithContext(actorCtx)
 			controller.ListCampaigns(res, req, projectID, params)
 
 			require.Equal(t, 200, res.Code, res.Body.String())
@@ -170,10 +186,10 @@ func TestGetCampaign(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := management.NewCampaignsStore(mgmt)
+	campaignsStore := management.NewCampaignsStore(mgmt)
 	templates := management.NewTemplatesStore(mgmt)
 
-	campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
+	campaignID, err := campaignsStore.CreateCampaign(ctx, management.Campaign{
 		ProjectID: projectID,
 		Name:      "Test Campaign",
 		Channel:   "email",
@@ -183,7 +199,13 @@ func TestGetCampaign(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, mgmt, usrs)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewCampaignsController(logger, mgmt, usrs, engine)
 
 	type test struct {
 		id   uuid.UUID
@@ -205,6 +227,7 @@ func TestGetCampaign(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/campaigns/"+test.id.String(), nil)
+			req = req.WithContext(actorCtx)
 			controller.GetCampaign(res, req, projectID, test.id)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -223,10 +246,10 @@ func TestUpdateCampaign(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := management.NewCampaignsStore(mgmt)
+	campaignsStore := management.NewCampaignsStore(mgmt)
 	templates := management.NewTemplatesStore(mgmt)
 
-	campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
+	campaignID, err := campaignsStore.CreateCampaign(ctx, management.Campaign{
 		ProjectID: projectID,
 		Name:      "Test Campaign",
 		Channel:   "email",
@@ -236,7 +259,13 @@ func TestUpdateCampaign(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, mgmt, usrs)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewCampaignsController(logger, mgmt, usrs, engine)
 
 	tests := map[string]struct {
 		id   uuid.UUID
@@ -262,6 +291,7 @@ func TestUpdateCampaign(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("PATCH", "/v1/campaigns/"+test.id.String(), bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			controller.UpdateCampaign(res, req, projectID, test.id)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -280,10 +310,10 @@ func TestDeleteCampaign(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := management.NewCampaignsStore(mgmt)
+	campaignsStore := management.NewCampaignsStore(mgmt)
 	templates := management.NewTemplatesStore(mgmt)
 
-	campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
+	campaignID, err := campaignsStore.CreateCampaign(ctx, management.Campaign{
 		ProjectID: projectID,
 		Name:      "Test Campaign",
 		Channel:   "email",
@@ -293,7 +323,13 @@ func TestDeleteCampaign(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, mgmt, usrs)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewCampaignsController(logger, mgmt, usrs, engine)
 
 	tests := map[string]struct {
 		id   uuid.UUID
@@ -313,13 +349,14 @@ func TestDeleteCampaign(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("DELETE", "/v1/campaigns/"+test.id.String(), nil)
+			req = req.WithContext(actorCtx)
 			controller.DeleteCampaign(res, req, projectID, test.id)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
 
 			if test.code == 204 {
 				// Verify campaign is soft deleted
-				campaign, err := campaigns.GetCampaign(ctx, projectID, test.id)
+				campaign, err := campaignsStore.GetCampaign(ctx, projectID, test.id)
 				require.ErrorIs(t, err, sql.ErrNoRows)
 				require.Nil(t, campaign)
 			}
@@ -338,10 +375,10 @@ func TestDuplicateCampaign(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := management.NewCampaignsStore(mgmt)
+	campaignsStore := management.NewCampaignsStore(mgmt)
 	templates := management.NewTemplatesStore(mgmt)
 
-	campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
+	campaignID, err := campaignsStore.CreateCampaign(ctx, management.Campaign{
 		ProjectID: projectID,
 		Name:      "Original Campaign",
 		Channel:   "email",
@@ -351,7 +388,13 @@ func TestDuplicateCampaign(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, mgmt, usrs)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewCampaignsController(logger, mgmt, usrs, engine)
 
 	tests := map[string]struct {
 		id   uuid.UUID
@@ -371,6 +414,7 @@ func TestDuplicateCampaign(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/campaigns/"+test.id.String()+"/duplicate", nil)
+			req = req.WithContext(actorCtx)
 			controller.DuplicateCampaign(res, req, projectID, test.id)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -400,10 +444,10 @@ func TestGetCampaignUsers(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
-	campaigns := management.NewCampaignsStore(mgmt)
+	campaignsStore := management.NewCampaignsStore(mgmt)
 	templates := management.NewTemplatesStore(mgmt)
 
-	campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
+	campaignID, err := campaignsStore.CreateCampaign(ctx, management.Campaign{
 		ProjectID: projectID,
 		Name:      "Test Campaign",
 		Channel:   "email",
@@ -413,7 +457,13 @@ func TestGetCampaignUsers(t *testing.T) {
 	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en-US")
 	require.NoError(t, err)
 
-	controller := NewCampaignsController(logger, mgmt, usrs)
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewCampaignsController(logger, mgmt, usrs, engine)
 
 	tests := map[string]struct {
 		id   uuid.UUID
@@ -441,6 +491,7 @@ func TestGetCampaignUsers(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/campaigns/"+test.id.String()+"/users", nil)
+			req = req.WithContext(actorCtx)
 			controller.GetCampaignUsers(res, req, projectID, test.id, params)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())

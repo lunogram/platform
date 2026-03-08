@@ -14,18 +14,20 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
-func NewDocumentsController(logger *zap.Logger, db *sqlx.DB, storage storage.Storage, maxUploadSize int64) *DocumentsController {
+func NewDocumentsController(logger *zap.Logger, db *sqlx.DB, storage storage.Storage, maxUploadSize int64, engine *rbac.Engine) *DocumentsController {
 	return &DocumentsController{
 		logger:        logger,
 		db:            db,
 		storage:       storage,
 		maxUploadSize: maxUploadSize,
+		engine:        engine,
 	}
 }
 
@@ -34,6 +36,7 @@ type DocumentsController struct {
 	db            *sqlx.DB
 	storage       storage.Storage
 	maxUploadSize int64
+	engine        *rbac.Engine
 }
 
 func (srv *DocumentsController) uploadDocument(ctx context.Context, logger *zap.Logger, projectID uuid.UUID, header *multipart.FileHeader) (uuid.UUID, error) {
@@ -94,6 +97,11 @@ func (srv *DocumentsController) uploadDocument(ctx context.Context, logger *zap.
 
 func (srv *DocumentsController) UploadDocuments(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("documents", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("uploading documents")
 
@@ -128,6 +136,11 @@ func (srv *DocumentsController) UploadDocuments(w http.ResponseWriter, r *http.R
 
 func (srv *DocumentsController) ListDocuments(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListDocumentsParams) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("documents", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("listing documents")
 
@@ -155,6 +168,11 @@ func (srv *DocumentsController) ListDocuments(w http.ResponseWriter, r *http.Req
 
 func (srv *DocumentsController) GetDocument(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, documentID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("documents", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("document_id", documentID))
 	logger.Info("getting document file")
 
@@ -193,6 +211,11 @@ func (srv *DocumentsController) GetDocument(w http.ResponseWriter, r *http.Reque
 
 func (srv *DocumentsController) GetDocumentMetadata(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, documentID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("documents", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("document_id", documentID))
 	logger.Info("getting document metadata")
 
@@ -216,6 +239,11 @@ func (srv *DocumentsController) GetDocumentMetadata(w http.ResponseWriter, r *ht
 
 func (srv *DocumentsController) DeleteDocument(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, documentID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("documents", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("document_id", documentID))
 	logger.Info("deleting document")
 

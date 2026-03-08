@@ -10,15 +10,17 @@ import (
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
-func NewTemplatesController(logger *zap.Logger, db *sqlx.DB) *TemplatesController {
+func NewTemplatesController(logger *zap.Logger, db *sqlx.DB, engine *rbac.Engine) *TemplatesController {
 	return &TemplatesController{
 		logger: logger,
 		db:     db,
 		store:  management.NewState(db),
+		engine: engine,
 	}
 }
 
@@ -26,10 +28,15 @@ type TemplatesController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	store  *management.State
+	engine *rbac.Engine
 }
 
 func (srv *TemplatesController) GetTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("templates", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID), zap.Stringer("template_id", templateID))
 	logger.Info("getting template")
 
@@ -51,6 +58,10 @@ func (srv *TemplatesController) GetTemplate(w http.ResponseWriter, r *http.Reque
 
 func (srv *TemplatesController) CreateTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("templates", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	body := oapi.CreateTemplate{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -107,6 +118,10 @@ func (srv *TemplatesController) CreateTemplate(w http.ResponseWriter, r *http.Re
 
 func (srv *TemplatesController) DeleteTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("templates", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID), zap.Stringer("template_id", templateID))
 	logger.Info("deleting template")
 
@@ -136,6 +151,10 @@ func (srv *TemplatesController) DeleteTemplate(w http.ResponseWriter, r *http.Re
 
 func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
 	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("templates", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID), zap.Stringer("template_id", templateID))
 	logger.Info("updating template")
 

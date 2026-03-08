@@ -299,16 +299,6 @@ export interface Admin {
     role: OrganizationRole
 }
 
-export interface Tenant {
-    id: UUID
-    username: string
-    domain?: string
-    auth: unknown
-    tracking_deeplink_mirror_url?: string
-}
-
-export type TenantUpdateParams = Omit<Tenant, "id" | "auth" | AuditFields>
-
 export const projectRoles = ["support", "editor", "publisher", "admin"] as const
 
 export type ProjectRole = (typeof projectRoles)[number]

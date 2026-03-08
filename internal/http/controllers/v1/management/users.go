@@ -10,13 +10,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/importer"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
@@ -24,7 +24,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, usersDB, journeyDB *sqlx.DB, mgmt *management.State, maxUploadSize int64) *UsersController {
+func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, usersDB, journeyDB *sqlx.DB, mgmt *management.State, maxUploadSize int64, engine *rbac.Engine) *UsersController {
 	return &UsersController{
 		logger:        logger,
 		usersDB:       usersDB,
@@ -33,6 +33,7 @@ func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, usersDB, journ
 		journey:       journey.NewState(journeyDB),
 		pubsub:        pub,
 		maxUploadSize: maxUploadSize,
+		engine:        engine,
 	}
 }
 
@@ -44,14 +45,13 @@ type UsersController struct {
 	users         *subjects.State
 	journey       *journey.State
 	maxUploadSize int64
+	engine        *rbac.Engine
 }
 
 func (srv *UsersController) ListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListUsersParams) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("users", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -86,10 +86,8 @@ func (srv *UsersController) ListUsers(w http.ResponseWriter, r *http.Request, pr
 
 func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("users", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -175,10 +173,8 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 
 func (srv *UsersController) GetUser(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("users", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -208,10 +204,8 @@ func (srv *UsersController) GetUser(w http.ResponseWriter, r *http.Request, proj
 
 func (srv *UsersController) GetUserDevices(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("users", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -253,10 +247,8 @@ func (srv *UsersController) GetUserDevices(w http.ResponseWriter, r *http.Reques
 
 func (srv *UsersController) DeleteUserDevice(w http.ResponseWriter, r *http.Request, projectID, userID, deviceID uuid.UUID) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("users", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -281,10 +273,8 @@ func (srv *UsersController) DeleteUserDevice(w http.ResponseWriter, r *http.Requ
 
 func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("users", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -391,10 +381,8 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 
 func (srv *UsersController) DeleteUser(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("users", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -431,10 +419,8 @@ func (srv *UsersController) DeleteUser(w http.ResponseWriter, r *http.Request, p
 
 func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserEventsParams) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("events", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -485,10 +471,8 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 
 func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserSubscriptionsParams) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("subscriptions", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -538,10 +522,8 @@ func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.
 
 func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("subscriptions", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -610,10 +592,8 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 
 func (srv *UsersController) GetUserJourneys(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserJourneysParams) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -675,10 +655,8 @@ var userDirectColumns = []oapi.SchemaPath{
 
 func (srv *UsersController) ListUserSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("users", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -718,10 +696,8 @@ func (srv *UsersController) ListUserSchemas(w http.ResponseWriter, r *http.Reque
 
 func (srv *UsersController) ImportUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("users", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
@@ -812,10 +788,8 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 
 func (srv *UsersController) GetUserOrganizations(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserOrganizationsParams) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 

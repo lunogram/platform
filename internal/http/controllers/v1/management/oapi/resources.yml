@@ -1145,7 +1145,7 @@ paths:
                       type: boolean
         default:
           $ref: "#/components/responses/Error"
-  
+
   /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}:
     get:
       summary: Stream user journey steps
@@ -1283,7 +1283,6 @@ paths:
           description: Current step advanced successfully
         default:
           $ref: "#/components/responses/Error"
-
 
   /api/admin/projects/{projectID}/journeys/{journeyID}/steps:
     get:
@@ -1623,84 +1622,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Admin"
-        default:
-          $ref: "#/components/responses/Error"
-
-  /api/admin/tenant:
-    get:
-      summary: Get current tenant
-      description: Retrieves the current tenant for the authenticated admin
-      operationId: getTenant
-      tags:
-        - Tenant
-      security:
-        - HttpBearerAuth: []
-      responses:
-        "200":
-          description: Tenant retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Tenant"
-        default:
-          $ref: "#/components/responses/Error"
-
-    patch:
-      summary: Update tenant
-      description: Updates tenant properties (requires owner role)
-      operationId: updateTenant
-      tags:
-        - Tenant
-      security:
-        - HttpBearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateTenant"
-      responses:
-        "200":
-          description: Tenant updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Tenant"
-        default:
-          $ref: "#/components/responses/Error"
-
-    delete:
-      summary: Delete tenant
-      description: Soft deletes the current tenant (requires owner role)
-      operationId: deleteTenant
-      tags:
-        - Tenant
-      security:
-        - HttpBearerAuth: []
-      responses:
-        "204":
-          description: Tenant deleted successfully
-        default:
-          $ref: "#/components/responses/Error"
-
-  /api/admin/tenant/integrations:
-    get:
-      summary: Get tenant integrations
-      description: Retrieves all provider integrations for the tenant
-      operationId: getTenantIntegrations
-      tags:
-        - Tenant
-      security:
-        - HttpBearerAuth: []
-      responses:
-        "200":
-          description: Integrations retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Provider"
         default:
           $ref: "#/components/responses/Error"
 
@@ -4747,7 +4668,7 @@ components:
 
     ProjectRole:
       type: string
-      enum: [support, editor, publisher, admin]
+      enum: [support, client, editor, admin]
       description: Role within a project
       example: admin
 
@@ -5537,43 +5458,6 @@ components:
         last_name:
           type: string
           example: "Smith"
-
-    Tenant:
-      type: object
-      required:
-        - id
-        - name
-        - created_at
-        - updated_at
-      properties:
-        id:
-          type: string
-          format: uuid
-          example: "7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b"
-        name:
-          type: string
-          example: "Acme Corporation"
-        tracking_deeplink_mirror_url:
-          type: string
-          example: "https://acme.com/track"
-        notification_provider_id:
-          type: string
-          format: uuid
-        created_at:
-          type: string
-          format: date-time
-          example: "2025-11-19T14:18:42.960Z"
-        updated_at:
-          type: string
-          format: date-time
-          example: "2025-11-23T17:20:00.021Z"
-
-    UpdateTenant:
-      type: object
-      properties:
-        tracking_deeplink_mirror_url:
-          type: string
-          example: "https://acme.com/track"
 
     User:
       type: object

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
@@ -27,8 +28,14 @@ func TestCreateJourney(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine)
 
 	type test struct {
 		body oapi.CreateJourneyJSONRequestBody
@@ -60,6 +67,7 @@ func TestCreateJourney(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/journeys", bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			journeys.CreateJourney(res, req, projectID, oapi.CreateJourneyParams{})
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -90,6 +98,12 @@ func TestListJourneys(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
 	journeysStore := journey.NewJourneysStore(jrny)
 
 	for i := 0; i < 5; i++ {
@@ -101,7 +115,7 @@ func TestListJourneys(t *testing.T) {
 	}
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine)
 
 	type test struct {
 		limit  int
@@ -139,6 +153,7 @@ func TestListJourneys(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/journeys", nil)
+			req = req.WithContext(actorCtx)
 
 			limit := oapi.Limit(test.limit)
 			offset := oapi.Offset(test.offset)
@@ -174,6 +189,12 @@ func TestGetJourney(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
 	journeysStore := journey.NewJourneysStore(jrny)
 	description := "Test Description"
 	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
@@ -184,7 +205,7 @@ func TestGetJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine)
 
 	type test struct {
 		journeyID uuid.UUID
@@ -206,6 +227,7 @@ func TestGetJourney(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/journeys/"+test.journeyID.String(), nil)
+			req = req.WithContext(actorCtx)
 			journeys.GetJourney(res, req, projectID, test.journeyID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -234,6 +256,12 @@ func TestUpdateJourney(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
 	journeysStore := journey.NewJourneysStore(jrny)
 	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID: projectID,
@@ -242,7 +270,7 @@ func TestUpdateJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine)
 
 	type test struct {
 		body oapi.UpdateJourneyJSONRequestBody
@@ -281,6 +309,7 @@ func TestUpdateJourney(t *testing.T) {
 
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("PATCH", "/v1/journeys/"+journeyID.String(), bytes.NewReader(bb))
+			req = req.WithContext(actorCtx)
 			journeys.UpdateJourney(res, req, projectID, journeyID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
@@ -314,6 +343,12 @@ func TestDeleteJourney(t *testing.T) {
 	projectID, err := projects.CreateProject(ctx, DefaultProject)
 	require.NoError(t, err)
 
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
 	journeysStore := journey.NewJourneysStore(jrny)
 	journeyID, err := journeysStore.CreateJourney(ctx, journey.Journey{
 		ProjectID: projectID,
@@ -322,7 +357,7 @@ func TestDeleteJourney(t *testing.T) {
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil)
+	journeys := NewJourneysController(logger, jrny, usrs, mgmtState, nil, nil, engine)
 
 	type test struct {
 		journeyID uuid.UUID
@@ -344,6 +379,7 @@ func TestDeleteJourney(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("DELETE", "/v1/journeys/"+test.journeyID.String(), nil)
+			req = req.WithContext(actorCtx)
 			journeys.DeleteJourney(res, req, projectID, test.journeyID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())

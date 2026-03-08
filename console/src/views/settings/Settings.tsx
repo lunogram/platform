@@ -29,7 +29,7 @@ export default function Settings() {
             <div className="flex flex-col min-h-full">
                 {/* Header Section */}
                 <div className="border-b bg-card/50">
-                    <div className="p-4 sm:p-6 pb-0">
+                    <div className="p-4 sm:p-6 pb-0 sm:pb-0">
                         <div className="flex items-start gap-3 sm:gap-4">
                             <div className="flex h-10 w-10 sm:h-14 sm:w-14 items-center justify-center rounded-xl shrink-0 bg-muted [&>svg]:h-5 [&>svg]:w-5 sm:[&>svg]:h-7 sm:[&>svg]:w-7 [&>svg]:text-muted-foreground">
                                 <SettingsIcon />

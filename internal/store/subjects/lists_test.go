@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- Version lifecycle ---
-
 func TestCreateVersion(t *testing.T) {
 	t.Parallel()
 
@@ -94,8 +92,6 @@ func TestSetListVersionID(t *testing.T) {
 	require.NotNil(t, list.VersionID)
 	require.Equal(t, versionID, *list.VersionID)
 }
-
-// --- EnsureDraftVersion ---
 
 func TestEnsureDraftVersion_CreatesNew(t *testing.T) {
 	t.Parallel()
@@ -194,8 +190,6 @@ func TestEnsureDraftVersion_DuplicatesPublishedRule(t *testing.T) {
 	require.Equal(t, rules.RuleTypeWrapper, copiedRule.Rule.Data.Type)
 }
 
-// --- Publish ---
-
 func TestPublishVersion(t *testing.T) {
 	t.Parallel()
 
@@ -278,8 +272,6 @@ func TestPublishVersion_ArchivesOldPublished(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, v2, published.ID, "v2 should be the published version, meaning v1 was archived")
 }
-
-// --- Retrieval ---
 
 func TestGetDraftVersion(t *testing.T) {
 	t.Parallel()
@@ -378,8 +370,6 @@ func TestUpdateVersionRuleID(t *testing.T) {
 	require.Equal(t, ruleID, *draft.RuleID)
 }
 
-// --- GetPublishedRule ---
-
 func TestGetPublishedRule(t *testing.T) {
 	t.Parallel()
 
@@ -451,8 +441,6 @@ func TestGetPublishedRule_NilWhenDraftOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, result, "draft-only list should not return a published rule")
 }
-
-// --- DuplicateList ---
 
 func TestDuplicateList(t *testing.T) {
 	t.Parallel()
@@ -530,8 +518,6 @@ func TestDuplicateList_NoPublishedRule(t *testing.T) {
 	require.Nil(t, newList.VersionID)
 }
 
-// --- DuplicateRule ---
-
 func TestDuplicateRule(t *testing.T) {
 	t.Parallel()
 
@@ -570,8 +556,6 @@ func TestDuplicateRule(t *testing.T) {
 	require.Equal(t, rules.OperatorOr, dup.Rule.Data.Operator)
 	require.Len(t, dup.Rule.Data.Children, 1)
 }
-
-// --- Dependency queries (only published) ---
 
 func TestSelectListUsersDependency_OnlyPublished(t *testing.T) {
 	t.Parallel()
@@ -814,8 +798,6 @@ func TestListEventListDependencies_OnlyPublished(t *testing.T) {
 	require.NotContains(t, result, draftListID)
 }
 
-// --- GetList state and rule mapping ---
-
 func TestGetList_StateDraft(t *testing.T) {
 	t.Parallel()
 
@@ -944,8 +926,6 @@ func TestGetList_PublishedRule(t *testing.T) {
 	require.Equal(t, rules.RuleGroupOrganization, list.Rule.Data.Group)
 }
 
-// --- ListLists ---
-
 func TestListLists(t *testing.T) {
 	t.Parallel()
 
@@ -999,8 +979,6 @@ func TestListLists(t *testing.T) {
 	require.Equal(t, ListVersionStatusDraft, stateMap["Static List"]) // default when no version
 }
 
-// --- OAPI mapping ---
-
 func TestListOAPI_StateMappings(t *testing.T) {
 	t.Parallel()
 
@@ -1025,8 +1003,6 @@ func TestListOAPI_VersionNumber(t *testing.T) {
 	require.NotNil(t, l1.OAPI().VersionNumber)
 	require.Equal(t, 3, *l1.OAPI().VersionNumber)
 }
-
-// --- PreviewListUsers ---
 
 func TestPreviewListUsers(t *testing.T) {
 	t.Parallel()

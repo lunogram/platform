@@ -82,7 +82,7 @@ export default function OrganizationDetail() {
         <div className="flex flex-col min-h-full">
             {/* Header Section */}
             <div className="border-b bg-card/50">
-                <div className="p-4 sm:p-6 pb-0">
+                <div className="p-4 sm:p-6 pb-0 sm:pb-0">
                     {/* Breadcrumb */}
                     <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
                         <Link

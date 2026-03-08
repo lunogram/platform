@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store"
 )
 
@@ -16,17 +15,6 @@ type Organization struct {
 	TrackingDeeplinkMirrorURL *string    `db:"tracking_deeplink_mirror_url"`
 	CreatedAt                 time.Time  `db:"created_at"`
 	UpdatedAt                 time.Time  `db:"updated_at"`
-}
-
-func (o *Organization) OAPI() oapi.Tenant {
-	return oapi.Tenant{
-		Id:                        o.ID,
-		Name:                      o.Name,
-		TrackingDeeplinkMirrorUrl: o.TrackingDeeplinkMirrorURL,
-		NotificationProviderId:    o.NotificationProviderID,
-		CreatedAt:                 o.CreatedAt,
-		UpdatedAt:                 o.UpdatedAt,
-	}
 }
 
 type OrganizationUpdate struct {

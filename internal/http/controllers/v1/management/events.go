@@ -6,19 +6,19 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lunogram/platform/internal/claim"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
-	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
-func NewEventsController(logger *zap.Logger, db *sqlx.DB) *EventsController {
+func NewEventsController(logger *zap.Logger, db *sqlx.DB, engine *rbac.Engine) *EventsController {
 	return &EventsController{
 		logger: logger,
 		db:     db,
 		store:  subjects.NewState(db),
+		engine: engine,
 	}
 }
 
@@ -26,14 +26,13 @@ type EventsController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	store  *subjects.State
+	engine *rbac.Engine
 }
 
 func (srv *EventsController) ListUserEventSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	_, ok := claim.FromContext(ctx)
-	if !ok {
-		srv.logger.Error("session not found in context")
-		oapi.WriteProblem(w, problem.ErrUnauthorized(problem.Describe("unauthorized")))
+	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("events", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
 		return
 	}
 
