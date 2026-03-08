@@ -1,7 +1,6 @@
 import type { MouseEvent } from "react"
 import { useCallback, useContext, useState, useRef } from "react"
 import { useTranslation } from "react-i18next"
-import { useForm } from "react-hook-form"
 import { Plus, Search, Key, MoreHorizontal, Copy } from "lucide-react"
 import { toast } from "sonner"
 import api from "../../api"
@@ -9,12 +8,11 @@ import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
 import type { ProjectApiKey } from "../../types"
-import { projectRoles } from "../../types"
 import type { UUID } from "@/types/common"
+import ApiKeyDialog from "./ApiKeyDialog"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
     Table,
     TableBody,
@@ -24,28 +22,12 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog"
-import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
 
 export default function ProjectApiKeys() {
     const { t } = useTranslation()
@@ -107,7 +89,7 @@ export default function ProjectApiKeys() {
                     />
                 </div>
                 <Button
-                    onClick={() => setEditing({ scope: "public", role: "support" })}
+                    onClick={() => setEditing({ role: "support" })}
                     className="flex-1 sm:flex-initial"
                 >
                     <Plus className="mr-2 h-4 w-4" />
@@ -121,8 +103,7 @@ export default function ProjectApiKeys() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>{t("name")}</TableHead>
-                            <TableHead>{t("scope")}</TableHead>
-                            <TableHead className="hidden sm:table-cell">{t("role")}</TableHead>
+                            <TableHead>{t("role")}</TableHead>
                             <TableHead className="hidden md:table-cell">{t("value")}</TableHead>
                             <TableHead className="hidden lg:table-cell">
                                 {t("description")}
@@ -140,9 +121,6 @@ export default function ProjectApiKeys() {
                                     <TableCell>
                                         <Skeleton className="h-4 w-16" />
                                     </TableCell>
-                                    <TableCell className="hidden sm:table-cell">
-                                        <Skeleton className="h-4 w-16" />
-                                    </TableCell>
                                     <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-40" />
                                     </TableCell>
@@ -156,7 +134,7 @@ export default function ProjectApiKeys() {
                             ))
                         ) : apiKeys.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-32 text-center">
+                                <TableCell colSpan={5} className="h-32 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Key className="h-8 w-8" />
                                         <p>
@@ -168,9 +146,7 @@ export default function ProjectApiKeys() {
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                onClick={() =>
-                                                    setEditing({ scope: "public", role: "support" })
-                                                }
+                                                onClick={() => setEditing({ role: "support" })}
                                                 className="mt-2"
                                             >
                                                 <Plus className="mr-2 h-4 w-4" />
@@ -188,21 +164,8 @@ export default function ProjectApiKeys() {
                                     onClick={() => setEditing(apiKey)}
                                 >
                                     <TableCell className="font-medium">{apiKey.name}</TableCell>
-                                    <TableCell>
-                                        <Badge
-                                            variant={
-                                                apiKey.scope === "secret"
-                                                    ? "destructive"
-                                                    : "secondary"
-                                            }
-                                        >
-                                            {snakeToTitle(apiKey.scope)}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="hidden sm:table-cell text-muted-foreground">
-                                        {apiKey.scope === "public"
-                                            ? "—"
-                                            : snakeToTitle(apiKey.role ?? "")}
+                                    <TableCell className="text-muted-foreground">
+                                        {snakeToTitle(apiKey.role ?? "support")}
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell">
                                         <div className="flex items-center gap-2">
@@ -272,11 +235,20 @@ export default function ProjectApiKeys() {
                 onSave={async (data) => {
                     setIsSaving(true)
                     try {
-                        const { id, name, description, scope, role } = data
+                        const { id, name, description, role } = data
                         if (id) {
-                            await api.apiKeys.update(project.id, id, { name, description, role })
+                            await api.apiKeys.update(project.id, id, {
+                                name: name as string,
+                                description,
+                                role,
+                            })
                         } else {
-                            await api.apiKeys.create(project.id, { name, description, scope, role })
+                            await api.apiKeys.create(project.id, {
+                                name: name as string,
+                                description,
+                                scope: "secret",
+                                role,
+                            })
                         }
                         await reload()
                         setEditing(null)
@@ -287,124 +259,5 @@ export default function ProjectApiKeys() {
                 isSaving={isSaving}
             />
         </div>
-    )
-}
-
-interface ApiKeyDialogProps {
-    editing: Partial<ProjectApiKey> | null
-    onClose: () => void
-    onSave: (data: Partial<ProjectApiKey>) => Promise<void>
-    isSaving: boolean
-}
-
-function ApiKeyDialog({ editing, onClose, onSave, isSaving }: ApiKeyDialogProps) {
-    const { t } = useTranslation()
-    const form = useForm<Partial<ProjectApiKey>>({
-        values: editing ?? undefined,
-    })
-
-    // eslint-disable-next-line react-hooks/incompatible-library
-    const scope = form.watch("scope")
-    const isUpdate = !!editing?.id
-
-    return (
-        <Dialog
-            open={!!editing}
-            onOpenChange={(open) => {
-                if (!open) onClose()
-            }}
-        >
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{isUpdate ? t("update_key") : t("create_key")}</DialogTitle>
-                    <DialogDescription>
-                        {isUpdate
-                            ? t("update_key_description", "Update the API key details.")
-                            : t("create_key_description", "Create a new API key for your project.")}
-                    </DialogDescription>
-                </DialogHeader>
-
-                {editing?.value && (
-                    <div className="rounded-lg border bg-muted/50 p-3">
-                        <Label className="text-xs text-muted-foreground">
-                            {t("key_value", "Key Value")}
-                        </Label>
-                        <code className="mt-1 block text-sm break-all">{editing.value}</code>
-                    </div>
-                )}
-
-                <form onSubmit={form.handleSubmit(onSave)} className="grid gap-4 py-2">
-                    <div className="grid gap-2">
-                        <Label htmlFor="name" className="inline-flex items-center gap-1">
-                            {t("name")} <span className="text-destructive">*</span>
-                        </Label>
-                        <Input id="name" {...form.register("name", { required: true })} />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="description">{t("description")}</Label>
-                        <Input id="description" {...form.register("description")} />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label>{t("scope")}</Label>
-                        <Select
-                            value={scope}
-                            onValueChange={(val) =>
-                                form.setValue("scope", val as "public" | "secret")
-                            }
-                            disabled={isUpdate}
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="public">Public</SelectItem>
-                                <SelectItem value="secret">Secret</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    {scope === "secret" && (
-                        <div className="grid gap-2">
-                            <Label className="inline-flex items-center gap-1">
-                                {t("role")} <span className="text-destructive">*</span>
-                            </Label>
-                            <Select
-                                value={form.watch("role") ?? ""}
-                                onValueChange={(val) =>
-                                    form.setValue("role", val as (typeof projectRoles)[number])
-                                }
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {projectRoles.map((role) => (
-                                        <SelectItem key={role} value={role}>
-                                            {snakeToTitle(role)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
-                    <DialogFooter className="pt-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={onClose}
-                            disabled={isSaving}
-                        >
-                            {t("cancel")}
-                        </Button>
-                        <Button type="submit" disabled={isSaving}>
-                            {isSaving
-                                ? t("saving", "Saving...")
-                                : isUpdate
-                                  ? t("update_key")
-                                  : t("create_key")}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
     )
 }

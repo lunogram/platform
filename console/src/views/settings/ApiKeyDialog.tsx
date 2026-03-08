@@ -1,0 +1,212 @@
+import { useTranslation } from "react-i18next"
+import { useForm } from "react-hook-form"
+import { Check, Eye, Smartphone, Pencil, Shield } from "lucide-react"
+import { snakeToTitle } from "../../utils"
+import type { ProjectApiKey } from "../../types"
+import { projectRoles } from "../../types"
+import type { ProjectRole } from "../../types"
+
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+
+const roleConfig: Record<
+    ProjectRole,
+    {
+        icon: typeof Eye
+        description: string
+        permissions: string[]
+    }
+> = {
+    support: {
+        icon: Eye,
+        description: "Read-only access across all project resources.",
+        permissions: [
+            "View users, campaigns, journeys, templates",
+            "View events, lists, tags, and documents",
+            "No create, update, or delete access",
+        ],
+    },
+    client: {
+        icon: Smartphone,
+        description: "Write-only access for client-side SDKs and integrations.",
+        permissions: [
+            "Create & update users, events, and organizations",
+            "No read access to any resource",
+            "Designed for client-side SDKs and public integrations",
+        ],
+    },
+    editor: {
+        icon: Pencil,
+        description: "Full content management for campaigns, journeys, and more.",
+        permissions: [
+            "Everything in Support and Client",
+            "Create & manage campaigns, templates, journeys",
+            "Manage lists, tags, documents, locales, and actions",
+        ],
+    },
+    admin: {
+        icon: Shield,
+        description: "Full project access including providers and dangerous operations.",
+        permissions: [
+            "Everything in Editor",
+            "Manage providers and integrations",
+            "Delete subscriptions, actions, and organizations",
+        ],
+    },
+}
+
+export interface ApiKeyDialogProps {
+    editing: Partial<ProjectApiKey> | null
+    onClose: () => void
+    onSave: (data: Partial<ProjectApiKey>) => Promise<void>
+    isSaving: boolean
+}
+
+export default function ApiKeyDialog({ editing, onClose, onSave, isSaving }: ApiKeyDialogProps) {
+    const { t } = useTranslation()
+    const form = useForm<Partial<ProjectApiKey>>({
+        values: editing ?? undefined,
+    })
+
+    // eslint-disable-next-line react-hooks/incompatible-library
+    const selectedRole = form.watch("role") ?? "support"
+    const isUpdate = !!editing?.id
+
+    return (
+        <Dialog
+            open={!!editing}
+            onOpenChange={(open) => {
+                if (!open) onClose()
+            }}
+        >
+            <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>{isUpdate ? t("update_key") : t("create_key")}</DialogTitle>
+                    <DialogDescription>
+                        {isUpdate
+                            ? t("update_key_description", "Update the API key details.")
+                            : t("create_key_description", "Create a new API key for your project.")}
+                    </DialogDescription>
+                </DialogHeader>
+
+                {editing?.value && (
+                    <div className="rounded-lg border bg-muted/50 p-3">
+                        <Label className="text-xs text-muted-foreground">
+                            {t("key_value", "Key Value")}
+                        </Label>
+                        <code className="mt-1 block text-sm break-all">{editing.value}</code>
+                    </div>
+                )}
+
+                <form onSubmit={form.handleSubmit(onSave)} className="grid gap-4 py-2">
+                    <div className="grid gap-2">
+                        <Label htmlFor="name" className="inline-flex items-center gap-1">
+                            {t("name")} <span className="text-destructive">*</span>
+                        </Label>
+                        <Input id="name" {...form.register("name", { required: true })} />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="description">{t("description")}</Label>
+                        <Input id="description" {...form.register("description")} />
+                    </div>
+
+                    {/* Role selector */}
+                    <div className="grid gap-2">
+                        <Label className="inline-flex items-center gap-1">
+                            {t("role")} <span className="text-destructive">*</span>
+                        </Label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {projectRoles.map((role) => {
+                                const config = roleConfig[role]
+                                const Icon = config.icon
+                                const isSelected = selectedRole === role
+
+                                return (
+                                    <button
+                                        key={role}
+                                        type="button"
+                                        onClick={() =>
+                                            form.setValue(
+                                                "role",
+                                                role as (typeof projectRoles)[number],
+                                            )
+                                        }
+                                        className={`relative flex flex-col gap-1.5 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent/50 ${
+                                            isSelected
+                                                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                                : "border-border"
+                                        }`}
+                                    >
+                                        {isSelected && (
+                                            <div className="absolute right-2 top-2">
+                                                <Check className="h-3.5 w-3.5 text-primary" />
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-2">
+                                            <Icon
+                                                className={`h-4 w-4 ${isSelected ? "text-primary" : "text-muted-foreground"}`}
+                                            />
+                                            <span className="font-medium">
+                                                {snakeToTitle(role)}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground leading-snug pr-4">
+                                            {config.description}
+                                        </p>
+                                    </button>
+                                )
+                            })}
+                        </div>
+
+                        {/* Selected role permissions detail */}
+                        <div className="rounded-lg border bg-muted/30 p-3 mt-1">
+                            <p className="text-xs font-medium text-muted-foreground mb-2">
+                                {snakeToTitle(selectedRole)} {t("permissions", "permissions")}
+                            </p>
+                            <ul className="space-y-1">
+                                {roleConfig[selectedRole as ProjectRole]?.permissions.map(
+                                    (perm) => (
+                                        <li
+                                            key={perm}
+                                            className="flex items-start gap-2 text-xs text-muted-foreground"
+                                        >
+                                            <Check className="h-3 w-3 mt-0.5 shrink-0 text-primary" />
+                                            <span>{perm}</span>
+                                        </li>
+                                    ),
+                                )}
+                            </ul>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onClose}
+                            disabled={isSaving}
+                        >
+                            {t("cancel")}
+                        </Button>
+                        <Button type="submit" disabled={isSaving}>
+                            {isSaving
+                                ? t("saving", "Saving...")
+                                : isUpdate
+                                  ? t("update_key")
+                                  : t("create_key")}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    )
+}

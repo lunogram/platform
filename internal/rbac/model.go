@@ -77,14 +77,21 @@ func union(children ...*openfgav1.Userset) *openfgav1.Userset {
 //
 // # Project roles
 //
-// Projects define a four-level role hierarchy:
+// Projects define a four-level role hierarchy. The "client" and "support" roles
+// are independent branches under "editor":
 //
-//	support < client < editor < admin
+//	          ┌─ client  (write-only: create/update)
+//	editor ──┤
+//	          └─ support (read-only)
+//	editor < admin
 //
 // The "client" role is designed for API keys that power the client-facing API.
 // It grants create and update access to the resources used by client endpoints
-// (users, events, organizations) without the broader permissions of
-// the editor role.
+// (users, events, organizations) but has no read access to any resource. This
+// ensures client API keys can be used safely in public contexts (e.g. websites)
+// without exposing data.
+//
+// The "support" role grants read-only access to all resources.
 //
 // Organization owners and admins automatically inherit the project admin role
 // through a tuple-to-userset rewrite on the "organization" relation.
@@ -137,7 +144,7 @@ func Model() []*openfgav1.TypeDefinition {
 				),
 				"editor":  union(direct, comp("admin")),
 				"client":  union(direct, comp("editor")),
-				"support": union(direct, comp("client")),
+				"support": union(direct, comp("editor")),
 			},
 			Metadata: &openfgav1.Metadata{
 				Relations: map[string]*openfgav1.RelationMetadata{

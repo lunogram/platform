@@ -10,6 +10,7 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/rbac/access"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
@@ -58,6 +59,14 @@ func (srv *ApiKeysController) CreateApiKey(w http.ResponseWriter, r *http.Reques
 	apiKey, err := srv.store.ApiKeysStore.CreateApiKey(ctx, projectID, body.Name, string(body.Scope), role, body.Description)
 	if err != nil {
 		logger.Error("failed to create API key", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// Grant the API key its project role in the RBAC engine so that
+	// project-scoped permission checks resolve correctly.
+	if err := access.ProvisionApiKey(ctx, srv.engine, apiKey.ID, projectID, role); err != nil {
+		logger.Error("failed to provision RBAC for API key", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -151,6 +160,27 @@ func (srv *ApiKeysController) UpdateApiKey(w http.ResponseWriter, r *http.Reques
 		role = &roleStr
 	}
 
+	// If the role is changing, fetch the current key to get the old role
+	// so we can update the RBAC tuple.
+	if role != nil {
+		existing, err := srv.store.ApiKeysStore.GetApiKey(ctx, projectID, keyID)
+		if errors.Is(err, store.ErrNoRows) {
+			oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("API key not found")))
+			return
+		}
+		if err != nil {
+			logger.Error("failed to fetch API key for role update", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		if err := access.UpdateApiKeyRole(ctx, srv.engine, keyID, projectID, existing.Role, *role); err != nil {
+			logger.Error("failed to update RBAC role for API key", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	}
+
 	err = srv.store.ApiKeysStore.UpdateApiKey(ctx, projectID, keyID, body.Name, role, body.Description)
 	if err != nil {
 		logger.Error("failed to update API key", zap.Error(err))
@@ -186,9 +216,27 @@ func (srv *ApiKeysController) DeleteApiKey(w http.ResponseWriter, r *http.Reques
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("key_id", keyID))
 	logger.Info("deleting API key")
 
-	err := srv.store.ApiKeysStore.DeleteApiKey(ctx, projectID, keyID)
+	// Fetch the key before deletion so we know which role tuple to remove.
+	apiKey, err := srv.store.ApiKeysStore.GetApiKey(ctx, projectID, keyID)
+	if errors.Is(err, store.ErrNoRows) {
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("API key not found")))
+		return
+	}
 	if err != nil {
+		logger.Error("failed to fetch API key for deletion", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	if err := srv.store.ApiKeysStore.DeleteApiKey(ctx, projectID, keyID); err != nil {
 		logger.Error("failed to delete API key", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	// Remove the RBAC role tuple for this key.
+	if err := access.DeprovisionApiKey(ctx, srv.engine, keyID, projectID, apiKey.Role); err != nil {
+		logger.Error("failed to deprovision RBAC for API key", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}

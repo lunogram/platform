@@ -50,6 +50,184 @@ func TestOrganizationRoleTuples(t *testing.T) {
 	}
 }
 
+func TestApiKeyRoleTuples(t *testing.T) {
+	t.Parallel()
+
+	keyID := uuid.New()
+	projectID := uuid.New()
+
+	type test struct {
+		role     string
+		expected []rbac.Tuple
+	}
+
+	tests := map[string]test{
+		"support": {
+			role: "support",
+			expected: []rbac.Tuple{
+				{User: "user:" + keyID.String(), Relation: "support", Object: "project:" + projectID.String()},
+			},
+		},
+		"client": {
+			role: "client",
+			expected: []rbac.Tuple{
+				{User: "user:" + keyID.String(), Relation: "client", Object: "project:" + projectID.String()},
+			},
+		},
+		"editor": {
+			role: "editor",
+			expected: []rbac.Tuple{
+				{User: "user:" + keyID.String(), Relation: "editor", Object: "project:" + projectID.String()},
+			},
+		},
+		"admin": {
+			role: "admin",
+			expected: []rbac.Tuple{
+				{User: "user:" + keyID.String(), Relation: "admin", Object: "project:" + projectID.String()},
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			tuples := ApiKeyRoleTuples(keyID, projectID, tc.role)
+			assert.Equal(t, tc.expected, tuples)
+		})
+	}
+}
+
+func TestProvisionApiKey(t *testing.T) {
+	t.Parallel()
+
+	engine := rbac.NewTestEngine(t)
+	ctx := context.Background()
+
+	orgID := uuid.New()
+	projectID := uuid.New()
+	keyID := uuid.New()
+
+	// Provision the project first so resource tuples exist.
+	require.NoError(t, engine.WriteTuples(ctx, ProjectTuples(orgID, projectID)))
+
+	// Provision the API key with "client" role.
+	err := ProvisionApiKey(ctx, engine, keyID, projectID, "client")
+	require.NoError(t, err)
+
+	actor := rbac.NewActor(rbac.ActorAPIKey, keyID.String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	actorCtx := rbac.WithActor(ctx, actor)
+
+	// "client" has no read access to any resource.
+	for _, resource := range rbac.Resources() {
+		assert.Error(t, engine.Allowed(actorCtx, rbac.Read, rbac.ProjectResourceScope(resource, projectID)),
+			"client key should not be able to read %s", resource)
+	}
+
+	// "client" should be able to create and update client-level resources.
+	for _, resource := range []string{"users", "events", "organizations"} {
+		assert.NoError(t, engine.Allowed(actorCtx, rbac.Create, rbac.ProjectResourceScope(resource, projectID)),
+			"client key should be able to create %s", resource)
+		assert.NoError(t, engine.Allowed(actorCtx, rbac.Update, rbac.ProjectResourceScope(resource, projectID)),
+			"client key should be able to update %s", resource)
+	}
+
+	// "client" should NOT be able to create "campaigns" (requires editor).
+	assert.Error(t, engine.Allowed(actorCtx, rbac.Create, rbac.ProjectResourceScope("campaigns", projectID)))
+}
+
+func TestDeprovisionApiKey(t *testing.T) {
+	t.Parallel()
+
+	engine := rbac.NewTestEngine(t)
+	ctx := context.Background()
+
+	orgID := uuid.New()
+	projectID := uuid.New()
+	keyID := uuid.New()
+
+	require.NoError(t, engine.WriteTuples(ctx, ProjectTuples(orgID, projectID)))
+	require.NoError(t, ProvisionApiKey(ctx, engine, keyID, projectID, "editor"))
+
+	actor := rbac.NewActor(rbac.ActorAPIKey, keyID.String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	actorCtx := rbac.WithActor(ctx, actor)
+
+	// Verify access works before deprovisioning.
+	assert.NoError(t, engine.Allowed(actorCtx, rbac.Read, rbac.ProjectResourceScope("campaigns", projectID)))
+
+	// Deprovision.
+	err := DeprovisionApiKey(ctx, engine, keyID, projectID, "editor")
+	require.NoError(t, err)
+
+	// Permissions should no longer resolve.
+	for _, resource := range rbac.Resources() {
+		assert.Error(t, engine.Allowed(actorCtx, rbac.Read, rbac.ProjectResourceScope(resource, projectID)),
+			"read %s should fail after deprovision", resource)
+	}
+}
+
+func TestUpdateApiKeyRole(t *testing.T) {
+	t.Parallel()
+
+	engine := rbac.NewTestEngine(t)
+	ctx := context.Background()
+
+	orgID := uuid.New()
+	projectID := uuid.New()
+	keyID := uuid.New()
+
+	require.NoError(t, engine.WriteTuples(ctx, ProjectTuples(orgID, projectID)))
+	require.NoError(t, ProvisionApiKey(ctx, engine, keyID, projectID, "support"))
+
+	actor := rbac.NewActor(rbac.ActorAPIKey, keyID.String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	actorCtx := rbac.WithActor(ctx, actor)
+
+	// "support" can read but not create campaigns.
+	assert.NoError(t, engine.Allowed(actorCtx, rbac.Read, rbac.ProjectResourceScope("campaigns", projectID)))
+	assert.Error(t, engine.Allowed(actorCtx, rbac.Create, rbac.ProjectResourceScope("campaigns", projectID)))
+
+	// Upgrade to "editor".
+	err := UpdateApiKeyRole(ctx, engine, keyID, projectID, "support", "editor")
+	require.NoError(t, err)
+
+	// Now create campaigns should work.
+	assert.NoError(t, engine.Allowed(actorCtx, rbac.Create, rbac.ProjectResourceScope("campaigns", projectID)))
+}
+
+func TestUpdateApiKeyRoleSameRoleIsNoop(t *testing.T) {
+	t.Parallel()
+
+	engine := rbac.NewTestEngine(t)
+	ctx := context.Background()
+
+	orgID := uuid.New()
+	projectID := uuid.New()
+	keyID := uuid.New()
+
+	require.NoError(t, engine.WriteTuples(ctx, ProjectTuples(orgID, projectID)))
+	require.NoError(t, ProvisionApiKey(ctx, engine, keyID, projectID, "editor"))
+
+	actor := rbac.NewActor(rbac.ActorAPIKey, keyID.String(),
+		rbac.WithOrganizationID(orgID),
+		rbac.WithProjectID(projectID),
+	)
+	actorCtx := rbac.WithActor(ctx, actor)
+
+	// Update with same role should be a no-op and not break anything.
+	err := UpdateApiKeyRole(ctx, engine, keyID, projectID, "editor", "editor")
+	require.NoError(t, err)
+
+	// Permissions should still work.
+	assert.NoError(t, engine.Allowed(actorCtx, rbac.Create, rbac.ProjectResourceScope("campaigns", projectID)))
+}
+
 func TestProjectTuples(t *testing.T) {
 	t.Parallel()
 

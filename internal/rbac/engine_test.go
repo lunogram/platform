@@ -220,16 +220,17 @@ func TestProjectClientCanCreateAndUpdateClientResources(t *testing.T) {
 	)
 	engine, ctx := TestSetup(t, context.Background(), actor, "member", "client")
 
-	// Client role can create and update users, events, and organizations.
+	// Client role can create and update users, events, and organizations
+	// but has no read access.
 	for _, resource := range []string{"users", "events", "organizations"} {
 		scope := ProjectResourceScope(resource, projectID)
-		assert.NoError(t, engine.Allowed(ctx, Read, scope), "read %s", resource)
+		assert.Error(t, engine.Allowed(ctx, Read, scope), "read %s", resource)
 		assert.NoError(t, engine.Allowed(ctx, Create, scope), "create %s", resource)
 		assert.NoError(t, engine.Allowed(ctx, Update, scope), "update %s", resource)
 	}
 }
 
-func TestProjectClientCanReadAllResources(t *testing.T) {
+func TestProjectClientCannotReadAnyResource(t *testing.T) {
 	t.Parallel()
 
 	orgID := uuid.New()
@@ -240,10 +241,10 @@ func TestProjectClientCanReadAllResources(t *testing.T) {
 	)
 	engine, ctx := TestSetup(t, context.Background(), actor, "member", "client")
 
-	// Client role inherits support, so it can read all resources.
+	// Client role has no read access to any resource.
 	for _, resource := range Resources() {
 		scope := ProjectResourceScope(resource, projectID)
-		assert.NoError(t, engine.Allowed(ctx, Read, scope), "read %s", resource)
+		assert.Error(t, engine.Allowed(ctx, Read, scope), "read %s", resource)
 	}
 }
 
@@ -258,10 +259,11 @@ func TestProjectClientCannotMutateNonClientResources(t *testing.T) {
 	)
 	engine, ctx := TestSetup(t, context.Background(), actor, "member", "client")
 
-	// Client role cannot create, update, or delete resources that require
-	// editor or admin (e.g. campaigns, templates, providers).
+	// Client role cannot read, create, update, or delete resources that
+	// require editor or admin (e.g. campaigns, templates, providers).
 	for _, resource := range []string{"campaigns", "templates", "journeys", "lists", "tags", "documents", "locales", "providers"} {
 		scope := ProjectResourceScope(resource, projectID)
+		assert.Error(t, engine.Allowed(ctx, Read, scope), "read %s", resource)
 		assert.Error(t, engine.Allowed(ctx, Create, scope), "create %s", resource)
 		assert.Error(t, engine.Allowed(ctx, Update, scope), "update %s", resource)
 		assert.Error(t, engine.Allowed(ctx, Delete, scope), "delete %s", resource)

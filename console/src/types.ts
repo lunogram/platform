@@ -299,7 +299,7 @@ export interface Admin {
     role: OrganizationRole
 }
 
-export const projectRoles = ["support", "editor", "publisher", "admin"] as const
+export const projectRoles = ["support", "client", "editor", "admin"] as const
 
 export type ProjectRole = (typeof projectRoles)[number]
 

@@ -28,6 +28,54 @@ func OrganizationRoleTuples(adminID, organizationID uuid.UUID, role string) []rb
 	}
 }
 
+// ApiKeyRoleTuples returns the tuple that grants a project-level role to an
+// API key. The keyID is the API key's UUID (used as the RBAC user identity)
+// and role must be one of "support", "client", "editor", or "admin".
+func ApiKeyRoleTuples(keyID, projectID uuid.UUID, role string) []rbac.Tuple {
+	return []rbac.Tuple{
+		{
+			User:     "user:" + keyID.String(),
+			Relation: role,
+			Object:   rbac.ProjectScope(projectID),
+		},
+	}
+}
+
+// ProvisionApiKey writes the RBAC tuple that grants the given project role to
+// an API key. This must be called whenever an API key is created so that
+// project-scoped permission checks resolve correctly for requests
+// authenticated with that key.
+func ProvisionApiKey(ctx context.Context, engine *rbac.Engine, keyID, projectID uuid.UUID, role string) error {
+	tuples := ApiKeyRoleTuples(keyID, projectID, role)
+	if err := engine.WriteTuples(ctx, tuples); err != nil {
+		return fmt.Errorf("access: failed to provision API key %s: %w", keyID, err)
+	}
+	return nil
+}
+
+// DeprovisionApiKey removes the RBAC tuple that was created by
+// [ProvisionApiKey]. Call this when an API key is deleted to clean up the
+// authorization store.
+func DeprovisionApiKey(ctx context.Context, engine *rbac.Engine, keyID, projectID uuid.UUID, role string) error {
+	tuples := ApiKeyRoleTuples(keyID, projectID, role)
+	if err := engine.DeleteTuples(ctx, tuples); err != nil {
+		return fmt.Errorf("access: failed to deprovision API key %s: %w", keyID, err)
+	}
+	return nil
+}
+
+// UpdateApiKeyRole removes the old role tuple and writes a new one for an API
+// key. This must be called whenever the role of an existing API key changes.
+func UpdateApiKeyRole(ctx context.Context, engine *rbac.Engine, keyID, projectID uuid.UUID, oldRole, newRole string) error {
+	if oldRole == newRole {
+		return nil
+	}
+	if err := DeprovisionApiKey(ctx, engine, keyID, projectID, oldRole); err != nil {
+		return err
+	}
+	return ProvisionApiKey(ctx, engine, keyID, projectID, newRole)
+}
+
 // ProjectTuples returns the tuples that link a project to its parent
 // organization and connect every resource type to the project. These tuples
 // are required for project-scoped permission checks to resolve correctly
