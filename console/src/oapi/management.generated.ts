@@ -309,6 +309,26 @@ export interface paths {
          */
         get: operations["getListUsers"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/lists/{listID}/users/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview list users
+         * @description Returns a limited preview of users that match the list's draft rule without modifying list membership
+         */
+        get: operations["previewListUsers"];
+        put?: never;
         /**
          * Import list users
          * @description Imports users to a static list from a CSV file
@@ -358,7 +378,11 @@ export interface paths {
         get: operations["getProject"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete project
+         * @description Soft deletes a project by setting its deleted_at timestamp
+         */
+        delete: operations["deleteProject"];
         options?: never;
         head?: never;
         /**
@@ -418,6 +442,58 @@ export interface paths {
          * @description Updates journey properties such as name, description, and status
          */
         patch: operations["updateJourney"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get user journey state
+         * @description Retrieves the current state of a user in a journey
+         */
+        get: operations["getUserJourneyState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream user journey steps
+         * @description Streams the current steps and progress of a specific user in a journey in real-time using Server-Sent Events (SSE)
+         */
+        get: operations["streamUserJourneySteps"];
+        /**
+         * Advance user step
+         * @description Advances the current step for a user in a journey and moves to the next step
+         */
+        put: operations["AdvanceUserStep"];
+        /**
+         * Trigger a user into a journey
+         * @description Triggers a user into a journey at a specific entrance step, typically used for testing or manual overrides
+         */
+        post: operations["triggerUser"];
+        /**
+         * Remove user from journey
+         * @description Removes a user from all active entrances in a journey
+         */
+        delete: operations["removeUserFromJourney"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/projects/{projectID}/journeys/{journeyID}/steps": {
@@ -584,26 +660,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Remove user from journey
-         * @description Removes a user from all active entrances in a journey
-         */
-        delete: operations["removeUserFromJourney"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/projects/{projectID}/journeys/{journeyID}/entrances": {
         parameters: {
             query?: never;
@@ -644,7 +700,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/organizations/admins": {
+    "/api/admin/tenant/admins": {
         parameters: {
             query?: never;
             header?: never;
@@ -668,7 +724,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/organizations/admins/{adminID}": {
+    "/api/admin/tenant/admins/{adminID}": {
         parameters: {
             query?: never;
             header?: never;
@@ -696,7 +752,7 @@ export interface paths {
         patch: operations["updateAdmin"];
         trace?: never;
     };
-    "/api/admin/organizations/whoami": {
+    "/api/admin/tenant/whoami": {
         parameters: {
             query?: never;
             header?: never;
@@ -716,55 +772,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/organizations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get current organization
-         * @description Retrieves the current organization for the authenticated admin
-         */
-        get: operations["getOrganization"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete organization
-         * @description Soft deletes the current organization (requires owner role)
-         */
-        delete: operations["deleteOrganization"];
-        options?: never;
-        head?: never;
-        /**
-         * Update organization
-         * @description Updates organization properties (requires owner role)
-         */
-        patch: operations["updateOrganization"];
-        trace?: never;
-    };
-    "/api/admin/organizations/integrations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get organization integrations
-         * @description Retrieves all provider integrations for the organization
-         */
-        get: operations["getOrganizationIntegrations"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/projects/{projectID}/users": {
+    "/api/admin/projects/{projectID}/subjects/users": {
         parameters: {
             query?: never;
             header?: never;
@@ -788,7 +796,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/users/import": {
+    "/api/admin/projects/{projectID}/subjects/users/import": {
         parameters: {
             query?: never;
             header?: never;
@@ -808,7 +816,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/users/{userID}": {
+    "/api/admin/projects/{projectID}/subjects/users/{userID}": {
         parameters: {
             query?: never;
             header?: never;
@@ -836,7 +844,7 @@ export interface paths {
         patch: operations["updateUser"];
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/users/{userID}/events": {
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/events": {
         parameters: {
             query?: never;
             header?: never;
@@ -856,7 +864,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/users/{userID}/subscriptions": {
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/subscriptions": {
         parameters: {
             query?: never;
             header?: never;
@@ -880,7 +888,7 @@ export interface paths {
         patch: operations["updateUserSubscriptions"];
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/users/{userID}/journeys": {
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/journeys": {
         parameters: {
             query?: never;
             header?: never;
@@ -900,7 +908,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/events/schema": {
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/devices": {
         parameters: {
             query?: never;
             header?: never;
@@ -908,10 +916,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List events with schemas
-         * @description Retrieves all events and their schema paths for a project
+         * Get user devices
+         * @description Retrieves registered devices for a specific user
          */
-        get: operations["listEvents"];
+        get: operations["getUserDevices"];
         put?: never;
         post?: never;
         delete?: never;
@@ -920,7 +928,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/users/schema": {
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/devices/{deviceID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete user device
+         * @description Soft deletes a registered device for a specific user
+         */
+        delete: operations["deleteUserDevice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/user/events/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List user event schemas
+         * @description Retrieves all user events and their schema paths for a project
+         */
+        get: operations["listUserEventSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/schema": {
         parameters: {
             query?: never;
             header?: never;
@@ -932,6 +980,202 @@ export interface paths {
          * @description Retrieves all user data schema paths for a project
          */
         get: operations["listUserSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List subject organizations
+         * @description Retrieves a paginated list of organizations (subjects) in a project
+         */
+        get: operations["listOrganizations"];
+        put?: never;
+        /**
+         * Create or update subject organization
+         * @description Creates or updates an organization (subject) by external_id
+         */
+        post: operations["upsertOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get subject organization by ID
+         * @description Retrieves a specific organization (subject)
+         */
+        get: operations["getOrganization"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete subject organization
+         * @description Deletes an organization and removes all user memberships
+         */
+        delete: operations["deleteOrganization"];
+        options?: never;
+        head?: never;
+        /**
+         * Update subject organization
+         * @description Updates organization properties
+         */
+        patch: operations["updateOrganization"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organization users
+         * @description Retrieves users belonging to an organization with their org-specific data
+         */
+        get: operations["listOrganizationMembers"];
+        put?: never;
+        /**
+         * Add user to organization
+         * @description Adds a user to an organization with optional org-specific data
+         */
+        post: operations["addOrganizationMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove user from organization
+         * @description Removes a user from an organization
+         */
+        delete: operations["removeOrganizationMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get organization events
+         * @description Retrieves events for a specific organization
+         */
+        get: operations["getOrganizationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organization/events/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organization event schemas
+         * @description Retrieves all organization events and their schema paths for a project
+         */
+        get: operations["listOrganizationEventSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organization schemas
+         * @description Retrieves all organization data schema paths for a project
+         */
+        get: operations["listOrganizationSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/users/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organization user schemas
+         * @description Retrieves all organization user data schema paths for a project
+         */
+        get: operations["listOrganizationMemberSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/subject-organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get user organizations
+         * @description Retrieves all organizations a user belongs to
+         */
+        get: operations["getUserOrganizations"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1256,6 +1500,158 @@ export interface paths {
         patch: operations["updateApiKey"];
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List actions
+         * @description Retrieves a paginated list of actions for a project
+         */
+        get: operations["listActions"];
+        put?: never;
+        /**
+         * Create action
+         * @description Creates a new action for a project
+         */
+        post: operations["createAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/actions/{actionID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get action by ID
+         * @description Retrieves a specific action
+         */
+        get: operations["getAction"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete action
+         * @description Deletes an action
+         */
+        delete: operations["deleteAction"];
+        options?: never;
+        head?: never;
+        /**
+         * Update action
+         * @description Updates an action's name, type, or config
+         */
+        patch: operations["updateAction"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/actions/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List available action modules
+         * @description Retrieves all available action modules that can be configured
+         */
+        get: operations["listActionMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/actions/meta/{actionType}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get action module preview
+         * @description Returns raw HTML preview for a specific action module
+         */
+        get: operations["getActionPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/actions/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test an action configuration
+         * @description Validates an action's configuration (e.g. API keys, OAuth credentials, bearer tokens) by calling the module's validate function. Does not require the action to be saved first.
+         */
+        post: operations["testAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/actions/{actionID}/functions/{functionID}/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List action function schemas
+         * @description Retrieves the schema paths for an action function's execution result metadata
+         */
+        get: operations["listActionSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/actions/{actionID}/functions/{functionID}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test action function execution
+         * @description Tests executing an action function with the given input, useful for validating function calls in the journey editor
+         */
+        post: operations["testActionFunction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/providers": {
         parameters: {
             query?: never;
@@ -1391,11 +1787,150 @@ export interface components {
          */
         Channel: "email" | "text" | "push" | "webhook";
         /**
+         * @description Type of action (module ID from registered action modules)
+         * @example webhook
+         */
+        ActionType: string;
+        Action: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
+             */
+            project_id: string;
+            /** @example My Webhook Action */
+            name: string;
+            type: components["schemas"]["ActionType"];
+            /** @description Action configuration (varies by type) */
+            config: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: date-time
+             * @example 2025-11-19T14:18:42.960Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.021Z
+             */
+            updated_at: string;
+        };
+        CreateAction: {
+            /** @example My Webhook Action */
+            name: string;
+            type: components["schemas"]["ActionType"];
+            /** @description Action configuration (varies by type) */
+            config?: {
+                [key: string]: unknown;
+            };
+        };
+        UpdateAction: {
+            /** @example Updated Action Name */
+            name?: string;
+            type?: components["schemas"]["ActionType"];
+            /** @description Action configuration (varies by type) */
+            config?: {
+                [key: string]: unknown;
+            };
+        };
+        ActionMeta: {
+            /**
+             * @description Module ID
+             * @example webhook
+             */
+            type: string;
+            /**
+             * @description Human-readable module name
+             * @example Webhook
+             */
+            name: string;
+            /**
+             * @description Module description
+             * @example Send HTTP webhooks to external services
+             */
+            description?: string;
+            /** @description JSON Schema for module-level configuration (API keys, etc.) */
+            config_schema?: {
+                [key: string]: unknown;
+            };
+            /** @description Available functions in this action module */
+            functions: components["schemas"]["ActionFunction"][];
+            /** @description Whether this module is hidden from the UI */
+            hidden?: boolean;
+        };
+        ActionFunction: {
+            /**
+             * @description Function identifier
+             * @example send_request
+             */
+            id: string;
+            /**
+             * @description Human-readable function name
+             * @example Send Request
+             */
+            title: string;
+            /**
+             * @description Function description
+             * @example Send an HTTP request to an external endpoint
+             */
+            description?: string;
+            /** @description JSON Schema for function input */
+            input_schema?: {
+                [key: string]: unknown;
+            };
+        };
+        TestActionRequest: {
+            type: components["schemas"]["ActionType"];
+            /** @description Action configuration to validate (API keys, OAuth tokens, etc.) */
+            config?: {
+                [key: string]: unknown;
+            };
+        };
+        TestActionResult: {
+            /**
+             * @description Status code returned by the validation (e.g. 200 for success, 400/401/500 for errors)
+             * @example 200
+             */
+            status_code: number;
+            /**
+             * @description Human-readable validation message
+             * @example Configuration is valid
+             */
+            message?: string;
+        };
+        TestActionFunctionRequest: {
+            /** @description Input parameters for the function execution */
+            input?: {
+                [key: string]: unknown;
+            };
+        };
+        TestActionFunctionResult: {
+            /**
+             * @description Status code returned by the function execution (e.g. 200 for success, 400/500 for errors)
+             * @example 200
+             */
+            status_code: number;
+            /**
+             * @description Metadata returned by the function execution
+             * @example {
+             *       "response_body": "OK"
+             *     }
+             */
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
          * @description Journey step type
          * @example entrance
          * @enum {string}
          */
-        JourneyStepType: "entrance" | "exit" | "delay" | "action" | "gate" | "experiment" | "link" | "sticky" | "balancer" | "update" | "event";
+        JourneyStepType: "entrance" | "exit" | "delay" | "action" | "campaign" | "gate" | "experiment" | "link" | "sticky" | "balancer" | "update" | "event";
         /** @description Data for entrance step - entry point into journey */
         EntranceStepData: {
             /**
@@ -1403,7 +1938,7 @@ export interface components {
              * @example event
              * @enum {string}
              */
-            trigger?: "none" | "event" | "schedule";
+            trigger?: "none" | "event";
             /**
              * @description Event name that triggers entrance
              * @example user_signup
@@ -1411,6 +1946,10 @@ export interface components {
             event_name?: string;
             /** @description Rule for filtering events */
             rule?: {
+                [key: string]: unknown;
+            };
+            /** @description Rule for filtering users (used with organization events) */
+            user_rule?: {
                 [key: string]: unknown;
             };
             /**
@@ -1423,16 +1962,6 @@ export interface components {
              * @example false
              */
             concurrent?: boolean;
-            /**
-             * Format: uuid
-             * @description List ID for scheduled entrance
-             */
-            list_id?: string;
-            /**
-             * @description RRule schedule string
-             * @example FREQ=DAILY;BYHOUR=9;BYMINUTE=0
-             */
-            schedule?: string;
         };
         /** @description Data for exit step - exits user from journey */
         ExitStepData: {
@@ -1478,14 +2007,23 @@ export interface components {
             /** @description Days to exclude (0=Sunday, 6=Saturday) */
             exclusion_days?: number[];
         };
-        /** @description Data for action step - send campaign */
-        ActionStepData: {
+        /** @description Data for campaign step - send campaign */
+        CampaignStepData: {
             /**
              * Format: uuid
              * @description Campaign to send
              * @example 52f3f921-1343-48af-b795-87c0fd3b44aa
              */
             campaign_id: string;
+        };
+        /** @description Data for action step - execute WASM action */
+        ActionStepData: {
+            /**
+             * Format: uuid
+             * @description Action to execute
+             * @example 52f3f921-1343-48af-b795-87c0fd3b44aa
+             */
+            action_id: string;
         };
         /** @description Data for gate step - conditional branching */
         GateStepData: {
@@ -1575,7 +2113,7 @@ export interface components {
          * @example admin
          * @enum {string}
          */
-        ProjectRole: "support" | "editor" | "publisher" | "admin";
+        ProjectRole: "support" | "client" | "editor" | "admin";
         /**
          * @description User subscription state
          * @example subscribed
@@ -1649,13 +2187,6 @@ export interface components {
             link_wrap_email?: boolean;
             /** @example false */
             link_wrap_push?: boolean;
-            /**
-             * @example [
-             *       "analytics",
-             *       "reporting"
-             *     ]
-             */
-            tools?: string[];
             /** @example 3 */
             integrations_count?: number;
             /** @example 12 */
@@ -1694,12 +2225,6 @@ export interface components {
             link_wrap_email?: boolean;
             /** @example false */
             link_wrap_push?: boolean;
-            /**
-             * @example [
-             *       "analytics"
-             *     ]
-             */
-            tools?: string[];
         };
         UpdateProject: {
             /** @example Updated Project Name */
@@ -1718,13 +2243,6 @@ export interface components {
             link_wrap_email?: boolean;
             /** @example true */
             link_wrap_push?: boolean;
-            /**
-             * @example [
-             *       "analytics",
-             *       "reporting"
-             *     ]
-             */
-            tools?: string[];
         };
         CreateCampaign: {
             /** @example Welcome Campaign */
@@ -1750,7 +2268,7 @@ export interface components {
         CreateTemplate: {
             /**
              * @description The locale/language code for the template
-             * @example en
+             * @example en-US
              */
             locale: string;
             /** @description Template-specific data based on type. Structure varies by template type. */
@@ -1858,6 +2376,7 @@ export interface components {
                 [key: string]: unknown;
             };
             tags?: string[];
+            /** @description When true, publishes the current draft rule making it active */
             published?: boolean;
         };
         List: {
@@ -1876,15 +2395,24 @@ export interface components {
              */
             type: "static" | "dynamic";
             /**
-             * @example ready
+             * @description draft = not yet published, ready = published and active, loading = recomputing
+             * @example draft
              * @enum {string}
              */
             state: "draft" | "ready" | "loading";
-            /** Format: uuid */
-            rule_id?: string;
+            /** @description Published rule definition (from the published version) */
             rule?: {
                 [key: string]: unknown;
             };
+            /** @description Draft rule definition (from the draft version, if one exists) */
+            draft_rule?: {
+                [key: string]: unknown;
+            };
+            /**
+             * @description Current version number of the active list version
+             * @example 1
+             */
+            version_number?: number;
             /** @example 1 */
             version: number;
             /** @example 1250 */
@@ -1922,13 +2450,6 @@ export interface components {
             data?: components["schemas"]["EmailProviderData"] | components["schemas"]["SmsProviderData"] | components["schemas"]["PushProviderData"];
             /** @example true */
             is_default: boolean;
-            /** @example 0 */
-            rate_limit?: number;
-            /**
-             * @example second
-             * @enum {string}
-             */
-            rate_interval?: "second" | "minute" | "hour" | "day";
             /**
              * Format: date-time
              * @example 2025-11-05T13:38:03.861Z
@@ -1948,9 +2469,6 @@ export interface components {
             };
             /** @example false */
             is_default?: boolean;
-            rate_limit?: number;
-            /** @enum {string} */
-            rate_interval?: "second" | "minute" | "hour" | "day";
         };
         UpdateProvider: {
             /** @example My Email Provider */
@@ -1959,9 +2477,6 @@ export interface components {
                 [key: string]: unknown;
             };
             is_default?: boolean;
-            rate_limit?: number;
-            /** @enum {string} */
-            rate_interval?: "second" | "minute" | "hour" | "day";
         };
         ProviderMeta: {
             /**
@@ -1981,6 +2496,8 @@ export interface components {
             schema: {
                 [key: string]: unknown;
             };
+            /** @description Whether this module is hidden from the UI */
+            hidden?: boolean;
         };
         Template: {
             /**
@@ -2010,7 +2527,7 @@ export interface components {
             campaign_id: string;
             type: components["schemas"]["Channel"];
             data: components["schemas"]["EmailTemplateData"] | components["schemas"]["SmsTemplateData"] | components["schemas"]["PushTemplateData"];
-            /** @example en */
+            /** @example en-US */
             locale: string;
         };
         EmailTemplateData: {
@@ -2118,33 +2635,6 @@ export interface components {
             first_name?: string;
             /** @example Smith */
             last_name?: string;
-        };
-        Organization: {
-            /**
-             * Format: uuid
-             * @example 7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b
-             */
-            id: string;
-            /** @example Acme Corporation */
-            name: string;
-            /** @example https://acme.com/track */
-            tracking_deeplink_mirror_url?: string;
-            /** Format: uuid */
-            notification_provider_id?: string;
-            /**
-             * Format: date-time
-             * @example 2025-11-19T14:18:42.960Z
-             */
-            created_at: string;
-            /**
-             * Format: date-time
-             * @example 2025-11-23T17:20:00.021Z
-             */
-            updated_at: string;
-        };
-        UpdateOrganization: {
-            /** @example https://acme.com/track */
-            tracking_deeplink_mirror_url?: string;
         };
         User: {
             /**
@@ -2256,6 +2746,201 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        Organization: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
+             */
+            project_id: string;
+            /**
+             * @description External identifier for the organization from your system
+             * @example org_123
+             */
+            external_id: string;
+            /** @example Acme Corp */
+            name?: string;
+            /**
+             * @example {
+             *       "industry": "technology",
+             *       "size": "enterprise"
+             *     }
+             */
+            data: {
+                [key: string]: unknown;
+            };
+            /** @example 1 */
+            version: number;
+            /**
+             * Format: date-time
+             * @example 2025-11-19T14:18:42.960Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.021Z
+             */
+            updated_at: string;
+        };
+        OrganizationList: components["schemas"]["PaginatedResponse"] & {
+            results: components["schemas"]["Organization"][];
+        };
+        OrganizationEvent: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
+             */
+            project_id: string;
+            /**
+             * Format: uuid
+             * @example 7c1e3c5a-2b4d-4e8f-9a1b-3c5d7e9f1a2b
+             */
+            organization_id: string;
+            /** @example subscription_upgraded */
+            name: string;
+            /**
+             * @example {
+             *       "plan": "enterprise",
+             *       "seats": 50
+             *     }
+             */
+            data?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.000Z
+             */
+            created_at: string;
+        };
+        OrganizationEventList: components["schemas"]["PaginatedResponse"] & {
+            results: components["schemas"]["OrganizationEvent"][];
+        };
+        UpsertOrganization: {
+            /**
+             * @description External identifier for the organization from your system
+             * @example org_123
+             */
+            external_id: string;
+            /** @example Acme Corp */
+            name?: string;
+            /**
+             * @example {
+             *       "industry": "technology",
+             *       "size": "enterprise"
+             *     }
+             */
+            data?: {
+                [key: string]: unknown;
+            };
+        };
+        UpdateOrganization: {
+            /** @example Acme Corporation */
+            name?: string;
+            /**
+             * @example {
+             *       "industry": "technology",
+             *       "size": "enterprise"
+             *     }
+             */
+            data?: {
+                [key: string]: unknown;
+            };
+        };
+        OrganizationMember: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
+             */
+            project_id: string;
+            /** @example anon_abc123xyz */
+            anonymous_id: string;
+            /** @example user_123 */
+            external_id?: string;
+            /**
+             * Format: email
+             * @example user@example.com
+             */
+            email?: string;
+            /**
+             * Format: phone
+             * @description E.164 formatted phone number
+             * @example +1234567890
+             */
+            phone?: string;
+            /**
+             * @example {
+             *       "first_name": "John",
+             *       "last_name": "Doe"
+             *     }
+             */
+            data: {
+                [key: string]: unknown;
+            };
+            /** @example America/New_York */
+            timezone?: string;
+            /** @example en-US */
+            locale?: string;
+            /** @example false */
+            has_push_device: boolean;
+            /** @example 1 */
+            version: number;
+            /**
+             * Format: date-time
+             * @example 2025-11-19T14:18:42.960Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.021Z
+             */
+            updated_at: string;
+            /**
+             * @description Organization-specific data for this user
+             * @example {
+             *       "role": "admin",
+             *       "department": "engineering"
+             *     }
+             */
+            organization_data: {
+                [key: string]: unknown;
+            };
+        };
+        OrganizationMemberList: components["schemas"]["PaginatedResponse"] & {
+            results: components["schemas"]["OrganizationMember"][];
+        };
+        AddOrganizationMember: {
+            /**
+             * Format: uuid
+             * @description The user ID to add to the organization
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            user_id: string;
+            /**
+             * @description Organization-specific data for this user
+             * @example {
+             *       "role": "member",
+             *       "department": "sales"
+             *     }
+             */
+            data?: {
+                [key: string]: unknown;
+            };
+        };
         UserEvent: {
             /**
              * Format: uuid
@@ -2296,6 +2981,40 @@ export interface components {
         };
         UserEventList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["UserEvent"][];
+        };
+        UserDevice: {
+            /**
+             * Format: uuid
+             * @example 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+             */
+            id: string;
+            /** @example AB12CD34-EF56-GH78-IJ90 */
+            device_id: string;
+            /** @example fcm_token_abc123 */
+            token?: string | null;
+            /** @example iOS */
+            os?: string | null;
+            /** @example 17.2 */
+            os_version?: string | null;
+            /** @example iPhone 15 Pro */
+            model?: string | null;
+            /** @example 142 */
+            app_build?: string | null;
+            /** @example 2.1.0 */
+            app_version?: string | null;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.000Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.000Z
+             */
+            updated_at: string;
+        };
+        UserDeviceList: {
+            results: components["schemas"]["UserDevice"][];
         };
         UserSubscription: {
             /**
@@ -2627,13 +3346,13 @@ export interface components {
             /** Format: uuid */
             project_id: string;
             /**
-             * @description Locale key (e.g., language code)
-             * @example en
+             * @description Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
+             * @example en-US
              */
             key: string;
             /**
              * @description Human-readable locale label
-             * @example English
+             * @example English (United States)
              */
             label: string;
             /**
@@ -2649,13 +3368,13 @@ export interface components {
         };
         CreateLocale: {
             /**
-             * @description Locale key (e.g., language code)
-             * @example en
+             * @description Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
+             * @example en-US
              */
             key: string;
             /**
              * @description Human-readable locale label
-             * @example English
+             * @example English (United States)
              */
             label: string;
         };
@@ -2879,6 +3598,9 @@ export interface components {
              */
             types: string[];
         };
+        ActionSchemaListResponse: {
+            results: components["schemas"]["SchemaPath"][];
+        };
         AuthCallbackRequest: {
             /**
              * Format: email
@@ -3018,6 +3740,17 @@ export interface components {
                 };
             };
         };
+        /** @description Actions retrieved successfully */
+        ActionListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PaginatedResponse"] & {
+                    results: components["schemas"]["Action"][];
+                };
+            };
+        };
     };
     parameters: {
         /** @description Maximum number of items to return */
@@ -3109,6 +3842,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
                 offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
             };
             header?: never;
             path: {
@@ -3420,6 +4155,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
                 offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
             };
             header?: never;
             path: {
@@ -3601,6 +4338,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
                 offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
             };
             header?: never;
             path: {
@@ -3614,6 +4353,35 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description List users retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewListUsers: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The list ID */
+                listID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Preview users retrieved successfully */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3736,6 +4504,28 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    deleteProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateProject: {
         parameters: {
             query?: never;
@@ -3771,6 +4561,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
                 offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
             };
             header?: never;
             path: {
@@ -3787,7 +4579,10 @@ export interface operations {
     };
     createJourney: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description If true, immediately publish the journey after creation */
+                publish?: boolean;
+            };
             header?: never;
             path: {
                 /** @description The project ID */
@@ -3889,6 +4684,164 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Journey"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getUserJourneyState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User journey state retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        external_step_id?: string;
+                        step_type?: string;
+                        is_completed?: boolean;
+                    }[];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    streamUserJourneySteps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The user ID to check journey status for */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-Sent Event stream of user journey step updates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    AdvanceUserStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The user ID whose current step should be advanced */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description The external ID of the current step to advance
+                     */
+                    externalStepID: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Current step advanced successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    triggerUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The user ID to enroll in the journey */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description The ID of the journey entry to enroll the user in
+                     */
+                    externalStepID: string;
+                };
+            };
+        };
+        responses: {
+            /** @description User enrolled in journey successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeUserFromJourney: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User removed from journey successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -4138,32 +5091,6 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    removeUserFromJourney: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The project ID */
-                projectID: string;
-                /** @description The journey ID */
-                journeyID: string;
-                /** @description The user ID */
-                userID: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description User removed from journey successfully */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            default: components["responses"]["Error"];
-        };
-    };
     listJourneyEntrances: {
         parameters: {
             query?: {
@@ -4366,92 +5293,6 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    getOrganization: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Organization retrieved successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Organization"];
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    deleteOrganization: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Organization deleted successfully */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    updateOrganization: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateOrganization"];
-            };
-        };
-        responses: {
-            /** @description Organization updated successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Organization"];
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    getOrganizationIntegrations: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Integrations retrieved successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Provider"][];
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
     listUsers: {
         parameters: {
             query?: {
@@ -4630,6 +5471,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
                 offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
             };
             header?: never;
             path: {
@@ -4746,7 +5589,59 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    listEvents: {
+    getUserDevices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User devices retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDeviceList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteUserDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The device ID */
+                deviceID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Device deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listUserEventSchemas: {
         parameters: {
             query?: never;
             header?: never;
@@ -4782,6 +5677,367 @@ export interface operations {
                 content: {
                     "application/json": {
                         results: components["schemas"]["SchemaPath"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrganizations: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organizations retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    upsertOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertOrganization"];
+            };
+        };
+        responses: {
+            /** @description Organization upserted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOrganization"];
+            };
+        };
+        responses: {
+            /** @description Organization updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrganizationMembers: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization users retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationMemberList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addOrganizationMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddOrganizationMember"];
+            };
+        };
+        responses: {
+            /** @description User added to organization successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeOrganizationMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User removed from organization successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrganizationEvents: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization events retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationEventList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrganizationEventSchemas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["EventListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrganizationSchemas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization schemas retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: components["schemas"]["SchemaPath"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrganizationMemberSchemas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization user schemas retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: components["schemas"]["SchemaPath"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getUserOrganizations: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User organizations retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: components["schemas"]["Organization"][];
+                        total: number;
+                        limit: number;
+                        offset: number;
                     };
                 };
             };
@@ -5505,6 +6761,275 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listActions: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ActionListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAction"];
+            };
+        };
+        responses: {
+            /** @description Action created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The action ID */
+                actionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The action ID */
+                actionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The action ID */
+                actionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAction"];
+            };
+        };
+        responses: {
+            /** @description Action updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Action"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listActionMeta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action modules retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionMeta"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getActionPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The action module type (module ID) */
+                actionType: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action preview HTML retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Action test executed successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestActionResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listActionSchemas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The action ID */
+                actionID: string;
+                /** @description The function ID within the action module */
+                functionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action schemas retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionSchemaListResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testActionFunction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The action ID */
+                actionID: string;
+                /** @description The function ID within the action module */
+                functionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestActionFunctionRequest"];
+            };
+        };
+        responses: {
+            /** @description Action function test executed successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestActionFunctionResult"];
                 };
             };
             default: components["responses"]["Error"];

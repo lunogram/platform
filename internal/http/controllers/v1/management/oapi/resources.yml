@@ -1318,6 +1318,41 @@ paths:
           description: Current step advanced successfully
         default:
           $ref: "#/components/responses/Error"
+    delete:
+      summary: Remove user from journey
+      description: Removes a user from all active entrances in a journey
+      operationId: removeUserFromJourney
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      responses:
+        "204":
+          description: User removed from journey successfully
+        default:
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/journeys/{journeyID}/steps:
     get:
@@ -1662,43 +1697,6 @@ paths:
       responses:
         "204":
           description: User removed from journey step successfully
-        default:
-          $ref: "#/components/responses/Error"
-
-  /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}:
-    delete:
-      summary: Remove user from journey
-      description: Removes a user from all active entrances in a journey
-      operationId: removeUserFromJourney
-      tags:
-        - Journeys
-      security:
-        - HttpBearerAuth: []
-      parameters:
-        - name: projectID
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: The project ID
-        - name: journeyID
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: The journey ID
-        - name: userID
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: The user ID
-      responses:
-        "204":
-          description: User removed from journey successfully
         default:
           $ref: "#/components/responses/Error"
 
