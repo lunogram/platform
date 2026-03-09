@@ -88,7 +88,7 @@ func TestUserEvent(t *testing.T) {
 	email := "test@example.com"
 	phone := "+1234567890"
 	timezone := "America/New_York"
-	locale := "en-US"
+	locale := "en"
 
 	user := schemas.User{
 		ID:          userID,

@@ -88,7 +88,7 @@ func TestCreateProject(t *testing.T) {
 			body: oapi.CreateProjectJSONRequestBody{
 				Name:     "Test Project",
 				Timezone: "America/New_York",
-				Locale:   "en-US",
+				Locale:   "en",
 			},
 			code: http.StatusCreated,
 		},
@@ -97,7 +97,7 @@ func TestCreateProject(t *testing.T) {
 				Name:        "Test Project",
 				Description: ptr("A test project"),
 				Timezone:    "America/New_York",
-				Locale:      "en-US",
+				Locale:      "en",
 			},
 			code: http.StatusCreated,
 		},
@@ -157,7 +157,7 @@ func TestListProjects(t *testing.T) {
 			OrganizationID: &orgID,
 			Name:           "Test Project",
 			Timezone:       "UTC",
-			Locale:         "en-US",
+			Locale:         "en",
 		})
 		require.NoError(t, err)
 
@@ -221,7 +221,7 @@ func TestGetProject(t *testing.T) {
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 
@@ -277,7 +277,7 @@ func TestUpdateProject(t *testing.T) {
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 
@@ -391,7 +391,7 @@ func TestCreateProjectWebhook(t *testing.T) {
 	body := oapi.CreateProjectJSONRequestBody{
 		Name:     "Webhook Test Project",
 		Timezone: "America/New_York",
-		Locale:   "en-US",
+		Locale:   "en",
 	}
 
 	bb, err := json.Marshal(body)
@@ -443,7 +443,7 @@ func TestCreateProjectPublishesNATSEvent(t *testing.T) {
 	body := oapi.CreateProjectJSONRequestBody{
 		Name:     "NATS Test Project",
 		Timezone: "America/New_York",
-		Locale:   "en-US",
+		Locale:   "en",
 	}
 
 	bb, err := json.Marshal(body)
@@ -469,7 +469,7 @@ func TestCreateProjectPublishesNATSEvent(t *testing.T) {
 	require.NotEqual(t, uuid.Nil, event.ID)
 	require.Equal(t, "NATS Test Project", event.Data["name"])
 	require.Equal(t, "America/New_York", event.Data["timezone"])
-	require.Equal(t, "en-US", event.Data["locale"])
+	require.Equal(t, "en", event.Data["locale"])
 }
 
 func TestCreateProjectRollbackOnPublishFailure(t *testing.T) {
@@ -495,7 +495,7 @@ func TestCreateProjectRollbackOnPublishFailure(t *testing.T) {
 	body := oapi.CreateProjectJSONRequestBody{
 		Name:     "Rollback Test Project",
 		Timezone: "America/New_York",
-		Locale:   "en-US",
+		Locale:   "en",
 	}
 
 	bb, err := json.Marshal(body)

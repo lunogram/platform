@@ -333,7 +333,7 @@ components:
           example: "America/New_York"
         locale:
           type: string
-          example: "en-US"
+          example: "en"
         has_push_device:
           type: boolean
           example: false

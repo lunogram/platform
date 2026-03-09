@@ -207,7 +207,7 @@ func TestListProjectAdmins(t *testing.T) {
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 
@@ -308,7 +308,7 @@ func TestGetProjectAdmin(t *testing.T) {
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 
@@ -384,7 +384,7 @@ func TestUpdateProjectAdmin(t *testing.T) {
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 
@@ -466,7 +466,7 @@ func TestDeleteProjectAdmin(t *testing.T) {
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 

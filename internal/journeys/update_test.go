@@ -39,7 +39,7 @@ func TestHandleUpdate(t *testing.T) {
 		OrganizationID: &organizationID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 
@@ -188,7 +188,7 @@ func TestHandleUpdateTemplateRendering(t *testing.T) {
 		OrganizationID: &organizationID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 

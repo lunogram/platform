@@ -67,27 +67,6 @@ func (srv *ProvidersController) ListProviders(w http.ResponseWriter, r *http.Req
 	})
 }
 
-func (srv *ProvidersController) ListAllProviders(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
-	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID)); err != nil {
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	logger := srv.logger.With(zap.Stringer("project_id", projectID))
-	logger.Info("listing all providers")
-
-	result, err := srv.store.ProvidersStore.ListAllProviders(ctx, projectID)
-	if err != nil {
-		logger.Error("failed to list all providers", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	logger.Info("listed all providers", zap.Int("count", len(result)))
-	json.Write(w, http.StatusOK, result.OAPI())
-}
-
 func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID)); err != nil {

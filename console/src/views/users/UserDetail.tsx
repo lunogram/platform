@@ -313,7 +313,7 @@ export default function UserDetail() {
                                                                         ...new Set([
                                                                             ...navigator.languages,
                                                                             "en",
-                                                                            "en-US",
+                                                                            "en",
                                                                             "en-GB",
                                                                             "es",
                                                                             "es-ES",
@@ -489,7 +489,7 @@ export default function UserDetail() {
                                                                         ...new Set([
                                                                             ...navigator.languages,
                                                                             "en",
-                                                                            "en-US",
+                                                                            "en",
                                                                             "en-GB",
                                                                             "es",
                                                                             "es-ES",

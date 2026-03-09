@@ -217,7 +217,7 @@ Truncate a string to have the specified number of words.
 #### Get Base Locale
 Find the base locale from a combination locale string
 ```handlebars
-{{ baseLocale "en-US" }} // = `en`
+{{ baseLocale "en" }} // = `en`
 ```
 
 ### Numbers
@@ -301,7 +301,7 @@ Examples:
 ```handlebars
 // Decimal
 {{ numberFormat 123456.789 "de-DE" }} // = `123.456,789`
-{{ numberFormat 123456.789 "en-US" }} // = `123,456.789`
+{{ numberFormat 123456.789 "en" }} // = `123,456.789`
 
 // Currency
 {{ numberFormat 4.12 "en" "currency" "USD" }} // = `$4.12`

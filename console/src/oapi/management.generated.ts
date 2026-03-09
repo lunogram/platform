@@ -1548,26 +1548,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/providers/all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List all providers
-         * @description Retrieves all providers for a project without pagination
-         */
-        get: operations["listAllProviders"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/admin/projects/{projectID}/providers/meta": {
         parameters: {
             query?: never;
@@ -2051,7 +2031,7 @@ export interface components {
             description?: string;
             /** @example America/New_York */
             timezone: string;
-            /** @example en-US */
+            /** @example en */
             locale: string;
             /** @example admin */
             role: string;
@@ -2091,7 +2071,7 @@ export interface components {
             description?: string;
             /** @example America/New_York */
             timezone: string;
-            /** @example en-US */
+            /** @example en */
             locale: string;
             /** @example Reply STOP to unsubscribe */
             text_opt_out_message?: string;
@@ -2144,7 +2124,7 @@ export interface components {
         CreateTemplate: {
             /**
              * @description The locale/language code for the template
-             * @example en-US
+             * @example en
              */
             locale: string;
             /** @description Template-specific data based on type. Structure varies by template type. */
@@ -2403,7 +2383,7 @@ export interface components {
             campaign_id: string;
             type: components["schemas"]["Channel"];
             data: components["schemas"]["EmailTemplateData"] | components["schemas"]["SmsTemplateData"] | components["schemas"]["PushTemplateData"];
-            /** @example en-US */
+            /** @example en */
             locale: string;
         };
         EmailTemplateData: {
@@ -2549,7 +2529,7 @@ export interface components {
             };
             /** @example America/New_York */
             timezone?: string;
-            /** @example en-US */
+            /** @example en */
             locale?: string;
             /** @example false */
             has_push_device: boolean;
@@ -2584,7 +2564,7 @@ export interface components {
             phone?: string;
             /** @example America/New_York */
             timezone?: string;
-            /** @example en-US */
+            /** @example en */
             locale?: string;
             /**
              * @example {
@@ -2610,7 +2590,7 @@ export interface components {
             phone?: string;
             /** @example America/New_York */
             timezone?: string;
-            /** @example en-US */
+            /** @example en */
             locale?: string;
             /**
              * @example {
@@ -2769,7 +2749,7 @@ export interface components {
             };
             /** @example America/New_York */
             timezone?: string;
-            /** @example en-US */
+            /** @example en */
             locale?: string;
             /** @example false */
             has_push_device: boolean;
@@ -3146,8 +3126,8 @@ export interface components {
             /** Format: uuid */
             project_id: string;
             /**
-             * @description Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
-             * @example en-US
+             * @description Locale key (BCP 47 language tag, e.g., "en", "pt-BR")
+             * @example en
              */
             key: string;
             /**
@@ -3168,8 +3148,8 @@ export interface components {
         };
         CreateLocale: {
             /**
-             * @description Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
-             * @example en-US
+             * @description Locale key (BCP 47 language tag, e.g., "en", "pt-BR")
+             * @example en
              */
             key: string;
             /**
@@ -3365,7 +3345,7 @@ export interface components {
             phone?: string;
             /** @example America/New_York */
             timezone?: string | null;
-            /** @example en-US */
+            /** @example en */
             locale?: string | null;
             /**
              * @description User-specific attributes
@@ -6646,30 +6626,6 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["ProviderListResponse"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listAllProviders: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The project ID */
-                projectID: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Providers retrieved successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Provider"][];
-                };
-            };
             default: components["responses"]["Error"];
         };
     };

@@ -19,7 +19,7 @@ If you already have a phone number, jump to step four.
 You are now setup to send SMS messages using Twilio. There is one more step however to make it fully functioning and that is to setup inbound messages so that Lunogram is notified of unsubscribes.
 
 ## Inbound
-Setting up inbound messaging is important to comply with carrier rules and regulations regarding unsubscribing from communications. By default Twilio automatically manages [opt-outs (unsubscribes)](https://support.twilio.com/hc/en-us/articles/360034798533-Getting-Started-with-Advanced-Opt-Out-for-Messaging-Services), you just have to listen for the inbound webhook to then register that event in Lunogram. An additional benefit to setting up inbound messaging is that you can use the created events to trigger journeys.
+Setting up inbound messaging is important to comply with carrier rules and regulations regarding unsubscribing from communications. By default Twilio automatically manages [opt-outs (unsubscribes)](https://support.twilio.com/hc/en/articles/360034798533-Getting-Started-with-Advanced-Opt-Out-for-Messaging-Services), you just have to listen for the inbound webhook to then register that event in Lunogram. An additional benefit to setting up inbound messaging is that you can use the created events to trigger journeys.
 
 To setup inbound SMS for Twilio, do the following:
 1. In Twilio, navigate to `Develop -> Phone Numbers -> Manage -> Active Numbers`.

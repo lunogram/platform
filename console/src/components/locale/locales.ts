@@ -3,7 +3,7 @@
  *
  * All locales use the canonical form produced by Intl:
  *   - Language-only:       "en", "fr", "zh"
- *   - Language + region:   "en-US", "pt-BR", "zh-CN"
+ *   - Language + region:   "en", "pt-BR", "zh-CN"
  *
  * This module provides:
  *   1. A curated list of commonly-used locales (covers 95%+ of real-world usage)
@@ -12,7 +12,7 @@
  */
 
 export interface LocaleEntry {
-    /** BCP 47 tag, e.g. "en-US" */
+    /** BCP 47 tag, e.g. "en" */
     key: string
     /** Human-readable label, e.g. "English (United States)" */
     label: string
@@ -195,7 +195,7 @@ const LOCALE_KEY_SET = new Set<string>(LOCALE_KEYS)
  *   script          optional, 4 letters (e.g. Latn, Hans)
  *   region          optional, 2 letters or 3 digits
  *
- * Examples that match: en, en-US, zh-Hans, zh-Hans-CN, sr-Latn-RS
+ * Examples that match: en, en, zh-Hans, zh-Hans-CN, sr-Latn-RS
  */
 const BCP47_RE = /^[a-z]{2,3}(-[A-Z][a-z]{3})?(-([A-Z]{2}|\d{3}))?$/
 
@@ -212,6 +212,25 @@ export function isKnownLocale(key: string): boolean {
 // ---------------------------------------------------------------------------
 // Search / filter
 // ---------------------------------------------------------------------------
+
+/**
+ * Resolve a BCP 47 tag to a LocaleEntry.
+ *
+ * Resolution order:
+ *   1. Exact match in the curated list (e.g. "en-GB" → "en-GB")
+ *   2. Base language fallback (e.g. "en-US" → "en")
+ *   3. Intl.DisplayNames fallback for completely unknown tags
+ *   4. undefined when no value is provided
+ */
+export function findLocale(key: string | undefined): LocaleEntry | undefined {
+    if (!key) return undefined
+    const exact = LOCALES.find((l) => l.key === key)
+    if (exact) return exact
+    const base = key.split("-")[0]
+    const fallback = LOCALES.find((l) => l.key === base)
+    if (fallback) return fallback
+    return { key, label: resolveLocaleName(key) }
+}
 
 /**
  * Filter the curated locale list by a search query (case-insensitive).

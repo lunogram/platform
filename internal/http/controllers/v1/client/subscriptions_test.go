@@ -32,7 +32,7 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 	projectID, err := projectsStore.CreateProject(ctx, management.Project{
 		Name:     "Test Project",
 		Timezone: "UTC",
-		Locale:   "en-US",
+		Locale:   "en",
 	})
 	require.NoError(t, err)
 
@@ -144,7 +144,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 	projectID, err := projectsStore.CreateProject(ctx, management.Project{
 		Name:     "Test Project",
 		Timezone: "UTC",
-		Locale:   "en-US",
+		Locale:   "en",
 	})
 	require.NoError(t, err)
 

@@ -22,7 +22,7 @@ func TestSubscriptionsStore(t *testing.T) {
 		OrganizationID: &orgID,
 		Name:           "Test Project",
 		Timezone:       "UTC",
-		Locale:         "en-US",
+		Locale:         "en",
 	})
 	require.NoError(t, err)
 

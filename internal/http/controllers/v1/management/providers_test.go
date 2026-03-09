@@ -78,60 +78,6 @@ func TestListProviders(t *testing.T) {
 	}
 }
 
-func TestListAllProviders(t *testing.T) {
-	t.Parallel()
-
-	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(t.Context())
-	mgmt, _, _ := teststore.RunPostgreSQL(t)
-
-	projects := management.NewProjectsStore(mgmt)
-	projectID, err := projects.CreateProject(ctx, DefaultProject)
-	require.NoError(t, err)
-
-	wasmCfg := config.WASM{
-		CallTimeout: 30,
-	}
-
-	registry, err := internalProviders.NewRegistry(ctx, wasmCfg, logger)
-	require.NoError(t, err)
-
-	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
-		rbac.WithOrganizationID(uuid.New()),
-		rbac.WithProjectID(projectID),
-	)
-	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
-
-	controller := NewProvidersController(logger, mgmt, registry, engine)
-
-	type test struct {
-		code int
-	}
-
-	tests := map[string]test{
-		"success": {
-			code: 200,
-		},
-	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			res := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "/v1/providers/all", nil)
-			req = req.WithContext(actorCtx)
-			controller.ListAllProviders(res, req, projectID)
-
-			require.Equal(t, test.code, res.Code, res.Body.String())
-
-			if test.code == 200 {
-				var result []oapi.Provider
-				err = json.Unmarshal(res.Body.Bytes(), &result)
-				require.NoError(t, err)
-			}
-		})
-	}
-}
-
 func TestListProviderMeta(t *testing.T) {
 	t.Parallel()
 

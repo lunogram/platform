@@ -137,7 +137,7 @@ func TestPostEvents(t *testing.T) {
 					"user": map[string]any{
 						"email":    "user@example.com",
 						"timezone": "America/New_York",
-						"locale":   "en-US",
+						"locale":   "en",
 						"data": map[string]any{
 							"plan": "premium",
 						},

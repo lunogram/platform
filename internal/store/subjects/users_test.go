@@ -56,7 +56,7 @@ func TestCreateUser(t *testing.T) {
 				Phone:       ptr("+1234567890"),
 				Data:        json.RawMessage(`{"first_name":"John","last_name":"Doe"}`),
 				Timezone:    ptr("America/New_York"),
-				Locale:      ptr("en-US"),
+				Locale:      ptr("en"),
 			},
 		},
 		"create user with minimal fields": {
@@ -476,7 +476,7 @@ func TestUserOAPIConversion(t *testing.T) {
 		Data:          json.RawMessage(`{"key":"value"}`),
 		HasPushDevice: false,
 		Timezone:      ptr("UTC"),
-		Locale:        ptr("en-US"),
+		Locale:        ptr("en"),
 		Version:       1,
 	}
 

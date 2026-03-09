@@ -414,7 +414,7 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
                                     )}
                                 </span>
                                 <span className="text-xs text-gray-500">
-                                    {new Date().toLocaleTimeString("en-US", {
+                                    {new Date().toLocaleTimeString("en", {
                                         hour: "numeric",
                                         minute: "2-digit",
                                     })}

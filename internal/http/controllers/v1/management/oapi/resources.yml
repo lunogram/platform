@@ -3810,35 +3810,6 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/providers/all:
-    get:
-      summary: List all providers
-      description: Retrieves all providers for a project without pagination
-      operationId: listAllProviders
-      tags:
-        - Providers
-      security:
-        - HttpBearerAuth: []
-      parameters:
-        - name: projectID
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: The project ID
-      responses:
-        "200":
-          description: Providers retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Provider"
-        default:
-          $ref: "#/components/responses/Error"
-
   /api/admin/projects/{projectID}/providers/meta:
     get:
       summary: List available provider modules
@@ -4781,7 +4752,7 @@ components:
           example: "America/New_York"
         locale:
           type: string
-          example: "en-US"
+          example: "en"
         role:
           type: string
           example: "admin"
@@ -4839,7 +4810,7 @@ components:
           example: "America/New_York"
         locale:
           type: string
-          example: "en-US"
+          example: "en"
         text_opt_out_message:
           type: string
           example: "Reply STOP to unsubscribe"
@@ -4918,7 +4889,7 @@ components:
       properties:
         locale:
           type: string
-          example: "en-US"
+          example: "en"
           description: The locale/language code for the template
         data:
           type: object
@@ -5303,7 +5274,7 @@ components:
           x-go-type: json.RawMessage
         locale:
           type: string
-          example: "en-US"
+          example: "en"
 
     EmailTemplateData:
       type: object
@@ -5508,7 +5479,7 @@ components:
           example: "America/New_York"
         locale:
           type: string
-          example: "en-US"
+          example: "en"
         has_push_device:
           type: boolean
           example: false
@@ -5555,7 +5526,7 @@ components:
           example: "America/New_York"
         locale:
           type: string
-          example: "en-US"
+          example: "en"
         data:
           type: object
           additionalProperties: true
@@ -5583,7 +5554,7 @@ components:
           example: "America/New_York"
         locale:
           type: string
-          example: "en-US"
+          example: "en"
         data:
           type: object
           additionalProperties: true
@@ -5782,7 +5753,7 @@ components:
           example: "America/New_York"
         locale:
           type: string
-          example: "en-US"
+          example: "en"
         has_push_device:
           type: boolean
           example: false
@@ -6316,8 +6287,8 @@ components:
           format: uuid
         key:
           type: string
-          example: "en-US"
-          description: Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
+          example: "en"
+          description: Locale key (BCP 47 language tag, e.g., "en", "pt-BR")
         label:
           type: string
           example: "English (United States)"
@@ -6339,8 +6310,8 @@ components:
       properties:
         key:
           type: string
-          example: "en-US"
-          description: Locale key (BCP 47 language tag, e.g., "en-US", "pt-BR")
+          example: "en"
+          description: Locale key (BCP 47 language tag, e.g., "en", "pt-BR")
         label:
           type: string
           example: "English (United States)"
@@ -6592,7 +6563,7 @@ components:
         locale:
           type: string
           nullable: true
-          example: "en-US"
+          example: "en"
         data:
           type: object
           additionalProperties: true

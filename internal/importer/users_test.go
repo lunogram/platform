@@ -71,7 +71,7 @@ func TestUserMapperMapRecord(t *testing.T) {
 	tests := map[string]test{
 		"standard fields": {
 			headers: []string{"external_id", "email", "phone", "timezone", "locale"},
-			record:  []string{"user-123", "test@example.com", "+1234567890", "UTC", "en-US"},
+			record:  []string{"user-123", "test@example.com", "+1234567890", "UTC", "en"},
 			validate: func(t *testing.T, user subjects.UpsertUserParams) {
 				require.NotNil(t, user.ExternalID)
 				require.Equal(t, "user-123", *user.ExternalID)
@@ -82,7 +82,7 @@ func TestUserMapperMapRecord(t *testing.T) {
 				require.NotNil(t, user.Timezone)
 				require.Equal(t, "UTC", *user.Timezone)
 				require.NotNil(t, user.Locale)
-				require.Equal(t, "en-US", *user.Locale)
+				require.Equal(t, "en", *user.Locale)
 				require.Empty(t, user.Data)
 			},
 		},

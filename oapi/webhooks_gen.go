@@ -41,7 +41,7 @@ type ProjectDetails struct {
 	// Id The project's unique identifier
 	Id openapi_types.UUID `json:"id"`
 
-	// Locale The project's locale (e.g., "en-US")
+	// Locale The project's locale (e.g., "en")
 	Locale *string `json:"locale,omitempty"`
 
 	// Name The project name

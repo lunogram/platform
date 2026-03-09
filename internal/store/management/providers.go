@@ -160,23 +160,6 @@ func (s *ProvidersStore) ListProviders(ctx context.Context, projectID uuid.UUID,
 	return providers, total, nil
 }
 
-func (s *ProvidersStore) ListAllProviders(ctx context.Context, projectID uuid.UUID) (Providers, error) {
-	query := `
-	SELECT id, project_id, module, channel, data, is_default, name, created_at, updated_at
-	FROM providers
-	WHERE project_id = $1
-	AND deleted_at IS NULL
-	ORDER BY created_at DESC`
-
-	var providers Providers
-	err := s.db.SelectContext(ctx, &providers, query, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	return providers, nil
-}
-
 func (s *ProvidersStore) GetProviderByProject(ctx context.Context, projectID, providerID uuid.UUID) (*Provider, error) {
 	query := `
 	SELECT id, project_id, module, channel, data, is_default, name, created_at, updated_at

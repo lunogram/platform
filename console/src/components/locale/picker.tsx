@@ -14,7 +14,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/utils"
 
-import { LOCALES, searchLocales } from "./locales"
+import { searchLocales, findLocale } from "./locales"
 
 // ---------------------------------------------------------------------------
 // LocalePicker – a searchable combobox backed by the standardised locale list.
@@ -26,7 +26,7 @@ import { LOCALES, searchLocales } from "./locales"
 // ---------------------------------------------------------------------------
 
 interface LocalePickerProps {
-    /** Currently selected locale key (e.g. "en-US") */
+    /** Currently selected locale key (e.g. "en") */
     value?: string
     /** Called when the user selects a locale */
     onChange: (key: string) => void
@@ -60,7 +60,7 @@ export function LocalePicker({
         return results.filter((l) => !excludeSet.has(l.key))
     }, [query, excludeSet])
 
-    const selectedEntry = useMemo(() => LOCALES.find((l) => l.key === value), [value])
+    const selectedEntry = useMemo(() => findLocale(value), [value])
 
     const handleSelect = useCallback(
         (key: string) => {

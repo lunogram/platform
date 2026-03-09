@@ -424,7 +424,7 @@ func TestRuleDependsOnUsers(t *testing.T) {
 								Group:    RuleGroupUser,
 								Path:     "locale",
 								Operator: OperatorEquals,
-								Value:    "en-US",
+								Value:    "en",
 							},
 							{
 								Type:     RuleTypeBoolean,

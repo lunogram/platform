@@ -70,7 +70,7 @@ components:
           description: The project's timezone (e.g., "America/New_York")
         locale:
           type: string
-          description: The project's locale (e.g., "en-US")
+          description: The project's locale (e.g., "en")
         created_at:
           type: string
           format: date-time

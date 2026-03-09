@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// validLocaleKey matches BCP 47 / IETF language tags such as "en", "en-US", "pt-BR", "zh-Hant-TW".
+// validLocaleKey matches BCP 47 / IETF language tags such as "en", "en", "pt-BR", "zh-Hant-TW".
 // It intentionally allows only the most common forms (language, language-region, language-script-region).
 var validLocaleKey = regexp.MustCompile(`^[a-z]{2,3}(-[A-Za-z]{4})?(-[A-Z]{2}|-[0-9]{3})?$`)
 
@@ -57,7 +57,7 @@ func (srv *LocalesController) CreateLocale(w http.ResponseWriter, r *http.Reques
 	}
 
 	if !validLocaleKey.MatchString(body.Key) {
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("key must be a valid BCP 47 language tag (e.g. en, en-US, pt-BR)")))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("key must be a valid BCP 47 language tag (e.g. en, en, pt-BR)")))
 		return
 	}
 

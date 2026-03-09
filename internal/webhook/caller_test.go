@@ -59,7 +59,7 @@ func TestProjectCreated(t *testing.T) {
 	projectID := uuid.New()
 	orgID := uuid.New()
 	timezone := "America/New_York"
-	locale := "en-US"
+	locale := "en"
 
 	project := oapi.ProjectDetails{
 		Id:             projectID,

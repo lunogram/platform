@@ -23,7 +23,7 @@ func TestProjectsStore(t *testing.T) {
 			OrganizationID: &orgID,
 			Name:           "Test Project",
 			Timezone:       "UTC",
-			Locale:         "en-US",
+			Locale:         "en",
 		})
 		require.NoError(t, err)
 		assert.NotEqual(t, uuid.Nil, projectID)
@@ -32,7 +32,7 @@ func TestProjectsStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "Test Project", project.Name)
 		assert.Equal(t, "UTC", project.Timezone)
-		assert.Equal(t, "en-US", project.Locale)
+		assert.Equal(t, "en", project.Locale)
 	})
 
 	t.Run("updates project", func(t *testing.T) {
@@ -40,7 +40,7 @@ func TestProjectsStore(t *testing.T) {
 			OrganizationID: &orgID,
 			Name:           "Original Name",
 			Timezone:       "UTC",
-			Locale:         "en-US",
+			Locale:         "en",
 		})
 		require.NoError(t, err)
 
@@ -67,7 +67,7 @@ func TestProjectsStore(t *testing.T) {
 			OrganizationID: &org2ID,
 			Name:           "Project in Org 2",
 			Timezone:       "UTC",
-			Locale:         "en-US",
+			Locale:         "en",
 		})
 		require.NoError(t, err)
 

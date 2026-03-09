@@ -465,7 +465,7 @@ export function getTimezoneCoordinates(timezone: string): [number, number] | nul
     // Try common aliases (e.g. "US/Eastern" -> "America/New_York")
     try {
         // Use Intl to resolve the canonical timezone name
-        const formatter = new Intl.DateTimeFormat("en-US", { timeZone: timezone })
+        const formatter = new Intl.DateTimeFormat("en", { timeZone: timezone })
         const resolved = formatter.resolvedOptions().timeZone
         if (resolved && timezoneCoordinates[resolved]) {
             return timezoneCoordinates[resolved]
@@ -490,7 +490,7 @@ export function formatTimezone(timezone: string): string {
  */
 export function getLocalTimeInTimezone(timezone: string): string | null {
     try {
-        return new Intl.DateTimeFormat("en-US", {
+        return new Intl.DateTimeFormat("en", {
             timeZone: timezone,
             hour: "numeric",
             minute: "2-digit",
@@ -507,7 +507,7 @@ export function getLocalTimeInTimezone(timezone: string): string | null {
  */
 export function getTimezoneOffset(timezone: string): string | null {
     try {
-        const formatter = new Intl.DateTimeFormat("en-US", {
+        const formatter = new Intl.DateTimeFormat("en", {
             timeZone: timezone,
             timeZoneName: "shortOffset",
         })
