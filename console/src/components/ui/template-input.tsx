@@ -231,7 +231,7 @@ export function TemplateInput({
     const vs = variantStyles[variant]
 
     return (
-        <div className="relative flex items-center">
+        <div className={cn("relative flex items-center", className)}>
             {/* Editable area */}
             <div
                 ref={editorRef}
