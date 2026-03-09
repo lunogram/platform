@@ -71,7 +71,6 @@ const (
 	JourneyStepTypeExit       JourneyStepType = "exit"
 	JourneyStepTypeExperiment JourneyStepType = "experiment"
 	JourneyStepTypeGate       JourneyStepType = "gate"
-	JourneyStepTypeLink       JourneyStepType = "link"
 	JourneyStepTypeSticky     JourneyStepType = "sticky"
 	JourneyStepTypeUpdate     JourneyStepType = "update"
 )
@@ -1380,6 +1379,9 @@ type CreateJourneyParams struct {
 
 // TriggerUserJSONBody defines parameters for TriggerUser.
 type TriggerUserJSONBody struct {
+	// Data Optional event data to store on the entrance step state, made available as journey variables
+	Data *map[string]interface{} `json:"data,omitempty"`
+
 	// ExternalStepID The ID of the journey entry to enroll the user in
 	ExternalStepID openapi_types.UUID `json:"externalStepID"`
 }

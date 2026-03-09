@@ -65,9 +65,13 @@ func selectGateBranch(ctx HandlerContext, step journey.JourneyVersionStep, confi
 		}
 	}
 
-	builder := query.NewQueryBuilder(ctx.ProjectID, &ctx.UserID).
-		WithSinceTimestamp(state.EnteredAt)
-	query, err := builder.Query(config.Rule)
+	resolvedRule, err := RenderRuleSet(config.Rule, ctx.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	builder := query.NewQueryBuilder(ctx.ProjectID, &ctx.UserID).WithSinceTimestamp(state.EnteredAt)
+	query, err := builder.Query(resolvedRule)
 	if err != nil {
 		return nil, err
 	}

@@ -15,7 +15,17 @@ import type { Diagnostic } from "@codemirror/lint"
 import { autocompletion, completionKeymap } from "@codemirror/autocomplete"
 import { githubLight } from "@fsegurai/codemirror-theme-github-light"
 import { githubDark } from "@fsegurai/codemirror-theme-github-dark"
-import { Copy, Check, WandSparkles, AlertCircle } from "lucide-react"
+import { Copy, Check, WandSparkles, AlertCircle, Braces } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command"
+import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
 import { cn } from "@/utils"
 
 type EditorLanguage = "json" | "auto" | "none"
@@ -43,6 +53,12 @@ interface CodeEditorProps {
      * Only applies when `language` is `"json"`.
      */
     requireObject?: boolean
+    /**
+     * Optional variable groups for a picker button in the toolbar.
+     * When provided (with at least one variable), a `{x}` button appears
+     * that inserts `{{ path }}` at the cursor position.
+     */
+    variables?: VariableGroup[]
 }
 
 // Minimal overrides for integration
@@ -131,11 +147,13 @@ export function CodeEditor({
     placeholder,
     language = "auto",
     requireObject = true,
+    variables = [],
 }: CodeEditorProps) {
     const containerRef = useRef<HTMLDivElement>(null)
     const viewRef = useRef<EditorView | null>(null)
     const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const [copied, setCopied] = useState(false)
+    const [varPickerOpen, setVarPickerOpen] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"))
 
@@ -343,6 +361,28 @@ export function CodeEditor({
         }
     }
 
+    // ── Insert variable at cursor ──────────────────────────────────
+    const hasVariables = variables.some((g) => g.variables.length > 0)
+
+    const insertVariable = useCallback(
+        (path: string) => {
+            const view = viewRef.current
+            const snippet = `{{ ${path} }}`
+            if (view) {
+                const { from, to } = view.state.selection.main
+                view.dispatch({
+                    changes: { from, to, insert: snippet },
+                    selection: { anchor: from + snippet.length },
+                })
+                view.focus()
+            } else {
+                onChange(value + snippet)
+            }
+            setVarPickerOpen(false)
+        },
+        [onChange, value],
+    )
+
     // Calculate dynamic height based on line count
     const lineCount = value.split("\n").length
     const lineHeight = 20
@@ -358,6 +398,52 @@ export function CodeEditor({
         <div className={cn("relative rounded-md border", className)}>
             {/* Toolbar */}
             <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+                {hasVariables && !readOnly && (
+                    <Popover open={varPickerOpen} onOpenChange={setVarPickerOpen}>
+                        <PopoverTrigger asChild>
+                            <button
+                                type="button"
+                                className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                                title="Insert variable"
+                            >
+                                <Braces className="h-3.5 w-3.5" />
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                            className="w-72 p-0"
+                            align="end"
+                            side="bottom"
+                            onOpenAutoFocus={(e) => e.preventDefault()}
+                        >
+                            <Command>
+                                <CommandInput placeholder="Search variables..." />
+                                <CommandList>
+                                    <CommandEmpty>No variables found.</CommandEmpty>
+                                    {variables.map((group) => (
+                                        <CommandGroup key={group.label} heading={group.label}>
+                                            {group.variables.map((v) => (
+                                                <CommandItem
+                                                    key={v.path}
+                                                    value={v.path}
+                                                    onSelect={() => insertVariable(v.path)}
+                                                >
+                                                    <span className="font-mono text-xs">
+                                                        {v.label}
+                                                    </span>
+                                                    {v.description && (
+                                                        <span className="ml-auto text-xs text-muted-foreground truncate max-w-[100px]">
+                                                            {v.description}
+                                                        </span>
+                                                    )}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    ))}
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                )}
                 {showFormat && !readOnly && (
                     <button
                         type="button"

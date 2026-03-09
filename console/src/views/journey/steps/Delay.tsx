@@ -8,8 +8,10 @@ import { useTranslation } from "react-i18next"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { TemplateInput } from "@/components/ui/template-input"
 import { Timer, Clock, CalendarDays } from "lucide-react"
 import { cn } from "@/utils"
+import { useJourneyVariableContext } from "../JourneyVariableContext"
 
 interface DelayStepConfig {
     format: "duration" | "time" | "date"
@@ -102,8 +104,10 @@ export const delayStep: JourneyStepType<DelayStepConfig> = {
         days: 0,
         format: "duration",
     }),
-    Edit({ onChange, value }) {
+    Edit({ onChange, value, nodeId }) {
         const { t } = useTranslation()
+        const { getVariablesForNode } = useJourneyVariableContext()
+        const variables = nodeId ? getVariablesForNode(nodeId) : []
         return (
             <>
                 <div className="space-y-1.5">
@@ -201,11 +205,11 @@ export const delayStep: JourneyStepType<DelayStepConfig> = {
                     <div className="space-y-1.5">
                         <Label className="text-sm font-medium">{t("date")}</Label>
                         <p className="text-xs text-muted-foreground">{t("delay_date_desc")}</p>
-                        <Input
-                            type="text"
-                            placeholder="YYYY-MM-DD"
+                        <TemplateInput
+                            placeholder="YYYY-MM-DD or {{ variable }}"
                             value={value.date ?? ""}
-                            onChange={(e) => onChange({ ...value, date: e.target.value })}
+                            onChange={(date) => onChange({ ...value, date })}
+                            variables={variables}
                         />
                     </div>
                 )}

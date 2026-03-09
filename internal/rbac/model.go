@@ -167,7 +167,7 @@ func Model() []*openfgav1.TypeDefinition {
 	}
 
 	resources := []resource{
-		{name: "users", read: "support", create: "client", update: "client", delete: "editor"},
+		{name: "users", read: "support", create: "client", update: "client", delete: "client"},
 		{name: "events", read: "support", create: "client", update: "client", delete: "editor"},
 		{name: "campaigns", read: "support", create: "editor", update: "editor", delete: "editor"},
 		{name: "templates", read: "support", create: "editor", update: "editor", delete: "editor"},
@@ -179,7 +179,7 @@ func Model() []*openfgav1.TypeDefinition {
 		{name: "providers", read: "support", create: "admin", update: "admin", delete: "admin"},
 		{name: "subscriptions", read: "support", create: "editor", update: "editor", delete: "admin"},
 		{name: "actions", read: "support", create: "editor", update: "editor", delete: "admin"},
-		{name: "organizations", read: "support", create: "client", update: "client", delete: "admin"},
+		{name: "organizations", read: "support", create: "client", update: "client", delete: "client"},
 	}
 
 	for _, r := range resources {

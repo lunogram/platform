@@ -6,6 +6,7 @@ import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useTranslation } from "react-i18next"
 import { ruleDescription } from "../../users/rules/RuleDescriptions"
 import { createWrapperRule } from "../../users/rules/RuleHelpers"
+import { useJourneyVariableContext } from "../JourneyVariableContext"
 
 interface GateConfig {
     rule: Rule
@@ -32,8 +33,10 @@ export const gateStep: JourneyStepType<GateConfig> = {
     newData: async () => ({
         rule: createWrapperRule(),
     }),
-    Edit({ onChange, value }) {
+    Edit({ onChange, value, nodeId }) {
         const { t } = useTranslation()
+        const { getVariablesForNode } = useJourneyVariableContext()
+        const journeyVariables = nodeId ? getVariablesForNode(nodeId) : []
         return (
             <RuleBuilder
                 rule={value.rule}
@@ -41,6 +44,7 @@ export const gateStep: JourneyStepType<GateConfig> = {
                 headerPrefix={t("does_user_match")}
                 userOnly={true}
                 journeyContext={true}
+                journeyVariables={journeyVariables}
             />
         )
     },

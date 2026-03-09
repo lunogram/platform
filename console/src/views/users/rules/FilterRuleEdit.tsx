@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select"
 import { Combobox } from "../../../components/ui/combobox"
 import { Input } from "@/components/ui/input"
+import { TemplateInput } from "@/components/ui/template-input"
 import type { EventSchemaPath, OrganizationSchemaPath, UserSchemaPath } from "../../../types"
 
 type PathOption = UserSchemaPath | EventSchemaPath | OrganizationSchemaPath
@@ -21,6 +22,8 @@ export default function FilterRuleEdit({
     group,
     eventName = "",
     controls,
+    journeyContext,
+    journeyVariables,
 }: Omit<RuleEditProps, "root" | "headerPrefix" | "depth">) {
     const { suggestions } = useContext(VariablesContext)
     const { path } = rule ?? {}
@@ -154,6 +157,15 @@ export default function FilterRuleEdit({
                                 <SelectItem value="false">False</SelectItem>
                             </SelectContent>
                         </Select>
+                    ) : journeyContext && journeyVariables?.length ? (
+                        <TemplateInput
+                            placeholder="Value"
+                            className="h-8 min-w-[100px] w-auto rounded-l-none border-l-0 text-xs shadow-none"
+                            value={rule?.value?.toString() ?? ""}
+                            onChange={(val) => setRule({ ...rule, value: val })}
+                            variables={journeyVariables}
+                            variant="compact"
+                        />
                     ) : (
                         <Input
                             type="text"

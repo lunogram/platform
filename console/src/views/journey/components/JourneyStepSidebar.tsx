@@ -169,6 +169,7 @@ export function JourneyStepSidebar({
                             project,
                             journey,
                             stepId: editNode.data.stepId,
+                            nodeId: editNode.id,
                             nodes,
                             onSaveDraft,
                         })}

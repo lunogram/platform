@@ -67,12 +67,6 @@ type ExperimentStepData struct {
 	Name *string `json:"name,omitempty"`
 }
 
-// LinkStepData represents data for link step - add user to another journey
-type LinkStepData struct {
-	TargetId string  `json:"target_id"`
-	Delay    *string `json:"delay,omitempty"`
-}
-
 // StickyStepData represents data for sticky step - placeholder for sticky logic
 type StickyStepData struct{}
 

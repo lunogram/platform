@@ -2,6 +2,7 @@ package v1
 
 import (
 	"database/sql"
+	stdjson "encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -510,13 +511,28 @@ func (srv *JourneysController) TriggerUser(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	_, err = journeys.CreateUserJourneyState(ctx, journey.JourneyUserState{
+	state := journey.JourneyUserState{
 		UserID:          userID,
 		JourneyID:       journeyID,
 		JourneyEntryID:  journeyStep.ID,
 		ExternalStepID:  externalStepIDStr,
 		PinnedVersionID: currJourney.VersionID,
-	})
+	}
+
+	if body.Data != nil {
+		wrapped := map[string]any{
+			"data": body.Data,
+		}
+		dataBytes, err := stdjson.Marshal(wrapped)
+		if err != nil {
+			logger.Error("failed to marshal trigger data", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+		state.Data = dataBytes
+	}
+
+	_, err = journeys.CreateUserJourneyState(ctx, state)
 
 	if err != nil {
 		logger.Error("failed to create user journey state", zap.Error(err))

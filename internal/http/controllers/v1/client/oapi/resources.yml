@@ -5,11 +5,11 @@ info:
   version: 1.0.0
 
 paths:
-  /api/client/identify:
+  /api/client/users:
     post:
-      summary: Identify user
+      summary: Upsert user
       description: Used by client libraries to create or update a user profile. The project is determined from the API key.
-      operationId: identifyUserClient
+      operationId: upsertUserClient
       tags:
         - Client
       security:
@@ -22,24 +22,45 @@ paths:
               $ref: "#/components/schemas/IdentifyRequest"
       responses:
         "200":
-          description: User identified successfully
+          description: User upserted successfully
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
         default:
           $ref: "#/components/responses/Error"
-
-  /api/client/events:
-    post:
-      summary: Post events
+    delete:
+      summary: Delete user
       description: |
-        Used by client libraries to trigger events that can be used to execute a step in a journey or update a virtual list.
+        Used by client libraries to delete a user by external_id or anonymous_id.
+        The project is determined from the API key.
+      operationId: deleteUserClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteUserRequest"
+      responses:
+        "204":
+          description: User deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/users/events:
+    post:
+      summary: Post user events
+      description: |
+        Used by client libraries to trigger events for a user that can be used to execute a step in a journey or update a virtual list.
         Multiple events can be sent in a single request and are processed asynchronously.
         Each event is handled independently: if one event fails to be accepted or processed, other events in the same request may still be published successfully.
         Clients requiring deterministic retry or recovery behavior must submit events individually.
         The project is determined from the API key.
-      operationId: postEvents
+      operationId: postUserEvents
       tags:
         - Client
       security:
@@ -80,6 +101,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Organization"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: Delete organization
+      description: |
+        Used by client libraries to delete an organization by external_id.
+        This will also remove all organization memberships.
+        The project is determined from the API key.
+      operationId: deleteOrganizationClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteOrganizationRequest"
+      responses:
+        "204":
+          description: Organization deleted successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -521,6 +564,30 @@ components:
             role: "admin"
             department: "engineering"
           description: Organization-specific data for this user
+
+    DeleteUserRequest:
+      type: object
+      properties:
+        external_id:
+          type: string
+          nullable: true
+          example: "user_456"
+          description: External identifier for the user
+        anonymous_id:
+          type: string
+          nullable: true
+          example: "anon_789"
+          description: Anonymous identifier for the user
+
+    DeleteOrganizationRequest:
+      type: object
+      required:
+        - external_id
+      properties:
+        external_id:
+          type: string
+          example: "org_123"
+          description: External identifier for the organization
 
     RemoveOrganizationUserRequest:
       type: object

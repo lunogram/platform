@@ -3,7 +3,6 @@ package consumer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -150,7 +149,6 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 					"data": event.Data,
 				}
 
-				fmt.Println(data, entrance.Rule)
 				match, err := evaluator.Evaluate(*entrance.Rule, data)
 				if err != nil {
 					logger.Error("failed to evaluate journey entrance rule", zap.Error(err))
@@ -184,7 +182,7 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 				return err
 			}
 
-			data, err := json.Marshal(event.Data)
+			data, err := json.Marshal(map[string]any{"data": event.Data})
 			if err != nil {
 				logger.Error("failed to marshal journey entry data", zap.Error(err))
 				return err

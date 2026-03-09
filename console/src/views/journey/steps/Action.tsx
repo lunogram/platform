@@ -7,6 +7,7 @@ import type { JourneyStepType } from "../../../types"
 import type { UUID } from "@/types/common"
 import type { TestActionFunctionResult } from "@/oapi/client"
 import { useResolver } from "../../../hooks"
+import { useJourneyVariableContext } from "../JourneyVariableContext"
 import { Combobox } from "@/components/ui/combobox"
 import { JsonView } from "@/components/ui/json-view"
 import { Label } from "@/components/ui/label"
@@ -156,9 +157,11 @@ export const actionStep: JourneyStepType<ActionConfig> = {
         function_id: "",
     }),
 
-    Edit({ project, onChange, value }) {
+    Edit({ project, onChange, value, nodeId }) {
         const { t } = useTranslation()
         const projectId = project.id
+        const { getVariablesForNode } = useJourneyVariableContext()
+        const variables = nodeId ? getVariablesForNode(nodeId) : []
 
         const [isTesting, setIsTesting] = useState(false)
         const [testResult, setTestResult] = useState<TestActionFunctionResult | null>(null)
@@ -357,6 +360,7 @@ export const actionStep: JourneyStepType<ActionConfig> = {
                             schema={currentFunction.input_schema as unknown as Schema}
                             value={(value.input as Record<string, unknown>) ?? {}}
                             onChange={(input) => onChange({ ...value, input })}
+                            variables={variables}
                         />
                         {testResult && <TestResultView result={testResult} />}
                     </div>

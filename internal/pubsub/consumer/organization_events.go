@@ -157,7 +157,7 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 			multiple := entrance.Multiple != nil && *entrance.Multiple
 			concurrent := entrance.Concurrent != nil && *entrance.Concurrent
 
-			data, err := json.Marshal(event.Data)
+			data, err := json.Marshal(map[string]any{"data": event.Data})
 			if err != nil {
 				logger.Error("failed to marshal journey entry data", zap.Error(err))
 				return err

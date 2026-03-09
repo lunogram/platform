@@ -1826,7 +1826,7 @@ export interface components {
          * @example entrance
          * @enum {string}
          */
-        JourneyStepType: "entrance" | "exit" | "delay" | "action" | "campaign" | "gate" | "experiment" | "link" | "sticky" | "balancer" | "update" | "event";
+        JourneyStepType: "entrance" | "exit" | "delay" | "action" | "campaign" | "gate" | "experiment" | "sticky" | "balancer" | "update" | "event";
         /** @description Data for entrance step - entry point into journey */
         EntranceStepData: {
             /**
@@ -1935,20 +1935,6 @@ export interface components {
              * @example Welcome Email Test
              */
             name?: string;
-        };
-        /** @description Data for link step - add user to another journey */
-        LinkStepData: {
-            /**
-             * Format: uuid
-             * @description Target journey ID to link to
-             */
-            target_id: string;
-            /**
-             * @description Delay before adding to journey
-             * @example 1 day
-             * @enum {string}
-             */
-            delay?: "1 minute" | "15 minutes" | "1 hour" | "1 day";
         };
         /** @description Data for sticky step - placeholder for sticky logic */
         StickyStepData: Record<string, never>;
@@ -4589,6 +4575,10 @@ export interface operations {
                      * @description The ID of the journey entry to enroll the user in
                      */
                     externalStepID: string;
+                    /** @description Optional event data to store on the entrance step state, made available as journey variables */
+                    data?: {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

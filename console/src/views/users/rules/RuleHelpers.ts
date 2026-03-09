@@ -12,6 +12,7 @@ import type {
     VariableSuggestions,
     WrapperRule,
 } from "../../../types"
+import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
 import { createUuid } from "../../../utils"
 
 export interface GroupedRule extends Omit<Rule, "value"> {
@@ -293,4 +294,5 @@ export interface RuleEditProps<T extends Rule = Rule> {
     headerPrefix?: ReactNode
     userOnly?: boolean
     journeyContext?: boolean
+    journeyVariables?: VariableGroup[]
 }

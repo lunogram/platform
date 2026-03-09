@@ -35,7 +35,10 @@ func HandleAction(ctx HandlerContext, step journey.JourneyVersionStep, state jou
 	}
 
 	if config.Input != nil {
-		req.Input = config.Input
+		req.Input, err = RenderJSON(config.Input, ctx.Data)
+		if err != nil {
+			return state, nil, fmt.Errorf("failed to resolve variables in action input: %w", err)
+		}
 	}
 
 	result, err := module.Execute(ctx, config.FunctionId, req)

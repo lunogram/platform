@@ -104,7 +104,7 @@ export function useUserSelection(
     )
 
     const triggerUser = useCallback(
-        async (stepId: string, userId: string) => {
+        async (stepId: string, userId: string, data?: Record<string, unknown>) => {
             try {
                 followUser(userId)
                 const { error } = await oapiClient.POST(
@@ -117,7 +117,7 @@ export function useUserSelection(
                                 userID: userId,
                             },
                         },
-                        body: { externalStepID: stepId },
+                        body: { externalStepID: stepId, data },
                     },
                 )
                 if (error) throw new Error(error.detail ?? "Failed to trigger user")

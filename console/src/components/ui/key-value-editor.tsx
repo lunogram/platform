@@ -1,6 +1,8 @@
 import { Plus, Trash2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { TemplateInput } from "@/components/ui/template-input"
 import { Button } from "@/components/ui/button"
+import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
 
 interface KeyValuePair {
     key: string
@@ -14,6 +16,8 @@ interface KeyValueEditorProps {
     valuePlaceholder?: string
     /** Label for the add-row button (defaults to "Add Row"). */
     addLabel?: string
+    /** Optional variable groups for autocomplete in the value field. */
+    variables?: VariableGroup[]
 }
 
 function toRows(obj: Record<string, string>): KeyValuePair[] {
@@ -38,8 +42,10 @@ export function KeyValueEditor({
     keyPlaceholder = "Key",
     valuePlaceholder = "Value",
     addLabel = "Add Row",
+    variables,
 }: KeyValueEditorProps) {
     const rows = toRows(value ?? {})
+    const hasVariables = variables && variables.some((g) => g.variables.length > 0)
 
     function update(next: KeyValuePair[]) {
         onChange(toRecord(next))
@@ -70,12 +76,22 @@ export function KeyValueEditor({
                         placeholder={keyPlaceholder}
                         className="flex-1"
                     />
-                    <Input
-                        value={row.value}
-                        onChange={(e) => setRow(i, "value", e.target.value)}
-                        placeholder={valuePlaceholder}
-                        className="flex-1"
-                    />
+                    {hasVariables ? (
+                        <TemplateInput
+                            value={row.value}
+                            onChange={(val) => setRow(i, "value", val)}
+                            placeholder={valuePlaceholder}
+                            className="flex-1"
+                            variables={variables}
+                        />
+                    ) : (
+                        <Input
+                            value={row.value}
+                            onChange={(e) => setRow(i, "value", e.target.value)}
+                            placeholder={valuePlaceholder}
+                            className="flex-1"
+                        />
+                    )}
                     <Button
                         type="button"
                         variant="ghost"

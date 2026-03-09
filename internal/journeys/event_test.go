@@ -97,6 +97,26 @@ func TestHandleEvent(t *testing.T) {
 			expectedEvents: 1,
 			wantErr:        false,
 		},
+		"event_name with liquid variable": {
+			step: journey.JourneyVersionStep{
+				ID:   uuid.New(),
+				Type: EventStepType,
+				Data: json.RawMessage(`{"event_name":"{{ journey.entrance.event_type }}_completed"}`),
+				Children: []journey.JourneyVersionStepChild{
+					{ChildExternalID: "next-step"},
+				},
+			},
+			state: journey.JourneyUserState{},
+			data: map[string]any{
+				"journey": map[string]any{
+					"entrance": map[string]any{
+						"event_type": "onboarding",
+					},
+				},
+			},
+			expectedEvents: 1,
+			wantErr:        false,
+		},
 		"event with empty template": {
 			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
@@ -210,13 +230,15 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 		template     string
 		data         map[string]any
 		eventName    string
+		expectedName string
 		checkPayload func(t *testing.T, data map[string]any)
 	}
 
 	tests := map[string]test{
 		"renders user data": {
-			template:  `{"user_email":"{{ user.email }}","user_name":"{{ user.name }}"}`,
-			eventName: "user_action",
+			template:     `{"user_email":"{{ user.email }}","user_name":"{{ user.name }}"}`,
+			eventName:    "user_action",
+			expectedName: "user_action",
 			data: map[string]any{
 				"user": map[string]any{
 					"email": "test@example.com",
@@ -229,8 +251,9 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 			},
 		},
 		"renders journey step data": {
-			template:  `{"product_id":"{{ journey.entrance.product_id }}","quantity":{{ journey.entrance.quantity }}}`,
-			eventName: "cart_updated",
+			template:     `{"product_id":"{{ journey.entrance.product_id }}","quantity":{{ journey.entrance.quantity }}}`,
+			eventName:    "cart_updated",
+			expectedName: "cart_updated",
 			data: map[string]any{
 				"journey": map[string]any{
 					"entrance": map[string]any{
@@ -246,8 +269,9 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 			},
 		},
 		"renders complex nested data": {
-			template:  `{"summary":"{{ user.first_name }} {{ user.last_name }} completed {{ journey.course.name }}","course_id":"{{ journey.course.id }}"}`,
-			eventName: "course_completed",
+			template:     `{"summary":"{{ user.first_name }} {{ user.last_name }} completed {{ journey.course.name }}","course_id":"{{ journey.course.id }}"}`,
+			eventName:    "course_completed",
+			expectedName: "course_completed",
 			data: map[string]any{
 				"user": map[string]any{
 					"first_name": "John",
@@ -263,6 +287,21 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 			checkPayload: func(t *testing.T, data map[string]any) {
 				assert.Equal(t, "John Doe completed Advanced Go", data["summary"])
 				assert.Equal(t, "course-456", data["course_id"])
+			},
+		},
+		"renders event_name with variable": {
+			template:     `{"step":"done"}`,
+			eventName:    "{{ journey.entrance.event_type }}_completed",
+			expectedName: "onboarding_completed",
+			data: map[string]any{
+				"journey": map[string]any{
+					"entrance": map[string]any{
+						"event_type": "onboarding",
+					},
+				},
+			},
+			checkPayload: func(t *testing.T, data map[string]any) {
+				assert.Equal(t, "done", data["step"])
 			},
 		},
 	}
@@ -327,6 +366,10 @@ func TestHandleEventTemplateRendering(t *testing.T) {
 			event := mockPub.publishedEvents[0]
 			eventData, ok := event.data.(schemas.UserEvent)
 			require.True(t, ok)
+
+			if tc.expectedName != "" {
+				assert.Equal(t, tc.expectedName, eventData.Name)
+			}
 
 			payloadData := eventData.Data
 			require.True(t, ok)

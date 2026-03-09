@@ -8,7 +8,6 @@ import (
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/subjects"
-	"github.com/osteele/liquid"
 )
 
 func HandleUpdate(ctx HandlerContext, step journey.JourneyVersionStep, state journey.JourneyUserState) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
@@ -22,8 +21,7 @@ func HandleUpdate(ctx HandlerContext, step journey.JourneyVersionStep, state jou
 		return state, step.Children, nil
 	}
 
-	engine := liquid.NewEngine()
-	rendered, err := engine.ParseAndRenderString(config.Template, ctx.Data)
+	rendered, err := RenderString(config.Template, ctx.Data)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to render template: %w", err)
 	}

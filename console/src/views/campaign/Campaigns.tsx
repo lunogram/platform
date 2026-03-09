@@ -163,10 +163,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     <AlertTitle>{t("setup")}</AlertTitle>
                     <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <span>{t("setup_integration_description")}</span>
-                        <Link
-                            to={`/projects/${project.id}/integrations`}
-                            className="shrink-0"
-                        >
+                        <Link to={`/projects/${project.id}/integrations`} className="shrink-0">
                             <Button className="w-full sm:w-auto">{t("setup_integration")}</Button>
                         </Link>
                     </AlertDescription>

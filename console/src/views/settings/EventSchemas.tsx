@@ -85,9 +85,7 @@ export default function EventSchemas() {
             ...e,
             subject_type: "organization" as const,
         }))
-        const all = [...userEvents, ...orgEvents].sort((a, b) =>
-            a.name.localeCompare(b.name),
-        )
+        const all = [...userEvents, ...orgEvents].sort((a, b) => a.name.localeCompare(b.name))
         if (!searchQuery) return all
         const query = searchQuery.toLowerCase()
         return all.filter(
@@ -129,7 +127,10 @@ export default function EventSchemas() {
                     {t("event_schemas", "Event Schemas")}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                    {t("event_schemas_description", "Event schemas are automatically discovered based on the events published into the platform.")}
+                    {t(
+                        "event_schemas_description",
+                        "Event schemas are automatically discovered based on the events published into the platform.",
+                    )}
                 </p>
             </div>
 

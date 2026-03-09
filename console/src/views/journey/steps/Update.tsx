@@ -2,6 +2,7 @@ import type { JourneyStepType } from "../../../types"
 import { UpdateStepIcon } from "../../../components/icons"
 import { CodeEditor } from "@/components/ui/code-editor"
 import { useTranslation } from "react-i18next"
+import { useJourneyVariableContext } from "../JourneyVariableContext"
 
 interface UpdateConfig {
     template: string // handlebars template for json object
@@ -34,8 +35,10 @@ export const updateStep: JourneyStepType<UpdateConfig> = {
     newData: async () => ({
         template: "{\n\n}\n",
     }),
-    Edit: ({ onChange, value }) => {
+    Edit: ({ onChange, value, nodeId }) => {
         const { t } = useTranslation()
+        const { getVariablesForNode } = useJourneyVariableContext()
+        const variables = nodeId ? getVariablesForNode(nodeId) : []
         return (
             <>
                 <p className="text-sm text-muted-foreground">
@@ -54,6 +57,7 @@ export const updateStep: JourneyStepType<UpdateConfig> = {
                     maxHeight={500}
                     language="json"
                     className="rounded-md border"
+                    variables={variables}
                 />
             </>
         )

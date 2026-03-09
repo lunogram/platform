@@ -86,6 +86,64 @@ export function nodesToSteps(nodes: Node<JourneyNodeData>[], edges: Edge[]) {
     )
 }
 
+/**
+ * Walk edges backward from `nodeId` to find all ancestor nodes that have a
+ * non-empty `data_key`.  Returns them in topological order (closest ancestors
+ * first).
+ */
+export interface UpstreamDataKey {
+    nodeId: string
+    name: string
+    type: string
+    data_key: string
+    /** The event_name from the step's data (if it captures an event, e.g. entrance) */
+    event_name?: string
+}
+
+export function getUpstreamDataKeys(
+    nodes: Node<JourneyNodeData>[],
+    edges: Edge[],
+    nodeId: string,
+): UpstreamDataKey[] {
+    // Build a reverse adjacency map: target -> sources
+    const parentMap = new Map<string, string[]>()
+    for (const edge of edges) {
+        const sources = parentMap.get(edge.target) ?? []
+        sources.push(edge.source)
+        parentMap.set(edge.target, sources)
+    }
+
+    // BFS backward from nodeId
+    const visited = new Set<string>()
+    const queue: string[] = parentMap.get(nodeId) ?? []
+    const result: UpstreamDataKey[] = []
+
+    for (const id of queue) visited.add(id)
+
+    while (queue.length > 0) {
+        const current = queue.shift()!
+        const node = nodes.find((n) => n.id === current)
+        if (node?.data.data_key) {
+            const stepData = node.data.data as Record<string, unknown> | undefined
+            result.push({
+                nodeId: node.id,
+                name: node.data.name ?? "",
+                type: node.data.type,
+                data_key: node.data.data_key,
+                event_name: (stepData?.event_name as string) ?? undefined,
+            })
+        }
+        for (const parent of parentMap.get(current) ?? []) {
+            if (!visited.has(parent)) {
+                visited.add(parent)
+                queue.push(parent)
+            }
+        }
+    }
+
+    return result
+}
+
 export function cloneNodes(edges: Edge[], targets: Node<JourneyNodeData>[]) {
     const mapping: { [prev: string]: string } = {}
     const nodeCopies: Node<JourneyNodeData>[] = []

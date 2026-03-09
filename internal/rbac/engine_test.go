@@ -228,6 +228,12 @@ func TestProjectClientCanCreateAndUpdateClientResources(t *testing.T) {
 		assert.NoError(t, engine.Allowed(ctx, Create, scope), "create %s", resource)
 		assert.NoError(t, engine.Allowed(ctx, Update, scope), "update %s", resource)
 	}
+
+	// Client role can also delete users and organizations.
+	for _, resource := range []string{"users", "organizations"} {
+		scope := ProjectResourceScope(resource, projectID)
+		assert.NoError(t, engine.Allowed(ctx, Delete, scope), "delete %s", resource)
+	}
 }
 
 func TestProjectClientCannotReadAnyResource(t *testing.T) {
@@ -270,7 +276,7 @@ func TestProjectClientCannotMutateNonClientResources(t *testing.T) {
 	}
 }
 
-func TestProjectClientCannotDeleteClientResources(t *testing.T) {
+func TestProjectClientCannotDeleteEvents(t *testing.T) {
 	t.Parallel()
 
 	orgID := uuid.New()
@@ -281,12 +287,9 @@ func TestProjectClientCannotDeleteClientResources(t *testing.T) {
 	)
 	engine, ctx := TestSetup(t, context.Background(), actor, "member", "client")
 
-	// Client role cannot delete users, events, or organizations
-	// (delete requires editor or admin).
-	for _, resource := range []string{"users", "events", "organizations"} {
-		scope := ProjectResourceScope(resource, projectID)
-		assert.Error(t, engine.Allowed(ctx, Delete, scope), "delete %s", resource)
-	}
+	// Client role cannot delete events (delete requires editor).
+	scope := ProjectResourceScope("events", projectID)
+	assert.Error(t, engine.Allowed(ctx, Delete, scope), "delete events")
 }
 
 func TestProjectEditorCanCRUDStandardResources(t *testing.T) {

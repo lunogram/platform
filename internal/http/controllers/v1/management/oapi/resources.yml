@@ -1230,6 +1230,10 @@ paths:
                   type: string
                   format: uuid
                   description: The ID of the journey entry to enroll the user in
+                data:
+                  type: object
+                  additionalProperties: true
+                  description: Optional event data to store on the entrance step state, made available as journey variables
       responses:
         "200":
           description: User enrolled in journey successfully
@@ -4468,7 +4472,6 @@ components:
         - campaign
         - gate
         - experiment
-        - link
         - sticky
         - balancer
         - update
@@ -4605,22 +4608,6 @@ components:
           type: string
           description: Experiment name
           example: "Welcome Email Test"
-
-    LinkStepData:
-      type: object
-      description: Data for link step - add user to another journey
-      required:
-        - target_id
-      properties:
-        target_id:
-          type: string
-          format: uuid
-          description: Target journey ID to link to
-        delay:
-          type: string
-          enum: ["1 minute", "15 minutes", "1 hour", "1 day"]
-          description: Delay before adding to journey
-          example: "1 day"
 
     StickyStepData:
       type: object

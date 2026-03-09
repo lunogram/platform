@@ -35,7 +35,7 @@ type ClientController struct {
 	engine *rbac.Engine
 }
 
-func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request) {
+func (srv *ClientController) PostUserEvents(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
 	if actor == nil {
@@ -86,7 +86,67 @@ func (srv *ClientController) PostEvents(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (srv *ClientController) IdentifyUserClient(w http.ResponseWriter, r *http.Request) {
+func (srv *ClientController) DeleteUserClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	projectID := actor.ProjectID
+	if projectID == uuid.Nil {
+		srv.logger.Error("project_id is required")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("users", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var req oapi.DeleteUserRequest
+	err := json.Decode(r.Body, &req)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	if req.ExternalId == nil && req.AnonymousId == nil {
+		srv.logger.Error("either external_id or anonymous_id is required")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either external_id or anonymous_id is required")))
+		return
+	}
+
+	logger := srv.logger.With(zap.Stringer("project_id", projectID))
+	logger.Info("deleting user")
+
+	userID, err := srv.users.LookupUserID(ctx, projectID, req.ExternalId, req.AnonymousId)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to lookup user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	err = srv.users.DeleteUser(ctx, projectID, userID)
+	if err != nil {
+		logger.Error("failed to delete user", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("user deleted", zap.String("user_id", userID.String()))
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (srv *ClientController) UpsertUserClient(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
 	if actor == nil {
@@ -281,6 +341,63 @@ func (srv *ClientController) UpsertOrganizationClient(w http.ResponseWriter, r *
 
 	logger.Info("organization upserted", zap.String("organization_id", org.ID.String()))
 	json.Write(w, http.StatusOK, orgToClientOAPI(org))
+}
+
+func (srv *ClientController) DeleteOrganizationClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	actor := rbac.FromContext(ctx)
+	if actor == nil {
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	projectID := actor.ProjectID
+	if projectID == uuid.Nil {
+		srv.logger.Error("project_id is required")
+		oapi.WriteProblem(w, problem.ErrUnauthorized())
+		return
+	}
+
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var req oapi.DeleteOrganizationRequest
+	err := json.Decode(r.Body, &req)
+	if err != nil {
+		srv.logger.Error("failed to decode request body", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.String("external_id", req.ExternalId),
+	)
+	logger.Info("deleting organization")
+
+	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, req.ExternalId)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("organization not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
+		return
+	}
+	if err != nil {
+		logger.Error("failed to lookup organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	err = srv.users.DeleteOrganization(ctx, projectID, orgID)
+	if err != nil {
+		logger.Error("failed to delete organization", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	logger.Info("organization deleted", zap.String("organization_id", orgID.String()))
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r *http.Request) {

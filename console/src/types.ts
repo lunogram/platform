@@ -507,6 +507,7 @@ export interface JourneyStepTypeEditProps<T> extends ControlledProps<T> {
     journey: Journey
     project: Project
     stepId?: UUID // if already saved
+    nodeId?: string // ReactFlow node ID (for variable context lookups)
     onSaveDraft?: () => Promise<void>
 }
 

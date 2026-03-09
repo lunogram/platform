@@ -78,10 +78,6 @@ func setupClientController(t *testing.T) *testClientController {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// PostEvents
-// ---------------------------------------------------------------------------
-
 func TestPostEvents(t *testing.T) {
 	t.Parallel()
 
@@ -168,14 +164,14 @@ func TestPostEvents(t *testing.T) {
 			body, err := json.Marshal(tc.events)
 			require.NoError(t, err)
 
-			req := httptest.NewRequest("POST", "/api/client/events", bytes.NewReader(body))
+			req := httptest.NewRequest("POST", "/api/client/users/events", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 
 			actor := controller.actorContext(t, orgID, projectID)
 			req = req.WithContext(rbac.WithActor(req.Context(), actor))
 			w := httptest.NewRecorder()
 
-			controller.PostEvents(w, req)
+			controller.PostUserEvents(w, req)
 
 			assert.Equal(t, tc.statusCode, w.Code)
 		})
@@ -198,14 +194,14 @@ func TestPostEventsInvalidRequest(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req := httptest.NewRequest("POST", "/api/client/events", bytes.NewReader([]byte("invalid json")))
+	req := httptest.NewRequest("POST", "/api/client/users/events", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("Content-Type", "application/json")
 
 	actor := controller.actorContext(t, orgID, projectID)
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	controller.PostEvents(w, req)
+	controller.PostUserEvents(w, req)
 
 	assert.Equal(t, 400, w.Code)
 }
@@ -225,11 +221,11 @@ func TestPostEventsMissingRBACScope(t *testing.T) {
 	body, err := json.Marshal(events)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest("POST", "/api/client/events", bytes.NewReader(body))
+	req := httptest.NewRequest("POST", "/api/client/users/events", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	controller.PostEvents(w, req)
+	controller.PostUserEvents(w, req)
 
 	assert.Equal(t, 401, w.Code)
 }
@@ -252,7 +248,7 @@ func TestPostEventsMissingProjectID(t *testing.T) {
 	body, err := json.Marshal(events)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest("POST", "/api/client/events", bytes.NewReader(body))
+	req := httptest.NewRequest("POST", "/api/client/users/events", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	actor := rbac.NewActor(rbac.ActorAPIKey, uuid.New().String(),
 		rbac.WithOrganizationID(orgID),
@@ -261,7 +257,7 @@ func TestPostEventsMissingProjectID(t *testing.T) {
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	controller.PostEvents(w, req)
+	controller.PostUserEvents(w, req)
 
 	assert.Equal(t, 401, w.Code)
 }
@@ -305,14 +301,14 @@ func TestPostEventsWithNestedData(t *testing.T) {
 	body, err := json.Marshal(events)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest("POST", "/api/client/events", bytes.NewReader(body))
+	req := httptest.NewRequest("POST", "/api/client/users/events", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	actor := controller.actorContext(t, orgID, projectID)
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	controller.PostEvents(w, req)
+	controller.PostUserEvents(w, req)
 
 	assert.Equal(t, 202, w.Code)
 }
@@ -338,21 +334,17 @@ func TestPostEventsEmptyArray(t *testing.T) {
 	body, err := json.Marshal(events)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest("POST", "/api/client/events", bytes.NewReader(body))
+	req := httptest.NewRequest("POST", "/api/client/users/events", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	actor := controller.actorContext(t, orgID, projectID)
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	controller.PostEvents(w, req)
+	controller.PostUserEvents(w, req)
 
 	assert.Equal(t, 202, w.Code)
 }
-
-// ---------------------------------------------------------------------------
-// IdentifyUserClient
-// ---------------------------------------------------------------------------
 
 func TestClientIdentifyUser(t *testing.T) {
 	t.Parallel()
@@ -420,14 +412,14 @@ func TestClientIdentifyUser(t *testing.T) {
 			body, err := json.Marshal(tc.body)
 			require.NoError(t, err)
 
-			req := httptest.NewRequest("POST", "/api/client/identify", bytes.NewReader(body))
+			req := httptest.NewRequest("POST", "/api/client/users", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 
 			actor := controller.actorContext(t, orgID, projectID)
 			req = req.WithContext(rbac.WithActor(req.Context(), actor))
 			w := httptest.NewRecorder()
 
-			controller.IdentifyUserClient(w, req)
+			controller.UpsertUserClient(w, req)
 
 			assert.Equal(t, tc.statusCode, w.Code)
 			if w.Code == 200 {
@@ -486,14 +478,14 @@ func TestClientIdentifyUserInvalidRequest(t *testing.T) {
 				body = []byte("invalid")
 			}
 
-			req := httptest.NewRequest("POST", "/api/client/identify", bytes.NewReader(body))
+			req := httptest.NewRequest("POST", "/api/client/users", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 
 			actor := controller.actorContext(t, orgID, projectID)
 			req = req.WithContext(rbac.WithActor(req.Context(), actor))
 			w := httptest.NewRecorder()
 
-			controller.IdentifyUserClient(w, req)
+			controller.UpsertUserClient(w, req)
 
 			assert.Equal(t, tc.statusCode, w.Code)
 		})
@@ -511,11 +503,11 @@ func TestClientIdentifyUserMissingRBACScope(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req := httptest.NewRequest("POST", "/api/client/identify", bytes.NewReader(body))
+	req := httptest.NewRequest("POST", "/api/client/users", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	controller.IdentifyUserClient(w, req)
+	controller.UpsertUserClient(w, req)
 
 	assert.Equal(t, 401, w.Code)
 }
@@ -534,7 +526,7 @@ func TestClientIdentifyUserMissingProjectID(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req := httptest.NewRequest("POST", "/api/client/identify", bytes.NewReader(body))
+	req := httptest.NewRequest("POST", "/api/client/users", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	actor := rbac.NewActor(rbac.ActorAPIKey, uuid.New().String(),
 		rbac.WithOrganizationID(orgID),
@@ -543,7 +535,7 @@ func TestClientIdentifyUserMissingProjectID(t *testing.T) {
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	controller.IdentifyUserClient(w, req)
+	controller.UpsertUserClient(w, req)
 
 	assert.Equal(t, 401, w.Code)
 }
@@ -577,12 +569,12 @@ func TestClientIdentifyUserUpdateExisting(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req1 := httptest.NewRequest("POST", "/api/client/identify", bytes.NewReader(body1))
+	req1 := httptest.NewRequest("POST", "/api/client/users", bytes.NewReader(body1))
 	req1.Header.Set("Content-Type", "application/json")
 	req1 = req1.WithContext(rbac.WithActor(req1.Context(), actor))
 	w1 := httptest.NewRecorder()
 
-	controller.IdentifyUserClient(w1, req1)
+	controller.UpsertUserClient(w1, req1)
 
 	assert.Equal(t, 200, w1.Code)
 
@@ -603,12 +595,12 @@ func TestClientIdentifyUserUpdateExisting(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req2 := httptest.NewRequest("POST", "/api/client/identify", bytes.NewReader(body2))
+	req2 := httptest.NewRequest("POST", "/api/client/users", bytes.NewReader(body2))
 	req2.Header.Set("Content-Type", "application/json")
 	req2 = req2.WithContext(rbac.WithActor(req2.Context(), actor))
 	w2 := httptest.NewRecorder()
 
-	controller.IdentifyUserClient(w2, req2)
+	controller.UpsertUserClient(w2, req2)
 
 	assert.Equal(t, 200, w2.Code)
 
@@ -648,14 +640,14 @@ func TestClientIdentifyUserWithBothIdentifiers(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req := httptest.NewRequest("POST", "/api/client/identify", bytes.NewReader(body))
+	req := httptest.NewRequest("POST", "/api/client/users", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	actor := controller.actorContext(t, orgID, projectID)
 	req = req.WithContext(rbac.WithActor(req.Context(), actor))
 	w := httptest.NewRecorder()
 
-	controller.IdentifyUserClient(w, req)
+	controller.UpsertUserClient(w, req)
 
 	assert.Equal(t, 200, w.Code)
 
@@ -664,10 +656,6 @@ func TestClientIdentifyUserWithBothIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, response["id"])
 }
-
-// ---------------------------------------------------------------------------
-// UpsertOrganizationClient
-// ---------------------------------------------------------------------------
 
 func TestUpsertOrganizationClient(t *testing.T) {
 	t.Parallel()
@@ -888,10 +876,6 @@ func TestUpsertOrganizationClientInvalidRequest(t *testing.T) {
 	assert.Equal(t, 400, w.Code)
 }
 
-// ---------------------------------------------------------------------------
-// AddOrganizationUserClient
-// ---------------------------------------------------------------------------
-
 func TestAddOrganizationUserClient(t *testing.T) {
 	t.Parallel()
 
@@ -962,11 +946,11 @@ func TestAddOrganizationUserClient(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			userReq := httptest.NewRequest("POST", "/api/client/identify", bytes.NewReader(userBody))
+			userReq := httptest.NewRequest("POST", "/api/client/users", bytes.NewReader(userBody))
 			userReq.Header.Set("Content-Type", "application/json")
 			userReq = userReq.WithContext(rbac.WithActor(userReq.Context(), actor))
 			userW := httptest.NewRecorder()
-			controller.IdentifyUserClient(userW, userReq)
+			controller.UpsertUserClient(userW, userReq)
 			require.Equal(t, 200, userW.Code)
 
 			// Add user to organization
@@ -1087,10 +1071,6 @@ func TestAddOrganizationUserClientMissingRBACScope(t *testing.T) {
 	assert.Equal(t, 401, w.Code)
 }
 
-// ---------------------------------------------------------------------------
-// RemoveOrganizationUserClient
-// ---------------------------------------------------------------------------
-
 func TestRemoveOrganizationUserClient(t *testing.T) {
 	t.Parallel()
 
@@ -1130,11 +1110,11 @@ func TestRemoveOrganizationUserClient(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	userReq := httptest.NewRequest("POST", "/api/client/identify", bytes.NewReader(userBody))
+	userReq := httptest.NewRequest("POST", "/api/client/users", bytes.NewReader(userBody))
 	userReq.Header.Set("Content-Type", "application/json")
 	userReq = userReq.WithContext(rbac.WithActor(userReq.Context(), actor))
 	userW := httptest.NewRecorder()
-	controller.IdentifyUserClient(userW, userReq)
+	controller.UpsertUserClient(userW, userReq)
 	require.Equal(t, 200, userW.Code)
 
 	// Add user to organization
@@ -1269,10 +1249,6 @@ func TestRemoveOrganizationUserClientMissingRBACScope(t *testing.T) {
 
 	assert.Equal(t, 401, w.Code)
 }
-
-// ---------------------------------------------------------------------------
-// PostOrganizationEventsClient
-// ---------------------------------------------------------------------------
 
 func TestPostOrganizationEventsClient(t *testing.T) {
 	t.Parallel()

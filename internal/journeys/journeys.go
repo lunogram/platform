@@ -24,7 +24,6 @@ const (
 	ExitStepType       = "exit"
 	ExperimentStepType = "experiment"
 	GateStepType       = "gate"
-	LinkStepType       = "link"
 	UpdateStepType     = "update"
 )
 
@@ -80,8 +79,6 @@ func Handle(parent context.Context, db *sqlx.DB, pub pubsub.Publisher, projectID
 		return HandleExperiment(ctx, step, s)
 	case GateStepType:
 		return HandleGate(ctx, step, s)
-	case LinkStepType:
-		return HandleLink(ctx, step, s)
 	case UpdateStepType:
 		return HandleUpdate(ctx, step, s)
 	}

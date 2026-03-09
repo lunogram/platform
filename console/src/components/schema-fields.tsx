@@ -3,6 +3,7 @@ import type { UseFormReturn } from "react-hook-form"
 import { snakeToTitle } from "@/utils"
 
 import { Input } from "@/components/ui/input"
+import { TemplateInput } from "@/components/ui/template-input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -15,6 +16,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { CodeEditor } from "@/components/ui/code-editor"
 import { KeyValueEditor } from "@/components/ui/key-value-editor"
+import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
 
 export interface SchemaProperty {
     name: string
@@ -62,9 +64,18 @@ export interface SchemaFieldsProps {
     value: Record<string, unknown>
     /** Called when any field value changes. */
     onChange: (v: Record<string, unknown>) => void
+    /** Optional variable groups for TemplateInput / CodeEditor pickers. */
+    variables?: VariableGroup[]
 }
 
-export function SchemaFields({ title, description, schema, value, onChange }: SchemaFieldsProps) {
+export function SchemaFields({
+    title,
+    description,
+    schema,
+    value,
+    onChange,
+    variables,
+}: SchemaFieldsProps) {
     const entries = normalizeProperties(schema?.properties)
 
     const entryKeys = useMemo(() => entries.map(([k]) => k).join(","), [entries])
@@ -114,6 +125,7 @@ export function SchemaFields({ title, description, schema, value, onChange }: Sc
                                 onChange={(val) => set(key, val)}
                                 minHeight={120}
                                 maxHeight={300}
+                                variables={variables}
                             />
                         </div>
                     )
@@ -133,6 +145,7 @@ export function SchemaFields({ title, description, schema, value, onChange }: Sc
                             <KeyValueEditor
                                 value={(value[key] as Record<string, string>) ?? {}}
                                 onChange={(val) => set(key, val)}
+                                variables={variables}
                             />
                         </div>
                     )
@@ -171,6 +184,11 @@ export function SchemaFields({ title, description, schema, value, onChange }: Sc
                 // string / number
                 if (item.type === "string" || item.type === "number") {
                     const useTextarea = (item.minLength ?? 0) >= 80
+                    const useTemplateInput =
+                        item.type === "string" &&
+                        !useTextarea &&
+                        variables &&
+                        variables.some((g) => g.variables.length > 0)
                     return (
                         <div key={key} className="grid gap-1.5">
                             <Label className="inline-flex items-center gap-1 text-sm font-medium">
@@ -185,6 +203,13 @@ export function SchemaFields({ title, description, schema, value, onChange }: Sc
                                     value={(value[key] as string) ?? ""}
                                     onChange={(e) => set(key, e.target.value)}
                                     placeholder={item.preview}
+                                />
+                            ) : useTemplateInput ? (
+                                <TemplateInput
+                                    value={(value[key] as string) ?? ""}
+                                    onChange={(val) => set(key, val)}
+                                    placeholder={item.preview}
+                                    variables={variables}
                                 />
                             ) : (
                                 <Input
@@ -242,6 +267,7 @@ export function SchemaFields({ title, description, schema, value, onChange }: Sc
                                 schema={item}
                                 value={(value[key] as Record<string, unknown>) ?? {}}
                                 onChange={(nested) => set(key, nested)}
+                                variables={variables}
                             />
                         </div>
                     )

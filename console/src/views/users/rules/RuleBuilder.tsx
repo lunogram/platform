@@ -8,6 +8,7 @@ import { useResolver } from "../../../hooks"
 import api from "../../../api"
 import { snakeToTitle } from "../../../utils"
 import { emptySuggestions, VariablesContext } from "./RuleHelpers"
+import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
 import RuleEdit from "./RuleEdit"
 import { Label } from "@/components/ui/label"
 
@@ -18,6 +19,7 @@ interface RuleBuilderParams {
     eventName?: string
     userOnly?: boolean
     journeyContext?: boolean
+    journeyVariables?: VariableGroup[]
 }
 
 export default function RuleBuilder({
@@ -27,6 +29,7 @@ export default function RuleBuilder({
     setRule,
     userOnly,
     journeyContext,
+    journeyVariables,
 }: RuleBuilderParams) {
     const [{ id: projectId }] = useContext(ProjectContext)
     const [suggestions] = useResolver(
@@ -45,6 +48,7 @@ export default function RuleBuilder({
                 headerPrefix={headerPrefix}
                 userOnly={userOnly}
                 journeyContext={journeyContext}
+                journeyVariables={journeyVariables}
             />
         </VariablesContext.Provider>
     )

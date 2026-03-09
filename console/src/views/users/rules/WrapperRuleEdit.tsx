@@ -39,6 +39,7 @@ export default function WrapperRuleEdit({
     eventName = "",
     userOnly = false,
     journeyContext = false,
+    journeyVariables,
 }: RuleEditProps<WrapperRule>) {
     const { t } = useTranslation()
 
@@ -158,6 +159,7 @@ export default function WrapperRuleEdit({
                         depth={depth + 1}
                         userOnly={userOnly}
                         journeyContext={journeyContext}
+                        journeyVariables={journeyVariables}
                         controls={
                             <Button
                                 size="sm"
