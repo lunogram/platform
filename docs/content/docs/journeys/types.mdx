@@ -15,6 +15,7 @@ Journeys are built by connecting steps together. Each step type serves a differe
 | [Delay](#delay) | Wait before continuing |
 | [Experiment](#experiment) | A/B test different paths |
 | [Balancer](#balancer) | Rate limit and distribute traffic |
+| [Action](actions) | Execute external integrations (webhooks, APIs) |
 | [Update](#update) | Modify user profile data |
 | [Event](#event) | Trigger an analytics event |
 | [Link](#link) | Jump to another journey |
@@ -62,14 +63,7 @@ Send a message to the user. This step wraps a campaign, giving you access to all
 | Parameter | Description |
 |-----------|-------------|
 | Name | Display name for the step |
-| Data Key | Unique key to reference the result in later steps ([learn more](data)) |
 | Campaign | The campaign to send (create new or use existing) |
-
-Webhook campaign responses are stored and can be accessed in subsequent steps:
-
-```handlebars
-{{ journey.my_webhook.response_field }}
-```
 
 ---
 

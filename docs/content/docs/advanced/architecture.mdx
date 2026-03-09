@@ -9,28 +9,23 @@ Lunogram is built as a modern, distributed system designed for reliability, scal
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Lunogram Node                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
-│  │  HTTP API   │  │   Cluster   │  │    Event Consumers      │  │
-│  │  (Chi)      │  │  Consensus  │  │    (NATS JetStream)     │  │
-│  └──────┬──────┘  └──────┬──────┘  └───────────┬─────────────┘  │
-│         │                │                      │                │
-│         └────────────────┼──────────────────────┘                │
-│                          │                                       │
-│  ┌───────────────────────┴───────────────────────────────────┐  │
-│  │                    Provider Registry                       │  │
-│  │                    (WASM Runtime)                          │  │
-│  └───────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-         │                 │                      │
-         ▼                 ▼                      ▼
-   ┌──────────┐      ┌──────────┐          ┌──────────┐
-   │PostgreSQL│      │  Redis   │          │   NATS   │
-   │ (3 DBs)  │      │          │          │JetStream │
-   └──────────┘      └──────────┘          └──────────┘
-```
+<Mermaid chart={`
+graph TD
+  subgraph node["Lunogram Node"]
+    api["HTTP API\n(Chi)"]
+    cluster["Cluster\nConsensus"]
+    consumers["Event Consumers\n(NATS JetStream)"]
+    registry["Provider Registry\n(WASM Runtime)"]
+
+    api --> registry
+    cluster --> registry
+    consumers --> registry
+  end
+
+  registry --> pg["PostgreSQL\n(3 DBs)"]
+  registry --> redis["Redis"]
+  registry --> nats["NATS\nJetStream"]
+`} />
 
 ## Core Components
 
@@ -64,9 +59,19 @@ This separation allows for:
 
 All asynchronous operations flow through NATS JetStream:
 
-```
-User Action → API → NATS Stream → Consumer → Processing
-```
+<Mermaid chart={`
+sequenceDiagram
+  participant User
+  participant API
+  participant NATS as NATS Stream
+  participant Consumer
+  participant Processing
+
+  User->>API: Action
+  API->>NATS: Publish
+  NATS->>Consumer: Deliver
+  Consumer->>Processing: Process
+`} />
 
 **Key streams:**
 
@@ -96,19 +101,13 @@ Redis serves multiple purposes:
 
 Providers (email, SMS, push) are implemented as WebAssembly modules:
 
-```
-┌─────────────────┐     ┌─────────────────┐
-│  Lunogram Core  │────▶│  WASM Runtime   │
-│                 │◀────│    (Extism)     │
-└─────────────────┘     └────────┬────────┘
-                                 │
-                    ┌────────────┼────────────┐
-                    ▼            ▼            ▼
-               ┌────────┐  ┌────────┐  ┌────────┐
-               │ Resend │  │ Twilio │  │ Custom │
-               │ Plugin │  │ Plugin │  │ Plugin │
-               └────────┘  └────────┘  └────────┘
-```
+<Mermaid chart={`
+graph TD
+  core["Lunogram Core"] <--> runtime["WASM Runtime\n(Extism)"]
+  runtime --> resend["Resend\nPlugin"]
+  runtime --> twilio["Twilio\nPlugin"]
+  runtime --> custom["Custom\nPlugin"]
+`} />
 
 **Why WASM?**
 
@@ -129,20 +128,17 @@ Every provider implements two functions:
 
 When running multiple Lunogram nodes, they coordinate through Redis:
 
-```
-Node 1 ◀──────────▶ Redis ◀──────────▶ Node 2
-   │                  │                   │
-   │    ┌─────────────┼─────────────┐    │
-   │    │         Leader            │    │
-   │    │      Election             │    │
-   │    └─────────────┼─────────────┘    │
-   │                  │                   │
-   ▼                  ▼                   ▼
-┌──────────────────────────────────────────┐
-│            Scheduled Tasks               │
-│  (Journey scheduling, list updates)      │
-└──────────────────────────────────────────┘
-```
+<Mermaid chart={`
+graph TD
+  node1["Node 1"] <--> redis["Redis"]
+  redis <--> node2["Node 2"]
+
+  redis --- election["Leader\nElection"]
+
+  node1 --> tasks["Scheduled Tasks\n(Journey scheduling, list updates)"]
+  redis --> tasks
+  node2 --> tasks
+`} />
 
 **Leader Election:**
 - Uses Redis distributed locks (Redlock algorithm)
@@ -171,26 +167,43 @@ Lunogram scales horizontally by adding more nodes:
 
 ### User Event Processing
 
-```
-1. SDK sends event to /api/client/events
-2. API validates and publishes to NATS
-3. Consumer picks up event
-4. Schema extraction updates event schemas
-5. List membership is recomputed
-6. Journey entrances are triggered
-7. Journey steps execute in sequence
-```
+<Mermaid chart={`
+sequenceDiagram
+  participant SDK
+  participant API as HTTP API
+  participant NATS
+  participant Consumer
+  participant DB as Database
+
+  SDK->>API: POST /api/client/events
+  API->>NATS: Validate & publish
+  NATS->>Consumer: Deliver event
+  Consumer->>DB: Extract & update event schemas
+  Consumer->>DB: Recompute list membership
+  Consumer->>DB: Trigger journey entrances
+  Consumer->>Consumer: Execute journey steps in sequence
+`} />
 
 ### Campaign Sending
 
-```
-1. Journey step triggers campaign send
-2. Campaign details fetched from database
-3. User data merged with template
-4. Provider plugin receives send request
-5. Provider makes external API call
-6. Response recorded as event
-```
+<Mermaid chart={`
+sequenceDiagram
+  participant Journey as Journey Step
+  participant DB as Database
+  participant Template as Template Engine
+  participant Provider as Provider Plugin
+  participant Ext as External API
+
+  Journey->>DB: Fetch campaign details
+  DB-->>Journey: Campaign config
+  Journey->>Template: Merge user data with template
+  Template-->>Journey: Rendered message
+  Journey->>Provider: Send request (WASM)
+  Provider->>Ext: API call
+  Ext-->>Provider: Response
+  Provider-->>Journey: Result
+  Journey->>DB: Record response as event
+`} />
 
 ## Security Model
 
