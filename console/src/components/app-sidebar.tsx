@@ -62,7 +62,7 @@ export function AppSidebar({
     return (
         <Sidebar {...props}>
             <SidebarHeader>
-                <div className="px-2 pt-5 pb-2 [[data-mobile=true]_&]:px-2 [[data-mobile=true]_&]:pt-2">
+                <div className="px-2 pt-2 pb-2 [[data-mobile=true]_&]:px-2 [[data-mobile=true]_&]:pt-2">
                     <img
                         src={logoBlack}
                         alt="Lunogram"
