@@ -844,6 +844,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/subjects/user/events/schema/{eventID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete user event schema
+         * @description Soft-deletes a user event and its schema paths
+         */
+        delete: operations["deleteUserEventSchema"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/subjects/users/schema": {
         parameters: {
             query?: never;
@@ -995,6 +1015,26 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organization/events/schema/{eventID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete organization event schema
+         * @description Soft-deletes an organization event and its schema paths
+         */
+        delete: operations["deleteOrganizationEventSchema"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5230,6 +5270,30 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    deleteUserEventSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The event ID */
+                eventID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event schema deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listUserSchemas: {
         parameters: {
             query?: never;
@@ -5524,6 +5588,30 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["EventListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteOrganizationEventSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The event ID */
+                eventID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event schema deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             default: components["responses"]["Error"];
         };
     };

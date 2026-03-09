@@ -2067,6 +2067,36 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/subjects/user/events/schema/{eventID}:
+    delete:
+      summary: Delete user event schema
+      description: Soft-deletes a user event and its schema paths
+      operationId: deleteUserEventSchema
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: eventID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The event ID
+      responses:
+        "204":
+          description: Event schema deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/subjects/users/schema:
     get:
       summary: List user schemas
@@ -2429,6 +2459,36 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/EventListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organization/events/schema/{eventID}:
+    delete:
+      summary: Delete organization event schema
+      description: Soft-deletes an organization event and its schema paths
+      operationId: deleteOrganizationEventSchema
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: eventID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The event ID
+      responses:
+        "204":
+          description: Event schema deleted successfully
         default:
           $ref: "#/components/responses/Error"
 

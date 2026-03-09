@@ -133,7 +133,7 @@ func (s *EventsStore) ListEventSchemas(ctx context.Context, projectID uuid.UUID,
 		COALESCE(array_agg(DISTINCT es.data_type ORDER BY es.data_type) FILTER (WHERE es.data_type IS NOT NULL), '{}') as types
 	FROM events e
 	LEFT JOIN event_schemas es ON e.id = es.event_id
-	WHERE e.project_id = $1 AND e.subject_type = $2
+	WHERE e.project_id = $1 AND e.subject_type = $2 AND e.deleted_at IS NULL
 	GROUP BY e.id, e.name, e.subject_type, es.path
 	ORDER BY e.name, es.path`
 
@@ -144,6 +144,25 @@ func (s *EventsStore) ListEventSchemas(ctx context.Context, projectID uuid.UUID,
 	}
 
 	return rows.ToEvents(), nil
+}
+
+func (s *EventsStore) DeleteEvent(ctx context.Context, projectID, eventID uuid.UUID) error {
+	stmt := `UPDATE events SET deleted_at = NOW() WHERE project_id = $1 AND id = $2 AND deleted_at IS NULL`
+	result, err := s.db.ExecContext(ctx, stmt, projectID, eventID)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rows == 0 {
+		return store.ErrNoRows
+	}
+
+	return nil
 }
 
 func (s *EventsStore) ListEventListDependencies(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {

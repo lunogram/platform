@@ -684,3 +684,34 @@ func (srv *OrganizationsController) ListOrganizationEventSchemas(w http.Response
 		Results: results,
 	})
 }
+
+func (srv *OrganizationsController) DeleteOrganizationEventSchema(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, eventID uuid.UUID) {
+	ctx := r.Context()
+	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("events", projectID)); err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.String("project_id", projectID.String()),
+		zap.String("event_id", eventID.String()),
+	)
+
+	logger.Info("deleting organization event schema")
+
+	err := srv.events.DeleteEvent(ctx, projectID, eventID)
+	if errors.Is(err, sql.ErrNoRows) {
+		logger.Info("event not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("event not found")))
+		return
+	}
+
+	if err != nil {
+		logger.Error("failed to delete event", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("organization event schema deleted")
+	w.WriteHeader(http.StatusNoContent)
+}

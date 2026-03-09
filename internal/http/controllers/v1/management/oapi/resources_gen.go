@@ -2223,6 +2223,9 @@ type ClientInterface interface {
 	// ListOrganizationEventSchemas request
 	ListOrganizationEventSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteOrganizationEventSchema request
+	DeleteOrganizationEventSchema(ctx context.Context, projectID openapi_types.UUID, eventID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListOrganizations request
 	ListOrganizations(ctx context.Context, projectID openapi_types.UUID, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2264,6 +2267,9 @@ type ClientInterface interface {
 
 	// ListUserEventSchemas request
 	ListUserEventSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteUserEventSchema request
+	DeleteUserEventSchema(ctx context.Context, projectID openapi_types.UUID, eventID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListUsers request
 	ListUsers(ctx context.Context, projectID openapi_types.UUID, params *ListUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3558,6 +3564,18 @@ func (c *Client) ListOrganizationEventSchemas(ctx context.Context, projectID ope
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteOrganizationEventSchema(ctx context.Context, projectID openapi_types.UUID, eventID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationEventSchemaRequest(c.Server, projectID, eventID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListOrganizations(ctx context.Context, projectID openapi_types.UUID, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListOrganizationsRequest(c.Server, projectID, params)
 	if err != nil {
@@ -3728,6 +3746,18 @@ func (c *Client) RemoveOrganizationMember(ctx context.Context, projectID openapi
 
 func (c *Client) ListUserEventSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListUserEventSchemasRequest(c.Server, projectID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteUserEventSchema(ctx context.Context, projectID openapi_types.UUID, eventID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserEventSchemaRequest(c.Server, projectID, eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -8127,6 +8157,47 @@ func NewListOrganizationEventSchemasRequest(server string, projectID openapi_typ
 	return req, nil
 }
 
+// NewDeleteOrganizationEventSchemaRequest generates requests for DeleteOrganizationEventSchema
+func NewDeleteOrganizationEventSchemaRequest(server string, projectID openapi_types.UUID, eventID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventID", runtime.ParamLocationPath, eventID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organization/events/schema/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListOrganizationsRequest generates requests for ListOrganizations
 func NewListOrganizationsRequest(server string, projectID openapi_types.UUID, params *ListOrganizationsParams) (*http.Request, error) {
 	var err error
@@ -8753,6 +8824,47 @@ func NewListUserEventSchemasRequest(server string, projectID openapi_types.UUID)
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteUserEventSchemaRequest generates requests for DeleteUserEventSchema
+func NewDeleteUserEventSchemaRequest(server string, projectID openapi_types.UUID, eventID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventID", runtime.ParamLocationPath, eventID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/user/events/schema/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -10762,6 +10874,9 @@ type ClientWithResponsesInterface interface {
 	// ListOrganizationEventSchemasWithResponse request
 	ListOrganizationEventSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListOrganizationEventSchemasResponse, error)
 
+	// DeleteOrganizationEventSchemaWithResponse request
+	DeleteOrganizationEventSchemaWithResponse(ctx context.Context, projectID openapi_types.UUID, eventID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationEventSchemaResponse, error)
+
 	// ListOrganizationsWithResponse request
 	ListOrganizationsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*ListOrganizationsResponse, error)
 
@@ -10803,6 +10918,9 @@ type ClientWithResponsesInterface interface {
 
 	// ListUserEventSchemasWithResponse request
 	ListUserEventSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListUserEventSchemasResponse, error)
+
+	// DeleteUserEventSchemaWithResponse request
+	DeleteUserEventSchemaWithResponse(ctx context.Context, projectID openapi_types.UUID, eventID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserEventSchemaResponse, error)
 
 	// ListUsersWithResponse request
 	ListUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListUsersParams, reqEditors ...RequestEditorFn) (*ListUsersResponse, error)
@@ -12655,6 +12773,28 @@ func (r ListOrganizationEventSchemasResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteOrganizationEventSchemaResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrganizationEventSchemaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrganizationEventSchemaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListOrganizationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -12926,6 +13066,28 @@ func (r ListUserEventSchemasResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListUserEventSchemasResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteUserEventSchemaResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteUserEventSchemaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteUserEventSchemaResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -14527,6 +14689,15 @@ func (c *ClientWithResponses) ListOrganizationEventSchemasWithResponse(ctx conte
 	return ParseListOrganizationEventSchemasResponse(rsp)
 }
 
+// DeleteOrganizationEventSchemaWithResponse request returning *DeleteOrganizationEventSchemaResponse
+func (c *ClientWithResponses) DeleteOrganizationEventSchemaWithResponse(ctx context.Context, projectID openapi_types.UUID, eventID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationEventSchemaResponse, error) {
+	rsp, err := c.DeleteOrganizationEventSchema(ctx, projectID, eventID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrganizationEventSchemaResponse(rsp)
+}
+
 // ListOrganizationsWithResponse request returning *ListOrganizationsResponse
 func (c *ClientWithResponses) ListOrganizationsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListOrganizationsParams, reqEditors ...RequestEditorFn) (*ListOrganizationsResponse, error) {
 	rsp, err := c.ListOrganizations(ctx, projectID, params, reqEditors...)
@@ -14657,6 +14828,15 @@ func (c *ClientWithResponses) ListUserEventSchemasWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseListUserEventSchemasResponse(rsp)
+}
+
+// DeleteUserEventSchemaWithResponse request returning *DeleteUserEventSchemaResponse
+func (c *ClientWithResponses) DeleteUserEventSchemaWithResponse(ctx context.Context, projectID openapi_types.UUID, eventID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserEventSchemaResponse, error) {
+	rsp, err := c.DeleteUserEventSchema(ctx, projectID, eventID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteUserEventSchemaResponse(rsp)
 }
 
 // ListUsersWithResponse request returning *ListUsersResponse
@@ -17409,6 +17589,32 @@ func ParseListOrganizationEventSchemasResponse(rsp *http.Response) (*ListOrganiz
 	return response, nil
 }
 
+// ParseDeleteOrganizationEventSchemaResponse parses an HTTP response from a DeleteOrganizationEventSchemaWithResponse call
+func ParseDeleteOrganizationEventSchemaResponse(rsp *http.Response) (*DeleteOrganizationEventSchemaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrganizationEventSchemaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListOrganizationsResponse parses an HTTP response from a ListOrganizationsWithResponse call
 func ParseListOrganizationsResponse(rsp *http.Response) (*ListOrganizationsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -17776,6 +17982,32 @@ func ParseListUserEventSchemasResponse(rsp *http.Response) (*ListUserEventSchema
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteUserEventSchemaResponse parses an HTTP response from a DeleteUserEventSchemaWithResponse call
+func ParseDeleteUserEventSchemaResponse(rsp *http.Response) (*DeleteUserEventSchemaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteUserEventSchemaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -19029,6 +19261,9 @@ type ServerInterface interface {
 	// List organization event schemas
 	// (GET /api/admin/projects/{projectID}/subjects/organization/events/schema)
 	ListOrganizationEventSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete organization event schema
+	// (DELETE /api/admin/projects/{projectID}/subjects/organization/events/schema/{eventID})
+	DeleteOrganizationEventSchema(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, eventID openapi_types.UUID)
 	// List subject organizations
 	// (GET /api/admin/projects/{projectID}/subjects/organizations)
 	ListOrganizations(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListOrganizationsParams)
@@ -19065,6 +19300,9 @@ type ServerInterface interface {
 	// List user event schemas
 	// (GET /api/admin/projects/{projectID}/subjects/user/events/schema)
 	ListUserEventSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete user event schema
+	// (DELETE /api/admin/projects/{projectID}/subjects/user/events/schema/{eventID})
+	DeleteUserEventSchema(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, eventID openapi_types.UUID)
 	// List users
 	// (GET /api/admin/projects/{projectID}/subjects/users)
 	ListUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListUsersParams)
@@ -19617,6 +19855,12 @@ func (_ Unimplemented) ListOrganizationEventSchemas(w http.ResponseWriter, r *ht
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Delete organization event schema
+// (DELETE /api/admin/projects/{projectID}/subjects/organization/events/schema/{eventID})
+func (_ Unimplemented) DeleteOrganizationEventSchema(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, eventID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List subject organizations
 // (GET /api/admin/projects/{projectID}/subjects/organizations)
 func (_ Unimplemented) ListOrganizations(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListOrganizationsParams) {
@@ -19686,6 +19930,12 @@ func (_ Unimplemented) RemoveOrganizationMember(w http.ResponseWriter, r *http.R
 // List user event schemas
 // (GET /api/admin/projects/{projectID}/subjects/user/events/schema)
 func (_ Unimplemented) ListUserEventSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete user event schema
+// (DELETE /api/admin/projects/{projectID}/subjects/user/events/schema/{eventID})
+func (_ Unimplemented) DeleteUserEventSchema(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, eventID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -23057,6 +23307,46 @@ func (siw *ServerInterfaceWrapper) ListOrganizationEventSchemas(w http.ResponseW
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteOrganizationEventSchema operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrganizationEventSchema(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "eventID" -------------
+	var eventID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventID", chi.URLParam(r, "eventID"), &eventID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrganizationEventSchema(w, r, projectID, eventID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListOrganizations operation middleware
 func (siw *ServerInterfaceWrapper) ListOrganizations(w http.ResponseWriter, r *http.Request) {
 
@@ -23557,6 +23847,46 @@ func (siw *ServerInterfaceWrapper) ListUserEventSchemas(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListUserEventSchemas(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteUserEventSchema operation middleware
+func (siw *ServerInterfaceWrapper) DeleteUserEventSchema(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "eventID" -------------
+	var eventID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventID", chi.URLParam(r, "eventID"), &eventID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteUserEventSchema(w, r, projectID, eventID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25173,6 +25503,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organization/events/schema", wrapper.ListOrganizationEventSchemas)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organization/events/schema/{eventID}", wrapper.DeleteOrganizationEventSchema)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations", wrapper.ListOrganizations)
 	})
 	r.Group(func(r chi.Router) {
@@ -25207,6 +25540,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/user/events/schema", wrapper.ListUserEventSchemas)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/user/events/schema/{eventID}", wrapper.DeleteUserEventSchema)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users", wrapper.ListUsers)

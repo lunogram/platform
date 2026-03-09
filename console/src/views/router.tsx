@@ -21,6 +21,7 @@ import Lists from "./users/Lists"
 import ListDetail from "./users/ListDetail"
 import Users from "./users/Users"
 import Subscriptions from "./settings/Subscriptions"
+import EventSchemas from "./settings/EventSchemas"
 import UserDetail from "./users/UserDetail"
 import { createStatefulRoute } from "./createStatefulRoute"
 import UserDetailAttrs from "./users/UserDetailAttrs"
@@ -571,6 +572,10 @@ export const createRouter = ({
                                             {
                                                 path: "subscriptions",
                                                 element: <Subscriptions />,
+                                            },
+                                            {
+                                                path: "event-schemas",
+                                                element: <EventSchemas />,
                                             },
                                         ],
                                     },
