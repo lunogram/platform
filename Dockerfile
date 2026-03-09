@@ -1,6 +1,7 @@
 FROM tinygo/tinygo:0.40.1 AS modules
 WORKDIR /src
 
+USER root
 RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm && rm -rf /var/lib/apt/lists/*
 
 COPY go.mod go.sum ./
