@@ -25,6 +25,7 @@ import api from "@/api"
 import { UserDropdown } from "./user-dropdown"
 import type { Admin } from "@/types"
 import { BookIcon } from "./icons"
+import logoBlack from "/logo-black-512.png"
 
 interface AppSidebarProps {
     links?: SidebarLink[]
@@ -61,6 +62,13 @@ export function AppSidebar({
     return (
         <Sidebar {...props}>
             <SidebarHeader>
+                <div className="px-2 pt-5 pb-2 [[data-mobile=true]_&]:px-2 [[data-mobile=true]_&]:pt-2">
+                    <img
+                        src={logoBlack}
+                        alt="Lunogram"
+                        className="h-8 w-auto [[data-mobile=true]_&]:h-8"
+                    />
+                </div>
                 {allProjects && project && (
                     <ProjectSwitcher projects={allProjects} currentProject={project} />
                 )}

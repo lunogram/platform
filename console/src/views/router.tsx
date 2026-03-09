@@ -48,6 +48,7 @@ import {
     BuildingIcon,
     CampaignsIcon,
     CheckCircleIcon,
+    IntegrationsIcon,
     JourneysIcon,
     ListsIcon,
     SettingsIcon,
@@ -269,6 +270,17 @@ export const createRouter = ({
                                                 ),
                                                 icon: <ListsIcon />,
                                                 minRole: "editor",
+                                            },
+                                            {
+                                                key: "integrations",
+                                                to: "integrations",
+                                                children: (
+                                                    <Translation>
+                                                        {(t) => t("integrations")}
+                                                    </Translation>
+                                                ),
+                                                icon: <IntegrationsIcon />,
+                                                minRole: "admin",
                                             },
                                             {
                                                 key: "settings",
@@ -537,6 +549,10 @@ export const createRouter = ({
                                         errorElement: <ErrorPage />,
                                     },
                                     {
+                                        path: "integrations",
+                                        element: <Integrations />,
+                                    },
+                                    {
                                         path: "settings",
                                         element: <Settings />,
                                         children: [
@@ -551,10 +567,6 @@ export const createRouter = ({
                                             {
                                                 path: "api-keys",
                                                 element: <ApiKeys />,
-                                            },
-                                            {
-                                                path: "integrations",
-                                                element: <Integrations />,
                                             },
                                             {
                                                 path: "subscriptions",

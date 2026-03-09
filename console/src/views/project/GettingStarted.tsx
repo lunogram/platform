@@ -62,7 +62,7 @@ export default function ProjectGettingStarted() {
             title: t("project.getting_started.checklist.integration.title"),
             description: t("project.getting_started.checklist.integration.description"),
             action: (
-                <Button variant="secondary" onClick={() => navigate("../settings/integrations")}>
+                <Button variant="secondary" onClick={() => navigate("../integrations")}>
                     {t("project.getting_started.checklist.integration.action")}
                 </Button>
             ),

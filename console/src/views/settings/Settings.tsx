@@ -1,7 +1,7 @@
 import { Outlet, useLocation } from "react-router"
 import { useTranslation } from "react-i18next"
 import { useContext } from "react"
-import { Settings as SettingsLucideIcon, Globe, Key, Puzzle, Bell } from "lucide-react"
+import { Settings as SettingsLucideIcon, Globe, Key, Bell } from "lucide-react"
 import { ProjectContext } from "../../contexts"
 import { ProjectRoleRequired } from "../project/ProjectRoleRequired"
 import { SettingsIcon } from "@/components/icons"
@@ -20,7 +20,6 @@ export default function Settings() {
         { key: "general", to: "", label: t("general"), icon: SettingsLucideIcon },
         { key: "locales", to: "locales", label: t("locales"), icon: Globe },
         { key: "api-keys", to: "api-keys", label: t("api_keys"), icon: Key },
-        { key: "integrations", to: "integrations", label: t("integrations"), icon: Puzzle },
         { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
     ]
 

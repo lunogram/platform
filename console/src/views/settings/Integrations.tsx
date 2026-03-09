@@ -8,6 +8,7 @@ import { snakeToTitle } from "../../utils"
 import type { Provider } from "../../types"
 import IntegrationModal from "./IntegrationModal"
 import type { UUID } from "@/types/common"
+import { IntegrationsIcon } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -64,9 +65,22 @@ export default function Integrations() {
     }
 
     return (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6">
             {/* Header */}
-            <h2 className="text-2xl font-semibold tracking-tight">{t("integrations")}</h2>
+            <div className="flex items-start gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-xl shrink-0 bg-muted [&>svg]:h-7 [&>svg]:w-7 [&>svg]:text-muted-foreground">
+                    <IntegrationsIcon />
+                </div>
+                <div className="space-y-1">
+                    <h1 className="text-2xl font-semibold tracking-tight">{t("integrations")}</h1>
+                    <p className="text-sm text-muted-foreground">
+                        {t(
+                            "integrations_description",
+                            "Connect email, SMS, and push notification providers to send messages.",
+                        )}
+                    </p>
+                </div>
+            </div>
 
             {/* Search and Actions */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
