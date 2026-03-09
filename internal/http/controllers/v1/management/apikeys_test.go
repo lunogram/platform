@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/rbac/access"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/store/management"
@@ -319,6 +320,9 @@ func TestUpdateApiKey(t *testing.T) {
 			apiKey, err := apiKeysStore.CreateApiKey(ctx, projectID, "Test Key", "project", "support", nil)
 			require.NoError(t, err)
 
+			// Provision the RBAC tuple so deprovision/update can succeed.
+			require.NoError(t, access.ProvisionApiKey(ctx, engine, apiKey.ID, projectID, "support"))
+
 			bb, err := json.Marshal(test.body)
 			require.NoError(t, err)
 
@@ -368,6 +372,9 @@ func TestDeleteApiKey(t *testing.T) {
 		rbac.WithProjectID(projectID),
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	// Provision the RBAC tuple so deprovision can succeed during deletion.
+	require.NoError(t, access.ProvisionApiKey(ctx, engine, apiKey.ID, projectID, "support"))
 
 	controller := NewApiKeysController(logger, mgmt, engine)
 
