@@ -991,3 +991,27 @@ func journeyEntranceEventDependencies(steps oapi.JourneyStepMap) (map[string]str
 
 	return events, nil
 }
+
+func (srv *JourneysController) ListJourneyEntrances(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, journeyID uuid.UUID, params oapi.ListJourneyEntrancesParams) {
+	oapi.WriteProblem(w, problem.ErrUnimplemented())
+}
+
+func (srv *JourneysController) RemoveUserFromJourney(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, journeyID uuid.UUID, userID uuid.UUID) {
+	oapi.WriteProblem(w, problem.ErrUnimplemented())
+}
+
+func (srv *JourneysController) RemoveUserFromJourneyStep(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, journeyID uuid.UUID, stepID string, userID uuid.UUID) {
+	oapi.WriteProblem(w, problem.ErrUnimplemented())
+}
+
+func (srv *JourneysController) ListJourneyStepUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, journeyID uuid.UUID, stepID string, params oapi.ListJourneyStepUsersParams) {
+	oapi.WriteProblem(w, problem.ErrUnimplemented())
+}
+
+func (srv *JourneysController) SkipJourneyStepDelay(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, journeyID uuid.UUID, stepID string, userID uuid.UUID) {
+	oapi.WriteProblem(w, problem.ErrUnimplemented())
+}
+
+func (srv *JourneysController) TriggerUserToJourneyStep(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, journeyID uuid.UUID, stepID string, userID uuid.UUID) {
+	oapi.WriteProblem(w, problem.ErrUnimplemented())
+}

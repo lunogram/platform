@@ -698,3 +698,7 @@ func (srv *ListsController) PreviewListUsers(w http.ResponseWriter, r *http.Requ
 		Results: users.OAPI(),
 	})
 }
+
+func (srv *ListsController) RecountList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
+	oapi.WriteProblem(w, problem.ErrUnimplemented())
+}
