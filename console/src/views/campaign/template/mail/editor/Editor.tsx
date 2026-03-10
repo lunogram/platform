@@ -6,11 +6,11 @@ import "@puckeditor/core/dist/index.css"
 import { TemplateContext } from "@/contexts"
 import { TemplateWorkflowContext } from "../../contexts"
 
-import { EditorWizard, type TemplateProps } from "./SelectionModals/EditorWizard"
+import { EditorWizard, type TemplateProps } from "./selectionModals/EditorWizard"
 import { HtmlEditor } from "./htmlEditor/HtmlEditor"
 import { BlockEditor } from "./blockEditor/BlockEditor"
-import CodeEditorEventListener from "./CodeEditorPlugins/CodeEditorEventListener"
-import CodeStore from "./CodeEditorPlugins/CodeStore"
+import CodeEditorEventListener from "./codeEditorPlugins/CodeEditorEventListener"
+import CodeStore from "./codeEditorPlugins/CodeStore"
 import { PricingEmphasisedHtml } from "./components/templates/PicingEmphasised/PricingEmphasisedHtml"
 import { PricingEmphasisedTemplate } from "./components/templates/PicingEmphasised/PricingEmphasised"
 
@@ -34,7 +34,7 @@ export default function Editor() {
     const [template] = useContext(TemplateContext)
     const { setCanProceed } = useContext(TemplateWorkflowContext)
     const emailTemplates = EmailTemplates()
-    const initialMode = template?.data?.rawHtml ? "code" : template?.data?.editor ? "block" : null
+    const initialMode = template?.data?.html ? "code" : template?.data?.editor ? "block" : null
 
     const [editorMode, setEditorMode] = useState<"block" | "code" | null>(initialMode)
 
@@ -136,10 +136,7 @@ export default function Editor() {
             ) : (
                 <>
                     {editorMode === "code" ? (
-                        <HtmlEditor
-                            data={data}
-                            html={template.data.rawHtml || template.data.html}
-                        />
+                        <HtmlEditor data={data} html={template.data.html || template.data.html} />
                     ) : (
                         <BlockEditor data={data} />
                     )}

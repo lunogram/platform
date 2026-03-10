@@ -2,8 +2,8 @@ import { useContext } from "react"
 import { TemplateWorkflowContext } from "../../../contexts"
 import { CampaignContext, ProjectContext, TemplateContext } from "@/mod"
 import api from "@/api"
-import type CodeStore from "../CodeEditorPlugins/CodeStore"
-import type CodeEditorEventListener from "../CodeEditorPlugins/CodeEditorEventListener"
+import type CodeStore from "../codeEditorPlugins/CodeStore"
+import type CodeEditorEventListener from "../codeEditorPlugins/CodeEditorEventListener"
 
 export default function HtmlSaveHandler(props: {
     eventListener: typeof CodeEditorEventListener

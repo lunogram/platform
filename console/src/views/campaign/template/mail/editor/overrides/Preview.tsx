@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from "react"
-import type CodeEditorEventListener from "../CodeEditorPlugins/CodeEditorEventListener"
-import type CodeStore from "../CodeEditorPlugins/CodeStore"
+import type CodeEditorEventListener from "../codeEditorPlugins/CodeEditorEventListener"
+import type CodeStore from "../codeEditorPlugins/CodeStore"
 
 export const Preview = (props: {
     children: React.ReactNode
     eventListener: typeof CodeEditorEventListener
     codeStore: typeof CodeStore
 }) => {
-    const [rawHtml, setRawHtml] = useState(props.codeStore.current)
+    const [html, sethtml] = useState(props.codeStore.current)
     const iframeRef = useRef<HTMLIFrameElement>(null)
 
     useEffect(() => {
         const handler = () => {
-            setRawHtml(props.codeStore.current)
+            sethtml(props.codeStore.current)
         }
 
         props.eventListener.addEventListener("CODE_CHANGE", handler)
@@ -27,13 +27,13 @@ export const Preview = (props: {
             const doc = iframeRef.current.contentDocument
             if (doc) {
                 doc.open()
-                doc.write(rawHtml)
+                doc.write(html)
                 doc.close()
             }
         }
-    }, [rawHtml])
+    }, [html])
 
-    if (!rawHtml || rawHtml.trim() === "") {
+    if (!html || html.trim() === "") {
         return <>{props.children}</>
     }
 
