@@ -31,7 +31,7 @@ import { ChevronLeft, GripVertical, Info, Zap, Webhook, Blocks, SquareFunction }
 import { JourneyStepNode } from "../components/JourneyStepNode"
 import { JourneyStepEdge } from "../components/JourneyStepEdge"
 import { DATA_FORMAT, stepCategoryColors } from "../hooks/JourneyEditor.constants"
-import type { JourneyNode, JourneyNodeData } from "./JourneyEditor.types"
+import type { JourneyNodeData } from "./JourneyEditor.types"
 import { cloneNodes, getStepType, stepsToNodes } from "./JourneyEditor.utils"
 
 import "./JourneyEditor.css"
@@ -180,14 +180,8 @@ export default function JourneyEditor() {
         await saveSteps(nodes, edges)
     }, [saveSteps, nodes, edges])
 
-    const { users, triggerUser, skipDelayForActiveUser, searchParams, followUser, STORAGE_KEY } =
-        useUserSelection(
-            project.id,
-            journey.id,
-            !!userModalEntranceId,
-            onUserEnteredNode,
-            onStepExecuted,
-        )
+    const { triggerUser, skipDelayForActiveUser, searchParams, followUser, STORAGE_KEY } =
+        useUserSelection(project.id, journey.id, onUserEnteredNode, onStepExecuted)
 
     useEffect(() => {
         if (!stepsLoaded) return
@@ -284,7 +278,7 @@ export default function JourneyEditor() {
     const isEditable = !isArchived && !isMobile
 
     return (
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="flex flex-col flex-1 h-svh min-h-0 overflow-hidden">
             {/* Header toolbar */}
             <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-2.5 border-b bg-background shrink-0">
                 <Button
@@ -649,7 +643,6 @@ export default function JourneyEditor() {
             </JourneyVariableProvider>
 
             <UserSelectionModal
-                users={users}
                 isOpen={!!userModalEntranceId}
                 onClose={() => setUserModalEntranceId(null)}
                 projectId={project.id}

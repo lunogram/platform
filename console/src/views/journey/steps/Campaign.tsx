@@ -1,6 +1,7 @@
 import { useCallback } from "react"
 import api from "../../../api"
 import type { Campaign, CampaignVariable, JourneyStepType } from "../../../types"
+import type { VariableGroup } from "../JourneyVariableContext"
 import { Combobox } from "@/components/ui/combobox"
 import { Label } from "@/components/ui/label"
 import { ActionStepIcon } from "../../../components/icons"
@@ -98,6 +99,40 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
             })
         }
 
+        function VariableRow({
+            variable,
+            rowValue,
+            onRowChange,
+            vars,
+        }: {
+            variable: CampaignVariable
+            rowValue: string
+            onRowChange: (value: string) => void
+            vars: VariableGroup[]
+        }) {
+            const hasDefault = variable.default !== undefined && variable.default !== ""
+
+            return (
+                <div className="space-y-1">
+                    <Label className="text-sm font-medium">
+                        {variable.name}
+                        {!hasDefault && <span className="text-destructive"> *</span>}
+                    </Label>
+                    <TemplateInput
+                        value={rowValue}
+                        onChange={onRowChange}
+                        variables={vars}
+                        placeholder={variable.default ?? variable.name}
+                    />
+                    {hasDefault && (
+                        <p className="text-xs text-muted-foreground">
+                            &darr; Default: {variable.default}
+                        </p>
+                    )}
+                </div>
+            )
+        }
+
         return (
             <div className="space-y-3">
                 <div className="space-y-1.5">
@@ -146,12 +181,12 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
                             </p>
                         </div>
                         {variables.map((v) => (
-                            <CampaignVariableRow
+                            <VariableRow
                                 key={v.name}
                                 variable={v}
-                                value={value.data?.[v.name] ?? ""}
-                                onChange={(newValue) => handleVariableChange(v.name, newValue)}
-                                journeyVariables={journeyVariables}
+                                rowValue={value.data?.[v.name] ?? ""}
+                                onRowChange={(newValue) => handleVariableChange(v.name, newValue)}
+                                vars={journeyVariables}
                             />
                         ))}
                     </div>
@@ -171,38 +206,4 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
     validate: ({ campaign_id }) => {
         return !!campaign_id && campaign_id !== NIL
     },
-}
-
-// ── Variable mapping row ────────────────────────────────────────────
-
-function CampaignVariableRow({
-    variable,
-    value,
-    onChange,
-    journeyVariables,
-}: {
-    variable: CampaignVariable
-    value: string
-    onChange: (value: string) => void
-    journeyVariables: import("../JourneyVariableContext").VariableGroup[]
-}) {
-    const hasDefault = variable.default !== undefined && variable.default !== ""
-
-    return (
-        <div className="space-y-1">
-            <Label className="text-sm font-medium">
-                {variable.name}
-                {!hasDefault && <span className="text-destructive"> *</span>}
-            </Label>
-            <TemplateInput
-                value={value}
-                onChange={onChange}
-                variables={journeyVariables}
-                placeholder={variable.default ?? variable.name}
-            />
-            {hasDefault && (
-                <p className="text-xs text-muted-foreground">&darr; Default: {variable.default}</p>
-            )}
-        </div>
-    )
 }

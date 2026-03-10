@@ -11,8 +11,6 @@ import api from "@/api"
 import * as z from "zod"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
 import { TemplateInput } from "@/components/ui/template-input"
 import {
     Select,

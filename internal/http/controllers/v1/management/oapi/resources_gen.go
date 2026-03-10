@@ -262,14 +262,8 @@ type Campaign struct {
 	Provider       *Provider           `json:"provider,omitempty"`
 	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
 	Templates      []Template          `json:"templates"`
-	Variables      []CampaignVariable  `json:"variables"`
 	UpdatedAt      time.Time           `json:"updated_at"`
-}
-
-// CampaignVariable defines a campaign-declared variable with an optional default.
-type CampaignVariable struct {
-	Name    string  `json:"name"`
-	Default *string `json:"default,omitempty"`
+	Variables      *[]CampaignVariable `json:"variables,omitempty"`
 }
 
 // CampaignUser defines model for CampaignUser.
@@ -285,6 +279,15 @@ type CampaignUser struct {
 
 // CampaignUserStatus defines model for CampaignUser.Status.
 type CampaignUserStatus string
+
+// CampaignVariable defines model for CampaignVariable.
+type CampaignVariable struct {
+	// Default Default value for the variable
+	Default *string `json:"default,omitempty"`
+
+	// Name Variable name
+	Name string `json:"name"`
+}
 
 // Channel Communication channel type
 type Channel string

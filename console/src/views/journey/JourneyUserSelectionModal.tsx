@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import {
     Dialog,
@@ -7,25 +7,22 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { CodeEditor } from "@/components/ui/code-editor"
-import { Search, UserCircle2, Play, ArrowLeft } from "lucide-react"
+import { Loader2, Search, UserCircle2, Play, ArrowLeft } from "lucide-react"
+import { UserCell } from "./components/UserCell"
+import { getUserDisplayName, getUserInitials, getUserSubtext } from "./components/userUtils"
 import { getRandomColor } from "@/lib/colors"
+import { useDebounceControl } from "@/hooks"
+import oapiClient from "@/oapi/client"
 import type { User } from "@/types"
 import api from "@/api"
 import type { UUID } from "@/types/common"
 
+const PAGE_SIZE = 25
+
 interface UserSelectionModalProps {
-    users: User[]
     isOpen: boolean
     onClose: () => void
     onSelect: (user: User, data?: Record<string, unknown>) => void
@@ -33,32 +30,7 @@ interface UserSelectionModalProps {
     eventName?: string
 }
 
-function getUserDisplayName(user: User): string {
-    if (user.full_name) return user.full_name
-    if ((user.data as Record<string, unknown>)?.full_name)
-        return (user.data as Record<string, unknown>).full_name as string
-    if (user.email) return user.email
-    return user.external_id ?? "Unknown"
-}
-
-function getUserInitials(user: User): string {
-    const name = getUserDisplayName(user)
-    const parts = name.trim().split(/[\s@.]+/)
-    if (parts.length >= 2) {
-        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-    }
-    return name.substring(0, 2).toUpperCase()
-}
-
-function getUserSubtext(user: User): string | null {
-    if (user.full_name && user.email) return user.email
-    if (user.full_name && user.external_id) return user.external_id
-    if (user.email && user.external_id) return user.external_id
-    return null
-}
-
 export function UserSelectionModal({
-    users,
     isOpen,
     onClose,
     onSelect,
@@ -66,11 +38,88 @@ export function UserSelectionModal({
     eventName,
 }: UserSelectionModalProps) {
     const { t } = useTranslation()
-    const [searchTerm, setSearchTerm] = useState("")
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
     const [schemaFields, setSchemaFields] = useState<{ path: string; types: string[] }[]>([])
     const [jsonValue, setJsonValue] = useState("")
     const [jsonError, setJsonError] = useState<string | undefined>(undefined)
+
+    // Infinite scroll state
+    const [users, setUsers] = useState<User[]>([])
+    const [total, setTotal] = useState(0)
+    const [loading, setLoading] = useState(false)
+    const [search, setSearch] = useState("")
+    const scrollRef = useRef<HTMLDivElement>(null)
+    const loadingRef = useRef(false)
+
+    const fetchUsers = useCallback(
+        async (searchTerm: string, offset: number, append: boolean) => {
+            if (loadingRef.current) return
+            loadingRef.current = true
+            setLoading(true)
+
+            try {
+                const { data } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/subjects/users",
+                    {
+                        params: {
+                            path: { projectID: projectId },
+                            query: {
+                                limit: PAGE_SIZE,
+                                offset,
+                                ...(searchTerm ? { search: searchTerm } : {}),
+                            },
+                        },
+                    },
+                )
+                if (data) {
+                    const results = (data.results ?? []) as User[]
+                    setUsers((prev) => (append ? [...prev, ...results] : results))
+                    setTotal(data.total ?? 0)
+                }
+            } finally {
+                setLoading(false)
+                loadingRef.current = false
+            }
+        },
+        [projectId],
+    )
+
+    // Debounced search — triggers server-side search
+    const [searchInput, setSearchInput] = useDebounceControl(search, (value) => {
+        setSearch(value)
+    })
+
+    // Fetch on open and when search changes
+    useEffect(() => {
+        if (isOpen) {
+            setUsers([])
+            fetchUsers(search, 0, false)
+        }
+    }, [isOpen, search, fetchUsers])
+
+    // Reset state when modal closes
+    useEffect(() => {
+        if (!isOpen) {
+            setSelectedUser(null)
+            setJsonValue("")
+            setJsonError(undefined)
+            setSearchInput("")
+            setSearch("")
+            setUsers([])
+            setTotal(0)
+        }
+    }, [isOpen, setSearchInput])
+
+    // Infinite scroll handler
+    const handleScroll = useCallback(() => {
+        const el = scrollRef.current
+        if (!el || loadingRef.current) return
+
+        const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100
+        if (nearBottom && users.length < total) {
+            fetchUsers(search, users.length, true)
+        }
+    }, [users.length, total, search, fetchUsers])
 
     // Fetch the event schema for the entrance's event_name
     useEffect(() => {
@@ -86,7 +135,6 @@ export function UserSelectionModal({
                 if (cancelled) return
                 const match = suggestions.eventPaths.find((e) => e.name === eventName)
                 if (match?.schema) {
-                    // Only include fields under .data.* (the user-defined event properties)
                     const dataFields = match.schema.filter((f) => f.path.startsWith(".data."))
                     setSchemaFields(dataFields)
                 } else {
@@ -100,20 +148,9 @@ export function UserSelectionModal({
         }
     }, [isOpen, eventName, projectId])
 
-    // Reset state when modal closes
-    useEffect(() => {
-        if (!isOpen) {
-            setSelectedUser(null)
-            setJsonValue("")
-            setJsonError(undefined)
-            setSearchTerm("")
-        }
-    }, [isOpen])
-
     const handleUserClick = useCallback(
         (user: User) => {
             if (schemaFields.length > 0) {
-                // Build scaffold JSON from schema fields with empty values
                 const scaffold: Record<string, string> = {}
                 for (const field of schemaFields) {
                     const key = field.path.replace(/^\.data\./, "").replace(/^\./, "")
@@ -123,7 +160,6 @@ export function UserSelectionModal({
                 setJsonError(undefined)
                 setSelectedUser(user)
             } else {
-                // No schema — trigger immediately
                 onSelect(user)
             }
         },
@@ -133,20 +169,17 @@ export function UserSelectionModal({
     const handleFormSubmit = useCallback(() => {
         if (!selectedUser) return
 
-        // Parse the JSON from the editor
         let data: Record<string, unknown> | undefined
         if (jsonValue.trim()) {
             try {
                 const parsed = JSON.parse(jsonValue)
                 if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-                    // Only pass data if there are non-empty values
                     const hasValues = Object.values(parsed).some(
                         (v) => v !== "" && v !== null && v !== undefined,
                     )
                     if (hasValues) data = parsed
                 }
             } catch {
-                // Should not happen — Run button is disabled when there's a JSON error
                 return
             }
         }
@@ -160,28 +193,11 @@ export function UserSelectionModal({
         setJsonError(undefined)
     }, [])
 
-    const filteredUsers = useMemo(() => {
-        if (!searchTerm.trim()) return users
-        const term = searchTerm.toLowerCase()
-        return users.filter((user) => {
-            const searchable = [
-                user.full_name,
-                user.email,
-                user.external_id,
-                user.phone,
-                user.timezone,
-                ...Object.values(user.data).map(String),
-            ]
-                .filter(Boolean)
-                .join(" ")
-                .toLowerCase()
-            return searchable.includes(term)
-        })
-    }, [users, searchTerm])
+    const hasMore = users.length < total
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-2xl max-h-[85vh] min-h-[400px] flex flex-col gap-0 p-0">
+            <DialogContent className="w-3/4 max-w-3xl max-h-[85vh] flex flex-col gap-0 p-0">
                 {selectedUser ? (
                     <>
                         <DialogHeader className="px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4">
@@ -257,108 +273,68 @@ export function UserSelectionModal({
                                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     placeholder={t("search_users", "Search users...")}
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value)}
                                     className="pl-9"
                                 />
                             </div>
                         </DialogHeader>
 
-                        <div className="flex-1 min-h-0 overflow-auto border-t">
-                            <Table>
-                                <TableHeader className="bg-background sticky top-0 z-10">
-                                    <TableRow>
-                                        <TableHead>{t("user", "User")}</TableHead>
-                                        <TableHead className="hidden sm:table-cell">
-                                            {t("email", "Email")}
-                                        </TableHead>
-                                        <TableHead className="hidden md:table-cell">
-                                            {t("timezone", "Timezone")}
-                                        </TableHead>
-                                        <TableHead className="w-[1%]" />
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredUsers.length > 0 ? (
-                                        filteredUsers.map((user) => {
-                                            const color = getRandomColor(
-                                                user.email ?? user.external_id ?? user.id,
-                                            )
-                                            const subtext = getUserSubtext(user)
-                                            return (
-                                                <TableRow
-                                                    key={user.id}
-                                                    className="group cursor-pointer"
-                                                    onClick={() => handleUserClick(user)}
-                                                >
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-3 py-0.5">
-                                                            <div
-                                                                className="flex h-8 w-8 items-center justify-center rounded-full text-white text-xs font-medium shrink-0"
-                                                                style={{ backgroundColor: color }}
-                                                            >
-                                                                {getUserInitials(user)}
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <div className="font-medium text-sm truncate">
-                                                                    {getUserDisplayName(user)}
-                                                                </div>
-                                                                {subtext && (
-                                                                    <div className="text-xs text-muted-foreground truncate">
-                                                                        {subtext}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="hidden sm:table-cell text-muted-foreground">
-                                                        {user.email ?? "---"}
-                                                    </TableCell>
-                                                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                                                        {user.timezone ?? "---"}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation()
-                                                                handleUserClick(user)
-                                                            }}
-                                                        >
-                                                            <Play className="h-3.5 w-3.5 mr-1.5 fill-current" />
-                                                            {t("run", "Run")}
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            )
-                                        })
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={4} className="h-32 text-center">
-                                                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                                    <UserCircle2 className="h-8 w-8" />
-                                                    <p>
-                                                        {searchTerm
-                                                            ? t("no_users_found", "No users found")
-                                                            : t("no_users_yet", "No users yet")}
-                                                    </p>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
+                        <div
+                            ref={scrollRef}
+                            className="flex-1 min-h-0 overflow-auto border-t"
+                            onScroll={handleScroll}
+                        >
+                            {users.length > 0 ? (
+                                <div className="divide-y">
+                                    {users.map((user) => (
+                                        <div
+                                            key={user.id}
+                                            className="group flex items-center justify-between px-4 sm:px-6 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                                            onClick={() => handleUserClick(user)}
+                                        >
+                                            <UserCell user={user} />
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleUserClick(user)
+                                                }}
+                                            >
+                                                <Play className="h-3.5 w-3.5 mr-1.5 fill-current" />
+                                                {t("run", "Run")}
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    {loading && hasMore && (
+                                        <div className="flex justify-center py-4">
+                                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                        </div>
                                     )}
-                                </TableBody>
-                            </Table>
+                                </div>
+                            ) : loading ? (
+                                <div className="flex justify-center py-16">
+                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
+                                    <UserCircle2 className="h-8 w-8" />
+                                    <p>
+                                        {searchInput
+                                            ? t("no_users_found", "No users found")
+                                            : t("no_users_yet", "No users yet")}
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
-                        {filteredUsers.length > 0 && (
+                        {users.length > 0 && (
                             <div className="border-t px-4 py-3 sm:px-6">
                                 <p className="text-sm text-muted-foreground">
-                                    {filteredUsers.length}{" "}
-                                    {filteredUsers.length === 1
-                                        ? t("user", "user")
-                                        : t("users", "users")}
+                                    {users.length} of {total}{" "}
+                                    {total === 1 ? t("user", "user") : t("users", "users")}
                                 </p>
                             </div>
                         )}

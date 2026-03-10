@@ -11,7 +11,7 @@ import {
     CommandList,
 } from "@/components/ui/command"
 import { cn } from "@/utils"
-import type { Variable, VariableGroup } from "@/views/journey/JourneyVariableContext"
+import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
 
 // ── Token parsing ───────────────────────────────────────────────────
 

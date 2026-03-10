@@ -4928,6 +4928,24 @@ components:
           type: string
           format: uuid
           example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
+        variables:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignVariable"
+
+    CampaignVariable:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Variable name
+          example: "first_name"
+        default:
+          type: string
+          description: Default value for the variable
+          example: "there"
 
     CreateTemplate:
       type: object
@@ -4996,6 +5014,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Template"
+        variables:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignVariable"
         delivery:
           $ref: "#/components/schemas/Delivery"
 

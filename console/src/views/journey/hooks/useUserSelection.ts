@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { apiUrl } from "@/api"
 import oapiClient from "@/oapi/client"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
-import type { User } from "@/types"
 import { useSearchParams } from "react-router"
 
 const STORAGE_KEY = (projectId: string, journeyId: string) =>
@@ -12,28 +11,12 @@ const STORAGE_KEY = (projectId: string, journeyId: string) =>
 export function useUserSelection(
     projectId: string,
     journeyId: string,
-    isOpen: boolean,
     onUserEnteredNode: (external_id: string) => void,
     onStepExecuted: (external_id: string) => void,
 ) {
     const { t } = useTranslation()
-    const [users, setUsers] = useState<User[]>([])
     const [searchParams, setSearchParams] = useSearchParams()
 
-    useEffect(() => {
-        if (isOpen && users.length === 0) {
-            oapiClient
-                .GET("/api/admin/projects/{projectID}/subjects/users", {
-                    params: {
-                        path: { projectID: projectId },
-                        query: { limit: 100 },
-                    },
-                })
-                .then(({ data }) => {
-                    if (data?.results) setUsers(data.results as User[])
-                })
-        }
-    }, [isOpen, projectId, users.length])
     const eventSourceRef = useRef<EventSource | null>(null)
     const activeUserIdRef = useRef<string | null>(null)
     const onUserEnteredNodeRef = useRef(onUserEnteredNode)
@@ -167,7 +150,6 @@ export function useUserSelection(
     )
 
     return {
-        users,
         triggerUser,
         followUser,
         skipDelay,

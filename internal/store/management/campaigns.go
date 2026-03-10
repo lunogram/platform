@@ -58,7 +58,7 @@ func (campaign Campaign) OAPI() oapi.Campaign {
 		Channel:        oapi.Channel(campaign.Channel),
 		SubscriptionId: campaign.SubscriptionID,
 		Delivery:       campaign.Delivery.Data.OAPI(),
-		Variables:      variables,
+		Variables:      &variables,
 		Templates:      campaign.Templates.OAPI(),
 		CreatedAt:      campaign.CreatedAt,
 		UpdatedAt:      campaign.UpdatedAt,

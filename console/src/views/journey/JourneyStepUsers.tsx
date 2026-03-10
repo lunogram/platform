@@ -1,19 +1,19 @@
 import { useCallback, useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { formatDistanceToNow } from "date-fns"
-import clsx from "clsx"
 import { JourneyContext, ProjectContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
-import { SearchTable, useSearchTableState } from "@/components/search-table"
+import { useSearchTableState } from "@/components/search-table"
 import api from "../../api"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { camelToTitle, formatDate } from "../../utils"
 import { typeVariants } from "./EntranceDetails"
-import { getStepType } from "./editor/JourneyEditor.utils"
-import { stepCategoryColors } from "./hooks/JourneyEditor.constants"
+import { UserCell } from "./components/UserCell"
+import { getUserDisplayName } from "./components/userUtils"
+import { useDebounceControl } from "@/hooks"
 import {
     Dialog,
     DialogContent,
@@ -22,11 +22,18 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import type { JourneyUserStep, User } from "../../types"
-import type { DataTableCol } from "@/components/search-table"
+import type { User } from "../../types"
 import type { UUID } from "@/types/common"
 import Menu, { MenuItem } from "@/components/menu"
-import { FastForward, Trash2, Users } from "lucide-react"
+import {
+    ChevronLeft,
+    ChevronRight,
+    FastForward,
+    Loader2,
+    Search,
+    Trash2,
+    Users,
+} from "lucide-react"
 
 interface StepUsersProps {
     open: boolean
@@ -34,28 +41,6 @@ interface StepUsersProps {
     stepId: UUID
     stepType: string
     stepName: string
-}
-
-function getUserDisplayName(user?: User) {
-    if (!user) return "Unknown"
-    return user.full_name || user.email || user.external_id || "Unknown"
-}
-
-function getUserInitials(user?: User) {
-    const name = getUserDisplayName(user)
-    const parts = name.trim().split(/\s+/)
-    if (parts.length >= 2) {
-        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-    }
-    return name.substring(0, 2).toUpperCase()
-}
-
-function getUserSubtext(user?: User) {
-    if (!user) return null
-    if (user.full_name && user.email) return user.email
-    if (user.full_name && user.external_id) return user.external_id
-    if (user.email && user.external_id) return user.external_id
-    return null
 }
 
 function RelativeTime({ date }: { date: string }) {
@@ -66,7 +51,7 @@ function RelativeTime({ date }: { date: string }) {
     return (
         <Tooltip>
             <TooltipTrigger asChild>
-                <span className="cursor-default">{relative}</span>
+                <span className="cursor-default text-sm text-muted-foreground">{relative}</span>
             </TooltipTrigger>
             <TooltipContent>{absolute}</TooltipContent>
         </Tooltip>
@@ -77,15 +62,11 @@ export function JourneyStepUsers({ open, onClose, stepType, stepId, stepName }: 
     const { t } = useTranslation()
     const [{ id: projectId }] = useContext(ProjectContext)
     const [{ id: journeyId }] = useContext(JourneyContext)
-    const isEntrance = stepType === "entrance"
 
     const [confirmRemove, setConfirmRemove] = useState<{
         stepId: UUID
         user: User
     } | null>(null)
-
-    const stepTypeInfo = getStepType(stepType)
-    const category = stepTypeInfo?.category ?? "action"
 
     const state = useSearchTableState(
         useCallback(
@@ -98,6 +79,10 @@ export function JourneyStepUsers({ open, onClose, stepType, stepId, stepName }: 
             sort: "created_at",
             direction: "desc",
         },
+    )
+
+    const [searchInput, setSearchInput] = useDebounceControl(state.params.search ?? "", (search) =>
+        state.setParams({ ...state.params, search, cursor: undefined }),
     )
 
     const handleSkipDelay = async (stepId: UUID, user: User) => {
@@ -116,158 +101,166 @@ export function JourneyStepUsers({ open, onClose, stepType, stepId, stepName }: 
         setConfirmRemove(null)
     }
 
-    const options: Array<DataTableCol<JourneyUserStep>> =
-        stepType === "delay"
-            ? [
-                  {
-                      key: "options",
-                      title: "",
-                      cell: ({ item: { id, user, type } }) => {
-                          if (user && type !== "completed") {
-                              return (
-                                  <Menu size="min">
-                                      <MenuItem
-                                          onClick={async () => await handleSkipDelay(id, user)}
-                                      >
-                                          <FastForward className="h-4 w-4" />
-                                          {t("skip_delay")}
-                                      </MenuItem>
-                                      <MenuItem
-                                          onClick={() => setConfirmRemove({ stepId: id, user })}
-                                      >
-                                          <Trash2 className="h-4 w-4 text-destructive" />
-                                          <span className="text-destructive">
-                                              {t("remove_from_journey")}
-                                          </span>
-                                      </MenuItem>
-                                  </Menu>
-                              )
-                          }
-                          return null
-                      },
-                  },
-              ]
-            : []
+    const items = state.results?.results
+    const isLoading = !state.results
+    const hasPrev = !!state.results?.prevCursor
+    const hasNext = !!state.results?.nextCursor
 
     return (
         <>
             <Dialog open={open} onOpenChange={onClose}>
-                <DialogContent className="sm:max-w-3xl max-h-[85vh] min-h-[520px] flex flex-col gap-0 p-0">
-                    <DialogHeader className="px-6 pt-6 pb-4">
-                        <div className="flex items-center gap-2.5">
-                            {stepTypeInfo?.icon && (
-                                <span
-                                    className={clsx(
-                                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-md [&_svg]:h-4 [&_svg]:w-4",
-                                        stepCategoryColors[category],
-                                    )}
-                                >
-                                    {stepTypeInfo.icon}
-                                </span>
-                            )}
-                            <div className="min-w-0">
-                                <DialogTitle className="truncate">
-                                    {stepName || stepTypeInfo?.name || t("users")}
-                                </DialogTitle>
-                                <DialogDescription>
-                                    {t("users_in_step", {
-                                        defaultValue:
-                                            "Users currently in or that have passed through this step.",
-                                    })}
-                                </DialogDescription>
-                            </div>
+                <DialogContent className="w-3/4 max-w-3xl max-h-[85vh] flex flex-col gap-0 p-0">
+                    <DialogHeader className="px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4">
+                        <DialogTitle>{stepName || t("users")}</DialogTitle>
+                        <DialogDescription>
+                            {t("users_in_step", {
+                                defaultValue:
+                                    "Users currently in or that have passed through this step.",
+                            })}
+                        </DialogDescription>
+                        <div className="relative mt-3">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder={t("search_users", "Search users...")}
+                                value={searchInput}
+                                onChange={(e) => setSearchInput(e.target.value)}
+                                className="pl-9"
+                            />
                         </div>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-auto px-6 pb-6 pt-1 -mt-1">
-                        <SearchTable
-                            {...state}
-                            enableSearch
-                            emptyMessage={
-                                <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
-                                    <Users className="h-8 w-8" />
-                                    <p>
-                                        {state.params.search
-                                            ? t("no_users_found", {
-                                                  defaultValue: "No users found",
-                                              })
-                                            : t("no_users_in_step", {
-                                                  defaultValue:
-                                                      "No users have reached this step yet",
-                                              })}
-                                    </p>
-                                </div>
-                            }
-                            columns={[
-                                {
-                                    key: "user",
-                                    title: t("user"),
-                                    cell: ({ item }) => {
-                                        const subtext = getUserSubtext(item.user)
-                                        return (
-                                            <div className="flex items-center gap-3 py-0.5">
-                                                <Avatar className="h-8 w-8">
-                                                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-                                                        {getUserInitials(item.user)}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div className="min-w-0">
-                                                    <div className="font-medium text-sm truncate">
-                                                        {getUserDisplayName(item.user)}
-                                                    </div>
-                                                    {subtext && (
-                                                        <div className="text-xs text-muted-foreground truncate">
-                                                            {subtext}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )
-                                    },
-                                    minWidth: 200,
-                                },
-                                {
-                                    key: "type",
-                                    title: t("status"),
-                                    cell: ({ item }) => (
-                                        <Badge variant={typeVariants[item.type]}>
-                                            {camelToTitle(item.type)}
-                                        </Badge>
-                                    ),
-                                },
-                                {
-                                    key: "created_at",
-                                    title: t("step_date"),
-                                    cell: ({ item }) =>
-                                        item.created_at ? (
-                                            <RelativeTime date={item.created_at} />
-                                        ) : null,
-                                },
-                                ...(stepType === "delay"
-                                    ? [
-                                          {
-                                              key: "delay_until",
-                                              title: t("delay_until"),
-                                              cell: ({ item }) =>
-                                                  item.delay_until ? (
-                                                      <RelativeTime date={item.delay_until} />
-                                                  ) : null,
-                                          } as DataTableCol<JourneyUserStep>,
-                                      ]
-                                    : []),
-                                ...options,
-                            ]}
-                            onSelectRow={
-                                isEntrance
-                                    ? ({ id }) =>
-                                          window.open(
-                                              `/projects/${projectId}/entrances/${id}`,
-                                              "_blank",
-                                          )
-                                    : undefined
-                            }
-                        />
+                    <div className="flex-1 min-h-0 overflow-auto border-t">
+                        {items && items.length > 0 ? (
+                            <div className="divide-y">
+                                {items.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="flex items-center gap-3 px-4 sm:px-6 py-2 hover:bg-muted/50 transition-colors"
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <UserCell user={item.user} />
+                                        </div>
+
+                                        <div className="flex items-center gap-3 shrink-0">
+                                            {item.created_at && (
+                                                <RelativeTime date={item.created_at} />
+                                            )}
+
+                                            {stepType === "delay" && item.delay_until && (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <span className="text-xs text-muted-foreground/70 cursor-default">
+                                                            {t("delay_until", "until")}{" "}
+                                                            {formatDistanceToNow(
+                                                                new Date(item.delay_until),
+                                                                { addSuffix: true },
+                                                            )}
+                                                        </span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        {new Date(
+                                                            item.delay_until,
+                                                        ).toLocaleString()}
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            )}
+
+                                            <Badge variant={typeVariants[item.type]}>
+                                                {camelToTitle(item.type)}
+                                            </Badge>
+
+                                            {stepType === "delay" &&
+                                                item.user &&
+                                                item.type !== "completed" && (
+                                                    <Menu size="min">
+                                                        <MenuItem
+                                                            onClick={async () =>
+                                                                await handleSkipDelay(
+                                                                    item.id,
+                                                                    item.user!,
+                                                                )
+                                                            }
+                                                        >
+                                                            <FastForward className="h-4 w-4" />
+                                                            {t("skip_delay")}
+                                                        </MenuItem>
+                                                        <MenuItem
+                                                            onClick={() =>
+                                                                setConfirmRemove({
+                                                                    stepId: item.id,
+                                                                    user: item.user!,
+                                                                })
+                                                            }
+                                                        >
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                            <span className="text-destructive">
+                                                                {t("remove_from_journey")}
+                                                            </span>
+                                                        </MenuItem>
+                                                    </Menu>
+                                                )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : isLoading ? (
+                            <div className="flex justify-center py-16">
+                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
+                                <Users className="h-8 w-8" />
+                                <p>
+                                    {searchInput
+                                        ? t("no_users_found", "No users found")
+                                        : t("no_users_in_step", {
+                                              defaultValue: "No users have reached this step yet",
+                                          })}
+                                </p>
+                            </div>
+                        )}
                     </div>
+
+                    {(hasPrev || hasNext) && (
+                        <div className="border-t px-4 py-3 sm:px-6 flex items-center justify-between">
+                            <p className="text-sm text-muted-foreground">
+                                {state.results?.total != null &&
+                                    `${state.results.total} ${state.results.total === 1 ? t("user", "user") : t("users", "users")}`}
+                            </p>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!hasPrev}
+                                    onClick={() =>
+                                        state.setParams({
+                                            ...state.params,
+                                            cursor: state.results?.prevCursor,
+                                            page: "prev",
+                                        })
+                                    }
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                    {t("previous", "Previous")}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!hasNext}
+                                    onClick={() =>
+                                        state.setParams({
+                                            ...state.params,
+                                            cursor: state.results?.nextCursor,
+                                            page: "next",
+                                        })
+                                    }
+                                >
+                                    {t("next", "Next")}
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
 

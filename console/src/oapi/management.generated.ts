@@ -2146,6 +2146,19 @@ export interface components {
              * @example 5143f27c-cca9-4dc4-9059-e1dbb08144ad
              */
             provider_id?: string;
+            variables?: components["schemas"]["CampaignVariable"][];
+        };
+        CampaignVariable: {
+            /**
+             * @description Variable name
+             * @example first_name
+             */
+            name: string;
+            /**
+             * @description Default value for the variable
+             * @example there
+             */
+            default?: string;
         };
         CreateTemplate: {
             /**
@@ -2189,6 +2202,7 @@ export interface components {
             subscription_id?: string;
             provider?: components["schemas"]["Provider"];
             templates: components["schemas"]["Template"][];
+            variables?: components["schemas"]["CampaignVariable"][];
             delivery: components["schemas"]["Delivery"];
         };
         Delivery: {

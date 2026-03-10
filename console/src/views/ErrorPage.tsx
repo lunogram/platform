@@ -1,8 +1,6 @@
 import { isRouteErrorResponse, Navigate, useNavigate, useRouteError } from "react-router"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { logout } from "../utils"
-import { useClerk } from "@clerk/clerk-react"
 
 import "./ErrorPage.css"
 

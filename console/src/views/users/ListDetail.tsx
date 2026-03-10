@@ -50,7 +50,6 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -157,17 +156,16 @@ export default function ListDetail() {
     const [users, setUsers] = useState<any[] | null>(null)
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
-    const [cursor, setCursor] = useState<string | undefined>()
-    const [pageDirection, setPageDirection] = useState<"next" | "prev" | undefined>()
-    const [cursorHistory, setCursorHistory] = useState<string[]>([])
-    const [nextCursor, setNextCursor] = useState<string | undefined>()
-    const [previewTotal, setPreviewTotal] = useState<number | null>(null)
+    const [offset, setOffset] = useState(0)
+    const [total, setTotal] = useState<number | null>(null)
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
     const route = useRoute()
 
     const isPreviewMode = list.type === "dynamic" && !!list.draft_rule
 
     const listColor = getRandomColor(list.name ?? list.id)
+
+    const pageSize = 25
 
     const loadUsers = useCallback(async () => {
         try {
@@ -177,29 +175,26 @@ export default function ListDetail() {
                     {
                         params: {
                             path: { projectID: project.id, listID: list.id },
-                            query: { limit: 25 },
+                            query: { limit: pageSize },
                         },
                     },
                 )
                 setUsers(data?.results ?? [])
-                setPreviewTotal(data?.total ?? data?.results?.length ?? 0)
-                setNextCursor(undefined)
+                setTotal(data?.total ?? data?.results?.length ?? 0)
             } else {
                 const result = await api.lists.users(project.id, list.id, {
-                    limit: 25,
-                    cursor,
-                    page: pageDirection,
+                    limit: pageSize,
+                    offset,
                     search: debouncedQuery || undefined,
                 })
                 setUsers(result.results)
-                setPreviewTotal(null)
-                setNextCursor(result.nextCursor || undefined)
+                setTotal(result.total ?? null)
             }
         } catch {
             setUsers([])
-            setPreviewTotal(null)
+            setTotal(null)
         }
-    }, [project.id, list.id, cursor, pageDirection, debouncedQuery, isPreviewMode])
+    }, [project.id, list.id, offset, debouncedQuery, isPreviewMode])
 
     useEffect(() => {
         loadUsers()
@@ -241,33 +236,25 @@ export default function ListDetail() {
 
     const handleSearch = useCallback((value: string) => {
         setSearchQuery(value)
-        setCursor(undefined)
-        setPageDirection(undefined)
-        setCursorHistory([])
+        setOffset(0)
         clearTimeout(searchTimeoutRef.current)
         searchTimeoutRef.current = setTimeout(() => {
             setDebouncedQuery(value)
         }, 300)
     }, [])
 
-    const hasPrevPage = cursorHistory.length > 0
-    const hasNextPage = !!nextCursor
+    const hasPrevPage = offset > 0
+    const hasNextPage = total != null && offset + pageSize < total
 
     const handleNextPage = () => {
-        if (nextCursor) {
-            setCursorHistory((prev) => [...prev, cursor ?? ""])
-            setCursor(nextCursor)
-            setPageDirection("next")
+        if (hasNextPage) {
+            setOffset((prev) => prev + pageSize)
         }
     }
 
     const handlePrevPage = () => {
-        if (cursorHistory.length > 0) {
-            const prev = [...cursorHistory]
-            const prevCursor = prev.pop()
-            setCursorHistory(prev)
-            setCursor(prevCursor || undefined)
-            setPageDirection(prevCursor ? "next" : undefined)
+        if (hasPrevPage) {
+            setOffset((prev) => Math.max(0, prev - pageSize))
         }
     }
 
@@ -302,11 +289,6 @@ export default function ListDetail() {
         await api.lists.upload(project.id, list.id, file)
         refreshList()
         setIsUploadOpen(false)
-    }
-
-    const handleRecountList = async () => {
-        await api.lists.recount(project.id, list.id)
-        window.location.reload()
     }
 
     const handleArchiveList = async () => {
@@ -423,11 +405,6 @@ export default function ListDetail() {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={handleRecountList}>
-                                        <RefreshCw className="h-4 w-4 mr-2" />
-                                        {t("recount")}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                         className="text-destructive focus:text-destructive"
                                         onClick={handleArchiveList}
@@ -500,11 +477,11 @@ export default function ListDetail() {
                                     <Eye className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                                     <span className="text-xs text-amber-700 dark:text-amber-300 whitespace-nowrap">
                                         {t("preview_mode", "Preview mode")}
-                                        {previewTotal != null && (
+                                        {total != null && (
                                             <>
                                                 {" · "}
                                                 <span className="font-medium">
-                                                    {previewTotal.toLocaleString()}{" "}
+                                                    {total.toLocaleString()}{" "}
                                                     {t("matching", "matching")}
                                                 </span>
                                             </>
@@ -624,7 +601,9 @@ export default function ListDetail() {
                         {users && users.length > 0 && !isPreviewMode && (
                             <div className="flex items-center justify-between border-t px-4 py-3">
                                 <p className="text-sm text-muted-foreground">
-                                    {users.length} {t("users").toLowerCase()}
+                                    {total != null
+                                        ? `${(offset + 1).toLocaleString()}–${Math.min(offset + pageSize, total).toLocaleString()} of ${total.toLocaleString()} ${t("users").toLowerCase()}`
+                                        : `${users.length} ${t("users").toLowerCase()}`}
                                 </p>
                                 {(hasPrevPage || hasNextPage) && (
                                     <div className="flex items-center gap-2">
