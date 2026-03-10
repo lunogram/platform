@@ -151,6 +151,9 @@ type ActionFunction struct {
 
 // ActionMeta defines model for ActionMeta.
 type ActionMeta struct {
+	// Color Brand color hex code for the module
+	Color *string `json:"color,omitempty"`
+
 	// ConfigSchema JSON Schema for module-level configuration (API keys, etc.)
 	ConfigSchema *json.RawMessage `json:"config_schema,omitempty"`
 
@@ -162,6 +165,9 @@ type ActionMeta struct {
 
 	// Hidden Whether this module is hidden from the UI
 	Hidden *bool `json:"hidden,omitempty"`
+
+	// Icon Icon URL for the module
+	Icon *string `json:"icon,omitempty"`
 
 	// Name Human-readable module name
 	Name string `json:"name"`
@@ -437,6 +443,30 @@ type EmailProviderData struct {
 	DefaultFrom       *string `json:"default_from,omitempty"`
 	DefaultFromLocked *bool   `json:"default_from_locked,omitempty"`
 	DefaultFromName   *string `json:"default_from_name,omitempty"`
+}
+
+// EmailTemplate defines model for EmailTemplate.
+type EmailTemplate struct {
+	// Blocks Block editor JSON data for the visual editor mode
+	Blocks *map[string]interface{} `json:"blocks,omitempty"`
+
+	// Description Short description of the template
+	Description *string `json:"description,omitempty"`
+
+	// Html Raw HTML content for the code editor mode
+	Html *string `json:"html,omitempty"`
+
+	// Id Unique identifier for the template
+	Id string `json:"id"`
+
+	// Label Display name of the template
+	Label string `json:"label"`
+
+	// Text Plain text content for plain-text email rendering
+	Text *string `json:"text,omitempty"`
+
+	// Thumbnail URL to a thumbnail image of the template
+	Thumbnail *string `json:"thumbnail,omitempty"`
 }
 
 // EmailTemplateData defines model for EmailTemplateData.
@@ -798,6 +828,8 @@ type Provider struct {
 
 // ProviderMeta defines model for ProviderMeta.
 type ProviderMeta struct {
+	// Color Brand color hex code for the module
+	Color       *string `json:"color,omitempty"`
 	Description *string `json:"description,omitempty"`
 	Group       string  `json:"group"`
 
@@ -1225,6 +1257,19 @@ type DocumentListResponse struct {
 	Total int `json:"total"`
 }
 
+// EmailTemplateListResponse defines model for EmailTemplateListResponse.
+type EmailTemplateListResponse struct {
+	// Limit Maximum number of items returned
+	Limit int `json:"limit"`
+
+	// Offset Number of items skipped
+	Offset  int             `json:"offset"`
+	Results []EmailTemplate `json:"results"`
+
+	// Total Total number of items matching the filters
+	Total int `json:"total"`
+}
+
 // Error defines model for Error.
 type Error = Problem
 
@@ -1368,6 +1413,18 @@ type ListDocumentsParams struct {
 type UploadDocumentsMultipartBody struct {
 	// Files One or more document files to upload
 	Files []openapi_types.File `json:"files"`
+}
+
+// ListEmailTemplatesParams defines parameters for ListEmailTemplates.
+type ListEmailTemplatesParams struct {
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Search Search query string
+	Search *Search `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // ListJourneysParams defines parameters for ListJourneys.
@@ -2094,6 +2151,9 @@ type ClientInterface interface {
 
 	// GetDocumentMetadata request
 	GetDocumentMetadata(ctx context.Context, projectID openapi_types.UUID, documentID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListEmailTemplates request
+	ListEmailTemplates(ctx context.Context, projectID openapi_types.UUID, params *ListEmailTemplatesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListJourneys request
 	ListJourneys(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2955,6 +3015,18 @@ func (c *Client) GetDocument(ctx context.Context, projectID openapi_types.UUID, 
 
 func (c *Client) GetDocumentMetadata(ctx context.Context, projectID openapi_types.UUID, documentID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDocumentMetadataRequest(c.Server, projectID, documentID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListEmailTemplates(ctx context.Context, projectID openapi_types.UUID, params *ListEmailTemplatesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListEmailTemplatesRequest(c.Server, projectID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -6097,6 +6169,94 @@ func NewGetDocumentMetadataRequest(server string, projectID openapi_types.UUID, 
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListEmailTemplatesRequest generates requests for ListEmailTemplates
+func NewListEmailTemplatesRequest(server string, projectID openapi_types.UUID, params *ListEmailTemplatesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/email/templates", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "search", runtime.ParamLocationQuery, *params.Search); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -10746,6 +10906,9 @@ type ClientWithResponsesInterface interface {
 	// GetDocumentMetadataWithResponse request
 	GetDocumentMetadataWithResponse(ctx context.Context, projectID openapi_types.UUID, documentID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetDocumentMetadataResponse, error)
 
+	// ListEmailTemplatesWithResponse request
+	ListEmailTemplatesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListEmailTemplatesParams, reqEditors ...RequestEditorFn) (*ListEmailTemplatesResponse, error)
+
 	// ListJourneysWithResponse request
 	ListJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*ListJourneysResponse, error)
 
@@ -11878,6 +12041,29 @@ func (r GetDocumentMetadataResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetDocumentMetadataResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListEmailTemplatesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EmailTemplateListResponse
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListEmailTemplatesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListEmailTemplatesResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -14255,6 +14441,15 @@ func (c *ClientWithResponses) GetDocumentMetadataWithResponse(ctx context.Contex
 	return ParseGetDocumentMetadataResponse(rsp)
 }
 
+// ListEmailTemplatesWithResponse request returning *ListEmailTemplatesResponse
+func (c *ClientWithResponses) ListEmailTemplatesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListEmailTemplatesParams, reqEditors ...RequestEditorFn) (*ListEmailTemplatesResponse, error) {
+	rsp, err := c.ListEmailTemplates(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListEmailTemplatesResponse(rsp)
+}
+
 // ListJourneysWithResponse request returning *ListJourneysResponse
 func (c *ClientWithResponses) ListJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListJourneysParams, reqEditors ...RequestEditorFn) (*ListJourneysResponse, error) {
 	rsp, err := c.ListJourneys(ctx, projectID, params, reqEditors...)
@@ -16347,6 +16542,39 @@ func ParseGetDocumentMetadataResponse(rsp *http.Response) (*GetDocumentMetadataR
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Document
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListEmailTemplatesResponse parses an HTTP response from a ListEmailTemplatesWithResponse call
+func ParseListEmailTemplatesResponse(rsp *http.Response) (*ListEmailTemplatesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListEmailTemplatesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EmailTemplateListResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -19157,6 +19385,9 @@ type ServerInterface interface {
 	// Get document metadata
 	// (GET /api/admin/projects/{projectID}/documents/{documentID}/metadata)
 	GetDocumentMetadata(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, documentID openapi_types.UUID)
+	// List email starter templates
+	// (GET /api/admin/projects/{projectID}/email/templates)
+	ListEmailTemplates(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListEmailTemplatesParams)
 	// List journeys
 	// (GET /api/admin/projects/{projectID}/journeys)
 	ListJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListJourneysParams)
@@ -19631,6 +19862,12 @@ func (_ Unimplemented) GetDocument(w http.ResponseWriter, r *http.Request, proje
 // Get document metadata
 // (GET /api/admin/projects/{projectID}/documents/{documentID}/metadata)
 func (_ Unimplemented) GetDocumentMetadata(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, documentID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List email starter templates
+// (GET /api/admin/projects/{projectID}/email/templates)
+func (_ Unimplemented) ListEmailTemplates(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListEmailTemplatesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -21609,6 +21846,64 @@ func (siw *ServerInterfaceWrapper) GetDocumentMetadata(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDocumentMetadata(w, r, projectID, documentID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListEmailTemplates operation middleware
+func (siw *ServerInterfaceWrapper) ListEmailTemplates(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListEmailTemplatesParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListEmailTemplates(w, r, projectID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25397,6 +25692,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/documents/{documentID}/metadata", wrapper.GetDocumentMetadata)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/email/templates", wrapper.ListEmailTemplates)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys", wrapper.ListJourneys)

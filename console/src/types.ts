@@ -659,6 +659,16 @@ export interface TemplateProofParams {
     recipient: string
 }
 
+export interface EmailTemplate {
+    id: string
+    label: string
+    description?: string
+    thumbnail?: string
+    html?: string
+    text?: string
+    blocks?: Record<string, unknown>
+}
+
 export type SubscriptionState = "subscribed" | "unsubscribed"
 
 export interface UserSubscription {
@@ -707,6 +717,7 @@ export interface ProviderMeta {
     description?: string
     url?: string
     icon?: string
+    color?: string
     type: string
     group: string
 

@@ -1100,6 +1100,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/email/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List email starter templates
+         * @description Returns email starter templates for the editor wizard.
+         *     When a webhook URL is configured, proxies the request to the external service.
+         *     Otherwise returns an empty list.
+         */
+        get: operations["listEmailTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/tags": {
         parameters: {
             query?: never;
@@ -1756,6 +1778,10 @@ export interface components {
             };
             /** @description Available functions in this action module */
             functions: components["schemas"]["ActionFunction"][];
+            /** @description Icon URL for the module */
+            icon?: string;
+            /** @description Brand color hex code for the module */
+            color?: string;
             /** @description Whether this module is hidden from the UI */
             hidden?: boolean;
         };
@@ -2387,6 +2413,8 @@ export interface components {
             /** @example https://resend.com */
             url?: string;
             icon?: string;
+            /** @description Brand color hex code for the module */
+            color?: string;
             /** @example email */
             group: string;
             schema: {
@@ -3439,6 +3467,36 @@ export interface components {
              */
             redirect?: string;
         };
+        EmailTemplate: {
+            /**
+             * @description Unique identifier for the template
+             * @example pricing-emphasized
+             */
+            id: string;
+            /**
+             * @description Display name of the template
+             * @example Pricing Emphasized
+             */
+            label: string;
+            /**
+             * @description Short description of the template
+             * @example A clean pricing-focused email layout
+             */
+            description?: string;
+            /**
+             * @description URL to a thumbnail image of the template
+             * @example https://example.com/thumbnails/pricing.png
+             */
+            thumbnail?: string;
+            /** @description Raw HTML content for the code editor mode */
+            html?: string;
+            /** @description Plain text content for plain-text email rendering */
+            text?: string;
+            /** @description Block editor JSON data for the visual editor mode */
+            blocks?: {
+                [key: string]: unknown;
+            };
+        };
     };
     responses: {
         /** @description Error response */
@@ -3480,6 +3538,17 @@ export interface components {
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
                     results: components["schemas"]["Tag"][];
+                };
+            };
+        };
+        /** @description Email starter templates retrieved successfully */
+        EmailTemplateListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PaginatedResponse"] & {
+                    results: components["schemas"]["EmailTemplate"][];
                 };
             };
         };
@@ -5706,6 +5775,29 @@ export interface operations {
                     };
                 };
             };
+            default: components["responses"]["Error"];
+        };
+    };
+    listEmailTemplates: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["EmailTemplateListResponse"];
             default: components["responses"]["Error"];
         };
     };

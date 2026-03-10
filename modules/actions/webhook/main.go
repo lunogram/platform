@@ -35,6 +35,8 @@ func Manifest() int32 {
 			ID:          "webhook",
 			Title:       "Webhook",
 			Description: "Send an HTTP request to an external endpoint",
+			Icon:        "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAwMDAiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBzdHlsZT0ib3BhY2l0eToxOyI+PHBhdGggZD0iTTE4IDE2Ljk4aC01Ljk5Yy0xLjEgMC0xLjk1Ljk0LTIuNDggMS45QTQgNCAwIDAgMSAyIDE3Yy4wMS0uNy4yLTEuNC41Ny0yIi8+PHBhdGggZD0ibTYgMTdsMy4xMy01Ljc4Yy41My0uOTcuMS0yLjE4LS41LTMuMWE0IDQgMCAxIDEgNi44OS00LjA2Ii8+PHBhdGggZD0ibTEyIDZsMy4xMyA1LjczQzE1LjY2IDEyLjcgMTYuOSAxMyAxOCAxM2E0IDQgMCAwIDEgMCA4Ii8+PC9zdmc+",
+			Color:       "#fecc21",
 			Tags:        []string{"http", "webhook", "integration"},
 		},
 		Version: "1.0.0",

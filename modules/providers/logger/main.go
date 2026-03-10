@@ -15,6 +15,8 @@ func Manifest() int32 {
 			ID:          "logger",
 			Title:       "Logger",
 			Description: "Logger channel integration for debugging",
+			Icon:        "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAwMDAiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBzdHlsZT0ib3BhY2l0eToxOyI+PHBhdGggZmlsbD0ibm9uZSIgICAgIGQ9Ik00IDEyaC4wMU00IDZoLjAxTTQgMThoLjAxTTggMThoMm0tMi02aDJNOCA2aDJtNCAwaDZtLTYgNmg2bS02IDZoNiIvPjwvc3ZnPg==",
+			Color:       "#000000",
 			Tags:        []string{"logging", "debug"},
 		},
 		Version: "1.0.0",

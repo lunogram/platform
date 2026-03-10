@@ -96,14 +96,24 @@ func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.
 				return
 			}
 
-			meta = append(meta, oapi.ProviderMeta{
+			pm := oapi.ProviderMeta{
 				Type:        manifest.Metadata.ID,
 				Name:        manifest.Metadata.Title,
 				Description: &manifest.Metadata.Description,
 				Url:         &manifest.Website,
 				Group:       string(channel),
 				Schema:      json.RawMessage(schema),
-			})
+			}
+
+			if manifest.Metadata.Icon != "" {
+				pm.Icon = &manifest.Metadata.Icon
+			}
+
+			if manifest.Metadata.Color != "" {
+				pm.Color = &manifest.Metadata.Color
+			}
+
+			meta = append(meta, pm)
 		}
 	}
 

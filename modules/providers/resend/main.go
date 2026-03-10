@@ -40,6 +40,8 @@ func Manifest() int32 {
 			ID:          "resend",
 			Title:       "Resend Email",
 			Description: "Resend email service integration",
+			Icon:        "https://cdn.resend.com/brand/resend-icon-black.svg",
+			Color:       "#000000",
 			Tags:        []string{"email"},
 		},
 		Website: "https://resend.com",

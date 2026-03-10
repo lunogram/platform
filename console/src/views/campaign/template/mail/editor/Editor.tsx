@@ -1,39 +1,20 @@
 import { useContext, useEffect, useState } from "react"
-import { renderToStaticMarkup } from "react-dom/server"
 import { useTranslation } from "react-i18next"
 
 import "@puckeditor/core/dist/index.css"
 import { TemplateContext } from "@/contexts"
 import { TemplateWorkflowContext } from "../../contexts"
 
-import { EditorWizard, type TemplateProps } from "./SelectionModals/EditorWizard"
+import { EditorWizard } from "./SelectionModals/EditorWizard"
 import { HtmlEditor } from "./htmlEditor/HtmlEditor"
 import { BlockEditor } from "./blockEditor/BlockEditor"
 import CodeEditorEventListener from "./CodeEditorPlugins/CodeEditorEventListener"
 import CodeStore from "./CodeEditorPlugins/CodeStore"
-import { PricingEmphasisedHtml } from "./components/templates/PicingEmphasised/PricingEmphasisedHtml"
-import { PricingEmphasisedTemplate } from "./components/templates/PicingEmphasised/PricingEmphasised"
-
-function EmailTemplates(): TemplateProps[] {
-    const { t } = useTranslation()
-
-    return [
-        {
-            id: "pricing-emphasized",
-            label: t("campaign.template.email.templates.pricingEmphasized.label"),
-            description: t("campaign.template.email.templates.pricingEmphasized.description"),
-            htmlComponent: <PricingEmphasisedHtml />,
-            puckTemplate: PricingEmphasisedTemplate,
-            // You would put a screenshot of the component here
-            thumbnail: undefined,
-        },
-    ]
-}
+import type { EmailTemplate } from "@/types"
 
 export default function Editor() {
     const [template] = useContext(TemplateContext)
     const { setCanProceed } = useContext(TemplateWorkflowContext)
-    const emailTemplates = EmailTemplates()
     const initialMode = template?.data?.rawHtml ? "code" : template?.data?.editor ? "block" : null
 
     const [editorMode, setEditorMode] = useState<"block" | "code" | null>(initialMode)
@@ -53,19 +34,18 @@ export default function Editor() {
         }
     }, [])
 
-    const handleComplete = (type: "block" | "code", templateId: string) => {
+    const handleComplete = (type: "block" | "code", selectedTemplate?: EmailTemplate) => {
         setEditorMode(type)
 
-        const selectedTemplate = emailTemplates.find((t) => t.id === templateId)
         if (selectedTemplate) {
-            if (type === "code") {
-                template.data.html = renderToStaticMarkup(selectedTemplate.htmlComponent)
-                CodeStore.setCode(template.data.html)
+            if (type === "code" && selectedTemplate.html) {
+                template.data.html = selectedTemplate.html
+                CodeStore.setCode(selectedTemplate.html)
                 CodeEditorEventListener.emit("CODE_CHANGE")
-            } else {
-                template.data.editor = selectedTemplate.puckTemplate
+            } else if (type === "block" && selectedTemplate.blocks) {
+                template.data.editor = selectedTemplate.blocks
             }
-        } else if (type === "code" && templateId === "blank") {
+        } else if (type === "code") {
             // Provide a basic HTML skeleton for blank slate in Developer Mode
             const blankHtmlSkeleton = `<!DOCTYPE html>
 <html lang="en">
@@ -130,7 +110,7 @@ export default function Editor() {
     return (
         <div className="w-full h-full flex flex-col">
             {showWizard ? (
-                <EditorWizard templates={emailTemplates} onComplete={handleComplete} />
+                <EditorWizard onComplete={handleComplete} />
             ) : (
                 <>
                     {editorMode === "code" ? (

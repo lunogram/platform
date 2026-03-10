@@ -10,6 +10,7 @@ import type {
     CampaignCreateParams,
     CampaignUpdateParams,
     CampaignUser,
+    EmailTemplate,
     Image,
     Journey,
     JourneyEntranceDetail,
@@ -657,6 +658,15 @@ const api = {
         getByKey: async (projectId: UUID, code: string) =>
             await client
                 .get<Locale>(`${projectUrl(projectId)}/locales/${code}`)
+                .then((r) => r.data),
+    },
+
+    emailTemplates: {
+        search: async (projectId: UUID, params?: Partial<SearchParams>) =>
+            await client
+                .get<SearchResult<EmailTemplate>>(`${projectUrl(projectId)}/email/templates`, {
+                    params,
+                })
                 .then((r) => r.data),
     },
 }

@@ -38,9 +38,12 @@ import EmailEditor from "./campaign/template/mail/editor/Editor"
 import Journeys from "./journey/Journeys"
 import JourneyEditor from "./journey/editor/JourneyEditor"
 import Actions from "./action/Actions"
+import CreateAction from "./action/CreateAction"
 import ActionDetail from "./action/ActionDetail"
 import ProjectSettings from "./settings/ProjectSettings"
 import Integrations from "./settings/Integrations"
+import NewIntegration from "./settings/NewIntegration"
+import IntegrationSetup from "./settings/IntegrationSetup"
 import Login from "./auth/Login"
 import LoginCallback from "./auth/LoginCallback"
 import Onboarding from "./auth/Onboarding"
@@ -434,11 +437,10 @@ export const createRouter = ({
                                         apiPath: api.actions,
                                         element: <Actions />,
                                     }),
-                                    createStatefulRoute({
+                                    {
                                         path: "actions/new",
-                                        apiPath: api.actions,
-                                        element: <Actions create={true} />,
-                                    }),
+                                        element: <CreateAction />,
+                                    },
                                     {
                                         path: "actions/new/:type",
                                         element: <ActionDetail />,
@@ -552,6 +554,18 @@ export const createRouter = ({
                                     {
                                         path: "integrations",
                                         element: <Integrations />,
+                                    },
+                                    {
+                                        path: "integrations/new",
+                                        element: <NewIntegration />,
+                                    },
+                                    {
+                                        path: "integrations/new/:channel/:module",
+                                        element: <IntegrationSetup />,
+                                    },
+                                    {
+                                        path: "integrations/:id",
+                                        element: <IntegrationSetup />,
                                     },
                                     {
                                         path: "settings",

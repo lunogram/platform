@@ -2617,6 +2617,35 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/email/templates:
+    get:
+      summary: List email starter templates
+      description: |
+        Returns email starter templates for the editor wizard.
+        When a webhook URL is configured, proxies the request to the external service.
+        Otherwise returns an empty list.
+      operationId: listEmailTemplates
+      tags:
+        - EmailTemplates
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
+      responses:
+        "200":
+          $ref: "#/components/responses/EmailTemplateListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/tags:
     get:
       summary: List tags
@@ -4164,6 +4193,22 @@ components:
                     items:
                       $ref: "#/components/schemas/Tag"
 
+    EmailTemplateListResponse:
+      description: Email starter templates retrieved successfully
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/PaginatedResponse"
+              - type: object
+                required:
+                  - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmailTemplate"
+
     SubscriptionListResponse:
       description: Subscriptions retrieved successfully
       content:
@@ -4384,6 +4429,12 @@ components:
           items:
             $ref: "#/components/schemas/ActionFunction"
           description: Available functions in this action module
+        icon:
+          type: string
+          description: Icon URL for the module
+        color:
+          type: string
+          description: Brand color hex code for the module
         hidden:
           type: boolean
           description: Whether this module is hidden from the UI
@@ -5290,6 +5341,9 @@ components:
           example: "https://resend.com"
         icon:
           type: string
+        color:
+          type: string
+          description: Brand color hex code for the module
         group:
           type: string
           example: "email"
@@ -6704,6 +6758,39 @@ components:
           type: string
           description: URL to redirect after successful auth
           example: "/"
+
+    EmailTemplate:
+      type: object
+      required:
+        - id
+        - label
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the template
+          example: "pricing-emphasized"
+        label:
+          type: string
+          description: Display name of the template
+          example: "Pricing Emphasized"
+        description:
+          type: string
+          description: Short description of the template
+          example: "A clean pricing-focused email layout"
+        thumbnail:
+          type: string
+          description: URL to a thumbnail image of the template
+          example: "https://example.com/thumbnails/pricing.png"
+        html:
+          type: string
+          description: Raw HTML content for the code editor mode
+        text:
+          type: string
+          description: Plain text content for plain-text email rendering
+        blocks:
+          type: object
+          description: Block editor JSON data for the visual editor mode
+          additionalProperties: true
 
   securitySchemes:
     HttpBearerAuth:

@@ -72,4 +72,11 @@ type Webhook struct {
 	ProjectCreatedURL string `env:"PROJECT_CREATED_URL"`
 	// ProjectCreatedTimeout is the HTTP timeout for the webhook call
 	ProjectCreatedTimeout time.Duration `env:"PROJECT_CREATED_TIMEOUT" envDefault:"30s"`
+
+	// EmailTemplatesURL is the webhook URL called to fetch email starter templates.
+	// When configured, the backend proxies gallery requests to this endpoint.
+	// When not configured, the endpoint returns an empty list.
+	EmailTemplatesURL string `env:"EMAIL_TEMPLATES_URL"`
+	// EmailTemplatesTimeout is the HTTP timeout for the email templates webhook call
+	EmailTemplatesTimeout time.Duration `env:"EMAIL_TEMPLATES_TIMEOUT" envDefault:"10s"`
 }

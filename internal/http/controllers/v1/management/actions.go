@@ -247,6 +247,14 @@ func (srv *ActionsController) ListActionMeta(w http.ResponseWriter, r *http.Requ
 			Description: &manifest.Metadata.Description,
 		}
 
+		if manifest.Metadata.Icon != "" {
+			m.Icon = &manifest.Metadata.Icon
+		}
+
+		if manifest.Metadata.Color != "" {
+			m.Color = &manifest.Metadata.Color
+		}
+
 		if manifest.Config != nil {
 			schema, err := json.Marshal(manifest.Config)
 			if err != nil {

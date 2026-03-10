@@ -15,6 +15,8 @@ func Manifest() int32 {
 			ID:          "twilio",
 			Title:       "Twilio",
 			Description: "Send emails and SMS via Twilio",
+			Icon:        "https://static.cdnlogo.com/logos/t/14/twilio.svg",
+			Color:       "#c7252b",
 			Tags:        []string{"email", "sms"},
 		},
 		Website: "https://twilio.com",
