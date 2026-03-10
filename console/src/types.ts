@@ -563,6 +563,11 @@ export interface CampaignDelivery {
     clicks: number
 }
 
+export interface CampaignVariable {
+    name: string
+    default?: string
+}
+
 export type CampaignType = "blast" | "trigger"
 
 export interface Campaign {
@@ -577,6 +582,7 @@ export interface Campaign {
     subscription_id?: UUID
     subscription?: Subscription
     templates: Template[]
+    variables: CampaignVariable[]
     list_ids?: UUID[]
     lists?: List[]
     exclusion_list_ids?: UUID[]
@@ -606,6 +612,7 @@ export type CampaignUpdateParams = Partial<
         | "exclusion_list_ids"
         | "subscription_id"
         | "tags"
+        | "variables"
     >
 >
 export type CampaignCreateParams = Pick<Campaign, "name" | "channel" | "tags">

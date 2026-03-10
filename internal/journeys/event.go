@@ -6,6 +6,7 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/subjects"
 )
@@ -20,14 +21,14 @@ func HandleEvent(ctx HandlerContext, step journey.JourneyVersionStep, state jour
 		return state, nil, fmt.Errorf("event_name is required")
 	}
 
-	eventName, err := RenderString(config.EventName, ctx.Data)
+	eventName, err := render.RenderString(config.EventName, ctx.Data)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to render event_name: %w", err)
 	}
 
 	var payload map[string]any
 	if config.Template != nil && *config.Template != "" {
-		rendered, err := RenderString(*config.Template, ctx.Data)
+		rendered, err := render.RenderString(*config.Template, ctx.Data)
 		if err != nil {
 			return state, nil, fmt.Errorf("failed to render template: %w", err)
 		}

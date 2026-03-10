@@ -529,7 +529,7 @@ func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid
 // preview of which users would be included when the draft rule is published.
 func (s *ListsStore) PreviewListUsers(ctx context.Context, projectID uuid.UUID, ruleset rules.RuleSet, limit int) (Users, int, error) {
 	builder := query.NewQueryBuilder(projectID, nil)
-	ruleQuery, err := builder.Query(ruleset)
+	query, err := builder.Query(ruleset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -550,7 +550,7 @@ func (s *ListsStore) PreviewListUsers(ctx context.Context, projectID uuid.UUID, 
 	FROM users u
 	INNER JOIN matched m ON u.id = m.id
 	ORDER BY u.created_at DESC
-	LIMIT %d`, ruleQuery.SQL, limit)
+	LIMIT %d`, query.SQL, limit)
 
 	type result struct {
 		User
@@ -558,7 +558,7 @@ func (s *ListsStore) PreviewListUsers(ctx context.Context, projectID uuid.UUID, 
 	}
 
 	var results []result
-	err = s.db.SelectContext(ctx, &results, sql, ruleQuery.Args...)
+	err = s.db.SelectContext(ctx, &results, sql, query.Args...)
 	if err != nil {
 		return nil, 0, err
 	}

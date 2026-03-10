@@ -10,6 +10,7 @@ import * as z from "zod"
 import { Render } from "@/renderTemplates"
 
 import { Input } from "@/components/ui/input"
+import { TemplateInput } from "@/components/ui/template-input"
 import { Button } from "@/components/ui/button"
 import {
     Select,
@@ -22,6 +23,7 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 
 import { UserSelection } from "../UserSelection"
+import { useCampaignVariableContext } from "../../CampaignVariableContext"
 
 const emailSetupFormSchema = z.object({
     subject: z.string("Subject is required").min(1, "Subject is required"),
@@ -85,6 +87,7 @@ interface EmailFormControlProps {
 
 export function EmailFormControl({ campaign, form, disabled = false }: EmailFormControlProps) {
     const { t } = useTranslation()
+    const { variableGroups } = useCampaignVariableContext()
 
     return (
         <FieldGroup className="mt-7">
@@ -96,14 +99,13 @@ export function EmailFormControl({ campaign, form, disabled = false }: EmailForm
                         <FieldLabel htmlFor="form-rhf-demo-subject">
                             {t("campaign.setup.channels.email.subject.label")}
                         </FieldLabel>
-                        <Input
-                            {...field}
+                        <TemplateInput
+                            value={field.value}
+                            onChange={field.onChange}
                             id="form-rhf-demo-subject"
-                            aria-invalid={fieldState.invalid}
                             placeholder=""
-                            autoComplete="off"
                             disabled={disabled}
-                            readOnly={disabled}
+                            variables={variableGroups}
                         />
                         {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
@@ -117,14 +119,13 @@ export function EmailFormControl({ campaign, form, disabled = false }: EmailForm
                         <FieldLabel htmlFor="form-rhf-demo-fromName">
                             {t("campaign.setup.channels.email.from.name.label")}
                         </FieldLabel>
-                        <Input
-                            {...field}
+                        <TemplateInput
+                            value={field.value ?? ""}
+                            onChange={field.onChange}
                             id="form-rhf-demo-fromName"
-                            aria-invalid={fieldState.invalid}
                             placeholder={campaign?.provider?.data.default_from_name || ""}
-                            autoComplete="off"
                             disabled={disabled}
-                            readOnly={disabled}
+                            variables={variableGroups}
                         />
                         {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
@@ -192,7 +193,7 @@ export function EmailPreview({ campaign, form }: EmailSetupProps) {
     const { subject, from } = form.watch()
     let previewSubject = subject
 
-    const displayFromName =
+    let displayFromName =
         from?.name ||
         template?.data?.from?.name ||
         campaign?.provider?.data?.default_from_name ||
@@ -203,6 +204,10 @@ export function EmailPreview({ campaign, form }: EmailSetupProps) {
 
     if (selectedUser) {
         previewSubject = Render(subject, {
+            user: selectedUser,
+        })
+
+        displayFromName = Render(displayFromName, {
             user: selectedUser,
         })
     }
@@ -322,13 +327,19 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
 
     const { subject, from, replyTo } = form.watch()
 
-    const displayFromName =
+    const rawFromName =
         from.name || template.data.from?.name || campaign?.provider?.data.default_from_name || ""
     const displayFromEmail =
         from.email || template.data.from?.email || campaign?.provider?.data.default_from || ""
     const displayReplyTo = replyTo || template.data.replyTo || ""
 
-    const htmlTemplate = template?.data?.html || ""
+    const rawHtmlTemplate = template?.data?.html || ""
+
+    const displaySubject = selectedUser ? Render(subject, { user: selectedUser }) : subject
+    const displayFromName = selectedUser ? Render(rawFromName, { user: selectedUser }) : rawFromName
+    const htmlTemplate = selectedUser
+        ? Render(rawHtmlTemplate, { user: selectedUser })
+        : rawHtmlTemplate
 
     const handleEditTemplate = () => {
         navigate(`/projects/${project?.id}/campaigns/${campaign.id}/templates/${template.id}`)
@@ -379,7 +390,9 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
                 <div className="px-6 py-4">
                     <div className="flex items-start justify-between mb-4">
                         <h1 className="text-[22px] font-normal text-gray-900 flex-1 pr-4">
-                            {subject || <span className="text-gray-400 italic">No subject</span>}
+                            {displaySubject || (
+                                <span className="text-gray-400 italic">No subject</span>
+                            )}
                         </h1>
                         <div className="flex items-center gap-1 text-gray-600 flex-shrink-0">
                             <button className="p-2 hover:bg-gray-100 rounded-full" title="Archive">

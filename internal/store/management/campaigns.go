@@ -19,22 +19,38 @@ func (campaigns Campaigns) OAPI() []oapi.Campaign {
 	return result
 }
 
+type CampaignVariable struct {
+	Name    string  `json:"name"`
+	Default *string `json:"default,omitempty"`
+}
+
+type CampaignVariables []CampaignVariable
+
 type Campaign struct {
-	ID             uuid.UUID             `db:"id"`
-	ProjectID      uuid.UUID             `db:"project_id"`
-	Name           string                `db:"name"`
-	Channel        string                `db:"channel"`
-	ProviderID     *uuid.UUID            `db:"provider_id"`
-	SubscriptionID *uuid.UUID            `db:"subscription_id"`
-	Delivery       store.JSONB[Delivery] `db:"delivery"`
-	Templates      Templates             `db:"-"`
-	Provider       *Provider             `db:"-"`
-	CreatedAt      time.Time             `db:"created_at"`
-	UpdatedAt      time.Time             `db:"updated_at"`
-	DeletedAt      *time.Time            `db:"deleted_at"`
+	ID             uuid.UUID                      `db:"id"`
+	ProjectID      uuid.UUID                      `db:"project_id"`
+	Name           string                         `db:"name"`
+	Channel        string                         `db:"channel"`
+	ProviderID     *uuid.UUID                     `db:"provider_id"`
+	SubscriptionID *uuid.UUID                     `db:"subscription_id"`
+	Delivery       store.JSONB[Delivery]          `db:"delivery"`
+	Variables      store.JSONB[CampaignVariables] `db:"variables"`
+	Templates      Templates                      `db:"-"`
+	Provider       *Provider                      `db:"-"`
+	CreatedAt      time.Time                      `db:"created_at"`
+	UpdatedAt      time.Time                      `db:"updated_at"`
+	DeletedAt      *time.Time                     `db:"deleted_at"`
 }
 
 func (campaign Campaign) OAPI() oapi.Campaign {
+	variables := make([]oapi.CampaignVariable, len(campaign.Variables.Data))
+	for i, v := range campaign.Variables.Data {
+		variables[i] = oapi.CampaignVariable{
+			Name:    v.Name,
+			Default: v.Default,
+		}
+	}
+
 	result := oapi.Campaign{
 		Id:             campaign.ID,
 		ProjectId:      campaign.ProjectID,
@@ -42,6 +58,7 @@ func (campaign Campaign) OAPI() oapi.Campaign {
 		Channel:        oapi.Channel(campaign.Channel),
 		SubscriptionId: campaign.SubscriptionID,
 		Delivery:       campaign.Delivery.Data.OAPI(),
+		Variables:      variables,
 		Templates:      campaign.Templates.OAPI(),
 		CreatedAt:      campaign.CreatedAt,
 		UpdatedAt:      campaign.UpdatedAt,
@@ -102,7 +119,7 @@ func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) 
 
 func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, pagination store.Pagination, search string) (Campaigns, int, error) {
 	query := `
-	SELECT id, project_id, name, channel, provider_id, subscription_id, delivery, created_at, updated_at, deleted_at,
+	SELECT id, project_id, name, channel, provider_id, subscription_id, delivery, variables, created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM campaigns
 	WHERE project_id = $1
@@ -135,7 +152,7 @@ func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, p
 
 func (s *CampaignsStore) GetCampaign(ctx context.Context, projectID, campaignID uuid.UUID) (*Campaign, error) {
 	query := `
-	SELECT id, project_id, name, channel, provider_id, subscription_id, delivery, created_at, updated_at, deleted_at
+	SELECT id, project_id, name, channel, provider_id, subscription_id, delivery, variables, created_at, updated_at, deleted_at
 	FROM campaigns
 	WHERE project_id = $1
 	AND id = $2
@@ -165,6 +182,7 @@ func (s *CampaignsStore) GetCampaign(ctx context.Context, projectID, campaignID 
 type CampaignUpdate struct {
 	Name       *string
 	ProviderID *uuid.UUID
+	Variables  *store.JSONB[CampaignVariables]
 }
 
 func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaignID uuid.UUID, update CampaignUpdate) error {
@@ -172,12 +190,22 @@ func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaign
 	UPDATE campaigns
 	SET
 		name = COALESCE($1, name),
-		provider_id = COALESCE($2, provider_id)
-	WHERE project_id = $3
-	AND id = $4
+		provider_id = COALESCE($2, provider_id),
+		variables = COALESCE($3, variables)
+	WHERE project_id = $4
+	AND id = $5
 	AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, query, update.Name, update.ProviderID, projectID, campaignID)
+	var variablesVal any
+	if update.Variables != nil {
+		v, err := update.Variables.Value()
+		if err != nil {
+			return err
+		}
+		variablesVal = v
+	}
+
+	_, err := s.db.ExecContext(ctx, query, update.Name, update.ProviderID, variablesVal, projectID, campaignID)
 	return err
 }
 

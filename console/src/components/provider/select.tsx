@@ -1,7 +1,8 @@
 import { useState, useEffect, useContext } from "react"
 import { ProjectContext } from "@/contexts"
-import api from "@/api"
-import type { Provider, ProviderGroup } from "@/types"
+import oapiClient from "@/oapi/client"
+import type { components } from "@/oapi/management.generated"
+import type { ProviderGroup } from "@/types"
 import { useTranslation } from "react-i18next"
 
 import {
@@ -11,6 +12,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+
+type Provider = components["schemas"]["Provider"]
 
 interface ProviderSelectProps {
     value?: string
@@ -28,8 +31,16 @@ export function ProviderSelect({ value, onChange, channel }: ProviderSelectProps
         const fetchProviders = async () => {
             setIsLoading(true)
             try {
-                const result = await api.providers.all(project.id)
-                const filteredProviders = result.filter((provider) => provider.channel === channel)
+                const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
+                    params: {
+                        path: { projectID: project.id },
+                    },
+                })
+
+                const allProviders = data?.results ?? []
+                const filteredProviders = allProviders.filter(
+                    (provider) => provider.channel === channel,
+                )
                 setProviders(filteredProviders)
 
                 if (filteredProviders.length > 0 && !value) {

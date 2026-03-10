@@ -1,6 +1,6 @@
 import { useCallback } from "react"
 import api from "../../../api"
-import type { Campaign, JourneyStepType } from "../../../types"
+import type { Campaign, CampaignVariable, JourneyStepType } from "../../../types"
 import { Combobox } from "@/components/ui/combobox"
 import { Label } from "@/components/ui/label"
 import { ActionStepIcon } from "../../../components/icons"
@@ -13,9 +13,12 @@ import type { UUID } from "@/types/common"
 import { NIL } from "uuid"
 import { PlusIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { TemplateInput } from "@/components/ui/template-input"
+import { useJourneyVariableContext } from "../JourneyVariableContext"
 
 interface CampaignConfig {
     campaign_id: UUID
+    data?: Record<string, string>
 }
 
 type CampaignOption = Campaign & { path: string }
@@ -60,9 +63,10 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
     newData: async () => ({
         campaign_id: NIL as UUID,
     }),
-    Edit({ project, onChange, value, onSaveDraft }) {
+    Edit({ project, onChange, value, onSaveDraft, nodeId }) {
         const { t } = useTranslation()
         const projectId = project.id
+        const { getVariablesForNode } = useJourneyVariableContext()
 
         const [campaign] = useResolver(
             useCallback(async () => {
@@ -84,6 +88,16 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
             [projectId],
         )
 
+        const variables = campaign?.variables ?? []
+        const journeyVariables = nodeId ? getVariablesForNode(nodeId) : []
+
+        const handleVariableChange = (name: string, newValue: string) => {
+            onChange({
+                ...value,
+                data: { ...value.data, [name]: newValue },
+            })
+        }
+
         return (
             <div className="space-y-3">
                 <div className="space-y-1.5">
@@ -97,7 +111,7 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
                         value={value.campaign_id === NIL ? "" : value.campaign_id}
                         displayValue={campaign?.name}
                         onValueChange={(id) =>
-                            onChange({ ...value, campaign_id: (id || NIL) as UUID })
+                            onChange({ ...value, campaign_id: (id || NIL) as UUID, data: {} })
                         }
                         placeholder={t("campaign.singular")}
                         renderOption={(option) => option.name}
@@ -117,10 +131,78 @@ export const campaignStep: JourneyStepType<CampaignConfig> = {
                         </Button>
                     }
                 />
+
+                {campaign && variables.length > 0 && (
+                    <div className="space-y-3 border-t pt-3">
+                        <div>
+                            <Label className="text-sm font-medium">
+                                {t("campaign.variables.mapping_title", "Variable Mapping")}
+                            </Label>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                {t(
+                                    "campaign.variables.mapping_description",
+                                    "Map journey data to this campaign's variables.",
+                                )}
+                            </p>
+                        </div>
+                        {variables.map((v) => (
+                            <CampaignVariableRow
+                                key={v.name}
+                                variable={v}
+                                value={value.data?.[v.name] ?? ""}
+                                onChange={(newValue) => handleVariableChange(v.name, newValue)}
+                                journeyVariables={journeyVariables}
+                            />
+                        ))}
+                    </div>
+                )}
+
+                {campaign && variables.length === 0 && (
+                    <p className="text-xs text-muted-foreground italic border-t pt-3">
+                        {t(
+                            "campaign.variables.none_defined",
+                            "This campaign has no variables defined.",
+                        )}
+                    </p>
+                )}
             </div>
         )
     },
     validate: ({ campaign_id }) => {
         return !!campaign_id && campaign_id !== NIL
     },
+}
+
+// ── Variable mapping row ────────────────────────────────────────────
+
+function CampaignVariableRow({
+    variable,
+    value,
+    onChange,
+    journeyVariables,
+}: {
+    variable: CampaignVariable
+    value: string
+    onChange: (value: string) => void
+    journeyVariables: import("../JourneyVariableContext").VariableGroup[]
+}) {
+    const hasDefault = variable.default !== undefined && variable.default !== ""
+
+    return (
+        <div className="space-y-1">
+            <Label className="text-sm font-medium">
+                {variable.name}
+                {!hasDefault && <span className="text-destructive"> *</span>}
+            </Label>
+            <TemplateInput
+                value={value}
+                onChange={onChange}
+                variables={journeyVariables}
+                placeholder={variable.default ?? variable.name}
+            />
+            {hasDefault && (
+                <p className="text-xs text-muted-foreground">&darr; Default: {variable.default}</p>
+            )}
+        </div>
+    )
 }

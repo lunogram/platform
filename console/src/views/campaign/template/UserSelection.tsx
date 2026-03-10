@@ -30,7 +30,7 @@ export function UserSelection({ projectId, value, onChange }: UserSelectionProps
 
     const fetchUsers = useCallback(async () => {
         const users = await api.users.search(projectId, {
-            search: search,
+            search: search || undefined,
             limit: 50,
         })
 
@@ -52,14 +52,14 @@ export function UserSelection({ projectId, value, onChange }: UserSelectionProps
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
-                    className="w-[200px] justify-between"
+                    className="max-w-xs justify-between min-w-0"
                 >
-                    {value ? value.email : "Select user..."}
-                    <ChevronsUpDown className="opacity-50" />
+                    <span className="truncate">{value ? value.email : "Select user..."}</span>
+                    <ChevronsUpDown className="opacity-50 shrink-0" />
                 </Button>
             </PopoverTrigger>
 
-            <PopoverContent className="w-[200px] p-0">
+            <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
                 <Command>
                     <CommandInput
                         placeholder="Search user..."

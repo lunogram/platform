@@ -2,6 +2,7 @@ import { ChevronRight, Loader2 } from "lucide-react"
 import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router"
 import { useCallback, useContext, useMemo, memo, useState, useEffect, useRef } from "react"
 import { CampaignContext, LocaleContext, ProjectContext, type LocaleSelection } from "@/contexts"
+import { CampaignVariableProvider } from "../CampaignVariableContext"
 import api from "@/api"
 
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
@@ -217,7 +218,9 @@ export default function Template() {
                                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                             </div>
                         ) : (
-                            <Outlet />
+                            <CampaignVariableProvider>
+                                <Outlet />
+                            </CampaignVariableProvider>
                         )}
                     </div>
                     <div className="border-t bg-background flex items-center justify-center px-6 py-4">

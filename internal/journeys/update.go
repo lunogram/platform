@@ -6,6 +6,7 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/subjects"
 )
@@ -21,7 +22,7 @@ func HandleUpdate(ctx HandlerContext, step journey.JourneyVersionStep, state jou
 		return state, step.Children, nil
 	}
 
-	rendered, err := RenderString(config.Template, ctx.Data)
+	rendered, err := render.RenderString(config.Template, ctx.Data)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to render template: %w", err)
 	}

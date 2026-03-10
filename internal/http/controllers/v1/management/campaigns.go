@@ -226,6 +226,17 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 		ProviderID: body.ProviderId,
 	}
 
+	if body.Variables != nil {
+		vars := make(management.CampaignVariables, len(*body.Variables))
+		for i, v := range *body.Variables {
+			vars[i] = management.CampaignVariable{
+				Name:    v.Name,
+				Default: v.Default,
+			}
+		}
+		updated.Variables = &store.JSONB[management.CampaignVariables]{Data: vars}
+	}
+
 	err = srv.mgmt.UpdateCampaign(ctx, projectID, campaignID, updated)
 	if err != nil {
 		logger.Error("failed to update campaign", zap.Error(err))

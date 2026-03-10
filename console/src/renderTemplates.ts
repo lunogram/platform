@@ -16,30 +16,18 @@ export interface Variables {
 
 export const compileTemplate = <T = any>(template: string) => {
     return Handlebars.compile<T>(template, {
-        strict: true,
-    })
-}
-
-function createSafeProxy(obj: any): any {
-    return new Proxy(obj ?? {}, {
-        get(target, prop) {
-            if (prop in target) return target[prop]
-            return `{{${prop.toString()}}}`
-        },
+        strict: false,
+        noEscape: true,
     })
 }
 
 export const Render = (template: string, { user }: Variables) => {
     if (!template) return template
 
-    const safeUser = createSafeProxy(user)
-
     try {
-        return compileTemplate(template)({
-            user: safeUser,
-        })
+        return compileTemplate(template)({ user })
     } catch (err) {
         console.warn("Template render error:", err)
-        return template // fallback: show raw template
+        return template
     }
 }

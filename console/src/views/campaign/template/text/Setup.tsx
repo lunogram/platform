@@ -10,6 +10,7 @@ import * as z from "zod"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
+import { TemplateInput } from "@/components/ui/template-input"
 import { Button } from "@/components/ui/button"
 import {
     Select,
@@ -21,6 +22,7 @@ import {
 import { UserSelection } from "../UserSelection"
 import { useContext, useState, useEffect } from "react"
 import { ProjectContext, TemplateContext } from "@/contexts"
+import { useCampaignVariableContext } from "../../CampaignVariableContext"
 
 const textSetupFormSchema = z.object({
     from: z.string().optional(),
@@ -51,6 +53,7 @@ interface TextFormControlProps {
 
 export function TextFormControl({ campaign, form, disabled = false }: TextFormControlProps) {
     const { t } = useTranslation()
+    const { variableGroups } = useCampaignVariableContext()
 
     return (
         <FieldGroup className="mt-7">
@@ -83,13 +86,12 @@ export function TextFormControl({ campaign, form, disabled = false }: TextFormCo
                         <FieldLabel htmlFor="form-rhf-demo-message">
                             {t("campaign.setup.channels.text.message.label")}
                         </FieldLabel>
-                        <Textarea
-                            {...field}
-                            aria-invalid={fieldState.invalid}
+                        <TemplateInput
+                            value={field.value}
+                            onChange={field.onChange}
                             placeholder=""
-                            autoComplete="off"
                             disabled={disabled}
-                            readOnly={disabled}
+                            variables={variableGroups}
                         />
                         {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                     </Field>

@@ -1,4 +1,4 @@
-package journeys
+package render
 
 import (
 	"encoding/json"

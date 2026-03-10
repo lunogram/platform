@@ -8,16 +8,24 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import api from "@/api"
 
 import { channels } from "./template/channels"
+import { CampaignVariables } from "./CampaignVariables"
 
+import { CampaignVariableProvider } from "./CampaignVariableContext"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ProviderSelect } from "@/components/provider/select"
 
+const campaignVariableSchema = z.object({
+    name: z.string(),
+    default: z.string().optional(),
+})
+
 const campaignSchema = z.object({
     name: z.string().min(1, "Name is required"),
-    provider_id: z.string(),
+    provider_id: z.string().optional(),
+    variables: z.array(campaignVariableSchema),
 })
 
 type CampaignReviewFormData = z.infer<typeof campaignSchema>
@@ -34,6 +42,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
         defaultValues: {
             name: campaign.name || "",
             provider_id: campaign.provider?.id,
+            variables: campaign.variables ?? [],
         },
     })
 
@@ -52,7 +61,8 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
         try {
             const updatedCampaign = await api.campaigns.update(project.id, campaign.id, {
                 name: data.name,
-                provider_id: data.provider_id,
+                ...(data.provider_id ? { provider_id: data.provider_id } : {}),
+                variables: data.variables.filter((v) => v.name),
             })
 
             setCampaign(updatedCampaign)
@@ -62,88 +72,118 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
     }
 
     return (
-        <TemplateContext.Provider value={templateState}>
-            <div className="flex h-screen bg-muted/20 overflow-hidden">
-                <div className="h-full overflow-y-auto w-2/5 bg-background p-8">
-                    <div className="mb-6">
-                        <h1 className="text-2xl font-semibold">
-                            {t("campaign.details.title", "Campaign Details")}
-                        </h1>
-                        <p className="text-muted-foreground">
-                            {t(
-                                "campaign.details.description",
-                                "Configure your campaign settings and preview how it will appear to users.",
-                            )}
-                        </p>
+        <CampaignVariableProvider>
+            <TemplateContext.Provider value={templateState}>
+                <div className="flex h-screen bg-muted/20 overflow-hidden">
+                    <div className="h-full overflow-y-auto w-2/5 bg-background p-8">
+                        <div className="mb-6">
+                            <h1 className="text-2xl font-semibold">
+                                {t("campaign.details.title", "Campaign Details")}
+                            </h1>
+                            <p className="text-muted-foreground">
+                                {t(
+                                    "campaign.details.description",
+                                    "Configure your campaign settings and preview how it will appear to users.",
+                                )}
+                            </p>
+                        </div>
+
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                            <FieldGroup>
+                                <Controller
+                                    name="name"
+                                    control={form.control}
+                                    render={({ field, fieldState }) => (
+                                        <Field data-invalid={fieldState.invalid} className="gap-2">
+                                            <FieldLabel htmlFor="name">
+                                                {t("campaign.setup.form.name.label")}
+                                            </FieldLabel>
+                                            <Input
+                                                {...field}
+                                                id="name"
+                                                aria-invalid={fieldState.invalid}
+                                            />
+                                        </Field>
+                                    )}
+                                />
+                            </FieldGroup>
+
+                            <FieldGroup>
+                                <Controller
+                                    name="provider_id"
+                                    control={form.control}
+                                    render={({ field, fieldState }) => (
+                                        <Field data-invalid={fieldState.invalid} className="gap-2">
+                                            <FieldLabel htmlFor="provider">
+                                                {t("campaign.setup.form.provider.label")}
+                                            </FieldLabel>
+                                            <ProviderSelect
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                channel={campaign.channel}
+                                            />
+                                            <FieldDescription className="whitespace-pre-line">
+                                                {t("campaign.setup.form.provider.description")}
+                                            </FieldDescription>
+                                            {fieldState.invalid && (
+                                                <FieldError errors={[fieldState.error]} />
+                                            )}
+                                        </Field>
+                                    )}
+                                />
+                            </FieldGroup>
+
+                            <FieldGroup>
+                                <Controller
+                                    name="variables"
+                                    control={form.control}
+                                    render={({ field }) => (
+                                        <Field className="gap-2">
+                                            <FieldLabel>
+                                                {t("campaign.variables.label", "Variables")}
+                                            </FieldLabel>
+                                            <FieldDescription>
+                                                {t(
+                                                    "campaign.variables.description",
+                                                    "Define template variables that can be populated from journeys or the API.",
+                                                )}
+                                            </FieldDescription>
+                                            <CampaignVariables
+                                                variables={field.value}
+                                                onChange={field.onChange}
+                                            />
+                                        </Field>
+                                    )}
+                                />
+                            </FieldGroup>
+
+                            <div>
+                                <Button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    isLoading={isSubmitting}
+                                >
+                                    {t("actions.save")}
+                                </Button>
+                            </div>
+                        </form>
                     </div>
 
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        <FieldGroup>
-                            <Controller
-                                name="name"
-                                control={form.control}
-                                render={({ field, fieldState }) => (
-                                    <Field data-invalid={fieldState.invalid} className="gap-2">
-                                        <FieldLabel htmlFor="name">
-                                            {t("campaign.setup.form.name.label")}
-                                        </FieldLabel>
-                                        <Input
-                                            {...field}
-                                            id="name"
-                                            aria-invalid={fieldState.invalid}
-                                        />
-                                    </Field>
-                                )}
-                            />
-                        </FieldGroup>
-
-                        <FieldGroup>
-                            <Controller
-                                name="provider_id"
-                                control={form.control}
-                                render={({ field, fieldState }) => (
-                                    <Field data-invalid={fieldState.invalid} className="gap-2">
-                                        <FieldLabel htmlFor="provider">
-                                            {t("campaign.setup.form.provider.label")}
-                                        </FieldLabel>
-                                        <ProviderSelect
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            channel={campaign.channel}
-                                        />
-                                        <FieldDescription className="whitespace-pre-line">
-                                            {t("campaign.setup.form.provider.description")}
-                                        </FieldDescription>
-                                        {fieldState.invalid && (
-                                            <FieldError errors={[fieldState.error]} />
-                                        )}
-                                    </Field>
-                                )}
-                            />
-                        </FieldGroup>
-
-                        <div>
-                            <Button type="submit" disabled={isSubmitting} isLoading={isSubmitting}>
-                                {t("actions.save")}
-                            </Button>
-                        </div>
-                    </form>
-                </div>
-
-                <div className="w-3/5 bg-background p-8 pb-0 border-l">
-                    <Tabs defaultValue="preview" className="h-full flex flex-col">
-                        {/* <div>
+                    <div className="w-3/5 bg-background p-8 pb-0 border-l">
+                        <Tabs defaultValue="preview" className="h-full flex flex-col">
+                            {/* <div>
                             <TabsList className="mb-2">
                                 <TabsTrigger value="preview">Preview</TabsTrigger>
                             </TabsList>
                         </div> */}
-                        <TabsContent value="preview" className="flex-1">
-                            <ContentPreview campaign={campaign} form={channelForm} edit />
-                        </TabsContent>
-                    </Tabs>
+                            <TabsContent value="preview" className="flex-1">
+                                <ContentPreview campaign={campaign} form={channelForm} edit />
+                            </TabsContent>
+                        </Tabs>
+                    </div>
                 </div>
-            </div>
-        </TemplateContext.Provider>
+            </TemplateContext.Provider>
+        </CampaignVariableProvider>
     )
 }
 

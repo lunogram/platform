@@ -3,6 +3,7 @@ package journeys
 import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/rules/query"
 	"github.com/lunogram/platform/internal/store/journey"
 )
@@ -65,7 +66,7 @@ func selectGateBranch(ctx HandlerContext, step journey.JourneyVersionStep, confi
 		}
 	}
 
-	resolvedRule, err := RenderRuleSet(config.Rule, ctx.Data)
+	resolvedRule, err := render.RenderRuleSet(config.Rule, ctx.Data)
 	if err != nil {
 		return nil, err
 	}

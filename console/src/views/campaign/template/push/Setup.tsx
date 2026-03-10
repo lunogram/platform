@@ -13,6 +13,7 @@ import * as z from "zod"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
+import { TemplateInput } from "@/components/ui/template-input"
 import {
     Select,
     SelectContent,
@@ -21,6 +22,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { UserSelection } from "../UserSelection"
+import { useCampaignVariableContext } from "../../CampaignVariableContext"
 
 const pushSetupFormSchema = z.object({
     title: z.string("Title is required").min(1, "Title is required"),
@@ -49,6 +51,7 @@ interface PushFormControlProps {
 
 export function PushFormControl({ form, disabled = false }: PushFormControlProps) {
     const { t } = useTranslation()
+    const { variableGroups } = useCampaignVariableContext()
 
     return (
         <FieldGroup className="mt-7">
@@ -60,13 +63,12 @@ export function PushFormControl({ form, disabled = false }: PushFormControlProps
                         <FieldLabel htmlFor="form-rhf-demo-title">
                             {t("campaign.setup.channels.push.title.label")}
                         </FieldLabel>
-                        <Input
-                            {...field}
-                            aria-invalid={fieldState.invalid}
+                        <TemplateInput
+                            value={field.value}
+                            onChange={field.onChange}
                             placeholder=""
-                            autoComplete="off"
                             disabled={disabled}
-                            readOnly={disabled}
+                            variables={variableGroups}
                         />
                         {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
@@ -80,13 +82,12 @@ export function PushFormControl({ form, disabled = false }: PushFormControlProps
                         <FieldLabel htmlFor="form-rhf-demo-message">
                             {t("campaign.setup.channels.push.body.label")}
                         </FieldLabel>
-                        <Textarea
-                            {...field}
-                            aria-invalid={fieldState.invalid}
+                        <TemplateInput
+                            value={field.value}
+                            onChange={field.onChange}
                             placeholder=""
-                            autoComplete="off"
                             disabled={disabled}
-                            readOnly={disabled}
+                            variables={variableGroups}
                         />
                         {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                     </Field>

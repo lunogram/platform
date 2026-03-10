@@ -26,6 +26,8 @@ services:
       AUTH_BASIC_PASSWORD: ${AUTH_BASIC_PASSWORD:-admin}
       AUTH_CLERK_SECRET_KEY: ${AUTH_CLERK_SECRET_KEY:-}
       AUTH_CLERK_WEBHOOK_SECRET: ${AUTH_CLERK_WEBHOOK_SECRET:-}
+      # Public URL used to generate user-facing links (e.g. preference center, unsubscribe)
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
     depends_on:
       postgres:
         condition: service_healthy

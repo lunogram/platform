@@ -67,9 +67,10 @@ func (u User) UserEvent(name string) UserEvent {
 }
 
 type SendCampaign struct {
-	ProjectID  uuid.UUID `json:"project_id"`
-	UserID     uuid.UUID `json:"user_id"`
-	CampaignID uuid.UUID `json:"campaign_id"`
+	ProjectID  uuid.UUID         `json:"project_id"`
+	UserID     uuid.UUID         `json:"user_id"`
+	CampaignID uuid.UUID         `json:"campaign_id"`
+	Data       map[string]string `json:"data,omitempty"`
 }
 
 type JourneyStep struct {

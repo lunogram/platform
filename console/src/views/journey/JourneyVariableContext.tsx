@@ -82,11 +82,14 @@ export function JourneyVariableProvider({
             if (suggestions?.userPaths?.length) {
                 groups.push({
                     label: "User",
-                    variables: suggestions.userPaths.map((p) => ({
-                        path: `user.${p.path}`,
-                        label: p.path,
-                        description: p.types.join(", "),
-                    })),
+                    variables: suggestions.userPaths.map((p) => {
+                        const cleanPath = p.path.replace(/^\./, "")
+                        return {
+                            path: `user.${cleanPath}`,
+                            label: cleanPath,
+                            description: p.types.join(", "),
+                        }
+                    }),
                 })
             }
 

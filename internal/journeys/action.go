@@ -6,6 +6,7 @@ import (
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/journey"
 	actiontypes "github.com/lunogram/platform/pkg/modules/actions"
 	"go.uber.org/zap"
@@ -35,7 +36,7 @@ func HandleAction(ctx HandlerContext, step journey.JourneyVersionStep, state jou
 	}
 
 	if config.Input != nil {
-		req.Input, err = RenderJSON(config.Input, ctx.Data)
+		req.Input, err = render.RenderJSON(config.Input, ctx.Data)
 		if err != nil {
 			return state, nil, fmt.Errorf("failed to resolve variables in action input: %w", err)
 		}

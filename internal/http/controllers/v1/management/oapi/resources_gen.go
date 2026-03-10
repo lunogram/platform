@@ -262,7 +262,14 @@ type Campaign struct {
 	Provider       *Provider           `json:"provider,omitempty"`
 	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
 	Templates      []Template          `json:"templates"`
+	Variables      []CampaignVariable  `json:"variables"`
 	UpdatedAt      time.Time           `json:"updated_at"`
+}
+
+// CampaignVariable defines a campaign-declared variable with an optional default.
+type CampaignVariable struct {
+	Name    string  `json:"name"`
+	Default *string `json:"default,omitempty"`
 }
 
 // CampaignUser defines model for CampaignUser.
@@ -938,6 +945,7 @@ type UpdateApiKey struct {
 type UpdateCampaign struct {
 	Name       *string             `json:"name,omitempty"`
 	ProviderId *openapi_types.UUID `json:"provider_id,omitempty"`
+	Variables  *[]CampaignVariable `json:"variables,omitempty"`
 }
 
 // UpdateJourney defines model for UpdateJourney.

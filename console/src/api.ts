@@ -574,10 +574,6 @@ const api = {
     >("subscriptions"),
 
     providers: {
-        all: async (projectId: UUID) =>
-            await client
-                .get<Provider[]>(`${projectUrl(projectId)}/providers/all`)
-                .then((r) => r.data),
         search: async (projectId: UUID, params: string) =>
             await client
                 .get<SearchResult<Provider>>(`${projectUrl(projectId)}/providers`, { params })

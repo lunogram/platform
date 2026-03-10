@@ -47,7 +47,8 @@ type DelayStepData struct {
 
 // CampaignStepData represents data for campaign step - send campaign
 type CampaignStepData struct {
-	CampaignId uuid.UUID `json:"campaign_id"`
+	CampaignId uuid.UUID         `json:"campaign_id" yaml:"campaign_id"`
+	Data       map[string]string `json:"data,omitempty" yaml:"data,omitempty"`
 }
 
 // ActionStepData represents data for action step - execute WASM action

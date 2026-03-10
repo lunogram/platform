@@ -72,7 +72,6 @@ export default function Editor() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{campaign.subject}}</title>
   <style>
     body {
       margin: 0;
@@ -108,7 +107,7 @@ export default function Editor() {
       <!-- Header content -->
     </div>
     <div class="email-body">
-      <p>Hello {{user.first_name}},</p>
+      <p>Hello {{user.data.full_name}},</p>
       <p>Your email content goes here.</p>
     </div>
     <div class="email-footer">
@@ -116,7 +115,6 @@ export default function Editor() {
         <a href="{{unsubscribe_url}}">Unsubscribe</a> |
         <a href="{{preferences_url}}">Email Preferences</a>
       </p>
-      <p><a href="{{web_version_url}}">View in browser</a></p>
     </div>
   </div>
 </body>
