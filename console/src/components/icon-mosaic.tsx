@@ -1,9 +1,10 @@
 import { useState } from "react"
 import { cn } from "@/utils"
 
-const DEFAULT_COLOR = "#6366f1"
+const DEFAULT_COLOR = "#000000"
+const DEFAULT_ICON = "https://lunogram.com/logos/icon-black-512.png"
 
-/** Resolve a brand colour, falling back to a neutral indigo. */
+/** Resolve a brand colour, falling back to Lunogram black. */
 function brandColor(color?: string): string {
     return color ?? DEFAULT_COLOR
 }
@@ -36,7 +37,8 @@ export function StaggeredMosaic({
 }: StaggeredMosaicProps) {
     const [imgFailed, setImgFailed] = useState(false)
     const color = brandColor(provider?.color)
-    const showImg = provider?.icon && !imgFailed
+    const icon = provider?.icon ?? DEFAULT_ICON
+    const showImg = !imgFailed
 
     const centerRow = Math.floor(rows / 2)
     const centerCol = Math.floor(cols / 2)
@@ -104,8 +106,8 @@ export function StaggeredMosaic({
                                         >
                                             {showImg ? (
                                                 <img
-                                                    src={provider.icon}
-                                                    alt={provider.name}
+                                                    src={icon}
+                                                    alt={provider?.name ?? ""}
                                                     className="h-10 w-10 object-contain"
                                                     draggable={false}
                                                     onError={() => setImgFailed(true)}
