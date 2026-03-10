@@ -8,7 +8,6 @@ import type {
     AuthDriver,
     Campaign,
     CampaignCreateParams,
-    CampaignLaunchParams,
     CampaignUpdateParams,
     CampaignUser,
     Image,
@@ -299,11 +298,9 @@ const api = {
     actions: createProjectEntityPath<Action, ActionCreateParams, ActionUpdateParams>("actions"),
 
     campaigns: {
-        ...createProjectEntityPath<
-            Campaign,
-            CampaignCreateParams,
-            CampaignUpdateParams | CampaignLaunchParams
-        >("campaigns"),
+        ...createProjectEntityPath<Campaign, CampaignCreateParams, CampaignUpdateParams>(
+            "campaigns",
+        ),
         users: async (projectId: UUID, campaignId: UUID, params: SearchParams) =>
             await client
                 .get<

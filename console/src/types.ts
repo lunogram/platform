@@ -568,12 +568,9 @@ export interface CampaignVariable {
     default?: string
 }
 
-export type CampaignType = "blast" | "trigger"
-
 export interface Campaign {
     id: UUID
     project_id: UUID
-    type: CampaignType
     name: string
     channel: ChannelType
     delivery: CampaignDelivery
@@ -583,19 +580,6 @@ export interface Campaign {
     subscription?: Subscription
     templates: Template[]
     variables: CampaignVariable[]
-    list_ids?: UUID[]
-    lists?: List[]
-    exclusion_list_ids?: UUID[]
-    exclusion_lists?: List[]
-    tags?: string[]
-    journeys?: Journey[]
-    send_in_user_timezone: boolean
-    send_at: string
-    screenshot_url: string
-    progress?: {
-        complete: number
-        total: number
-    }
     created_at: string
     updated_at: string
 }
@@ -603,24 +587,9 @@ export interface Campaign {
 export type CampaignSendState = "pending" | "sent" | "throttled" | "failed" | "bounced" | "aborted"
 
 export type CampaignUpdateParams = Partial<
-    Pick<
-        Campaign,
-        | "name"
-        | "provider_id"
-        | "state"
-        | "list_ids"
-        | "exclusion_list_ids"
-        | "subscription_id"
-        | "tags"
-        | "variables"
-    >
+    Pick<Campaign, "name" | "provider_id" | "subscription_id" | "variables">
 >
-export type CampaignCreateParams = Pick<Campaign, "name" | "channel" | "tags">
-export type CampaignLaunchType = "now" | "later"
-export type CampaignLaunchParams = Pick<Campaign, "send_at" | "send_in_user_timezone" | "state"> & {
-    launch_type?: CampaignLaunchType
-}
-// export type ListUpdateParams = Pick<List, 'name' | 'rule'>
+export type CampaignCreateParams = Pick<Campaign, "name" | "channel">
 export type CampaignUser = User & { state: CampaignSendState; send_at: string }
 
 interface NamedEmail {

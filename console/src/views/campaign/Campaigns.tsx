@@ -192,9 +192,6 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                             <TableHead>{t("name")}</TableHead>
                             <TableHead className="hidden sm:table-cell">{t("delivery")}</TableHead>
                             <TableHead className="hidden md:table-cell">
-                                {t("launched_at")}
-                            </TableHead>
-                            <TableHead className="hidden md:table-cell">
                                 {t("updated_at")}
                             </TableHead>
                             <TableHead className="w-[50px]"></TableHead>
@@ -219,9 +216,6 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                     <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
-                                    <TableCell className="hidden md:table-cell">
-                                        <Skeleton className="h-4 w-28" />
-                                    </TableCell>
                                     <TableCell>
                                         <Skeleton className="h-4 w-8" />
                                     </TableCell>
@@ -229,7 +223,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                             ))
                         ) : campaigns.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="h-32 text-center">
+                                <TableCell colSpan={4} className="h-32 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Megaphone className="h-8 w-8" />
                                         <p>
@@ -272,13 +266,6 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                                             {campaign.delivery?.sent > 0
                                                 ? formatDelivery(campaign.delivery)
                                                 : "—"}
-                                        </TableCell>
-                                        <TableCell className="hidden md:table-cell text-muted-foreground">
-                                            {campaign.send_at
-                                                ? formatDate(preferences, campaign.send_at, "Pp")
-                                                : campaign.type === "trigger"
-                                                  ? t("api_triggered")
-                                                  : "—"}
                                         </TableCell>
                                         <TableCell className="hidden md:table-cell text-muted-foreground">
                                             {formatDate(preferences, campaign.updated_at, "PP")}
