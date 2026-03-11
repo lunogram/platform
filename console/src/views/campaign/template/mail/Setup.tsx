@@ -9,6 +9,7 @@ import api from "@/api"
 import * as z from "zod"
 import { Render } from "@/renderTemplates"
 import { compileEmail } from "./editor/codeEditor/compileEmail"
+import { getSystemPreviewProps } from "./editor/codeEditor/variableScope"
 
 import { Input } from "@/components/ui/input"
 import { TemplateInput } from "@/components/ui/template-input"
@@ -344,7 +345,10 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
         const abortController = new AbortController()
         abortRef.current = abortController
 
-        const previewProps: Record<string, unknown> = selectedUser ? { user: selectedUser } : {}
+        const previewProps: Record<string, unknown> = {
+            ...getSystemPreviewProps(),
+            ...(selectedUser ? { user: selectedUser } : {}),
+        }
 
         compileEmail(source, previewProps, abortController.signal)
             .then((result) => {

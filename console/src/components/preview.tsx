@@ -7,6 +7,7 @@ import { useContext, useEffect, useRef, useState } from "react"
 import { ProjectContext } from "../contexts"
 import clsx from "clsx"
 import { compileEmail } from "@/views/campaign/template/mail/editor/codeEditor/compileEmail"
+import { getSystemPreviewProps } from "@/views/campaign/template/mail/editor/codeEditor/variableScope"
 
 interface PreviewProps {
     template: Pick<Template, "type" | "data">
@@ -30,7 +31,7 @@ function EmailPreviewContent({ data, size }: { data: Template["data"]; size: "sm
         const abortController = new AbortController()
         abortRef.current = abortController
 
-        compileEmail(source, {}, abortController.signal)
+        compileEmail(source, getSystemPreviewProps(), abortController.signal)
             .then((result) => {
                 if (!abortController.signal.aborted) {
                     setCompiledHtml(result.html)

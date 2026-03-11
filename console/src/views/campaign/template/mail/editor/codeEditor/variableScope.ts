@@ -56,10 +56,27 @@ function sampleValue(variable: Variable): unknown {
  * variables benefit from realistic placeholder values so the preview
  * looks meaningful.
  */
-const PREVIEW_OVERRIDES: Record<string, unknown> = {
-    unsubscribe_url: "https://lunogram.com/unsubscribe",
-    preferences_url: "https://lunogram.com/preferences",
-    now: new Date().toISOString(),
+const PREVIEW_OVERRIDES: Record<string, () => unknown> = {
+    unsubscribe_url: () => "https://lunogram.com/unsubscribe",
+    preferences_url: () => "https://lunogram.com/preferences",
+    now: () => new Date().toISOString(),
+}
+
+/**
+ * Return a fresh set of system-level preview props.
+ *
+ * These are the props that the server injects at send time (e.g. `now`,
+ * `unsubscribe_url`, `preferences_url`). Call sites that compile an email
+ * preview outside the full code editor should spread these into their
+ * `previewProps` so that templates referencing system variables render
+ * correctly.
+ */
+export function getSystemPreviewProps(): Record<string, unknown> {
+    const props: Record<string, unknown> = {}
+    for (const [key, factory] of Object.entries(PREVIEW_OVERRIDES)) {
+        props[key] = factory()
+    }
+    return props
 }
 
 /**
@@ -93,7 +110,7 @@ export function buildPreviewProps(variableGroups: VariableGroup[]): Record<strin
 
             const value =
                 cleanPath in PREVIEW_OVERRIDES
-                    ? PREVIEW_OVERRIDES[cleanPath]
+                    ? PREVIEW_OVERRIDES[cleanPath]()
                     : sampleValue(variable)
 
             if (cleanPath.includes(".")) {
