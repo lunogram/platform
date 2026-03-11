@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copy source files
 COPY deno.json .
-COPY *.ts .
+COPY *.ts ./
 
 # Cache dependencies
 RUN deno install
