@@ -361,7 +361,6 @@ export function CodeEditor({
         }
     }
 
-    // ── Insert variable at cursor ──────────────────────────────────
     const hasVariables = variables.some((g) => g.variables.length > 0)
 
     const insertVariable = useCallback(

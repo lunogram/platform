@@ -604,8 +604,16 @@ export interface EmailTemplateData {
     subject: string
     preheader?: string
     editor: "code" | "visual"
-    text: string
-    html: string
+    type?: "react-email"
+    code?: {
+        source: string
+        bundle?: string
+        bundle_hash?: string
+    }
+    plaintext?: {
+        generated?: string
+        custom?: string
+    }
 }
 
 export interface TextTemplateData {
@@ -732,13 +740,15 @@ export interface ProviderSetupMeta {
 
 export interface Image {
     id: UUID
-    uuid: string
+    project_id: UUID
     url: string
     name: string
-    original_name: string
-    extension: string
-    alt: string
-    filesize: string
+    filename: string
+    key: string
+    content_type: string
+    size_bytes: number
+    created_at: string
+    updated_at: string
 }
 
 export interface Resource {

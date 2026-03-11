@@ -5407,12 +5407,33 @@ components:
         subject:
           type: string
           example: "Quick question for you..."
-        html:
+        type:
           type: string
-          description: HTML content of the email template
+          description: Template type discriminator
+          example: "react-email"
+        code:
+          type: object
+          description: React Email source code and compiled bundle
+          properties:
+            source:
+              type: string
+              description: JSX/TSX source code
+            bundle:
+              type: string
+              description: Compiled JS bundle from esbuild
+        plaintext:
+          type: object
+          description: Plain text content for the email
+          properties:
+            generated:
+              type: string
+              description: Auto-generated plain text from HTML
+            custom:
+              type: string
+              description: User-provided custom plain text override
         editor:
           type: object
-          description: Editor configuration and content structure
+          description: Visual editor configuration and content structure
           properties:
             root:
               type: object
@@ -6448,6 +6469,7 @@ components:
         - name
         - filename
         - key
+        - url
         - content_type
         - size_bytes
         - created_at
@@ -6473,6 +6495,10 @@ components:
           type: string
           example: "6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899.pdf"
           description: Storage key/path for retrieving the file
+        url:
+          type: string
+          example: "https://cdn.example.com/6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899.pdf"
+          description: Public URL for accessing the document (via CDN or local endpoint)
         content_type:
           type: string
           example: "application/pdf"

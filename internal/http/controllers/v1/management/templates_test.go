@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/rbac"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
@@ -47,7 +48,7 @@ func TestGetTemplate(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewTemplatesController(logger, mgmt, engine)
+	controller := NewTemplatesController(logger, mgmt, pubsub.NewNoopCaller(), engine)
 
 	type test struct {
 		id   uuid.UUID
@@ -102,7 +103,7 @@ func TestCreateTemplate(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewTemplatesController(logger, mgmt, engine)
+	controller := NewTemplatesController(logger, mgmt, pubsub.NewNoopCaller(), engine)
 
 	type test struct {
 		body any
@@ -175,7 +176,7 @@ func TestUpdateTemplate(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewTemplatesController(logger, mgmt, engine)
+	controller := NewTemplatesController(logger, mgmt, pubsub.NewNoopCaller(), engine)
 
 	type test struct {
 		id   uuid.UUID
@@ -245,7 +246,7 @@ func TestDeleteTemplate(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewTemplatesController(logger, mgmt, engine)
+	controller := NewTemplatesController(logger, mgmt, pubsub.NewNoopCaller(), engine)
 
 	type test struct {
 		id   uuid.UUID

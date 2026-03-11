@@ -58,5 +58,5 @@ func (srv *EmailTemplatesController) ListEmailTemplates(w http.ResponseWriter, r
 	// Proxy the raw JSON response from the webhook
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	w.Write(body) //nolint:errcheck
 }

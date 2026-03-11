@@ -11,8 +11,6 @@ import { CampaignContext, ProjectContext } from "@/contexts"
 import api from "@/api"
 import type { VariableSuggestions } from "@/types"
 
-// ── Context value ───────────────────────────────────────────────────
-
 interface CampaignVariableContextValue {
     /** Variable groups available for campaign template editors */
     variableGroups: VariableGroup[]
@@ -27,10 +25,8 @@ export function useCampaignVariableContext() {
     return useContext(CampaignVariableContext)
 }
 
-// ── System variable groups ──────────────────────────────────────────
 // These are always available regardless of user schema or campaign
 // variables. They are resolved server-side at send time.
-
 const emailLinkVariables: VariableGroup = {
     label: "Links",
     variables: [
@@ -38,22 +34,13 @@ const emailLinkVariables: VariableGroup = {
             path: "unsubscribe_url",
             label: "Unsubscribe URL",
             description: "Link to unsubscribe",
+            types: ["string"],
         },
         {
             path: "preferences_url",
             label: "Preferences URL",
             description: "Link to email preferences",
-        },
-    ],
-}
-
-const campaignSystemVariables: VariableGroup = {
-    label: "Campaign",
-    variables: [
-        {
-            path: "campaign.name",
-            label: "Campaign Name",
-            description: "Name of the campaign",
+            types: ["string"],
         },
     ],
 }
@@ -65,16 +52,52 @@ const otherSystemVariables: VariableGroup = {
             path: "now | date",
             label: "Current Date",
             description: "Current date",
+            types: ["string"],
         },
         {
             path: "now | date: '%Y'",
             label: "Current Year",
             description: "Current year",
+            types: ["string"],
         },
     ],
 }
 
-// ── Provider ────────────────────────────────────────────────────────
+// Base user properties that are always available at send time,
+// regardless of whether user schema data has been ingested.
+const baseUserVariables: VariableGroup = {
+    label: "User",
+    variables: [
+        { path: "user.id", label: "ID", description: "User ID", types: ["string"] },
+        { path: "user.email", label: "Email", description: "Email address", types: ["string"] },
+        { path: "user.phone", label: "Phone", description: "Phone number", types: ["string"] },
+        {
+            path: "user.external_id",
+            label: "External ID",
+            description: "External identifier",
+            types: ["string"],
+        },
+        {
+            path: "user.anonymous_id",
+            label: "Anonymous ID",
+            description: "Anonymous identifier",
+            types: ["string"],
+        },
+        {
+            path: "user.timezone",
+            label: "Timezone",
+            description: "User timezone",
+            types: ["string"],
+        },
+        { path: "user.locale", label: "Locale", description: "User locale", types: ["string"] },
+        {
+            path: "user.created_at",
+            label: "Created At",
+            description: "Account creation date",
+            types: ["date"],
+        },
+    ],
+}
 
 export function CampaignVariableProvider({ children }: PropsWithChildren) {
     const [project] = useContext(ProjectContext)
@@ -98,40 +121,46 @@ export function CampaignVariableProvider({ children }: PropsWithChildren) {
     const variableGroups = useMemo<VariableGroup[]>(() => {
         const groups: VariableGroup[] = []
 
-        // ── User properties ─────────────────────────────────
+        // Always include base user properties. Merge in any dynamic
+        // schema paths (e.g. user.data.first_name) from the API on top.
+        const basePaths = new Set(baseUserVariables.variables.map((v) => v.path))
+        const userVariables = [...baseUserVariables.variables]
+
         if (suggestions?.userPaths?.length) {
-            groups.push({
-                label: "User",
-                variables: suggestions.userPaths.map((p) => {
-                    const cleanPath = p.path.replace(/^\./, "")
-                    return {
-                        path: `user.${cleanPath}`,
+            for (const p of suggestions.userPaths) {
+                const cleanPath = p.path.replace(/^\./, "")
+                const fullPath = `user.${cleanPath}`
+                if (!basePaths.has(fullPath)) {
+                    userVariables.push({
+                        path: fullPath,
                         label: cleanPath,
                         description: p.types.join(", "),
-                    }
-                }),
-            })
+                        types: p.types,
+                    })
+                }
+            }
         }
 
-        // ── Campaign-defined variables ──────────────────────
+        groups.push({ label: "User", variables: userVariables })
+
         if (campaign.variables?.length) {
             groups.push({
-                label: "Campaign Variables",
+                label: "Campaign",
                 variables: campaign.variables.map((v) => ({
-                    path: v.name,
+                    path: `campaign.${v.name}`,
                     label: v.name,
                     description: v.default ? `default: ${v.default}` : undefined,
+                    types: ["string"],
+                    defaultValue: v.default,
                 })),
             })
         }
 
-        // ── System variables ────────────────────────────────
         // Link variables are only relevant for email campaigns
         if (campaign.channel === "email") {
             groups.push(emailLinkVariables)
         }
 
-        groups.push(campaignSystemVariables)
         groups.push(otherSystemVariables)
 
         return groups

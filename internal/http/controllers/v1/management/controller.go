@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry, engine *rbac.Engine) (_ *Controller, err error) {
+func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, urlResolver *storage.URLResolver, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry, engine *rbac.Engine) (_ *Controller, err error) {
 	mgmt := management.NewState(managementDB)
 	projects := management.NewProjectsStore(managementDB)
 
@@ -24,7 +24,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 	controller := &Controller{
 		ProjectsController:       NewProjectsController(logger, managementDB, usersDB, journeyDB, webhookCaller, pub, engine),
 		CampaignsController:      NewCampaignsController(logger, managementDB, usersDB, engine),
-		TemplatesController:      NewTemplatesController(logger, managementDB, engine),
+		TemplatesController:      NewTemplatesController(logger, managementDB, req, engine),
 		AdminsController:         NewAdminsController(logger, managementDB, engine),
 		UsersController:          NewUsersController(logger, pub, usersDB, journeyDB, mgmt, cfg.Storage.MaxUploadSize, engine),
 		EventsController:         NewEventsController(logger, usersDB, engine),
@@ -33,7 +33,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		JourneysController:       NewJourneysController(logger, journeyDB, usersDB, mgmt, pub, jet, engine),
 		OrganizationsController:  NewOrganizationsController(logger, usersDB, pub, engine),
 		ListsController:          NewListsController(logger, usersDB, projects, pub, cfg.Storage.MaxUploadSize, engine),
-		DocumentsController:      NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize, engine),
+		DocumentsController:      NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize, urlResolver, engine),
 		ProvidersController:      NewProvidersController(logger, managementDB, registry, engine),
 		SubscriptionsController:  NewSubscriptionsController(logger, managementDB, engine),
 		ApiKeysController:        NewApiKeysController(logger, managementDB, engine),

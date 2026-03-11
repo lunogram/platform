@@ -50,7 +50,7 @@ func TestDocumentUpload(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, engine)
+	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, storage.NewURLResolver("", "http://localhost:8080"), engine)
 
 	type test struct {
 		filename    string
@@ -166,7 +166,7 @@ func TestListDocuments(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, engine)
+	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, storage.NewURLResolver("", "http://localhost:8080"), engine)
 
 	type test struct {
 		params   oapi.ListDocumentsParams
@@ -268,7 +268,7 @@ func TestGetDocumentMetadata(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, engine)
+	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, storage.NewURLResolver("", "http://localhost:8080"), engine)
 
 	type test struct {
 		documentID uuid.UUID
@@ -337,7 +337,7 @@ func TestGetDocument(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, engine)
+	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, storage.NewURLResolver("", "http://localhost:8080"), engine)
 
 	testContent := []byte("fake document content")
 
@@ -419,7 +419,7 @@ func TestDeleteDocument(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, engine)
+	documents := NewDocumentsController(logger, mgmt, storageBackend, storageCfg.MaxUploadSize, storage.NewURLResolver("", "http://localhost:8080"), engine)
 
 	documentsStore := management.NewDocumentsStore(mgmt)
 	documentID := uuid.New()

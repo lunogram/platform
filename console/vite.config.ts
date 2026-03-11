@@ -34,6 +34,9 @@ export default defineConfig(({ mode }) => {
                 exclude: [],
             },
         },
+        worker: {
+            format: "es",
+        },
         resolve: {
             alias: {
                 "@": path.resolve(__dirname, "./src"),

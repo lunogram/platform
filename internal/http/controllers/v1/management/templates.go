@@ -1,25 +1,33 @@
 package v1
 
 import (
+	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	stdjson "encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
+	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
 
-func NewTemplatesController(logger *zap.Logger, db *sqlx.DB, engine *rbac.Engine) *TemplatesController {
+func NewTemplatesController(logger *zap.Logger, db *sqlx.DB, caller pubsub.Caller, engine *rbac.Engine) *TemplatesController {
 	return &TemplatesController{
 		logger: logger,
 		db:     db,
 		store:  management.NewState(db),
+		caller: caller,
 		engine: engine,
 	}
 }
@@ -28,6 +36,7 @@ type TemplatesController struct {
 	logger *zap.Logger
 	db     *sqlx.DB
 	store  *management.State
+	caller pubsub.Caller
 	engine *rbac.Engine
 }
 
@@ -177,6 +186,31 @@ func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// If the template data contains React Email source code, compile it via
+	// the Deno renderer service and store the compiled JS alongside the source.
+	if body.Data != nil {
+		var dataBlob map[string]any
+		if err := stdjson.Unmarshal(*body.Data, &dataBlob); err == nil {
+			if codeMap, ok := dataBlob["code"].(map[string]any); ok {
+				if source, ok := codeMap["source"].(string); ok && source != "" {
+					compiledJS, compileErr := srv.compileTemplate(ctx, projectID, source)
+					if compileErr != nil {
+						logger.Error("failed to compile template", zap.Error(compileErr))
+						oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to compile email template")))
+						return
+					}
+					codeMap["bundle"] = compiledJS
+					hash := sha256.Sum256([]byte(compiledJS))
+					codeMap["bundle_hash"] = hex.EncodeToString(hash[:])
+					dataBlob["code"] = codeMap
+					updatedData, _ := stdjson.Marshal(dataBlob)
+					rawData := stdjson.RawMessage(updatedData)
+					body.Data = &rawData
+				}
+			}
+		}
+	}
+
 	updated := management.TemplateUpdate{
 		Data: body.Data,
 	}
@@ -197,4 +231,29 @@ func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Re
 
 	logger.Info("template updated")
 	json.Write(w, http.StatusOK, template.OAPI())
+}
+
+// compileTemplate sends the React Email JSX source to the Deno renderer
+// service via NATS request/reply and returns the compiled JS bundle.
+func (srv *TemplatesController) compileTemplate(ctx context.Context, projectID uuid.UUID, source string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	reply, err := srv.caller.Call(ctx, schemas.EmailCompile(projectID), schemas.CompileEmail{
+		Source: source,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	var resp schemas.CompileEmailResponse
+	if err := stdjson.Unmarshal(reply, &resp); err != nil {
+		return "", err
+	}
+
+	if resp.Error != "" {
+		return "", errors.New(resp.Error)
+	}
+
+	return resp.CompiledJS, nil
 }

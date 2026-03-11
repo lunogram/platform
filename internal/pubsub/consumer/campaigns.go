@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/providers/channels"
+	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/management"
@@ -84,27 +86,27 @@ func selectTemplate(templates management.Templates, user *subjects.User, project
 
 // buildRenderData builds the Liquid render context for a campaign send.
 // Merge order (lowest → highest priority):
-//  1. Campaign variable defaults (top-level string keys)
+//  1. Campaign variable defaults (under "campaign" key)
 //  2. SendCampaign.Data from journey/API (overrides defaults)
 //  3. "user" key (always set, cannot be overridden)
-//  4. System-generated values (campaign, now, URLs)
+//  4. System-generated values (now, URLs)
 func buildRenderData(publicURL string, user *subjects.User, campaign *management.Campaign, eventData map[string]string) map[string]any {
 	data := make(map[string]any)
 
+	campaignVars := make(map[string]any)
 	for _, v := range campaign.Variables.Data {
 		if v.Default != nil {
-			data[v.Name] = *v.Default
+			campaignVars[v.Name] = *v.Default
 		}
 	}
 
+	// Event data can override campaign variable defaults
 	for k, v := range eventData {
-		data[k] = v
+		campaignVars[k] = v
 	}
 
+	data["campaign"] = campaignVars
 	data["user"] = userToMap(user)
-	data["campaign"] = map[string]any{
-		"name": campaign.Name,
-	}
 
 	data["now"] = time.Now()
 
@@ -121,7 +123,45 @@ func buildRenderData(publicURL string, user *subjects.User, campaign *management
 	return data
 }
 
-func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, publicURL string) HandlerFunc {
+// renderReactEmail renders a pre-compiled React Email template via the Deno
+// renderer service over NATS and returns the updated template data blob.
+func renderReactEmail(ctx context.Context, caller pubsub.Caller, projectID uuid.UUID, compiledJS string, dataBlob map[string]any, data map[string]any) (map[string]any, error) {
+	renderCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	reply, err := caller.Call(renderCtx, schemas.EmailRender(projectID), schemas.RenderEmail{
+		CompiledJS: compiledJS,
+		Props:      data,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("NATS render call: %w", err)
+	}
+
+	var resp schemas.RenderEmailResponse
+	if err := json.Unmarshal(reply, &resp); err != nil {
+		return nil, fmt.Errorf("unmarshal render response: %w", err)
+	}
+
+	if resp.Error != "" {
+		return nil, fmt.Errorf("render error: %s", resp.Error)
+	}
+
+	dataBlob["html"] = resp.HTML
+
+	// Use custom plain text if provided, otherwise use the
+	// auto-generated plain text from the renderer.
+	plaintextMap, _ := dataBlob["plaintext"].(map[string]any)
+	customText, _ := plaintextMap["custom"].(string)
+	if customText != "" {
+		dataBlob["text"] = customText
+	} else if resp.PlainText != "" {
+		dataBlob["text"] = resp.PlainText
+	}
+
+	return dataBlob, nil
+}
+
+func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, caller pubsub.Caller, publicURL string) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		var event schemas.SendCampaign
 		if err := json.Unmarshal(msg.Data(), &event); err != nil {
@@ -164,10 +204,45 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 
 		data := buildRenderData(publicURL, user, campaign, event.Data)
 		template := selectTemplate(campaign.Templates, user, project)
-		template.Data, err = render.RenderJSON(template.Data, data)
-		if err != nil {
-			logger.Error("failed to render template data", zap.Error(err))
-			return err
+
+		// Check if the template uses React Email (has code.bundle in data).
+		// If so, render via the Deno service over NATS. Otherwise, fall back
+		// to the existing Liquid template rendering path.
+		var dataBlob map[string]any
+		if err := json.Unmarshal(template.Data, &dataBlob); err == nil {
+			codeMap, _ := dataBlob["code"].(map[string]any)
+			compiledJS, _ := codeMap["bundle"].(string)
+			if compiledJS != "" {
+				dataBlob, err = renderReactEmail(ctx, caller, event.ProjectID, compiledJS, dataBlob, data)
+				if err != nil {
+					logger.Error("failed to render email via Deno service", zap.Error(err))
+					return err
+				}
+
+				// Render Liquid in non-body fields (subject, from, etc.)
+				// by re-serializing the blob and running RenderJSON.
+				updatedData, _ := json.Marshal(dataBlob)
+				template.Data = json.RawMessage(updatedData)
+				template.Data, err = render.RenderJSON(template.Data, data)
+				if err != nil {
+					logger.Error("failed to render template metadata", zap.Error(err))
+					return err
+				}
+			} else {
+				// Legacy Liquid rendering for non-React Email templates.
+				template.Data, err = render.RenderJSON(template.Data, data)
+				if err != nil {
+					logger.Error("failed to render template data", zap.Error(err))
+					return err
+				}
+			}
+		} else {
+			// Fallback: could not parse template data, try Liquid rendering.
+			template.Data, err = render.RenderJSON(template.Data, data)
+			if err != nil {
+				logger.Error("failed to render template data", zap.Error(err))
+				return err
+			}
 		}
 
 		var opts *channels.ComposeOptions

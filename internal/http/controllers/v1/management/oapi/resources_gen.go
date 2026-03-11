@@ -436,6 +436,9 @@ type Document struct {
 	// SizeBytes File size in bytes
 	SizeBytes int64     `json:"size_bytes"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// Url Public URL for accessing the document (via CDN or local endpoint)
+	Url string `json:"url"`
 }
 
 // EmailProviderData defines model for EmailProviderData.
@@ -471,7 +474,16 @@ type EmailTemplate struct {
 
 // EmailTemplateData defines model for EmailTemplateData.
 type EmailTemplateData struct {
-	// Editor Editor configuration and content structure
+	// Code React Email source code and compiled bundle
+	Code *struct {
+		// Bundle Compiled JS bundle from esbuild
+		Bundle *string `json:"bundle,omitempty"`
+
+		// Source JSX/TSX source code
+		Source *string `json:"source,omitempty"`
+	} `json:"code,omitempty"`
+
+	// Editor Visual editor configuration and content structure
 	Editor *struct {
 		Content *[]map[string]interface{} `json:"content,omitempty"`
 		Root    *struct {
@@ -481,9 +493,18 @@ type EmailTemplateData struct {
 	} `json:"editor,omitempty"`
 	From *map[string]interface{} `json:"from,omitempty"`
 
-	// Html HTML content of the email template
-	Html    *string `json:"html,omitempty"`
+	// Plaintext Plain text content for the email
+	Plaintext *struct {
+		// Custom User-provided custom plain text override
+		Custom *string `json:"custom,omitempty"`
+
+		// Generated Auto-generated plain text from HTML
+		Generated *string `json:"generated,omitempty"`
+	} `json:"plaintext,omitempty"`
 	Subject *string `json:"subject,omitempty"`
+
+	// Type Template type discriminator
+	Type *string `json:"type,omitempty"`
 }
 
 // EventWithSchema defines model for EventWithSchema.
