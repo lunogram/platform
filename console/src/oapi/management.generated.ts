@@ -2458,9 +2458,26 @@ export interface components {
             from?: Record<string, never>;
             /** @example Quick question for you... */
             subject?: string;
-            /** @description HTML content of the email template */
-            html?: string;
-            /** @description Editor configuration and content structure */
+            /**
+             * @description Template type discriminator
+             * @example react-email
+             */
+            type?: string;
+            /** @description React Email source code and compiled bundle */
+            code?: {
+                /** @description JSX/TSX source code */
+                source?: string;
+                /** @description Compiled JS bundle from esbuild */
+                bundle?: string;
+            };
+            /** @description Plain text content for the email */
+            plaintext?: {
+                /** @description Auto-generated plain text from HTML */
+                generated?: string;
+                /** @description User-provided custom plain text override */
+                custom?: string;
+            };
+            /** @description Visual editor configuration and content structure */
             editor?: {
                 root?: {
                     props?: Record<string, never>;
@@ -3252,6 +3269,11 @@ export interface components {
              * @example 6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899.pdf
              */
             key: string;
+            /**
+             * @description Public URL for accessing the document (via CDN or local endpoint)
+             * @example https://cdn.example.com/6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899.pdf
+             */
+            url: string;
             /**
              * @description MIME type of the file
              * @example application/pdf
