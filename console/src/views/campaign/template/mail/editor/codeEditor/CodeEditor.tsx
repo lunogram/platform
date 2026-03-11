@@ -1,7 +1,8 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { Editor, type OnMount } from "@monaco-editor/react"
 import type { editor } from "monaco-editor"
-import { Smartphone, Tablet, Monitor, FileCode, FileText, Eye } from "lucide-react"
+import { Smartphone, Tablet, Monitor, FileCode, FileText, Eye, Rocket } from "lucide-react"
+import { toast } from "sonner"
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Button } from "@/components/ui/button"
@@ -80,6 +81,9 @@ export function CodeEditor() {
     // Selected user for populating user.* props with real data
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
 
+    // Send test email state
+    const [sending, setSending] = useState(false)
+
     // When variable groups change (e.g. new variables added), regenerate defaults
     // but only if the user hasn't customised the props (still matches old defaults)
     const prevDefaultsRef = useRef<string>(JSON.stringify(defaultPreviewProps, null, 2))
@@ -129,6 +133,29 @@ export function CodeEditor() {
         },
         [defaultPreviewProps],
     )
+
+    // Send a test email using the current preview props
+    const handleSendTest = useCallback(async () => {
+        const userProps = previewProps.user as Record<string, unknown> | undefined
+        const email = userProps?.email
+        if (typeof email !== "string" || !email) {
+            toast.error("No recipient email found. Set user.email in the props panel below.")
+            return
+        }
+
+        setSending(true)
+        try {
+            await api.campaigns.templates.sendTest(project.id, campaign.id, template.id, {
+                to: email,
+                props: previewProps,
+            })
+            toast.success(`Test email sent to ${email}`)
+        } catch {
+            toast.error("Failed to send test email")
+        } finally {
+            setSending(false)
+        }
+    }, [previewProps, project.id, campaign.id, template.id])
 
     // Detect extra properties not in the variable schema
     const schemaPaths = useMemo(() => buildSchemaPaths(variableGroups), [variableGroups])
@@ -421,6 +448,17 @@ export function CodeEditor() {
                                     </TooltipTrigger>
                                     <TooltipContent>Desktop (1280px)</TooltipContent>
                                 </Tooltip>
+                                <div className="mx-1 h-4 w-px bg-border" />
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="h-8 gap-1.5 px-2.5"
+                                    onClick={handleSendTest}
+                                    disabled={sending}
+                                >
+                                    <Rocket className="h-3.5 w-3.5" />
+                                    <span className="text-xs">Send test</span>
+                                </Button>
                             </div>
                         </div>
 

@@ -886,6 +886,15 @@ type SchemaPath struct {
 	Types []string `json:"types"`
 }
 
+// SendTest defines model for SendTest.
+type SendTest struct {
+	// Props Optional template variables/props for rendering
+	Props *map[string]interface{} `json:"props,omitempty"`
+
+	// To The recipient address to send the test to
+	To openapi_types.Email `json:"to"`
+}
+
 // SmsProviderData defines model for SmsProviderData.
 type SmsProviderData = map[string]interface{}
 
@@ -1706,6 +1715,9 @@ type CreateTemplateJSONRequestBody = CreateTemplate
 // UpdateTemplateJSONRequestBody defines body for UpdateTemplate for application/json ContentType.
 type UpdateTemplateJSONRequestBody = UpdateTemplate
 
+// SendTestJSONRequestBody defines body for SendTest for application/json ContentType.
+type SendTestJSONRequestBody = SendTest
+
 // UploadDocumentsMultipartRequestBody defines body for UploadDocuments for multipart/form-data ContentType.
 type UploadDocumentsMultipartRequestBody UploadDocumentsMultipartBody
 
@@ -2154,6 +2166,11 @@ type ClientInterface interface {
 	UpdateTemplateWithBody(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateTemplate(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body UpdateTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SendTestWithBody request with any body
+	SendTestWithBody(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SendTest(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body SendTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetCampaignUsers request
 	GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2964,6 +2981,30 @@ func (c *Client) UpdateTemplateWithBody(ctx context.Context, projectID openapi_t
 
 func (c *Client) UpdateTemplate(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body UpdateTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateTemplateRequest(c.Server, projectID, campaignID, templateID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SendTestWithBody(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendTestRequestWithBody(c.Server, projectID, campaignID, templateID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SendTest(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body SendTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendTestRequest(c.Server, projectID, campaignID, templateID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5881,6 +5922,67 @@ func NewUpdateTemplateRequestWithBody(server string, projectID openapi_types.UUI
 	}
 
 	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSendTestRequest calls the generic SendTest builder with application/json body
+func NewSendTestRequest(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body SendTestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSendTestRequestWithBody(server, projectID, campaignID, templateID, "application/json", bodyReader)
+}
+
+// NewSendTestRequestWithBody generates requests for SendTest with any type of body
+func NewSendTestRequestWithBody(server string, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "campaignID", runtime.ParamLocationPath, campaignID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "templateID", runtime.ParamLocationPath, templateID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/campaigns/%s/templates/%s/test", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -10909,6 +11011,11 @@ type ClientWithResponsesInterface interface {
 
 	UpdateTemplateWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body UpdateTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTemplateResponse, error)
 
+	// SendTestWithBodyWithResponse request with any body
+	SendTestWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendTestResponse, error)
+
+	SendTestWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body SendTestJSONRequestBody, reqEditors ...RequestEditorFn) (*SendTestResponse, error)
+
 	// GetCampaignUsersWithResponse request
 	GetCampaignUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*GetCampaignUsersResponse, error)
 
@@ -11918,6 +12025,28 @@ func (r UpdateTemplateResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateTemplateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SendTestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r SendTestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SendTestResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -14408,6 +14537,23 @@ func (c *ClientWithResponses) UpdateTemplateWithResponse(ctx context.Context, pr
 	return ParseUpdateTemplateResponse(rsp)
 }
 
+// SendTestWithBodyWithResponse request with arbitrary body returning *SendTestResponse
+func (c *ClientWithResponses) SendTestWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendTestResponse, error) {
+	rsp, err := c.SendTestWithBody(ctx, projectID, campaignID, templateID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendTestResponse(rsp)
+}
+
+func (c *ClientWithResponses) SendTestWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID, body SendTestJSONRequestBody, reqEditors ...RequestEditorFn) (*SendTestResponse, error) {
+	rsp, err := c.SendTest(ctx, projectID, campaignID, templateID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendTestResponse(rsp)
+}
+
 // GetCampaignUsersWithResponse request returning *GetCampaignUsersResponse
 func (c *ClientWithResponses) GetCampaignUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*GetCampaignUsersResponse, error) {
 	rsp, err := c.GetCampaignUsers(ctx, projectID, campaignID, params, reqEditors...)
@@ -16376,6 +16522,32 @@ func ParseUpdateTemplateResponse(rsp *http.Response) (*UpdateTemplateResponse, e
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSendTestResponse parses an HTTP response from a SendTestWithResponse call
+func ParseSendTestResponse(rsp *http.Response) (*SendTestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SendTestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -19388,6 +19560,9 @@ type ServerInterface interface {
 	// Update template
 	// (PATCH /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID})
 	UpdateTemplate(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID)
+	// Send test
+	// (POST /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}/test)
+	SendTest(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID)
 	// Get campaign users
 	// (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 	GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams)
@@ -19847,6 +20022,12 @@ func (_ Unimplemented) GetTemplate(w http.ResponseWriter, r *http.Request, proje
 // Update template
 // (PATCH /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID})
 func (_ Unimplemented) UpdateTemplate(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Send test
+// (POST /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}/test)
+func (_ Unimplemented) SendTest(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, templateID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -21607,6 +21788,55 @@ func (siw *ServerInterfaceWrapper) UpdateTemplate(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateTemplate(w, r, projectID, campaignID, templateID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SendTest operation middleware
+func (siw *ServerInterfaceWrapper) SendTest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "campaignID" -------------
+	var campaignID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignID", chi.URLParam(r, "campaignID"), &campaignID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "templateID" -------------
+	var templateID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "templateID", chi.URLParam(r, "templateID"), &templateID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "templateID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SendTest(w, r, projectID, campaignID, templateID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25695,6 +25925,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}", wrapper.UpdateTemplate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}/test", wrapper.SendTest)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/users", wrapper.GetCampaignUsers)

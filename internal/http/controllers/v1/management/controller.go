@@ -24,7 +24,8 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 	controller := &Controller{
 		ProjectsController:       NewProjectsController(logger, managementDB, usersDB, journeyDB, webhookCaller, pub, engine),
 		CampaignsController:      NewCampaignsController(logger, managementDB, usersDB, engine),
-		TemplatesController:      NewTemplatesController(logger, managementDB, req, engine),
+		TemplatesController:      NewTemplatesController(logger, managementDB, pubsub.NewEmailRenderer(req), registry, engine),
+		ActionsController:        NewActionsController(logger, managementDB, pubsub.NewActionCaller(req), usersDB, actionRegistry, engine),
 		AdminsController:         NewAdminsController(logger, managementDB, engine),
 		UsersController:          NewUsersController(logger, pub, usersDB, journeyDB, mgmt, cfg.Storage.MaxUploadSize, engine),
 		EventsController:         NewEventsController(logger, usersDB, engine),
@@ -37,7 +38,6 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		ProvidersController:      NewProvidersController(logger, managementDB, registry, engine),
 		SubscriptionsController:  NewSubscriptionsController(logger, managementDB, engine),
 		ApiKeysController:        NewApiKeysController(logger, managementDB, engine),
-		ActionsController:        NewActionsController(logger, managementDB, req, usersDB, actionRegistry, engine),
 		EmailTemplatesController: NewEmailTemplatesController(logger, webhookCaller, engine),
 	}
 

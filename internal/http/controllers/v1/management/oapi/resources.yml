@@ -407,6 +407,49 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}/test:
+    post:
+      summary: Send test
+      description: Sends a test message using the template to the specified recipient
+      operationId: sendTest
+      tags:
+        - Templates
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID
+        - name: templateID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The template ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendTest"
+      responses:
+        "204":
+          description: Test sent successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/campaigns/{campaignID}/duplicate:
     post:
       summary: Duplicate campaign
@@ -5023,6 +5066,21 @@ components:
           additionalProperties: true
           x-go-type: json.RawMessage
           description: Template-specific data based on type. Structure varies by template type.
+
+    SendTest:
+      type: object
+      required:
+        - to
+      properties:
+        to:
+          type: string
+          format: email
+          example: "test@example.com"
+          description: The recipient address to send the test to
+        props:
+          type: object
+          additionalProperties: true
+          description: Optional template variables/props for rendering
 
     Campaign:
       type: object
