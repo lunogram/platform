@@ -169,7 +169,7 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 			return err
 		}
 
-		logger = logger.With(zap.String("project_id", event.ProjectID.String()), zap.String("campaign_id", event.CampaignID.String()), zap.String("user_id", event.UserID.String()))
+		logger := logger.With(zap.String("project_id", event.ProjectID.String()), zap.String("campaign_id", event.CampaignID.String()), zap.String("user_id", event.UserID.String()))
 		logger.Info("processing send campaign message")
 
 		campaign, err := mgmt.GetCampaign(ctx, event.ProjectID, event.CampaignID)
@@ -219,15 +219,46 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 					return err
 				}
 
-				// Render Liquid in non-body fields (subject, from, etc.)
-				// by re-serializing the blob and running RenderJSON.
+				// Render Liquid only in metadata fields (subject, from, etc.).
+				// The body HTML is already fully rendered by the Deno service,
+				// and code.source contains JSX syntax (e.g. {{ margin: "0 auto" }})
+				// that must not be passed through the Liquid engine.
+				metadataKeys := []string{"subject", "from", "preheader", "reply_to", "cc", "bcc"}
+				for _, key := range metadataKeys {
+					val, ok := dataBlob[key]
+					if !ok {
+						continue
+					}
+					raw, err := json.Marshal(val)
+					if err != nil {
+						continue
+					}
+					rendered, err := render.RenderJSON(raw, data)
+					if err != nil {
+						logger.Error("failed to render template metadata field", zap.String("field", key), zap.Error(err))
+						return err
+					}
+					var resolved any
+					if err := json.Unmarshal(rendered, &resolved); err != nil {
+						continue
+					}
+					dataBlob[key] = resolved
+				}
+
+				// Also render custom plaintext if provided.
+				if pt, ok := dataBlob["plaintext"].(map[string]any); ok {
+					if custom, ok := pt["custom"].(string); ok && custom != "" {
+						rendered, err := render.RenderString(custom, data)
+						if err != nil {
+							logger.Error("failed to render plaintext", zap.Error(err))
+							return err
+						}
+						pt["custom"] = rendered
+					}
+				}
+
 				updatedData, _ := json.Marshal(dataBlob)
 				template.Data = json.RawMessage(updatedData)
-				template.Data, err = render.RenderJSON(template.Data, data)
-				if err != nil {
-					logger.Error("failed to render template metadata", zap.Error(err))
-					return err
-				}
 			} else {
 				// Legacy Liquid rendering for non-React Email templates.
 				template.Data, err = render.RenderJSON(template.Data, data)
