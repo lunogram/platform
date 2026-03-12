@@ -83,11 +83,14 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	// Mount client routes with API Key only auth
 	clientoapi.HandlerWithOptions(clientController, clientoapi.ChiServerOptions{
 		BaseRouter: router,
-		Middlewares: []clientoapi.MiddlewareFunc{clientoapi.Validator(clientSpec, openapi3filter.Options{
-			AuthenticationFunc: auth.Middleware(
-				auth.WithKey(mgmtStores),
-			),
-		})},
+		Middlewares: []clientoapi.MiddlewareFunc{
+			clientoapi.CORS(),
+			clientoapi.Validator(clientSpec, openapi3filter.Options{
+				AuthenticationFunc: auth.Middleware(
+					auth.WithKey(mgmtStores),
+				),
+			}),
+		},
 	})
 
 	// Serve static assets - use sub-filesystem to strip the "client/static" prefix
