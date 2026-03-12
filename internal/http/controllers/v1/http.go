@@ -81,7 +81,6 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	})
 
 	// Mount client routes with API Key only auth
-	// Mount client routes with API Key only auth
 	router.Group(func(r chi.Router) {
 		r.Use(clientoapi.CORS())
 		r.Options("/api/client/*", func(w nethttp.ResponseWriter, r *nethttp.Request) {})
