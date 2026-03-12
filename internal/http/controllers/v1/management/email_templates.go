@@ -58,5 +58,8 @@ func (srv *EmailTemplatesController) ListEmailTemplates(w http.ResponseWriter, r
 	// Proxy the raw JSON response from the webhook
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	_, err = w.Write(body)
+	if err != nil {
+		logger.Error("failed to write email templates response", zap.Error(err))
+	}
 }
