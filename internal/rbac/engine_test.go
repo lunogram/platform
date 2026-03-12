@@ -9,10 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ──────────────────────────────────────────────────────────
-// Tuple write / delete lifecycle
-// ──────────────────────────────────────────────────────────
-
 func TestWriteTupleGrantsAccess(t *testing.T) {
 	t.Parallel()
 
@@ -103,10 +99,6 @@ func TestWriteAndDeleteTuplesNoopOnEmpty(t *testing.T) {
 	assert.NoError(t, engine.DeleteTuples(ctx, []Tuple{}))
 }
 
-// ──────────────────────────────────────────────────────────
-// Allowed: context-based permission checks
-// ──────────────────────────────────────────────────────────
-
 func TestAllowedReturnsUnauthorizedWithoutActor(t *testing.T) {
 	t.Parallel()
 
@@ -140,10 +132,6 @@ func TestAllowedSucceedsWithPermission(t *testing.T) {
 
 	assert.NoError(t, engine.Allowed(ctx, Read, OrganizationScope(orgID)))
 }
-
-// ──────────────────────────────────────────────────────────
-// Organization role hierarchy
-// ──────────────────────────────────────────────────────────
 
 func TestOrgMemberCanOnlyRead(t *testing.T) {
 	t.Parallel()
@@ -186,10 +174,6 @@ func TestOrgOwnerCanDelete(t *testing.T) {
 	assert.NoError(t, engine.Allowed(ctx, Update, scope))
 	assert.NoError(t, engine.Allowed(ctx, Delete, scope))
 }
-
-// ──────────────────────────────────────────────────────────
-// Project role hierarchy (standard resources)
-// ──────────────────────────────────────────────────────────
 
 func TestProjectSupportCanOnlyRead(t *testing.T) {
 	t.Parallel()
@@ -332,10 +316,6 @@ func TestProjectAdminCanCRUDAllResources(t *testing.T) {
 	}
 }
 
-// ──────────────────────────────────────────────────────────
-// Admin-only resources (providers require admin for CUD)
-// ──────────────────────────────────────────────────────────
-
 func TestEditorCannotMutateProviders(t *testing.T) {
 	t.Parallel()
 
@@ -354,10 +334,6 @@ func TestEditorCannotMutateProviders(t *testing.T) {
 	assert.Error(t, engine.Allowed(ctx, Delete, scope))
 }
 
-// ──────────────────────────────────────────────────────────
-// Mixed-permission resources (subscriptions: delete requires admin)
-// ──────────────────────────────────────────────────────────
-
 func TestEditorCannotDeleteSubscriptions(t *testing.T) {
 	t.Parallel()
 
@@ -375,10 +351,6 @@ func TestEditorCannotDeleteSubscriptions(t *testing.T) {
 	assert.NoError(t, engine.Allowed(ctx, Update, scope))
 	assert.Error(t, engine.Allowed(ctx, Delete, scope))
 }
-
-// ──────────────────────────────────────────────────────────
-// Org owner/admin inherits project admin via TTU rewrite
-// ──────────────────────────────────────────────────────────
 
 func TestOrgOwnerInheritsProjectAdmin(t *testing.T) {
 	t.Parallel()
@@ -412,10 +384,6 @@ func TestOrgOwnerInheritsProjectAdmin(t *testing.T) {
 	assert.NoError(t, engine.Allowed(ctx, Delete, scope))
 }
 
-// ──────────────────────────────────────────────────────────
-// Cross-project isolation
-// ──────────────────────────────────────────────────────────
-
 func TestProjectRolesDoNotLeakAcrossProjects(t *testing.T) {
 	t.Parallel()
 
@@ -433,10 +401,6 @@ func TestProjectRolesDoNotLeakAcrossProjects(t *testing.T) {
 	assert.NoError(t, engine.Allowed(ctx, Read, ProjectResourceScope("users", project1)))
 	assert.Error(t, engine.Allowed(ctx, Read, ProjectResourceScope("users", project2)))
 }
-
-// ──────────────────────────────────────────────────────────
-// TestSetupWithTuples: fine-grained tuple control
-// ──────────────────────────────────────────────────────────
 
 func TestSetupWithTuplesGrantsCustomAccess(t *testing.T) {
 	t.Parallel()

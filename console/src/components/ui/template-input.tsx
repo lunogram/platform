@@ -13,8 +13,6 @@ import {
 import { cn } from "@/utils"
 import type { VariableGroup } from "@/views/journey/JourneyVariableContext"
 
-// ── Token parsing ───────────────────────────────────────────────────
-
 interface TextToken {
     type: "text"
     value: string
@@ -39,7 +37,6 @@ function tokenize(input: string): Token[] {
     return tokens
 }
 
-// ── Zero-width space helpers ────────────────────────────────────────
 // We insert zero-width spaces (ZWS) between and around pills so the
 // browser always has a text node where the caret can land.
 
@@ -55,8 +52,6 @@ function createPill(path: string): HTMLSpanElement {
     return pill
 }
 
-// ── Variants ────────────────────────────────────────────────────────
-
 const variantStyles = {
     default: {
         editor: "min-h-9 rounded-md px-3 py-1.5 text-base shadow-sm md:text-sm",
@@ -67,8 +62,6 @@ const variantStyles = {
         style: { minHeight: "2rem", lineHeight: "1.25rem" } as React.CSSProperties,
     },
 }
-
-// ── Component ───────────────────────────────────────────────────────
 
 export interface TemplateInputProps {
     value: string
@@ -110,7 +103,6 @@ export function TemplateInput({
         }
     }, [value])
 
-    // ── DOM → plain string ──────────────────────────────────────────
     function domToPlain(el: HTMLDivElement): string {
         let out = ""
         for (const child of el.childNodes) {
@@ -128,7 +120,6 @@ export function TemplateInput({
         return out
     }
 
-    // ── Render tokens into the contentEditable ──────────────────────
     function renderTokens(el: HTMLDivElement, raw: string) {
         const tokens = tokenize(raw)
 
@@ -157,7 +148,6 @@ export function TemplateInput({
         }
     }
 
-    // ── Handle input ────────────────────────────────────────────────
     const handleInput = useCallback(() => {
         if (isComposing.current) return
         const el = editorRef.current
@@ -168,7 +158,6 @@ export function TemplateInput({
         }
     }, [onChange])
 
-    // ── Insert a variable at cursor ─────────────────────────────────
     const insertVariable = useCallback(
         (path: string) => {
             const el = editorRef.current
@@ -220,7 +209,6 @@ export function TemplateInput({
         [onChange, value],
     )
 
-    // ── Keyboard: prevent Enter (single-line) ───────────────────────
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === "Enter") {
             e.preventDefault()

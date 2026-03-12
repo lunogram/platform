@@ -21,9 +21,16 @@ interface UserSelectionProps {
     projectId: string
     value?: User | null
     onChange?: (user: User) => void
+    /** Render a compact trigger button (h-7, text-xs). Defaults to "default". */
+    size?: "default" | "sm"
 }
 
-export function UserSelection({ projectId, value, onChange }: UserSelectionProps) {
+export function UserSelection({
+    projectId,
+    value,
+    onChange,
+    size = "default",
+}: UserSelectionProps) {
     const [open, setOpen] = useState(false)
     const [search, setSearch] = useState("")
     const [users, setUsers] = useState<User[]>([])
@@ -52,14 +59,17 @@ export function UserSelection({ projectId, value, onChange }: UserSelectionProps
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
-                    className="max-w-xs justify-between min-w-0"
+                    className={cn(
+                        "max-w-sm justify-between min-w-0",
+                        size === "sm" && "h-7 text-xs px-2 [&_svg]:size-3.5",
+                    )}
                 >
                     <span className="truncate">{value ? value.email : "Select user..."}</span>
                     <ChevronsUpDown className="opacity-50 shrink-0" />
                 </Button>
             </PopoverTrigger>
 
-            <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
+            <PopoverContent className="w-(--radix-popover-trigger-width) min-w-[280px] p-0">
                 <Command>
                     <CommandInput
                         placeholder="Search user..."

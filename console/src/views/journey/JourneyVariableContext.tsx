@@ -14,22 +14,22 @@ import { getUpstreamDataKeys } from "./editor/JourneyEditor.utils"
 import { ProjectContext } from "@/contexts"
 import api from "@/api"
 
-// ── Public types ────────────────────────────────────────────────────
-
 export interface Variable {
     /** Liquid-compatible path, e.g. "user.email" or "journey.my_key.amount" */
     path: string
     /** Human-readable label shown in the picker */
     label: string
     description?: string
+    /** Schema types from the backend, e.g. ["string"], ["number", "string"], ["object"], ["array"] */
+    types?: string[]
+    /** Default value defined by the campaign/journey variable, used as the preview sample */
+    defaultValue?: unknown
 }
 
 export interface VariableGroup {
     label: string
     variables: Variable[]
 }
-
-// ── Context value ───────────────────────────────────────────────────
 
 interface JourneyVariableContextValue {
     /** Get variable groups available for a specific node */
@@ -44,8 +44,6 @@ const JourneyVariableContext = createContext<JourneyVariableContextValue>({
 export function useJourneyVariableContext() {
     return useContext(JourneyVariableContext)
 }
-
-// ── Provider ────────────────────────────────────────────────────────
 
 interface JourneyVariableProviderProps {
     nodes: Node<JourneyNodeData>[]
@@ -78,7 +76,6 @@ export function JourneyVariableProvider({
         (nodeId: string): VariableGroup[] => {
             const groups: VariableGroup[] = []
 
-            // ── User properties ─────────────────────────────────
             if (suggestions?.userPaths?.length) {
                 groups.push({
                     label: "User",
@@ -88,12 +85,12 @@ export function JourneyVariableProvider({
                             path: `user.${cleanPath}`,
                             label: cleanPath,
                             description: p.types.join(", "),
+                            types: p.types,
                         }
                     }),
                 })
             }
 
-            // ── Journey step data (upstream ancestors with data_key) ─
             const upstream = getUpstreamDataKeys(nodes, edges, nodeId)
             if (upstream.length) {
                 for (const ancestor of upstream) {
@@ -114,6 +111,7 @@ export function JourneyVariableProvider({
                                 path: `${prefix}.${cleanPath}`,
                                 label: cleanPath,
                                 description: field.types.join(", "),
+                                types: field.types,
                             }
                         }) ?? []
 
@@ -126,6 +124,7 @@ export function JourneyVariableProvider({
                                 path: prefix,
                                 label: `${ancestor.data_key} (full object)`,
                                 description: `Data from step "${ancestor.name || ancestor.data_key}"`,
+                                types: ["object"],
                             },
                             ...fieldVars,
                         ],

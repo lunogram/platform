@@ -3,8 +3,12 @@ package v1
 import (
 	"embed"
 	"fmt"
+	"io"
 	"io/fs"
+	"mime"
 	nethttp "net/http"
+	"path/filepath"
+	"regexp"
 
 	"github.com/cloudproud/graceful"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -36,7 +40,7 @@ var staticFiles embed.FS
 // NewServer constructs a unified HTTP server combining both management and client
 // API endpoints. Management endpoints use JWT+API Key auth, while client endpoints
 // use API Key only authentication.
-func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storage storage.Storage, jet jetstream.JetStream, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry, rbacEngine *rbac.Engine) (*http.Server, error) {
+func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storageDriver storage.Storage, jet jetstream.JetStream, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry, rbacEngine *rbac.Engine) (*http.Server, error) {
 	mgmtStores := management.NewState(db.Management)
 	usersStore := subjects.NewState(db.Subjects)
 
@@ -51,8 +55,11 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 		return nil, fmt.Errorf("failed to load client OpenAPI spec: %w", err)
 	}
 
+	// Create URL resolver for public document URLs
+	urlResolver := storage.NewURLResolver(cfg.Storage.BaseURL, cfg.PublicURL)
+
 	// Create management controller
-	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storage, pub, req, jet, registry, actionRegistry, rbacEngine)
+	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storageDriver, urlResolver, pub, req, jet, registry, actionRegistry, rbacEngine)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create management controller: %w", err)
 	}
@@ -95,6 +102,13 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 			},
 		})
 	})
+
+	if cfg.Storage.BaseURL == "" {
+		// Mount public (unauthenticated) document serving endpoint.
+		// When using local storage without a CDN, this endpoint allows documents
+		// to be loaded publicly (e.g. images embedded in emails).
+		router.Get("/uploads/documents/{key}", documentsHandler(logger, storageDriver))
+	}
 
 	// Serve static assets - use sub-filesystem to strip the "client/static" prefix
 	staticSubFS, err := fs.Sub(staticFiles, "client/static")
@@ -139,5 +153,42 @@ func apiDocsMiddleware() func(next nethttp.Handler) nethttp.Handler {
 
 			next.ServeHTTP(w, req)
 		})
+	}
+}
+
+// validDocumentKey matches keys in the format {uuid}.{ext} (e.g. "6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899.pdf").
+var validDocumentKey = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$`)
+
+// documentsHandler returns an HTTP handler that serves document files from
+// storage. This endpoint is unauthenticated so that documents can be loaded
+// publicly (e.g. images embedded in emails).
+func documentsHandler(logger *zap.Logger, s storage.Storage) nethttp.HandlerFunc {
+	return func(w nethttp.ResponseWriter, r *nethttp.Request) {
+		key := chi.URLParam(r, "key")
+		if key == "" || !validDocumentKey.MatchString(key) {
+			nethttp.Error(w, "Not Found", nethttp.StatusNotFound)
+			return
+		}
+
+		file, err := s.Read(r.Context(), key)
+		if err != nil {
+			logger.Debug("document not found in storage", zap.String("key", key), zap.Error(err))
+			nethttp.Error(w, "Not Found", nethttp.StatusNotFound)
+			return
+		}
+		defer file.Close()
+
+		// Determine content type from the file extension in the key.
+		contentType := mime.TypeByExtension(filepath.Ext(key))
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+
+		if _, err := io.Copy(w, file); err != nil {
+			logger.Error("failed to write document to response", zap.String("key", key), zap.Error(err))
+		}
 	}
 }

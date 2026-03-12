@@ -21,12 +21,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewDocumentsController(logger *zap.Logger, db *sqlx.DB, storage storage.Storage, maxUploadSize int64, engine *rbac.Engine) *DocumentsController {
+func NewDocumentsController(logger *zap.Logger, db *sqlx.DB, storage storage.Storage, maxUploadSize int64, urlResolver *storage.URLResolver, engine *rbac.Engine) *DocumentsController {
 	return &DocumentsController{
 		logger:        logger,
 		db:            db,
 		storage:       storage,
 		maxUploadSize: maxUploadSize,
+		urlResolver:   urlResolver,
 		engine:        engine,
 	}
 }
@@ -36,6 +37,7 @@ type DocumentsController struct {
 	db            *sqlx.DB
 	storage       storage.Storage
 	maxUploadSize int64
+	urlResolver   *storage.URLResolver
 	engine        *rbac.Engine
 }
 
@@ -162,7 +164,7 @@ func (srv *DocumentsController) ListDocuments(w http.ResponseWriter, r *http.Req
 		Total:   total,
 		Limit:   pagination.Limit,
 		Offset:  pagination.Offset,
-		Results: result.OAPI(),
+		Results: result.OAPIWithURLs(srv.urlResolver.URL),
 	})
 }
 
@@ -234,7 +236,7 @@ func (srv *DocumentsController) GetDocumentMetadata(w http.ResponseWriter, r *ht
 	}
 
 	logger.Info("document metadata retrieved")
-	json.Write(w, http.StatusOK, document.OAPI())
+	json.Write(w, http.StatusOK, document.OAPIWithURL(srv.urlResolver.URL(document.Key)))
 }
 
 func (srv *DocumentsController) DeleteDocument(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, documentID uuid.UUID) {

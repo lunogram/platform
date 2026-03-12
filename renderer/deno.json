@@ -1,0 +1,20 @@
+{
+  "tasks": {
+    "start": "deno run --allow-net=nats:4222 --allow-env=NATS_URL main.ts",
+    "dev": "deno run --watch --allow-net --allow-env main.ts"
+  },
+  "imports": {
+    "@nats-io/nats-core": "jsr:@nats-io/nats-core@^3",
+    "@nats-io/transport-deno": "jsr:@nats-io/transport-deno@^3",
+    "react": "npm:react@^18.3.1",
+    "react/jsx-runtime": "npm:react@^18.3.1/jsx-runtime",
+    "react-dom/server": "npm:react-dom@^18.3.1/server",
+    "@react-email/components": "npm:@react-email/components@^0.0.31",
+    "@react-email/render": "npm:@react-email/render@^1.0.5",
+    "sucrase": "npm:sucrase@^3.35.0"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  }
+}
