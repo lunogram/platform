@@ -350,6 +350,16 @@ const api = {
                         `${projectUrl(projectId)}/campaigns/${campaignId}/templates/${templateId}`,
                     )
                     .then((r) => r.data),
+            sendTest: async (
+                projectId: UUID,
+                campaignId: UUID,
+                templateId: UUID,
+                params: { to: string; props?: Record<string, unknown> },
+            ) =>
+                await client.post(
+                    `${projectUrl(projectId)}/campaigns/${campaignId}/templates/${templateId}/test`,
+                    params,
+                ),
         },
     },
 

@@ -132,7 +132,7 @@ func run() error {
 	pub := pubsub.NewPublisher(jet, conf.Nats.Namespace)
 	req := pubsub.NewCaller(jet, conf.Nats.Namespace)
 	ns := consumer.Namespace(conf.Nats.Namespace)
-	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, conf.PublicURL)
+	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, conf.PublicURL)
 
 	logger.Info("initializing cluster")
 

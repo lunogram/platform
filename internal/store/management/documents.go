@@ -11,10 +11,12 @@ import (
 
 type Documents []Document
 
-func (documents Documents) OAPI() []oapi.Document {
+// OAPIWithURLs converts Documents to their OpenAPI representation, using the
+// provided resolver to populate the public URL field for each document.
+func (documents Documents) OAPIWithURLs(resolve func(key string) string) []oapi.Document {
 	result := make([]oapi.Document, len(documents))
 	for index, document := range documents {
-		result[index] = document.OAPI()
+		result[index] = document.OAPIWithURL(resolve(document.Key))
 	}
 	return result
 }
@@ -31,13 +33,16 @@ type Document struct {
 	UpdatedAt   time.Time `db:"updated_at"`
 }
 
-func (document Document) OAPI() oapi.Document {
+// OAPIWithURL converts a Document to its OpenAPI representation, including
+// the provided public URL.
+func (document Document) OAPIWithURL(url string) oapi.Document {
 	return oapi.Document{
 		Id:          document.ID,
 		ProjectId:   document.ProjectID,
 		Name:        document.Name,
 		Filename:    document.Filename,
 		Key:         document.Key,
+		Url:         url,
 		ContentType: document.ContentType,
 		SizeBytes:   document.SizeBytes,
 		CreatedAt:   document.CreatedAt,

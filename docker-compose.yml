@@ -37,3 +37,15 @@ services:
         condition: service_healthy
     networks:
       - app_network
+
+  renderer:
+    build:
+      context: ./renderer
+      dockerfile: Dockerfile
+    environment:
+      NATS_URL: nats://nats:4222
+    depends_on:
+      nats:
+        condition: service_started
+    networks:
+      - app_network

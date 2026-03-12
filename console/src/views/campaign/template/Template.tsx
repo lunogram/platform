@@ -23,7 +23,7 @@ const TemplateSteps = memo(function CampaignSteps({ steps }: CampaignStepProps) 
     }
 
     return (
-        <Pagination>
+        <Pagination className="w-auto min-w-0">
             <PaginationContent>
                 {steps.map((step, index) => (
                     <span key={step.name} className="flex items-center">
@@ -223,14 +223,14 @@ export default function Template() {
                             </CampaignVariableProvider>
                         )}
                     </div>
-                    <div className="border-t bg-background flex items-center justify-center px-6 py-4">
+                    <div className="border-t bg-background flex items-center justify-between px-6 py-4 min-w-0 gap-4">
                         {templateId && (
-                            <div className="mr-auto">
+                            <div className="shrink-0">
                                 <LocaleSelect onChange={handleLocaleChange} />
                             </div>
                         )}
                         <TemplateSteps steps={steps} />
-                        <div className="ml-auto">
+                        <div className="shrink-0">
                             {!nextStep ? (
                                 <Button
                                     onClick={publish}

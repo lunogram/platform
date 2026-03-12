@@ -1,4 +1,4 @@
-import { useContext, useState, useEffect } from "react"
+import { useCallback, useContext, useState, useEffect, useRef } from "react"
 import { Controller, useForm, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { Campaign, Template, User, Locale } from "@/types"
@@ -8,6 +8,8 @@ import { useNavigate } from "react-router"
 import api from "@/api"
 import * as z from "zod"
 import { Render } from "@/renderTemplates"
+import { compileEmail } from "./editor/codeEditor/compileEmail"
+import { getSystemPreviewProps } from "./editor/codeEditor/variableScope"
 
 import { Input } from "@/components/ui/input"
 import { TemplateInput } from "@/components/ui/template-input"
@@ -313,7 +315,9 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
     const [selectedLocale, setSelectedLocale] = useState(template.locale)
     const [locales, setLocales] = useState<Locale[]>([])
+    const [compiledHtml, setCompiledHtml] = useState<string>("")
     const navigate = useNavigate()
+    const abortRef = useRef<AbortController | null>(null)
 
     useEffect(() => {
         const fetchLocales = async () => {
@@ -325,6 +329,45 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
         fetchLocales()
     }, [project?.id])
 
+    // Compile code.source to HTML whenever the template or selected user changes.
+    // The user is passed as a prop so JSX expressions like `props.user.data.first_name`
+    // resolve with real values at React render time.
+    useEffect(() => {
+        const source = template?.data?.code?.source
+        if (!source) {
+            setCompiledHtml("")
+            return
+        }
+
+        if (abortRef.current) {
+            abortRef.current.abort()
+        }
+        const abortController = new AbortController()
+        abortRef.current = abortController
+
+        const previewProps: Record<string, unknown> = {
+            ...getSystemPreviewProps(),
+            ...(selectedUser ? { user: selectedUser } : {}),
+        }
+
+        compileEmail(source, previewProps, abortController.signal)
+            .then((result) => {
+                if (!abortController.signal.aborted) {
+                    setCompiledHtml(result.html)
+                }
+            })
+            .catch((err) => {
+                if (err instanceof DOMException && err.name === "AbortError") return
+                if (!abortController.signal.aborted) {
+                    setCompiledHtml("")
+                }
+            })
+
+        return () => {
+            abortController.abort()
+        }
+    }, [template?.data?.code?.source, selectedUser])
+
     const { subject, from, replyTo } = form.watch()
 
     const rawFromName =
@@ -333,13 +376,11 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
         from.email || template.data.from?.email || campaign?.provider?.data.default_from || ""
     const displayReplyTo = replyTo || template.data.replyTo || ""
 
-    const rawHtmlTemplate = template?.data?.html || ""
-
     const displaySubject = selectedUser ? Render(subject, { user: selectedUser }) : subject
     const displayFromName = selectedUser ? Render(rawFromName, { user: selectedUser }) : rawFromName
-    const htmlTemplate = selectedUser
-        ? Render(rawHtmlTemplate, { user: selectedUser })
-        : rawHtmlTemplate
+    // compiledHtml already has user data baked in from compileEmail (JSX expressions
+    // are evaluated at React render time), so no Handlebars post-processing needed.
+    const htmlTemplate = compiledHtml
 
     const handleEditTemplate = () => {
         navigate(`/projects/${project?.id}/campaigns/${campaign.id}/templates/${template.id}`)
