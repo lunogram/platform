@@ -21,4 +21,5 @@ func (m ProviderManifest) GetMetadata() modules.Metadata {
 type ProviderSpec struct {
 	Channels []Channel           `json:"channels"`
 	Config   *modules.JSONSchema `json:"config,omitempty"`
+	Locked   bool                `json:"locked,omitempty"`
 }

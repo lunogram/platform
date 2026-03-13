@@ -28,6 +28,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { StaggeredMosaic } from "@/components/icon-mosaic"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 export default function Integrations() {
     const { t } = useTranslation()
@@ -76,6 +77,18 @@ export default function Integrations() {
             color: meta?.color,
         }
     }, [hoveredProvider, metas])
+
+    const isProviderLocked = useCallback(
+        (provider: Provider): boolean => {
+            if (!metas) return false
+            const meta = metas.find(
+                (m: { type: string; group: string }) =>
+                    m.type === provider.module && m.group === provider.channel,
+            )
+            return meta?.locked === true
+        },
+        [metas],
+    )
 
     const handleArchive = async (id: UUID) => {
         if (!confirm(t("delete_integration_confirmation"))) return
@@ -233,15 +246,37 @@ export default function Integrations() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem
-                                                        className="text-destructive"
-                                                        onClick={async (e) => {
-                                                            e.stopPropagation()
-                                                            await handleArchive(p.id)
-                                                        }}
-                                                    >
-                                                        {t("archive")}
-                                                    </DropdownMenuItem>
+                                                    {isProviderLocked(p) ? (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <DropdownMenuItem
+                                                                    className="text-muted-foreground"
+                                                                    disabled
+                                                                    onClick={(e) =>
+                                                                        e.stopPropagation()
+                                                                    }
+                                                                >
+                                                                    {t("archive")}
+                                                                </DropdownMenuItem>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="left">
+                                                                {t(
+                                                                    "provider_locked",
+                                                                    "This provider is locked and cannot be deleted",
+                                                                )}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <DropdownMenuItem
+                                                            className="text-destructive"
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation()
+                                                                await handleArchive(p.id)
+                                                            }}
+                                                        >
+                                                            {t("archive")}
+                                                        </DropdownMenuItem>
+                                                    )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>

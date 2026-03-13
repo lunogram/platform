@@ -5412,6 +5412,9 @@ components:
         hidden:
           type: boolean
           description: Whether this module is hidden from the UI
+        locked:
+          type: boolean
+          description: Whether providers of this module type are locked and cannot be deleted
 
     Template:
       type: object

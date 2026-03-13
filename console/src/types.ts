@@ -728,6 +728,7 @@ export interface ProviderMeta {
     color?: string
     type: string
     group: string
+    locked?: boolean
 
     schema: any
     paths?: Record<string, string>

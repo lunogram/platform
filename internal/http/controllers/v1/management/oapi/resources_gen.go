@@ -855,8 +855,11 @@ type ProviderMeta struct {
 	Group       string  `json:"group"`
 
 	// Hidden Whether this module is hidden from the UI
-	Hidden *bool           `json:"hidden,omitempty"`
-	Icon   *string         `json:"icon,omitempty"`
+	Hidden *bool   `json:"hidden,omitempty"`
+	Icon   *string `json:"icon,omitempty"`
+
+	// Locked Whether providers of this module type are locked and cannot be deleted
+	Locked *bool           `json:"locked,omitempty"`
 	Name   string          `json:"name"`
 	Schema json.RawMessage `json:"schema"`
 
