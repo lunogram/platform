@@ -1,7 +1,18 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { Editor, type OnMount } from "@monaco-editor/react"
 import type { editor } from "monaco-editor"
-import { Smartphone, Tablet, Monitor, FileCode, FileText, Eye, Rocket } from "lucide-react"
+import {
+    Smartphone,
+    Tablet,
+    Monitor,
+    FileCode,
+    FileText,
+    Eye,
+    Rocket,
+    Sparkles,
+    Code2,
+    Crosshair,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
@@ -33,8 +44,111 @@ import {
 } from "./variableScope"
 import { configureMonaco, updatePropsTypeDeclarations } from "./monacoSetup"
 import { compileEmail } from "./compileEmail"
+import { isEnterprise } from "@/config/enterprise"
+
+// Enterprise-only: AI builder imports are lazily referenced so they
+// can be tree-shaken when __ENTERPRISE__ is false.
+import { BuilderProvider } from "../../../builder/BuilderContext"
+import {
+    useBuilderActions,
+    useBuilderActionsOptional,
+    useBuilderThread,
+    useBuilderStream,
+} from "../../../builder/useBuilder"
+import { BuilderPanel } from "../../../builder/Builder"
+
+/** The top-level editing mode: code editor or AI builder */
+type EditorMode = "code" | "builder"
 
 export function CodeEditor() {
+    const [project] = useContext(ProjectContext)
+    const [template] = useContext(TemplateContext)
+
+    if (isEnterprise) {
+        return (
+            <BuilderProvider projectId={project.id} templateId={template.id}>
+                <CodeEditorInner />
+            </BuilderProvider>
+        )
+    }
+
+    return <CodeEditorInner />
+}
+
+/**
+ * Headless component that subscribes to builder stream/thread contexts
+ * and runs the compile-check feedback loop when the AI finishes streaming.
+ * Rendered as a child so CodeEditorInner itself doesn't re-render on
+ * builder state changes.
+ */
+function BuilderCompileCheck({
+    previewPropsRef,
+}: {
+    previewPropsRef: React.RefObject<Record<string, unknown>>
+}) {
+    const { reportCompileResult, startCompileCheck } = useBuilderActions()
+    const { currentSource: builderCurrentSource } = useBuilderThread()
+    const { isAgentTyping: builderIsAgentTyping } = useBuilderStream()
+
+    const prevAgentTypingRef = useRef(builderIsAgentTyping)
+    const compileCheckAbortRef = useRef<AbortController | null>(null)
+
+    useEffect(() => {
+        const wasTyping = prevAgentTypingRef.current
+        prevAgentTypingRef.current = builderIsAgentTyping
+
+        if (wasTyping && !builderIsAgentTyping && builderCurrentSource) {
+            const source = builderCurrentSource
+
+            console.log("[COMPILE_CHECK] compiling AI output, source length:", source.length)
+            const srcLines = source.split("\n")
+            const debugStart = Math.max(0, 44)
+            const debugEnd = Math.min(srcLines.length, 55)
+            console.log("[COMPILE_CHECK] lines 45-55:")
+            for (let i = debugStart; i < debugEnd; i++) {
+                console.log(`  ${i + 1}: ${srcLines[i]}`)
+            }
+
+            compileCheckAbortRef.current?.abort()
+            const controller = new AbortController()
+            compileCheckAbortRef.current = controller
+
+            startCompileCheck()
+
+            void (async () => {
+                try {
+                    await compileEmail(source, previewPropsRef.current, controller.signal)
+                    if (!controller.signal.aborted) {
+                        reportCompileResult({ success: true })
+                    }
+                } catch (err) {
+                    if (controller.signal.aborted) return
+                    if (err instanceof DOMException && err.name === "AbortError") return
+
+                    const errorMessage = err instanceof Error ? err.message : String(err)
+                    console.error("[COMPILE_CHECK] compile error:", errorMessage)
+                    reportCompileResult({ success: false, error: errorMessage })
+                }
+            })()
+        }
+    }, [
+        builderIsAgentTyping,
+        builderCurrentSource,
+        previewPropsRef,
+        reportCompileResult,
+        startCompileCheck,
+    ])
+
+    useEffect(() => {
+        return () => {
+            compileCheckAbortRef.current?.abort()
+        }
+    }, [])
+
+    return null
+}
+
+function CodeEditorInner() {
     const { onSubmit } = useContext(TemplateWorkflowContext)
     const [project] = useContext(ProjectContext)
     const [campaign] = useContext(CampaignContext)
@@ -44,8 +158,9 @@ export function CodeEditor() {
     const monacoRef = useRef<Parameters<OnMount>[1] | null>(null)
     const plainTextEditorRef = useRef<PlainTextEditorRef | null>(null)
     const { variableGroups } = useCampaignVariableContext()
+    const { selectSection, deselectSection } = useBuilderActionsOptional()
 
-    // Editor state
+    // Editor state — shared between code editor and builder
     const [code, setCode] = useState<string>(
         template?.data?.code?.source ?? DEFAULT_REACT_EMAIL_TEMPLATE,
     )
@@ -65,6 +180,8 @@ export function CodeEditor() {
     const [viewport, setViewport] = useState<Viewport>("tablet")
     const [imageModalOpen, setImageModalOpen] = useState(false)
     const [activeTab, setActiveTab] = useState<EditorTab>("code")
+    const [editorMode, setEditorMode] = useState<EditorMode>("code") // always "code" when !isEnterprise
+    const [selectorActive, setSelectorActive] = useState(false)
 
     // Build default preview props from variable groups
     const defaultPreviewProps = useMemo(() => buildPreviewProps(variableGroups), [variableGroups])
@@ -227,6 +344,13 @@ export function CodeEditor() {
         }
     }, [code, previewProps, runCompile])
 
+    // Keep a ref to previewProps so the headless BuilderCompileCheck
+    // component can read the current value without causing re-renders.
+    const previewPropsRef = useRef(previewProps)
+    useEffect(() => {
+        previewPropsRef.current = previewProps
+    }, [previewProps])
+
     onSubmit(async () => {
         const updated = await api.campaigns.templates.update(project.id, campaign.id, template.id, {
             data: {
@@ -255,9 +379,14 @@ export function CodeEditor() {
         [propsTypeDeclarations],
     )
 
-    // Handle code changes
+    // Handle code changes from Monaco
     const handleCodeChange = useCallback((value: string | undefined) => {
         setCode(value ?? "")
+    }, [])
+
+    // Handle source changes from the AI builder
+    const handleBuilderSourceChange = useCallback((source: string) => {
+        setCode(source)
     }, [])
 
     // Insert text at cursor position in the code editor (Monaco)
@@ -323,92 +452,208 @@ export function CodeEditor() {
         [activeTab, insertAtCursor],
     )
 
+    // When switching to code mode, sync Monaco with the latest code
+    const handleModeSwitch = useCallback(
+        (mode: EditorMode) => {
+            if (mode === "code" && editorRef.current) {
+                const model = editorRef.current.getModel()
+                if (model && model.getValue() !== code) {
+                    model.setValue(code)
+                }
+            }
+            setEditorMode(mode)
+            if (mode !== "builder") {
+                setSelectorActive(false)
+            }
+        },
+        [code],
+    )
+
+    // Handle section selection from the preview panel (builder mode only)
+    const handleSectionSelect = useCallback(
+        (section: { label: string; sectionId?: string; textContent?: string }) => {
+            selectSection(section)
+            setSelectorActive(false)
+        },
+        [selectSection],
+    )
+
+    // Handle section deselection from the preview panel
+    const handleSectionDeselect = useCallback(
+        (label: string) => {
+            deselectSection(label)
+        },
+        [deselectSection],
+    )
+
     return (
         <div className="flex flex-col h-full w-full">
             <ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0">
-                {/* Left panel: Code editor */}
+                {/* Left panel: Code editor or Builder chat */}
                 <ResizablePanel defaultSize={50} minSize={30} className="overflow-hidden">
                     <div className="flex flex-col h-full">
-                        {/* Editor tab bar */}
-                        <div className="flex items-center border-b bg-background">
-                            <TabButton
-                                active={activeTab === "code"}
-                                onClick={() => setActiveTab("code")}
-                                icon={<FileCode className="h-4 w-4" />}
-                                label="template.tsx"
-                            />
-                            <TabButton
-                                active={activeTab === "plaintext"}
-                                onClick={() => setActiveTab("plaintext")}
-                                icon={<FileText className="h-4 w-4" />}
-                                label="plaintext.txt"
-                            />
+                        {/* Editor tab bar with mode toggle */}
+                        <div className="flex items-center justify-between border-b bg-background">
+                            <div className="flex items-center">
+                                {editorMode === "code" ? (
+                                    <>
+                                        <TabButton
+                                            active={activeTab === "code"}
+                                            onClick={() => setActiveTab("code")}
+                                            icon={<FileCode className="h-4 w-4" />}
+                                            label="template.tsx"
+                                        />
+                                        <TabButton
+                                            active={activeTab === "plaintext"}
+                                            onClick={() => setActiveTab("plaintext")}
+                                            icon={<FileText className="h-4 w-4" />}
+                                            label="plaintext.txt"
+                                        />
+                                    </>
+                                ) : (
+                                    <TabButton
+                                        active={true}
+                                        onClick={() => {}}
+                                        icon={<Sparkles className="h-4 w-4" />}
+                                        label="AI Builder"
+                                    />
+                                )}
+                            </div>
+
+                            {/* Mode toggle — only shown for enterprise */}
+                            {isEnterprise && (
+                                <div className="flex items-center gap-1 pr-3">
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant={
+                                                    editorMode === "code" ? "secondary" : "ghost"
+                                                }
+                                                size="sm"
+                                                className="h-8 w-8 p-0"
+                                                onClick={() => handleModeSwitch("code")}
+                                            >
+                                                <Code2 className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Code Editor</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant={
+                                                    editorMode === "builder" ? "secondary" : "ghost"
+                                                }
+                                                size="sm"
+                                                className="h-8 w-8 p-0"
+                                                onClick={() => handleModeSwitch("builder")}
+                                            >
+                                                <Sparkles className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>AI Builder</TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            )}
                         </div>
 
                         {/* Editor content */}
                         <div className="flex-1 min-h-0 relative">
-                            {activeTab === "code" ? (
+                            {editorMode === "code" ? (
                                 <>
-                                    <EditorToolbar
-                                        onImageClick={() => setImageModalOpen(true)}
-                                        onInsertVariable={insertVariable}
-                                        variableGroups={[]}
-                                        showImageButton={true}
-                                    />
-                                    <Editor
-                                        value={code}
-                                        defaultLanguage="typescript"
-                                        defaultPath="file:///template.tsx"
-                                        onChange={handleCodeChange}
-                                        onMount={handleEditorMount}
-                                        options={{
-                                            automaticLayout: true,
-                                            minimap: { enabled: false },
-                                            fontSize: 13,
-                                            lineHeight: 20,
-                                            scrollBeyondLastLine: false,
-                                            padding: { top: 12, bottom: 12 },
-                                            renderLineHighlight: "line",
-                                            smoothScrolling: true,
-                                            cursorBlinking: "smooth",
-                                            cursorSmoothCaretAnimation: "on",
-                                            bracketPairColorization: { enabled: true },
-                                            tabSize: 2,
-                                            wordWrap: "on",
-                                            folding: true,
-                                            suggest: {
-                                                showKeywords: true,
-                                                showSnippets: true,
-                                            },
-                                        }}
-                                    />
+                                    {activeTab === "code" ? (
+                                        <>
+                                            <EditorToolbar
+                                                onImageClick={() => setImageModalOpen(true)}
+                                                onInsertVariable={insertVariable}
+                                                variableGroups={[]}
+                                                showImageButton={true}
+                                            />
+                                            <Editor
+                                                value={code}
+                                                defaultLanguage="typescript"
+                                                defaultPath="file:///template.tsx"
+                                                onChange={handleCodeChange}
+                                                onMount={handleEditorMount}
+                                                options={{
+                                                    automaticLayout: true,
+                                                    minimap: { enabled: false },
+                                                    fontSize: 13,
+                                                    lineHeight: 20,
+                                                    scrollBeyondLastLine: false,
+                                                    padding: { top: 12, bottom: 12 },
+                                                    renderLineHighlight: "line",
+                                                    smoothScrolling: true,
+                                                    cursorBlinking: "smooth",
+                                                    cursorSmoothCaretAnimation: "on",
+                                                    bracketPairColorization: { enabled: true },
+                                                    guides: { indentation: false },
+                                                    stickyScroll: { enabled: false },
+                                                    tabSize: 2,
+                                                    wordWrap: "on",
+                                                    folding: true,
+                                                    suggest: {
+                                                        showKeywords: true,
+                                                        showSnippets: true,
+                                                    },
+                                                }}
+                                            />
+                                        </>
+                                    ) : (
+                                        <PlainTextEditor
+                                            ref={plainTextEditorRef}
+                                            autoText={autoPlainText}
+                                            customText={customPlainText}
+                                            onCustomTextChange={setCustomPlainText}
+                                            useCustom={useCustomPlainText}
+                                            onToggleCustom={setUseCustomPlainText}
+                                            onImageClick={() => setImageModalOpen(true)}
+                                            onInsertVariable={insertVariable}
+                                            variableGroups={variableGroups}
+                                        />
+                                    )}
                                 </>
-                            ) : (
-                                <PlainTextEditor
-                                    ref={plainTextEditorRef}
-                                    autoText={autoPlainText}
-                                    customText={customPlainText}
-                                    onCustomTextChange={setCustomPlainText}
-                                    useCustom={useCustomPlainText}
-                                    onToggleCustom={setUseCustomPlainText}
-                                    onImageClick={() => setImageModalOpen(true)}
-                                    onInsertVariable={insertVariable}
-                                    variableGroups={variableGroups}
+                            ) : isEnterprise ? (
+                                <BuilderPanel
+                                    currentSource={code}
+                                    onSourceChange={handleBuilderSourceChange}
                                 />
-                            )}
+                            ) : null}
                         </div>
                     </div>
                 </ResizablePanel>
 
                 <ResizableHandle withHandle />
 
-                {/* Right panel: Preview + Props editor */}
+                {/* Right panel: Preview + Props editor (shared between both modes) */}
                 <ResizablePanel defaultSize={50} minSize={25} className="overflow-hidden">
                     <div className="flex flex-col h-full">
                         {/* Preview tab bar - consistent styling with editor tabs */}
                         <div className="flex items-center justify-between border-b bg-background">
                             <PreviewTab icon={<Eye className="h-4 w-4" />} label="Preview" />
                             <div className="flex items-center gap-1 pr-3">
+                                {isEnterprise && editorMode === "builder" && (
+                                    <>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant={selectorActive ? "secondary" : "ghost"}
+                                                    size="sm"
+                                                    className={`h-8 w-8 p-0 ${selectorActive ? "bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400" : ""}`}
+                                                    onClick={() => setSelectorActive((v) => !v)}
+                                                >
+                                                    <Crosshair className="h-4 w-4" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                {selectorActive
+                                                    ? "Cancel selection"
+                                                    : "Select element"}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                        <div className="w-px h-4 bg-border mx-1" />
+                                    </>
+                                )}
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <Button
@@ -469,6 +714,9 @@ export function CodeEditor() {
                                 error={compileError}
                                 viewport={viewport}
                                 viewportWidth={VIEWPORT_WIDTHS[viewport]}
+                                onSectionSelect={handleSectionSelect}
+                                onSectionDeselect={handleSectionDeselect}
+                                selectorActive={selectorActive}
                             />
                         </div>
 
@@ -487,6 +735,9 @@ export function CodeEditor() {
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>
+
+            {/* Headless: compile-check feedback loop for AI builder (enterprise only) */}
+            {isEnterprise && <BuilderCompileCheck previewPropsRef={previewPropsRef} />}
 
             {/* Modals */}
             <ImageLibraryModal

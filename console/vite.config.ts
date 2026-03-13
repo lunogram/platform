@@ -23,12 +23,20 @@ export default defineConfig(({ mode }) => {
 
     return {
         base: "/",
+        define: {
+            __ENTERPRISE__: JSON.stringify(env.VITE_ENTERPRISE === "true"),
+        },
         plugins: [react(), tailwindcss(), faviconPlugin],
         server: {
             proxy: {
                 "/api": {
                     target: env.VITE_PROXY_URL,
                     changeOrigin: true,
+                },
+                "/backoffice": {
+                    target: env.VITE_BACKOFFICE_URL || "http://localhost:8081",
+                    changeOrigin: true,
+                    rewrite: (path) => path.replace(/^\/backoffice/, ""),
                 },
                 "/unsubscribe": {
                     target: env.VITE_PROXY_URL,

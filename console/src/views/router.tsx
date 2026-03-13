@@ -35,6 +35,7 @@ import Template from "./campaign/template/Template"
 import TemplateContent from "./campaign/template/Content"
 import TemplateReview from "./campaign/template/Review"
 import EmailEditor from "./campaign/template/mail/editor/Editor"
+// EmailBuilder is now embedded within the Editor view (not a separate route)
 import Journeys from "./journey/Journeys"
 import JourneyEditor from "./journey/editor/JourneyEditor"
 import Actions from "./action/Actions"

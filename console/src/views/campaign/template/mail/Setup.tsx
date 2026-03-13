@@ -1,4 +1,4 @@
-import { useCallback, useContext, useState, useEffect, useRef } from "react"
+import { useContext, useState, useEffect, useRef } from "react"
 import { Controller, useForm, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { Campaign, Template, User, Locale } from "@/types"
