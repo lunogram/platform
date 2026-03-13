@@ -164,6 +164,26 @@ export interface paths {
         patch: operations["updateTemplate"];
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send test
+         * @description Sends a test message using the template to the specified recipient
+         */
+        post: operations["sendTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/campaigns/{campaignID}/duplicate": {
         parameters: {
             query?: never;
@@ -2203,6 +2223,18 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        SendTest: {
+            /**
+             * Format: email
+             * @description The recipient address to send the test to
+             * @example test@example.com
+             */
+            to: string;
+            /** @description Optional template variables/props for rendering */
+            props?: {
+                [key: string]: unknown;
+            };
+        };
         Campaign: {
             /**
              * Format: date-time
@@ -3982,6 +4014,36 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Template"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    sendTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The campaign ID */
+                campaignID: string;
+                /** @description The template ID */
+                templateID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendTest"];
+            };
+        };
+        responses: {
+            /** @description Test sent successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
