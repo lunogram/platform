@@ -27,7 +27,8 @@ type EmailTemplatesController struct {
 
 func (srv *EmailTemplatesController) ListEmailTemplates(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListEmailTemplatesParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("templates", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("templates", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}

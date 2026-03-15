@@ -33,13 +33,14 @@ type TagsController struct {
 
 func (srv *TagsController) CreateTag(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("tags", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("tags", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.CreateTagJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -68,7 +69,8 @@ func (srv *TagsController) CreateTag(w http.ResponseWriter, r *http.Request, pro
 
 func (srv *TagsController) ListTags(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListTagsParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("tags", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("tags", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -99,7 +101,8 @@ func (srv *TagsController) ListTags(w http.ResponseWriter, r *http.Request, proj
 
 func (srv *TagsController) GetTag(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, tagID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("tags", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("tags", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -126,7 +129,8 @@ func (srv *TagsController) GetTag(w http.ResponseWriter, r *http.Request, projec
 
 func (srv *TagsController) UpdateTag(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, tagID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("tags", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("tags", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -135,7 +139,7 @@ func (srv *TagsController) UpdateTag(w http.ResponseWriter, r *http.Request, pro
 	logger.Info("updating tag")
 
 	body := oapi.UpdateTagJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -167,7 +171,8 @@ func (srv *TagsController) UpdateTag(w http.ResponseWriter, r *http.Request, pro
 
 func (srv *TagsController) DeleteTag(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, tagID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("tags", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("tags", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -175,7 +180,7 @@ func (srv *TagsController) DeleteTag(w http.ResponseWriter, r *http.Request, pro
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("tag_id", tagID))
 	logger.Info("deleting tag")
 
-	err := srv.store.TagsStore.DeleteTag(ctx, projectID, tagID)
+	err = srv.store.TagsStore.DeleteTag(ctx, projectID, tagID)
 	if err != nil {
 		logger.Error("failed to delete tag", zap.Error(err))
 		oapi.WriteProblem(w, err)

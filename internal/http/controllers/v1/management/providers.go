@@ -38,7 +38,8 @@ type ProvidersController struct {
 
 func (srv *ProvidersController) ListProviders(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListProvidersParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -69,7 +70,8 @@ func (srv *ProvidersController) ListProviders(w http.ResponseWriter, r *http.Req
 
 func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -128,13 +130,14 @@ func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.
 
 func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, group string, providerType string) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("providers", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("providers", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.CreateProviderJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -199,7 +202,8 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 
 func (srv *ProvidersController) GetProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, group string, providerType string, providerID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -231,13 +235,14 @@ func (srv *ProvidersController) GetProvider(w http.ResponseWriter, r *http.Reque
 
 func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, group string, providerType string, providerID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("providers", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("providers", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.UpdateProviderJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -285,7 +290,8 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 
 func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, providerID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("providers", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("providers", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}

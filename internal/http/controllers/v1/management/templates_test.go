@@ -39,7 +39,7 @@ func TestGetTemplate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en")
+	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -167,7 +167,7 @@ func TestUpdateTemplate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en")
+	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -237,7 +237,7 @@ func TestDeleteTemplate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en")
+	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),

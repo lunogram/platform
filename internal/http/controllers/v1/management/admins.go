@@ -58,7 +58,8 @@ func (srv *AdminsController) GetProfile(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+		err = srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID))
+		if err != nil {
 			oapi.WriteProblem(w, err)
 			return
 		}
@@ -68,7 +69,8 @@ func (srv *AdminsController) GetProfile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -98,7 +100,8 @@ func (srv *AdminsController) Whoami(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -144,7 +147,8 @@ func (srv *AdminsController) Whoami(w http.ResponseWriter, r *http.Request) {
 func (srv *AdminsController) ListAdmins(w http.ResponseWriter, r *http.Request, params oapi.ListAdminsParams) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -196,7 +200,8 @@ func (srv *AdminsController) ListAdmins(w http.ResponseWriter, r *http.Request, 
 func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -285,7 +290,8 @@ func (srv *AdminsController) CreateAdmin(w http.ResponseWriter, r *http.Request)
 func (srv *AdminsController) GetAdmin(w http.ResponseWriter, r *http.Request, adminID uuid.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -323,7 +329,8 @@ func (srv *AdminsController) GetAdmin(w http.ResponseWriter, r *http.Request, ad
 func (srv *AdminsController) UpdateAdmin(w http.ResponseWriter, r *http.Request, adminID uuid.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -402,7 +409,8 @@ func (srv *AdminsController) UpdateAdmin(w http.ResponseWriter, r *http.Request,
 func (srv *AdminsController) DeleteAdmin(w http.ResponseWriter, r *http.Request, adminID uuid.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}

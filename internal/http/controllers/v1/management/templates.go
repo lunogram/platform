@@ -15,6 +15,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
+
 	"go.uber.org/zap"
 )
 
@@ -40,7 +41,8 @@ type TemplatesController struct {
 
 func (srv *TemplatesController) GetTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("templates", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("templates", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -65,12 +67,13 @@ func (srv *TemplatesController) GetTemplate(w http.ResponseWriter, r *http.Reque
 
 func (srv *TemplatesController) CreateTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("templates", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("templates", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 	body := oapi.CreateTemplate{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -92,7 +95,13 @@ func (srv *TemplatesController) CreateTemplate(w http.ResponseWriter, r *http.Re
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID), zap.String("type", campaign.Channel))
 	logger.Info("creating template")
 
-	templateID, err := srv.store.TemplatesStore.CreateTemplate(ctx, projectID, campaignID, campaign.Channel, body.Locale)
+	var senderIdentityID *uuid.UUID
+	if body.SenderIdentityId != nil {
+		id := uuid.UUID(*body.SenderIdentityId)
+		senderIdentityID = &id
+	}
+
+	templateID, err := srv.store.TemplatesStore.CreateTemplate(ctx, projectID, campaignID, campaign.Channel, body.Locale, senderIdentityID)
 	if err != nil {
 		logger.Error("failed to create template", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -125,14 +134,15 @@ func (srv *TemplatesController) CreateTemplate(w http.ResponseWriter, r *http.Re
 
 func (srv *TemplatesController) DeleteTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("templates", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("templates", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("campaign_id", campaignID), zap.Stringer("template_id", templateID))
 	logger.Info("deleting template")
 
-	_, err := srv.store.TemplatesStore.GetTemplate(ctx, projectID, templateID)
+	_, err = srv.store.TemplatesStore.GetTemplate(ctx, projectID, templateID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("template not found", zap.Stringer("template_id", templateID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("template not found")))
@@ -158,7 +168,8 @@ func (srv *TemplatesController) DeleteTemplate(w http.ResponseWriter, r *http.Re
 
 func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("templates", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("templates", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -171,7 +182,7 @@ func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	_, err := srv.store.TemplatesStore.GetTemplate(ctx, projectID, templateID)
+	_, err = srv.store.TemplatesStore.GetTemplate(ctx, projectID, templateID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("template not found", zap.Stringer("template_id", templateID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("template not found")))
@@ -214,6 +225,21 @@ func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Re
 		Data: body.Data,
 	}
 
+	// Handle sender_identity_id: the field is nullable, so we need to distinguish
+	// between "not provided" (nil pointer) and "explicitly set to null" (provided but null).
+	// Since oapi-codegen generates *uuid for nullable UUID, nil means not provided
+	// and we leave it unchanged. A non-nil value sets the new identity.
+	// To clear, the frontend sends the field with a null value — but since Go
+	// deserialises null UUID as uuid.Nil, we treat uuid.Nil as "clear".
+	if body.SenderIdentityId != nil {
+		id := uuid.UUID(*body.SenderIdentityId)
+		if id == uuid.Nil {
+			updated.ClearSenderIdentityID = true
+		} else {
+			updated.SenderIdentityID = &id
+		}
+	}
+
 	err = srv.store.TemplatesStore.UpdateTemplate(ctx, projectID, templateID, updated)
 	if err != nil {
 		logger.Error("failed to update template", zap.Error(err))
@@ -234,7 +260,8 @@ func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Re
 
 func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("templates", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("templates", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -296,11 +323,16 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 		props = *body.Props
 	}
 
-	templateData, err := channels.ComposeEmailTemplateData(ctx, srv.renderer, projectID, template.Data, props)
-	if err != nil {
-		logger.Error("failed to compose template data", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to compose email template")))
-		return
+	templateData := template.Data
+
+	// Email-specific: compile and render React Email source code.
+	if campaign.Channel == "email" {
+		templateData, err = channels.ComposeEmailTemplateData(ctx, srv.renderer, projectID, templateData, props)
+		if err != nil {
+			logger.Error("failed to compose template data", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to compose email template")))
+			return
+		}
 	}
 
 	var config map[string]any
@@ -311,9 +343,28 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	request, err := channels.ComposePayload(config, templateData, string(body.To))
+	// Resolve template sender identity if set.
+	var templateSender *management.SenderIdentity
+	if template.SenderIdentityID != nil {
+		templateSender, err = srv.store.SenderIdentitiesStore.GetSenderIdentity(ctx, projectID, *template.SenderIdentityID)
+		if err != nil {
+			logger.Error("failed to get template sender identity", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to resolve sender identity")))
+			return
+		}
+	}
+
+	// Resolve provider default_from.
+	providerDefaultSender, err := channels.ResolveProviderDefaultFrom(ctx, srv.store.SenderIdentitiesStore, projectID, config)
 	if err != nil {
-		logger.Error("failed to compose email payload", zap.Error(err))
+		logger.Error("failed to resolve provider default from", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to resolve provider default from")))
+		return
+	}
+
+	request, err := channels.ComposePayload(ctx, campaign.Channel, templateSender, providerDefaultSender, config, templateData, string(body.To))
+	if err != nil {
+		logger.Error("failed to compose payload", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(err.Error())))
 		return
 	}

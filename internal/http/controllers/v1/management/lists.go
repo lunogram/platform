@@ -48,13 +48,14 @@ type ListsController struct {
 
 func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("lists", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.CreateListJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -144,7 +145,8 @@ func (srv *ListsController) CreateList(w http.ResponseWriter, r *http.Request, p
 
 func (srv *ListsController) ListLists(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListListsParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("lists", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -177,7 +179,8 @@ func (srv *ListsController) ListLists(w http.ResponseWriter, r *http.Request, pr
 
 func (srv *ListsController) GetList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("lists", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -204,7 +207,8 @@ func (srv *ListsController) GetList(w http.ResponseWriter, r *http.Request, proj
 
 func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("lists", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -212,7 +216,7 @@ func (srv *ListsController) UpdateList(w http.ResponseWriter, r *http.Request, p
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
 	logger.Info("updating list")
 	body := oapi.UpdateListJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -408,7 +412,8 @@ func (srv *ListsController) upsertRuleEvents(ctx context.Context, logger *zap.Lo
 
 func (srv *ListsController) DeleteList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("lists", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -416,7 +421,7 @@ func (srv *ListsController) DeleteList(w http.ResponseWriter, r *http.Request, p
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
 	logger.Info("deleting list")
 
-	_, err := srv.store.GetList(ctx, projectID, listID)
+	_, err = srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
@@ -442,7 +447,8 @@ func (srv *ListsController) DeleteList(w http.ResponseWriter, r *http.Request, p
 
 func (srv *ListsController) DuplicateList(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("lists", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -484,7 +490,8 @@ func (srv *ListsController) DuplicateList(w http.ResponseWriter, r *http.Request
 
 func (srv *ListsController) ImportListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("lists", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -601,7 +608,8 @@ func (srv *ListsController) processUserImport(ctx context.Context, logger *zap.L
 
 func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID, params oapi.GetListUsersParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("lists", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -609,7 +617,7 @@ func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request,
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("list_id", listID))
 	logger.Info("getting list users")
 
-	_, err := srv.store.GetList(ctx, projectID, listID)
+	_, err = srv.store.GetList(ctx, projectID, listID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("list not found", zap.Stringer("list_id", listID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("list not found")))
@@ -647,7 +655,8 @@ func (srv *ListsController) GetListUsers(w http.ResponseWriter, r *http.Request,
 
 func (srv *ListsController) PreviewListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, listID uuid.UUID, params oapi.PreviewListUsersParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("lists", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("lists", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
