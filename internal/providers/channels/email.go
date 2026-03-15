@@ -46,19 +46,19 @@ type EmailTemplateData struct {
 }
 
 // ComposeEmail creates a SendRequest for email delivery to a user.
-// It extracts the recipient from user.Email.
-func ComposeEmail(config map[string]any, template management.Template, user *subjects.User) (*providers.SendRequest[map[string]any], error) {
+// templateSender and providerDefaultSender should be pre-resolved (or nil).
+func ComposeEmail(ctx context.Context, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, template management.Template, user *subjects.User) (*providers.SendRequest[map[string]any], error) {
 	if user.Email == nil {
 		return nil, fmt.Errorf("user has no email address")
 	}
 
-	return ComposePayload(config, template.Data, *user.Email)
+	return ComposeEmailPayload(ctx, templateSender, providerDefaultSender, config, template.Data, *user.Email)
 }
 
 // ComposeEmailTemplateData takes raw template JSON, and if it contains React Email
 // source code, compiles (when no bundle is cached) and renders it with the
 // given props. Returns the updated template data as raw JSON ready for use
-// with ComposePayload.
+// with ComposeEmailPayload.
 func ComposeEmailTemplateData(ctx context.Context, renderer *pubsub.EmailRenderer, projectID uuid.UUID, data json.RawMessage, props map[string]any) (json.RawMessage, error) {
 	var email EmailTemplateData
 	err := json.Unmarshal(data, &email)
@@ -99,31 +99,40 @@ func ComposeEmailTemplateData(ctx context.Context, renderer *pubsub.EmailRendere
 	return out, nil
 }
 
-// ComposePayload creates a SendRequest for email delivery to an explicit recipient.
-// It parses the template data, resolves from-address defaults from the provider config,
-// and builds the final EmailPayload.
-func ComposePayload(config map[string]any, templateData json.RawMessage, to string) (*providers.SendRequest[map[string]any], error) {
+// ComposeEmailPayload creates a SendRequest for email delivery to an explicit recipient.
+// It uses pre-resolved sender identities for the template and provider default_from.
+func ComposeEmailPayload(ctx context.Context, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, templateData json.RawMessage, to string) (*providers.SendRequest[map[string]any], error) {
 	var data EmailTemplateData
 	if err := json.Unmarshal(templateData, &data); err != nil {
 		return nil, fmt.Errorf("failed to parse email template data: %w", err)
 	}
 
-	defaultFrom, _ := config[ProviderKeyDefaultFrom].(string)
-	defaultFromName, _ := config[ProviderKeyDefaultFromName].(string)
-	defaultFromLocked, _ := config[ProviderKeyDefaultFromLocked].(bool)
-
-	fromAddress := data.From.Email
-	fromName := data.From.Name
-
-	if defaultFromLocked || fromAddress == "" {
-		if defaultFrom != "" {
-			fromAddress = defaultFrom
+	// Use the pre-resolved template sender identity.
+	var fromAddress, fromName string
+	if templateSender != nil {
+		fromAddress = templateSender.Address()
+		traits := templateSender.TraitsMap()
+		if name, _ := traits["name"].(string); name != "" {
+			fromName = name
 		}
 	}
 
-	if defaultFromLocked || fromName == "" {
-		if defaultFromName != "" {
-			fromName = defaultFromName
+	// Template from.name (which may contain Liquid variables) takes priority
+	// over the identity trait name.
+	if data.From.Name != "" {
+		fromName = data.From.Name
+	}
+
+	// Use the pre-resolved provider default_from as fallback.
+	if providerDefaultSender != nil {
+		if fromAddress == "" {
+			fromAddress = providerDefaultSender.Address()
+		}
+		if fromName == "" {
+			traits := providerDefaultSender.TraitsMap()
+			if name, _ := traits["name"].(string); name != "" {
+				fromName = name
+			}
 		}
 	}
 

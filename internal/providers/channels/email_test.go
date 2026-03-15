@@ -1,6 +1,7 @@
 package channels
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -18,28 +19,38 @@ func TestComposeEmail(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
-		name        string
-		config      map[string]any
-		template    management.Template
-		user        *subjects.User
-		wantFrom    string
-		wantName    string
-		wantErr     bool
-		errContains string
+		name                  string
+		config                map[string]any
+		template              management.Template
+		templateSender        *management.SenderIdentity
+		providerDefaultSender *management.SenderIdentity
+		user                  *subjects.User
+		wantFrom              string
+		wantName              string
+		wantErr               bool
+		errContains           string
+	}
+
+	senderIdentity := func(address string, extras ...any) *management.SenderIdentity {
+		traits := map[string]any{"address": address}
+		for i := 0; i+1 < len(extras); i += 2 {
+			traits[extras[i].(string)] = extras[i+1]
+		}
+		data, _ := json.Marshal(traits)
+		return &management.SenderIdentity{Traits: data}
 	}
 
 	tests := []test{
 		{
-			name: "uses template from when provider unlocked and template specifies",
+			name: "uses template sender when template specifies address and name",
 			config: map[string]any{
-				"apiKey":                     "test-api-key",
-				ProviderKeyDefaultFrom:       "default@example.com",
-				ProviderKeyDefaultFromName:   "Default Name",
-				ProviderKeyDefaultFromLocked: false,
+				"apiKey": "test-api-key",
 			},
+			templateSender:        senderIdentity("custom@example.com", "name", "Custom Trait Name"),
+			providerDefaultSender: senderIdentity("default@example.com"),
 			template: management.Template{
 				Data: json.RawMessage(`{
-					"from": {"email": "custom@example.com", "name": "Custom Name"},
+					"from": {"name": "Custom Name"},
 					"subject": "Test Subject",
 					"html": "<p>Test</p>"
 				}`),
@@ -50,16 +61,15 @@ func TestComposeEmail(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "uses provider default_from when template empty",
+			name: "uses provider default sender name when template sender is nil",
 			config: map[string]any{
-				"apiKey":                     "test-api-key",
-				ProviderKeyDefaultFrom:       "default@example.com",
-				ProviderKeyDefaultFromName:   "Default Name",
-				ProviderKeyDefaultFromLocked: false,
+				"apiKey": "test-api-key",
 			},
+			templateSender:        nil,
+			providerDefaultSender: senderIdentity("default@example.com", "name", "Default Name"),
 			template: management.Template{
 				Data: json.RawMessage(`{
-					"from": {"email": "", "name": ""},
+					"from": {"name": ""},
 					"subject": "Test Subject",
 					"html": "<p>Test</p>"
 				}`),
@@ -70,33 +80,15 @@ func TestComposeEmail(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "uses provider default_from when locked (ignores template)",
-			config: map[string]any{
-				"apiKey":                     "test-api-key",
-				ProviderKeyDefaultFrom:       "locked@example.com",
-				ProviderKeyDefaultFromName:   "Locked Name",
-				ProviderKeyDefaultFromLocked: true,
-			},
-			template: management.Template{
-				Data: json.RawMessage(`{
-					"from": {"email": "custom@example.com", "name": "Custom Name"},
-					"subject": "Test Subject",
-					"html": "<p>Test</p>"
-				}`),
-			},
-			user:     &subjects.User{Email: ptr("user@example.com")},
-			wantFrom: "locked@example.com",
-			wantName: "Locked Name",
-			wantErr:  false,
-		},
-		{
 			name: "errors when no from address available",
 			config: map[string]any{
 				"apiKey": "test-api-key",
 			},
+			templateSender:        nil,
+			providerDefaultSender: nil,
 			template: management.Template{
 				Data: json.RawMessage(`{
-					"from": {"email": "", "name": ""},
+					"from": {"name": ""},
 					"subject": "Test Subject",
 					"html": "<p>Test</p>"
 				}`),
@@ -108,12 +100,13 @@ func TestComposeEmail(t *testing.T) {
 		{
 			name: "errors when user has no email",
 			config: map[string]any{
-				"apiKey":               "test-api-key",
-				ProviderKeyDefaultFrom: "default@example.com",
+				"apiKey": "test-api-key",
 			},
+			templateSender:        senderIdentity("sender@example.com", "name", "Sender"),
+			providerDefaultSender: senderIdentity("default@example.com"),
 			template: management.Template{
 				Data: json.RawMessage(`{
-					"from": {"email": "sender@example.com", "name": "Sender"},
+					"from": {"name": "Sender"},
 					"subject": "Test Subject",
 					"html": "<p>Test</p>"
 				}`),
@@ -123,14 +116,14 @@ func TestComposeEmail(t *testing.T) {
 			errContains: "user has no email address",
 		},
 		{
-			name: "uses template from with no name when provider has no default_from_name",
+			name: "uses template address with no name when no name trait exists",
 			config: map[string]any{
-				"apiKey":               "test-api-key",
-				ProviderKeyDefaultFrom: "default@example.com",
+				"apiKey": "test-api-key",
 			},
+			templateSender:        senderIdentity("custom@example.com"),
+			providerDefaultSender: senderIdentity("default@example.com"),
 			template: management.Template{
 				Data: json.RawMessage(`{
-					"from": {"email": "custom@example.com"},
 					"subject": "Test Subject",
 					"html": "<p>Test</p>"
 				}`),
@@ -141,14 +134,15 @@ func TestComposeEmail(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "uses provider default_from_name fallback when template name is empty",
+			name: "uses provider default sender trait name when template name is empty",
 			config: map[string]any{
-				"apiKey":                   "test-api-key",
-				ProviderKeyDefaultFromName: "Fallback Name",
+				"apiKey": "test-api-key",
 			},
+			templateSender:        senderIdentity("custom@example.com"),
+			providerDefaultSender: senderIdentity("default@example.com", "name", "Fallback Name"),
 			template: management.Template{
 				Data: json.RawMessage(`{
-					"from": {"email": "custom@example.com", "name": ""},
+					"from": {"name": ""},
 					"subject": "Test Subject",
 					"html": "<p>Test</p>"
 				}`),
@@ -159,11 +153,13 @@ func TestComposeEmail(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:   "handles nil data in config",
-			config: map[string]any{},
+			name:                  "handles nil data in config",
+			config:                map[string]any{},
+			templateSender:        senderIdentity("sender@example.com", "name", "Sender Trait"),
+			providerDefaultSender: nil,
 			template: management.Template{
 				Data: json.RawMessage(`{
-					"from": {"email": "sender@example.com", "name": "Sender"},
+					"from": {"name": "Sender"},
 					"subject": "Test Subject",
 					"html": "<p>Test</p>"
 				}`),
@@ -177,7 +173,7 @@ func TestComposeEmail(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := ComposeEmail(tc.config, tc.template, tc.user)
+			result, err := ComposeEmail(context.Background(), tc.templateSender, tc.providerDefaultSender, tc.config, tc.template, tc.user)
 
 			if tc.wantErr {
 				require.Error(t, err)

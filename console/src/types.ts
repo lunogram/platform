@@ -633,6 +633,7 @@ export type Template = {
     campaign_id: UUID
     type: ChannelType
     locale: string
+    sender_identity_id: UUID | null
     data: any
     screenshot_url: string
     created_at: string
@@ -653,7 +654,7 @@ export type Template = {
 )
 
 export type TemplateCreateParams = Pick<Template, "data" | "locale">
-export type TemplateUpdateParams = Pick<Template, "data">
+export type TemplateUpdateParams = Pick<Template, "data" | "sender_identity_id">
 export type VariantUpdateParams = { id?: UUID }
 
 export interface TemplatePreviewParams {

@@ -42,15 +42,21 @@ const (
 
 // Defines values for Channel.
 const (
-	Email Channel = "email"
-	Push  Channel = "push"
-	Text  Channel = "text"
+	ChannelEmail Channel = "email"
+	ChannelPush  Channel = "push"
+	ChannelText  Channel = "text"
 )
 
 // Defines values for CreateListType.
 const (
 	CreateListTypeDynamic CreateListType = "dynamic"
 	CreateListTypeStatic  CreateListType = "static"
+)
+
+// Defines values for CreateSenderIdentityChannel.
+const (
+	CreateSenderIdentityChannelEmail CreateSenderIdentityChannel = "email"
+	CreateSenderIdentityChannelSms   CreateSenderIdentityChannel = "sms"
 )
 
 // Defines values for JourneyStatus.
@@ -103,10 +109,22 @@ const (
 	ProjectRoleSupport ProjectRole = "support"
 )
 
+// Defines values for SenderIdentityChannel.
+const (
+	SenderIdentityChannelEmail SenderIdentityChannel = "email"
+	SenderIdentityChannelSms   SenderIdentityChannel = "sms"
+)
+
 // Defines values for SubscriptionState.
 const (
 	Subscribed   SubscriptionState = "subscribed"
 	Unsubscribed SubscriptionState = "unsubscribed"
+)
+
+// Defines values for ListSenderIdentitiesParamsChannel.
+const (
+	ListSenderIdentitiesParamsChannelEmail ListSenderIdentitiesParamsChannel = "email"
+	ListSenderIdentitiesParamsChannelSms   ListSenderIdentitiesParamsChannel = "sms"
 )
 
 // Defines values for AuthCallbackParamsDriver.
@@ -384,6 +402,21 @@ type CreateProvider struct {
 	Name      string           `json:"name"`
 }
 
+// CreateSenderIdentity defines model for CreateSenderIdentity.
+type CreateSenderIdentity struct {
+	// Channel Channel type (email or sms)
+	Channel CreateSenderIdentityChannel `json:"channel"`
+
+	// ProviderId The provider to register this identity with
+	ProviderId openapi_types.UUID `json:"provider_id"`
+
+	// Traits Channel-specific metadata including address and optional display name (e.g. {"address":"hello@example.com","name":"Acme Support"})
+	Traits map[string]interface{} `json:"traits"`
+}
+
+// CreateSenderIdentityChannel Channel type (email or sms)
+type CreateSenderIdentityChannel string
+
 // CreateSubscription defines model for CreateSubscription.
 type CreateSubscription struct {
 	// Channel Communication channel type
@@ -406,6 +439,9 @@ type CreateTemplate struct {
 
 	// Locale The locale/language code for the template
 	Locale string `json:"locale"`
+
+	// SenderIdentityId The ID of the sender identity to use for this template
+	SenderIdentityId *openapi_types.UUID `json:"sender_identity_id"`
 }
 
 // Delivery defines model for Delivery.
@@ -443,9 +479,7 @@ type Document struct {
 
 // EmailProviderData defines model for EmailProviderData.
 type EmailProviderData struct {
-	DefaultFrom       *string `json:"default_from,omitempty"`
-	DefaultFromLocked *bool   `json:"default_from_locked,omitempty"`
-	DefaultFromName   *string `json:"default_from_name,omitempty"`
+	DefaultFrom *string `json:"default_from,omitempty"`
 }
 
 // EmailTemplate defines model for EmailTemplate.
@@ -898,6 +932,25 @@ type SendTest struct {
 	To openapi_types.Email `json:"to"`
 }
 
+// SenderIdentity defines model for SenderIdentity.
+type SenderIdentity struct {
+	// Channel Channel type (email or sms)
+	Channel   SenderIdentityChannel `json:"channel"`
+	CreatedAt time.Time             `json:"created_at"`
+	Id        openapi_types.UUID    `json:"id"`
+	ProjectId openapi_types.UUID    `json:"project_id"`
+
+	// ProviderId The provider this identity is registered with
+	ProviderId openapi_types.UUID `json:"provider_id"`
+
+	// Traits Channel-specific metadata including address and optional display name (e.g. {"address":"hello@example.com","name":"Acme Support"})
+	Traits    map[string]interface{} `json:"traits"`
+	UpdatedAt time.Time              `json:"updated_at"`
+}
+
+// SenderIdentityChannel Channel type (email or sms)
+type SenderIdentityChannel string
+
 // SmsProviderData defines model for SmsProviderData.
 type SmsProviderData = map[string]interface{}
 
@@ -941,6 +994,9 @@ type Template struct {
 	Id         openapi_types.UUID `json:"id"`
 	Locale     string             `json:"locale"`
 	ProjectId  openapi_types.UUID `json:"project_id"`
+
+	// SenderIdentityId The ID of the sender identity to use for this template
+	SenderIdentityId *openapi_types.UUID `json:"sender_identity_id"`
 
 	// Type Communication channel type
 	Type      Channel   `json:"type"`
@@ -1078,6 +1134,9 @@ type UpdateTag struct {
 type UpdateTemplate struct {
 	// Data Template-specific data based on type. Structure varies by template type.
 	Data *json.RawMessage `json:"data"`
+
+	// SenderIdentityId The ID of the sender identity to use for this template
+	SenderIdentityId *openapi_types.UUID `json:"sender_identity_id"`
 }
 
 // UpdateUser defines model for UpdateUser.
@@ -1556,6 +1615,24 @@ type ListProvidersParams struct {
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// ListSenderIdentitiesParams defines parameters for ListSenderIdentities.
+type ListSenderIdentitiesParams struct {
+	// ProviderId Filter by provider ID
+	ProviderId *openapi_types.UUID `form:"provider_id,omitempty" json:"provider_id,omitempty"`
+
+	// Channel Filter by channel (email or sms)
+	Channel *ListSenderIdentitiesParamsChannel `form:"channel,omitempty" json:"channel,omitempty"`
+
+	// Limit Maximum number of items to return
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Number of items to skip
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListSenderIdentitiesParamsChannel defines parameters for ListSenderIdentities.
+type ListSenderIdentitiesParamsChannel string
+
 // ListOrganizationsParams defines parameters for ListOrganizations.
 type ListOrganizationsParams struct {
 	// Limit Maximum number of items to return
@@ -1762,6 +1839,9 @@ type CreateProviderJSONRequestBody = CreateProvider
 
 // UpdateProviderJSONRequestBody defines body for UpdateProvider for application/json ContentType.
 type UpdateProviderJSONRequestBody = UpdateProvider
+
+// CreateSenderIdentityJSONRequestBody defines body for CreateSenderIdentity for application/json ContentType.
+type CreateSenderIdentityJSONRequestBody = CreateSenderIdentity
 
 // UpsertOrganizationJSONRequestBody defines body for UpsertOrganization for application/json ContentType.
 type UpsertOrganizationJSONRequestBody = UpsertOrganization
@@ -2333,6 +2413,20 @@ type ClientInterface interface {
 
 	// DeleteProvider request
 	DeleteProvider(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSenderIdentities request
+	ListSenderIdentities(ctx context.Context, projectID openapi_types.UUID, params *ListSenderIdentitiesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSenderIdentityWithBody request with any body
+	CreateSenderIdentityWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateSenderIdentity(ctx context.Context, projectID openapi_types.UUID, body CreateSenderIdentityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteSenderIdentity request
+	DeleteSenderIdentity(ctx context.Context, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSenderIdentity request
+	GetSenderIdentity(ctx context.Context, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOrganizationEventSchemas request
 	ListOrganizationEventSchemas(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3692,6 +3786,66 @@ func (c *Client) UpdateProvider(ctx context.Context, projectID openapi_types.UUI
 
 func (c *Client) DeleteProvider(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteProviderRequest(c.Server, projectID, providerID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSenderIdentities(ctx context.Context, projectID openapi_types.UUID, params *ListSenderIdentitiesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSenderIdentitiesRequest(c.Server, projectID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSenderIdentityWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSenderIdentityRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSenderIdentity(ctx context.Context, projectID openapi_types.UUID, body CreateSenderIdentityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSenderIdentityRequest(c.Server, projectID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteSenderIdentity(ctx context.Context, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSenderIdentityRequest(c.Server, projectID, senderIdentityID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSenderIdentity(ctx context.Context, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSenderIdentityRequest(c.Server, projectID, senderIdentityID)
 	if err != nil {
 		return nil, err
 	}
@@ -8422,6 +8576,239 @@ func NewDeleteProviderRequest(server string, projectID openapi_types.UUID, provi
 	return req, nil
 }
 
+// NewListSenderIdentitiesRequest generates requests for ListSenderIdentities
+func NewListSenderIdentitiesRequest(server string, projectID openapi_types.UUID, params *ListSenderIdentitiesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/sender-identities", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.ProviderId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "provider_id", runtime.ParamLocationQuery, *params.ProviderId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Channel != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "channel", runtime.ParamLocationQuery, *params.Channel); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateSenderIdentityRequest calls the generic CreateSenderIdentity builder with application/json body
+func NewCreateSenderIdentityRequest(server string, projectID openapi_types.UUID, body CreateSenderIdentityJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSenderIdentityRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewCreateSenderIdentityRequestWithBody generates requests for CreateSenderIdentity with any type of body
+func NewCreateSenderIdentityRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/sender-identities", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteSenderIdentityRequest generates requests for DeleteSenderIdentity
+func NewDeleteSenderIdentityRequest(server string, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "senderIdentityID", runtime.ParamLocationPath, senderIdentityID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/sender-identities/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSenderIdentityRequest generates requests for GetSenderIdentity
+func NewGetSenderIdentityRequest(server string, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "senderIdentityID", runtime.ParamLocationPath, senderIdentityID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/sender-identities/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListOrganizationEventSchemasRequest generates requests for ListOrganizationEventSchemas
 func NewListOrganizationEventSchemasRequest(server string, projectID openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -11178,6 +11565,20 @@ type ClientWithResponsesInterface interface {
 	// DeleteProviderWithResponse request
 	DeleteProviderWithResponse(ctx context.Context, projectID openapi_types.UUID, providerID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteProviderResponse, error)
 
+	// ListSenderIdentitiesWithResponse request
+	ListSenderIdentitiesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListSenderIdentitiesParams, reqEditors ...RequestEditorFn) (*ListSenderIdentitiesResponse, error)
+
+	// CreateSenderIdentityWithBodyWithResponse request with any body
+	CreateSenderIdentityWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSenderIdentityResponse, error)
+
+	CreateSenderIdentityWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateSenderIdentityJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSenderIdentityResponse, error)
+
+	// DeleteSenderIdentityWithResponse request
+	DeleteSenderIdentityWithResponse(ctx context.Context, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteSenderIdentityResponse, error)
+
+	// GetSenderIdentityWithResponse request
+	GetSenderIdentityWithResponse(ctx context.Context, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSenderIdentityResponse, error)
+
 	// ListOrganizationEventSchemasWithResponse request
 	ListOrganizationEventSchemasWithResponse(ctx context.Context, projectID openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListOrganizationEventSchemasResponse, error)
 
@@ -13096,6 +13497,107 @@ func (r DeleteProviderResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r DeleteProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListSenderIdentitiesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		// Limit Maximum number of items returned
+		Limit int `json:"limit"`
+
+		// Offset Number of items skipped
+		Offset  int              `json:"offset"`
+		Results []SenderIdentity `json:"results"`
+
+		// Total Total number of items matching the filters
+		Total int `json:"total"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSenderIdentitiesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSenderIdentitiesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateSenderIdentityResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *SenderIdentity
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSenderIdentityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSenderIdentityResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteSenderIdentityResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteSenderIdentityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteSenderIdentityResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetSenderIdentityResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SenderIdentity
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSenderIdentityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSenderIdentityResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -15056,6 +15558,50 @@ func (c *ClientWithResponses) DeleteProviderWithResponse(ctx context.Context, pr
 		return nil, err
 	}
 	return ParseDeleteProviderResponse(rsp)
+}
+
+// ListSenderIdentitiesWithResponse request returning *ListSenderIdentitiesResponse
+func (c *ClientWithResponses) ListSenderIdentitiesWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListSenderIdentitiesParams, reqEditors ...RequestEditorFn) (*ListSenderIdentitiesResponse, error) {
+	rsp, err := c.ListSenderIdentities(ctx, projectID, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSenderIdentitiesResponse(rsp)
+}
+
+// CreateSenderIdentityWithBodyWithResponse request with arbitrary body returning *CreateSenderIdentityResponse
+func (c *ClientWithResponses) CreateSenderIdentityWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSenderIdentityResponse, error) {
+	rsp, err := c.CreateSenderIdentityWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSenderIdentityResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateSenderIdentityWithResponse(ctx context.Context, projectID openapi_types.UUID, body CreateSenderIdentityJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSenderIdentityResponse, error) {
+	rsp, err := c.CreateSenderIdentity(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSenderIdentityResponse(rsp)
+}
+
+// DeleteSenderIdentityWithResponse request returning *DeleteSenderIdentityResponse
+func (c *ClientWithResponses) DeleteSenderIdentityWithResponse(ctx context.Context, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteSenderIdentityResponse, error) {
+	rsp, err := c.DeleteSenderIdentity(ctx, projectID, senderIdentityID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSenderIdentityResponse(rsp)
+}
+
+// GetSenderIdentityWithResponse request returning *GetSenderIdentityResponse
+func (c *ClientWithResponses) GetSenderIdentityWithResponse(ctx context.Context, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSenderIdentityResponse, error) {
+	rsp, err := c.GetSenderIdentity(ctx, projectID, senderIdentityID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSenderIdentityResponse(rsp)
 }
 
 // ListOrganizationEventSchemasWithResponse request returning *ListOrganizationEventSchemasResponse
@@ -17993,6 +18539,141 @@ func ParseDeleteProviderResponse(rsp *http.Response) (*DeleteProviderResponse, e
 	return response, nil
 }
 
+// ParseListSenderIdentitiesResponse parses an HTTP response from a ListSenderIdentitiesWithResponse call
+func ParseListSenderIdentitiesResponse(rsp *http.Response) (*ListSenderIdentitiesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSenderIdentitiesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Limit Maximum number of items returned
+			Limit int `json:"limit"`
+
+			// Offset Number of items skipped
+			Offset  int              `json:"offset"`
+			Results []SenderIdentity `json:"results"`
+
+			// Total Total number of items matching the filters
+			Total int `json:"total"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSenderIdentityResponse parses an HTTP response from a CreateSenderIdentityWithResponse call
+func ParseCreateSenderIdentityResponse(rsp *http.Response) (*CreateSenderIdentityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSenderIdentityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SenderIdentity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteSenderIdentityResponse parses an HTTP response from a DeleteSenderIdentityWithResponse call
+func ParseDeleteSenderIdentityResponse(rsp *http.Response) (*DeleteSenderIdentityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteSenderIdentityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSenderIdentityResponse parses an HTTP response from a GetSenderIdentityWithResponse call
+func ParseGetSenderIdentityResponse(rsp *http.Response) (*GetSenderIdentityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSenderIdentityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SenderIdentity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListOrganizationEventSchemasResponse parses an HTTP response from a ListOrganizationEventSchemasWithResponse call
 func ParseListOrganizationEventSchemasResponse(rsp *http.Response) (*ListOrganizationEventSchemasResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -19701,6 +20382,18 @@ type ServerInterface interface {
 	// Delete provider
 	// (DELETE /api/admin/projects/{projectID}/providers/{providerID})
 	DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, providerID openapi_types.UUID)
+	// List sender identities
+	// (GET /api/admin/projects/{projectID}/sender-identities)
+	ListSenderIdentities(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListSenderIdentitiesParams)
+	// Create sender identity
+	// (POST /api/admin/projects/{projectID}/sender-identities)
+	CreateSenderIdentity(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
+	// Delete sender identity
+	// (DELETE /api/admin/projects/{projectID}/sender-identities/{senderIdentityID})
+	DeleteSenderIdentity(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID)
+	// Get sender identity by ID
+	// (GET /api/admin/projects/{projectID}/sender-identities/{senderIdentityID})
+	GetSenderIdentity(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID)
 	// List organization event schemas
 	// (GET /api/admin/projects/{projectID}/subjects/organization/events/schema)
 	ListOrganizationEventSchemas(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
@@ -20301,6 +20994,30 @@ func (_ Unimplemented) UpdateProvider(w http.ResponseWriter, r *http.Request, pr
 // Delete provider
 // (DELETE /api/admin/projects/{projectID}/providers/{providerID})
 func (_ Unimplemented) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, providerID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List sender identities
+// (GET /api/admin/projects/{projectID}/sender-identities)
+func (_ Unimplemented) ListSenderIdentities(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListSenderIdentitiesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create sender identity
+// (POST /api/admin/projects/{projectID}/sender-identities)
+func (_ Unimplemented) CreateSenderIdentity(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete sender identity
+// (DELETE /api/admin/projects/{projectID}/sender-identities/{senderIdentityID})
+func (_ Unimplemented) DeleteSenderIdentity(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get sender identity by ID
+// (GET /api/admin/projects/{projectID}/sender-identities/{senderIdentityID})
+func (_ Unimplemented) GetSenderIdentity(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, senderIdentityID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -23838,6 +24555,183 @@ func (siw *ServerInterfaceWrapper) DeleteProvider(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListSenderIdentities operation middleware
+func (siw *ServerInterfaceWrapper) ListSenderIdentities(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSenderIdentitiesParams
+
+	// ------------- Optional query parameter "provider_id" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "provider_id", r.URL.Query(), &params.ProviderId)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider_id", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "channel" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "channel", r.URL.Query(), &params.Channel)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channel", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSenderIdentities(w, r, projectID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateSenderIdentity operation middleware
+func (siw *ServerInterfaceWrapper) CreateSenderIdentity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateSenderIdentity(w, r, projectID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteSenderIdentity operation middleware
+func (siw *ServerInterfaceWrapper) DeleteSenderIdentity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "senderIdentityID" -------------
+	var senderIdentityID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "senderIdentityID", chi.URLParam(r, "senderIdentityID"), &senderIdentityID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "senderIdentityID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteSenderIdentity(w, r, projectID, senderIdentityID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSenderIdentity operation middleware
+func (siw *ServerInterfaceWrapper) GetSenderIdentity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "senderIdentityID" -------------
+	var senderIdentityID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "senderIdentityID", chi.URLParam(r, "senderIdentityID"), &senderIdentityID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "senderIdentityID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSenderIdentity(w, r, projectID, senderIdentityID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListOrganizationEventSchemas operation middleware
 func (siw *ServerInterfaceWrapper) ListOrganizationEventSchemas(w http.ResponseWriter, r *http.Request) {
 
@@ -26066,6 +26960,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/providers/{providerID}", wrapper.DeleteProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/sender-identities", wrapper.ListSenderIdentities)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/sender-identities", wrapper.CreateSenderIdentity)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/sender-identities/{senderIdentityID}", wrapper.DeleteSenderIdentity)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/sender-identities/{senderIdentityID}", wrapper.GetSenderIdentity)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organization/events/schema", wrapper.ListOrganizationEventSchemas)

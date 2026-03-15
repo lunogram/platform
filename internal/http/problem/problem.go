@@ -25,6 +25,9 @@ var ErrBadRequest = ErrorFunc(WithStatus(NewError("bad request", "the request co
 // ErrForbidden is thrown whenever the user does not have permission to access a resource.
 var ErrForbidden = ErrorFunc(WithStatus(NewError("forbidden", "you do not have permission to access this resource"), http.StatusForbidden))
 
+// ErrConflict is thrown whenever a resource conflicts with an existing one.
+var ErrConflict = ErrorFunc(WithStatus(NewError("conflict", "the resource already exists"), http.StatusConflict))
+
 // NewError creates a new error with the given title and description.
 func NewError(title, description string) error {
 	return &withDescription{

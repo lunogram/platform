@@ -1,6 +1,7 @@
 package channels
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -16,7 +17,7 @@ type PushTemplateData struct {
 	Data  map[string]any `json:"data,omitempty"`
 }
 
-func ComposePush(config map[string]any, template management.Template, user *subjects.User, devices subjects.Devices) (*providers.SendRequest[map[string]any], error) {
+func ComposePush(_ context.Context, config map[string]any, template management.Template, user *subjects.User, devices subjects.Devices) (*providers.SendRequest[map[string]any], error) {
 	if !user.HasPushDevice {
 		return nil, fmt.Errorf("user has no push-enabled device")
 	}

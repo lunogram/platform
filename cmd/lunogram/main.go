@@ -19,6 +19,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/rbac/access"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -155,6 +156,10 @@ func run() error {
 		return fmt.Errorf("failed to initialize rbac engine: %w", err)
 	}
 	defer rbacEngine.Close()
+
+	if err := access.BackfillProjectTuples(ctx, logger, rbacEngine, db.Management); err != nil {
+		return fmt.Errorf("failed to backfill rbac resource tuples: %w", err)
+	}
 
 	logger.Info("starting http server")
 

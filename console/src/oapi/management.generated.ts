@@ -1290,6 +1290,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/sender-identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List sender identities
+         * @description Retrieves a paginated list of sender identities for a project. Optionally filter by provider and/or channel.
+         */
+        get: operations["listSenderIdentities"];
+        put?: never;
+        /**
+         * Create sender identity
+         * @description Registers a new sender identity (email address or phone number) for a provider
+         */
+        post: operations["createSenderIdentity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/sender-identities/{senderIdentityID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get sender identity by ID
+         * @description Retrieves a specific sender identity
+         */
+        get: operations["getSenderIdentity"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete sender identity
+         * @description Deletes a sender identity from a project
+         */
+        delete: operations["deleteSenderIdentity"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/documents": {
         parameters: {
             query?: never;
@@ -2216,12 +2264,22 @@ export interface components {
             data?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Format: uuid
+             * @description The ID of the sender identity to use for this template
+             */
+            sender_identity_id?: string | null;
         };
         UpdateTemplate: {
             /** @description Template-specific data based on type. Structure varies by template type. */
             data?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Format: uuid
+             * @description The ID of the sender identity to use for this template
+             */
+            sender_identity_id?: string | null;
         };
         SendTest: {
             /**
@@ -2454,6 +2512,8 @@ export interface components {
             };
             /** @description Whether this module is hidden from the UI */
             hidden?: boolean;
+            /** @description Whether providers of this module type are locked and cannot be deleted */
+            locked?: boolean;
         };
         Template: {
             /**
@@ -2485,6 +2545,11 @@ export interface components {
             data: components["schemas"]["EmailTemplateData"] | components["schemas"]["SmsTemplateData"] | components["schemas"]["PushTemplateData"];
             /** @example en */
             locale: string;
+            /**
+             * Format: uuid
+             * @description The ID of the sender identity to use for this template
+             */
+            sender_identity_id?: string | null;
         };
         EmailTemplateData: {
             from?: Record<string, never>;
@@ -2540,12 +2605,8 @@ export interface components {
             data?: Record<string, never>;
         };
         EmailProviderData: {
-            /** @example 8f0512c2-e606-4a58-95cb-60a4a7f859e1@campaign.lunogram.com */
+            /** @example 8f0512c2-e606-4a58-95cb-60a4a7f859e1 */
             default_from?: string;
-            /** @example Onboarding */
-            default_from_name?: string;
-            /** @example true */
-            default_from_locked?: boolean;
         };
         SmsProviderData: Record<string, never>;
         PushProviderData: Record<string, never>;
@@ -3274,6 +3335,68 @@ export interface components {
              * @example English (United States)
              */
             label: string;
+        };
+        SenderIdentity: {
+            /**
+             * Format: uuid
+             * @example a1b2c3d4-e5f6-7890-abcd-ef1234567890
+             */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /**
+             * Format: uuid
+             * @description The provider this identity is registered with
+             */
+            provider_id: string;
+            /**
+             * @description Channel type (email or sms)
+             * @example email
+             * @enum {string}
+             */
+            channel: "email" | "sms";
+            /**
+             * @description Channel-specific metadata including address and optional display name (e.g. {"address":"hello@example.com","name":"Acme Support"})
+             * @example {
+             *       "address": "hello@example.com",
+             *       "name": "Acme Support"
+             *     }
+             */
+            traits: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: date-time
+             * @example 2025-11-19T14:18:42.960Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.021Z
+             */
+            updated_at: string;
+        };
+        CreateSenderIdentity: {
+            /**
+             * Format: uuid
+             * @description The provider to register this identity with
+             */
+            provider_id: string;
+            /**
+             * @description Channel type (email or sms)
+             * @enum {string}
+             */
+            channel: "email" | "sms";
+            /**
+             * @description Channel-specific metadata including address and optional display name (e.g. {"address":"hello@example.com","name":"Acme Support"})
+             * @example {
+             *       "address": "hello@example.com",
+             *       "name": "Acme Support"
+             *     }
+             */
+            traits: {
+                [key: string]: unknown;
+            };
         };
         Document: {
             /**
@@ -6221,6 +6344,119 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Locale deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSenderIdentities: {
+        parameters: {
+            query?: {
+                /** @description Filter by provider ID */
+                provider_id?: string;
+                /** @description Filter by channel (email or sms) */
+                channel?: "email" | "sms";
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sender identities retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponse"] & {
+                        results: components["schemas"]["SenderIdentity"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createSenderIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSenderIdentity"];
+            };
+        };
+        responses: {
+            /** @description Sender identity created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SenderIdentity"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSenderIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The sender identity ID */
+                senderIdentityID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sender identity retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SenderIdentity"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteSenderIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The sender identity ID */
+                senderIdentityID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sender identity deleted successfully */
             204: {
                 headers: {
                     [name: string]: unknown;

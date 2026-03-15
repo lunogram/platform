@@ -66,18 +66,6 @@ func Manifest() int32 {
 									Name:   "apiKey",
 									Schema: &modules.JSONSchema{Type: "string", Title: "Resend API Key", Format: "password"},
 								},
-								{
-									Name:   "default_from",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Default From Address", Description: "Default sender email address"},
-								},
-								{
-									Name:   "default_from_name",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Default From Name", Description: "Default sender display name"},
-								},
-								{
-									Name:   "default_from_locked",
-									Schema: &modules.JSONSchema{Type: "boolean", Title: "Lock From Address", Description: "Prevent templates from overriding the from address"},
-								},
 							},
 							Required: []string{"apiKey"},
 						},

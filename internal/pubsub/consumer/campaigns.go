@@ -10,7 +10,6 @@ import (
 
 	"github.com/lunogram/platform/internal/providers/channels"
 	"github.com/lunogram/platform/internal/pubsub"
-
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/management"
@@ -191,6 +190,23 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 			}
 		}
 
+		// Resolve template sender identity if set.
+		var templateSender *management.SenderIdentity
+		if template.SenderIdentityID != nil {
+			templateSender, err = mgmt.SenderIdentitiesStore.GetSenderIdentity(ctx, event.ProjectID, *template.SenderIdentityID)
+			if err != nil {
+				logger.Error("failed to get template sender identity", zap.Error(err))
+				return err
+			}
+		}
+
+		// Resolve provider default_from.
+		providerDefaultSender, err := channels.ResolveProviderDefaultFrom(ctx, mgmt.SenderIdentitiesStore, event.ProjectID, config)
+		if err != nil {
+			logger.Error("failed to resolve provider default from", zap.Error(err))
+			return err
+		}
+
 		var opts *channels.ComposeOptions
 		if providers.Channel(campaign.Channel) == providers.ChannelPush {
 			userDevices, err := usrs.ListDevicesByUser(ctx, event.ProjectID, event.UserID)
@@ -201,7 +217,7 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 			opts = &channels.ComposeOptions{Devices: userDevices}
 		}
 
-		request, err := channels.Compose(providers.Channel(campaign.Channel), config, template, user, opts)
+		request, err := channels.Compose(ctx, providers.Channel(campaign.Channel), templateSender, providerDefaultSender, config, template, user, opts)
 		if err != nil {
 			logger.Error("failed to compose request", zap.Error(err))
 			return err

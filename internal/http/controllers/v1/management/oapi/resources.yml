@@ -3111,6 +3111,153 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/sender-identities:
+    get:
+      summary: List sender identities
+      description: Retrieves a paginated list of sender identities for a project. Optionally filter by provider and/or channel.
+      operationId: listSenderIdentities
+      tags:
+        - SenderIdentities
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: provider_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by provider ID
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [email, sms]
+          description: Filter by channel (email or sms)
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Sender identities retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    required:
+                      - results
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SenderIdentity"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      summary: Create sender identity
+      description: Registers a new sender identity (email address or phone number) for a provider
+      operationId: createSenderIdentity
+      tags:
+        - SenderIdentities
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSenderIdentity"
+      responses:
+        "201":
+          description: Sender identity created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SenderIdentity"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/sender-identities/{senderIdentityID}:
+    get:
+      summary: Get sender identity by ID
+      description: Retrieves a specific sender identity
+      operationId: getSenderIdentity
+      tags:
+        - SenderIdentities
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: senderIdentityID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The sender identity ID
+      responses:
+        "200":
+          description: Sender identity retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SenderIdentity"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      summary: Delete sender identity
+      description: Deletes a sender identity from a project
+      operationId: deleteSenderIdentity
+      tags:
+        - SenderIdentities
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: senderIdentityID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The sender identity ID
+      responses:
+        "204":
+          description: Sender identity deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/documents:
     get:
       summary: List documents
@@ -5056,6 +5203,11 @@ components:
           additionalProperties: true
           x-go-type: json.RawMessage
           description: Template-specific data based on type. Structure varies by template type.
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The ID of the sender identity to use for this template
 
     UpdateTemplate:
       type: object
@@ -5066,6 +5218,11 @@ components:
           additionalProperties: true
           x-go-type: json.RawMessage
           description: Template-specific data based on type. Structure varies by template type.
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The ID of the sender identity to use for this template
 
     SendTest:
       type: object
@@ -5459,6 +5616,11 @@ components:
         locale:
           type: string
           example: "en"
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The ID of the sender identity to use for this template
 
     EmailTemplateData:
       type: object
@@ -5536,13 +5698,7 @@ components:
       properties:
         default_from:
           type: string
-          example: "8f0512c2-e606-4a58-95cb-60a4a7f859e1@campaign.lunogram.com"
-        default_from_name:
-          type: string
-          example: "Onboarding"
-        default_from_locked:
-          type: boolean
-          example: true
+          example: "8f0512c2-e606-4a58-95cb-60a4a7f859e1"
 
     SmsProviderData:
       type: object
@@ -6521,6 +6677,68 @@ components:
           type: string
           example: "English (United States)"
           description: Human-readable locale label
+
+    SenderIdentity:
+      type: object
+      required:
+        - id
+        - project_id
+        - provider_id
+        - channel
+        - traits
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        project_id:
+          type: string
+          format: uuid
+        provider_id:
+          type: string
+          format: uuid
+          description: The provider this identity is registered with
+        channel:
+          type: string
+          enum: [email, sms]
+          description: Channel type (email or sms)
+          example: "email"
+        traits:
+          type: object
+          additionalProperties: true
+          description: Channel-specific metadata including address and optional display name (e.g. {"address":"hello@example.com","name":"Acme Support"})
+          example: {"address": "hello@example.com", "name": "Acme Support"}
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    CreateSenderIdentity:
+      type: object
+      required:
+        - provider_id
+        - channel
+        - traits
+      properties:
+        provider_id:
+          type: string
+          format: uuid
+          description: The provider to register this identity with
+        channel:
+          type: string
+          enum: [email, sms]
+          description: Channel type (email or sms)
+        traits:
+          type: object
+          additionalProperties: true
+          description: Channel-specific metadata including address and optional display name (e.g. {"address":"hello@example.com","name":"Acme Support"})
+          example: {"address": "hello@example.com", "name": "Acme Support"}
 
     Document:
       type: object

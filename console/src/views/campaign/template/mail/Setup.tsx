@@ -25,13 +25,15 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 
 import { UserSelection } from "../UserSelection"
+import { SenderIdentityCombobox } from "@/components/sender-identity-combobox"
+import type { SenderIdentity } from "@/oapi/client"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
 
 const emailSetupFormSchema = z.object({
     subject: z.string("Subject is required").min(1, "Subject is required"),
+    sender_identity_id: z.string().optional(),
     from: z.object({
         name: z.string().optional(),
-        email: z.email("Invalid from email address").optional(),
     }),
     replyTo: z.email("Invalid reply-to email address").optional().or(z.literal("")),
 })
@@ -56,22 +58,17 @@ function randomSubject() {
 
 export function EmailForm(campaign: Campaign, template?: Template) {
     const formSchema = emailSetupFormSchema.extend({
-        from: z.object({
-            email: campaign?.provider?.data.default_from
-                ? z.string().optional()
-                : z.email("Invalid from email address"),
-            name: campaign?.provider?.data.default_from_name
-                ? z.string().optional()
-                : z.string("From name is required").min(1),
-        }),
+        sender_identity_id: campaign?.provider?.data.default_from
+            ? z.string().optional()
+            : z.string("From address is required").min(1),
     })
 
     const form = useForm({
         resolver: zodResolver(formSchema),
         defaultValues: {
+            sender_identity_id: template?.sender_identity_id ?? "",
             from: {
                 name: template?.data.from?.name ?? "",
-                email: template?.data.from?.email ?? "",
             },
             subject: template?.data.subject ?? randomSubject(),
             replyTo: template?.data.replyTo ?? "",
@@ -89,6 +86,7 @@ interface EmailFormControlProps {
 
 export function EmailFormControl({ campaign, form, disabled = false }: EmailFormControlProps) {
     const { t } = useTranslation()
+    const [project] = useContext(ProjectContext)
     const { variableGroups } = useCampaignVariableContext()
 
     return (
@@ -114,6 +112,49 @@ export function EmailFormControl({ campaign, form, disabled = false }: EmailForm
                 )}
             />
             <Controller
+                name="sender_identity_id"
+                control={form.control}
+                render={({ field, fieldState }) => {
+                    const defaultFrom = campaign?.provider?.data.default_from
+                    const handleIdentitySelect = (identity: SenderIdentity) => {
+                        const currentName = form.getValues("from.name")
+                        if (!currentName && typeof identity.traits?.name === "string") {
+                            form.setValue("from.name", identity.traits.name)
+                        }
+                    }
+                    return (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor="form-rhf-demo-fromEmail">
+                                {t("campaign.setup.channels.email.from.email.label")}
+                            </FieldLabel>
+                            <SenderIdentityCombobox
+                                projectId={project.id}
+                                channel="email"
+                                providerId={campaign.provider?.id}
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
+                                onIdentitySelect={handleIdentitySelect}
+                                placeholder={
+                                    defaultFrom ||
+                                    t("select_from_address", "Select from address...")
+                                }
+                                disabled={disabled}
+                            />
+                            {!field.value && defaultFrom && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    {t(
+                                        "sender_fallback_hint",
+                                        "Falls back to integration default: {{address}}",
+                                        { address: defaultFrom },
+                                    )}
+                                </p>
+                            )}
+                            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                        </Field>
+                    )
+                }}
+            />
+            <Controller
                 name="from.name"
                 control={form.control}
                 render={({ field, fieldState }) => (
@@ -125,30 +166,9 @@ export function EmailFormControl({ campaign, form, disabled = false }: EmailForm
                             value={field.value ?? ""}
                             onChange={field.onChange}
                             id="form-rhf-demo-fromName"
-                            placeholder={campaign?.provider?.data.default_from_name || ""}
+                            placeholder=""
                             disabled={disabled}
                             variables={variableGroups}
-                        />
-                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                    </Field>
-                )}
-            />
-            <Controller
-                name="from.email"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor="form-rhf-demo-fromEmail">
-                            {t("campaign.setup.channels.email.from.email.label")}
-                        </FieldLabel>
-                        <Input
-                            {...field}
-                            id="form-rhf-demo-fromEmail"
-                            aria-invalid={fieldState.invalid}
-                            placeholder={campaign?.provider?.data.default_from || ""}
-                            disabled={disabled || campaign?.provider?.data.default_from_locked}
-                            readOnly={disabled}
-                            autoComplete="off"
                         />
                         {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                     </Field>
@@ -195,14 +215,9 @@ export function EmailPreview({ campaign, form }: EmailSetupProps) {
     const { subject, from } = form.watch()
     let previewSubject = subject
 
-    let displayFromName =
-        from?.name ||
-        template?.data?.from?.name ||
-        campaign?.provider?.data?.default_from_name ||
-        ""
+    let displayFromName = from?.name || template?.data?.from?.name || ""
 
-    const displayFromEmail =
-        from?.email || template?.data?.from?.email || campaign?.provider?.data?.default_from || ""
+    const displayFromEmail = campaign?.provider?.data?.default_from || ""
 
     if (selectedUser) {
         previewSubject = Render(subject, {
@@ -370,10 +385,8 @@ export function EmailContentPreview({ campaign, form, edit = false }: EmailSetup
 
     const { subject, from, replyTo } = form.watch()
 
-    const rawFromName =
-        from.name || template.data.from?.name || campaign?.provider?.data.default_from_name || ""
-    const displayFromEmail =
-        from.email || template.data.from?.email || campaign?.provider?.data.default_from || ""
+    const rawFromName = from.name || template.data.from?.name || ""
+    const displayFromEmail = campaign?.provider?.data.default_from || ""
     const displayReplyTo = replyTo || template.data.replyTo || ""
 
     const displaySubject = selectedUser ? Render(subject, { user: selectedUser }) : subject
