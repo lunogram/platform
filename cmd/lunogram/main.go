@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/caarlos0/env/v10"
 	"github.com/cloudproud/graceful"
@@ -55,6 +56,16 @@ func run() error {
 	err = env.Parse(&conf)
 	if err != nil {
 		return err
+	}
+
+	for _, m := range conf.Modules {
+		if !slices.Contains(config.ValidModules, m) {
+			valid := make([]string, len(config.ValidModules))
+			for i, v := range config.ValidModules {
+				valid[i] = fmt.Sprintf("%q", v)
+			}
+			return fmt.Errorf("invalid module %q, valid modules are: %s", m, strings.Join(valid, ", "))
+		}
 	}
 
 	if migrate || conf.DatabaseMigrate {
@@ -120,7 +131,7 @@ func run() error {
 	if slices.Contains(conf.Modules, "wasm") {
 		logger.Info("wasm module is enabled, initializing wasm provider registry")
 
-		providersRegisrtry, err := providers.NewRegistry(ctx, conf.WASM, logger)
+		providersRegisrtry, err = providers.NewRegistry(ctx, conf.WASM, logger)
 		if err != nil {
 			return err
 		}
@@ -129,13 +140,18 @@ func run() error {
 		logger.Info("wasm module is disabled, skipping wasm provider registry initialization")
 	}
 
-	logger.Info("initializing action registry")
+	var actionRegistry *actions.Registry
+	if slices.Contains(conf.Modules, "wasm") {
+		logger.Info("initializing action registry")
 
-	actionRegistry, err := actions.NewRegistry(ctx, conf.WASM, logger)
-	if err != nil {
-		return err
+		actionRegistry, err = actions.NewRegistry(ctx, conf.WASM, logger)
+		if err != nil {
+			return err
+		}
+		defer actionRegistry.Close(ctx)
+	} else {
+		logger.Info("wasm module is disabled, skipping action registry initialization")
 	}
-	defer actionRegistry.Close(ctx)
 
 	pub := pubsub.NewPublisher(jet, conf.Nats.Namespace)
 	req := pubsub.NewCaller(jet, conf.Nats.Namespace)
@@ -160,13 +176,18 @@ func run() error {
 		logger.Info("scheduler module is disabled, skipping cluster initialization")
 	}
 
-	logger.Info("initializing rbac engine")
+	var rbacEngine *rbac.Engine
+	if slices.Contains(conf.Modules, "http") {
+		logger.Info("initializing rbac engine")
 
-	rbacEngine, err := rbac.NewEngine(ctx, conf.RBAC)
-	if err != nil {
-		return fmt.Errorf("failed to initialize rbac engine: %w", err)
+		rbacEngine, err = rbac.NewEngine(ctx, conf.RBAC)
+		if err != nil {
+			return fmt.Errorf("failed to initialize rbac engine: %w", err)
+		}
+		defer rbacEngine.Close()
+	} else {
+		logger.Info("http module is disabled, skipping rbac engine initialization")
 	}
-	defer rbacEngine.Close()
 
 	if slices.Contains(conf.Modules, "http") {
 		logger.Info("starting http server")

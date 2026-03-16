@@ -29,6 +29,8 @@ type Node struct {
 	Modules   []string `env:"MODULES" envSeparator:"," envDefault:"http,consumers,wasm,scheduler"`
 }
 
+var ValidModules = []string{"http", "consumers", "wasm", "scheduler"}
+
 type Auth struct {
 	Driver    string        `env:"DRIVER"`
 	JWTSecret string        `env:"JWT_SECRET"`
