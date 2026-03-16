@@ -25,7 +25,6 @@ import (
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
-	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
@@ -105,16 +104,9 @@ func run() error {
 
 	logger.Info("initializing pubsub...")
 
-	var jet jetstream.JetStream
-	if slices.Contains(conf.EnabledModules, "consumers") || slices.Contains(conf.EnabledModules, "wasm") || slices.Contains(conf.EnabledModules, "scheduler") {
-		logger.Info("pubsub module is enabled, initializing pubsub connection")
-
-		jet, err = pubsub.New(ctx, conf)
-		if err != nil {
-			return err
-		}
-	} else {
-		logger.Info("pubsub module is disabled, skipping pubsub initialization")
+	jet, err := pubsub.New(ctx, conf)
+	if err != nil {
+		return err
 	}
 
 	err = consumer.Bootstrap(ctx, logger, jet, consumer.Namespace(conf.Nats.Namespace))
@@ -125,7 +117,7 @@ func run() error {
 	logger.Info("initializing provider registry")
 
 	var providersRegisrtry *providers.Registry
-	if slices.Contains(conf.EnabledModules, "wasm") {
+	if slices.Contains(conf.Modules, "wasm") {
 		logger.Info("wasm module is enabled, initializing wasm provider registry")
 
 		providersRegisrtry, err := providers.NewRegistry(ctx, conf.WASM, logger)
@@ -150,7 +142,7 @@ func run() error {
 	ns := consumer.Namespace(conf.Nats.Namespace)
 	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, conf.PublicURL, conf)
 
-	if slices.Contains(conf.EnabledModules, "scheduler") {
+	if slices.Contains(conf.Modules, "scheduler") {
 		logger.Info("starting scheduler")
 
 		sched := scheduler.NewController(ctx, logger, conf, journeyStore, pub)
@@ -176,7 +168,7 @@ func run() error {
 	}
 	defer rbacEngine.Close()
 
-	if slices.Contains(conf.EnabledModules, "http") {
+	if slices.Contains(conf.Modules, "http") {
 		logger.Info("starting http server")
 
 		server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, req, providersRegisrtry, actionRegistry, rbacEngine)

@@ -62,7 +62,7 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	renderer := pubsub.NewEmailRenderer(caller)
 	router := NewRouter(ctx, jet, logger)
 
-	if slices.Contains(conf.EnabledModules, "consumers") {
+	if slices.Contains(conf.Modules, "consumers") {
 		logger.Info("starting pub/sub consumers")
 
 		router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersProcess), UsersHandler(logger, usrs, pub))
@@ -81,7 +81,7 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 		logger.Info("skipping pub/sub consumers")
 	}
 
-	if slices.Contains(conf.EnabledModules, "wasm") {
+	if slices.Contains(conf.Modules, "wasm") {
 		logger.Info("starting wasm consumers")
 
 		router.HandleStream(ns.Stream(StreamCampaigns), ns.Consumer(ConsumerCampaignsSend), CampaignsSendHandler(logger, mgmt, usrs, registry, renderer, publicURL))
