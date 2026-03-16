@@ -19,6 +19,46 @@ import (
 	"go.uber.org/zap"
 )
 
+// templateDataEnvelope partially unmarshals email template data so that the
+// code block can be inspected and mutated in a type-safe way, while all other
+// fields (e.g. blocks, editorMode) are preserved via the embedded RawMessage.
+type templateDataEnvelope struct {
+	Code channels.EmailCodeData `json:"code,omitempty"`
+
+	// Remaining holds every top-level field *except* "code". We use it to
+	// reconstruct the full JSON after mutating Code.
+	Remaining map[string]json.RawMessage `json:"-"`
+}
+
+func (t *templateDataEnvelope) UnmarshalJSON(data []byte) error {
+	// Unmarshal all top-level keys into the generic map.
+	if err := json.Unmarshal(data, &t.Remaining); err != nil {
+		return err
+	}
+	// Unmarshal the typed Code field from the "code" key, if present.
+	if raw, ok := t.Remaining["code"]; ok {
+		if err := json.Unmarshal(raw, &t.Code); err != nil {
+			return err
+		}
+		delete(t.Remaining, "code")
+	}
+	return nil
+}
+
+func (t templateDataEnvelope) MarshalJSON() ([]byte, error) {
+	// Start from a copy of the remaining fields so we don't mutate the original.
+	merged := make(map[string]json.RawMessage, len(t.Remaining)+1)
+	for k, v := range t.Remaining {
+		merged[k] = v
+	}
+	codeBytes, err := json.Marshal(t.Code)
+	if err != nil {
+		return nil, err
+	}
+	merged["code"] = codeBytes
+	return json.Marshal(merged)
+}
+
 func NewTemplatesController(logger *zap.Logger, db *sqlx.DB, renderer *pubsub.EmailRenderer, registry *providers.Registry, engine *rbac.Engine) *TemplatesController {
 	return &TemplatesController{
 		logger:   logger,
@@ -197,27 +237,27 @@ func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Re
 
 	// If the template data contains React Email source code, compile it via
 	// the Deno renderer service and store the compiled JS alongside the source.
+	// Extra fields stored by the frontend (e.g. blocks, editorMode) are
+	// preserved through the marshal/unmarshal round-trip via templateDataEnvelope.
 	if body.Data != nil {
-		var data channels.EmailTemplateData
-		err := json.Unmarshal(*body.Data, &data)
-		if err != nil {
+		var envelope templateDataEnvelope
+		if err := json.Unmarshal(*body.Data, &envelope); err != nil {
 			logger.Error("failed to unmarshal template data", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to unmarshal template data")))
 			return
 		}
 
-		if data.Code.Source != "" {
-			data.Code.Bundle, data.Code.BundleHash, err = srv.renderer.Compile(ctx, projectID, data.Code.Source)
+		if envelope.Code.Source != "" {
+			envelope.Code.Bundle, envelope.Code.BundleHash, err = srv.renderer.Compile(ctx, projectID, envelope.Code.Source)
 			if err != nil {
 				logger.Error("failed to compile template", zap.Error(err))
 				oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to compile email template")))
 				return
 			}
 
-			updatedData, _ := json.Marshal(data)
-			rawData := json.RawMessage(updatedData)
-
-			body.Data = &rawData
+			updated, _ := json.Marshal(envelope) //nolint:errcheck
+			raw := json.RawMessage(updated)
+			body.Data = &raw
 		}
 	}
 
