@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/caarlos0/env/v10"
 	"github.com/cloudproud/graceful"
@@ -24,6 +25,7 @@ import (
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
+	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
 
@@ -103,9 +105,16 @@ func run() error {
 
 	logger.Info("initializing pubsub...")
 
-	jet, err := pubsub.New(ctx, conf)
-	if err != nil {
-		return err
+	var jet jetstream.JetStream
+	if slices.Contains(conf.EnabledModules, "consumers") || slices.Contains(conf.EnabledModules, "wasm") || slices.Contains(conf.EnabledModules, "scheduler") {
+		logger.Info("pubsub module is enabled, initializing pubsub connection")
+
+		jet, err = pubsub.New(ctx, conf)
+		if err != nil {
+			return err
+		}
+	} else {
+		logger.Info("pubsub module is disabled, skipping pubsub initialization")
 	}
 
 	err = consumer.Bootstrap(ctx, logger, jet, consumer.Namespace(conf.Nats.Namespace))
@@ -115,11 +124,18 @@ func run() error {
 
 	logger.Info("initializing provider registry")
 
-	providersRegisrtry, err := providers.NewRegistry(ctx, conf.WASM, logger)
-	if err != nil {
-		return err
+	var providersRegisrtry *providers.Registry
+	if slices.Contains(conf.EnabledModules, "wasm") {
+		logger.Info("wasm module is enabled, initializing wasm provider registry")
+
+		providersRegisrtry, err := providers.NewRegistry(ctx, conf.WASM, logger)
+		if err != nil {
+			return err
+		}
+		defer providersRegisrtry.Close(ctx)
+	} else {
+		logger.Info("wasm module is disabled, skipping wasm provider registry initialization")
 	}
-	defer providersRegisrtry.Close(ctx)
 
 	logger.Info("initializing action registry")
 
@@ -132,20 +148,24 @@ func run() error {
 	pub := pubsub.NewPublisher(jet, conf.Nats.Namespace)
 	req := pubsub.NewCaller(jet, conf.Nats.Namespace)
 	ns := consumer.Namespace(conf.Nats.Namespace)
-	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, conf.PublicURL)
+	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, conf.PublicURL, conf)
 
-	logger.Info("initializing cluster")
+	if slices.Contains(conf.EnabledModules, "scheduler") {
+		logger.Info("starting scheduler")
 
-	sched := scheduler.NewController(ctx, logger, conf, journeyStore, pub)
-	lead := leader.NewHandler(sched)
-	cons, err := consensus.NewCluster(ctx, logger, conf)
-	if err != nil {
-		return err
-	}
+		sched := scheduler.NewController(ctx, logger, conf, journeyStore, pub)
+		lead := leader.NewHandler(sched)
+		cons, err := consensus.NewCluster(ctx, logger, conf)
+		if err != nil {
+			return err
+		}
 
-	_, err = cluster.NewNode(ctx, logger, conf, cons, lead)
-	if err != nil {
-		return err
+		_, err = cluster.NewNode(ctx, logger, conf, cons, lead)
+		if err != nil {
+			return err
+		}
+	} else {
+		logger.Info("scheduler module is disabled, skipping cluster initialization")
 	}
 
 	logger.Info("initializing rbac engine")
@@ -156,15 +176,19 @@ func run() error {
 	}
 	defer rbacEngine.Close()
 
-	logger.Info("starting http server")
+	if slices.Contains(conf.EnabledModules, "http") {
+		logger.Info("starting http server")
 
-	server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, req, providersRegisrtry, actionRegistry, rbacEngine)
-	if err != nil {
-		return err
+		server, err := v1.NewServer(ctx, logger, conf, db, bucket, jet, pub, req, providersRegisrtry, actionRegistry, rbacEngine)
+		if err != nil {
+			return err
+		}
+
+		logger.Info("serving http server")
+		go server.Serve(ctx, conf.HTTPAddress)
+	} else {
+		logger.Info("http module is disabled, skipping http server startup")
 	}
-
-	logger.Info("serving http server")
-	go server.Serve(ctx, conf.HTTPAddress)
 
 	logger.Info("service up and running!")
 	ctx.AwaitKillSignal()
