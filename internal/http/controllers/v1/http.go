@@ -88,13 +88,19 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	})
 
 	// Mount client routes with API Key only auth
-	clientoapi.HandlerWithOptions(clientController, clientoapi.ChiServerOptions{
-		BaseRouter: router,
-		Middlewares: []clientoapi.MiddlewareFunc{clientoapi.Validator(clientSpec, openapi3filter.Options{
-			AuthenticationFunc: auth.Middleware(
-				auth.WithKey(mgmtStores),
-			),
-		})},
+	router.Group(func(r chi.Router) {
+		r.Use(clientoapi.CORS())
+		r.Options("/api/client/*", func(w nethttp.ResponseWriter, r *nethttp.Request) {})
+		clientoapi.HandlerWithOptions(clientController, clientoapi.ChiServerOptions{
+			BaseRouter: r,
+			Middlewares: []clientoapi.MiddlewareFunc{
+				clientoapi.Validator(clientSpec, openapi3filter.Options{
+					AuthenticationFunc: auth.Middleware(
+						auth.WithKey(mgmtStores),
+					),
+				}),
+			},
+		})
 	})
 
 	if cfg.Storage.BaseURL == "" {
