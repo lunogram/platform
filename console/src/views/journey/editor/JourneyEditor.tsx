@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useRef, useState } from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router"
 import type { ReactFlowInstance } from "reactflow"
 import ReactFlow, {
@@ -176,12 +176,23 @@ export default function JourneyEditor() {
         () => setHasUnsavedChanges(true),
     )
 
-    const handleSaveDraft = useCallback(async () => {
-        await saveSteps(nodes, edges)
-    }, [saveSteps, nodes, edges])
-
     const { triggerUser, skipDelayForActiveUser, searchParams, followUser, STORAGE_KEY } =
         useUserSelection(project.id, journey.id, onUserEnteredNode, onStepExecuted)
+
+    const openUserModal = useCallback((nodeId: string) => setUserModalEntranceId(nodeId), [])
+
+    const nodeActions = useMemo(
+        () => ({
+            setViewUsersStep,
+            skipDelay: skipDelayForActiveUser,
+            openUserModal,
+        }),
+        [setViewUsersStep, skipDelayForActiveUser, openUserModal],
+    )
+
+    const handleSaveDraft = useCallback(async () => {
+        await saveSteps(nodes, edges, nodeActions)
+    }, [saveSteps, nodes, edges, nodeActions])
 
     useEffect(() => {
         if (!stepsLoaded) return
@@ -215,17 +226,11 @@ export default function JourneyEditor() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [stepsLoaded])
 
-    const openUserModal = useCallback((nodeId: string) => setUserModalEntranceId(nodeId), [])
-
     useEffect(() => {
         if (stepsLoaded) return
         const load = async () => {
             const steps = await api.journeys.steps.get(project.id, journey.id)
-            const { edges, nodes } = stepsToNodes(steps, {
-                setViewUsersStep,
-                skipDelay: skipDelayForActiveUser,
-                openUserModal,
-            })
+            const { edges, nodes } = stepsToNodes(steps, nodeActions)
             setNodes(nodes)
             setEdges(edges)
             setStepsLoaded(true)
@@ -237,8 +242,7 @@ export default function JourneyEditor() {
         setNodes,
         setEdges,
         stepsLoaded,
-        skipDelayForActiveUser,
-        openUserModal,
+        nodeActions,
     ])
 
     const onPaneClick = useCallback(() => {
@@ -328,7 +332,7 @@ export default function JourneyEditor() {
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => saveSteps(nodes, edges)}
+                                        onClick={() => saveSteps(nodes, edges, nodeActions)}
                                         isLoading={saving}
                                     >
                                         <span className="hidden sm:inline">
@@ -338,7 +342,7 @@ export default function JourneyEditor() {
                                     </Button>
                                     <Button
                                         size="sm"
-                                        onClick={() => publishJourney(nodes, edges)}
+                                        onClick={() => publishJourney(nodes, edges, nodeActions)}
                                         isLoading={publishing}
                                     >
                                         {t("publish")}
