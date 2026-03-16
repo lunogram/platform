@@ -67,13 +67,17 @@ func (qb *QueryBuilder) buildOrganizationPropertyRule(rule *rules.Rule) (string,
 	if err != nil {
 		return "", err
 	}
-	if orgCondition == "" {
-		return "", nil
-	}
 
 	memberCondition, err := qb.extractMemberConditions(rule)
 	if err != nil {
 		return "", err
+	}
+
+	// When there are no property conditions (e.g., the organization wrapper
+	// has no leaf rules), we still need to constrain the result to users who
+	// belong to at least one organization by adding a JOIN.
+	if orgCondition == "" {
+		orgCondition = "TRUE"
 	}
 
 	subquery := qb.buildOrgUserSubquery(orgCondition, memberCondition)
@@ -91,13 +95,28 @@ func (qb *QueryBuilder) buildOrganizationWrapperRule(rule *rules.Rule) (string, 
 		return "", nil
 	}
 
+	// If any child is itself an organization wrapper (e.g., has user_match
+	// or nested conditions), delegate each child through buildRule so that
+	// organization property rules with member conditions are handled properly.
+	for _, child := range rule.Children {
+		if child.IsWrapper() && child.Group == rules.RuleGroupOrganization {
+			return qb.buildWrapper(rule)
+		}
+	}
+
 	orgConditions, orgUserConditions, err := qb.collectOrgAndOrgUserConditions(rule)
 	if err != nil {
 		return "", err
 	}
 
 	allConditions := append(orgConditions, orgUserConditions...)
+
+	// When there are no property conditions (e.g., the organization wrapper
+	// has no leaf rules), we still need to constrain the result to users who
+	// belong to at least one organization by adding a JOIN.
 	if len(allConditions) == 0 {
+		subquery := qb.buildOrgUserSubquery("TRUE", "")
+		qb.addJoinForUserIDs(subquery)
 		return "", nil
 	}
 
