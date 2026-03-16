@@ -40,4 +40,7 @@ export type TestActionResult = components["schemas"]["TestActionResult"]
 export type TestActionFunctionRequest = components["schemas"]["TestActionFunctionRequest"]
 export type TestActionFunctionResult = components["schemas"]["TestActionFunctionResult"]
 
+export type SenderIdentity = components["schemas"]["SenderIdentity"]
+export type CreateSenderIdentity = components["schemas"]["CreateSenderIdentity"]
+
 export default oapiClient

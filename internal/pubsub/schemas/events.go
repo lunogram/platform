@@ -293,3 +293,37 @@ type ProjectEvent struct {
 func ProjectEventsProcess(organizationID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("projects.events.%s", organizationID))
 }
+
+// CompileEmail represents a request to compile a React Email JSX template via NATS.
+type CompileEmail struct {
+	Source string `json:"source"`
+}
+
+// CompileEmailResponse is the reply sent back through the NATS inbox.
+type CompileEmailResponse struct {
+	CompiledJS string `json:"compiled_js"`
+	Error      string `json:"error,omitempty"`
+}
+
+// EmailCompile returns the NATS subject for email compilation requests.
+func EmailCompile(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("email.compile.%s", projectID))
+}
+
+// RenderEmail represents a request to render a pre-compiled email template via NATS.
+type RenderEmail struct {
+	CompiledJS string         `json:"compiled_js"`
+	Props      map[string]any `json:"props"`
+}
+
+// RenderEmailResponse is the reply sent back through the NATS inbox.
+type RenderEmailResponse struct {
+	HTML      string `json:"html"`
+	PlainText string `json:"plain_text"`
+	Error     string `json:"error,omitempty"`
+}
+
+// EmailRender returns the NATS subject for email rendering requests.
+func EmailRender(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("email.render.%s", projectID))
+}

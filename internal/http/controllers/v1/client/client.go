@@ -50,13 +50,14 @@ func (srv *ClientController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	var events oapi.PostEventsRequest
-	err := json.Decode(r.Body, &events)
+	err = json.Decode(r.Body, &events)
 	if err != nil {
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
 		return
@@ -101,13 +102,14 @@ func (srv *ClientController) DeleteUserClient(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("users", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	var req oapi.DeleteUserRequest
-	err := json.Decode(r.Body, &req)
+	err = json.Decode(r.Body, &req)
 	if err != nil {
 		srv.logger.Error("failed to decode request body", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
@@ -161,7 +163,8 @@ func (srv *ClientController) UpsertUserClient(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("users", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -170,7 +173,7 @@ func (srv *ClientController) UpsertUserClient(w http.ResponseWriter, r *http.Req
 	logger.Info("identifying user")
 
 	var req oapi.IdentifyRequest
-	err := json.Decode(r.Body, &req)
+	err = json.Decode(r.Body, &req)
 	if err != nil {
 		logger.Error("failed to decode request body", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
@@ -261,13 +264,14 @@ func (srv *ClientController) UpsertOrganizationClient(w http.ResponseWriter, r *
 		return
 	}
 
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	var req oapi.OrganizationRequest
-	err := json.Decode(r.Body, &req)
+	err = json.Decode(r.Body, &req)
 	if err != nil {
 		srv.logger.Error("failed to decode request body", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
@@ -358,13 +362,14 @@ func (srv *ClientController) DeleteOrganizationClient(w http.ResponseWriter, r *
 		return
 	}
 
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	var req oapi.DeleteOrganizationRequest
-	err := json.Decode(r.Body, &req)
+	err = json.Decode(r.Body, &req)
 	if err != nil {
 		srv.logger.Error("failed to decode request body", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
@@ -415,13 +420,14 @@ func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r 
 		return
 	}
 
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	var req oapi.OrganizationUserRequest
-	err := json.Decode(r.Body, &req)
+	err = json.Decode(r.Body, &req)
 	if err != nil {
 		srv.logger.Error("failed to decode request body", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
@@ -526,13 +532,14 @@ func (srv *ClientController) RemoveOrganizationUserClient(w http.ResponseWriter,
 		return
 	}
 
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	var req oapi.RemoveOrganizationUserRequest
-	err := json.Decode(r.Body, &req)
+	err = json.Decode(r.Body, &req)
 	if err != nil {
 		srv.logger.Error("failed to decode request body", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
@@ -598,13 +605,14 @@ func (srv *ClientController) PostOrganizationEventsClient(w http.ResponseWriter,
 		return
 	}
 
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	var events oapi.PostOrganizationEventsRequest
-	err := json.Decode(r.Body, &events)
+	err = json.Decode(r.Body, &events)
 	if err != nil {
 		srv.logger.Error("failed to decode request body", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))

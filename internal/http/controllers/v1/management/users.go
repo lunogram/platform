@@ -50,7 +50,8 @@ type UsersController struct {
 
 func (srv *UsersController) ListUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListUsersParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("users", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -86,13 +87,14 @@ func (srv *UsersController) ListUsers(w http.ResponseWriter, r *http.Request, pr
 
 func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("users", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.IdentifyUser{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		srv.logger.Error("failed to decode request body", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
@@ -173,7 +175,8 @@ func (srv *UsersController) IdentifyUser(w http.ResponseWriter, r *http.Request,
 
 func (srv *UsersController) GetUser(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("users", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -204,12 +207,13 @@ func (srv *UsersController) GetUser(w http.ResponseWriter, r *http.Request, proj
 
 func (srv *UsersController) GetUserDevices(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("users", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.users.GetUser(ctx, projectID, userID)
+	_, err = srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -247,7 +251,8 @@ func (srv *UsersController) GetUserDevices(w http.ResponseWriter, r *http.Reques
 
 func (srv *UsersController) DeleteUserDevice(w http.ResponseWriter, r *http.Request, projectID, userID, deviceID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("users", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -260,7 +265,7 @@ func (srv *UsersController) DeleteUserDevice(w http.ResponseWriter, r *http.Requ
 
 	logger.Info("deleting user device")
 
-	err := srv.users.DeleteDevice(ctx, projectID, deviceID)
+	err = srv.users.DeleteDevice(ctx, projectID, deviceID)
 	if err != nil {
 		logger.Error("failed to delete device", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -273,12 +278,13 @@ func (srv *UsersController) DeleteUserDevice(w http.ResponseWriter, r *http.Requ
 
 func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("users", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.users.GetUser(ctx, projectID, userID)
+	_, err = srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -381,12 +387,13 @@ func (srv *UsersController) UpdateUser(w http.ResponseWriter, r *http.Request, p
 
 func (srv *UsersController) DeleteUser(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("users", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.users.GetUser(ctx, projectID, userID)
+	_, err = srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -419,12 +426,13 @@ func (srv *UsersController) DeleteUser(w http.ResponseWriter, r *http.Request, p
 
 func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserEventsParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("events", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.users.GetUser(ctx, projectID, userID)
+	_, err = srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -471,12 +479,13 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 
 func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserSubscriptionsParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("subscriptions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("subscriptions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.users.GetUser(ctx, projectID, userID)
+	_, err = srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -522,12 +531,13 @@ func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.
 
 func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("subscriptions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("subscriptions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.users.GetUser(ctx, projectID, userID)
+	_, err = srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -592,12 +602,13 @@ func (srv *UsersController) UpdateUserSubscriptions(w http.ResponseWriter, r *ht
 
 func (srv *UsersController) GetUserJourneys(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserJourneysParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.users.GetUser(ctx, projectID, userID)
+	_, err = srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -655,7 +666,8 @@ var userDirectColumns = []oapi.SchemaPath{
 
 func (srv *UsersController) ListUserSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("users", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -696,7 +708,8 @@ func (srv *UsersController) ListUserSchemas(w http.ResponseWriter, r *http.Reque
 
 func (srv *UsersController) ImportUsers(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("users", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("users", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -704,7 +717,7 @@ func (srv *UsersController) ImportUsers(w http.ResponseWriter, r *http.Request, 
 	logger := srv.logger.With(zap.String("project_id", projectID.String()))
 	logger.Info("importing users from CSV")
 
-	err := r.ParseMultipartForm(srv.maxUploadSize)
+	err = r.ParseMultipartForm(srv.maxUploadSize)
 	if err != nil {
 		logger.Error("failed to parse multipart form", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("file too large or invalid form data")))
@@ -788,12 +801,13 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 
 func (srv *UsersController) GetUserOrganizations(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserOrganizationsParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.users.GetUser(ctx, projectID, userID)
+	_, err = srv.users.GetUser(ctx, projectID, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))

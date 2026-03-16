@@ -16,10 +16,11 @@ import (
 // Engine wraps the embedded OpenFGA server to provide relationship-based
 // access control. It owns the store and authorization model lifecycle.
 type Engine struct {
-	server    *server.Server
-	datastore storage.OpenFGADatastore
-	storeID   string
-	modelID   string
+	server       *server.Server
+	datastore    storage.OpenFGADatastore
+	storeID      string
+	modelID      string
+	modelChanged bool
 }
 
 // Tuple is a convenience type for batch read/write/delete operations.
@@ -250,7 +251,16 @@ func (e *Engine) ensureModel(ctx context.Context) error {
 		return fmt.Errorf("rbac: failed to write authorization model: %w", err)
 	}
 	e.modelID = resp.AuthorizationModelId
+	e.modelChanged = true
 	return nil
+}
+
+// ModelChanged returns true if the authorization model was updated during
+// engine initialization (i.e. a new type was added or an existing one
+// modified). Callers can use this to trigger backfill operations such as
+// writing resource tuples for existing projects.
+func (e *Engine) ModelChanged() bool {
+	return e.modelChanged
 }
 
 // modelsEqual compares two slices of type definitions using protobuf

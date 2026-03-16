@@ -9,7 +9,7 @@ import * as z from "zod"
 
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 
-import { Input } from "@/components/ui/input"
+import { SenderIdentityCombobox } from "@/components/sender-identity-combobox"
 import { TemplateInput } from "@/components/ui/template-input"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,13 +25,13 @@ import { ProjectContext, TemplateContext } from "@/contexts"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
 
 const textSetupFormSchema = z.object({
-    from: z.string().optional(),
+    sender_identity_id: z.string().optional(),
     message: z.string("Message is required").min(1, "Message is required"),
 })
 
 export function TextForm(campaign: Campaign, template?: Template) {
     const formSchema = textSetupFormSchema.extend({
-        from: campaign?.provider?.data.default_from
+        sender_identity_id: campaign?.provider?.data.default_from
             ? z.string().optional()
             : z.string("From number is required").min(1),
     })
@@ -39,7 +39,7 @@ export function TextForm(campaign: Campaign, template?: Template) {
     return useForm({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            from: template?.data.from ?? "",
+            sender_identity_id: template?.sender_identity_id ?? "",
             message: template?.data.message,
         },
     })
@@ -53,30 +53,45 @@ interface TextFormControlProps {
 
 export function TextFormControl({ campaign, form, disabled = false }: TextFormControlProps) {
     const { t } = useTranslation()
+    const [project] = useContext(ProjectContext)
     const { variableGroups } = useCampaignVariableContext()
 
     return (
         <FieldGroup className="mt-7">
             <Controller
-                name="from"
+                name="sender_identity_id"
                 control={form.control}
-                render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid} className="gap-2">
-                        <FieldLabel htmlFor="form-rhf-demo-from">
-                            {t("campaign.setup.channels.text.from.label")}
-                        </FieldLabel>
-                        <Input
-                            {...field}
-                            id="form-rhf-demo-from"
-                            aria-invalid={fieldState.invalid}
-                            placeholder={campaign?.provider?.data.default_from || ""}
-                            disabled={disabled || campaign?.provider?.data.default_from_locked}
-                            readOnly={disabled}
-                            autoComplete="off"
-                        />
-                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                    </Field>
-                )}
+                render={({ field, fieldState }) => {
+                    const defaultFrom = campaign?.provider?.data.default_from
+                    return (
+                        <Field data-invalid={fieldState.invalid} className="gap-2">
+                            <FieldLabel htmlFor="form-rhf-demo-from">
+                                {t("campaign.setup.channels.text.from.label")}
+                            </FieldLabel>
+                            <SenderIdentityCombobox
+                                projectId={project.id}
+                                channel="sms"
+                                providerId={campaign.provider?.id}
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
+                                placeholder={
+                                    defaultFrom || t("select_from_number", "Select from number...")
+                                }
+                                disabled={disabled}
+                            />
+                            {!field.value && defaultFrom && (
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        "sender_fallback_hint",
+                                        "Falls back to integration default: {{address}}",
+                                        { address: defaultFrom },
+                                    )}
+                                </p>
+                            )}
+                            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                        </Field>
+                    )
+                }}
             />
             <Controller
                 name="message"

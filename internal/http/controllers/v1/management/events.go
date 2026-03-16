@@ -34,7 +34,8 @@ type EventsController struct {
 
 func (srv *EventsController) ListUserEventSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("events", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -81,7 +82,8 @@ func (srv *EventsController) ListUserEventSchemas(w http.ResponseWriter, r *http
 
 func (srv *EventsController) DeleteUserEventSchema(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, eventID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("events", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -93,7 +95,7 @@ func (srv *EventsController) DeleteUserEventSchema(w http.ResponseWriter, r *htt
 
 	logger.Info("deleting user event schema")
 
-	err := srv.store.DeleteEvent(ctx, projectID, eventID)
+	err = srv.store.DeleteEvent(ctx, projectID, eventID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("event not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("event not found")))

@@ -3,8 +3,10 @@ package v1
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
@@ -15,6 +17,10 @@ import (
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	teststore "github.com/lunogram/platform/internal/store/test"
+	"github.com/lunogram/platform/internal/wasm"
+	wasmProviders "github.com/lunogram/platform/internal/wasm/providers"
+	"github.com/lunogram/platform/pkg/modules"
+	"github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 )
@@ -342,4 +348,107 @@ func TestUpdateProvider(t *testing.T) {
 			require.Equal(t, test.code, res.Code, res.Body.String())
 		})
 	}
+}
+
+// newTestProviderRegistry creates a provider registry with test modules for
+// locked/unlocked testing without requiring real WASM binaries.
+func newTestProviderRegistry(t *testing.T) *internalProviders.Registry {
+	t.Helper()
+
+	logger := zaptest.NewLogger(t)
+	wasmCfg := config.WASM{CallTimeout: 30 * time.Second}
+
+	registry := wasmProviders.NewRegistry(wasmCfg, logger)
+
+	// Register a locked module
+	lockedModule := wasm.NewTestModule(providers.ProviderManifest{
+		Metadata: modules.Metadata{
+			ID:    "locked-provider",
+			Title: "Locked Provider",
+		},
+		Version: "1.0.0",
+		Spec: providers.ProviderSpec{
+			Channels: []providers.Channel{providers.ChannelEmail},
+			Locked:   true,
+		},
+	}, wasmCfg)
+	require.NoError(t, registry.Registry.Register(lockedModule))
+
+	// Register a non-locked module
+	unlockedModule := wasm.NewTestModule(providers.ProviderManifest{
+		Metadata: modules.Metadata{
+			ID:    "unlocked-provider",
+			Title: "Unlocked Provider",
+		},
+		Version: "1.0.0",
+		Spec: providers.ProviderSpec{
+			Channels: []providers.Channel{providers.ChannelEmail},
+			Locked:   false,
+		},
+	}, wasmCfg)
+	require.NoError(t, registry.Registry.Register(unlockedModule))
+
+	return registry
+}
+
+func TestDeleteLockedProvider(t *testing.T) {
+	t.Parallel()
+
+	logger := zaptest.NewLogger(t)
+	ctx := graceful.NewContext(t.Context())
+	mgmt, _, _ := teststore.RunPostgreSQL(t)
+
+	projects := management.NewProjectsStore(mgmt)
+	projectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	registry := newTestProviderRegistry(t)
+
+	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
+		rbac.WithOrganizationID(uuid.New()),
+		rbac.WithProjectID(projectID),
+	)
+	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
+
+	controller := NewProvidersController(logger, mgmt, registry, engine)
+
+	providerStore := management.NewProvidersStore(mgmt)
+
+	// Create a provider instance referencing the locked module
+	lockedProviderID, err := providerStore.CreateProvider(ctx, management.Provider{
+		ProjectID: projectID,
+		Module:    "locked-provider",
+		Channel:   "email",
+		Name:      "My Locked Provider",
+		Data:      json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	// Create a provider instance referencing the unlocked module
+	unlockedProviderID, err := providerStore.CreateProvider(ctx, management.Provider{
+		ProjectID: projectID,
+		Module:    "unlocked-provider",
+		Channel:   "email",
+		Name:      "My Unlocked Provider",
+		Data:      json.RawMessage(`{}`),
+	})
+	require.NoError(t, err)
+
+	t.Run("locked provider returns 403", func(t *testing.T) {
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("DELETE", "/v1/providers/"+lockedProviderID.String(), nil)
+		req = req.WithContext(actorCtx)
+		controller.DeleteProvider(res, req, projectID, lockedProviderID)
+
+		require.Equal(t, http.StatusForbidden, res.Code, res.Body.String())
+	})
+
+	t.Run("unlocked provider returns 204", func(t *testing.T) {
+		res := httptest.NewRecorder()
+		req := httptest.NewRequest("DELETE", "/v1/providers/"+unlockedProviderID.String(), nil)
+		req = req.WithContext(actorCtx)
+		controller.DeleteProvider(res, req, projectID, unlockedProviderID)
+
+		require.Equal(t, http.StatusNoContent, res.Code, res.Body.String())
+	})
 }

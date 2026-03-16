@@ -13,7 +13,9 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/rbac"
+	"go.uber.org/zap"
 )
 
 // OrganizationRoleTuples returns the tuples needed to grant the given role to
@@ -125,5 +127,43 @@ func DeprovisionProject(ctx context.Context, engine *rbac.Engine, organizationID
 	if err := engine.DeleteTuples(ctx, tuples); err != nil {
 		return fmt.Errorf("access: failed to deprovision project %s: %w", projectID, err)
 	}
+	return nil
+}
+
+// BackfillProjectTuples re-provisions RBAC resource tuples for all existing
+// projects. This must be called when the authorization model changes (e.g. a
+// new resource type is added) to ensure that existing projects have the
+// relationship tuples needed for permission checks on the new resource type.
+//
+// The function queries the database for all (organization_id, id) pairs in
+// the projects table and writes each resource tuple individually. Tuples that
+// already exist produce an error from OpenFGA which is silently skipped,
+// making this operation idempotent.
+func BackfillProjectTuples(ctx context.Context, logger *zap.Logger, engine *rbac.Engine, db *sqlx.DB) error {
+	type row struct {
+		OrganizationID uuid.UUID `db:"organization_id"`
+		ID             uuid.UUID `db:"id"`
+	}
+
+	var projects []row
+	if err := db.SelectContext(ctx, &projects, "SELECT organization_id, id FROM projects"); err != nil {
+		return fmt.Errorf("access: failed to list projects for backfill: %w", err)
+	}
+
+	logger.Info("backfilling RBAC resource tuples for existing projects", zap.Int("count", len(projects)))
+
+	resources := rbac.Resources()
+	for _, p := range projects {
+		projectObject := rbac.ProjectScope(p.ID)
+		for _, resource := range resources {
+			if err := engine.WriteTuple(ctx, projectObject, "project", resource+":"+p.ID.String()); err != nil {
+				// OpenFGA returns an error when a tuple already exists.
+				// This is expected and safe to ignore.
+				continue
+			}
+		}
+	}
+
+	logger.Info("RBAC resource tuple backfill complete")
 	return nil
 }

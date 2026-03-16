@@ -72,7 +72,8 @@ func (srv *ProjectsController) loadProjectCounts(ctx context.Context, project *m
 func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Request, params oapi.ListProjectsParams) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -114,7 +115,8 @@ func (srv *ProjectsController) ListProjects(w http.ResponseWriter, r *http.Reque
 func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -143,13 +145,14 @@ func (srv *ProjectsController) GetProject(w http.ResponseWriter, r *http.Request
 func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.CreateProjectJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -304,7 +307,8 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -313,7 +317,7 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 	logger.Info("updating project")
 
 	body := oapi.UpdateProjectJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -353,7 +357,8 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 func (srv *ProjectsController) DeleteProject(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -361,7 +366,7 @@ func (srv *ProjectsController) DeleteProject(w http.ResponseWriter, r *http.Requ
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("deleting project")
 
-	_, err := srv.store.GetProject(ctx, projectID)
+	_, err = srv.store.GetProject(ctx, projectID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("project not found", zap.Stringer("project_id", projectID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("project not found")))

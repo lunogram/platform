@@ -35,13 +35,14 @@ type ApiKeysController struct {
 func (srv *ApiKeysController) CreateApiKey(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.CreateApiKeyJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -78,7 +79,8 @@ func (srv *ApiKeysController) CreateApiKey(w http.ResponseWriter, r *http.Reques
 func (srv *ApiKeysController) ListApiKeys(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListApiKeysParams) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -110,7 +112,8 @@ func (srv *ApiKeysController) ListApiKeys(w http.ResponseWriter, r *http.Request
 func (srv *ApiKeysController) GetApiKey(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, keyID uuid.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -138,7 +141,8 @@ func (srv *ApiKeysController) GetApiKey(w http.ResponseWriter, r *http.Request, 
 func (srv *ApiKeysController) UpdateApiKey(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, keyID uuid.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -147,7 +151,7 @@ func (srv *ApiKeysController) UpdateApiKey(w http.ResponseWriter, r *http.Reques
 	logger.Info("updating API key")
 
 	body := oapi.UpdateApiKeyJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -208,7 +212,8 @@ func (srv *ApiKeysController) UpdateApiKey(w http.ResponseWriter, r *http.Reques
 func (srv *ApiKeysController) DeleteApiKey(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, keyID uuid.UUID) {
 	ctx := r.Context()
 	actor := rbac.FromContext(ctx)
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.OrganizationScope(actor.OrganizationID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.OrganizationScope(actor.OrganizationID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}

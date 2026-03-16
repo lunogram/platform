@@ -21,12 +21,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewDocumentsController(logger *zap.Logger, db *sqlx.DB, storage storage.Storage, maxUploadSize int64, engine *rbac.Engine) *DocumentsController {
+func NewDocumentsController(logger *zap.Logger, db *sqlx.DB, storage storage.Storage, maxUploadSize int64, urlResolver *storage.URLResolver, engine *rbac.Engine) *DocumentsController {
 	return &DocumentsController{
 		logger:        logger,
 		db:            db,
 		storage:       storage,
 		maxUploadSize: maxUploadSize,
+		urlResolver:   urlResolver,
 		engine:        engine,
 	}
 }
@@ -36,6 +37,7 @@ type DocumentsController struct {
 	db            *sqlx.DB
 	storage       storage.Storage
 	maxUploadSize int64
+	urlResolver   *storage.URLResolver
 	engine        *rbac.Engine
 }
 
@@ -97,7 +99,8 @@ func (srv *DocumentsController) uploadDocument(ctx context.Context, logger *zap.
 
 func (srv *DocumentsController) UploadDocuments(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("documents", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("documents", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -105,7 +108,7 @@ func (srv *DocumentsController) UploadDocuments(w http.ResponseWriter, r *http.R
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("uploading documents")
 
-	err := r.ParseMultipartForm(srv.maxUploadSize)
+	err = r.ParseMultipartForm(srv.maxUploadSize)
 	if err != nil {
 		logger.Error("failed to parse multipart form", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("file too large or invalid form data")))
@@ -136,7 +139,8 @@ func (srv *DocumentsController) UploadDocuments(w http.ResponseWriter, r *http.R
 
 func (srv *DocumentsController) ListDocuments(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListDocumentsParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("documents", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("documents", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -162,13 +166,14 @@ func (srv *DocumentsController) ListDocuments(w http.ResponseWriter, r *http.Req
 		Total:   total,
 		Limit:   pagination.Limit,
 		Offset:  pagination.Offset,
-		Results: result.OAPI(),
+		Results: result.OAPIWithURLs(srv.urlResolver.URL),
 	})
 }
 
 func (srv *DocumentsController) GetDocument(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, documentID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("documents", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("documents", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -211,7 +216,8 @@ func (srv *DocumentsController) GetDocument(w http.ResponseWriter, r *http.Reque
 
 func (srv *DocumentsController) GetDocumentMetadata(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, documentID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("documents", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("documents", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -234,12 +240,13 @@ func (srv *DocumentsController) GetDocumentMetadata(w http.ResponseWriter, r *ht
 	}
 
 	logger.Info("document metadata retrieved")
-	json.Write(w, http.StatusOK, document.OAPI())
+	json.Write(w, http.StatusOK, document.OAPIWithURL(srv.urlResolver.URL(document.Key)))
 }
 
 func (srv *DocumentsController) DeleteDocument(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, documentID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("documents", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("documents", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}

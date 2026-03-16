@@ -12,10 +12,12 @@ import type { SchemaProperty } from "@/components/schema-fields"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { FormSchemaFields } from "@/components/schema-fields"
 import { StaggeredMosaic } from "@/components/icon-mosaic"
+
+import { SenderIdentityList } from "@/components/sender-identity-list"
 
 /**
  * Handles both creating and editing integrations:
@@ -31,6 +33,7 @@ export default function IntegrationSetup() {
 
     const [provider, setProvider] = useState<Provider | undefined>()
     const [isSaving, setIsSaving] = useState(false)
+    const [listKey] = useState(0)
 
     // Load all provider metas to find the schema
     const [options] = useResolver(
@@ -72,6 +75,30 @@ export default function IntegrationSetup() {
     const effectiveChannel = isEdit ? provider?.channel : channel
     const effectiveModule = isEdit ? provider?.module : moduleName
 
+    // Strip any legacy default_from* fields from the schema so they aren't
+    // rendered as generic form inputs — sender identity is handled by a
+    // dedicated component based on the channel.
+    const dataSchema = useMemo(() => {
+        const rawSchema = Array.isArray(meta?.schema?.properties)
+            ? meta?.schema?.properties?.find((p: SchemaProperty) => p.name === "data")?.schema
+            : meta?.schema?.properties?.data
+        if (!rawSchema?.properties) return rawSchema
+
+        const senderKeys = new Set(["default_from"])
+        const props = Array.isArray(rawSchema.properties)
+            ? rawSchema.properties
+            : Object.entries(rawSchema.properties).map(([name, schema]: [string, any]) => ({
+                  name,
+                  schema,
+              }))
+
+        const filtered = props.filter((p: any) => !senderKeys.has(p.name))
+
+        return { ...rawSchema, properties: filtered }
+    }, [meta])
+
+    const senderIdentityChannel = effectiveChannel === "text" ? "sms" : effectiveChannel
+
     const form = useForm<ProviderCreateParams>({
         values: provider
             ? {
@@ -96,7 +123,9 @@ export default function IntegrationSetup() {
             if (isEdit && provider?.id) {
                 await api.providers.update(project.id, provider.id, params)
             } else {
-                await api.providers.create(project.id, params)
+                const created = await api.providers.create(project.id, params)
+                navigate(`/projects/${project.id}/integrations/${created.id}`)
+                return
             }
             navigate(`/projects/${project.id}/integrations`)
         } finally {
@@ -109,8 +138,8 @@ export default function IntegrationSetup() {
         : `/projects/${project.id}/integrations/new`
 
     // Wait for data before rendering the form
-    if (!meta && options) {
-        // meta not found — redirect back
+    if (!meta && options && !(isEdit && !provider)) {
+        // meta not found and not still loading provider — redirect back
         navigate(backUrl)
         return null
     }
@@ -128,6 +157,8 @@ export default function IntegrationSetup() {
             </div>
         )
     }
+
+    const showSenderIdentity = senderIdentityChannel === "email" || senderIdentityChannel === "sms"
 
     return (
         <div className="flex flex-col min-h-full">
@@ -188,52 +219,66 @@ export default function IntegrationSetup() {
 
             {/* Form — full width below header */}
             <div className="flex-1 overflow-y-auto p-6">
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="grid gap-4 max-w-2xl">
+                <form
+                    id="integration-form"
+                    onSubmit={form.handleSubmit(handleSubmit)}
+                    className="grid gap-6 max-w-2xl"
+                >
                     {isEdit && provider?.setup?.length > 0 && (
                         <>
                             <h4 className="text-sm font-medium">{t("details", "Details")}</h4>
                             {provider.setup.map((item) => (
-                                <div key={item.name} className="grid gap-2">
-                                    <Label className="text-muted-foreground">{item.name}</Label>
+                                <Field key={item.name}>
+                                    <FieldLabel className="text-muted-foreground">
+                                        {item.name}
+                                    </FieldLabel>
                                     <Input value={item.value} disabled />
-                                </div>
+                                </Field>
                             ))}
                             <Separator />
                         </>
                     )}
 
-                    <div className="grid gap-2">
-                        <Label className="inline-flex items-center gap-1">
+                    <Field>
+                        <FieldLabel>
                             {t("name")} <span className="text-destructive">*</span>
-                        </Label>
+                        </FieldLabel>
                         <Input {...form.register("name", { required: true })} />
-                    </div>
+                    </Field>
 
-                    <FormSchemaFields
-                        parent="data"
-                        schema={
-                            Array.isArray(meta.schema.properties)
-                                ? meta.schema.properties.find(
-                                      (p: SchemaProperty) => p.name === "data",
-                                  )?.schema
-                                : meta.schema.properties?.data
-                        }
-                        form={form}
-                    />
-
-                    <div className="flex items-center gap-3 pt-2">
-                        <Button type="submit" disabled={isSaving}>
-                            {isSaving
-                                ? t("saving", "Saving...")
-                                : isEdit
-                                  ? t("update_integration", "Update Integration")
-                                  : t("create_integration", "Create Integration")}
-                        </Button>
-                        <Button type="button" variant="outline" onClick={() => navigate(backUrl)}>
-                            {t("cancel")}
-                        </Button>
-                    </div>
+                    <FormSchemaFields parent="data" schema={dataSchema} form={form} />
                 </form>
+
+                {/* Sender identity management — edit mode only */}
+                {isEdit && provider?.id && showSenderIdentity && (
+                    <div className="max-w-2xl mt-8">
+                        <SenderIdentityList
+                            key={listKey}
+                            projectId={project.id}
+                            providerId={provider.id}
+                            channel={senderIdentityChannel as "email" | "sms"}
+                            defaultFromId={form.watch("data.default_from")}
+                            onDefaultChange={(identityId) =>
+                                form.setValue("data.default_from", identityId, {
+                                    shouldDirty: true,
+                                })
+                            }
+                        />
+                    </div>
+                )}
+
+                <div className="flex items-center gap-3 pt-8 pb-6 max-w-2xl">
+                    <Button type="submit" form="integration-form" disabled={isSaving}>
+                        {isSaving
+                            ? t("saving", "Saving...")
+                            : isEdit
+                              ? t("update_integration", "Update Integration")
+                              : t("create_integration", "Create Integration")}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => navigate(backUrl)}>
+                        {t("cancel")}
+                    </Button>
+                </div>
             </div>
         </div>
     )

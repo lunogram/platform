@@ -604,8 +604,16 @@ export interface EmailTemplateData {
     subject: string
     preheader?: string
     editor: "code" | "visual"
-    text: string
-    html: string
+    type?: "react-email"
+    code?: {
+        source: string
+        bundle?: string
+        bundle_hash?: string
+    }
+    plaintext?: {
+        generated?: string
+        custom?: string
+    }
 }
 
 export interface TextTemplateData {
@@ -625,6 +633,7 @@ export type Template = {
     campaign_id: UUID
     type: ChannelType
     locale: string
+    sender_identity_id: UUID | null
     data: any
     screenshot_url: string
     created_at: string
@@ -645,7 +654,7 @@ export type Template = {
 )
 
 export type TemplateCreateParams = Pick<Template, "data" | "locale">
-export type TemplateUpdateParams = Pick<Template, "data">
+export type TemplateUpdateParams = Pick<Template, "data" | "sender_identity_id">
 export type VariantUpdateParams = { id?: UUID }
 
 export interface TemplatePreviewParams {
@@ -720,6 +729,7 @@ export interface ProviderMeta {
     color?: string
     type: string
     group: string
+    locked?: boolean
 
     schema: any
     paths?: Record<string, string>
@@ -732,13 +742,15 @@ export interface ProviderSetupMeta {
 
 export interface Image {
     id: UUID
-    uuid: string
+    project_id: UUID
     url: string
     name: string
-    original_name: string
-    extension: string
-    alt: string
-    filesize: string
+    filename: string
+    key: string
+    content_type: string
+    size_bytes: number
+    created_at: string
+    updated_at: string
 }
 
 export interface Resource {

@@ -1,11 +1,9 @@
 package v1
 
 import (
-	"context"
 	stdjson "encoding/json"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -14,7 +12,6 @@ import (
 	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/pubsub"
-	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/management"
@@ -22,37 +19,38 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewActionsController(logger *zap.Logger, db *sqlx.DB, req pubsub.Caller, usersDB *sqlx.DB, actionRegistry *actions.Registry, engine *rbac.Engine) *ActionsController {
+func NewActionsController(logger *zap.Logger, db *sqlx.DB, actionCaller *pubsub.ActionCaller, usersDB *sqlx.DB, actionRegistry *actions.Registry, engine *rbac.Engine) *ActionsController {
 	return &ActionsController{
-		logger:   logger,
-		db:       db,
-		store:    management.NewState(db),
-		registry: actionRegistry,
-		req:      req,
-		subjects: subjects.NewState(usersDB),
-		engine:   engine,
+		logger:       logger,
+		db:           db,
+		store:        management.NewState(db),
+		registry:     actionRegistry,
+		actionCaller: actionCaller,
+		subjects:     subjects.NewState(usersDB),
+		engine:       engine,
 	}
 }
 
 type ActionsController struct {
-	logger   *zap.Logger
-	db       *sqlx.DB
-	store    *management.State
-	registry *actions.Registry
-	req      pubsub.Caller
-	subjects *subjects.State
-	engine   *rbac.Engine
+	logger       *zap.Logger
+	db           *sqlx.DB
+	store        *management.State
+	registry     *actions.Registry
+	actionCaller *pubsub.ActionCaller
+	subjects     *subjects.State
+	engine       *rbac.Engine
 }
 
 func (srv *ActionsController) CreateAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.CreateActionJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -86,7 +84,8 @@ func (srv *ActionsController) CreateAction(w http.ResponseWriter, r *http.Reques
 
 func (srv *ActionsController) ListActions(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListActionsParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -117,7 +116,8 @@ func (srv *ActionsController) ListActions(w http.ResponseWriter, r *http.Request
 
 func (srv *ActionsController) GetAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -144,7 +144,8 @@ func (srv *ActionsController) GetAction(w http.ResponseWriter, r *http.Request, 
 
 func (srv *ActionsController) UpdateAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -152,7 +153,7 @@ func (srv *ActionsController) UpdateAction(w http.ResponseWriter, r *http.Reques
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("action_id", actionID))
 	logger.Info("updating action")
 	body := oapi.UpdateActionJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -201,7 +202,8 @@ func (srv *ActionsController) UpdateAction(w http.ResponseWriter, r *http.Reques
 
 func (srv *ActionsController) DeleteAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -209,7 +211,7 @@ func (srv *ActionsController) DeleteAction(w http.ResponseWriter, r *http.Reques
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("action_id", actionID))
 	logger.Info("deleting action")
 
-	err := srv.store.ActionsStore.DeleteAction(ctx, projectID, actionID)
+	err = srv.store.ActionsStore.DeleteAction(ctx, projectID, actionID)
 	if err != nil {
 		logger.Error("failed to delete action", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -222,7 +224,8 @@ func (srv *ActionsController) DeleteAction(w http.ResponseWriter, r *http.Reques
 
 func (srv *ActionsController) ListActionMeta(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -296,7 +299,8 @@ func (srv *ActionsController) ListActionMeta(w http.ResponseWriter, r *http.Requ
 
 func (srv *ActionsController) GetActionPreview(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionType string) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -324,17 +328,17 @@ func (srv *ActionsController) GetActionPreview(w http.ResponseWriter, r *http.Re
 }
 
 func (srv *ActionsController) TestAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
-	if err := srv.engine.Allowed(r.Context(), rbac.Update, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(r.Context(), rbac.Update, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
+	ctx := r.Context()
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 
 	body := oapi.TestActionJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -363,23 +367,9 @@ func (srv *ActionsController) TestAction(w http.ResponseWriter, r *http.Request,
 		config = map[string]any{}
 	}
 
-	// Publish the action validation request via NATS and wait for reply.
-	validateReq := schemas.ValidateAction{
-		ProjectID: projectID,
-		Type:      string(body.Type),
-		Config:    config,
-	}
-
-	data, err := srv.req.Call(ctx, schemas.ActionsValidate(projectID), validateReq)
+	result, err := srv.actionCaller.Validate(ctx, projectID, string(body.Type), config)
 	if err != nil {
 		logger.Error("action validation request failed", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	var result schemas.ValidateActionResponse
-	if err := stdjson.Unmarshal(data, &result); err != nil {
-		logger.Error("failed to unmarshal validation response", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -397,13 +387,13 @@ func (srv *ActionsController) TestAction(w http.ResponseWriter, r *http.Request,
 }
 
 func (srv *ActionsController) TestActionFunction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID, functionID string) {
-	if err := srv.engine.Allowed(r.Context(), rbac.Update, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(r.Context(), rbac.Update, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
+	ctx := r.Context()
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
 		zap.Stringer("action_id", actionID),
@@ -449,26 +439,9 @@ func (srv *ActionsController) TestActionFunction(w http.ResponseWriter, r *http.
 		config = map[string]any{}
 	}
 
-	// Publish the action execute request via NATS and wait for reply.
-	executeReq := schemas.ExecuteAction{
-		ProjectID:  projectID,
-		ActionID:   actionID,
-		Type:       action.Type,
-		FunctionID: functionID,
-		Config:     config,
-		Input:      body.Input,
-	}
-
-	data, err := srv.req.Call(ctx, schemas.ActionsExecute(projectID), executeReq)
+	result, err := srv.actionCaller.Execute(ctx, projectID, actionID, action.Type, functionID, config, body.Input)
 	if err != nil {
 		logger.Error("action function test request failed", zap.Error(err))
-		oapi.WriteProblem(w, err)
-		return
-	}
-
-	var result schemas.ExecuteActionResponse
-	if err := stdjson.Unmarshal(data, &result); err != nil {
-		logger.Error("failed to unmarshal execute response", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -492,7 +465,8 @@ func (srv *ActionsController) TestActionFunction(w http.ResponseWriter, r *http.
 
 func (srv *ActionsController) ListActionSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID, functionID string) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}

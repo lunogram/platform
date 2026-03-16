@@ -33,13 +33,14 @@ type SubscriptionsController struct {
 
 func (srv *SubscriptionsController) CreateSubscription(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("subscriptions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("subscriptions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.CreateSubscriptionJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -79,7 +80,8 @@ func (srv *SubscriptionsController) CreateSubscription(w http.ResponseWriter, r 
 
 func (srv *SubscriptionsController) ListSubscriptions(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListSubscriptionsParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("subscriptions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("subscriptions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -110,7 +112,8 @@ func (srv *SubscriptionsController) ListSubscriptions(w http.ResponseWriter, r *
 
 func (srv *SubscriptionsController) GetSubscription(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, subscriptionID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("subscriptions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("subscriptions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -137,7 +140,8 @@ func (srv *SubscriptionsController) GetSubscription(w http.ResponseWriter, r *ht
 
 func (srv *SubscriptionsController) UpdateSubscription(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, subscriptionID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("subscriptions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("subscriptions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -146,7 +150,7 @@ func (srv *SubscriptionsController) UpdateSubscription(w http.ResponseWriter, r 
 	logger.Info("updating subscription type")
 
 	body := oapi.UpdateSubscriptionJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/lunogram/platform/internal/providers/channels"
+	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/management"
@@ -84,27 +85,27 @@ func selectTemplate(templates management.Templates, user *subjects.User, project
 
 // buildRenderData builds the Liquid render context for a campaign send.
 // Merge order (lowest → highest priority):
-//  1. Campaign variable defaults (top-level string keys)
+//  1. Campaign variable defaults (under "campaign" key)
 //  2. SendCampaign.Data from journey/API (overrides defaults)
 //  3. "user" key (always set, cannot be overridden)
-//  4. System-generated values (campaign, now, URLs)
+//  4. System-generated values (now, URLs)
 func buildRenderData(publicURL string, user *subjects.User, campaign *management.Campaign, eventData map[string]string) map[string]any {
 	data := make(map[string]any)
 
+	campaignVars := make(map[string]any)
 	for _, v := range campaign.Variables.Data {
 		if v.Default != nil {
-			data[v.Name] = *v.Default
+			campaignVars[v.Name] = *v.Default
 		}
 	}
 
+	// Event data can override campaign variable defaults
 	for k, v := range eventData {
-		data[k] = v
+		campaignVars[k] = v
 	}
 
+	data["campaign"] = campaignVars
 	data["user"] = userToMap(user)
-	data["campaign"] = map[string]any{
-		"name": campaign.Name,
-	}
 
 	data["now"] = time.Now()
 
@@ -121,7 +122,7 @@ func buildRenderData(publicURL string, user *subjects.User, campaign *management
 	return data
 }
 
-func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, publicURL string) HandlerFunc {
+func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, renderer *pubsub.EmailRenderer, publicURL string) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		var event schemas.SendCampaign
 		if err := json.Unmarshal(msg.Data(), &event); err != nil {
@@ -129,7 +130,7 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 			return err
 		}
 
-		logger = logger.With(zap.String("project_id", event.ProjectID.String()), zap.String("campaign_id", event.CampaignID.String()), zap.String("user_id", event.UserID.String()))
+		logger := logger.With(zap.String("project_id", event.ProjectID.String()), zap.String("campaign_id", event.CampaignID.String()), zap.String("user_id", event.UserID.String()))
 		logger.Info("processing send campaign message")
 
 		campaign, err := mgmt.GetCampaign(ctx, event.ProjectID, event.CampaignID)
@@ -164,9 +165,45 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 
 		data := buildRenderData(publicURL, user, campaign, event.Data)
 		template := selectTemplate(campaign.Templates, user, project)
-		template.Data, err = render.RenderJSON(template.Data, data)
+
+		// Channel-specific template rendering:
+		// - Email: compile/render React Email body via Deno, then Liquid-render metadata (subject, from, etc.)
+		// - SMS, Push: Liquid rendering for the entire template
+		switch providers.Channel(campaign.Channel) {
+		case providers.ChannelEmail:
+			template.Data, err = channels.ComposeEmailTemplateData(ctx, renderer, event.ProjectID, template.Data, data)
+			if err != nil {
+				logger.Error("failed to compose email template data", zap.Error(err))
+				return err
+			}
+
+			template.Data, err = render.RenderJSON(template.Data, data)
+			if err != nil {
+				logger.Error("failed to render template metadata", zap.Error(err))
+				return err
+			}
+		default:
+			template.Data, err = render.RenderJSON(template.Data, data)
+			if err != nil {
+				logger.Error("failed to render template data", zap.Error(err))
+				return err
+			}
+		}
+
+		// Resolve template sender identity if set.
+		var templateSender *management.SenderIdentity
+		if template.SenderIdentityID != nil {
+			templateSender, err = mgmt.SenderIdentitiesStore.GetSenderIdentity(ctx, event.ProjectID, *template.SenderIdentityID)
+			if err != nil {
+				logger.Error("failed to get template sender identity", zap.Error(err))
+				return err
+			}
+		}
+
+		// Resolve provider default_from.
+		providerDefaultSender, err := channels.ResolveProviderDefaultFrom(ctx, mgmt.SenderIdentitiesStore, event.ProjectID, config)
 		if err != nil {
-			logger.Error("failed to render template data", zap.Error(err))
+			logger.Error("failed to resolve provider default from", zap.Error(err))
 			return err
 		}
 
@@ -180,7 +217,7 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 			opts = &channels.ComposeOptions{Devices: userDevices}
 		}
 
-		request, err := channels.Compose(providers.Channel(campaign.Channel), config, template, user, opts)
+		request, err := channels.Compose(ctx, providers.Channel(campaign.Channel), templateSender, providerDefaultSender, config, template, user, opts)
 		if err != nil {
 			logger.Error("failed to compose request", zap.Error(err))
 			return err

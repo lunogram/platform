@@ -54,7 +54,8 @@ type JourneysController struct {
 
 func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListJourneysParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -103,12 +104,13 @@ func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Reque
 
 func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.CreateJourneyParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 	body := oapi.CreateJourneyJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -205,7 +207,8 @@ func (srv *JourneysController) CreateJourney(w http.ResponseWriter, r *http.Requ
 
 func (srv *JourneysController) GetJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -242,12 +245,13 @@ func (srv *JourneysController) GetJourney(w http.ResponseWriter, r *http.Request
 
 func (srv *JourneysController) UpdateJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 	body := oapi.UpdateJourneyJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -322,7 +326,8 @@ func (srv *JourneysController) UpdateJourney(w http.ResponseWriter, r *http.Requ
 
 func (srv *JourneysController) DeleteJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -333,7 +338,7 @@ func (srv *JourneysController) DeleteJourney(w http.ResponseWriter, r *http.Requ
 
 	logger.Info("deleting journey")
 
-	_, err := srv.jrny.GetJourney(ctx, projectID, journeyID)
+	_, err = srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -365,7 +370,8 @@ func (srv *JourneysController) StreamUserJourneySteps(
 	userID uuid.UUID,
 ) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -373,7 +379,7 @@ func (srv *JourneysController) StreamUserJourneySteps(
 	enc.WriteEvent("message", "connected")
 	rc := http.NewResponseController(w)
 
-	err := rc.SetWriteDeadline(time.Time{})
+	err = rc.SetWriteDeadline(time.Time{})
 	if err != nil {
 		srv.logger.Error("failed to set write deadline", zap.Error(err))
 		return
@@ -421,7 +427,8 @@ func (srv *JourneysController) StreamUserJourneySteps(
 
 func (srv *JourneysController) GetUserJourneyState(w http.ResponseWriter, r *http.Request, projectID, journeyID, userID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -460,13 +467,14 @@ func (srv *JourneysController) GetUserJourneyState(w http.ResponseWriter, r *htt
 
 func (srv *JourneysController) TriggerUser(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID, userID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.TriggerUserJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -571,13 +579,14 @@ func (srv *JourneysController) TriggerUser(w http.ResponseWriter, r *http.Reques
 
 func (srv *JourneysController) AdvanceUserStep(w http.ResponseWriter, r *http.Request, projectID, journeyID, userID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.AdvanceUserStepJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -630,7 +639,8 @@ func (srv *JourneysController) AdvanceUserStep(w http.ResponseWriter, r *http.Re
 
 func (srv *JourneysController) GetJourneySteps(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -638,7 +648,7 @@ func (srv *JourneysController) GetJourneySteps(w http.ResponseWriter, r *http.Re
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("journey_id", journeyID))
 	logger.Info("getting journey steps")
 
-	_, err := srv.jrny.GetJourney(ctx, projectID, journeyID)
+	_, err = srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -676,7 +686,8 @@ func (srv *JourneysController) GetJourneySteps(w http.ResponseWriter, r *http.Re
 
 func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -687,7 +698,7 @@ func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Re
 
 	logger.Info("setting journey steps")
 
-	_, err := srv.jrny.GetJourney(ctx, projectID, journeyID)
+	_, err = srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -768,7 +779,8 @@ func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Re
 
 func (srv *JourneysController) VersionJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -779,7 +791,7 @@ func (srv *JourneysController) VersionJourney(w http.ResponseWriter, r *http.Req
 
 	logger.Info("creating journey draft version")
 
-	_, err := srv.jrny.GetJourney(ctx, projectID, journeyID)
+	_, err = srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))
@@ -838,7 +850,8 @@ func (srv *JourneysController) VersionJourney(w http.ResponseWriter, r *http.Req
 
 func (srv *JourneysController) DuplicateJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -906,7 +919,8 @@ func (srv *JourneysController) DuplicateJourney(w http.ResponseWriter, r *http.R
 
 func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -917,7 +931,7 @@ func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Req
 
 	logger.Info("publishing journey")
 
-	_, err := srv.jrny.GetJourney(ctx, projectID, journeyID)
+	_, err = srv.jrny.GetJourney(ctx, projectID, journeyID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("journey not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("journey not found")))

@@ -38,7 +38,8 @@ type ProvidersController struct {
 
 func (srv *ProvidersController) ListProviders(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListProvidersParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -69,7 +70,8 @@ func (srv *ProvidersController) ListProviders(w http.ResponseWriter, r *http.Req
 
 func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -113,6 +115,11 @@ func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.
 				pm.Color = &manifest.Metadata.Color
 			}
 
+			if manifest.Spec.Locked {
+				locked := true
+				pm.Locked = &locked
+			}
+
 			meta = append(meta, pm)
 		}
 	}
@@ -123,13 +130,14 @@ func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.
 
 func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, group string, providerType string) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("providers", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("providers", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.CreateProviderJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -194,7 +202,8 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 
 func (srv *ProvidersController) GetProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, group string, providerType string, providerID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -226,13 +235,14 @@ func (srv *ProvidersController) GetProvider(w http.ResponseWriter, r *http.Reque
 
 func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, group string, providerType string, providerID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("providers", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("providers", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.UpdateProviderJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -280,7 +290,8 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 
 func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, providerID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("providers", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("providers", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -288,7 +299,7 @@ func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Re
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("provider_id", providerID))
 	logger.Info("deleting provider")
 
-	_, err := srv.store.ProvidersStore.GetProviderByProject(ctx, projectID, providerID)
+	provider, err := srv.store.ProvidersStore.GetProviderByProject(ctx, projectID, providerID)
 	if errors.Is(err, store.ErrNoRows) {
 		logger.Info("provider not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("provider not found")))
@@ -299,6 +310,15 @@ func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Re
 		logger.Error("failed to fetch provider", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
+	}
+
+	// Check if the provider module is locked and cannot be deleted
+	if module, exists := srv.registry.Get(provider.Module); exists {
+		if module.Manifest().Spec.Locked {
+			logger.Warn("cannot delete locked provider", zap.String("module", provider.Module))
+			oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("this provider is locked and cannot be deleted")))
+			return
+		}
 	}
 
 	err = srv.store.ProvidersStore.DeleteProvider(ctx, projectID, providerID)

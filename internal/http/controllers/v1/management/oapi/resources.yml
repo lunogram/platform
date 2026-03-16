@@ -407,6 +407,49 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/campaigns/{campaignID}/templates/{templateID}/test:
+    post:
+      summary: Send test
+      description: Sends a test message using the template to the specified recipient
+      operationId: sendTest
+      tags:
+        - Templates
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: campaignID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The campaign ID
+        - name: templateID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The template ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendTest"
+      responses:
+        "204":
+          description: Test sent successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/campaigns/{campaignID}/duplicate:
     post:
       summary: Duplicate campaign
@@ -3068,6 +3111,153 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/sender-identities:
+    get:
+      summary: List sender identities
+      description: Retrieves a paginated list of sender identities for a project. Optionally filter by provider and/or channel.
+      operationId: listSenderIdentities
+      tags:
+        - SenderIdentities
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: provider_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by provider ID
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [email, sms]
+          description: Filter by channel (email or sms)
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Sender identities retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedResponse"
+                  - type: object
+                    required:
+                      - results
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SenderIdentity"
+        default:
+          $ref: "#/components/responses/Error"
+
+    post:
+      summary: Create sender identity
+      description: Registers a new sender identity (email address or phone number) for a provider
+      operationId: createSenderIdentity
+      tags:
+        - SenderIdentities
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSenderIdentity"
+      responses:
+        "201":
+          description: Sender identity created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SenderIdentity"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/sender-identities/{senderIdentityID}:
+    get:
+      summary: Get sender identity by ID
+      description: Retrieves a specific sender identity
+      operationId: getSenderIdentity
+      tags:
+        - SenderIdentities
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: senderIdentityID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The sender identity ID
+      responses:
+        "200":
+          description: Sender identity retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SenderIdentity"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      summary: Delete sender identity
+      description: Deletes a sender identity from a project
+      operationId: deleteSenderIdentity
+      tags:
+        - SenderIdentities
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: senderIdentityID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The sender identity ID
+      responses:
+        "204":
+          description: Sender identity deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/admin/projects/{projectID}/documents:
     get:
       summary: List documents
@@ -5013,6 +5203,11 @@ components:
           additionalProperties: true
           x-go-type: json.RawMessage
           description: Template-specific data based on type. Structure varies by template type.
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The ID of the sender identity to use for this template
 
     UpdateTemplate:
       type: object
@@ -5023,6 +5218,26 @@ components:
           additionalProperties: true
           x-go-type: json.RawMessage
           description: Template-specific data based on type. Structure varies by template type.
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The ID of the sender identity to use for this template
+
+    SendTest:
+      type: object
+      required:
+        - to
+      properties:
+        to:
+          type: string
+          format: email
+          example: "test@example.com"
+          description: The recipient address to send the test to
+        props:
+          type: object
+          additionalProperties: true
+          description: Optional template variables/props for rendering
 
     Campaign:
       type: object
@@ -5354,6 +5569,9 @@ components:
         hidden:
           type: boolean
           description: Whether this module is hidden from the UI
+        locked:
+          type: boolean
+          description: Whether providers of this module type are locked and cannot be deleted
 
     Template:
       type: object
@@ -5398,6 +5616,11 @@ components:
         locale:
           type: string
           example: "en"
+        sender_identity_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The ID of the sender identity to use for this template
 
     EmailTemplateData:
       type: object
@@ -5407,12 +5630,33 @@ components:
         subject:
           type: string
           example: "Quick question for you..."
-        html:
+        type:
           type: string
-          description: HTML content of the email template
+          description: Template type discriminator
+          example: "react-email"
+        code:
+          type: object
+          description: React Email source code and compiled bundle
+          properties:
+            source:
+              type: string
+              description: JSX/TSX source code
+            bundle:
+              type: string
+              description: Compiled JS bundle from esbuild
+        plaintext:
+          type: object
+          description: Plain text content for the email
+          properties:
+            generated:
+              type: string
+              description: Auto-generated plain text from HTML
+            custom:
+              type: string
+              description: User-provided custom plain text override
         editor:
           type: object
-          description: Editor configuration and content structure
+          description: Visual editor configuration and content structure
           properties:
             root:
               type: object
@@ -5454,13 +5698,7 @@ components:
       properties:
         default_from:
           type: string
-          example: "8f0512c2-e606-4a58-95cb-60a4a7f859e1@campaign.lunogram.com"
-        default_from_name:
-          type: string
-          example: "Onboarding"
-        default_from_locked:
-          type: boolean
-          example: true
+          example: "8f0512c2-e606-4a58-95cb-60a4a7f859e1"
 
     SmsProviderData:
       type: object
@@ -6440,6 +6678,68 @@ components:
           example: "English (United States)"
           description: Human-readable locale label
 
+    SenderIdentity:
+      type: object
+      required:
+        - id
+        - project_id
+        - provider_id
+        - channel
+        - traits
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        project_id:
+          type: string
+          format: uuid
+        provider_id:
+          type: string
+          format: uuid
+          description: The provider this identity is registered with
+        channel:
+          type: string
+          enum: [email, sms]
+          description: Channel type (email or sms)
+          example: "email"
+        traits:
+          type: object
+          additionalProperties: true
+          description: Channel-specific metadata including address and optional display name (e.g. {"address":"hello@example.com","name":"Acme Support"})
+          example: {"address": "hello@example.com", "name": "Acme Support"}
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
+    CreateSenderIdentity:
+      type: object
+      required:
+        - provider_id
+        - channel
+        - traits
+      properties:
+        provider_id:
+          type: string
+          format: uuid
+          description: The provider to register this identity with
+        channel:
+          type: string
+          enum: [email, sms]
+          description: Channel type (email or sms)
+        traits:
+          type: object
+          additionalProperties: true
+          description: Channel-specific metadata including address and optional display name (e.g. {"address":"hello@example.com","name":"Acme Support"})
+          example: {"address": "hello@example.com", "name": "Acme Support"}
+
     Document:
       type: object
       required:
@@ -6448,6 +6748,7 @@ components:
         - name
         - filename
         - key
+        - url
         - content_type
         - size_bytes
         - created_at
@@ -6473,6 +6774,10 @@ components:
           type: string
           example: "6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899.pdf"
           description: Storage key/path for retrieving the file
+        url:
+          type: string
+          example: "https://cdn.example.com/6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899.pdf"
+          description: Public URL for accessing the document (via CDN or local endpoint)
         content_type:
           type: string
           example: "application/pdf"
