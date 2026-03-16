@@ -1,18 +1,26 @@
 package v1
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/auth/providers"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	"github.com/lunogram/platform/internal/http/json"
+	httpjson "github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
 	"go.uber.org/zap"
 )
+
+var ErrInvalidRedirect = errors.New("redirect host not allowed")
 
 func NewAuthController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, engine *rbac.Engine) (*AuthController, error) {
 	stores := management.NewState(db)
@@ -23,18 +31,20 @@ func NewAuthController(logger *zap.Logger, db *sqlx.DB, cfg config.Node, engine 
 	}
 
 	return &AuthController{
-		logger:   logger,
-		provider: provider,
+		logger:               logger,
+		provider:             provider,
+		allowedRedirectHosts: cfg.Auth.AllowedRedirectHosts,
 	}, nil
 }
 
 type AuthController struct {
-	logger   *zap.Logger
-	provider providers.Provider
+	logger               *zap.Logger
+	provider             providers.Provider
+	allowedRedirectHosts []string
 }
 
 func (c *AuthController) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
-	json.Write(w, http.StatusOK, []string{c.provider.Driver()})
+	httpjson.Write(w, http.StatusOK, []string{c.provider.Driver()})
 }
 
 func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, driver oapi.AuthCallbackParamsDriver) {
@@ -43,8 +53,25 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 		return
 	}
 
+	// Read the body so we can validate the redirect parameter, then restore it
+	// for the provider's Authenticate method which also reads from r.Body.
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("failed to read request body")))
+		return
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+
+	var req oapi.AuthCallbackRequest
+	if jsonErr := json.Unmarshal(body, &req); jsonErr == nil && req.Redirect != nil {
+		if validateErr := c.validateRedirect(*req.Redirect); validateErr != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid redirect URL")))
+			return
+		}
+	}
+
 	ctx := r.Context()
-	_, err := c.provider.Authenticate(ctx, w, r)
+	_, err = c.provider.Authenticate(ctx, w, r)
 	if err != nil {
 		c.logger.Error("auth validation failed", zap.String("driver", string(driver)), zap.Error(err))
 		c.writeAuthError(w, err)
@@ -52,6 +79,33 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// validateRedirect checks that the redirect URL is safe to redirect to.
+// Relative URLs (starting with "/" but not "//") are always allowed.
+// Absolute URLs are only allowed if their hostname appears in the
+// configured AllowedRedirectHosts list.
+func (c *AuthController) validateRedirect(redirect string) error {
+	// Allow relative URLs that start with "/" but not "//" (protocol-relative).
+	// Protocol-relative URLs such as "//evil.com/path" are treated as absolute
+	// by browsers and would redirect to an external host.
+	if strings.HasPrefix(redirect, "/") && !strings.HasPrefix(redirect, "//") {
+		return nil
+	}
+
+	parsed, err := url.Parse(redirect)
+	if err != nil {
+		return ErrInvalidRedirect
+	}
+
+	host := parsed.Hostname()
+	for _, allowed := range c.allowedRedirectHosts {
+		if host == allowed {
+			return nil
+		}
+	}
+
+	return ErrInvalidRedirect
 }
 
 func (c *AuthController) AuthWebhook(w http.ResponseWriter, r *http.Request, driver oapi.AuthWebhookParamsDriver) {
