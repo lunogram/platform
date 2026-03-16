@@ -16,7 +16,7 @@ export const stickyStep: JourneyStepType<StickyConfig> = {
     description: "sticky_desc",
     Describe({ value }) {
         return (
-            <div className="max-w-[300px]">
+            <div>
                 <TextAutoLink text={value.text ?? ""} />
             </div>
         )
@@ -24,7 +24,7 @@ export const stickyStep: JourneyStepType<StickyConfig> = {
     Edit({ onChange, value }) {
         const { t } = useTranslation()
         return (
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 h-full w-full">
                 <Label className="text-sm font-medium">{t("sticky_text_label")}</Label>
                 <Textarea
                     value={value.text ?? ""}

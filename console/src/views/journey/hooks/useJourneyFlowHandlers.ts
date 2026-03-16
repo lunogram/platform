@@ -58,6 +58,7 @@ export function useJourneyFlowHandlers(
                 }
             }
 
+            const isSticky = name === "sticky"
             const newNode: JourneyNode = {
                 id: createUuid(),
                 position: { x, y },
@@ -67,6 +68,7 @@ export function useJourneyFlowHandlers(
                     name,
                     data,
                 },
+                ...(isSticky ? { width: 275, height: 150 } : {}),
             }
 
             setHasUnsavedChanges(true)

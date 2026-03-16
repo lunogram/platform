@@ -1,0 +1,9 @@
+/* .sticky-resize-line.left,
+.sticky-resize-line.right {
+    width: 12px !important;
+} */
+
+.sticky-resize-line.top,
+.sticky-resize-line.bottom {
+    height: 12px !important;
+}

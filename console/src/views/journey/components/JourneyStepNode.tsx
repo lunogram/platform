@@ -1,6 +1,6 @@
 import { memo, useCallback, useContext, Fragment, createElement, useEffect } from "react"
 import type { Connection, NodeProps } from "reactflow"
-import { Handle, Position, useReactFlow, getConnectedEdges } from "reactflow"
+import { Handle, Position, useReactFlow, getConnectedEdges, NodeResizer, useStore } from "reactflow"
 import { useTranslation } from "react-i18next"
 import { FastForward, Play, User } from "lucide-react"
 import { ProjectContext, JourneyContext } from "@/contexts"
@@ -11,6 +11,7 @@ import { getStepType } from "../editor/JourneyEditor.utils"
 import { stepCategoryColors, stepCategoryBorderColors } from "../hooks/JourneyEditor.constants"
 
 import "reactflow/dist/style.css"
+import "./JourneyStepNode.css"
 
 export const JourneyStepNode = memo(
     ({
@@ -70,6 +71,26 @@ export const JourneyStepNode = memo(
             [type, getNode, getEdges],
         )
 
+        const onResize = useCallback(
+            (_: unknown, { width, height }: { width: number; height: number }) => {
+                setNodes((nds) =>
+                    nds.map((n) =>
+                        n.id === id
+                            ? {
+                                  ...n,
+                                  style: { ...n.style, width, height },
+                                  data: { ...n.data, width, height },
+                              }
+                            : n,
+                    ),
+                )
+            },
+            [id, setNodes],
+        )
+
+        const zoom = useStore((s) => s.transform[2])
+        const handleSize = Math.min(24, Math.max(8, 10 / zoom))
+
         if (!type)
             return (
                 <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 px-3 py-2 text-sm text-red-600 dark:text-red-400">
@@ -85,6 +106,22 @@ export const JourneyStepNode = memo(
 
         return (
             <>
+                {isInfoStep && (
+                    <NodeResizer
+                        minWidth={200}
+                        minHeight={100}
+                        isVisible={selected}
+                        lineStyle={{ display: "none" }}
+                        handleStyle={{
+                            opacity: 0,
+                            width: handleSize,
+                            height: handleSize,
+                            borderRadius: 4,
+                        }}
+                        lineClassName="sticky-resize-line"
+                        onResize={onResize}
+                    />
+                )}
                 {isActiveVisual && (
                     <div
                         className={cn(
@@ -104,8 +141,10 @@ export const JourneyStepNode = memo(
                 <div
                     className={cn(
                         "rounded-lg bg-background shadow-sm transition-all duration-300 min-w-[200px]",
-                        // Info steps get a distinct look
-                        isInfoStep ? "bg-purple-50 dark:bg-purple-950/30 max-w-[275px]" : "",
+                        isInfoStep
+                            ? "bg-purple-50 dark:bg-purple-950/30 h-full w-full flex flex-col"
+                            : "",
+
                         // Border states
                         !isValid
                             ? "border-2 border-red-500 ring-2 ring-red-200 dark:ring-red-900"
@@ -191,7 +230,7 @@ export const JourneyStepNode = memo(
                     <div
                         className={cn(
                             "px-3 py-2.5 text-sm",
-                            isInfoStep && "pt-0 break-words hyphens-auto",
+                            isInfoStep && "pt-0 break-words hyphens-auto overflow-y-auto h-full",
                         )}
                     >
                         {type.Describe &&
