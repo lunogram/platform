@@ -2,7 +2,6 @@ package v1
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -13,7 +12,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/http/auth/providers"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
-	httpjson "github.com/lunogram/platform/internal/http/json"
+	"github.com/lunogram/platform/internal/http/json"
 	"github.com/lunogram/platform/internal/http/problem"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/store/management"
@@ -44,7 +43,7 @@ type AuthController struct {
 }
 
 func (c *AuthController) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
-	httpjson.Write(w, http.StatusOK, []string{c.provider.Driver()})
+	json.Write(w, http.StatusOK, []string{c.provider.Driver()})
 }
 
 func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, driver oapi.AuthCallbackParamsDriver) {
@@ -53,22 +52,28 @@ func (c *AuthController) AuthCallback(w http.ResponseWriter, r *http.Request, dr
 		return
 	}
 
-	// Read the body so we can validate the redirect parameter, then restore it
-	// for the provider's Authenticate method which also reads from r.Body.
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
+	// Decode the body once to validate the redirect parameter, then re-encode
+	// it so the provider can read it without consuming the body a second time.
+	var req oapi.AuthCallbackRequest
+	if err := json.Decode(r.Body, &req); err != nil {
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("failed to read request body")))
 		return
 	}
-	r.Body = io.NopCloser(bytes.NewReader(body))
 
-	var req oapi.AuthCallbackRequest
-	if jsonErr := json.Unmarshal(body, &req); jsonErr == nil && req.Redirect != nil {
-		if validateErr := c.validateRedirect(*req.Redirect); validateErr != nil {
+	if req.Redirect != nil {
+		if err := c.validateRedirect(*req.Redirect); err != nil {
 			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid redirect URL")))
 			return
 		}
 	}
+
+	encoded, err := json.Marshal(req)
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("authentication failed")))
+		return
+	}
+
+	r.Body = io.NopCloser(bytes.NewReader(encoded))
 
 	ctx := r.Context()
 	_, err = c.provider.Authenticate(ctx, w, r)
