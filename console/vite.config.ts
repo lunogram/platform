@@ -284,17 +284,17 @@ export default defineConfig(({ mode }) => {
             },
         },
         worker: {
-            format: "iife",
-            rollupOptions: {
-                output: {
-                    inlineDynamicImports: true,
-                },
-            },
+            format: "es",
         },
         resolve: {
             alias: {
                 "@": path.resolve(__dirname, "./src"),
             },
+            // Deduplicate React across the monorepo so that workspace
+            // packages (e.g. block-editor) share the same React instance
+            // as the host app. Without this, hooks like useRef crash with
+            // "dispatcher is null" because two copies of React are loaded.
+            dedupe: ["react", "react-dom"],
         },
     }
 })
