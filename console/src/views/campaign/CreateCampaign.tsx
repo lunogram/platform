@@ -1,11 +1,14 @@
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 import { ProjectContext } from "@/contexts"
-import { useContext, useState } from "react"
+import { useCallback, useContext, useMemo, useState } from "react"
+import type { ReactNode } from "react"
+import { useResolver } from "@/hooks"
 
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Mail, MessageSquareDot, PlusIcon, Smartphone } from "lucide-react"
 import type { ChannelType } from "@/types"
+import type { components } from "@/oapi/management.generated"
 
 import {
     Item,
@@ -25,12 +28,23 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
-import api from "@/api"
+import { Label } from "@/components/ui/label"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { oapiClient } from "@/oapi/client"
+
+type Subscription = components["schemas"]["Subscription"]
 
 interface Channel {
     key: ChannelType
     color: string
-    icon: JSX.Element
+    icon: ReactNode
     title: string
     description: string
 }
@@ -46,16 +60,77 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
     const navigate = useNavigate()
     const { t } = useTranslation()
     const [isOpen, setIsOpen] = useState(open)
+    const [selectedChannel, setSelectedChannel] = useState<ChannelType | null>(null)
+    const [transactional, setTransactional] = useState(false)
+    const [subscriptionId, setSubscriptionId] = useState<string>("")
 
-    async function create(channel: ChannelType) {
+    const [subscriptions] = useResolver(
+        useCallback(async (): Promise<Subscription[]> => {
+            if (!project?.id) return []
+
+            const response = await oapiClient.GET("/api/admin/projects/{projectID}/subscriptions", {
+                params: {
+                    path: {
+                        projectID: project.id,
+                    },
+                    query: {
+                        limit: 100,
+                    },
+                },
+            })
+
+            if (response.error || !response.data?.results) {
+                return []
+            }
+
+            return response.data.results
+        }, [project?.id]),
+    )
+
+    const filteredSubscriptions = useMemo(() => {
+        if (!selectedChannel) return []
+        return (subscriptions ?? []).filter((subscription) => subscription.channel === selectedChannel)
+    }, [selectedChannel, subscriptions])
+
+    const subscriptionsLoading = subscriptions === null
+    async function create() {
+        if (!project?.id || !selectedChannel) {
+            return
+        }
+
         if (onBeforeCreate) {
             await onBeforeCreate()
         }
-        const campaign = await api.campaigns.create(project.id, {
+
+        const body: {
+            name: string
+            channel: components["schemas"]["Channel"]
+            transactional?: boolean
+            subscription_id?: string
+        } = {
             name: generateProjectName(),
-            channel: channel,
+            channel: selectedChannel,
+            transactional,
+        }
+
+        if (transactional) {
+            body.subscription_id = undefined
+        } else if (subscriptionId) {
+            body.subscription_id = subscriptionId
+        }
+
+        const campaign = await oapiClient.POST("/api/admin/projects/{projectID}/campaigns", {
+            params: {
+                path: {
+                    projectID: project.id,
+                },
+            },
+            body,
         })
-        await navigate(`/projects/${project.id}/campaigns/${campaign.id}/setup`)
+
+        if (campaign.data?.id) {
+            navigate(`/projects/${project.id}/campaigns/${campaign.data.id}/setup`)
+        }
     }
 
     const channels: Array<Channel> = [
@@ -82,8 +157,9 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
         },
     ]
 
+
     return (
-        <Dialog open={isOpen} onOpenChange={() => setIsOpen(!isOpen)}>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
                 {trigger ?? (
                     <Button size="lg">
@@ -102,7 +178,10 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
                         <Item key={channel.key} variant="outline" className="items-center" asChild>
                             <a
                                 className="no-underline cursor-pointer"
-                                onClick={() => create(channel.key)}
+                                onClick={() => {
+                                    setSelectedChannel(channel.key)
+                                    setSubscriptionId("")
+                                }}
                             >
                                 <ItemMedia variant="icon" className={channel.color}>
                                     {channel.icon}
@@ -118,6 +197,75 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
                         </Item>
                     ))}
                 </ItemGroup>
+
+                {selectedChannel && (
+                    <div className="mt-4 space-y-4">
+                        <div className="flex items-center justify-between rounded-md border p-3">
+                            <div className="space-y-1">
+                                <Label htmlFor="transactional-toggle">
+                                    {t("campaign.transactional", "Transactional")}
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                    {t(
+                                        "campaign.transactional.help",
+                                        "When enabled, subscription preference is ignored.",
+                                    )}
+                                </p>
+                            </div>
+                            <Switch
+                                id="transactional-toggle"
+                                checked={transactional}
+                                onCheckedChange={(checked) => {
+                                    setTransactional(checked)
+                                    if (checked) setSubscriptionId("")
+                                }}
+                            />
+                        </div>
+
+                        {!transactional && (
+                            <div className="space-y-2">
+                                <Label htmlFor="subscription-select">
+                                    {t("campaign.subscription", "Subscription")}
+                                </Label>
+                                <Select value={subscriptionId} onValueChange={setSubscriptionId}>
+                                    <SelectTrigger id="subscription-select">
+                                        <SelectValue
+                                            placeholder={t(
+                                                "campaign.subscription.placeholder",
+                                                "Select subscription",
+                                            )}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[1100]">
+                                        {subscriptionsLoading && (
+                                            <SelectItem value="__loading" disabled>
+                                                {t("loading", "Loading...")}
+                                            </SelectItem>
+                                        )}
+                                        {!subscriptionsLoading &&
+                                            filteredSubscriptions.length === 0 && (
+                                                <SelectItem value="__empty" disabled>
+                                                    {t(
+                                                        "campaign.subscription.empty",
+                                                        "No subscriptions for this channel",
+                                                    )}
+                                                </SelectItem>
+                                            )}
+                                        {filteredSubscriptions.map((subscription) => (
+                                            <SelectItem key={subscription.id} value={subscription.id}>
+                                                {subscription.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
+                        <Button onClick={() => create()}>
+                            {t("campaign.create.action")}
+                        </Button>
+                    </div>
+                )}
             </DialogContent>
         </Dialog>
     )

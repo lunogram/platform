@@ -29,12 +29,20 @@ type Subscription struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
+func normalizeManagementChannel(channel string) oapi.Channel {
+	if channel == "sms" {
+		return oapi.Text
+	}
+
+	return oapi.Channel(channel)
+}
+
 func (s *Subscription) OAPI() oapi.Subscription {
 	return oapi.Subscription{
 		Id:        s.ID,
 		ProjectId: s.ProjectID,
 		Name:      s.Name,
-		Channel:   oapi.Channel(s.Channel),
+		Channel:   normalizeManagementChannel(s.Channel),
 		IsPublic:  s.IsPublic,
 		CreatedAt: s.CreatedAt,
 		UpdatedAt: s.UpdatedAt,
@@ -62,7 +70,7 @@ func (us *UserSubscription) OAPI() oapi.UserSubscription {
 	return oapi.UserSubscription{
 		SubscriptionId: us.SubscriptionID,
 		Name:           us.Name,
-		Channel:        oapi.Channel(us.Channel),
+		Channel:        normalizeManagementChannel(us.Channel),
 		State:          oapi.SubscriptionState(us.State),
 	}
 }

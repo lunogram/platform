@@ -578,6 +578,7 @@ export interface Campaign {
     provider?: Provider
     subscription_id?: UUID
     subscription?: Subscription
+    transactional?: boolean
     templates: Template[]
     variables: CampaignVariable[]
     created_at: string
@@ -587,9 +588,9 @@ export interface Campaign {
 export type CampaignSendState = "pending" | "sent" | "throttled" | "failed" | "bounced" | "aborted"
 
 export type CampaignUpdateParams = Partial<
-    Pick<Campaign, "name" | "provider_id" | "subscription_id" | "variables">
->
-export type CampaignCreateParams = Pick<Campaign, "name" | "channel">
+    Pick<Campaign, "name" | "provider_id" | "subscription_id" | "transactional" | "variables">
+> & { state?: string }
+export type CampaignCreateParams = Pick<Campaign, "name" | "channel" | "subscription_id" | "transactional">
 export type CampaignUser = User & { state: CampaignSendState; send_at: string }
 
 interface NamedEmail {

@@ -113,7 +113,7 @@ func buildRenderData(publicURL string, user *subjects.User, campaign *management
 	base := strings.TrimRight(publicURL, "/")
 	data["preferences_url"] = fmt.Sprintf("%s/preferences/%s/%s", base, campaign.ProjectID, user.ID)
 
-	if campaign.SubscriptionID != nil {
+	if !campaign.Transactional && campaign.SubscriptionID != nil {
 		unsubLink := url.Values{}
 		unsubLink.Set("u", user.ID.String())
 		unsubLink.Set("c", campaign.ID.String())

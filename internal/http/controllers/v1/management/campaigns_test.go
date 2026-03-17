@@ -48,6 +48,24 @@ func TestCampaignCreation(t *testing.T) {
 				Name:    "Welcome to the program!",
 			},
 		},
+		"subscription channel mismatch": {
+			body: func() oapi.CreateCampaignJSONRequestBody {
+				subscriptions := management.NewSubscriptionsStore(mgmt)
+				subscriptionID, err := subscriptions.CreateSubscription(ctx, management.Subscription{
+					ProjectID: projectID,
+					Name:      "Push Only",
+					Channel:   "push",
+					IsPublic:  true,
+				})
+				require.NoError(t, err)
+
+				return oapi.CreateCampaignJSONRequestBody{
+					Channel:        oapi.Email,
+					Name:           "Welcome to the program!",
+					SubscriptionId: &subscriptionID,
+				}
+			}(),
+		},
 	}
 
 	for name, test := range tests {
@@ -60,7 +78,11 @@ func TestCampaignCreation(t *testing.T) {
 			req = req.WithContext(actorCtx)
 			campaigns.CreateCampaign(res, req, projectID)
 
-			require.Equal(t, 201, res.Code, res.Body.String())
+			expected := 201
+			if name == "subscription channel mismatch" {
+				expected = 400
+			}
+			require.Equal(t, expected, res.Code, res.Body.String())
 		})
 	}
 }
@@ -187,12 +209,22 @@ func TestGetCampaign(t *testing.T) {
 	require.NoError(t, err)
 
 	campaignsStore := management.NewCampaignsStore(mgmt)
+	subscriptionsStore := management.NewSubscriptionsStore(mgmt)
 	templates := management.NewTemplatesStore(mgmt)
 
-	campaignID, err := campaignsStore.CreateCampaign(ctx, management.Campaign{
+	subscriptionID, err := subscriptionsStore.CreateSubscription(ctx, management.Subscription{
 		ProjectID: projectID,
-		Name:      "Test Campaign",
+		Name:      "Marketing",
 		Channel:   "email",
+		IsPublic:  true,
+	})
+	require.NoError(t, err)
+
+	campaignID, err := campaignsStore.CreateCampaign(ctx, management.Campaign{
+		ProjectID:      projectID,
+		Name:           "Test Campaign",
+		Channel:        "email",
+		SubscriptionID: &subscriptionID,
 	})
 	require.NoError(t, err)
 
@@ -247,12 +279,41 @@ func TestUpdateCampaign(t *testing.T) {
 	require.NoError(t, err)
 
 	campaignsStore := management.NewCampaignsStore(mgmt)
+	subscriptionsStore := management.NewSubscriptionsStore(mgmt)
 	templates := management.NewTemplatesStore(mgmt)
 
-	campaignID, err := campaignsStore.CreateCampaign(ctx, management.Campaign{
+	subscriptionID, err := subscriptionsStore.CreateSubscription(ctx, management.Subscription{
 		ProjectID: projectID,
-		Name:      "Test Campaign",
+		Name:      "Marketing",
 		Channel:   "email",
+		IsPublic:  true,
+	})
+	require.NoError(t, err)
+
+	campaignID, err := campaignsStore.CreateCampaign(ctx, management.Campaign{
+		ProjectID:      projectID,
+		Name:           "Test Campaign",
+		Channel:        "email",
+		SubscriptionID: &subscriptionID,
+	})
+	require.NoError(t, err)
+
+	otherProjectID, err := projects.CreateProject(ctx, DefaultProject)
+	require.NoError(t, err)
+
+	otherProjectSubscriptionID, err := subscriptionsStore.CreateSubscription(ctx, management.Subscription{
+		ProjectID: otherProjectID,
+		Name:      "Other Project",
+		Channel:   "email",
+		IsPublic:  true,
+	})
+	require.NoError(t, err)
+
+	pushSubscriptionID, err := subscriptionsStore.CreateSubscription(ctx, management.Subscription{
+		ProjectID: projectID,
+		Name:      "Push Alerts",
+		Channel:   "push",
+		IsPublic:  true,
 	})
 	require.NoError(t, err)
 
@@ -268,14 +329,42 @@ func TestUpdateCampaign(t *testing.T) {
 	controller := NewCampaignsController(logger, mgmt, usrs, engine)
 
 	tests := map[string]struct {
-		id   uuid.UUID
-		body oapi.UpdateCampaignJSONRequestBody
-		code int
+		id     uuid.UUID
+		body   oapi.UpdateCampaignJSONRequestBody
+		code   int
+		assert func(t *testing.T)
 	}{
 		"success": {
 			id:   campaignID,
 			body: oapi.UpdateCampaignJSONRequestBody{Name: ptr("Updated Name")},
 			code: 200,
+		},
+		"transactional clears subscription": {
+			id:   campaignID,
+			body: oapi.UpdateCampaignJSONRequestBody{Transactional: ptr(true)},
+			code: 200,
+			assert: func(t *testing.T) {
+				t.Helper()
+
+				updated, err := campaignsStore.GetCampaign(ctx, projectID, campaignID)
+				require.NoError(t, err)
+				require.True(t, updated.Transactional)
+				require.Nil(t, updated.SubscriptionID)
+			},
+		},
+		"rejects cross project subscription": {
+			id: campaignID,
+			body: oapi.UpdateCampaignJSONRequestBody{
+				SubscriptionId: &otherProjectSubscriptionID,
+			},
+			code: 400,
+		},
+		"rejects mismatched subscription channel": {
+			id: campaignID,
+			body: oapi.UpdateCampaignJSONRequestBody{
+				SubscriptionId: &pushSubscriptionID,
+			},
+			code: 400,
 		},
 		"not found": {
 			id:   uuid.Nil,
@@ -295,6 +384,10 @@ func TestUpdateCampaign(t *testing.T) {
 			controller.UpdateCampaign(res, req, projectID, test.id)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
+
+			if test.assert != nil {
+				test.assert(t)
+			}
 		})
 	}
 }
@@ -379,9 +472,10 @@ func TestDuplicateCampaign(t *testing.T) {
 	templates := management.NewTemplatesStore(mgmt)
 
 	campaignID, err := campaignsStore.CreateCampaign(ctx, management.Campaign{
-		ProjectID: projectID,
-		Name:      "Original Campaign",
-		Channel:   "email",
+		ProjectID:     projectID,
+		Name:          "Original Campaign",
+		Channel:       "email",
+		Transactional: true,
 	})
 	require.NoError(t, err)
 
@@ -427,6 +521,7 @@ func TestDuplicateCampaign(t *testing.T) {
 				require.NotEqual(t, test.id, response.Id)
 				require.Equal(t, "Copy of Original Campaign", response.Name)
 				require.Equal(t, projectID, response.ProjectId)
+				require.True(t, response.Transactional)
 				require.Len(t, response.Templates, 1)
 			}
 		})

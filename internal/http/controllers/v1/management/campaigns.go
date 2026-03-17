@@ -34,13 +34,24 @@ type CampaignsController struct {
 	engine  *rbac.Engine
 }
 
+func normalizeCampaignChannel(channel string) string {
+	if channel == "sms" {
+		return "text"
+	}
+
+	return channel
+}
+
+func channelsCompatible(campaignChannel, subscriptionChannel string) bool {
+	return normalizeCampaignChannel(campaignChannel) == normalizeCampaignChannel(subscriptionChannel)
+}
+
 func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
 	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("campaigns", projectID)); err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
-
 	body := oapi.CreateCampaignJSONRequestBody{}
 	err := json.Decode(r.Body, &body)
 	if err != nil {
@@ -94,12 +105,39 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 	campaigns := management.NewCampaignsStore(tx)
 	templates := management.NewTemplatesStore(tx)
 
+	transactional := body.Transactional != nil && *body.Transactional
+
+	if transactional && body.SubscriptionId != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("a campaign cannot be both transactional and linked to a subscription")))
+		return
+	}
+
+	if body.SubscriptionId != nil {
+		subscription, err := srv.mgmt.SubscriptionsStore.GetSubscription(ctx, projectID, *body.SubscriptionId)
+		if errors.Is(err, sql.ErrNoRows) {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription_id must reference a subscription in this project")))
+			return
+		}
+
+		if err != nil {
+			logger.Error("failed to validate subscription", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		if !channelsCompatible(string(body.Channel), subscription.Channel) {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription channel must match campaign channel")))
+			return
+		}
+	}
+
 	campaignID, err := campaigns.CreateCampaign(ctx, management.Campaign{
 		ProjectID:      project.ID,
 		Name:           body.Name,
 		Channel:        string(body.Channel),
 		ProviderID:     body.ProviderId,
 		SubscriptionID: body.SubscriptionId,
+		Transactional:  transactional,
 	})
 	if err != nil {
 		logger.Error("failed to create campaign", zap.Error(err))
@@ -208,7 +246,7 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	_, err = srv.mgmt.GetCampaign(ctx, projectID, campaignID)
+	campaign, err := srv.mgmt.GetCampaign(ctx, projectID, campaignID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("campaign not found", zap.Stringer("campaign_id", campaignID))
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("campaign not found")))
@@ -221,9 +259,40 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	effectiveTransactional := campaign.Transactional
+	if body.Transactional != nil {
+		effectiveTransactional = *body.Transactional
+	}
+
+	if effectiveTransactional && body.SubscriptionId != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("a campaign cannot be both transactional and linked to a subscription")))
+		return
+	}
+
+	if body.SubscriptionId != nil {
+		subscription, err := srv.mgmt.SubscriptionsStore.GetSubscription(ctx, projectID, *body.SubscriptionId)
+		if errors.Is(err, sql.ErrNoRows) {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription_id must reference a subscription in this project")))
+			return
+		}
+
+		if err != nil {
+			logger.Error("failed to validate subscription", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		if !channelsCompatible(campaign.Channel, subscription.Channel) {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription channel must match campaign channel")))
+			return
+		}
+	}
+
 	updated := management.CampaignUpdate{
-		Name:       body.Name,
-		ProviderID: body.ProviderId,
+		Name:           body.Name,
+		ProviderID:     body.ProviderId,
+		Transactional:  body.Transactional,
+		SubscriptionID: body.SubscriptionId,
 	}
 
 	if body.Variables != nil {
@@ -244,7 +313,7 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	campaign, err := srv.mgmt.GetCampaign(ctx, projectID, campaignID)
+	campaign, err = srv.mgmt.GetCampaign(ctx, projectID, campaignID)
 	if err != nil {
 		logger.Error("failed to fetch updated campaign", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -330,6 +399,7 @@ func (srv *CampaignsController) DuplicateCampaign(w http.ResponseWriter, r *http
 		Channel:        campaign.Channel,
 		ProviderID:     campaign.ProviderID,
 		SubscriptionID: campaign.SubscriptionID,
+		Transactional:  campaign.Transactional,
 	})
 	if err != nil {
 		logger.Error("failed to create duplicated campaign", zap.Error(err))

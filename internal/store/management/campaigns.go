@@ -33,6 +33,7 @@ type Campaign struct {
 	Channel        string                         `db:"channel"`
 	ProviderID     *uuid.UUID                     `db:"provider_id"`
 	SubscriptionID *uuid.UUID                     `db:"subscription_id"`
+	Transactional  bool                           `db:"transactional"`
 	Delivery       store.JSONB[Delivery]          `db:"delivery"`
 	Variables      store.JSONB[CampaignVariables] `db:"variables"`
 	Templates      Templates                      `db:"-"`
@@ -57,6 +58,7 @@ func (campaign Campaign) OAPI() oapi.Campaign {
 		Name:           campaign.Name,
 		Channel:        oapi.Channel(campaign.Channel),
 		SubscriptionId: campaign.SubscriptionID,
+		Transactional:  campaign.Transactional,
 		Delivery:       campaign.Delivery.Data.OAPI(),
 		Variables:      &variables,
 		Templates:      campaign.Templates.OAPI(),
@@ -104,12 +106,12 @@ type CampaignsStore struct {
 
 func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO campaigns (project_id, name, channel, provider_id, subscription_id)
-	VALUES ($1, $2, $3, $4, $5)
+	INSERT INTO campaigns (project_id, name, channel, provider_id, subscription_id, transactional)
+	VALUES ($1, $2, $3, $4, $5, $6)
 	RETURNING id`
 
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, campaign.ProjectID, campaign.Name, campaign.Channel, campaign.ProviderID, campaign.SubscriptionID)
+	err := s.db.GetContext(ctx, &id, stmt, campaign.ProjectID, campaign.Name, campaign.Channel, campaign.ProviderID, campaign.SubscriptionID, campaign.Transactional)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -119,7 +121,7 @@ func (s *CampaignsStore) CreateCampaign(ctx context.Context, campaign Campaign) 
 
 func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, pagination store.Pagination, search string) (Campaigns, int, error) {
 	query := `
-	SELECT id, project_id, name, channel, provider_id, subscription_id, delivery, variables, created_at, updated_at, deleted_at,
+	SELECT id, project_id, name, channel, provider_id, subscription_id, transactional, delivery, variables, created_at, updated_at, deleted_at,
 		COUNT(*) OVER () AS total_count
 	FROM campaigns
 	WHERE project_id = $1
@@ -152,7 +154,7 @@ func (s *CampaignsStore) ListCampaigns(ctx context.Context, project uuid.UUID, p
 
 func (s *CampaignsStore) GetCampaign(ctx context.Context, projectID, campaignID uuid.UUID) (*Campaign, error) {
 	query := `
-	SELECT id, project_id, name, channel, provider_id, subscription_id, delivery, variables, created_at, updated_at, deleted_at
+	SELECT id, project_id, name, channel, provider_id, subscription_id, transactional, delivery, variables, created_at, updated_at, deleted_at
 	FROM campaigns
 	WHERE project_id = $1
 	AND id = $2
@@ -180,9 +182,11 @@ func (s *CampaignsStore) GetCampaign(ctx context.Context, projectID, campaignID 
 }
 
 type CampaignUpdate struct {
-	Name       *string
-	ProviderID *uuid.UUID
-	Variables  *store.JSONB[CampaignVariables]
+	Name           *string
+	ProviderID     *uuid.UUID
+	SubscriptionID *uuid.UUID
+	Transactional  *bool
+	Variables      *store.JSONB[CampaignVariables]
 }
 
 func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaignID uuid.UUID, update CampaignUpdate) error {
@@ -191,9 +195,14 @@ func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaign
 	SET
 		name = COALESCE($1, name),
 		provider_id = COALESCE($2, provider_id),
-		variables = COALESCE($3, variables)
-	WHERE project_id = $4
-	AND id = $5
+		variables = COALESCE($3, variables),
+		transactional = COALESCE($4, transactional),
+		subscription_id = CASE
+			WHEN COALESCE($4, transactional) THEN NULL
+			ELSE COALESCE($5, subscription_id)
+		END
+	WHERE project_id = $6
+	AND id = $7
 	AND deleted_at IS NULL`
 
 	var variablesVal any
@@ -205,7 +214,17 @@ func (s *CampaignsStore) UpdateCampaign(ctx context.Context, projectID, campaign
 		variablesVal = v
 	}
 
-	_, err := s.db.ExecContext(ctx, query, update.Name, update.ProviderID, variablesVal, projectID, campaignID)
+	_, err := s.db.ExecContext(
+		ctx,
+		query,
+		update.Name,
+		update.ProviderID,
+		variablesVal,
+		update.Transactional,
+		update.SubscriptionID,
+		projectID,
+		campaignID,
+	)
 	return err
 }
 
@@ -304,13 +323,14 @@ type CampaignLookup struct {
 	ID             uuid.UUID  `db:"id"`
 	ProjectID      uuid.UUID  `db:"project_id"`
 	SubscriptionID *uuid.UUID `db:"subscription_id"`
+	Transactional  bool       `db:"transactional"`
 }
 
 // GetCampaignByID retrieves a campaign by ID without project filter.
 // This is used for unsubscribe flows where the project_id is not known.
 func (s *CampaignsStore) GetCampaignByID(ctx context.Context, campaignID uuid.UUID) (*CampaignLookup, error) {
 	query := `
-	SELECT id, project_id, subscription_id
+	SELECT id, project_id, subscription_id, transactional
 	FROM campaigns
 	WHERE id = $1
 	AND deleted_at IS NULL`

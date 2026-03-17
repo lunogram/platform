@@ -1,15 +1,26 @@
 import { Controller, useForm } from "react-hook-form"
-import { useContext, useState } from "react"
+import { useCallback, useContext, useMemo, useState } from "react"
 import { CampaignContext, ProjectContext } from "@/contexts"
 import { useTranslation } from "react-i18next"
 import api from "@/api"
+import { useResolver } from "@/hooks"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
+import type { Subscription } from "@/types"
 
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { ProviderSelect } from "@/components/provider/select"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { useNavigate } from "react-router"
 
 const schema = z.object({
@@ -25,6 +36,23 @@ export default function CampaignSetup() {
     const [project] = useContext(ProjectContext)
     const { t } = useTranslation()
     const navigate = useNavigate()
+    const [transactional, setTransactional] = useState(campaign.transactional ?? false)
+    const [subscriptionId, setSubscriptionId] = useState<string>(campaign.subscription_id ?? "")
+
+    const [subscriptions] = useResolver(
+        useCallback(async (): Promise<Subscription[]> => {
+            if (!project?.id) return []
+            const result = await api.subscriptions.search(project.id, { limit: 100 })
+            return result.results ?? []
+        }, [project?.id]),
+    )
+
+    const filteredSubscriptions = useMemo(() => {
+        return (subscriptions ?? []).filter((s) => {
+            const ch = (s.channel as string) === "sms" ? "text" : s.channel
+            return ch === campaign.channel
+        })
+    }, [subscriptions, campaign.channel])
 
     const form = useForm<FormData>({
         resolver: zodResolver(schema),
@@ -40,6 +68,8 @@ export default function CampaignSetup() {
             const updated = await api.campaigns.update(project.id, campaign.id, {
                 name: data.name,
                 provider_id: data.provider_id,
+                transactional,
+                subscription_id: transactional ? undefined : subscriptionId || undefined,
             })
 
             setCampaign(updated)
@@ -127,6 +157,63 @@ export default function CampaignSetup() {
                             )}
                         />
                     </FieldGroup>
+
+                    <div className="flex items-center justify-between rounded-md border p-3">
+                        <div className="space-y-1">
+                            <Label htmlFor="transactional-toggle">
+                                {t("campaign.transactional", "Transactional")}
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                                {t(
+                                    "campaign.transactional.help",
+                                    "When enabled, subscription preference is ignored.",
+                                )}
+                            </p>
+                        </div>
+                        <Switch
+                            id="transactional-toggle"
+                            checked={transactional}
+                            onCheckedChange={(checked) => {
+                                setTransactional(checked)
+                                if (checked) setSubscriptionId("")
+                            }}
+                        />
+                    </div>
+
+                    {!transactional && (
+                        <FieldGroup>
+                            <Field className="gap-2">
+                                <FieldLabel htmlFor="subscription-select">
+                                    {t("campaign.subscription", "Subscription")}
+                                </FieldLabel>
+                                <Select value={subscriptionId} onValueChange={setSubscriptionId}>
+                                    <SelectTrigger id="subscription-select">
+                                        <SelectValue
+                                            placeholder={t(
+                                                "campaign.subscription.placeholder",
+                                                "Select subscription",
+                                            )}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[1100]">
+                                        {filteredSubscriptions.length === 0 && (
+                                            <SelectItem value="__empty" disabled>
+                                                {t(
+                                                    "campaign.subscription.empty",
+                                                    "No subscriptions for this channel",
+                                                )}
+                                            </SelectItem>
+                                        )}
+                                        {filteredSubscriptions.map((subscription) => (
+                                            <SelectItem key={subscription.id} value={subscription.id}>
+                                                {subscription.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                        </FieldGroup>
+                    )}
 
                     <div className="flex justify-end">
                         <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting}>

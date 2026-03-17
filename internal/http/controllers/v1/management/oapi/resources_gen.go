@@ -268,6 +268,7 @@ type Campaign struct {
 	Provider       *Provider           `json:"provider,omitempty"`
 	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
 	Templates      []Template          `json:"templates"`
+	Transactional  bool                `json:"transactional"`
 	UpdatedAt      time.Time           `json:"updated_at"`
 	Variables      *[]CampaignVariable `json:"variables,omitempty"`
 }
@@ -337,6 +338,7 @@ type CreateCampaign struct {
 	Name           string              `json:"name"`
 	ProviderId     *openapi_types.UUID `json:"provider_id,omitempty"`
 	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
+	Transactional  *bool               `json:"transactional,omitempty"`
 }
 
 // CreateJourney defines model for CreateJourney.
@@ -1008,9 +1010,11 @@ type UpdateApiKey struct {
 
 // UpdateCampaign defines model for UpdateCampaign.
 type UpdateCampaign struct {
-	Name       *string             `json:"name,omitempty"`
-	ProviderId *openapi_types.UUID `json:"provider_id,omitempty"`
-	Variables  *[]CampaignVariable `json:"variables,omitempty"`
+	Name           *string             `json:"name,omitempty"`
+	ProviderId     *openapi_types.UUID `json:"provider_id,omitempty"`
+	SubscriptionId *openapi_types.UUID `json:"subscription_id,omitempty"`
+	Transactional  *bool               `json:"transactional,omitempty"`
+	Variables      *[]CampaignVariable `json:"variables,omitempty"`
 }
 
 // UpdateJourney defines model for UpdateJourney.

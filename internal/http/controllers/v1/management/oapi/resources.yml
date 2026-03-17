@@ -5011,6 +5011,9 @@ components:
         subscription_id:
           type: string
           format: uuid
+        transactional:
+          type: boolean
+          example: false
 
     UpdateCampaign:
       type: object
@@ -5022,6 +5025,12 @@ components:
           type: string
           format: uuid
           example: "5143f27c-cca9-4dc4-9059-e1dbb08144ad"
+        subscription_id:
+          type: string
+          format: uuid
+        transactional:
+          type: boolean
+          example: false
         variables:
           type: array
           items:
@@ -5091,6 +5100,7 @@ components:
         - channel
         - templates
         - delivery
+        - transactional
         - created_at
         - updated_at
       properties:
@@ -5117,6 +5127,9 @@ components:
         subscription_id:
           type: string
           format: uuid
+        transactional:
+          type: boolean
+          example: false
         provider:
           $ref: "#/components/schemas/Provider"
         templates:
