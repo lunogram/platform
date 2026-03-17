@@ -20,8 +20,7 @@ const ENTERPRISE_PKG_PREFIX = "@lunogram-enterprise/"
  * guard, Vite's dead-code elimination removes all references at build time,
  * but Rollup no longer errors on unresolvable imports during bundling.
  *
- * In enterprise builds the plugin is not loaded, so the real workspace
- * packages are resolved normally.
+ * In enterprise builds the resolve plugin below handles resolution instead.
  */
 function enterpriseStubPlugin(): Plugin {
     const VIRTUAL_PREFIX = "\0enterprise-stub:"
@@ -148,6 +147,73 @@ ${namedExports}
     }
 }
 
+/**
+ * Vite plugin that resolves `@lunogram-enterprise/*` imports directly to
+ * source files in the `packages/` directory for enterprise builds.
+ *
+ * This avoids the need for pnpm to link the enterprise workspace packages
+ * into `node_modules`, which is fragile across the two different build
+ * contexts (root workspace for enterprise vs standalone for OSS).
+ *
+ * The plugin reads each package's `package.json` exports map to resolve
+ * subpath exports (e.g. `@lunogram-enterprise/oapi-client/courier` →
+ * `packages/oapi-client/src/courier-client.ts`).
+ */
+function enterpriseResolvePlugin(): Plugin {
+    // packages/ sits two levels above oss/console/
+    const packagesDir = path.resolve(__dirname, "../../packages")
+
+    // Cache: package name → { dir, exportsMap }
+    const pkgCache = new Map<string, { dir: string; exportsMap: Record<string, unknown> }>()
+
+    function loadPkgExports(pkgName: string) {
+        if (pkgCache.has(pkgName)) return pkgCache.get(pkgName)!
+
+        const pkgDir = path.join(packagesDir, pkgName)
+        const pkgJsonPath = path.join(pkgDir, "package.json")
+        if (!fs.existsSync(pkgJsonPath)) return null
+
+        const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8"))
+        const result = {
+            dir: pkgDir,
+            exportsMap: (pkgJson.exports ?? {}) as Record<string, unknown>,
+        }
+        pkgCache.set(pkgName, result)
+        return result
+    }
+
+    return {
+        name: "enterprise-resolve",
+        enforce: "pre",
+
+        resolveId(source) {
+            if (!source.startsWith(ENTERPRISE_PKG_PREFIX)) return
+
+            // e.g. "@lunogram-enterprise/oapi-client/courier"
+            //   → scope = "oapi-client", subpath = "/courier"
+            // e.g. "@lunogram-enterprise/ai-builder"
+            //   → scope = "ai-builder", subpath = ""
+            const rest = source.slice(ENTERPRISE_PKG_PREFIX.length) // "oapi-client/courier"
+            const slashIdx = rest.indexOf("/")
+            const pkgName = slashIdx === -1 ? rest : rest.slice(0, slashIdx)
+            const subpath = slashIdx === -1 ? "." : "./" + rest.slice(slashIdx + 1)
+
+            const pkg = loadPkgExports(pkgName)
+            if (!pkg) return // fall through to normal resolution
+
+            const entry = pkg.exportsMap[subpath]
+            if (!entry) return
+
+            // exports entry is either a string or { types, default }
+            const filePath =
+                typeof entry === "string" ? entry : (entry as Record<string, string>).default
+            if (!filePath) return
+
+            return path.resolve(pkg.dir, filePath)
+        },
+    }
+}
+
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), "")
 
@@ -174,9 +240,10 @@ export default defineConfig(({ mode }) => {
             __ENTERPRISE__: JSON.stringify(isEnterprise),
         },
         plugins: [
-            // Stub enterprise packages in OSS builds so Rollup doesn't choke
-            // on unresolvable imports.
-            ...(!isEnterprise ? [enterpriseStubPlugin()] : []),
+            // In enterprise builds, resolve @lunogram-enterprise/* imports
+            // directly to source files in packages/. In OSS builds, stub
+            // them out so Rollup doesn't choke on unresolvable imports.
+            ...(isEnterprise ? [enterpriseResolvePlugin()] : [enterpriseStubPlugin()]),
             react(),
             tailwindcss(),
             faviconPlugin,
