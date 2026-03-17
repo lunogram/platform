@@ -1,4 +1,4 @@
-import { memo, useCallback, useContext, Fragment, createElement, useEffect } from "react"
+import { memo, useCallback, useContext, Fragment, createElement, useEffect, useRef } from "react"
 import type { Connection, NodeProps } from "reactflow"
 import { Handle, Position, useReactFlow, getConnectedEdges, NodeResizer, useStore } from "reactflow"
 import { useTranslation } from "react-i18next"
@@ -87,6 +87,46 @@ export const JourneyStepNode = memo(
             },
             [id, setNodes],
         )
+
+        const contentRef = useRef<HTMLDivElement>(null)
+
+        useEffect(() => {
+            if (!isInfoStep || !contentRef.current) return
+
+            const contentEl = contentRef.current
+            const nodeEl = contentEl.parentElement
+            if (!nodeEl) return
+
+            const updateHeight = () => {
+                const contentHeight = contentEl.scrollHeight
+                const currentHeight = nodeEl.offsetHeight
+                const headerHeight = 45
+                const neededHeight = contentHeight + headerHeight
+
+                if (neededHeight !== currentHeight) {
+                    setNodes((nds) =>
+                        nds.map((n) =>
+                            n.id === id
+                                ? {
+                                      ...n,
+                                      style: { ...n.style, height: neededHeight },
+                                      data: { ...n.data, height: neededHeight },
+                                  }
+                                : n,
+                        ),
+                    )
+                }
+            }
+
+            const resizeObserver = new ResizeObserver(() => {
+                updateHeight()
+            })
+
+            resizeObserver.observe(contentEl)
+            updateHeight()
+
+            return () => resizeObserver.disconnect()
+        }, [id, setNodes, data])
 
         const zoom = useStore((s) => s.transform[2])
         const handleSize = Math.min(24, Math.max(8, 10 / zoom))
@@ -228,9 +268,12 @@ export const JourneyStepNode = memo(
 
                     {/* Body */}
                     <div
+                        ref={contentRef}
                         className={cn(
                             "px-3 py-2.5 text-sm",
-                            isInfoStep && "pt-0 break-words hyphens-auto overflow-y-auto h-full",
+                            isInfoStep
+                                ? "pt-0 break-words hyphens-auto overflow-hidden h-full"
+                                : "",
                         )}
                     >
                         {type.Describe &&
