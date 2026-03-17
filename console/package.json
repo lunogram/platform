@@ -170,11 +170,6 @@
         "vite": "^7.3.1",
         "vitest": "^4.0.18"
     },
-    "optionalDependencies": {
-        "@lunogram-enterprise/ai-builder": "workspace:*",
-        "@lunogram-enterprise/block-editor": "workspace:*",
-        "@lunogram-enterprise/oapi-client": "workspace:*"
-    },
     "files": [
         "lib"
     ]
