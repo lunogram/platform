@@ -94,28 +94,23 @@ export const JourneyStepNode = memo(
             if (!isInfoStep || !contentRef.current) return
 
             const contentEl = contentRef.current
-            const nodeEl = contentEl.parentElement
-            if (!nodeEl) return
 
             const updateHeight = () => {
                 const contentHeight = contentEl.scrollHeight
-                const currentHeight = nodeEl.offsetHeight
                 const headerHeight = 45
                 const neededHeight = contentHeight + headerHeight
 
-                if (neededHeight !== currentHeight) {
-                    setNodes((nds) =>
-                        nds.map((n) =>
-                            n.id === id
-                                ? {
-                                      ...n,
-                                      style: { ...n.style, height: neededHeight },
-                                      data: { ...n.data, height: neededHeight },
-                                  }
-                                : n,
-                        ),
-                    )
-                }
+                setNodes((nds) =>
+                    nds.map((n) =>
+                        n.id === id
+                            ? {
+                                  ...n,
+                                  style: { ...n.style, height: neededHeight },
+                                  data: { ...n.data, height: neededHeight },
+                              }
+                            : n,
+                    ),
+                )
             }
 
             const resizeObserver = new ResizeObserver(() => {
@@ -271,9 +266,7 @@ export const JourneyStepNode = memo(
                         ref={contentRef}
                         className={cn(
                             "px-3 py-2.5 text-sm",
-                            isInfoStep
-                                ? "pt-0 break-words hyphens-auto overflow-hidden h-full"
-                                : "",
+                            isInfoStep ? "pt-0 break-words hyphens-auto" : "",
                         )}
                     >
                         {type.Describe &&
