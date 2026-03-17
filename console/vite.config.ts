@@ -102,7 +102,7 @@ function enterpriseStubPlugin(): Plugin {
             }
         },
 
-        transform(code, id) {
+        transform(code) {
             // Also collect imports at transform time to catch anything the
             // pre-scan might have missed (e.g. generated files).
             if (code.includes(ENTERPRISE_PKG_PREFIX)) {
@@ -284,7 +284,12 @@ export default defineConfig(({ mode }) => {
             },
         },
         worker: {
-            format: "es",
+            format: "iife",
+            rollupOptions: {
+                output: {
+                    inlineDynamicImports: true,
+                },
+            },
         },
         resolve: {
             alias: {
