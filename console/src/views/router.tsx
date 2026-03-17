@@ -69,7 +69,10 @@ import ProjectOnboarding from "./project/ProjectOnboarding"
 import ProjectOnboardingGettingStarted from "./project/ProjectOnboardingGettingStarted"
 import ProjectOnboardingUsers from "./project/ProjectOnboardingUsers"
 import ProjectOnboardingIntegration from "./project/ProjectOnboardingIntegration"
+import ProjectOnboardingDomain from "./project/ProjectOnboardingDomain"
 import Locales from "./settings/Locales"
+import Domains from "./settings/Domains"
+import { isEnterprise } from "@/config/enterprise"
 import JourneyUserEntrances from "./journey/JourneyUserEntrances"
 import UserDetailJourneys from "./users/UserDetailJourneys"
 import UserDetailOrganizations from "./users/UserDetailOrganizations"
@@ -178,6 +181,28 @@ export const createRouter = ({
                                         },
                                         element: <ProjectOnboardingIntegration />,
                                     },
+                                    ...(isEnterprise
+                                        ? [
+                                              {
+                                                  path: "domain",
+                                                  loader: async ({
+                                                      params: { projectId = "" },
+                                                  }: {
+                                                      params: { projectId?: string }
+                                                  }) => {
+                                                      const { hasCourierProvider } =
+                                                          await import("@/utils")
+                                                      const hasProvider =
+                                                          await hasCourierProvider(projectId)
+                                                      if (!hasProvider) {
+                                                          return redirect("../users")
+                                                      }
+                                                      return null
+                                                  },
+                                                  element: <ProjectOnboardingDomain />,
+                                              },
+                                          ]
+                                        : []),
                                     {
                                         path: "users",
                                         element: <ProjectOnboardingUsers />,
@@ -592,6 +617,14 @@ export const createRouter = ({
                                                 path: "event-schemas",
                                                 element: <EventSchemas />,
                                             },
+                                            ...(isEnterprise
+                                                ? [
+                                                      {
+                                                          path: "domains",
+                                                          element: <Domains />,
+                                                      },
+                                                  ]
+                                                : []),
                                         ],
                                     },
                                 ],

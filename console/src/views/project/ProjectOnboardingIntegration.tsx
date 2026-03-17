@@ -6,7 +6,7 @@ import { NIL } from "uuid"
 import api from "../../api"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
-import { snakeToTitle } from "../../utils"
+import { snakeToTitle, hasCourierProvider } from "../../utils"
 import { IntegrationForm } from "../settings/IntegrationModal"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,6 +17,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
+import { isEnterprise } from "@/config/enterprise"
 import type { UUID } from "@/types/common"
 import type { ProviderMeta } from "../../types"
 
@@ -31,8 +32,11 @@ export default function ProjectOnboardingIntegration() {
         useCallback(async () => await api.providers.options(projectId), [projectId]),
     )
 
+    const [hasProvider] = useResolver(useCallback(() => hasCourierProvider(projectId), [projectId]))
+    const nextStep = isEnterprise && hasProvider === true ? "domain" : "users"
+
     async function handleSkip() {
-        await navigate(`/projects/${projectId}/onboarding/users`)
+        await navigate(`/projects/${projectId}/onboarding/${nextStep}`)
     }
 
     return (
@@ -84,7 +88,11 @@ export default function ProjectOnboardingIntegration() {
                             onChange={async () => {
                                 const updatedProject = await api.projects.get(projectId)
                                 setProject(updatedProject)
-                                await navigate(`/projects/${projectId}/onboarding/users`)
+                                const step =
+                                    isEnterprise && (await hasCourierProvider(projectId))
+                                        ? "domain"
+                                        : "users"
+                                await navigate(`/projects/${projectId}/onboarding/${step}`)
                             }}
                         />
                     </>

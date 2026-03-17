@@ -131,6 +131,9 @@ const SELECTOR_SCRIPT = `
         return txt || el.tagName.toLowerCase();
     }
 
+    /* Post to parent origin only (not '*'). */
+    var parentOrigin = window.location.origin;
+
     document.addEventListener('mousemove', function(e) {
         if (!selectorEnabled) return;
         var section = findSection(e.target);
@@ -160,7 +163,7 @@ const SELECTOR_SCRIPT = `
                 window.parent.postMessage({
                     type: 'SEC_DESEL',
                     label: label
-                }, '*');
+                }, parentOrigin);
             } else {
                 /* Select: add to list, clear the hover highlight */
                 selectedEls.push(section);
@@ -170,7 +173,7 @@ const SELECTOR_SCRIPT = `
                     label: label,
                     sectionId: sectionId,
                     textContent: rawText || undefined
-                }, '*');
+                }, parentOrigin);
             }
         }
     }, true);
@@ -180,6 +183,7 @@ const SELECTOR_SCRIPT = `
     });
 
     window.addEventListener('message', function(e) {
+        if (e.origin !== parentOrigin) return;
         if (e.data === 'SEL_ON') {
             selectorEnabled = true;
         } else if (e.data === 'SEL_OFF') {
@@ -216,10 +220,8 @@ export function EmailPreviewPanel({
     const { t } = useTranslation()
     const iframeRef = useRef<HTMLIFrameElement>(null)
 
-    // Always inject selector script into the HTML so the iframe document stays
-    // stable when toggling between code and builder mode. The script is inert
-    // until it receives a "SEL_ON" message, so it has no visible effect when
-    // selection is not active.
+    // Inject selector script into the HTML so the iframe document has access to
+    // the selection logic. The script is inert until it receives "SEL_ON".
     const preparedHtml = (() => {
         if (!html) return html
         if (html.includes("</body>")) {
@@ -231,25 +233,38 @@ export function EmailPreviewPanel({
         return html + SELECTOR_SCRIPT
     })()
 
+    // Write HTML into the iframe's document instead of using srcDoc to avoid
+    // re-creating the entire iframe element (and losing scroll position, etc.)
+    // on every content change.
+    useEffect(() => {
+        const iframe = iframeRef.current
+        if (!iframe || !preparedHtml) return
+
+        const doc = iframe.contentDocument
+        if (!doc) return
+
+        doc.open()
+        doc.write(preparedHtml)
+        doc.close()
+    }, [preparedHtml])
+
     // Toggle selector mode in the iframe based on selectorActive
     useEffect(() => {
         const iframe = iframeRef.current
         if (!iframe?.contentWindow) return
 
-        const sendToggle = () => {
-            iframe.contentWindow?.postMessage(selectorActive ? "SEL_ON" : "SEL_OFF", "*")
-        }
-
-        sendToggle()
-        iframe.addEventListener("load", sendToggle)
-        return () => {
-            iframe.removeEventListener("load", sendToggle)
-        }
+        iframe.contentWindow.postMessage(
+            selectorActive ? "SEL_ON" : "SEL_OFF",
+            window.location.origin,
+        )
     }, [selectorActive, preparedHtml])
 
-    // Listen for section selection/deselection messages from the iframe
+    // Listen for section selection/deselection messages from the iframe.
+    // Only accept messages from our own origin and from our iframe.
     const handleMessage = useCallback(
         (e: MessageEvent) => {
+            if (e.origin !== window.location.origin) return
+            if (e.source !== iframeRef.current?.contentWindow) return
             if (!e.data || typeof e.data !== "object") return
 
             if (e.data.type === "SEC_SEL" && onSectionSelect) {
@@ -310,7 +325,6 @@ export function EmailPreviewPanel({
         <div className="flex-1 min-h-0 min-w-0 overflow-hidden h-full px-6 py-4 flex justify-center">
             <iframe
                 ref={iframeRef}
-                srcDoc={preparedHtml}
                 title="Email preview"
                 className="border rounded-md bg-white shadow-sm h-full min-w-0"
                 style={{

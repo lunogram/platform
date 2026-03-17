@@ -272,10 +272,6 @@ export function SenderIdentityCombobox({
     )
 }
 
-// ---------------------------------------------------------------------------
-// List View — search & select from existing addresses
-// ---------------------------------------------------------------------------
-
 interface ListViewProps {
     channel: "email" | "sms"
     loading: boolean
@@ -402,10 +398,6 @@ function ListView({
         </div>
     )
 }
-
-// ---------------------------------------------------------------------------
-// Create View — inline form for adding a new sender address
-// ---------------------------------------------------------------------------
 
 interface CreateViewProps {
     channel: "email" | "sms"

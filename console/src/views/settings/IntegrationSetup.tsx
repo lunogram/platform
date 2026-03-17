@@ -9,6 +9,7 @@ import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import type { Provider, ProviderCreateParams, ProviderMeta } from "../../types"
 import type { SchemaProperty } from "@/components/schema-fields"
+import { isEnterprise } from "@/config/enterprise"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +17,7 @@ import { Separator } from "@/components/ui/separator"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { FormSchemaFields } from "@/components/schema-fields"
 import { StaggeredMosaic } from "@/components/icon-mosaic"
+import { DomainManager } from "./Domains"
 
 import { SenderIdentityList } from "@/components/sender-identity-list"
 
@@ -23,6 +25,9 @@ import { SenderIdentityList } from "@/components/sender-identity-list"
  * Handles both creating and editing integrations:
  * - Create: /projects/:projectId/integrations/new/:channel/:module
  * - Edit:   /projects/:projectId/integrations/:id
+ *
+ * External integrations (with external_id) are shown as read-only.
+ * Email-channel integrations also show a domain management section (enterprise only).
  */
 export default function IntegrationSetup() {
     const { t } = useTranslation()
@@ -74,6 +79,8 @@ export default function IntegrationSetup() {
 
     const effectiveChannel = isEdit ? provider?.channel : channel
     const effectiveModule = isEdit ? provider?.module : moduleName
+    const isExternal = !!provider?.external_id
+    const isEmailChannel = effectiveChannel === "email"
 
     // Strip any legacy default_from* fields from the schema so they aren't
     // rendered as generic form inputs — sender identity is handled by a
@@ -116,6 +123,7 @@ export default function IntegrationSetup() {
     })
 
     const handleSubmit = async (values: ProviderCreateParams) => {
+        if (isExternal) return
         if (!effectiveChannel || !effectiveModule) return
         setIsSaving(true)
         try {
@@ -243,10 +251,15 @@ export default function IntegrationSetup() {
                         <FieldLabel>
                             {t("name")} <span className="text-destructive">*</span>
                         </FieldLabel>
-                        <Input {...form.register("name", { required: true })} />
+                        <Input
+                            {...form.register("name", { required: true })}
+                            disabled={isExternal}
+                        />
                     </Field>
 
-                    <FormSchemaFields parent="data" schema={dataSchema} form={form} />
+                    {!isExternal && (
+                        <FormSchemaFields parent="data" schema={dataSchema} form={form} />
+                    )}
                 </form>
 
                 {/* Sender identity management — edit mode only */}
@@ -267,18 +280,28 @@ export default function IntegrationSetup() {
                     </div>
                 )}
 
-                <div className="flex items-center gap-3 pt-8 pb-6 max-w-2xl">
-                    <Button type="submit" form="integration-form" disabled={isSaving}>
-                        {isSaving
-                            ? t("saving", "Saving...")
-                            : isEdit
-                              ? t("update_integration", "Update Integration")
-                              : t("create_integration", "Create Integration")}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => navigate(backUrl)}>
-                        {t("cancel")}
-                    </Button>
-                </div>
+                {/* Domain management for email-channel integrations (enterprise only) */}
+                {isEdit && isEmailChannel && isEnterprise && (
+                    <div className="max-w-2xl mt-8 grid gap-4">
+                        <Separator />
+                        <DomainManager projectId={project.id} />
+                    </div>
+                )}
+
+                {!isExternal && (
+                    <div className="flex items-center gap-3 pt-8 pb-6 max-w-2xl">
+                        <Button type="submit" form="integration-form" disabled={isSaving}>
+                            {isSaving
+                                ? t("saving", "Saving...")
+                                : isEdit
+                                  ? t("update_integration", "Update Integration")
+                                  : t("create_integration", "Create Integration")}
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => navigate(backUrl)}>
+                            {t("cancel")}
+                        </Button>
+                    </div>
+                )}
             </div>
         </div>
     )

@@ -219,3 +219,15 @@ export async function logout(signOut: SignOut | undefined) {
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
 }
+
+/**
+ * Check if a project has a courier provider configured.
+ */
+export async function hasCourierProvider(projectId: string): Promise<boolean> {
+    const { default: oapiClient } = await import("@/oapi/client")
+    const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
+        params: { path: { projectID: projectId } },
+    })
+    const providers = data?.results ?? []
+    return providers.some((p) => p.module === "courier")
+}

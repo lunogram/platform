@@ -215,11 +215,7 @@ export default function Integrations() {
                                         key={p.id}
                                         className="cursor-pointer"
                                         onClick={() =>
-                                            p.external_id
-                                                ? undefined
-                                                : navigate(
-                                                      `/projects/${project.id}/integrations/${p.id}`,
-                                                  )
+                                            navigate(`/projects/${project.id}/integrations/${p.id}`)
                                         }
                                         onMouseEnter={() => setHoveredProvider(p)}
                                         onMouseLeave={() => setHoveredProvider(null)}

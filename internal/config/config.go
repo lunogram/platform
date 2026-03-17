@@ -15,17 +15,18 @@ type Node struct {
 	HTTPAddress     string `env:"HTTP_ADDRESS" envDefault:":8080"`
 	DatabaseMigrate bool   `env:"DATABASE_MIGRATE" envDefault:"true"`
 
-	PublicURL string      `env:"PUBLIC_URL" envDefault:"http://localhost:8080"`
-	Redis     Redis       `envPrefix:"REDIS_"`
-	Cluster   Cluster     `envPrefix:"CLUSTER_"`
-	Auth      Auth        `envPrefix:"AUTH_"`
-	Nats      Nats        `envPrefix:"NATS_"`
-	WASM      WASM        `envPrefix:"WASM_"`
-	Webhook   Webhook     `envPrefix:"WEBHOOK_"`
-	RBAC      rbac.Config `envPrefix:"RBAC_"`
-	HTTP      http.Config
-	Store     store.Config
-	Storage   storage.Config
+	PublicURL  string      `env:"PUBLIC_URL" envDefault:"http://localhost:8080"`
+	Redis      Redis       `envPrefix:"REDIS_"`
+	Cluster    Cluster     `envPrefix:"CLUSTER_"`
+	Auth       Auth        `envPrefix:"AUTH_"`
+	Nats       Nats        `envPrefix:"NATS_"`
+	WASM       WASM        `envPrefix:"WASM_"`
+	Webhook    Webhook     `envPrefix:"WEBHOOK_"`
+	RBAC       rbac.Config `envPrefix:"RBAC_"`
+	Enterprise Enterprise
+	HTTP       http.Config
+	Store      store.Config
+	Storage    storage.Config
 }
 
 type Auth struct {

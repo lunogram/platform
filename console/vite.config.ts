@@ -38,6 +38,11 @@ export default defineConfig(({ mode }) => {
                     changeOrigin: true,
                     rewrite: (path) => path.replace(/^\/backoffice/, ""),
                 },
+                "/courier": {
+                    target: env.VITE_COURIER_URL || "http://localhost:8082",
+                    changeOrigin: true,
+                    rewrite: (path) => path.replace(/^\/courier/, ""),
+                },
                 "/unsubscribe": {
                     target: env.VITE_PROXY_URL,
                     changeOrigin: true,

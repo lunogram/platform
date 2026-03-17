@@ -7,7 +7,7 @@ import { useContext, useEffect, useRef, useState } from "react"
 import { ProjectContext } from "../contexts"
 import clsx from "clsx"
 import { compileEmail } from "@/views/campaign/template/mail/editor/codeEditor/compileEmail"
-import { getSystemPreviewProps } from "@/views/campaign/template/mail/editor/codeEditor/variableScope"
+import { getSystemPreviewProps } from "@/views/campaign/template/mail/editor/variableScope"
 
 interface PreviewProps {
     template: Pick<Template, "type" | "data">

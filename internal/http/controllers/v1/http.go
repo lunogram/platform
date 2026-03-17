@@ -117,6 +117,11 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	}
 	router.Handle("/static/*", nethttp.StripPrefix("/static/", nethttp.FileServer(nethttp.FS(staticSubFS))))
 
+	// Mount enterprise proxy routes (backoffice, courier).
+	// In OSS builds this is a no-op; in enterprise builds it registers
+	// reverse proxy handlers based on PROXY_*_URL environment variables.
+	MountProxyRoutes(logger, router, cfg.Enterprise)
+
 	// Serve console (admin UI) as fallback
 	consoleHandler, err := console.Handler()
 	if err != nil {

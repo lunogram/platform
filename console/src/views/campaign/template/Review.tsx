@@ -32,6 +32,25 @@ export default function TemplateReview() {
         }
     }, [project?.id, selectedUser])
 
+    useEffect(() => {
+        if (!campaign || !project || !template) {
+            return
+        }
+
+        const unsubscribe = onSubmit(async () => {
+            if (!template) {
+                return false
+            }
+
+            await api.campaigns.update(project.id, campaign.id, {
+                state: "running",
+            })
+
+            return true
+        })
+        return unsubscribe
+    }, [onSubmit, template, project, campaign])
+
     if (!campaign || !project || !template) {
         return null
     }
@@ -45,18 +64,6 @@ export default function TemplateReview() {
     const form = config.form(campaign, template)
     const ChannelFormControl = config.FormControl
     const ChannelPreview = config.ContentPreview
-
-    onSubmit(async () => {
-        if (!template) {
-            return false
-        }
-
-        await api.campaigns.update(project.id, campaign.id, {
-            state: "running",
-        })
-
-        return true
-    })
 
     return (
         <div className="flex flex-1 bg-muted/20 overflow-hidden">

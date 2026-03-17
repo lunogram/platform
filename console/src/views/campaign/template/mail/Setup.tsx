@@ -9,7 +9,7 @@ import api from "@/api"
 import * as z from "zod"
 import { Render } from "@/renderTemplates"
 import { compileEmail } from "./editor/codeEditor/compileEmail"
-import { getSystemPreviewProps } from "./editor/codeEditor/variableScope"
+import { getSystemPreviewProps } from "./editor/variableScope"
 
 import { Input } from "@/components/ui/input"
 import { TemplateInput } from "@/components/ui/template-input"
