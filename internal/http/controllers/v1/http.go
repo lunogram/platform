@@ -56,7 +56,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	}
 
 	// Create URL resolver for public document URLs
-	urlResolver := storage.NewURLResolver(cfg.Storage.BaseURL, cfg.PublicURL)
+	urlResolver := storage.NewURLResolver(cfg.Storage.BaseURL)
 
 	// Create management controller
 	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storageDriver, urlResolver, pub, req, jet, registry, actionRegistry, rbacEngine)
