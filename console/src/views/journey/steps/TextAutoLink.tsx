@@ -1,182 +1,110 @@
-import React from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import remarkBreaks from "remark-breaks"
+import rehypeRaw from "rehype-raw"
+import type { Components } from "react-markdown"
 
-// every pattern that makes text look less like a wall of nothing
-const BOLD_REGEX = /\*\*(.+?)\*\*/g
-const ITALIC_REGEX = /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g
-const CODE_REGEX = /`([^`]+)`/g
-const STRIKETHROUGH_REGEX = /~~(.+?)~~/g
-const HEADING_REGEX = /^(#{1,6})\s+(.+)/
-const BLOCKQUOTE_REGEX = /^>\s+(.+)/
-const HR_REGEX = /^(-{3,}|\*{3,}|_{3,})$/
-const UNORDERED_LIST_REGEX = /^[-*+]\s+(.+)/
-const ORDERED_LIST_REGEX = /^(\d+)\.\s+(.+)/
-
-const HEADING_STYLES: Record<number, React.CSSProperties> = {
-    1: { fontSize: "2em", fontWeight: "bold", margin: "0.67em 0" },
-    2: { fontSize: "1.5em", fontWeight: "bold", margin: "0.75em 0" },
-    3: { fontSize: "1.17em", fontWeight: "bold", margin: "0.83em 0" },
-    4: { fontSize: "1em", fontWeight: "bold", margin: "1.12em 0" },
-    5: { fontSize: "0.83em", fontWeight: "bold", margin: "1.5em 0" },
-    6: { fontSize: "0.75em", fontWeight: "bold", margin: "1.67em 0" },
+const styles = {
+    h1: { fontSize: "2em", fontWeight: "bold" as const, margin: "0.67em 0" },
+    h2: { fontSize: "1.5em", fontWeight: "bold" as const, margin: "0.75em 0" },
+    h3: { fontSize: "1.17em", fontWeight: "bold" as const, margin: "0.83em 0" },
+    h4: { fontSize: "1em", fontWeight: "bold" as const, margin: "1.12em 0" },
+    h5: { fontSize: "0.83em", fontWeight: "bold" as const, margin: "1.5em 0" },
+    h6: { fontSize: "0.75em", fontWeight: "bold" as const, margin: "1.67em 0" },
+    code: {
+        fontFamily: "monospace",
+        backgroundColor: "rgba(0,0,0,0.08)",
+        borderRadius: "4px",
+        padding: "1px 5px",
+        fontSize: "0.875em",
+    },
+    blockquote: {
+        borderLeft: "3px solid #ccc",
+        paddingLeft: "0.75em",
+        margin: "0.25em 0",
+        color: "#666",
+    },
+    ul: { listStyleType: "disc", paddingLeft: "1.5em", margin: "0.25em 0" },
+    ol: { listStyleType: "decimal", paddingLeft: "1.5em", margin: "0.25em 0" },
+    a: { color: "#3b82f6", textDecoration: "underline" },
+    del: { textDecoration: "line-through" },
+    p: { fontSize: "0.875em", margin: "0.75em 0" },
 }
 
-const URL_DELIMITER =
-    /((?:https?:\/\/)?(?:(?:[a-z0-9]?(?:[a-z0-9-]{1,61}[a-z0-9])?\.[^.|\s])+[a-z.]*[a-z]+|(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3})(?::\d{1,5})*[a-z0-9.,_/~#&=;%+?\-()]*)/gi
-
-const linkify = (text: string, lineIdx: number): React.ReactNode[] =>
-    text
-        .split(URL_DELIMITER)
-        .map((chunk, chunkIdx) => {
-            const match = chunk.match(URL_DELIMITER)
-            if (match) {
-                const url = match[0]
-                return (
-                    <a
-                        key={`${lineIdx}-url-${chunkIdx}`}
-                        target="_blank"
-                        style={{ color: "#3b82f6", textDecoration: "underline" }}
-                        href={url.startsWith("http") ? url : `https://${url}`}
-                        rel="noreferrer"
-                    >
-                        {url}
-                    </a>
-                )
-            }
-            return chunk || null
-        })
-        .filter(Boolean)
-
-const parseInline = (text: string, lineIdx: number, inlineIdx = 0): React.ReactNode[] => {
-    const patterns: [RegExp, (match: RegExpExecArray) => React.ReactNode][] = [
-        [
-            BOLD_REGEX,
-            (m) => (
-                <strong key={`${lineIdx}-b-${inlineIdx}`}>
-                    {parseInline(m[1], lineIdx, inlineIdx + 1)}
-                </strong>
-            ),
-        ],
-        [
-            ITALIC_REGEX,
-            (m) => (
-                <em key={`${lineIdx}-i-${inlineIdx}`}>
-                    {parseInline(m[1], lineIdx, inlineIdx + 2)}
-                </em>
-            ),
-        ],
-        [
-            CODE_REGEX,
-            (m) => (
-                <code
-                    key={`${lineIdx}-c-${inlineIdx}`}
-                    style={{
-                        fontFamily: "monospace",
-                        backgroundColor: "rgba(0,0,0,0.08)",
-                        borderRadius: "4px",
-                        padding: "1px 5px",
-                        fontSize: "0.875em",
-                    }}
-                >
-                    {m[1]}
-                </code>
-            ),
-        ],
-        [
-            STRIKETHROUGH_REGEX,
-            (m) => (
-                <del key={`${lineIdx}-s-${inlineIdx}`}>
-                    {parseInline(m[1], lineIdx, inlineIdx + 3)}
-                </del>
-            ),
-        ],
-    ]
-
-    let earliest: {
-        index: number
-        match: RegExpExecArray
-        render: (m: RegExpExecArray) => React.ReactNode
-    } | null = null
-
-    for (const [regex, render] of patterns) {
-        regex.lastIndex = 0
-        const match = regex.exec(text)
-        if (match && (earliest === null || match.index < earliest.index)) {
-            earliest = { index: match.index, match, render }
+const components: Components = {
+    h1: ({ children }) => <h1 style={styles.h1}>{children}</h1>,
+    h2: ({ children }) => <h2 style={styles.h2}>{children}</h2>,
+    h3: ({ children }) => <h3 style={styles.h3}>{children}</h3>,
+    h4: ({ children }) => <h4 style={styles.h4}>{children}</h4>,
+    h5: ({ children }) => <h5 style={styles.h5}>{children}</h5>,
+    h6: ({ children }) => <h6 style={styles.h6}>{children}</h6>,
+    code: ({ className, children }) => {
+        const isInline = !className
+        if (isInline) {
+            return <code style={styles.code}>{children}</code>
         }
-    }
-
-    if (!earliest) return linkify(text, lineIdx)
-
-    const { index, match, render } = earliest
-    const nodes: React.ReactNode[] = []
-
-    if (index > 0) nodes.push(...linkify(text.slice(0, index), lineIdx))
-    nodes.push(render(match))
-    nodes.push(...parseInline(text.slice(index + match[0].length), lineIdx, inlineIdx + 10))
-
-    return nodes
+        return <code className={className}>{children}</code>
+    },
+    blockquote: ({ children }) => <blockquote style={styles.blockquote}>{children}</blockquote>,
+    ul: ({ children }) => <ul style={styles.ul}>{children}</ul>,
+    ol: ({ children }) => <ol style={styles.ol}>{children}</ol>,
+    a: ({ href, children }) => {
+        if (!href) return <span>{children}</span>
+        return (
+            <a
+                style={styles.a}
+                href={href.startsWith("http") ? href : `https://${href}`}
+                target="_blank"
+                rel="noreferrer"
+            >
+                {children}
+            </a>
+        )
+    },
+    del: ({ children }) => <del style={styles.del}>{children}</del>,
+    hr: () => <hr />,
+    p: ({ children }) => <p style={styles.p}>{children}</p>,
+    table: ({ children }) => (
+        <table style={{ borderCollapse: "collapse", width: "100%" }}>{children}</table>
+    ),
+    th: ({ children }) => (
+        <th style={{ border: "1px solid #ccc", padding: "6px", textAlign: "left" }}>{children}</th>
+    ),
+    td: ({ children }) => <td style={{ border: "1px solid #ccc", padding: "6px" }}>{children}</td>,
+    tr: ({ children }) => <tr>{children}</tr>,
 }
 
-const parseLine = (line: string, idx: number): React.ReactNode => {
-    if (HR_REGEX.test(line)) return <hr key={idx} />
+const PLAIN_DOMAIN_REGEX =
+    /(?<![.\w@/])(\b[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,}(?:\/[^\s]*)?)(?![-@])/g
 
-    const heading = line.match(HEADING_REGEX)
-    if (heading) {
-        const level = heading[1].length as 1 | 2 | 3 | 4 | 5 | 6
-        const Tag = `h${level}` as `h${1 | 2 | 3 | 4 | 5 | 6}`
-        return (
-            <Tag key={idx} style={HEADING_STYLES[level]}>
-                {parseInline(heading[2], idx)}
-            </Tag>
-        )
-    }
+const remarkNoSetextHeadings = () => {}
+remarkNoSetextHeadings.data = {
+    micromarkExtensions: [{ disable: { null: ["setextUnderline"] } }],
+}
 
-    const blockquote = line.match(BLOCKQUOTE_REGEX)
-    if (blockquote)
-        return (
-            <blockquote
-                key={idx}
-                style={{
-                    borderLeft: "3px solid #ccc",
-                    paddingLeft: "0.75em",
-                    margin: "0.25em 0",
-                    color: "#666",
-                }}
-            >
-                {parseInline(blockquote[1], idx)}
-            </blockquote>
-        )
+const preprocessText = (text: string): string => {
+    const withLinks = text.replace(PLAIN_DOMAIN_REGEX, (match) => `[${match}](https://${match})`)
+    const withBreaks = "\n" + withLinks + "\n"
 
-    const ul = line.match(UNORDERED_LIST_REGEX)
-    if (ul)
-        return (
-            <ul
-                key={idx}
-                style={{ listStyleType: "disc", paddingLeft: "1.5em", margin: "0.25em 0" }}
-            >
-                <li>{parseInline(ul[1], idx)}</li>
-            </ul>
-        )
+    return withBreaks.replace(/\n\n+/g, (match) => {
+        const numNewlines = match.length
+        const numBlankLines = Math.ceil(numNewlines / 2) - 1
 
-    const ol = line.match(ORDERED_LIST_REGEX)
-    if (ol)
-        return (
-            <ol
-                key={idx}
-                start={Number(ol[1])}
-                style={{ listStyleType: "decimal", paddingLeft: "1.5em", margin: "0.25em 0" }}
-            >
-                <li>{parseInline(ol[2], idx)}</li>
-            </ol>
-        )
-
-    if (line === "") return <br key={idx} />
-
-    return <p key={idx}>{parseInline(line, idx)}</p>
+        if (numBlankLines <= 0) return "\n\n"
+        return "\n\n" + "&nbsp;\n\n".repeat(numBlankLines)
+    })
 }
 
 const TextAutoLink = ({ text }: { text: string }) => (
-    <>{text.split(/\r?\n/).map((line, idx) => parseLine(line, idx))}</>
+    <>
+        <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkBreaks, remarkNoSetextHeadings]}
+            rehypePlugins={[rehypeRaw]}
+            components={components}
+        >
+            {preprocessText(text)}
+        </ReactMarkdown>
+    </>
 )
 
 export default TextAutoLink
