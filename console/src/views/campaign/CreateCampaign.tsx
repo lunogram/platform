@@ -67,7 +67,7 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
             description: t("channels.email.description"),
         },
         {
-            key: "text",
+            key: "sms",
             color: "bg-blue-50 text-blue-600",
             icon: <Smartphone strokeWidth={2} />,
             title: t("channels.sms.title"),

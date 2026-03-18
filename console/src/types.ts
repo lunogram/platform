@@ -337,7 +337,7 @@ export interface Project {
     lists_count?: number
 }
 
-export type ChannelType = "email" | "push" | "text"
+export type ChannelType = "email" | "push" | "sms"
 
 export type ProjectCreate = Omit<Project, "id" | AuditFields>
 
@@ -643,7 +643,7 @@ export type Template = {
           data: EmailTemplateData
       }
     | {
-          type: "text"
+          type: "sms"
           data: TextTemplateData
       }
     | {
@@ -705,7 +705,7 @@ export interface Subscription {
 export type SubscriptionCreateParams = Pick<Subscription, "name" | "channel" | "is_public">
 export type SubscriptionUpdateParams = Pick<SubscriptionCreateParams, "name" | "is_public">
 
-export type ProviderGroup = "email" | "text" | "push"
+export type ProviderGroup = "email" | "sms" | "push"
 
 export interface Image {
     id: UUID

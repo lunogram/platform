@@ -44,7 +44,7 @@ const (
 const (
 	ChannelEmail Channel = "email"
 	ChannelPush  Channel = "push"
-	ChannelText  Channel = "text"
+	ChannelSms   Channel = "sms"
 )
 
 // Defines values for CreateListType.
@@ -926,8 +926,8 @@ type SendTest struct {
 	// Props Optional template variables/props for rendering
 	Props *map[string]interface{} `json:"props,omitempty"`
 
-	// To The recipient address to send the test to
-	To openapi_types.Email `json:"to"`
+	// To The recipient address or phone number to send the test to
+	To string `json:"to"`
 }
 
 // SenderIdentity defines model for SenderIdentity.

@@ -18,7 +18,7 @@ export const channels: Partial<Record<ChannelType, ChannelConfig<any>>> = {
         Preview: EmailPreview,
         ContentPreview: EmailContentPreview,
     },
-    text: {
+    sms: {
         form: TextForm,
         FormControl: TextFormControl,
         Preview: TextPreview,

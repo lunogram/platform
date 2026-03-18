@@ -71,7 +71,7 @@ export default function Preview({ template, size = "large" }: PreviewProps) {
     let preview: ReactNode = null
     if (type === "email") {
         preview = <EmailPreviewContent data={data} size={size} />
-    } else if (type === "text") {
+    } else if (type === "sms") {
         preview = (
             <div className="text-frame phone-frame">
                 <div className="text-frame-header">

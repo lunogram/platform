@@ -140,7 +140,7 @@ export default function IntegrationSetup() {
         return { ...rawSchema, properties: filtered }
     }, [meta])
 
-    const senderIdentityChannel = effectiveChannel === "text" ? "sms" : effectiveChannel
+    const senderIdentityChannel = effectiveChannel
 
     const form = useForm<ProviderFormValues>({
         values: provider

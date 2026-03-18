@@ -116,6 +116,13 @@ export function SenderIdentityCombobox({
         fetchedRef.current = false
     }, [projectId, providerId, channel])
 
+    // Fetch on mount when a value is already set so the display resolves
+    React.useEffect(() => {
+        if (value && !fetchedRef.current) {
+            fetchIdentities()
+        }
+    }, [value, fetchIdentities])
+
     // Fetch when popover opens, reset view
     React.useEffect(() => {
         if (open) {

@@ -4144,7 +4144,7 @@ paths:
           required: true
           schema:
             type: string
-          description: The provider group (email, text, push)
+          description: The provider group (email, sms, push)
         - name: type
           in: path
           required: true
@@ -4189,7 +4189,7 @@ paths:
           required: true
           schema:
             type: string
-          description: The provider group (email, text, push)
+          description: The provider group (email, sms, push)
         - name: type
           in: path
           required: true
@@ -4233,7 +4233,7 @@ paths:
           required: true
           schema:
             type: string
-          description: The provider group (email, text, push)
+          description: The provider group (email, sms, push)
         - name: type
           in: path
           required: true
@@ -4512,7 +4512,7 @@ components:
   schemas:
     Channel:
       type: string
-      enum: [email, text, push]
+      enum: [email, sms, push]
       description: Communication channel type
       example: email
 
@@ -5213,9 +5213,8 @@ components:
       properties:
         to:
           type: string
-          format: email
           example: "test@example.com"
-          description: The recipient address to send the test to
+          description: The recipient address or phone number to send the test to
         props:
           type: object
           additionalProperties: true

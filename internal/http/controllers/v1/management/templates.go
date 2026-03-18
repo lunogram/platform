@@ -14,6 +14,7 @@ import (
 	"github.com/lunogram/platform/internal/providers/channels"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/management"
 
 	"go.uber.org/zap"
@@ -369,7 +370,6 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 
 	templateData := template.Data
 
-	// Email-specific: compile and render React Email source code.
 	if campaign.Channel == "email" {
 		templateData, err = channels.ComposeEmailTemplateData(ctx, srv.renderer, projectID, templateData, props)
 		if err != nil {
@@ -377,6 +377,13 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to compose email template")))
 			return
 		}
+	}
+
+	templateData, err = render.RenderJSON(templateData, props)
+	if err != nil {
+		logger.Error("failed to render template data", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to render template data")))
+		return
 	}
 
 	var config map[string]any

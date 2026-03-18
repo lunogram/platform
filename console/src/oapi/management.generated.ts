@@ -1771,7 +1771,7 @@ export interface components {
          * @example email
          * @enum {string}
          */
-        Channel: "email" | "text" | "push";
+        Channel: "email" | "sms" | "push";
         /**
          * @description Type of action (module ID from registered action modules)
          * @example webhook
@@ -2271,8 +2271,7 @@ export interface components {
         };
         SendTest: {
             /**
-             * Format: email
-             * @description The recipient address to send the test to
+             * @description The recipient address or phone number to send the test to
              * @example test@example.com
              */
             to: string;
@@ -7157,7 +7156,7 @@ export interface operations {
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The provider group (email, text, push) */
+                /** @description The provider group (email, sms, push) */
                 group: string;
                 /** @description The provider module type (e.g., resend, twilio) */
                 type: string;
@@ -7189,7 +7188,7 @@ export interface operations {
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The provider group (email, text, push) */
+                /** @description The provider group (email, sms, push) */
                 group: string;
                 /** @description The provider module type */
                 type: string;
@@ -7219,7 +7218,7 @@ export interface operations {
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The provider group (email, text, push) */
+                /** @description The provider group (email, sms, push) */
                 group: string;
                 /** @description The provider module type */
                 type: string;
