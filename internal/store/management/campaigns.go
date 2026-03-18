@@ -43,6 +43,16 @@ type Campaign struct {
 	DeletedAt      *time.Time                     `db:"deleted_at"`
 }
 
+	
+ func normalizeChannelToOAPI(channel string) oapi.Channel {
+ 	switch channel {
+ 	case "sms":
+ 		return oapi.ChannelText
+ 	default:
+ 		return oapi.Channel(channel)
+ 	}
+ }
+
 func (campaign Campaign) OAPI() oapi.Campaign {
 	variables := make([]oapi.CampaignVariable, len(campaign.Variables.Data))
 	for i, v := range campaign.Variables.Data {
@@ -56,7 +66,7 @@ func (campaign Campaign) OAPI() oapi.Campaign {
 		Id:             campaign.ID,
 		ProjectId:      campaign.ProjectID,
 		Name:           campaign.Name,
-		Channel:        oapi.Channel(campaign.Channel),
+		Channel:        normalizeChannelToOAPI(campaign.Channel),
 		SubscriptionId: campaign.SubscriptionID,
 		Transactional:  campaign.Transactional,
 		Delivery:       campaign.Delivery.Data.OAPI(),

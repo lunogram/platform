@@ -35,11 +35,14 @@ type CampaignsController struct {
 }
 
 func normalizeCampaignChannel(channel string) string {
-	if channel == "sms" {
-		return "text"
+	switch channel {
+ 		case "sms", "text":
+ 		// Canonicalize SMS/text channels to the internal "sms" representation.
+ 		return "sms"
+ 	default:
+ 		return channel
 	}
 
-	return channel
 }
 
 func channelsCompatible(campaignChannel, subscriptionChannel string) bool {
