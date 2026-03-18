@@ -181,8 +181,6 @@ func (srv *ProjectsController) CreateProject(w http.ResponseWriter, r *http.Requ
 		Locale:            body.Locale,
 		TextOptOutMessage: body.TextOptOutMessage,
 		TextHelpMessage:   body.TextHelpMessage,
-		LinkWrapEmail:     body.LinkWrapEmail != nil && *body.LinkWrapEmail,
-		LinkWrapPush:      body.LinkWrapPush != nil && *body.LinkWrapPush,
 	})
 	if err != nil {
 		logger.Error("failed to create project", zap.Error(err))
@@ -330,8 +328,6 @@ func (srv *ProjectsController) UpdateProject(w http.ResponseWriter, r *http.Requ
 		Locale:            body.Locale,
 		TextOptOutMessage: body.TextOptOutMessage,
 		TextHelpMessage:   body.TextHelpMessage,
-		LinkWrapEmail:     body.LinkWrapEmail,
-		LinkWrapPush:      body.LinkWrapPush,
 	}
 
 	err = srv.store.UpdateProject(ctx, projectID, update)

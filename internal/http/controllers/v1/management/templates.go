@@ -59,24 +59,28 @@ func (t templateDataEnvelope) MarshalJSON() ([]byte, error) {
 	return json.Marshal(merged)
 }
 
-func NewTemplatesController(logger *zap.Logger, db *sqlx.DB, renderer *pubsub.EmailRenderer, registry *providers.Registry, engine *rbac.Engine) *TemplatesController {
+func NewTemplatesController(logger *zap.Logger, db *sqlx.DB, renderer *pubsub.EmailRenderer, registry *providers.Registry, engine *rbac.Engine, linkKey []byte, trackingURL string) *TemplatesController {
 	return &TemplatesController{
-		logger:   logger,
-		db:       db,
-		store:    management.NewState(db),
-		renderer: renderer,
-		registry: registry,
-		engine:   engine,
+		logger:      logger,
+		db:          db,
+		store:       management.NewState(db),
+		renderer:    renderer,
+		registry:    registry,
+		engine:      engine,
+		linkKey:     linkKey,
+		trackingURL: trackingURL,
 	}
 }
 
 type TemplatesController struct {
-	logger   *zap.Logger
-	db       *sqlx.DB
-	store    *management.State
-	renderer *pubsub.EmailRenderer
-	registry *providers.Registry
-	engine   *rbac.Engine
+	logger      *zap.Logger
+	db          *sqlx.DB
+	store       *management.State
+	renderer    *pubsub.EmailRenderer
+	registry    *providers.Registry
+	engine      *rbac.Engine
+	linkKey     []byte
+	trackingURL string
 }
 
 func (srv *TemplatesController) GetTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
@@ -402,7 +406,26 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	request, err := channels.ComposePayload(ctx, campaign.Channel, templateSender, providerDefaultSender, config, templateData, string(body.To))
+	var wrapper *channels.LinkWrapConfig
+	if len(srv.linkKey) > 0 && srv.trackingURL != "" && provider.LinkWrap {
+		wrapper = &channels.LinkWrapConfig{
+			Key:         srv.linkKey,
+			TrackingURL: srv.trackingURL,
+			ProjectID:   projectID,
+			CampaignID:  campaignID,
+		}
+
+		// TODO: we might want to create a type for props
+		props, ok := props["user"].(map[string]any)
+		if ok {
+			id, ok := props["id"].(string)
+			if ok {
+				wrapper.UserID, _ = uuid.Parse(id)
+			}
+		}
+	}
+
+	request, err := channels.ComposePayload(ctx, logger, campaign.Channel, templateSender, providerDefaultSender, config, templateData, string(body.To), wrapper)
 	if err != nil {
 		logger.Error("failed to compose payload", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(err.Error())))

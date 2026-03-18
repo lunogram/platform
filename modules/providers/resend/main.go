@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,14 +12,13 @@ import (
 	pdkhttp "github.com/extism/go-pdk/http"
 	"github.com/lunogram/platform/pkg/modules"
 	"github.com/lunogram/platform/pkg/modules/providers"
-	"github.com/resend/resend-go/v3"
 )
+
+const resendAPIURL = "https://api.resend.com/emails"
 
 // safeTransport wraps the Extism HTTPTransport to guarantee that resp.Body is
 // never nil. The standard http.Client contract promises a non-nil Body, but the
-// Extism PDK transport can return nil when the response has no content. Third-
-// party libraries like the Resend SDK call resp.Body.Close() unconditionally,
-// which causes a nil-panic in WASM without this wrapper.
+// Extism PDK transport can return nil when the response has no content.
 type safeTransport struct {
 	inner http.RoundTripper
 }
@@ -90,6 +89,33 @@ type Config struct {
 	APIKey string `json:"apiKey"`
 }
 
+// resendEmailRequest is the JSON body for POST https://api.resend.com/emails.
+// Only the fields we use are included — no interface{} types that would trigger
+// TinyGo reflectlite panics.
+type resendEmailRequest struct {
+	From    string            `json:"from"`
+	To      []string          `json:"to"`
+	Subject string            `json:"subject"`
+	HTML    string            `json:"html,omitempty"`
+	Text    string            `json:"text,omitempty"`
+	Cc      []string          `json:"cc,omitempty"`
+	Bcc     []string          `json:"bcc,omitempty"`
+	ReplyTo string            `json:"reply_to,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+}
+
+// resendEmailResponse is the success response from the Resend API.
+type resendEmailResponse struct {
+	ID string `json:"id"`
+}
+
+// resendErrorResponse is the error response from the Resend API.
+type resendErrorResponse struct {
+	StatusCode int    `json:"statusCode"`
+	Name       string `json:"name"`
+	Message    string `json:"message"`
+}
+
 //go:export send
 func Send() int32 {
 	var req providers.SendRequest[Config]
@@ -123,45 +149,76 @@ func Send() int32 {
 		return exitPermanent
 	}
 
-	// Create HTTP client for WASM
-	httpClient := &http.Client{
-		Transport: &safeTransport{inner: &pdkhttp.HTTPTransport{}},
-	}
-
-	client := resend.NewCustomClient(httpClient, req.Config.APIKey)
-
-	params := &resend.SendEmailRequest{
+	// Build Resend API request body
+	body := resendEmailRequest{
 		From:    formatAddress(email.From),
 		To:      []string{email.To},
-		Html:    email.HTML,
 		Subject: email.Subject,
+		HTML:    email.HTML,
+		Text:    email.Text,
 		Headers: email.Headers,
 	}
 
 	if email.Cc != nil {
-		params.Cc = []string{*email.Cc}
+		body.Cc = []string{*email.Cc}
 	}
 
 	if email.Bcc != nil {
-		params.Bcc = []string{*email.Bcc}
+		body.Bcc = []string{*email.Bcc}
 	}
 
 	if email.ReplyTo != nil {
-		params.ReplyTo = *email.ReplyTo
+		body.ReplyTo = *email.ReplyTo
 	}
 
-	if email.Text != "" {
-		params.Text = email.Text
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		pdk.SetError(fmt.Errorf("failed to marshal request: %w", err))
+		return exitPermanent
 	}
 
-	sent, err := client.Emails.Send(params)
+	// Create HTTP request
+	httpReq, err := http.NewRequest(http.MethodPost, resendAPIURL, bytes.NewReader(jsonBody))
+	if err != nil {
+		pdk.SetError(fmt.Errorf("failed to create request: %w", err))
+		return exitPermanent
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+req.Config.APIKey)
+
+	// Send via Extism PDK transport
+	httpClient := &http.Client{
+		Transport: &safeTransport{inner: &pdkhttp.HTTPTransport{}},
+	}
+
+	resp, err := httpClient.Do(httpReq)
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to send email: %w", err))
-		return classifyError(err)
+		return exitTransient
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		pdk.SetError(fmt.Errorf("failed to read response: %w", err))
+		return exitTransient
+	}
+
+	// Handle error responses
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return handleErrorResponse(resp.StatusCode, respBody)
+	}
+
+	// Parse success response
+	var resendResp resendEmailResponse
+	if err := json.Unmarshal(respBody, &resendResp); err != nil {
+		pdk.SetError(fmt.Errorf("failed to parse response: %w", err))
+		return exitTransient
 	}
 
 	response := providers.SendResponse{
-		ID:     sent.Id,
+		ID:     resendResp.ID,
 		Status: "sent",
 	}
 
@@ -191,33 +248,32 @@ const (
 	exitPermanent int32 = -2
 )
 
-// classifyError maps a Resend SDK error to an exit code.
-//
-// The Resend Go SDK (v3) exposes only *RateLimitError as a typed error;
-// all other API errors (400, 401, 403, 422, 500, etc.) are returned as
-// plain errors with message format "[ERROR]: <message>".
+// handleErrorResponse maps a Resend API error response to an exit code.
 //
 // Classification:
-//   - *RateLimitError (429)         → transient (retry later)
-//   - "[ERROR]: " validation msgs  → permanent (will never succeed)
-//   - Everything else (network, unknown) → transient (safe default)
-func classifyError(err error) int32 {
-	// Rate limit → always transient.
-	var rateLimitErr *resend.RateLimitError
-	if errors.As(err, &rateLimitErr) {
+//   - 429 (rate limit)              → transient (retry later)
+//   - 500+ (server error)           → transient (retry later)
+//   - 400, 401, 403, 422 (client)   → permanent (will never succeed)
+func handleErrorResponse(statusCode int, body []byte) int32 {
+	var errResp resendErrorResponse
+	if err := json.Unmarshal(body, &errResp); err != nil {
+		// Can't parse error body — use status code only.
+		msg := fmt.Sprintf("resend API error (HTTP %d): %s", statusCode, string(body))
+		pdk.SetError(fmt.Errorf("%s", msg))
+	} else {
+		pdk.SetError(fmt.Errorf("resend API error (HTTP %d): %s: %s", statusCode, errResp.Name, errResp.Message))
+	}
+
+	switch {
+	case statusCode == 429:
+		return exitTransient
+	case statusCode >= 500:
+		return exitTransient
+	case strings.HasPrefix(fmt.Sprintf("%d", statusCode), "4"):
+		return exitPermanent
+	default:
 		return exitTransient
 	}
-
-	msg := err.Error()
-
-	// Resend API 400/422 errors follow the "[ERROR]: " prefix pattern.
-	// These are validation failures that will never succeed on retry.
-	if strings.Contains(msg, "[ERROR]: ") {
-		return exitPermanent
-	}
-
-	// Default to transient for unknown/network errors.
-	return exitTransient
 }
 
 func main() {}

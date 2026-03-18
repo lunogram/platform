@@ -3,11 +3,11 @@ import { useNavigate } from "react-router"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, ArrowRight, Puzzle, Search } from "lucide-react"
 
-import api from "../../api"
+import oapiClient from "@/oapi/client"
+import type { ProviderMeta } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
-import type { ProviderMeta } from "../../types"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -24,7 +24,15 @@ export default function NewIntegration() {
     const [searchQuery, setSearchQuery] = useState("")
 
     const [options] = useResolver(
-        useCallback(async () => await api.providers.options(project.id), [project]),
+        useCallback(async () => {
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/providers/meta",
+                {
+                    params: { path: { projectID: project.id } },
+                },
+            )
+            return data
+        }, [project]),
     )
 
     const filteredOptions = useMemo(() => {

@@ -2,12 +2,13 @@ import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { ChevronLeft } from "lucide-react"
-import api from "../../api"
+import oapiClient from "@/oapi/client"
+import type { Provider, ProviderMeta, CreateProvider } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
-import type { Project, Provider, ProviderCreateParams, ProviderMeta } from "../../types"
-import type { SchemaProperty } from "@/components/schema-fields"
+import type { Project } from "../../types"
+import type { Schema } from "@/components/schema-fields"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,11 +23,28 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { FormSchemaFields } from "@/components/schema-fields"
+
+type ProviderWithExtras = Provider & {
+    setup?: { name: string; value: string }[]
+    external_id?: string
+}
+
 interface IntegrationFormParams {
     project: Project
     meta: ProviderMeta
-    provider?: Provider
+    provider?: ProviderWithExtras
     onChange: (provider: Provider) => void
+}
+
+type ProviderFormValues = CreateProvider & { module: string; channel: string }
+
+function extractDataSchema(meta: ProviderMeta): Schema | undefined {
+    const schema = meta.schema as unknown as Schema | undefined
+    if (!schema?.properties) return undefined
+    if (Array.isArray(schema.properties)) {
+        return schema.properties.find((p) => p.name === "data")?.schema
+    }
+    return (schema.properties as Record<string, Schema>).data
 }
 
 export function IntegrationForm({
@@ -36,7 +54,7 @@ export function IntegrationForm({
     meta,
 }: IntegrationFormParams) {
     const { t } = useTranslation()
-    const [provider, setProvider] = useState<Provider | undefined>(defaultProvider)
+    const [provider, setProvider] = useState<ProviderWithExtras | undefined>(defaultProvider)
     const [isSaving, setIsSaving] = useState(false)
 
     const module = meta.type
@@ -44,46 +62,87 @@ export function IntegrationForm({
 
     useEffect(() => {
         if (defaultProvider) {
-            api.providers
-                .get(
-                    project.id,
-                    defaultProvider.channel,
-                    defaultProvider.module,
-                    defaultProvider.id,
-                )
-                .then((provider) => setProvider(provider))
+            oapiClient
+                .GET("/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}", {
+                    params: {
+                        path: {
+                            projectID: project.id,
+                            group: defaultProvider.channel,
+                            type: defaultProvider.module,
+                            providerID: defaultProvider.id,
+                        },
+                    },
+                })
+                .then(({ data }) => {
+                    if (data) setProvider(data as ProviderWithExtras)
+                })
                 .catch(() => {})
         }
     }, [project.id, defaultProvider])
 
-    const form = useForm<ProviderCreateParams>({
+    const form = useForm<ProviderFormValues>({
         values: provider
             ? {
                   name: provider.name,
                   data: provider.data,
                   module,
                   channel,
+                  link_wrap: provider.link_wrap ?? true,
               }
-            : { name: "", data: {}, module, channel },
+            : { name: "", data: {}, module, channel, link_wrap: true },
     })
 
-    const handleSubmit = async (values: ProviderCreateParams) => {
+    const handleSubmit = async (values: ProviderFormValues) => {
         setIsSaving(true)
         try {
-            const params = { ...values, module, channel }
-            const result = provider?.id
-                ? await api.providers.update(project.id, provider.id, params)
-                : await api.providers.create(project.id, params)
-            onChange(result)
+            const { name, data, is_default, link_wrap } = values
+            const body = { name, data, is_default, link_wrap }
+            let result: Provider | undefined
+            if (provider?.id) {
+                const { data: updated } = await oapiClient.PATCH(
+                    "/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}",
+                    {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                group: channel,
+                                type: module,
+                                providerID: provider.id,
+                            },
+                        },
+                        body,
+                    },
+                )
+                result = updated
+            } else {
+                const { data: created } = await oapiClient.POST(
+                    "/api/admin/projects/{projectID}/providers/{group}/{type}",
+                    {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                group: channel,
+                                type: module,
+                            },
+                        },
+                        body,
+                    },
+                )
+                result = created
+            }
+            if (result) onChange(result)
         } finally {
             setIsSaving(false)
         }
     }
 
+    const dataSchema = extractDataSchema(meta)
+
     return (
         <form onSubmit={form.handleSubmit(handleSubmit)} className="grid gap-4">
             {provider?.id ? (
-                provider?.setup?.length > 0 && (
+                provider?.setup &&
+                provider.setup.length > 0 && (
                     <>
                         <h4 className="text-sm font-medium">{t("details", "Details")}</h4>
                         {provider.setup.map((item) => (
@@ -115,16 +174,7 @@ export function IntegrationForm({
                 <Input {...form.register("name", { required: true })} />
             </div>
 
-            <FormSchemaFields
-                parent="data"
-                schema={
-                    Array.isArray(meta.schema.properties)
-                        ? meta.schema.properties.find((p: SchemaProperty) => p.name === "data")
-                              ?.schema
-                        : meta.schema.properties?.data
-                }
-                form={form}
-            />
+            {dataSchema && <FormSchemaFields parent="data" schema={dataSchema} form={form} />}
 
             <DialogFooter className="pt-2">
                 <Button type="submit" disabled={isSaving}>
@@ -138,10 +188,11 @@ export function IntegrationForm({
         </form>
     )
 }
+
 interface IntegrationModalProps {
     open: boolean
     onClose: (open: boolean) => void
-    provider?: Provider
+    provider?: ProviderWithExtras
     onChange: (provider: Provider) => void
 }
 
@@ -154,7 +205,15 @@ export default function IntegrationModal({
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const [options] = useResolver(
-        useCallback(async () => await api.providers.options(project.id), [project]),
+        useCallback(async () => {
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/providers/meta",
+                {
+                    params: { path: { projectID: project.id } },
+                },
+            )
+            return data
+        }, [project]),
     )
     const [meta, setMeta] = useState<ProviderMeta | undefined>()
 

@@ -133,7 +133,13 @@ func run() error {
 	pub := pubsub.NewPublisher(jet, conf.Nats.Namespace)
 	req := pubsub.NewCaller(jet, conf.Nats.Namespace)
 	ns := consumer.Namespace(conf.Nats.Namespace)
-	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, conf.PublicURL)
+
+	trackingURL := conf.Link.TrackingBaseURL()
+	linkKey := conf.Link.SecretBytes()
+
+	logger.Info("link wrapping enabled", zap.String("tracking_url", trackingURL))
+
+	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, conf.PublicURL, linkKey, trackingURL)
 
 	logger.Info("initializing cluster")
 

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"github.com/lunogram/platform/internal/claim"
@@ -22,6 +23,7 @@ type Node struct {
 	Nats       Nats        `envPrefix:"NATS_"`
 	WASM       WASM        `envPrefix:"WASM_"`
 	Webhook    Webhook     `envPrefix:"WEBHOOK_"`
+	Link       Link        `envPrefix:"LINK_"`
 	RBAC       rbac.Config `envPrefix:"RBAC_"`
 	Enterprise Enterprise
 	HTTP       http.Config
@@ -80,4 +82,35 @@ type Webhook struct {
 	EmailTemplatesURL string `env:"EMAIL_TEMPLATES_URL"`
 	// EmailTemplatesTimeout is the HTTP timeout for the email templates webhook call
 	EmailTemplatesTimeout time.Duration `env:"EMAIL_TEMPLATES_TIMEOUT" envDefault:"10s"`
+}
+
+// Link holds the configuration for self-hosted click tracking.
+// Both Secret (a 64-char hex string encoding a 32-byte AES-256 key) and
+// TrackingURL (the public base URL for the redirect endpoint) must be set
+// for link wrapping to be active.
+type Link struct {
+	// Secret is a 32-byte key encoded, used for
+	// AES-256-GCM encryption of click-tracking tokens.
+	Secret string `env:"SECRET"`
+	// TrackingURL is the public base URL where the redirect endpoint is
+	// reachable (e.g. "https://t.example.com"). When empty, the platform's
+	// PublicURL is used instead.
+	TrackingURL string `env:"TRACKING_URL"`
+}
+
+// SecretBytes decodes the hex-encoded secret into raw bytes.
+func (l Link) SecretBytes() []byte {
+	if l.Secret == "" {
+		return nil
+	}
+
+	key := make([]byte, 32)
+	copy(key, []byte(l.Secret))
+	return key
+}
+
+// TrackingBaseURL returns the base URL for click-tracking redirects,
+// with any trailing slash removed.
+func (l Link) TrackingBaseURL() string {
+	return strings.TrimRight(l.TrackingURL, "/")
 }

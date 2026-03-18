@@ -176,10 +176,15 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 		Channel:   string(channel),
 		Name:      body.Name,
 		Data:      data,
+		LinkWrap:  true,
 	}
 
 	if body.IsDefault != nil {
 		provider.IsDefault = *body.IsDefault
+	}
+
+	if body.LinkWrap != nil {
+		provider.LinkWrap = *body.LinkWrap
 	}
 
 	providerID, err := srv.store.ProvidersStore.CreateProvider(ctx, provider)
@@ -268,6 +273,7 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 		Name:      body.Name,
 		Data:      body.Data,
 		IsDefault: body.IsDefault,
+		LinkWrap:  body.LinkWrap,
 	}
 
 	err = srv.store.ProvidersStore.UpdateProvider(ctx, projectID, providerID, update)

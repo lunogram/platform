@@ -1,17 +1,20 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { useForm } from "react-hook-form"
+import type { FieldPath } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft } from "lucide-react"
 
-import api from "../../api"
+import oapiClient from "@/oapi/client"
+import type { Provider, ProviderMeta, CreateProvider } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
-import type { Provider, ProviderCreateParams, ProviderMeta } from "../../types"
-import type { SchemaProperty } from "@/components/schema-fields"
+import type { SchemaProperty, Schema } from "@/components/schema-fields"
 import { isEnterprise } from "@/config/enterprise"
 
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Field, FieldLabel } from "@/components/ui/field"
@@ -20,6 +23,13 @@ import { StaggeredMosaic } from "@/components/icon-mosaic"
 import { DomainManager } from "./Domains"
 
 import { SenderIdentityList } from "@/components/sender-identity-list"
+
+type ProviderWithExtras = Provider & {
+    setup?: { name: string; value: string }[]
+    external_id?: string
+}
+
+type ProviderFormValues = CreateProvider & { module: string; channel: string }
 
 /**
  * Handles both creating and editing integrations:
@@ -36,27 +46,51 @@ export default function IntegrationSetup() {
     const { channel, module: moduleName, id } = useParams()
     const isEdit = !!id && id !== "new"
 
-    const [provider, setProvider] = useState<Provider | undefined>()
+    const [provider, setProvider] = useState<ProviderWithExtras | undefined>()
     const [isSaving, setIsSaving] = useState(false)
     const [listKey] = useState(0)
 
     // Load all provider metas to find the schema
     const [options] = useResolver(
-        useCallback(async () => await api.providers.options(project.id), [project]),
+        useCallback(async () => {
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/providers/meta",
+                {
+                    params: { path: { projectID: project.id } },
+                },
+            )
+            return data
+        }, [project]),
     )
 
     // For edit mode: load the existing provider
     useEffect(() => {
         if (isEdit && id) {
-            api.providers
-                .search(project.id, { limit: 100 } as any)
-                .then((result) => {
-                    const found = result?.results?.find((p: Provider) => p.id === id)
+            oapiClient
+                .GET("/api/admin/projects/{projectID}/providers", {
+                    params: {
+                        path: { projectID: project.id },
+                        query: { limit: 100 },
+                    },
+                })
+                .then(({ data }) => {
+                    const found = data?.results?.find((p) => p.id === id)
                     if (found) {
-                        // Fetch full provider details
-                        api.providers
-                            .get(project.id, found.channel, found.module, found.id)
-                            .then((full) => setProvider(full))
+                        oapiClient
+                            .GET(
+                                "/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}",
+                                {
+                                    params: {
+                                        path: {
+                                            projectID: project.id,
+                                            group: found.channel,
+                                            type: found.module,
+                                            providerID: found.id,
+                                        },
+                                    },
+                                },
+                            )
+                            .then(({ data: full }) => setProvider(full ?? found))
                             .catch(() => setProvider(found))
                     } else {
                         navigate(`/projects/${project.id}/integrations`)
@@ -85,55 +119,90 @@ export default function IntegrationSetup() {
     // Strip any legacy default_from* fields from the schema so they aren't
     // rendered as generic form inputs — sender identity is handled by a
     // dedicated component based on the channel.
-    const dataSchema = useMemo(() => {
-        const rawSchema = Array.isArray(meta?.schema?.properties)
-            ? meta?.schema?.properties?.find((p: SchemaProperty) => p.name === "data")?.schema
-            : meta?.schema?.properties?.data
+    const dataSchema = useMemo((): Schema | undefined => {
+        const schema = meta?.schema as unknown as Schema | undefined
+        if (!schema?.properties) return undefined
+
+        const rawSchema = Array.isArray(schema.properties)
+            ? schema.properties.find((p) => p.name === "data")?.schema
+            : (schema.properties as Record<string, Schema>).data
         if (!rawSchema?.properties) return rawSchema
 
         const senderKeys = new Set(["default_from"])
-        const props = Array.isArray(rawSchema.properties)
+        const props: SchemaProperty[] = Array.isArray(rawSchema.properties)
             ? rawSchema.properties
-            : Object.entries(rawSchema.properties).map(([name, schema]: [string, any]) => ({
-                  name,
-                  schema,
-              }))
+            : Object.entries(rawSchema.properties as Record<string, Schema>).map(
+                  ([name, propSchema]) => ({
+                      name,
+                      schema: propSchema,
+                  }),
+              )
 
-        const filtered = props.filter((p: any) => !senderKeys.has(p.name))
+        const filtered = props.filter((p) => !senderKeys.has(p.name))
 
         return { ...rawSchema, properties: filtered }
     }, [meta])
 
     const senderIdentityChannel = effectiveChannel === "text" ? "sms" : effectiveChannel
 
-    const form = useForm<ProviderCreateParams>({
+    const form = useForm<ProviderFormValues>({
         values: provider
             ? {
                   name: provider.name,
                   data: provider.data,
                   module: effectiveModule ?? "",
                   channel: effectiveChannel ?? "",
+                  link_wrap: provider?.link_wrap ?? false,
               }
             : {
                   name: "",
                   data: {},
                   module: effectiveModule ?? "",
                   channel: effectiveChannel ?? "",
+                  link_wrap: true,
               },
     })
 
-    const handleSubmit = async (values: ProviderCreateParams) => {
+    const handleSubmit = async (values: ProviderFormValues) => {
         if (isExternal) return
         if (!effectiveChannel || !effectiveModule) return
         setIsSaving(true)
         try {
-            const params = { ...values, module: effectiveModule, channel: effectiveChannel }
+            const { name, data, is_default, link_wrap } = values
+            const body = { name, data, is_default, link_wrap }
             if (isEdit && provider?.id) {
-                await api.providers.update(project.id, provider.id, params)
+                await oapiClient.PATCH(
+                    "/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}",
+                    {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                group: effectiveChannel,
+                                type: effectiveModule,
+                                providerID: provider.id,
+                            },
+                        },
+                        body,
+                    },
+                )
             } else {
-                const created = await api.providers.create(project.id, params)
-                navigate(`/projects/${project.id}/integrations/${created.id}`)
-                return
+                const { data: created } = await oapiClient.POST(
+                    "/api/admin/projects/{projectID}/providers/{group}/{type}",
+                    {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                group: effectiveChannel,
+                                type: effectiveModule,
+                            },
+                        },
+                        body,
+                    },
+                )
+                if (created) {
+                    navigate(`/projects/${project.id}/integrations/${created.id}`)
+                    return
+                }
             }
             navigate(`/projects/${project.id}/integrations`)
         } finally {
@@ -232,7 +301,7 @@ export default function IntegrationSetup() {
                     onSubmit={form.handleSubmit(handleSubmit)}
                     className="grid gap-6 max-w-2xl"
                 >
-                    {isEdit && provider?.setup?.length > 0 && (
+                    {isEdit && provider?.setup && provider.setup.length > 0 && (
                         <>
                             <h4 className="text-sm font-medium">{t("details", "Details")}</h4>
                             {provider.setup.map((item) => (
@@ -257,8 +326,35 @@ export default function IntegrationSetup() {
                         />
                     </Field>
 
-                    {!isExternal && (
+                    {!isExternal && dataSchema && (
                         <FormSchemaFields parent="data" schema={dataSchema} form={form} />
+                    )}
+
+                    {!isExternal && (
+                        <Controller
+                            control={form.control}
+                            name="link_wrap"
+                            render={({ field }) => (
+                                <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                                    <div className="space-y-0.5">
+                                        <Label htmlFor="link_wrap" className="text-sm font-medium">
+                                            {t("link_wrapping", "Link Wrapping")}
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t(
+                                                "link_wrapping_description",
+                                                "Wrap links in messages to track clicks.",
+                                            )}
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        id="link_wrap"
+                                        checked={!!field.value}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                </div>
+                            )}
+                        />
                     )}
                 </form>
 
@@ -270,11 +366,19 @@ export default function IntegrationSetup() {
                             projectId={project.id}
                             providerId={provider.id}
                             channel={senderIdentityChannel as "email" | "sms"}
-                            defaultFromId={form.watch("data.default_from")}
+                            defaultFromId={
+                                form.watch("data.default_from" as FieldPath<ProviderFormValues>) as
+                                    | string
+                                    | undefined
+                            }
                             onDefaultChange={(identityId) =>
-                                form.setValue("data.default_from", identityId, {
-                                    shouldDirty: true,
-                                })
+                                form.setValue(
+                                    "data.default_from" as FieldPath<ProviderFormValues>,
+                                    identityId,
+                                    {
+                                        shouldDirty: true,
+                                    },
+                                )
                             }
                         />
                     </div>

@@ -26,10 +26,6 @@ import type {
     ProjectAdminParams,
     ProjectApiKey,
     ProjectApiKeyParams,
-    Provider,
-    ProviderCreateParams,
-    ProviderMeta,
-    ProviderUpdateParams,
     Resource,
     RulePath,
     SearchParams,
@@ -580,42 +576,6 @@ const api = {
         SubscriptionCreateParams,
         SubscriptionUpdateParams
     >("subscriptions"),
-
-    providers: {
-        search: async (projectId: UUID, params: string) =>
-            await client
-                .get<SearchResult<Provider>>(`${projectUrl(projectId)}/providers`, { params })
-                .then((r) => r.data),
-        options: async (projectId: UUID) =>
-            await client
-                .get<ProviderMeta[]>(`${projectUrl(projectId)}/providers/meta`)
-                .then((r) => r.data),
-        get: async (projectId: UUID, channel: string, module: string, entityId: UUID) =>
-            await client
-                .get<Provider>(
-                    `${projectUrl(projectId)}/providers/${channel}/${module}/${entityId}`,
-                )
-                .then((r) => r.data),
-        create: async (projectId: UUID, { channel, module, ...provider }: ProviderCreateParams) =>
-            await client
-                .post<Provider>(`${projectUrl(projectId)}/providers/${channel}/${module}`, provider)
-                .then((r) => r.data),
-        update: async (
-            projectId: UUID,
-            entityId: UUID,
-            { channel, module, ...provider }: ProviderUpdateParams,
-        ) =>
-            await client
-                .patch<Provider>(
-                    `${projectUrl(projectId)}/providers/${channel}/${module}/${entityId}`,
-                    provider,
-                )
-                .then((r) => r.data),
-        delete: async (projectId: UUID, id: UUID) =>
-            await client
-                .delete<number>(`${projectUrl(projectId)}/providers/${id}`)
-                .then((r) => r.data),
-    },
 
     images: {
         ...createProjectEntityPath<Image>("documents"),

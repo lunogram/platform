@@ -24,7 +24,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 	controller := &Controller{
 		ProjectsController:         NewProjectsController(logger, managementDB, usersDB, journeyDB, webhookCaller, pub, engine),
 		CampaignsController:        NewCampaignsController(logger, managementDB, usersDB, engine),
-		TemplatesController:        NewTemplatesController(logger, managementDB, pubsub.NewEmailRenderer(req), registry, engine),
+		TemplatesController:        NewTemplatesController(logger, managementDB, pubsub.NewEmailRenderer(req), registry, engine, cfg.Link.SecretBytes(), cfg.Link.TrackingBaseURL()),
 		ActionsController:          NewActionsController(logger, managementDB, pubsub.NewActionCaller(req), usersDB, actionRegistry, engine),
 		AdminsController:           NewAdminsController(logger, managementDB, engine),
 		UsersController:            NewUsersController(logger, pub, usersDB, journeyDB, mgmt, cfg.Storage.MaxUploadSize, engine),

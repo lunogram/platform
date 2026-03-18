@@ -124,7 +124,7 @@ func buildRenderData(publicURL string, user *subjects.User, campaign *management
 	return data
 }
 
-func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, renderer *pubsub.EmailRenderer, publicURL string) HandlerFunc {
+func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, renderer *pubsub.EmailRenderer, publicURL string, linkKey []byte, trackingURL string) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		var event schemas.SendCampaign
 		if err := json.Unmarshal(msg.Data(), &event); err != nil {
@@ -209,17 +209,28 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 			return err
 		}
 
-		var opts *channels.ComposeOptions
+		opts := &channels.ComposeOptions{}
+
+		if len(linkKey) > 0 && trackingURL != "" && campaign.Provider != nil && campaign.Provider.LinkWrap {
+			opts.LinkWrap = &channels.LinkWrapConfig{
+				Key:         linkKey,
+				TrackingURL: trackingURL,
+				ProjectID:   event.ProjectID,
+				CampaignID:  event.CampaignID,
+				UserID:      event.UserID,
+			}
+		}
+
 		if providers.Channel(campaign.Channel) == providers.ChannelPush {
 			userDevices, err := usrs.ListDevicesByUser(ctx, event.ProjectID, event.UserID)
 			if err != nil {
 				logger.Error("failed to get user devices", zap.Error(err))
 				return err
 			}
-			opts = &channels.ComposeOptions{Devices: userDevices}
+			opts.Devices = userDevices
 		}
 
-		request, err := channels.Compose(ctx, providers.Channel(campaign.Channel), templateSender, providerDefaultSender, config, template, user, opts)
+		request, err := channels.Compose(ctx, logger, providers.Channel(campaign.Channel), templateSender, providerDefaultSender, config, template, user, opts)
 		if err != nil {
 			logger.Error("failed to compose request", zap.Error(err))
 			// Compose errors are configuration/validation issues (e.g. "user has no email address",

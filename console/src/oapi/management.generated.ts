@@ -2159,10 +2159,6 @@ export interface components {
             text_opt_out_message?: string;
             /** @example Reply HELP for assistance */
             text_help_message?: string;
-            /** @example false */
-            link_wrap_email?: boolean;
-            /** @example false */
-            link_wrap_push?: boolean;
             /** @example 3 */
             integrations_count?: number;
             /** @example 12 */
@@ -2197,10 +2193,6 @@ export interface components {
             text_opt_out_message?: string;
             /** @example Reply HELP for assistance */
             text_help_message?: string;
-            /** @example false */
-            link_wrap_email?: boolean;
-            /** @example false */
-            link_wrap_push?: boolean;
         };
         UpdateProject: {
             /** @example Updated Project Name */
@@ -2215,10 +2207,6 @@ export interface components {
             text_opt_out_message?: string;
             /** @example Reply HELP for assistance */
             text_help_message?: string;
-            /** @example true */
-            link_wrap_email?: boolean;
-            /** @example true */
-            link_wrap_push?: boolean;
         };
         CreateCampaign: {
             /** @example Welcome Campaign */
@@ -2472,6 +2460,8 @@ export interface components {
              * @example 2025-11-11T13:58:40.657Z
              */
             updated_at: string;
+            /** @example false */
+            link_wrap?: boolean;
         };
         CreateProvider: {
             /** @example My Email Provider */
@@ -2481,6 +2471,8 @@ export interface components {
             };
             /** @example false */
             is_default?: boolean;
+            /** @example false */
+            link_wrap?: boolean;
         };
         UpdateProvider: {
             /** @example My Email Provider */
@@ -2489,6 +2481,7 @@ export interface components {
                 [key: string]: unknown;
             };
             is_default?: boolean;
+            link_wrap?: boolean;
         };
         ProviderMeta: {
             /**

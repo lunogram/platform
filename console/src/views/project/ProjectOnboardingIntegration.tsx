@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { ChevronLeft } from "lucide-react"
 import { NIL } from "uuid"
 import api from "../../api"
+import oapiClient from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle, hasCourierProvider } from "../../utils"
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/card"
 import { isEnterprise } from "@/config/enterprise"
 import type { UUID } from "@/types/common"
-import type { ProviderMeta } from "../../types"
+import type { ProviderMeta } from "@/oapi/client"
 
 export default function ProjectOnboardingIntegration() {
     const navigate = useNavigate()
@@ -29,7 +30,15 @@ export default function ProjectOnboardingIntegration() {
     const [meta, setMeta] = useState<ProviderMeta | undefined>()
 
     const [options] = useResolver(
-        useCallback(async () => await api.providers.options(projectId), [projectId]),
+        useCallback(async () => {
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/providers/meta",
+                {
+                    params: { path: { projectID: projectId } },
+                },
+            )
+            return data
+        }, [projectId]),
     )
 
     const [hasProvider] = useResolver(useCallback(() => hasCourierProvider(projectId), [projectId]))

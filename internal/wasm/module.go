@@ -66,6 +66,7 @@ func NewPlugin(ctx context.Context, wasm []byte, logger *zap.Logger) (*extism.Pl
 
 	if logger != nil {
 		// TODO: store the logs inside the database or a log management system
+		extism.SetLogLevel(extism.LogLevelTrace)
 		plugin.SetLogger(func(level extism.LogLevel, message string) {
 			switch level {
 			case extism.LogLevelTrace, extism.LogLevelDebug:

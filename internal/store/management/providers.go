@@ -27,6 +27,7 @@ type Provider struct {
 	Channel   string          `db:"channel"`
 	Data      json.RawMessage `db:"data"`
 	IsDefault bool            `db:"is_default"`
+	LinkWrap  bool            `db:"link_wrap"`
 	Name      string          `db:"name"`
 	CreatedAt time.Time       `db:"created_at"`
 	UpdatedAt time.Time       `db:"updated_at"`
@@ -38,6 +39,7 @@ func (provider Provider) OAPI() oapi.Provider {
 		Data:      &provider.Data,
 		Channel:   oapi.Channel(provider.Channel),
 		IsDefault: provider.IsDefault,
+		LinkWrap:  &provider.LinkWrap,
 		Name:      provider.Name,
 		ProjectId: provider.ProjectID,
 		Module:    provider.Module,
@@ -58,7 +60,7 @@ type ProvidersStore struct {
 
 func (s *ProvidersStore) GetProvider(ctx context.Context, id uuid.UUID) (*Provider, error) {
 	query := `
-	SELECT id, project_id, module, channel, data, is_default, created_at, updated_at, name
+	SELECT id, project_id, module, channel, data, is_default, link_wrap, created_at, updated_at, name
 	FROM providers
 	WHERE id = $1`
 
@@ -73,7 +75,7 @@ func (s *ProvidersStore) GetProvider(ctx context.Context, id uuid.UUID) (*Provid
 
 func (s *ProvidersStore) GetDefaultProviderChannel(ctx context.Context, projectID uuid.UUID, group string) (*Provider, error) {
 	query := `
-	SELECT id, project_id, module, channel, data, is_default, created_at, updated_at, name
+	SELECT id, project_id, module, channel, data, is_default, link_wrap, created_at, updated_at, name
 	FROM providers
 	WHERE project_id = $1
 	AND channel = $2
@@ -108,8 +110,8 @@ func (s *ProvidersStore) HasProvider(ctx context.Context, projectID uuid.UUID) (
 
 func (s *ProvidersStore) CreateProvider(ctx context.Context, provider Provider) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO providers (project_id, module, channel, data, name, is_default)
-	VALUES ($1, $2, $3, $4, $5, $6)
+	INSERT INTO providers (project_id, module, channel, data, name, is_default, link_wrap)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
 	RETURNING id`
 
 	var id uuid.UUID
@@ -120,6 +122,7 @@ func (s *ProvidersStore) CreateProvider(ctx context.Context, provider Provider) 
 		provider.Data,
 		provider.Name,
 		provider.IsDefault,
+		provider.LinkWrap,
 	)
 	if err != nil {
 		return uuid.Nil, err
@@ -130,7 +133,7 @@ func (s *ProvidersStore) CreateProvider(ctx context.Context, provider Provider) 
 
 func (s *ProvidersStore) ListProviders(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Providers, int, error) {
 	query := `
-	SELECT id, project_id, module, channel, data, is_default, name, created_at, updated_at,
+	SELECT id, project_id, module, channel, data, is_default, link_wrap, name, created_at, updated_at,
 		COUNT(*) OVER () AS total_count
 	FROM providers
 	WHERE project_id = $1
@@ -162,7 +165,7 @@ func (s *ProvidersStore) ListProviders(ctx context.Context, projectID uuid.UUID,
 
 func (s *ProvidersStore) GetProviderByProject(ctx context.Context, projectID, providerID uuid.UUID) (*Provider, error) {
 	query := `
-	SELECT id, project_id, module, channel, data, is_default, name, created_at, updated_at
+	SELECT id, project_id, module, channel, data, is_default, link_wrap, name, created_at, updated_at
 	FROM providers
 	WHERE project_id = $1
 	AND id = $2
@@ -181,6 +184,7 @@ type ProviderUpdate struct {
 	Name      *string
 	Data      *json.RawMessage
 	IsDefault *bool
+	LinkWrap  *bool
 }
 
 func (s *ProvidersStore) UpdateProvider(ctx context.Context, projectID, providerID uuid.UUID, update ProviderUpdate) error {
@@ -190,12 +194,13 @@ func (s *ProvidersStore) UpdateProvider(ctx context.Context, projectID, provider
 		name = COALESCE($1, name),
 		data = COALESCE($2, data),
 		is_default = COALESCE($3, is_default),
+		link_wrap = COALESCE($4, link_wrap),
 		updated_at = NOW()
-	WHERE project_id = $4
-	AND id = $5
+	WHERE project_id = $5
+	AND id = $6
 	AND deleted_at IS NULL`
 
-	_, err := s.db.ExecContext(ctx, query, update.Name, update.Data, update.IsDefault, projectID, providerID)
+	_, err := s.db.ExecContext(ctx, query, update.Name, update.Data, update.IsDefault, update.LinkWrap, projectID, providerID)
 	return err
 }
 

@@ -8,7 +8,6 @@ import (
 	"mime"
 	nethttp "net/http"
 	"path/filepath"
-	"regexp"
 
 	"github.com/cloudproud/graceful"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -110,6 +109,11 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 		router.Get("/uploads/documents/{key}", documentsHandler(logger, storageDriver))
 	}
 
+	// Mount link tracking redirect endpoint (unauthenticated, outside OpenAPI validation).
+	linkKey := cfg.Link.SecretBytes()
+	linkPub := pubsub.NewPublisher(jet, cfg.Nats.Namespace)
+	router.Get("/c/{token}", LinkRedirectHandler(logger, linkKey, linkPub))
+
 	// Serve static assets - use sub-filesystem to strip the "client/static" prefix
 	staticSubFS, err := fs.Sub(staticFiles, "client/static")
 	if err != nil {
@@ -161,16 +165,13 @@ func apiDocsMiddleware() func(next nethttp.Handler) nethttp.Handler {
 	}
 }
 
-// validDocumentKey matches keys in the format {uuid}.{ext} (e.g. "6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899.pdf").
-var validDocumentKey = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$`)
-
 // documentsHandler returns an HTTP handler that serves document files from
 // storage. This endpoint is unauthenticated so that documents can be loaded
 // publicly (e.g. images embedded in emails).
 func documentsHandler(logger *zap.Logger, s storage.Storage) nethttp.HandlerFunc {
 	return func(w nethttp.ResponseWriter, r *nethttp.Request) {
 		key := chi.URLParam(r, "key")
-		if key == "" || !validDocumentKey.MatchString(key) {
+		if key == "" {
 			nethttp.Error(w, "Not Found", nethttp.StatusNotFound)
 			return
 		}

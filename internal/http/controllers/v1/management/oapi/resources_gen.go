@@ -386,8 +386,6 @@ type CreateLocale struct {
 // CreateProject defines model for CreateProject.
 type CreateProject struct {
 	Description       *string `json:"description,omitempty"`
-	LinkWrapEmail     *bool   `json:"link_wrap_email,omitempty"`
-	LinkWrapPush      *bool   `json:"link_wrap_push,omitempty"`
 	Locale            string  `json:"locale"`
 	Name              string  `json:"name"`
 	TextHelpMessage   *string `json:"text_help_message,omitempty"`
@@ -399,6 +397,7 @@ type CreateProject struct {
 type CreateProvider struct {
 	Data      *json.RawMessage `json:"data,omitempty"`
 	IsDefault *bool            `json:"is_default,omitempty"`
+	LinkWrap  *bool            `json:"link_wrap,omitempty"`
 	Name      string           `json:"name"`
 }
 
@@ -809,8 +808,6 @@ type Project struct {
 	Id                openapi_types.UUID  `json:"id"`
 	IntegrationsCount *int                `json:"integrations_count,omitempty"`
 	JourneysCount     *int                `json:"journeys_count,omitempty"`
-	LinkWrapEmail     *bool               `json:"link_wrap_email,omitempty"`
-	LinkWrapPush      *bool               `json:"link_wrap_push,omitempty"`
 	ListsCount        *int                `json:"lists_count,omitempty"`
 	Locale            string              `json:"locale"`
 	Name              string              `json:"name"`
@@ -875,6 +872,7 @@ type Provider struct {
 	Data      *json.RawMessage   `json:"data,omitempty"`
 	Id        openapi_types.UUID `json:"id"`
 	IsDefault bool               `json:"is_default"`
+	LinkWrap  *bool              `json:"link_wrap,omitempty"`
 	Module    string             `json:"module"`
 	Name      string             `json:"name"`
 	ProjectId openapi_types.UUID `json:"project_id"`
@@ -1097,8 +1095,6 @@ type UpdateOrganization struct {
 // UpdateProject defines model for UpdateProject.
 type UpdateProject struct {
 	Description       *string `json:"description,omitempty"`
-	LinkWrapEmail     *bool   `json:"link_wrap_email,omitempty"`
-	LinkWrapPush      *bool   `json:"link_wrap_push,omitempty"`
 	Locale            *string `json:"locale,omitempty"`
 	Name              *string `json:"name,omitempty"`
 	TextHelpMessage   *string `json:"text_help_message,omitempty"`
@@ -1116,6 +1112,7 @@ type UpdateProjectAdmin struct {
 type UpdateProvider struct {
 	Data      *json.RawMessage `json:"data,omitempty"`
 	IsDefault *bool            `json:"is_default,omitempty"`
+	LinkWrap  *bool            `json:"link_wrap,omitempty"`
 	Name      *string          `json:"name,omitempty"`
 }
 

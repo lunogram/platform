@@ -5050,12 +5050,6 @@ components:
         text_help_message:
           type: string
           example: "Reply HELP for assistance"
-        link_wrap_email:
-          type: boolean
-          example: false
-        link_wrap_push:
-          type: boolean
-          example: false
         integrations_count:
           type: integer
           example: 3
@@ -5105,12 +5099,6 @@ components:
         text_help_message:
           type: string
           example: "Reply HELP for assistance"
-        link_wrap_email:
-          type: boolean
-          example: false
-        link_wrap_push:
-          type: boolean
-          example: false
 
     UpdateProject:
       type: object
@@ -5133,12 +5121,6 @@ components:
         text_help_message:
           type: string
           example: "Reply HELP for assistance"
-        link_wrap_email:
-          type: boolean
-          example: true
-        link_wrap_push:
-          type: boolean
-          example: true
 
     CreateCampaign:
       type: object
@@ -5503,6 +5485,9 @@ components:
           type: string
           format: date-time
           example: "2025-11-11T13:58:40.657Z"
+        link_wrap:
+          type: boolean
+          example: false
 
     CreateProvider:
       type: object
@@ -5519,6 +5504,9 @@ components:
         is_default:
           type: boolean
           example: false
+        link_wrap:
+          type: boolean
+          example: false
 
     UpdateProvider:
       type: object
@@ -5531,6 +5519,8 @@ components:
           additionalProperties: true
           x-go-type: json.RawMessage
         is_default:
+          type: boolean
+        link_wrap:
           type: boolean
 
     ProviderMeta:
@@ -6709,7 +6699,7 @@ components:
           type: object
           additionalProperties: true
           description: Channel-specific metadata including address and optional display name (e.g. {"address":"hello@example.com","name":"Acme Support"})
-          example: {"address": "hello@example.com", "name": "Acme Support"}
+          example: { "address": "hello@example.com", "name": "Acme Support" }
         created_at:
           type: string
           format: date-time
@@ -6738,7 +6728,7 @@ components:
           type: object
           additionalProperties: true
           description: Channel-specific metadata including address and optional display name (e.g. {"address":"hello@example.com","name":"Acme Support"})
-          example: {"address": "hello@example.com", "name": "Acme Support"}
+          example: { "address": "hello@example.com", "name": "Acme Support" }
 
     Document:
       type: object

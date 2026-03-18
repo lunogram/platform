@@ -2,6 +2,7 @@ import type { ComponentType, Dispatch, Key, ReactNode, SetStateAction } from "re
 import type { FieldPath, FieldValues, UseFormReturn } from "react-hook-form"
 import type { Node } from "reactflow"
 import type { UUID } from "@/types/common"
+import type { Provider as OAPIProvider } from "@/oapi/client"
 
 export type Class<T> = new () => T
 
@@ -325,8 +326,6 @@ export interface Project {
     timezone: string
     text_opt_out_message?: string
     text_help_message?: string
-    link_wrap_email: boolean
-    link_wrap_push: boolean
     created_at: string
     updated_at: string
     deleted_at?: string
@@ -575,7 +574,7 @@ export interface Campaign {
     channel: ChannelType
     delivery: CampaignDelivery
     provider_id?: UUID
-    provider?: Provider
+    provider?: OAPIProvider
     subscription_id?: UUID
     subscription?: Subscription
     templates: Template[]
@@ -707,38 +706,6 @@ export type SubscriptionCreateParams = Pick<Subscription, "name" | "channel" | "
 export type SubscriptionUpdateParams = Pick<SubscriptionCreateParams, "name" | "is_public">
 
 export type ProviderGroup = "email" | "text" | "push"
-export interface Provider {
-    id: UUID
-    name: string
-    module: string
-    channel: string
-
-    data: any
-    is_default: boolean
-    setup: ProviderSetupMeta[]
-    external_id?: string
-}
-
-export type ProviderCreateParams = Pick<Provider, "name" | "data" | "module" | "channel">
-export type ProviderUpdateParams = ProviderCreateParams
-export interface ProviderMeta {
-    name: string
-    description?: string
-    url?: string
-    icon?: string
-    color?: string
-    type: string
-    group: string
-    locked?: boolean
-
-    schema: any
-    paths?: Record<string, string>
-}
-
-export interface ProviderSetupMeta {
-    name: string
-    value: string
-}
 
 export interface Image {
     id: UUID
