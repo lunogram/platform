@@ -31,6 +31,12 @@ type Node struct {
 	Storage    storage.Config
 }
 
+// PublicBaseURL returns the public URL with any trailing slash removed,
+// suitable for concatenating with request paths.
+func (n Node) PublicBaseURL() string {
+	return strings.TrimRight(n.PublicURL, "/")
+}
+
 type Auth struct {
 	Driver    string        `env:"DRIVER"`
 	JWTSecret string        `env:"JWT_SECRET"`
@@ -82,6 +88,10 @@ type Webhook struct {
 	EmailTemplatesURL string `env:"EMAIL_TEMPLATES_URL"`
 	// EmailTemplatesTimeout is the HTTP timeout for the email templates webhook call
 	EmailTemplatesTimeout time.Duration `env:"EMAIL_TEMPLATES_TIMEOUT" envDefault:"10s"`
+
+	// MaxBodySize is the maximum allowed request body size in bytes for
+	// inbound provider webhook payloads. Defaults to 1 MB.
+	MaxBodySize int64 `env:"MAX_BODY_SIZE" envDefault:"1048576"`
 }
 
 // Link holds the configuration for self-hosted click tracking.

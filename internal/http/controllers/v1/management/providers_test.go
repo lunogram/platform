@@ -49,7 +49,7 @@ func TestListProviders(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewProvidersController(logger, mgmt, registry, engine)
+	controller := NewProvidersController(logger, mgmt, registry, engine, "http://localhost:8080")
 
 	type test struct {
 		params oapi.ListProvidersParams
@@ -108,7 +108,7 @@ func TestListProviderMeta(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewProvidersController(logger, mgmt, registry, engine)
+	controller := NewProvidersController(logger, mgmt, registry, engine, "http://localhost:8080")
 
 	type test struct {
 		code int
@@ -162,7 +162,7 @@ func TestGetProvider(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewProvidersController(logger, mgmt, registry, engine)
+	controller := NewProvidersController(logger, mgmt, registry, engine, "http://localhost:8080")
 
 	type test struct {
 		providerID uuid.UUID
@@ -212,7 +212,7 @@ func TestDeleteProvider(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewProvidersController(logger, mgmt, registry, engine)
+	controller := NewProvidersController(logger, mgmt, registry, engine, "http://localhost:8080")
 
 	type test struct {
 		providerID uuid.UUID
@@ -262,7 +262,7 @@ func TestCreateProviderWithInvalidModule(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewProvidersController(logger, mgmt, registry, engine)
+	controller := NewProvidersController(logger, mgmt, registry, engine, "http://localhost:8080")
 
 	type test struct {
 		body oapi.CreateProviderJSONRequestBody
@@ -317,7 +317,7 @@ func TestUpdateProvider(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewProvidersController(logger, mgmt, registry, engine)
+	controller := NewProvidersController(logger, mgmt, registry, engine, "http://localhost:8080")
 
 	type test struct {
 		body       oapi.UpdateProviderJSONRequestBody
@@ -410,7 +410,7 @@ func TestDeleteLockedProvider(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewProvidersController(logger, mgmt, registry, engine)
+	controller := NewProvidersController(logger, mgmt, registry, engine, "http://localhost:8080")
 
 	providerStore := management.NewProvidersStore(mgmt)
 

@@ -139,7 +139,7 @@ func run() error {
 
 	logger.Info("link wrapping enabled", zap.String("tracking_url", trackingURL))
 
-	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, conf.PublicURL, linkKey, trackingURL)
+	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, conf.PublicBaseURL(), linkKey, trackingURL)
 
 	logger.Info("initializing cluster")
 

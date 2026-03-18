@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/extism/go-pdk"
@@ -25,6 +26,7 @@ func Manifest() int32 {
 			URL:   "https://lunogram.com",
 		},
 		Spec: providers.ProviderSpec{
+			Webhook: true,
 			Channels: []providers.Channel{
 				providers.ChannelEmail,
 				providers.ChannelSMS,
@@ -105,6 +107,68 @@ func Send() int32 {
 
 	err = pdk.OutputJSON(response)
 	if err != nil {
+		pdk.SetError(err)
+		return -1
+	}
+
+	return 0
+}
+
+// testWebhookPayload is the expected JSON body for the test provider's webhook.
+type testWebhookPayload struct {
+	EventType   string `json:"event_type"`
+	ReferenceID string `json:"reference_id"`
+	Timestamp   string `json:"timestamp"`
+}
+
+//go:export webhook
+func WebhookHandler() int32 {
+	var req providers.WebhookRequest
+	if err := pdk.InputJSON(&req); err != nil {
+		pdk.SetError(err)
+		return -2
+	}
+
+	var payload testWebhookPayload
+	if err := json.Unmarshal(req.Body, &payload); err != nil {
+		pdk.SetError(fmt.Errorf("failed to parse webhook body: %w", err))
+		return -2
+	}
+
+	var eventName providers.WebhookEventName
+	switch payload.EventType {
+	case "delivered":
+		eventName = providers.EventDelivered
+	case "bounced":
+		eventName = providers.EventBounced
+	case "opened":
+		eventName = providers.EventOpened
+	case "clicked":
+		eventName = providers.EventClicked
+	default:
+		err := pdk.OutputJSON(providers.WebhookResponse{Events: []providers.WebhookEvent{}})
+		if err != nil {
+			pdk.SetError(err)
+			return -1
+		}
+		return 0
+	}
+
+	response := providers.WebhookResponse{
+		Events: []providers.WebhookEvent{
+			{
+				EventName: eventName,
+				MessageID: payload.ReferenceID,
+				Timestamp: payload.Timestamp,
+				Data: map[string]any{
+					"provider":   "testprovider",
+					"event_type": payload.EventType,
+				},
+			},
+		},
+	}
+
+	if err := pdk.OutputJSON(response); err != nil {
 		pdk.SetError(err)
 		return -1
 	}

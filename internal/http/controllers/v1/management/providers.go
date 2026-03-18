@@ -2,6 +2,7 @@ package v1
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -18,13 +19,14 @@ import (
 	internalProviders "github.com/lunogram/platform/internal/providers"
 )
 
-func NewProvidersController(logger *zap.Logger, db *sqlx.DB, registry *internalProviders.Registry, engine *rbac.Engine) *ProvidersController {
+func NewProvidersController(logger *zap.Logger, db *sqlx.DB, registry *internalProviders.Registry, engine *rbac.Engine, baseURL string) *ProvidersController {
 	return &ProvidersController{
 		logger:   logger,
 		db:       db,
 		store:    management.NewState(db),
 		registry: registry,
 		engine:   engine,
+		baseURL:  baseURL,
 	}
 }
 
@@ -34,6 +36,7 @@ type ProvidersController struct {
 	store    *management.State
 	registry *internalProviders.Registry
 	engine   *rbac.Engine
+	baseURL  string
 }
 
 func (srv *ProvidersController) ListProviders(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListProvidersParams) {
@@ -158,7 +161,7 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	_, exists := srv.registry.Get(providerType)
+	module, exists := srv.registry.Get(providerType)
 	if !exists {
 		logger.Warn("module not found", zap.String("module", providerType))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("provider module not found")))
@@ -168,6 +171,23 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 	var data json.RawMessage
 	if body.Data != nil {
 		data = *body.Data
+	}
+
+	// Validate the provider configuration before persisting.
+	// If the module does not export a validate() function, this is a no-op.
+	valid, err := module.Validate(ctx, providers.ValidateRequest{
+		Config: json.RawMessage(data),
+	})
+	if err != nil {
+		logger.Error("provider validation failed", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("provider configuration validation failed")))
+		return
+	}
+
+	if !valid.Valid {
+		logger.Warn("provider configuration invalid", zap.Any("errors", valid.Errors))
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(fmt.Sprintf("invalid provider configuration: %s", valid.Message))))
+		return
 	}
 
 	provider := management.Provider{
@@ -192,6 +212,33 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 		logger.Error("failed to create provider", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
+	}
+
+	init, err := module.Init(ctx, providers.InitRequest{
+		Config:     json.RawMessage(data),
+		WebhookURL: providers.WebhookURL(srv.baseURL, projectID, providerID),
+		ProviderID: providerID.String(),
+		ProjectID:  projectID.String(),
+	})
+	if err != nil {
+		logger.Error("provider init failed", zap.Stringer("provider_id", providerID), zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("provider initialization failed")))
+		return
+	}
+
+	if len(init.ConfigPatch) > 0 {
+		data, err := mergeJSON(data, init.ConfigPatch)
+		if err != nil {
+			logger.Error("failed to merge init config patch", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		patch := json.RawMessage(data)
+		err = srv.store.ProvidersStore.UpdateProvider(ctx, projectID, providerID, management.ProviderUpdate{Data: &patch})
+		if err != nil {
+			logger.Error("failed to persist init config patch", zap.Error(err))
+		}
 	}
 
 	created, err := srv.store.ProvidersStore.GetProviderByProject(ctx, projectID, providerID)
@@ -318,12 +365,28 @@ func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Check if the provider module is locked and cannot be deleted
-	if module, exists := srv.registry.Get(provider.Module); exists {
-		if module.Manifest().Spec.Locked {
-			logger.Warn("cannot delete locked provider", zap.String("module", provider.Module))
-			oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("this provider is locked and cannot be deleted")))
-			return
+	// Check if the provider module is locked and cannot be deleted.
+	// Also use the looked-up module for the destroy() call below.
+	module, has := srv.registry.Get(provider.Module)
+	if has && module.Manifest().Spec.Locked {
+		logger.Warn("cannot delete locked provider", zap.String("module", provider.Module))
+		oapi.WriteProblem(w, problem.ErrForbidden(problem.Describe("this provider is locked and cannot be deleted")))
+		return
+	}
+
+	// Destroy the provider (deregister webhooks, clean up external resources).
+	// If the module does not export a destroy() function, this is a no-op.
+	if has {
+		_, err = module.Destroy(ctx, providers.DestroyRequest{
+			Config:     json.RawMessage(provider.Data),
+			ProviderID: providerID.String(),
+			ProjectID:  projectID.String(),
+		})
+		if err != nil {
+			logger.Error("provider destroy failed (proceeding with deletion)",
+				zap.Stringer("provider_id", providerID),
+				zap.Error(err),
+			)
 		}
 	}
 
@@ -336,4 +399,29 @@ func (srv *ProvidersController) DeleteProvider(w http.ResponseWriter, r *http.Re
 
 	logger.Info("provider deleted")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// mergeJSON performs a JSON merge-patch: it merges patch fields into base,
+// with patch values taking precedence. Both inputs must be JSON objects.
+func mergeJSON(base, patch json.RawMessage) (json.RawMessage, error) {
+	var baseMap map[string]json.RawMessage
+	if len(base) > 0 {
+		if err := json.Unmarshal(base, &baseMap); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal base config: %w", err)
+		}
+	}
+	if baseMap == nil {
+		baseMap = make(map[string]json.RawMessage)
+	}
+
+	var patchMap map[string]json.RawMessage
+	if err := json.Unmarshal(patch, &patchMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config patch: %w", err)
+	}
+
+	for k, v := range patchMap {
+		baseMap[k] = v
+	}
+
+	return json.Marshal(baseMap)
 }

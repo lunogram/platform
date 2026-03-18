@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/lunogram/platform/internal/providers/channels"
@@ -111,14 +110,13 @@ func buildRenderData(publicURL string, user *subjects.User, campaign *management
 
 	data["now"] = time.Now()
 
-	base := strings.TrimRight(publicURL, "/")
-	data["preferences_url"] = fmt.Sprintf("%s/preferences/%s/%s", base, campaign.ProjectID, user.ID)
+	data["preferences_url"] = fmt.Sprintf("%s/preferences/%s/%s", publicURL, campaign.ProjectID, user.ID)
 
 	if campaign.SubscriptionID != nil {
 		unsubLink := url.Values{}
 		unsubLink.Set("u", user.ID.String())
 		unsubLink.Set("c", campaign.ID.String())
-		data["unsubscribe_url"] = fmt.Sprintf("%s/unsubscribe/email?link=%s", base, url.QueryEscape("?"+unsubLink.Encode()))
+		data["unsubscribe_url"] = fmt.Sprintf("%s/unsubscribe/email?link=%s", publicURL, url.QueryEscape("?"+unsubLink.Encode()))
 	}
 
 	return data

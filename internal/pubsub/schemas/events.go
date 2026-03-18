@@ -327,3 +327,21 @@ type RenderEmailResponse struct {
 func EmailRender(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("email.render.%s", projectID))
 }
+
+// ProviderWebhookEvent represents a delivery event received from a provider webhook.
+type ProviderWebhookEvent struct {
+	ProjectID  uuid.UUID      `json:"project_id"`
+	ProviderID uuid.UUID      `json:"provider_id"`
+	Module     string         `json:"module"`
+	Channel    string         `json:"channel"`
+	EventName  string         `json:"event_name"`
+	MessageID  string         `json:"reference_id"`
+	UserID     uuid.UUID      `json:"user_id,omitempty"` // Resolved downstream, zero if unknown
+	Timestamp  string         `json:"timestamp,omitempty"`
+	Data       map[string]any `json:"data,omitempty"`
+}
+
+// ProvidersWebhook returns the NATS subject for provider webhook events.
+func ProvidersWebhook(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("providers.webhooks.%s", projectID))
+}

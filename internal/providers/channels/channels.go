@@ -91,7 +91,7 @@ func wrapLinks(logger *zap.Logger, channel providers.Channel, data json.RawMessa
 // data and an explicit recipient address (email address, phone number, etc.).
 // Both templateSender and providerDefaultSender should be pre-resolved (or nil).
 // When lw is non-nil, links in the message body are rewritten for click tracking.
-func ComposePayload(ctx context.Context, logger *zap.Logger, channel string, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, templateData json.RawMessage, to string, lw *LinkWrapConfig) (*providers.SendRequest[map[string]any], error) {
+func ComposePayload(ctx context.Context, logger *zap.Logger, channel string, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, templateData json.RawMessage, to string, lw *LinkWrapConfig) (providers.SendRequest[map[string]any], error) {
 	templateData = wrapLinks(logger, providers.Channel(channel), templateData, lw)
 
 	switch providers.Channel(channel) {
@@ -100,15 +100,15 @@ func ComposePayload(ctx context.Context, logger *zap.Logger, channel string, tem
 	case providers.ChannelSMS:
 		return ComposeSMSPayload(ctx, templateSender, providerDefaultSender, config, templateData, to)
 	case providers.ChannelPush:
-		return nil, fmt.Errorf("push channel does not support composing by recipient address")
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("push channel does not support composing by recipient address")
 	default:
-		return nil, fmt.Errorf("unsupported channel: %s", channel)
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("unsupported channel: %s", channel)
 	}
 }
 
 // Compose creates a SendRequest for the given channel and user.
 // Both templateSender and providerDefaultSender should be pre-resolved (or nil).
-func Compose(ctx context.Context, logger *zap.Logger, channel providers.Channel, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, template management.Template, user *subjects.User, opts *ComposeOptions) (*providers.SendRequest[map[string]any], error) {
+func Compose(ctx context.Context, logger *zap.Logger, channel providers.Channel, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, template management.Template, user *subjects.User, opts *ComposeOptions) (providers.SendRequest[map[string]any], error) {
 	var lw *LinkWrapConfig
 	if opts != nil {
 		lw = opts.LinkWrap
@@ -123,10 +123,10 @@ func Compose(ctx context.Context, logger *zap.Logger, channel providers.Channel,
 		return ComposeSMS(ctx, templateSender, providerDefaultSender, config, template, user)
 	case providers.ChannelPush:
 		if opts == nil {
-			return nil, fmt.Errorf("push channel requires devices")
+			return providers.SendRequest[map[string]any]{}, fmt.Errorf("push channel requires devices")
 		}
 		return ComposePush(ctx, config, template, user, opts.Devices)
 	default:
-		return nil, fmt.Errorf("unsupported channel: %s", channel)
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("unsupported channel: %s", channel)
 	}
 }

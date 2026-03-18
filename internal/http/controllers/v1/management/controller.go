@@ -35,7 +35,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		OrganizationsController:    NewOrganizationsController(logger, usersDB, pub, engine),
 		ListsController:            NewListsController(logger, usersDB, projects, pub, cfg.Storage.MaxUploadSize, engine),
 		DocumentsController:        NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize, urlResolver, engine),
-		ProvidersController:        NewProvidersController(logger, managementDB, registry, engine),
+		ProvidersController:        NewProvidersController(logger, managementDB, registry, engine, cfg.PublicBaseURL()),
 		SubscriptionsController:    NewSubscriptionsController(logger, managementDB, engine),
 		ApiKeysController:          NewApiKeysController(logger, managementDB, engine),
 		EmailTemplatesController:   NewEmailTemplatesController(logger, webhookCaller, engine),

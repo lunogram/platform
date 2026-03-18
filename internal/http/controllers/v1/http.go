@@ -114,6 +114,11 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	linkPub := pubsub.NewPublisher(jet, cfg.Nats.Namespace)
 	router.Get("/c/{token}", LinkRedirectHandler(logger, linkKey, linkPub))
 
+	// Provider webhook endpoint (unauthenticated — providers can't send JWTs).
+	router.Post("/webhooks/{projectID}/providers/{providerID}",
+		ProviderWebhookHandler(logger, mgmtStores, registry, linkPub, cfg.Webhook.MaxBodySize, cfg.PublicBaseURL()),
+	)
+
 	// Serve static assets - use sub-filesystem to strip the "client/static" prefix
 	staticSubFS, err := fs.Sub(staticFiles, "client/static")
 	if err != nil {
