@@ -181,7 +181,7 @@ func TestGetProvider(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/v1/providers/email/test/"+test.providerID.String(), nil)
 			req = req.WithContext(actorCtx)
-			controller.GetProvider(res, req, projectID, "email", "test", test.providerID)
+			controller.GetProvider(res, req, projectID, "test", test.providerID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
 		})
@@ -286,7 +286,7 @@ func TestCreateProviderWithInvalidModule(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("POST", "/v1/providers/email/invalid-module", bytes.NewReader(bb))
 			req = req.WithContext(actorCtx)
-			controller.CreateProvider(res, req, projectID, "email", "invalid-module")
+			controller.CreateProvider(res, req, projectID, "invalid-module")
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
 		})
@@ -343,7 +343,7 @@ func TestUpdateProvider(t *testing.T) {
 			res := httptest.NewRecorder()
 			req := httptest.NewRequest("PATCH", "/v1/providers/email/test/"+test.providerID.String(), bytes.NewReader(bb))
 			req = req.WithContext(actorCtx)
-			controller.UpdateProvider(res, req, projectID, "email", "test", test.providerID)
+			controller.UpdateProvider(res, req, projectID, "test", test.providerID)
 
 			require.Equal(t, test.code, res.Code, res.Body.String())
 		})
@@ -418,7 +418,7 @@ func TestDeleteLockedProvider(t *testing.T) {
 	lockedProviderID, err := providerStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "locked-provider",
-		Channel:   "email",
+		Channels:  management.Channels{"email"},
 		Name:      "My Locked Provider",
 		Data:      json.RawMessage(`{}`),
 	})
@@ -428,7 +428,7 @@ func TestDeleteLockedProvider(t *testing.T) {
 	unlockedProviderID, err := providerStore.CreateProvider(ctx, management.Provider{
 		ProjectID: projectID,
 		Module:    "unlocked-provider",
-		Channel:   "email",
+		Channels:  management.Channels{"email"},
 		Name:      "My Unlocked Provider",
 		Data:      json.RawMessage(`{}`),
 	})

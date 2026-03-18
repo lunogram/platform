@@ -470,6 +470,7 @@ export interface Journey {
     stats: Record<string, number>
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface JourneyStep<T = any> {
     id: UUID
     type: string
@@ -481,6 +482,7 @@ export interface JourneyStep<T = any> {
 
 export type JourneyStepParams = Omit<JourneyStep, "id">
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface JourneyStepMapChild<E = any> {
     external_id: string
     path?: string
@@ -517,6 +519,7 @@ export interface JourneyStepTypeEdgeProps<T, E> extends ControlledProps<E> {
     project: Project
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface JourneyStepType<T = any, E = any> {
     name: string
     icon: ReactNode
@@ -633,7 +636,7 @@ export type Template = {
     type: ChannelType
     locale: string
     sender_identity_id: UUID | null
-    data: any
+    data: EmailTemplateData | TextTemplateData | PushTemplateData
     screenshot_url: string
     created_at: string
     updated_at: string
@@ -657,9 +660,9 @@ export type TemplateUpdateParams = Pick<Template, "data" | "sender_identity_id">
 export type VariantUpdateParams = { id?: UUID }
 
 export interface TemplatePreviewParams {
-    user: Record<string, any>
-    event: Record<string, any>
-    ontext: Record<string, any>
+    user: Record<string, unknown>
+    event: Record<string, unknown>
+    ontext: Record<string, unknown>
 }
 
 export interface TemplateProofParams {
@@ -724,7 +727,7 @@ export interface Resource {
     id: UUID
     type: string
     name: string
-    value: Record<string, any>
+    value: Record<string, unknown>
 }
 
 export interface Font {
@@ -755,13 +758,13 @@ export interface Action {
     project_id: UUID
     name: string
     type: ActionType
-    config: Record<string, any>
+    config: Record<string, unknown>
     created_at: string
     updated_at: string
 }
 
 export type ActionCreateParams = Pick<Action, "name" | "type"> & {
-    config?: Record<string, any>
+    config?: Record<string, unknown>
 }
 
 export type ActionUpdateParams = Partial<ActionCreateParams>

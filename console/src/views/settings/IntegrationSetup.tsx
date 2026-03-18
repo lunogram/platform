@@ -75,18 +75,15 @@ export default function IntegrationSetup() {
                     const found = data?.results?.find((p) => p.id === id)
                     if (found) {
                         oapiClient
-                            .GET(
-                                "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
-                                {
-                                    params: {
-                                        path: {
-                                            projectID: project.id,
-                                            type: found.module,
-                                            providerID: found.id,
-                                        },
+                            .GET("/api/admin/projects/{projectID}/providers/{type}/{providerID}", {
+                                params: {
+                                    path: {
+                                        projectID: project.id,
+                                        type: found.module,
+                                        providerID: found.id,
                                     },
                                 },
-                            )
+                            })
                             .then(({ data: full }) => setProvider(full ?? found))
                             .catch(() => setProvider(found))
                     } else {
@@ -101,9 +98,7 @@ export default function IntegrationSetup() {
     const meta = useMemo(() => {
         if (!options) return undefined
         if (isEdit && provider) {
-            return options.find(
-                (o: ProviderMeta) => o.type === provider.module,
-            )
+            return options.find((o: ProviderMeta) => o.type === provider.module)
         }
         return options.find((o: ProviderMeta) => o.type === moduleName)
     }, [options, isEdit, provider, moduleName])
@@ -139,9 +134,7 @@ export default function IntegrationSetup() {
         return { ...rawSchema, properties: filtered }
     }, [meta])
 
-    const senderIdentityChannel = effectiveChannels?.find(
-        (c) => c === "email" || c === "sms",
-    )
+    const senderIdentityChannel = effectiveChannels?.find((c) => c === "email" || c === "sms")
 
     const form = useForm<ProviderFormValues>({
         values: provider

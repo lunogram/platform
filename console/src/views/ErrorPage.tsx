@@ -27,6 +27,7 @@ const ErrorAlert = ({
 }
 
 export default function ErrorPage({ status = 500 }: { status?: number }) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const error = useRouteError() as any
     const navigate = useNavigate()
 

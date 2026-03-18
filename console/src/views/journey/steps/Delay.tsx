@@ -20,7 +20,7 @@ interface DelayStepConfig {
     days: number
     time?: string
     date?: string
-    exclusion_days?: string[]
+    exclusion_days?: number[]
 }
 
 const formats = ["duration", "time", "date"] as const
@@ -135,13 +135,13 @@ export const delayStep: JourneyStepType<DelayStepConfig> = {
                     </Tabs>
                 </div>
                 {value.format === "duration" &&
-                    ["days", "hours", "minutes"].map((name) => (
+                    (["days", "hours", "minutes"] as const).map((name) => (
                         <div key={name} className="space-y-1.5">
                             <Label className="text-sm font-medium">{snakeToTitle(name)}</Label>
                             <Input
                                 type="number"
                                 min={0}
-                                value={value[name as keyof DelayStepConfig] ?? 0}
+                                value={value[name] ?? 0}
                                 onChange={(e) =>
                                     onChange({ ...value, [name]: e.target.valueAsNumber })
                                 }
@@ -168,7 +168,7 @@ export const delayStep: JourneyStepType<DelayStepConfig> = {
                             </p>
                             <div className="flex flex-wrap gap-1.5">
                                 {dayOptions.map(({ key, label }) => {
-                                    const selected = value.exclusion_days?.includes(key as any)
+                                    const selected = value.exclusion_days?.includes(key)
                                     const atLimit =
                                         !selected && (value.exclusion_days?.length ?? 0) >= 6
                                     return (
@@ -182,7 +182,7 @@ export const delayStep: JourneyStepType<DelayStepConfig> = {
                                                     ...value,
                                                     exclusion_days: selected
                                                         ? days.filter((d) => d !== key)
-                                                        : [...days, key as any],
+                                                        : [...days, key],
                                                 })
                                             }}
                                             className={cn(

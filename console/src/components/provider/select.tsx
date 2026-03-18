@@ -38,8 +38,8 @@ export function ProviderSelect({ value, onChange, channel }: ProviderSelectProps
                 })
 
                 const allProviders = data?.results ?? []
-                const filteredProviders = allProviders.filter(
-                    (provider) => provider.channels?.includes(channel),
+                const filteredProviders = allProviders.filter((provider) =>
+                    provider.channels?.includes(channel),
                 )
                 setProviders(filteredProviders)
 

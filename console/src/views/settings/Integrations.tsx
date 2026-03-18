@@ -58,6 +58,7 @@ export default function Integrations() {
                 },
             })
             return data
+            // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [project.id, debouncedQuery]),
     )
 
@@ -78,10 +79,7 @@ export default function Integrations() {
 
     const mosaicProvider = useMemo(() => {
         if (!hoveredProvider || !metas) return undefined
-        const meta = metas.find(
-            (m: ProviderMeta) =>
-                m.type === hoveredProvider.module,
-        )
+        const meta = metas.find((m: ProviderMeta) => m.type === hoveredProvider.module)
         return {
             id: hoveredProvider.module,
             name: meta?.name ?? hoveredProvider.module,
@@ -93,9 +91,7 @@ export default function Integrations() {
     const isProviderLocked = useCallback(
         (provider: Provider): boolean => {
             if (!metas) return false
-            const meta = metas.find(
-                (m: ProviderMeta) => m.type === provider.module,
-            )
+            const meta = metas.find((m: ProviderMeta) => m.type === provider.module)
             return meta?.locked === true
         },
         [metas],
@@ -169,7 +165,9 @@ export default function Integrations() {
                             <TableRow>
                                 <TableHead>{t("name")}</TableHead>
                                 <TableHead className="hidden sm:table-cell">{t("type")}</TableHead>
-                                <TableHead className="hidden sm:table-cell">{t("channel_list", "Channels")}</TableHead>
+                                <TableHead className="hidden sm:table-cell">
+                                    {t("channel_list", "Channels")}
+                                </TableHead>
                                 <TableHead className="w-[70px]" />
                             </TableRow>
                         </TableHeader>

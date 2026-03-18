@@ -20,6 +20,15 @@ import oapiClient from "../../oapi/client"
 import { ListContext, ProjectContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import type { DynamicList, ListUpdateParams, Rule, WrapperRule } from "../../types"
+
+/** Subset of user fields used by the list detail view, compatible with both the local User type and the OAPI-generated User type. */
+interface ListUser {
+    id: string
+    full_name?: string
+    external_id?: string
+    email?: string
+    phone?: string
+}
 import { formatDate, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import RuleBuilder from "./rules/RuleBuilder"
@@ -153,7 +162,7 @@ export default function ListDetail() {
     const [error, setError] = useState<string | undefined>()
 
     // Users table state
-    const [users, setUsers] = useState<any[] | null>(null)
+    const [users, setUsers] = useState<ListUser[] | null>(null)
     const [searchQuery, setSearchQuery] = useState("")
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [offset, setOffset] = useState(0)
@@ -179,7 +188,7 @@ export default function ListDetail() {
                         },
                     },
                 )
-                setUsers(data?.results ?? [])
+                setUsers((data?.results as ListUser[]) ?? [])
                 setTotal(data?.total ?? data?.results?.length ?? 0)
             } else {
                 const result = await api.lists.users(project.id, list.id, {
@@ -571,7 +580,7 @@ export default function ListDetail() {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    users.map((user: any) => (
+                                    users.map((user) => (
                                         <TableRow
                                             key={user.id}
                                             className="cursor-pointer"

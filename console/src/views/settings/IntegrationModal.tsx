@@ -213,10 +213,7 @@ export default function IntegrationModal({
     const [meta, setMeta] = useState<ProviderMeta | undefined>()
 
     const derivedMeta = useMemo(
-        () =>
-            options?.find(
-                (item) => item.type === provider?.module,
-            ),
+        () => options?.find((item) => item.type === provider?.module),
         [options, provider],
     )
 
@@ -294,7 +291,10 @@ export default function IntegrationModal({
                                     <p className="text-sm font-medium">{option.name}</p>
                                     <div className="flex gap-1 justify-center mt-1">
                                         {option.channels?.map((ch) => (
-                                            <span key={ch} className="text-xs text-muted-foreground">
+                                            <span
+                                                key={ch}
+                                                className="text-xs text-muted-foreground"
+                                            >
                                                 {snakeToTitle(ch)}
                                             </span>
                                         ))}

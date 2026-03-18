@@ -110,12 +110,12 @@ export default function EntranceDetails() {
                         {items.length > 0 ? (
                             items.map((item, index) => {
                                 const args = { item }
-                                const key = (item as any).id ?? index
+                                const key = item.id ?? index
 
                                 return (
                                     <TableRow key={key}>
                                         {columns.map((col) => {
-                                            let value: any = col.cell
+                                            let value: unknown = col.cell
                                                 ? col.cell(args)
                                                 : item[col.key as keyof typeof item]
                                             if (
@@ -129,7 +129,7 @@ export default function EntranceDetails() {
                                             }
                                             return (
                                                 <TableCell key={col.key}>
-                                                    {value ?? <>&#8211;</>}
+                                                    {(value as React.ReactNode) ?? <>&#8211;</>}
                                                 </TableCell>
                                             )
                                         })}

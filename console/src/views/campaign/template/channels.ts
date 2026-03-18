@@ -11,6 +11,7 @@ export interface ChannelConfig<T extends FieldValues> {
     ContentPreview: ComponentType<{ campaign: Campaign; form: UseFormReturn<T>; edit?: boolean }>
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const channels: Partial<Record<ChannelType, ChannelConfig<any>>> = {
     email: {
         form: EmailForm,

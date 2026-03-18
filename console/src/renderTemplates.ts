@@ -14,7 +14,7 @@ export interface Variables {
     user: User
 }
 
-export const compileTemplate = <T = any>(template: string) => {
+export const compileTemplate = <T = unknown>(template: string) => {
     return Handlebars.compile<T>(template, {
         strict: false,
         noEscape: true,
