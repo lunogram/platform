@@ -36,7 +36,7 @@ interface IntegrationFormParams {
     onChange: (provider: Provider) => void
 }
 
-type ProviderFormValues = CreateProvider & { module: string; channel: string }
+type ProviderFormValues = CreateProvider & { module: string }
 
 function extractDataSchema(meta: ProviderMeta): Schema | undefined {
     const schema = meta.schema as unknown as Schema | undefined
@@ -58,16 +58,14 @@ export function IntegrationForm({
     const [isSaving, setIsSaving] = useState(false)
 
     const module = meta.type
-    const channel = meta.group
 
     useEffect(() => {
         if (defaultProvider) {
             oapiClient
-                .GET("/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}", {
+                .GET("/api/admin/projects/{projectID}/providers/{type}/{providerID}", {
                     params: {
                         path: {
                             projectID: project.id,
-                            group: defaultProvider.channel,
                             type: defaultProvider.module,
                             providerID: defaultProvider.id,
                         },
@@ -86,26 +84,24 @@ export function IntegrationForm({
                   name: provider.name,
                   data: provider.data,
                   module,
-                  channel,
                   link_wrap: provider.link_wrap ?? true,
               }
-            : { name: "", data: {}, module, channel, link_wrap: true },
+            : { name: "", data: {}, module, link_wrap: true },
     })
 
     const handleSubmit = async (values: ProviderFormValues) => {
         setIsSaving(true)
         try {
-            const { name, data, is_default, link_wrap } = values
-            const body = { name, data, is_default, link_wrap }
+            const { name, data, link_wrap } = values
+            const body = { name, data, link_wrap }
             let result: Provider | undefined
             if (provider?.id) {
                 const { data: updated } = await oapiClient.PATCH(
-                    "/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}",
+                    "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
                     {
                         params: {
                             path: {
                                 projectID: project.id,
-                                group: channel,
                                 type: module,
                                 providerID: provider.id,
                             },
@@ -116,12 +112,11 @@ export function IntegrationForm({
                 result = updated
             } else {
                 const { data: created } = await oapiClient.POST(
-                    "/api/admin/projects/{projectID}/providers/{group}/{type}",
+                    "/api/admin/projects/{projectID}/providers/{type}",
                     {
                         params: {
                             path: {
                                 projectID: project.id,
-                                group: channel,
                                 type: module,
                             },
                         },
@@ -220,7 +215,7 @@ export default function IntegrationModal({
     const derivedMeta = useMemo(
         () =>
             options?.find(
-                (item) => item.group === provider?.channel && item.type === provider?.module,
+                (item) => item.type === provider?.module,
             ),
         [options, provider],
     )
@@ -283,7 +278,7 @@ export default function IntegrationModal({
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                         {options?.map((option) => (
                             <button
-                                key={`${option.group}${option.type}`}
+                                key={option.type}
                                 type="button"
                                 className="flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer"
                                 onClick={() => setMeta(option)}
@@ -297,9 +292,13 @@ export default function IntegrationModal({
                                 )}
                                 <div>
                                     <p className="text-sm font-medium">{option.name}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {snakeToTitle(option.group)}
-                                    </p>
+                                    <div className="flex gap-1 justify-center mt-1">
+                                        {option.channels?.map((ch) => (
+                                            <span key={ch} className="text-xs text-muted-foreground">
+                                                {snakeToTitle(ch)}
+                                            </span>
+                                        ))}
+                                    </div>
                                 </div>
                             </button>
                         ))}

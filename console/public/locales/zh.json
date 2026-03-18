@@ -202,6 +202,7 @@
     "gate_desc": "根据条件的结果将用户分配到不同路径。",
     "general": "常规",
     "get_started": "开始",
+    "channel_list": "渠道",
     "group": "组",
     "has_done": "已完成",
     "headers": "头部",

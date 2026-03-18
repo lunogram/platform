@@ -93,45 +93,48 @@ func (srv *ProvidersController) ListProviderMeta(w http.ResponseWriter, r *http.
 			continue
 		}
 
-		for _, channel := range manifest.Spec.Channels {
-			schema, err := json.Marshal(manifest.Spec.Config)
-			if err != nil {
-				logger.Error("failed to marshal provider schema", zap.String("module", manifest.Metadata.ID), zap.String("channel", string(channel)), zap.Error(err))
-				oapi.WriteProblem(w, err)
-				return
-			}
-
-			pm := oapi.ProviderMeta{
-				Type:        manifest.Metadata.ID,
-				Name:        manifest.Metadata.Title,
-				Description: &manifest.Metadata.Description,
-				Url:         &manifest.Website,
-				Group:       string(channel),
-				Schema:      json.RawMessage(schema),
-			}
-
-			if manifest.Metadata.Icon != "" {
-				pm.Icon = &manifest.Metadata.Icon
-			}
-
-			if manifest.Metadata.Color != "" {
-				pm.Color = &manifest.Metadata.Color
-			}
-
-			if manifest.Spec.Locked {
-				locked := true
-				pm.Locked = &locked
-			}
-
-			meta = append(meta, pm)
+		schema, err := json.Marshal(manifest.Spec.Config)
+		if err != nil {
+			logger.Error("failed to marshal provider schema", zap.String("module", manifest.Metadata.ID), zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
 		}
+
+		channels := make([]oapi.Channel, len(manifest.Spec.Channels))
+		for i, ch := range manifest.Spec.Channels {
+			channels[i] = oapi.Channel(ch)
+		}
+
+		pm := oapi.ProviderMeta{
+			Type:        manifest.Metadata.ID,
+			Name:        manifest.Metadata.Title,
+			Description: &manifest.Metadata.Description,
+			Url:         &manifest.Website,
+			Channels:    channels,
+			Schema:      json.RawMessage(schema),
+		}
+
+		if manifest.Metadata.Icon != "" {
+			pm.Icon = &manifest.Metadata.Icon
+		}
+
+		if manifest.Metadata.Color != "" {
+			pm.Color = &manifest.Metadata.Color
+		}
+
+		if manifest.Spec.Locked {
+			locked := true
+			pm.Locked = &locked
+		}
+
+		meta = append(meta, pm)
 	}
 
 	logger.Info("listed provider meta", zap.Int("count", len(meta)))
 	json.Write(w, http.StatusOK, meta)
 }
 
-func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, group string, providerType string) {
+func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, providerType string) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("providers", projectID))
 	if err != nil {
@@ -148,24 +151,23 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
-		zap.String("group", group),
 		zap.String("type", providerType),
 		zap.String("name", body.Name),
 	)
 	logger.Info("creating provider")
-
-	channel := providers.Channel(group)
-	if !srv.registry.SupportsChannel(providerType, channel) {
-		logger.Warn("module does not support channel", zap.String("module", providerType), zap.String("channel", string(channel)))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("module does not support the specified channel")))
-		return
-	}
 
 	module, exists := srv.registry.Get(providerType)
 	if !exists {
 		logger.Warn("module not found", zap.String("module", providerType))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("provider module not found")))
 		return
+	}
+
+	// Derive channels from the module manifest.
+	manifest := module.Manifest()
+	channels := make(management.Channels, len(manifest.Spec.Channels))
+	for i, ch := range manifest.Spec.Channels {
+		channels[i] = string(ch)
 	}
 
 	var data json.RawMessage
@@ -193,14 +195,10 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 	provider := management.Provider{
 		ProjectID: projectID,
 		Module:    providerType,
-		Channel:   string(channel),
+		Channels:  channels,
 		Name:      body.Name,
 		Data:      data,
 		LinkWrap:  true,
-	}
-
-	if body.IsDefault != nil {
-		provider.IsDefault = *body.IsDefault
 	}
 
 	if body.LinkWrap != nil {
@@ -252,7 +250,7 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 	json.Write(w, http.StatusCreated, created.OAPI())
 }
 
-func (srv *ProvidersController) GetProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, group string, providerType string, providerID uuid.UUID) {
+func (srv *ProvidersController) GetProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, providerType string, providerID uuid.UUID) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("providers", projectID))
 	if err != nil {
@@ -262,7 +260,6 @@ func (srv *ProvidersController) GetProvider(w http.ResponseWriter, r *http.Reque
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
-		zap.String("group", group),
 		zap.String("type", providerType),
 		zap.Stringer("provider_id", providerID),
 	)
@@ -285,7 +282,7 @@ func (srv *ProvidersController) GetProvider(w http.ResponseWriter, r *http.Reque
 	json.Write(w, http.StatusOK, provider.OAPI())
 }
 
-func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, group string, providerType string, providerID uuid.UUID) {
+func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, providerType string, providerID uuid.UUID) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("providers", projectID))
 	if err != nil {
@@ -300,7 +297,7 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("group", group), zap.String("type", providerType), zap.Stringer("provider_id", providerID))
+	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("type", providerType), zap.Stringer("provider_id", providerID))
 	logger.Info("updating provider")
 
 	_, err = srv.store.ProvidersStore.GetProviderByProject(ctx, projectID, providerID)
@@ -317,10 +314,9 @@ func (srv *ProvidersController) UpdateProvider(w http.ResponseWriter, r *http.Re
 	}
 
 	update := management.ProviderUpdate{
-		Name:      body.Name,
-		Data:      body.Data,
-		IsDefault: body.IsDefault,
-		LinkWrap:  body.LinkWrap,
+		Name:     body.Name,
+		Data:     body.Data,
+		LinkWrap: body.LinkWrap,
 	}
 
 	err = srv.store.ProvidersStore.UpdateProvider(ctx, projectID, providerID, update)

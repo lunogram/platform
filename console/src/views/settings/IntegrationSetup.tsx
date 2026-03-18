@@ -27,7 +27,7 @@ type ProviderWithExtras = Provider & {
     external_id?: string
 }
 
-type ProviderFormValues = CreateProvider & { module: string; channel: string }
+type ProviderFormValues = CreateProvider & { module: string }
 
 /**
  * Handles both creating and editing integrations:
@@ -41,7 +41,7 @@ export default function IntegrationSetup() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const navigate = useNavigate()
-    const { channel, module: moduleName, id } = useParams()
+    const { module: moduleName, id } = useParams()
     const isEdit = !!id && id !== "new"
 
     const [provider, setProvider] = useState<ProviderWithExtras | undefined>()
@@ -76,12 +76,11 @@ export default function IntegrationSetup() {
                     if (found) {
                         oapiClient
                             .GET(
-                                "/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}",
+                                "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
                                 {
                                     params: {
                                         path: {
                                             projectID: project.id,
-                                            group: found.channel,
                                             type: found.module,
                                             providerID: found.id,
                                         },
@@ -103,13 +102,13 @@ export default function IntegrationSetup() {
         if (!options) return undefined
         if (isEdit && provider) {
             return options.find(
-                (o: ProviderMeta) => o.group === provider.channel && o.type === provider.module,
+                (o: ProviderMeta) => o.type === provider.module,
             )
         }
-        return options.find((o: ProviderMeta) => o.group === channel && o.type === moduleName)
-    }, [options, isEdit, provider, channel, moduleName])
+        return options.find((o: ProviderMeta) => o.type === moduleName)
+    }, [options, isEdit, provider, moduleName])
 
-    const effectiveChannel = isEdit ? provider?.channel : channel
+    const effectiveChannels = isEdit ? provider?.channels : meta?.channels
     const effectiveModule = isEdit ? provider?.module : moduleName
     const isExternal = !!provider?.external_id
 
@@ -140,7 +139,9 @@ export default function IntegrationSetup() {
         return { ...rawSchema, properties: filtered }
     }, [meta])
 
-    const senderIdentityChannel = effectiveChannel
+    const senderIdentityChannel = effectiveChannels?.find(
+        (c) => c === "email" || c === "sms",
+    )
 
     const form = useForm<ProviderFormValues>({
         values: provider
@@ -148,33 +149,30 @@ export default function IntegrationSetup() {
                   name: provider.name,
                   data: provider.data,
                   module: effectiveModule ?? "",
-                  channel: effectiveChannel ?? "",
                   link_wrap: provider?.link_wrap ?? false,
               }
             : {
                   name: "",
                   data: {},
                   module: effectiveModule ?? "",
-                  channel: effectiveChannel ?? "",
                   link_wrap: true,
               },
     })
 
     const handleSubmit = async (values: ProviderFormValues) => {
         if (isExternal) return
-        if (!effectiveChannel || !effectiveModule) return
+        if (!effectiveModule) return
         setIsSaving(true)
         try {
-            const { name, data, is_default, link_wrap } = values
-            const body = { name, data, is_default, link_wrap }
+            const { name, data, link_wrap } = values
+            const body = { name, data, link_wrap }
             if (isEdit && provider?.id) {
                 await oapiClient.PATCH(
-                    "/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}",
+                    "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
                     {
                         params: {
                             path: {
                                 projectID: project.id,
-                                group: effectiveChannel,
                                 type: effectiveModule,
                                 providerID: provider.id,
                             },
@@ -184,12 +182,11 @@ export default function IntegrationSetup() {
                 )
             } else {
                 const { data: created } = await oapiClient.POST(
-                    "/api/admin/projects/{projectID}/providers/{group}/{type}",
+                    "/api/admin/projects/{projectID}/providers/{type}",
                     {
                         params: {
                             path: {
                                 projectID: project.id,
-                                group: effectiveChannel,
                                 type: effectiveModule,
                             },
                         },

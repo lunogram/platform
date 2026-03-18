@@ -4122,7 +4122,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/providers/{group}/{type}:
+  /api/admin/projects/{projectID}/providers/{type}:
     post:
       summary: Create provider
       description: Creates a new provider configuration
@@ -4139,12 +4139,6 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - name: group
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The provider group (email, sms, push)
         - name: type
           in: path
           required: true
@@ -4167,7 +4161,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}:
+  /api/admin/projects/{projectID}/providers/{type}/{providerID}:
     get:
       summary: Get provider by ID
       description: Retrieves a specific provider
@@ -4184,12 +4178,6 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - name: group
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The provider group (email, sms, push)
         - name: type
           in: path
           required: true
@@ -4228,12 +4216,6 @@ paths:
             type: string
             format: uuid
           description: The project ID
-        - name: group
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The provider group (email, sms, push)
         - name: type
           in: path
           required: true
@@ -5446,8 +5428,7 @@ components:
         - module
         - name
         - project_id
-        - channel
-        - is_default
+        - channels
         - created_at
         - updated_at
       properties:
@@ -5465,17 +5446,16 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        channel:
-          $ref: "#/components/schemas/Channel"
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/Channel"
         data:
           oneOf:
             - $ref: "#/components/schemas/EmailProviderData"
             - $ref: "#/components/schemas/SmsProviderData"
             - $ref: "#/components/schemas/PushProviderData"
           x-go-type: json.RawMessage
-        is_default:
-          type: boolean
-          example: true
         created_at:
           type: string
           format: date-time
@@ -5500,9 +5480,6 @@ components:
           type: object
           additionalProperties: true
           x-go-type: json.RawMessage
-        is_default:
-          type: boolean
-          example: false
         link_wrap:
           type: boolean
           example: false
@@ -5517,8 +5494,6 @@ components:
           type: object
           additionalProperties: true
           x-go-type: json.RawMessage
-        is_default:
-          type: boolean
         link_wrap:
           type: boolean
 
@@ -5527,7 +5502,7 @@ components:
       required:
         - type
         - name
-        - group
+        - channels
         - schema
       properties:
         type:
@@ -5548,9 +5523,10 @@ components:
         color:
           type: string
           description: Brand color hex code for the module
-        group:
-          type: string
-          example: "email"
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/Channel"
         schema:
           type: object
           additionalProperties: true

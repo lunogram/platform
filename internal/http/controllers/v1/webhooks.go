@@ -107,7 +107,7 @@ func ProviderWebhookHandler(logger *zap.Logger, mgmt *management.State, registry
 				ProjectID:  projectID,
 				ProviderID: providerID,
 				Module:     provider.Module,
-				Channel:    provider.Channel,
+				Channel:    "", // resolved downstream from MessageID → campaign lookup
 				EventName:  event.EventName.String(),
 				MessageID:  event.MessageID,
 				Timestamp:  event.Timestamp,

@@ -80,7 +80,7 @@ export default function Integrations() {
         if (!hoveredProvider || !metas) return undefined
         const meta = metas.find(
             (m: ProviderMeta) =>
-                m.type === hoveredProvider.module && m.group === hoveredProvider.channel,
+                m.type === hoveredProvider.module,
         )
         return {
             id: hoveredProvider.module,
@@ -94,7 +94,7 @@ export default function Integrations() {
         (provider: Provider): boolean => {
             if (!metas) return false
             const meta = metas.find(
-                (m: ProviderMeta) => m.type === provider.module && m.group === provider.channel,
+                (m: ProviderMeta) => m.type === provider.module,
             )
             return meta?.locked === true
         },
@@ -169,7 +169,7 @@ export default function Integrations() {
                             <TableRow>
                                 <TableHead>{t("name")}</TableHead>
                                 <TableHead className="hidden sm:table-cell">{t("type")}</TableHead>
-                                <TableHead className="hidden sm:table-cell">{t("group")}</TableHead>
+                                <TableHead className="hidden sm:table-cell">{t("channel_list", "Channels")}</TableHead>
                                 <TableHead className="w-[70px]" />
                             </TableRow>
                         </TableHeader>
@@ -238,9 +238,13 @@ export default function Integrations() {
                                             {p.module}
                                         </TableCell>
                                         <TableCell className="hidden sm:table-cell">
-                                            <Badge variant="secondary">
-                                                {snakeToTitle(p.channel)}
-                                            </Badge>
+                                            <div className="flex gap-1">
+                                                {p.channels?.map((ch) => (
+                                                    <Badge key={ch} variant="secondary">
+                                                        {snakeToTitle(ch)}
+                                                    </Badge>
+                                                ))}
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             <DropdownMenu>

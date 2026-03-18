@@ -1698,7 +1698,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/providers/{group}/{type}": {
+    "/api/admin/projects/{projectID}/providers/{type}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1718,7 +1718,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/projects/{projectID}/providers/{group}/{type}/{providerID}": {
+    "/api/admin/projects/{projectID}/providers/{type}/{providerID}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2445,10 +2445,8 @@ export interface components {
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
             project_id: string;
-            channel: components["schemas"]["Channel"];
+            channels: components["schemas"]["Channel"][];
             data?: components["schemas"]["EmailProviderData"] | components["schemas"]["SmsProviderData"] | components["schemas"]["PushProviderData"];
-            /** @example true */
-            is_default: boolean;
             /**
              * Format: date-time
              * @example 2025-11-05T13:38:03.861Z
@@ -2469,8 +2467,6 @@ export interface components {
                 [key: string]: unknown;
             };
             /** @example false */
-            is_default?: boolean;
-            /** @example false */
             link_wrap?: boolean;
         };
         UpdateProvider: {
@@ -2479,7 +2475,6 @@ export interface components {
             data?: {
                 [key: string]: unknown;
             };
-            is_default?: boolean;
             link_wrap?: boolean;
         };
         ProviderMeta: {
@@ -2497,8 +2492,7 @@ export interface components {
             icon?: string;
             /** @description Brand color hex code for the module */
             color?: string;
-            /** @example email */
-            group: string;
+            channels: components["schemas"]["Channel"][];
             schema: {
                 [key: string]: unknown;
             };
@@ -7156,8 +7150,6 @@ export interface operations {
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The provider group (email, sms, push) */
-                group: string;
                 /** @description The provider module type (e.g., resend, twilio) */
                 type: string;
             };
@@ -7188,8 +7180,6 @@ export interface operations {
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The provider group (email, sms, push) */
-                group: string;
                 /** @description The provider module type */
                 type: string;
                 /** @description The provider ID */
@@ -7218,8 +7208,6 @@ export interface operations {
             path: {
                 /** @description The project ID */
                 projectID: string;
-                /** @description The provider group (email, sms, push) */
-                group: string;
                 /** @description The provider module type */
                 type: string;
                 /** @description The provider ID */

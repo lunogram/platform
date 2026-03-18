@@ -172,6 +172,7 @@
             "description": "Review your campaign before sending."
         }
     },
+    "channel_list": "Channels",
     "channels": {
         "email": {
             "title": "Email",

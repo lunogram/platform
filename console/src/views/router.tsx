@@ -586,7 +586,7 @@ export const createRouter = ({
                                         element: <NewIntegration />,
                                     },
                                     {
-                                        path: "integrations/new/:channel/:module",
+                                        path: "integrations/new/:module",
                                         element: <IntegrationSetup />,
                                     },
                                     {
