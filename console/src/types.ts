@@ -334,6 +334,7 @@ export interface Project {
     has_provider?: boolean
     campaigns_count?: number
     journeys_count?: number
+    integrations_count?: number
     users_count?: number
     lists_count?: number
 }
