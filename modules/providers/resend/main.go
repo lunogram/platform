@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/extism/go-pdk"
 	pdkhttp "github.com/extism/go-pdk/http"
@@ -94,31 +96,31 @@ func Send() int32 {
 	err := pdk.InputJSON(&req)
 	if err != nil {
 		pdk.SetError(err)
-		return -1
+		return exitPermanent
 	}
 
 	// Only email channel is supported
 	if req.Channel != providers.ChannelEmail {
 		pdk.SetError(fmt.Errorf("unsupported channel: %s", req.Channel))
-		return -1
+		return exitPermanent
 	}
 
 	// Get email payload
 	email, err := req.GetEmailPayload()
 	if err != nil {
 		pdk.SetError(err)
-		return -1
+		return exitPermanent
 	}
 
 	// Validate required fields
 	if email.From.Address == "" {
 		pdk.SetError(fmt.Errorf("missing required 'from' address"))
-		return -1
+		return exitPermanent
 	}
 
 	if email.Subject == "" {
 		pdk.SetError(fmt.Errorf("missing required 'subject'"))
-		return -1
+		return exitPermanent
 	}
 
 	// Create HTTP client for WASM
@@ -155,7 +157,7 @@ func Send() int32 {
 	sent, err := client.Emails.Send(params)
 	if err != nil {
 		pdk.SetError(fmt.Errorf("failed to send email: %w", err))
-		return -1
+		return classifyError(err)
 	}
 
 	response := providers.SendResponse{
@@ -177,6 +179,45 @@ func formatAddress(address providers.EmailAddress) string {
 		return fmt.Sprintf("%s <%s>", address.Name, address.Address)
 	}
 	return address.Address
+}
+
+// Exit code convention for WASM provider modules:
+//
+//	 0  — success
+//	-1  — transient/retryable error  (rate limit, network, server error)
+//	-2  — permanent/non-retryable error (invalid recipient, validation, auth)
+const (
+	exitTransient int32 = -1
+	exitPermanent int32 = -2
+)
+
+// classifyError maps a Resend SDK error to an exit code.
+//
+// The Resend Go SDK (v3) exposes only *RateLimitError as a typed error;
+// all other API errors (400, 401, 403, 422, 500, etc.) are returned as
+// plain errors with message format "[ERROR]: <message>".
+//
+// Classification:
+//   - *RateLimitError (429)         → transient (retry later)
+//   - "[ERROR]: " validation msgs  → permanent (will never succeed)
+//   - Everything else (network, unknown) → transient (safe default)
+func classifyError(err error) int32 {
+	// Rate limit → always transient.
+	var rateLimitErr *resend.RateLimitError
+	if errors.As(err, &rateLimitErr) {
+		return exitTransient
+	}
+
+	msg := err.Error()
+
+	// Resend API 400/422 errors follow the "[ERROR]: " prefix pattern.
+	// These are validation failures that will never succeed on retry.
+	if strings.Contains(msg, "[ERROR]: ") {
+		return exitPermanent
+	}
+
+	// Default to transient for unknown/network errors.
+	return exitTransient
 }
 
 func main() {}

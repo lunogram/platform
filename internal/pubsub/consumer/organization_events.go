@@ -27,7 +27,7 @@ func OrganizationEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *j
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal organization event message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming organization event", zap.String("name", event.Name), zap.Stringer("project_id", event.ProjectID))
@@ -265,7 +265,7 @@ func OrganizationEventSchemasHandler(logger *zap.Logger, usrs *subjects.State) H
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal organization event message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming organization event schema", zap.Stringer("event_id", event.ID), zap.Stringer("project_id", event.ProjectID))

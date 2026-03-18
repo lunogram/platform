@@ -64,7 +64,7 @@ func Send() int32 {
 	err := pdk.InputJSON(&req)
 	if err != nil {
 		pdk.SetError(err)
-		return -1
+		return -2 // permanent: malformed input
 	}
 
 	switch req.Channel {
@@ -72,27 +72,27 @@ func Send() int32 {
 		_, err := req.GetEmailPayload()
 		if err != nil {
 			pdk.SetError(err)
-			return -1
+			return -2 // permanent: invalid payload
 		}
 
 	case providers.ChannelSMS:
 		_, err := req.GetSMSPayload()
 		if err != nil {
 			pdk.SetError(err)
-			return -1
+			return -2 // permanent: invalid payload
 		}
 
 	case providers.ChannelPush:
 		_, err := req.GetPushPayload()
 		if err != nil {
 			pdk.SetError(err)
-			return -1
+			return -2 // permanent: invalid payload
 		}
 
 	default:
 		err := fmt.Errorf("unsupported channel: %s", req.Channel)
 		pdk.SetError(err)
-		return -1
+		return -2 // permanent: unsupported channel
 	}
 
 	response := providers.SendResponse{

@@ -19,7 +19,7 @@ func OrganizationsHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.P
 		err := json.Unmarshal(msg.Data(), &org)
 		if err != nil {
 			logger.Error("failed to unmarshal organization message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming organization", zap.Stringer("organization_id", org.ID), zap.Stringer("project_id", org.ProjectID))
@@ -101,7 +101,7 @@ func OrganizationSchemasHandler(logger *zap.Logger, usrs *subjects.State) Handle
 		err := json.Unmarshal(msg.Data(), &org)
 		if err != nil {
 			logger.Error("failed to unmarshal organization message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming organization schema", zap.Stringer("organization_id", org.ID), zap.Stringer("project_id", org.ProjectID))
@@ -125,7 +125,7 @@ func OrganizationUsersHandler(logger *zap.Logger, usrs *subjects.State, pub pubs
 		err := json.Unmarshal(msg.Data(), &orgUser)
 		if err != nil {
 			logger.Error("failed to unmarshal organization user message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming organization user", zap.Stringer("organization_id", orgUser.OrganizationID), zap.Stringer("user_id", orgUser.UserID), zap.Stringer("project_id", orgUser.ProjectID))
@@ -207,7 +207,7 @@ func OrganizationUserSchemasHandler(logger *zap.Logger, usrs *subjects.State) Ha
 		err := json.Unmarshal(msg.Data(), &orgUser)
 		if err != nil {
 			logger.Error("failed to unmarshal organization user message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming organization user schema", zap.Stringer("organization_id", orgUser.OrganizationID), zap.Stringer("user_id", orgUser.UserID), zap.Stringer("project_id", orgUser.ProjectID))

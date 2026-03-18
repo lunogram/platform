@@ -100,7 +100,7 @@ func sendEmail(req *providers.SendRequest[Config]) int32 {
 		return -1
 	}
 
-	pdk.Log(pdk.LogInfo, fmt.Sprintf("sending email via Twilio SendGrid"))
+	pdk.Log(pdk.LogInfo, "sending email via Twilio SendGrid")
 	pdk.Log(pdk.LogInfo, fmt.Sprintf("to: %s", email.To))
 	pdk.Log(pdk.LogInfo, fmt.Sprintf("subject: %s", email.Subject))
 
@@ -131,7 +131,7 @@ func sendSMS(req *providers.SendRequest[Config]) int32 {
 		return -1
 	}
 
-	pdk.Log(pdk.LogInfo, fmt.Sprintf("sending SMS via Twilio"))
+	pdk.Log(pdk.LogInfo, "sending SMS via Twilio")
 	pdk.Log(pdk.LogInfo, fmt.Sprintf("to: %s", sms.To))
 	pdk.Log(pdk.LogInfo, fmt.Sprintf("from: %s", sms.From))
 	pdk.Log(pdk.LogInfo, fmt.Sprintf("body: %s", sms.Body))

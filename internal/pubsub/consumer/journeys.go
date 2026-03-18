@@ -21,7 +21,7 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal journey state message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		step, err := jrny.GetJourneyStep(ctx, event.JourneyID, event.ExternalStepID, event.VersionID)

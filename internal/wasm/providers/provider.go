@@ -3,6 +3,17 @@
 // It builds on the generic wasm package to provide provider-specific functionality
 // including channel support validation and a typed Send interface for email, SMS,
 // and push notifications.
+//
+// # WASM exit code convention
+//
+// Provider WASM modules return an int32 exit code from their send() function:
+//
+//   - 0: success
+//   - -1: transient/retryable error (e.g., rate limit, network timeout)
+//   - -2: permanent/non-retryable error (e.g., invalid recipient, validation failure)
+//
+// Any other non-zero exit code is treated as a transient error for backward
+// compatibility.
 package providers
 
 import (
@@ -24,6 +35,27 @@ type Provider struct {
 	*wasm.Module[providers.ProviderManifest]
 }
 
+// exitCodePermanent is the WASM exit code for permanent/non-retryable errors.
+// WASM int32(-2) maps to uint32(0xFFFFFFFE).
+const exitCodePermanent uint32 = 0xFFFFFFFE
+
+// ProviderError is returned when a WASM provider's send() function fails.
+// It carries the exit code so callers can distinguish permanent from transient failures.
+type ProviderError struct {
+	Code    uint32
+	Message string
+}
+
+func (e *ProviderError) Error() string {
+	return e.Message
+}
+
+// IsPermanent reports whether this provider error represents a permanent failure
+// that should not be retried.
+func (e *ProviderError) IsPermanent() bool {
+	return e.Code == exitCodePermanent
+}
+
 // Send invokes the provider's send function.
 func (p *Provider) Send(ctx context.Context, req *providers.SendRequest[map[string]any]) (*providers.SendResponse, error) {
 	payload, err := json.Marshal(req)
@@ -37,7 +69,10 @@ func (p *Provider) Send(ctx context.Context, req *providers.SendRequest[map[stri
 	}
 
 	if code != 0 {
-		return nil, fmt.Errorf("provider send returned code %d: %s", code, string(res))
+		return nil, &ProviderError{
+			Code:    code,
+			Message: fmt.Sprintf("provider send failed: %s", string(res)),
+		}
 	}
 
 	var response providers.SendResponse
