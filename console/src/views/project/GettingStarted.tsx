@@ -34,6 +34,63 @@ export default function ProjectGettingStarted() {
         loadProject().catch(console.error)
     }, [setProject, projectId])
 
+    // Probably in App.tsx or useEffect somewhere
+    useEffect(() => {
+        // Check if browser even supports this cursed API
+        if (!("serviceWorker" in navigator)) {
+            console.log("Browser said no to service workers, RIP")
+            return
+        }
+
+        if (!("Notification" in window)) {
+            console.log("This browser is from 2009 apparently")
+            return
+        }
+
+        console.log("Permission status:", Notification.permission)
+
+        Notification.requestPermission().then((permission) => {
+            if (permission === "granted") {
+                // Now you can test SW notifications
+                console.log("User said yes, we can annoy them now")
+
+                // Register the service worker
+                navigator.serviceWorker
+                    .register("/sw.js", { scope: "/" }) // path relative to your domain root
+                    .then((registration) => {
+                        console.log("SW registered, somehow:", registration)
+                    })
+                    .catch((error) => {
+                        console.error("SW registration ate shit:", error)
+                    })
+                    .finally(() => {
+                        navigator.serviceWorker.getRegistration().then((reg) => {
+                            console.log("Current SW:", reg)
+                            if (reg && reg.active) {
+                                console.log("SW is active, script URL:", reg.active.scriptURL)
+                            }
+                        })
+
+                        navigator.serviceWorker.ready.then((reg) => {
+                            reg.showNotification("Manual Test", {
+                                body: "If this shows, notifications work",
+                            })
+                        })
+
+                        navigator.serviceWorker.controller?.postMessage({
+                            type: "test",
+                            payload: "hello from main thread",
+                        })
+                    })
+            } else if (permission === "denied") {
+                console.log("User said fuck off")
+                // They have to manually unblock in browser settings now
+            } else {
+                console.log("User dismissed, coward")
+            }
+        })
+    }, []) // Empty deps = run once on mount
+
     const hasCampaigns = (project.campaigns_count ?? 0) > 0
     const hasJourneys = (project.journeys_count ?? 0) > 0
     const hasUsers = (project.users_count ?? 0) > 0
