@@ -589,7 +589,7 @@ export type CampaignSendState = "pending" | "sent" | "throttled" | "failed" | "b
 
 export type CampaignUpdateParams = Partial<
     Pick<Campaign, "name" | "provider_id" | "subscription_id" | "transactional" | "variables">
-> & { state?: string }
+>
 export type CampaignCreateParams = Pick<Campaign, "name" | "channel" | "subscription_id" | "transactional">
 export type CampaignUser = User & { state: CampaignSendState; send_at: string }
 
