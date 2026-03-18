@@ -10,7 +10,6 @@ import type { Provider, ProviderMeta, CreateProvider } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import type { SchemaProperty, Schema } from "@/components/schema-fields"
-import { isEnterprise } from "@/config/enterprise"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -20,7 +19,6 @@ import { Separator } from "@/components/ui/separator"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { FormSchemaFields } from "@/components/schema-fields"
 import { StaggeredMosaic } from "@/components/icon-mosaic"
-import { DomainManager } from "./Domains"
 
 import { SenderIdentityList } from "@/components/sender-identity-list"
 
@@ -114,7 +112,6 @@ export default function IntegrationSetup() {
     const effectiveChannel = isEdit ? provider?.channel : channel
     const effectiveModule = isEdit ? provider?.module : moduleName
     const isExternal = !!provider?.external_id
-    const isEmailChannel = effectiveChannel === "email"
 
     // Strip any legacy default_from* fields from the schema so they aren't
     // rendered as generic form inputs — sender identity is handled by a
@@ -381,14 +378,6 @@ export default function IntegrationSetup() {
                                 )
                             }
                         />
-                    </div>
-                )}
-
-                {/* Domain management for email-channel integrations (enterprise only) */}
-                {isEdit && isEmailChannel && isEnterprise && (
-                    <div className="max-w-2xl mt-8 grid gap-4">
-                        <Separator />
-                        <DomainManager projectId={project.id} />
                     </div>
                 )}
 
