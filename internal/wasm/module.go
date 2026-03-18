@@ -36,6 +36,9 @@ func (m *Module[T]) Call(ctx context.Context, fn string, input []byte) (uint32, 
 
 // FunctionExists checks if the WASM plugin exports a function with the given name.
 func (m *Module[T]) FunctionExists(name string) bool {
+	if m.plugin == nil {
+		return false
+	}
 	return m.plugin.FunctionExists(name)
 }
 
