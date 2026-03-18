@@ -140,6 +140,14 @@ func ComposeEmailPayload(ctx context.Context, templateSender, providerDefaultSen
 		return providers.SendRequest[map[string]any]{}, fmt.Errorf("no from address specified in template or provider config")
 	}
 
+	if data.Subject == "" {
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("email subject is required")
+	}
+
+	if data.HTML == "" && data.Text == "" {
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("email body is required: provide either html or text content")
+	}
+
 	payload := providers.EmailPayload{
 		To: to,
 		From: providers.EmailAddress{

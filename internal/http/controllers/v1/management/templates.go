@@ -427,7 +427,7 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 
 	request, err := channels.ComposePayload(ctx, logger, campaign.Channel, templateSender, providerDefaultSender, config, templateData, string(body.To), wrapper)
 	if err != nil {
-		logger.Error("failed to compose payload", zap.Error(err))
+		logger.Warn("failed to compose payload", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(err.Error())))
 		return
 	}
