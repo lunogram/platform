@@ -91,6 +91,11 @@ func ComposeEmailTemplateData(ctx context.Context, renderer *pubsub.EmailRendere
 		email.Text = email.Plaintext.Custom
 	}
 
+	// Clear Code fields after rendering. The source and bundle contain JSX/JS
+	// which may include {{ }} style objects (e.g. inline styles) that the
+	// downstream Liquid renderer would incorrectly try to evaluate.
+	email.Code = EmailCodeData{}
+
 	out, err := json.Marshal(email)
 	if err != nil {
 		return nil, fmt.Errorf("marshal template data: %w", err)
