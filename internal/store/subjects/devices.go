@@ -13,6 +13,42 @@ import (
 
 type Devices []Device
 
+type PublicDevice struct {
+	ID         uuid.UUID `db:"id" json:"id"`
+	DeviceID   string    `db:"device_id" json:"device_id"`
+	OS         *string   `db:"os" json:"os,omitempty"`
+	OSVersion  *string   `db:"os_version" json:"os_version,omitempty"`
+	Model      *string   `db:"model" json:"model,omitempty"`
+	AppBuild   *string   `db:"app_build" json:"app_build,omitempty"`
+	AppVersion *string   `db:"app_version" json:"app_version,omitempty"`
+	CreatedAt  time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt  time.Time `db:"updated_at" json:"updated_at"`
+}
+
+type PublicDevices []PublicDevice
+
+func (pd PublicDevices) OAPI() []oapi.UserDevice {
+	results := make([]oapi.UserDevice, len(pd))
+	for i, device := range pd {
+		results[i] = device.OAPI()
+	}
+	return results
+}
+
+func (d *PublicDevice) OAPI() oapi.UserDevice {
+	return oapi.UserDevice{
+		Id:         d.ID,
+		DeviceId:   d.DeviceID,
+		Os:         d.OS,
+		OsVersion:  d.OSVersion,
+		Model:      d.Model,
+		AppBuild:   d.AppBuild,
+		AppVersion: d.AppVersion,
+		CreatedAt:  d.CreatedAt,
+		UpdatedAt:  d.UpdatedAt,
+	}
+}
+
 func (d *Devices) Scan(value any) error {
 	if value == nil {
 		return nil
@@ -40,19 +76,29 @@ func (d Devices) HasPushDevice() bool {
 	return false
 }
 
+type DeviceCredentials struct {
+	Endpoint       string     `json:"endpoint"`
+	ExpirationTime *time.Time `json:"expirationTime,omitempty"`
+	Keys           struct {
+		Auth   string `json:"auth"`
+		P256dh string `json:"p256dh"`
+	} `json:"keys"`
+}
+
 type Device struct {
-	ID         uuid.UUID `db:"id" json:"id"`
-	ProjectID  uuid.UUID `db:"project_id" json:"project_id"`
-	UserID     uuid.UUID `db:"user_id" json:"user_id"`
-	DeviceID   string    `db:"device_id" json:"device_id"`
-	Token      *string   `db:"token" json:"token"`
-	OS         *string   `db:"os" json:"os"`
-	OSVersion  *string   `db:"os_version" json:"os_version"`
-	Model      *string   `db:"model" json:"model"`
-	AppBuild   *string   `db:"app_build" json:"app_build"`
-	AppVersion *string   `db:"app_version" json:"app_version"`
-	CreatedAt  time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt  time.Time `db:"updated_at" json:"updated_at"`
+	ID                uuid.UUID         `db:"id" json:"id"`
+	ProjectID         uuid.UUID         `db:"project_id" json:"project_id"`
+	UserID            uuid.UUID         `db:"user_id" json:"user_id"`
+	DeviceID          string            `db:"device_id" json:"device_id"`
+	DeviceCredentials DeviceCredentials `db:"device_credentials" json:"device_credentials"`
+	Token             *string           `db:"token" json:"token"`
+	OS                *string           `db:"os" json:"os"`
+	OSVersion         *string           `db:"os_version" json:"os_version"`
+	Model             *string           `db:"model" json:"model"`
+	AppBuild          *string           `db:"app_build" json:"app_build"`
+	AppVersion        *string           `db:"app_version" json:"app_version"`
+	CreatedAt         time.Time         `db:"created_at" json:"created_at"`
+	UpdatedAt         time.Time         `db:"updated_at" json:"updated_at"`
 }
 
 // HasPushToken returns true if the device has a non-null token
@@ -113,7 +159,23 @@ func (s *DevicesStore) CreateDevice(ctx context.Context, device Device) (uuid.UU
 	return id, nil
 }
 
-func (s *DevicesStore) ListDevicesByUser(ctx context.Context, projectID, userID uuid.UUID) (Devices, error) {
+func (s *DevicesStore) ListDevicesByUser(ctx context.Context, projectID, userID uuid.UUID) (PublicDevices, error) {
+	query := `
+	SELECT id, project_id, user_id, device_id, os, os_version, model, app_build, app_version, created_at, updated_at
+	FROM devices
+	WHERE project_id = $1 AND user_id = $2
+	AND deleted_at IS NULL`
+
+	var devices PublicDevices
+	err := s.db.SelectContext(ctx, &devices, query, projectID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return devices, nil
+}
+
+func (s *DevicesStore) ListDevicesByUserWithTokens(ctx context.Context, projectID, userID uuid.UUID) (Devices, error) {
 	query := `
 	SELECT id, project_id, user_id, device_id, token, os, os_version, model, app_build, app_version, created_at, updated_at
 	FROM devices

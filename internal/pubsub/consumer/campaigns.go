@@ -209,7 +209,7 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 
 		var opts *channels.ComposeOptions
 		if providers.Channel(campaign.Channel) == providers.ChannelPush {
-			userDevices, err := usrs.ListDevicesByUser(ctx, event.ProjectID, event.UserID)
+			userDevices, err := usrs.ListDevicesByUserWithTokens(ctx, event.ProjectID, event.UserID)
 			if err != nil {
 				logger.Error("failed to get user devices", zap.Error(err))
 				return err
