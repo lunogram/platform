@@ -31,7 +31,7 @@ type Subscription struct {
 
 func normalizeManagementChannel(channel string) oapi.Channel {
 	if channel == "sms" {
-		return oapi.Text
+		return oapi.ChannelSms
 	}
 
 	return oapi.Channel(channel)

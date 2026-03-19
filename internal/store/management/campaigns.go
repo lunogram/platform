@@ -46,7 +46,7 @@ type Campaign struct {
 func normalizeChannelToOAPI(channel string) oapi.Channel {
 	switch channel {
 	case "sms":
-		return oapi.Text
+		return oapi.ChannelSms
 	default:
 		return oapi.Channel(channel)
 	}
