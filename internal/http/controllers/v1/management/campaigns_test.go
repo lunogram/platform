@@ -60,7 +60,7 @@ func TestCampaignCreation(t *testing.T) {
 				require.NoError(t, err)
 
 				return oapi.CreateCampaignJSONRequestBody{
-					Channel:        oapi.Email,
+					Channel:        oapi.ChannelEmail,
 					Name:           "Welcome to the program!",
 					SubscriptionId: &subscriptionID,
 				}

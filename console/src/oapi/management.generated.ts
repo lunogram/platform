@@ -2286,18 +2286,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        SendTest: {
-            /**
-             * Format: email
-             * @description The recipient address to send the test to
-             * @example test@example.com
-             */
-            to: string;
-            /** @description Optional template variables/props for rendering */
-            props?: {
-                [key: string]: unknown;
-            };
-        };
         Campaign: {
             /**
              * Format: date-time
