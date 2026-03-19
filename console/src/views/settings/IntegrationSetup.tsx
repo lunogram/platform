@@ -1,54 +1,90 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { useForm } from "react-hook-form"
+import type { FieldPath } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft } from "lucide-react"
 
-import api from "../../api"
+import oapiClient from "@/oapi/client"
+import type { Provider, ProviderMeta, CreateProvider } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
-import type { Provider, ProviderCreateParams, ProviderMeta } from "../../types"
-import type { SchemaProperty } from "@/components/schema-fields"
+import type { SchemaProperty, Schema } from "@/components/schema-fields"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { FormSchemaFields } from "@/components/schema-fields"
 import { StaggeredMosaic } from "@/components/icon-mosaic"
+
+import { SenderIdentityList } from "@/components/sender-identity-list"
+
+type ProviderWithExtras = Provider & {
+    setup?: { name: string; value: string }[]
+    external_id?: string
+}
+
+type ProviderFormValues = CreateProvider & { module: string }
 
 /**
  * Handles both creating and editing integrations:
  * - Create: /projects/:projectId/integrations/new/:channel/:module
  * - Edit:   /projects/:projectId/integrations/:id
+ *
+ * External integrations (with external_id) are shown as read-only.
+ * Email-channel integrations also show a domain management section (enterprise only).
  */
 export default function IntegrationSetup() {
     const { t } = useTranslation()
     const [project] = useContext(ProjectContext)
     const navigate = useNavigate()
-    const { channel, module: moduleName, id } = useParams()
+    const { module: moduleName, id } = useParams()
     const isEdit = !!id && id !== "new"
 
-    const [provider, setProvider] = useState<Provider | undefined>()
+    const [provider, setProvider] = useState<ProviderWithExtras | undefined>()
     const [isSaving, setIsSaving] = useState(false)
+    const [listKey] = useState(0)
 
     // Load all provider metas to find the schema
     const [options] = useResolver(
-        useCallback(async () => await api.providers.options(project.id), [project]),
+        useCallback(async () => {
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/providers/meta",
+                {
+                    params: { path: { projectID: project.id } },
+                },
+            )
+            return data
+        }, [project]),
     )
 
     // For edit mode: load the existing provider
     useEffect(() => {
         if (isEdit && id) {
-            api.providers
-                .search(project.id, { limit: 100 } as any)
-                .then((result) => {
-                    const found = result?.results?.find((p: Provider) => p.id === id)
+            oapiClient
+                .GET("/api/admin/projects/{projectID}/providers", {
+                    params: {
+                        path: { projectID: project.id },
+                        query: { limit: 100 },
+                    },
+                })
+                .then(({ data }) => {
+                    const found = data?.results?.find((p) => p.id === id)
                     if (found) {
-                        // Fetch full provider details
-                        api.providers
-                            .get(project.id, found.channel, found.module, found.id)
-                            .then((full) => setProvider(full))
+                        oapiClient
+                            .GET("/api/admin/projects/{projectID}/providers/{type}/{providerID}", {
+                                params: {
+                                    path: {
+                                        projectID: project.id,
+                                        type: found.module,
+                                        providerID: found.id,
+                                    },
+                                },
+                            })
+                            .then(({ data: full }) => setProvider(full ?? found))
                             .catch(() => setProvider(found))
                     } else {
                         navigate(`/projects/${project.id}/integrations`)
@@ -62,41 +98,98 @@ export default function IntegrationSetup() {
     const meta = useMemo(() => {
         if (!options) return undefined
         if (isEdit && provider) {
-            return options.find(
-                (o: ProviderMeta) => o.group === provider.channel && o.type === provider.module,
-            )
+            return options.find((o: ProviderMeta) => o.type === provider.module)
         }
-        return options.find((o: ProviderMeta) => o.group === channel && o.type === moduleName)
-    }, [options, isEdit, provider, channel, moduleName])
+        return options.find((o: ProviderMeta) => o.type === moduleName)
+    }, [options, isEdit, provider, moduleName])
 
-    const effectiveChannel = isEdit ? provider?.channel : channel
+    const effectiveChannels = isEdit ? provider?.channels : meta?.channels
     const effectiveModule = isEdit ? provider?.module : moduleName
+    const isExternal = !!provider?.external_id
 
-    const form = useForm<ProviderCreateParams>({
+    // Strip any legacy default_from* fields from the schema so they aren't
+    // rendered as generic form inputs — sender identity is handled by a
+    // dedicated component based on the channel.
+    const dataSchema = useMemo((): Schema | undefined => {
+        const schema = meta?.schema as unknown as Schema | undefined
+        if (!schema?.properties) return undefined
+
+        const rawSchema = Array.isArray(schema.properties)
+            ? schema.properties.find((p) => p.name === "data")?.schema
+            : (schema.properties as Record<string, Schema>).data
+        if (!rawSchema?.properties) return rawSchema
+
+        const senderKeys = new Set(["default_from"])
+        const props: SchemaProperty[] = Array.isArray(rawSchema.properties)
+            ? rawSchema.properties
+            : Object.entries(rawSchema.properties as Record<string, Schema>).map(
+                  ([name, propSchema]) => ({
+                      name,
+                      schema: propSchema,
+                  }),
+              )
+
+        const filtered = props.filter((p) => !senderKeys.has(p.name))
+
+        return { ...rawSchema, properties: filtered }
+    }, [meta])
+
+    const senderIdentityChannel = effectiveChannels?.find((c) => c === "email" || c === "sms")
+
+    const form = useForm<ProviderFormValues>({
         values: provider
             ? {
                   name: provider.name,
                   data: provider.data,
                   module: effectiveModule ?? "",
-                  channel: effectiveChannel ?? "",
+                  link_wrap: provider?.link_wrap ?? false,
               }
             : {
                   name: "",
                   data: {},
                   module: effectiveModule ?? "",
-                  channel: effectiveChannel ?? "",
+                  link_wrap: true,
               },
     })
 
-    const handleSubmit = async (values: ProviderCreateParams) => {
-        if (!effectiveChannel || !effectiveModule) return
+    const handleSubmit = async (values: ProviderFormValues) => {
+        if (isExternal) return
+        if (!effectiveModule) return
         setIsSaving(true)
         try {
-            const params = { ...values, module: effectiveModule, channel: effectiveChannel }
+            const { name, data, link_wrap } = values
+            const body = { name, data, link_wrap }
             if (isEdit && provider?.id) {
-                await api.providers.update(project.id, provider.id, params)
+                await oapiClient.PATCH(
+                    "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
+                    {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                type: effectiveModule,
+                                providerID: provider.id,
+                            },
+                        },
+                        body,
+                    },
+                )
             } else {
-                await api.providers.create(project.id, params)
+                const { data: created } = await oapiClient.POST(
+                    "/api/admin/projects/{projectID}/providers/{type}",
+                    {
+                        params: {
+                            path: {
+                                projectID: project.id,
+                                type: effectiveModule,
+                            },
+                        },
+                        body,
+                    },
+                )
+                if (created) {
+                    navigate(`/projects/${project.id}/integrations/${created.id}`)
+                    return
+                }
             }
             navigate(`/projects/${project.id}/integrations`)
         } finally {
@@ -109,8 +202,8 @@ export default function IntegrationSetup() {
         : `/projects/${project.id}/integrations/new`
 
     // Wait for data before rendering the form
-    if (!meta && options) {
-        // meta not found — redirect back
+    if (!meta && options && !(isEdit && !provider)) {
+        // meta not found and not still loading provider — redirect back
         navigate(backUrl)
         return null
     }
@@ -128,6 +221,8 @@ export default function IntegrationSetup() {
             </div>
         )
     }
+
+    const showSenderIdentity = senderIdentityChannel === "email" || senderIdentityChannel === "sms"
 
     return (
         <div className="flex flex-col min-h-full">
@@ -188,41 +283,97 @@ export default function IntegrationSetup() {
 
             {/* Form — full width below header */}
             <div className="flex-1 overflow-y-auto p-6">
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="grid gap-4 max-w-2xl">
-                    {isEdit && provider?.setup?.length > 0 && (
+                <form
+                    id="integration-form"
+                    onSubmit={form.handleSubmit(handleSubmit)}
+                    className="grid gap-6 max-w-2xl"
+                >
+                    {isEdit && provider?.setup && provider.setup.length > 0 && (
                         <>
                             <h4 className="text-sm font-medium">{t("details", "Details")}</h4>
                             {provider.setup.map((item) => (
-                                <div key={item.name} className="grid gap-2">
-                                    <Label className="text-muted-foreground">{item.name}</Label>
+                                <Field key={item.name}>
+                                    <FieldLabel className="text-muted-foreground">
+                                        {item.name}
+                                    </FieldLabel>
                                     <Input value={item.value} disabled />
-                                </div>
+                                </Field>
                             ))}
                             <Separator />
                         </>
                     )}
 
-                    <div className="grid gap-2">
-                        <Label className="inline-flex items-center gap-1">
+                    <Field>
+                        <FieldLabel>
                             {t("name")} <span className="text-destructive">*</span>
-                        </Label>
-                        <Input {...form.register("name", { required: true })} />
+                        </FieldLabel>
+                        <Input
+                            {...form.register("name", { required: true })}
+                            disabled={isExternal}
+                        />
+                    </Field>
+
+                    {!isExternal && dataSchema && (
+                        <FormSchemaFields parent="data" schema={dataSchema} form={form} />
+                    )}
+
+                    {!isExternal && (
+                        <Controller
+                            control={form.control}
+                            name="link_wrap"
+                            render={({ field }) => (
+                                <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                                    <div className="space-y-0.5">
+                                        <Label htmlFor="link_wrap" className="text-sm font-medium">
+                                            {t("link_wrapping", "Link Wrapping")}
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            {t(
+                                                "link_wrapping_description",
+                                                "Wrap links in messages to track clicks.",
+                                            )}
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        id="link_wrap"
+                                        checked={!!field.value}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                </div>
+                            )}
+                        />
+                    )}
+                </form>
+
+                {/* Sender identity management — edit mode only */}
+                {isEdit && provider?.id && showSenderIdentity && (
+                    <div className="max-w-2xl mt-8">
+                        <SenderIdentityList
+                            key={listKey}
+                            projectId={project.id}
+                            providerId={provider.id}
+                            channel={senderIdentityChannel as "email" | "sms"}
+                            defaultFromId={
+                                form.watch("data.default_from" as FieldPath<ProviderFormValues>) as
+                                    | string
+                                    | undefined
+                            }
+                            onDefaultChange={(identityId) =>
+                                form.setValue(
+                                    "data.default_from" as FieldPath<ProviderFormValues>,
+                                    identityId,
+                                    {
+                                        shouldDirty: true,
+                                    },
+                                )
+                            }
+                        />
                     </div>
+                )}
 
-                    <FormSchemaFields
-                        parent="data"
-                        schema={
-                            Array.isArray(meta.schema.properties)
-                                ? meta.schema.properties.find(
-                                      (p: SchemaProperty) => p.name === "data",
-                                  )?.schema
-                                : meta.schema.properties?.data
-                        }
-                        form={form}
-                    />
-
-                    <div className="flex items-center gap-3 pt-2">
-                        <Button type="submit" disabled={isSaving}>
+                {!isExternal && (
+                    <div className="flex items-center gap-3 pt-8 pb-6 max-w-2xl">
+                        <Button type="submit" form="integration-form" disabled={isSaving}>
                             {isSaving
                                 ? t("saving", "Saving...")
                                 : isEdit
@@ -233,7 +384,7 @@ export default function IntegrationSetup() {
                             {t("cancel")}
                         </Button>
                     </div>
-                </form>
+                )}
             </div>
         </div>
     )

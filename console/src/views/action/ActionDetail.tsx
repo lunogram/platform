@@ -5,7 +5,12 @@ import { useNavigate, useParams } from "react-router"
 import { useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { ArrowLeft, CheckCircle2, XCircle, Loader2 } from "lucide-react"
 
-import oapiClient, { type Action, type ActionMeta, type TestActionResult } from "@/oapi/client"
+import oapiClient, {
+    type Action,
+    type ActionMeta,
+    type TestActionRequest,
+    type TestActionResult,
+} from "@/oapi/client"
 import { ProjectContext } from "@/contexts"
 import { useResolver } from "@/hooks"
 
@@ -149,7 +154,7 @@ export default function ActionDetail() {
                 "/api/admin/projects/{projectID}/actions/test",
                 {
                     params: { path: { projectID: project.id } },
-                    body: body as any,
+                    body: body as TestActionRequest,
                 },
             )
             if (data) {

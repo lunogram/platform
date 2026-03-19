@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -11,11 +12,14 @@ import (
 )
 
 // ReverseProxy creates a reverse proxy handler that forwards requests to the specified remote URL.
-// It also injects OpenTelemetry context propagation headers into the requests.
+// It injects OpenTelemetry context propagation headers into the requests and supports
+// streaming responses (e.g. Server-Sent Events) by flushing data immediately.
 func ReverseProxy(remote *url.URL) http.Handler {
 	propagator := otel.GetTextMapPropagator()
 
 	proxy := httputil.NewSingleHostReverseProxy(remote)
+	proxy.FlushInterval = -1 * time.Millisecond // flush immediately for SSE/streaming
+
 	director := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		propagator.Inject(req.Context(), propagation.HeaderCarrier(req.Header))

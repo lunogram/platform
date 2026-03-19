@@ -38,6 +38,7 @@ export interface ColSort {
     direction: string
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface SearchTableProps<T extends Record<string, any>> {
     columns: Array<DataTableCol<T>>
     title?: ReactNode
@@ -212,6 +213,7 @@ function SortableHeaderCell<T>({
     )
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function SearchTable<T extends Record<string, any>>({
     actions,
     columns,
@@ -305,7 +307,9 @@ export function SearchTable<T extends Record<string, any>>({
                         {items && items.length > 0 ? (
                             items.map((item) => {
                                 const args = { item }
-                                const key = itemKey ? itemKey(args) : (item as any).id
+                                const key = itemKey
+                                    ? itemKey(args)
+                                    : ((item as Record<string, unknown>).id as Key)
 
                                 return (
                                     <TableRow
@@ -318,6 +322,7 @@ export function SearchTable<T extends Record<string, any>>({
                                         data-state={selectedRow === key ? "selected" : undefined}
                                     >
                                         {columns.map((col) => {
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                             let value: any = col.cell
                                                 ? col.cell(args)
                                                 : item[col.key as keyof T]

@@ -91,6 +91,11 @@ export default function Template() {
         }
     }, [])
 
+    const save = useCallback(async () => {
+        if (!handler.current) return false
+        return !!(await handler.current())
+    }, [])
+
     const submit = useCallback(async () => {
         if (!handler.current) return
 
@@ -108,8 +113,8 @@ export default function Template() {
         [campaign.templates, templateId],
     )
     const workflowContextValue = useMemo(
-        () => ({ onSubmit, submit, canProceed, setCanProceed }),
-        [onSubmit, submit, canProceed],
+        () => ({ onSubmit, submit, save, canProceed, setCanProceed }),
+        [onSubmit, submit, save, canProceed],
     )
 
     const publish = useCallback(async () => {

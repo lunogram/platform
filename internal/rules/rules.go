@@ -265,6 +265,13 @@ func (r Rule) DependsOnOrganizationUsers() bool {
 		return true
 	}
 
+	// If this rule has member conditions in UserMatch, it depends on organization_users
+	// data regardless of the group field (frontend sends group="user" for member conditions
+	// but the query builder correctly queries the organization_users table).
+	if r.UserMatch != nil && r.UserMatch.Type == UserMatchConditions && r.UserMatch.MemberConditions != nil {
+		return true
+	}
+
 	for _, child := range r.Children {
 		if child.DependsOnOrganizationUsers() {
 			return true

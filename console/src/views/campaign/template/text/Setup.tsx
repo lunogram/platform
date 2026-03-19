@@ -1,15 +1,15 @@
 import { Controller, useForm, type UseFormReturn } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Ellipsis, UserRound } from "lucide-react"
+import { Ellipsis, Rocket, UserRound } from "lucide-react"
 import type { Campaign, Template, User, Locale } from "@/types"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 import api from "@/api"
 import * as z from "zod"
 
+import { Render } from "@/renderTemplates"
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
-
-import { Input } from "@/components/ui/input"
+import { SenderIdentityCombobox } from "@/components/sender-identity-combobox"
 import { TemplateInput } from "@/components/ui/template-input"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,15 +23,16 @@ import { UserSelection } from "../UserSelection"
 import { useContext, useState, useEffect } from "react"
 import { ProjectContext, TemplateContext } from "@/contexts"
 import { useCampaignVariableContext } from "../../CampaignVariableContext"
+import { useSendTestSMS } from "./useSendTestSMS"
 
 const textSetupFormSchema = z.object({
-    from: z.string().optional(),
-    message: z.string("Message is required").min(1, "Message is required"),
+    sender_identity_id: z.string().optional(),
+    body: z.string("Message is required").min(1, "Message is required"),
 })
 
 export function TextForm(campaign: Campaign, template?: Template) {
     const formSchema = textSetupFormSchema.extend({
-        from: campaign?.provider?.data.default_from
+        sender_identity_id: campaign?.provider?.data.default_from
             ? z.string().optional()
             : z.string("From number is required").min(1),
     })
@@ -39,8 +40,8 @@ export function TextForm(campaign: Campaign, template?: Template) {
     return useForm({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            from: template?.data.from ?? "",
-            message: template?.data.message,
+            sender_identity_id: template?.sender_identity_id ?? "",
+            body: template?.data.body ?? "",
         },
     })
 }
@@ -53,33 +54,48 @@ interface TextFormControlProps {
 
 export function TextFormControl({ campaign, form, disabled = false }: TextFormControlProps) {
     const { t } = useTranslation()
+    const [project] = useContext(ProjectContext)
     const { variableGroups } = useCampaignVariableContext()
 
     return (
         <FieldGroup className="mt-7">
             <Controller
-                name="from"
+                name="sender_identity_id"
                 control={form.control}
-                render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid} className="gap-2">
-                        <FieldLabel htmlFor="form-rhf-demo-from">
-                            {t("campaign.setup.channels.text.from.label")}
-                        </FieldLabel>
-                        <Input
-                            {...field}
-                            id="form-rhf-demo-from"
-                            aria-invalid={fieldState.invalid}
-                            placeholder={campaign?.provider?.data.default_from || ""}
-                            disabled={disabled || campaign?.provider?.data.default_from_locked}
-                            readOnly={disabled}
-                            autoComplete="off"
-                        />
-                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                    </Field>
-                )}
+                render={({ field, fieldState }) => {
+                    const defaultFrom = campaign?.provider?.data.default_from
+                    return (
+                        <Field data-invalid={fieldState.invalid} className="gap-2">
+                            <FieldLabel htmlFor="form-rhf-demo-from">
+                                {t("campaign.setup.channels.text.from.label")}
+                            </FieldLabel>
+                            <SenderIdentityCombobox
+                                projectId={project.id}
+                                channel="sms"
+                                providerId={campaign.provider?.id}
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
+                                placeholder={
+                                    defaultFrom || t("select_from_number", "Select from number...")
+                                }
+                                disabled={disabled}
+                            />
+                            {!field.value && defaultFrom && (
+                                <p className="text-xs text-muted-foreground">
+                                    {t(
+                                        "sender_fallback_hint",
+                                        "Falls back to integration default: {{address}}",
+                                        { address: defaultFrom },
+                                    )}
+                                </p>
+                            )}
+                            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                        </Field>
+                    )
+                }}
             />
             <Controller
-                name="message"
+                name="body"
                 control={form.control}
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid} className="gap-2">
@@ -116,6 +132,12 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
     const [locales, setLocales] = useState<Locale[]>([])
     const navigate = useNavigate()
 
+    const { sending, handleSendTest } = useSendTestSMS({
+        projectId: project.id,
+        campaignId: campaign.id,
+        templateId: template.id,
+    })
+
     useEffect(() => {
         const fetchLocales = async () => {
             if (project?.id) {
@@ -126,7 +148,8 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
         fetchLocales()
     }, [project?.id])
 
-    const message = form.watch("message")
+    const rawMessage = form.watch("body")
+    const message = selectedUser ? Render(rawMessage, { user: selectedUser }) : rawMessage
     const phoneNumber = project.name.charAt(0).toUpperCase() + project.name.slice(1)
 
     const handleEditTemplate = () => {
@@ -144,16 +167,35 @@ export function TextPreview({ campaign, form, edit = false }: TextSetupProps) {
 
     return (
         <div className="flex h-full items-center flex-col">
-            <div className="mb-8 m-auto flex items-center gap-4 w-full max-w-md">
-                <div className={edit ? "flex-1" : "flex-1 flex justify-center"}>
-                    <UserSelection
-                        projectId={project?.id}
-                        value={selectedUser}
-                        onChange={setSelectedUser}
-                    />
-                </div>
+            <div className="mb-8 m-auto flex items-center justify-center gap-4 w-full max-w-md">
+                {!edit && (
+                    <div className="flex items-center gap-2">
+                        <UserSelection
+                            projectId={project?.id}
+                            value={selectedUser}
+                            onChange={setSelectedUser}
+                        />
+                        <Button
+                            variant="default"
+                            size="sm"
+                            className="h-9 gap-1.5 shrink-0"
+                            onClick={() => handleSendTest(selectedUser?.phone ?? "", selectedUser)}
+                            disabled={sending || !selectedUser?.phone}
+                        >
+                            <Rocket className="h-3.5 w-3.5" />
+                            {t("send_test_sms.button", "Send test")}
+                        </Button>
+                    </div>
+                )}
                 {edit && (
                     <>
+                        <div className="flex-1">
+                            <UserSelection
+                                projectId={project?.id}
+                                value={selectedUser}
+                                onChange={setSelectedUser}
+                            />
+                        </div>
                         <div className="flex-1">
                             <Select value={selectedLocale} onValueChange={handleLocaleChange}>
                                 <SelectTrigger className="w-full">

@@ -44,7 +44,7 @@ func TestCampaignCreation(t *testing.T) {
 	tests := map[string]test{
 		"simple": {
 			body: oapi.CreateCampaignJSONRequestBody{
-				Channel: oapi.Email,
+				Channel: oapi.ChannelEmail,
 				Name:    "Welcome to the program!",
 			},
 		},
@@ -111,7 +111,7 @@ func TestListCampaigns(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en")
+		_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en", nil)
 		require.NoError(t, err)
 	}
 
@@ -228,7 +228,7 @@ func TestGetCampaign(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en")
+	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -317,7 +317,7 @@ func TestUpdateCampaign(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en")
+	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -413,7 +413,7 @@ func TestDeleteCampaign(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en")
+	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -479,7 +479,7 @@ func TestDuplicateCampaign(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en")
+	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -549,7 +549,7 @@ func TestGetCampaignUsers(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en")
+	_, err = templates.CreateTemplate(ctx, projectID, campaignID, "email", "en", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),

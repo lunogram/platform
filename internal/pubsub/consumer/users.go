@@ -19,7 +19,7 @@ func UsersHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher
 		err := json.Unmarshal(msg.Data(), &user)
 		if err != nil {
 			logger.Error("failed to unmarshal user message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming user", zap.Stringer("user_id", user.ID), zap.Stringer("project_id", user.ProjectID))
@@ -100,7 +100,7 @@ func UserSchemasHandler(logger *zap.Logger, usrs *subjects.State) HandlerFunc {
 		err := json.Unmarshal(msg.Data(), &user)
 		if err != nil {
 			logger.Error("failed to unmarshal user message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming user schema", zap.Stringer("user_id", user.ID), zap.Stringer("project_id", user.ProjectID))

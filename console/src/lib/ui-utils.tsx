@@ -3,7 +3,7 @@ import { useState } from "react"
 import type { Modifier } from "react-popper"
 import { usePopper } from "react-popper"
 
-const modifiers: Array<Partial<Modifier<any, any>>> = [
+const modifiers: Array<Partial<Modifier<string, object>>> = [
     {
         name: "preventOverflow",
         enabled: true,
@@ -26,7 +26,7 @@ const modifiers: Array<Partial<Modifier<any, any>>> = [
             state.styles.popper.minWidth = `${state.rects.reference.width}px`
         },
         effect({ state }) {
-            const reference = state.elements.reference as any as { offsetWidth: string }
+            const reference = state.elements.reference as HTMLElement
             state.elements.popper.style.minWidth = `${reference.offsetWidth}px`
         },
     },
@@ -49,13 +49,17 @@ export function usePopperSelectDropdown() {
     }
 }
 
-export const defaultToValue = (option: any) => option
+export const defaultToValue = (option: unknown) => option
 
-export const defaultGetValueKey = (option: any) =>
-    (typeof option === "object" ? (option.id ?? option.key) : option) as Key
+export const defaultGetValueKey = (option: unknown) =>
+    (typeof option === "object" && option !== null
+        ? ((option as Record<string, unknown>).id ?? (option as Record<string, unknown>).key)
+        : option) as Key
 
-export const defaultGetOptionDisplay = (option: any) =>
-    (typeof option === "object" ? (option.label ?? option.name) : option) as string
+export const defaultGetOptionDisplay = (option: unknown) =>
+    (typeof option === "object" && option !== null
+        ? ((option as Record<string, unknown>).label ?? (option as Record<string, unknown>).name)
+        : option) as string
 
 export const highlightSearch = (text: string, search: string, matchClassName = "match") =>
     text && search

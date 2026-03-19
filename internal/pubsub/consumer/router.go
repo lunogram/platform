@@ -51,8 +51,16 @@ func (r *Router) HandleStream(stream, consumer string, handler HandlerFunc) {
 	fn := func(msg jetstream.Msg) {
 		err := handler(r.ctx, msg)
 		if err != nil {
-			err = msg.Nak()
-			if err != nil {
+			if IsPermanent(err) {
+				log.Warn("permanent error, terminating message", zap.Error(err))
+				if err := msg.Term(); err != nil {
+					log.Error("failed to TERM message, shutting down...", zap.Error(err))
+					r.ctx.Shutdown()
+				}
+				return
+			}
+
+			if err := msg.Nak(); err != nil {
 				log.Error("failed to NAK message, shutting down...", zap.Error(err))
 				r.ctx.Shutdown()
 			}

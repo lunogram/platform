@@ -43,13 +43,14 @@ type ActionsController struct {
 
 func (srv *ActionsController) CreateAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.CreateActionJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -83,7 +84,8 @@ func (srv *ActionsController) CreateAction(w http.ResponseWriter, r *http.Reques
 
 func (srv *ActionsController) ListActions(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListActionsParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -114,7 +116,8 @@ func (srv *ActionsController) ListActions(w http.ResponseWriter, r *http.Request
 
 func (srv *ActionsController) GetAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -141,7 +144,8 @@ func (srv *ActionsController) GetAction(w http.ResponseWriter, r *http.Request, 
 
 func (srv *ActionsController) UpdateAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -149,7 +153,7 @@ func (srv *ActionsController) UpdateAction(w http.ResponseWriter, r *http.Reques
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("action_id", actionID))
 	logger.Info("updating action")
 	body := oapi.UpdateActionJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -198,7 +202,8 @@ func (srv *ActionsController) UpdateAction(w http.ResponseWriter, r *http.Reques
 
 func (srv *ActionsController) DeleteAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -206,7 +211,7 @@ func (srv *ActionsController) DeleteAction(w http.ResponseWriter, r *http.Reques
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.Stringer("action_id", actionID))
 	logger.Info("deleting action")
 
-	err := srv.store.ActionsStore.DeleteAction(ctx, projectID, actionID)
+	err = srv.store.ActionsStore.DeleteAction(ctx, projectID, actionID)
 	if err != nil {
 		logger.Error("failed to delete action", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -219,7 +224,8 @@ func (srv *ActionsController) DeleteAction(w http.ResponseWriter, r *http.Reques
 
 func (srv *ActionsController) ListActionMeta(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -293,7 +299,8 @@ func (srv *ActionsController) ListActionMeta(w http.ResponseWriter, r *http.Requ
 
 func (srv *ActionsController) GetActionPreview(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionType string) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -321,7 +328,8 @@ func (srv *ActionsController) GetActionPreview(w http.ResponseWriter, r *http.Re
 }
 
 func (srv *ActionsController) TestAction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
-	if err := srv.engine.Allowed(r.Context(), rbac.Update, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(r.Context(), rbac.Update, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -330,7 +338,7 @@ func (srv *ActionsController) TestAction(w http.ResponseWriter, r *http.Request,
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 
 	body := oapi.TestActionJSONRequestBody{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
@@ -379,7 +387,8 @@ func (srv *ActionsController) TestAction(w http.ResponseWriter, r *http.Request,
 }
 
 func (srv *ActionsController) TestActionFunction(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID, functionID string) {
-	if err := srv.engine.Allowed(r.Context(), rbac.Update, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(r.Context(), rbac.Update, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -456,7 +465,8 @@ func (srv *ActionsController) TestActionFunction(w http.ResponseWriter, r *http.
 
 func (srv *ActionsController) ListActionSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, actionID uuid.UUID, functionID string) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("actions", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}

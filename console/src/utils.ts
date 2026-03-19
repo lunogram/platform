@@ -20,6 +20,7 @@ export function round(n: number, places?: number) {
     return Math.round(n)
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const prune = (obj: Record<string, any>): Record<string, any> => {
     return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v != null && v !== ""))
 }
@@ -72,8 +73,10 @@ export function sessionStorageSetJson<T extends object>(key: string, o: T) {
     sessionStorage.setItem(key, JSON.stringify(o))
 }
 
-export function debounce(fn: Function, ms = 300) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function debounce(fn: (...args: any[]) => void, ms = 300) {
     let timeoutId: ReturnType<typeof setTimeout>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return function (this: any, ...args: any[]) {
         clearTimeout(timeoutId)
         timeoutId = setTimeout(() => fn.apply(this, args), ms)
@@ -109,7 +112,10 @@ export function formatDuration(_preferences: Preferences, duration: Duration) {
     })
 }
 
-export function createComparator<T>(getter: (o: T) => any, desc = false) {
+export function createComparator<
+    T,
+    V extends string | number | boolean | Date = string | number | boolean | Date,
+>(getter: (o: T) => V, desc = false) {
     return (a: T, b: T) => {
         const av = getter(a)
         const bv = getter(b)
@@ -123,7 +129,7 @@ export function createComparator<T>(getter: (o: T) => any, desc = false) {
     }
 }
 
-export function groupBy<T>(arr: T[], fn: (item: T) => any) {
+export function groupBy<T>(arr: T[], fn: (item: T) => string | number) {
     return arr.reduce<Record<string, T[]>>((prev, curr) => {
         const groupKey = fn(curr)
         const group = prev[groupKey] || []
@@ -132,7 +138,10 @@ export function groupBy<T>(arr: T[], fn: (item: T) => any) {
     }, {})
 }
 
-export function groupByKey<T>(arr: T[], key: keyof T) {
+export function groupByKey<T extends Record<K, string | number>, K extends keyof T>(
+    arr: T[],
+    key: K,
+) {
     return groupBy(arr, (item) => item[key])
 }
 
@@ -140,7 +149,7 @@ export function arrayMove<T>(arr: T[], currentIndex: number, targetIndex: number
     if (targetIndex >= arr.length) {
         let k = targetIndex - arr.length + 1
         while (k--) {
-            ;(arr as any).push(undefined)
+            arr.length = targetIndex + 1
         }
     }
     arr.splice(targetIndex, 0, arr.splice(currentIndex, 1)[0])
@@ -218,4 +227,16 @@ export async function logout(signOut: SignOut | undefined) {
 
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
+}
+
+/**
+ * Check if a project has a courier provider configured.
+ */
+export async function hasCourierProvider(projectId: string): Promise<boolean> {
+    const { default: oapiClient } = await import("@/oapi/client")
+    const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
+        params: { path: { projectID: projectId } },
+    })
+    const providers = data?.results ?? []
+    return providers.some((p) => p.module === "courier")
 }

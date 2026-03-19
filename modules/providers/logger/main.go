@@ -38,33 +38,8 @@ func Manifest() int32 {
 					{
 						Name: "data",
 						Schema: &modules.JSONSchema{
-							Type: "object",
-							Properties: []modules.JSONSchemaProperty{
-								{
-									Name: "default_from",
-									Schema: &modules.JSONSchema{
-										Type:        "string",
-										Title:       "Default From",
-										Description: "Default sender address (email or phone)",
-									},
-								},
-								{
-									Name: "default_from_name",
-									Schema: &modules.JSONSchema{
-										Type:        "string",
-										Title:       "Default From Name",
-										Description: "Default sender display name (email only)",
-									},
-								},
-								{
-									Name: "default_from_locked",
-									Schema: &modules.JSONSchema{
-										Type:        "boolean",
-										Title:       "Lock From",
-										Description: "Prevent templates from overriding the from value",
-									},
-								},
-							},
+							Type:       "object",
+							Properties: []modules.JSONSchemaProperty{},
 						},
 					},
 				},
@@ -89,7 +64,7 @@ func Send() int32 {
 	err := pdk.InputJSON(&req)
 	if err != nil {
 		pdk.SetError(err)
-		return -1
+		return -2 // permanent: malformed input
 	}
 
 	pdk.Log(pdk.LogInfo, fmt.Sprintf("channel: %s", req.Channel))
@@ -99,7 +74,7 @@ func Send() int32 {
 		email, err := req.GetEmailPayload()
 		if err != nil {
 			pdk.SetError(err)
-			return -1
+			return -2 // permanent: invalid payload
 		}
 		pdk.Log(pdk.LogInfo, fmt.Sprintf("to: %s", email.To))
 		pdk.Log(pdk.LogInfo, fmt.Sprintf("from: %s <%s>", email.From.Name, email.From.Address))
@@ -110,7 +85,7 @@ func Send() int32 {
 		sms, err := req.GetSMSPayload()
 		if err != nil {
 			pdk.SetError(err)
-			return -1
+			return -2 // permanent: invalid payload
 		}
 		pdk.Log(pdk.LogInfo, fmt.Sprintf("to: %s", sms.To))
 		pdk.Log(pdk.LogInfo, fmt.Sprintf("from: %s", sms.From))
@@ -120,7 +95,7 @@ func Send() int32 {
 		push, err := req.GetPushPayload()
 		if err != nil {
 			pdk.SetError(err)
-			return -1
+			return -2 // permanent: invalid payload
 		}
 		pdk.Log(pdk.LogInfo, fmt.Sprintf("tokens: %v", push.Tokens))
 		pdk.Log(pdk.LogInfo, fmt.Sprintf("title: %s", push.Title))
@@ -129,7 +104,7 @@ func Send() int32 {
 	default:
 		err := fmt.Errorf("unsupported channel: %s", req.Channel)
 		pdk.SetError(err)
-		return -1
+		return -2 // permanent: unsupported channel
 	}
 
 	response := providers.SendResponse{

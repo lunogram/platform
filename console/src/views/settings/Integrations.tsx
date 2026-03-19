@@ -2,12 +2,11 @@ import { useCallback, useContext, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router"
 import { useTranslation } from "react-i18next"
 import { Plus, Search, Puzzle, MoreHorizontal } from "lucide-react"
-import api from "../../api"
+import oapiClient from "@/oapi/client"
+import type { Provider, ProviderMeta } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
-import type { Provider } from "../../types"
-import type { UUID } from "@/types/common"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +27,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { StaggeredMosaic } from "@/components/icon-mosaic"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 export default function Integrations() {
     const { t } = useTranslation()
@@ -49,26 +49,37 @@ export default function Integrations() {
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
-            return await api.providers.search(project.id, {
-                limit: 50,
-                search: debouncedQuery || undefined,
-            } as any)
+            const { data } = await oapiClient.GET("/api/admin/projects/{projectID}/providers", {
+                params: {
+                    path: { projectID: project.id },
+                    query: {
+                        limit: 50,
+                    },
+                },
+            })
+            return data
+            // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [project.id, debouncedQuery]),
     )
 
     // Load provider metas so we can resolve icons for the mosaic
     const [metas] = useResolver(
-        useCallback(async () => await api.providers.options(project.id), [project.id]),
+        useCallback(async () => {
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/providers/meta",
+                {
+                    params: { path: { projectID: project.id } },
+                },
+            )
+            return data
+        }, [project.id]),
     )
 
     const providers = result?.results ?? []
 
     const mosaicProvider = useMemo(() => {
         if (!hoveredProvider || !metas) return undefined
-        const meta = metas.find(
-            (m: { type: string; group: string }) =>
-                m.type === hoveredProvider.module && m.group === hoveredProvider.channel,
-        )
+        const meta = metas.find((m: ProviderMeta) => m.type === hoveredProvider.module)
         return {
             id: hoveredProvider.module,
             name: meta?.name ?? hoveredProvider.module,
@@ -77,9 +88,20 @@ export default function Integrations() {
         }
     }, [hoveredProvider, metas])
 
-    const handleArchive = async (id: UUID) => {
+    const isProviderLocked = useCallback(
+        (provider: Provider): boolean => {
+            if (!metas) return false
+            const meta = metas.find((m: ProviderMeta) => m.type === provider.module)
+            return meta?.locked === true
+        },
+        [metas],
+    )
+
+    const handleArchive = async (id: string) => {
         if (!confirm(t("delete_integration_confirmation"))) return
-        await api.providers.delete(project.id, id)
+        await oapiClient.DELETE("/api/admin/projects/{projectID}/providers/{providerID}", {
+            params: { path: { projectID: project.id, providerID: id } },
+        })
         await reload()
     }
 
@@ -143,7 +165,9 @@ export default function Integrations() {
                             <TableRow>
                                 <TableHead>{t("name")}</TableHead>
                                 <TableHead className="hidden sm:table-cell">{t("type")}</TableHead>
-                                <TableHead className="hidden sm:table-cell">{t("group")}</TableHead>
+                                <TableHead className="hidden sm:table-cell">
+                                    {t("channel_list", "Channels")}
+                                </TableHead>
                                 <TableHead className="w-[70px]" />
                             </TableRow>
                         </TableHeader>
@@ -202,11 +226,7 @@ export default function Integrations() {
                                         key={p.id}
                                         className="cursor-pointer"
                                         onClick={() =>
-                                            p.external_id
-                                                ? undefined
-                                                : navigate(
-                                                      `/projects/${project.id}/integrations/${p.id}`,
-                                                  )
+                                            navigate(`/projects/${project.id}/integrations/${p.id}`)
                                         }
                                         onMouseEnter={() => setHoveredProvider(p)}
                                         onMouseLeave={() => setHoveredProvider(null)}
@@ -216,9 +236,13 @@ export default function Integrations() {
                                             {p.module}
                                         </TableCell>
                                         <TableCell className="hidden sm:table-cell">
-                                            <Badge variant="secondary">
-                                                {snakeToTitle(p.channel)}
-                                            </Badge>
+                                            <div className="flex gap-1">
+                                                {p.channels?.map((ch) => (
+                                                    <Badge key={ch} variant="secondary">
+                                                        {snakeToTitle(ch)}
+                                                    </Badge>
+                                                ))}
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             <DropdownMenu>
@@ -233,15 +257,37 @@ export default function Integrations() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem
-                                                        className="text-destructive"
-                                                        onClick={async (e) => {
-                                                            e.stopPropagation()
-                                                            await handleArchive(p.id)
-                                                        }}
-                                                    >
-                                                        {t("archive")}
-                                                    </DropdownMenuItem>
+                                                    {isProviderLocked(p) ? (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <DropdownMenuItem
+                                                                    className="text-muted-foreground"
+                                                                    disabled
+                                                                    onClick={(e) =>
+                                                                        e.stopPropagation()
+                                                                    }
+                                                                >
+                                                                    {t("archive")}
+                                                                </DropdownMenuItem>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="left">
+                                                                {t(
+                                                                    "provider_locked",
+                                                                    "This provider is locked and cannot be deleted",
+                                                                )}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <DropdownMenuItem
+                                                            className="text-destructive"
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation()
+                                                                await handleArchive(p.id)
+                                                            }}
+                                                        >
+                                                            {t("archive")}
+                                                        </DropdownMenuItem>
+                                                    )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>

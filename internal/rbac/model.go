@@ -180,6 +180,7 @@ func Model() []*openfgav1.TypeDefinition {
 		{name: "subscriptions", read: "support", create: "editor", update: "editor", delete: "admin"},
 		{name: "actions", read: "support", create: "editor", update: "editor", delete: "admin"},
 		{name: "organizations", read: "support", create: "client", update: "client", delete: "client"},
+		{name: "sender_identities", read: "support", create: "admin", update: "admin", delete: "admin"},
 	}
 
 	for _, r := range resources {

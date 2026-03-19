@@ -36,7 +36,7 @@ func UserEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.S
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal event message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming event", zap.String("name", event.Name), zap.Stringer("project_id", event.ProjectID))
@@ -241,7 +241,7 @@ func UserEventSchemasHandler(logger *zap.Logger, usrs *subjects.State) HandlerFu
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal event message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming event schema", zap.Stringer("event_id", event.ID), zap.Stringer("project_id", event.ProjectID))

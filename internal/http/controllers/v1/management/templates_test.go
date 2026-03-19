@@ -39,7 +39,7 @@ func TestGetTemplate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en")
+	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -48,7 +48,7 @@ func TestGetTemplate(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewTemplatesController(logger, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine)
+	controller := NewTemplatesController(logger, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine, nil, "")
 
 	type test struct {
 		id   uuid.UUID
@@ -103,7 +103,7 @@ func TestCreateTemplate(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewTemplatesController(logger, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine)
+	controller := NewTemplatesController(logger, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine, nil, "")
 
 	type test struct {
 		body any
@@ -167,7 +167,7 @@ func TestUpdateTemplate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en")
+	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -176,7 +176,7 @@ func TestUpdateTemplate(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewTemplatesController(logger, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine)
+	controller := NewTemplatesController(logger, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine, nil, "")
 
 	type test struct {
 		id   uuid.UUID
@@ -237,7 +237,7 @@ func TestDeleteTemplate(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en")
+	templateID, err := templates.CreateTemplate(ctx, projectID, campaignID, "email", "en", nil)
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -246,7 +246,7 @@ func TestDeleteTemplate(t *testing.T) {
 	)
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
-	controller := NewTemplatesController(logger, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine)
+	controller := NewTemplatesController(logger, mgmt, pubsub.NewEmailRenderer(pubsub.NewNoopCaller()), nil, engine, nil, "")
 
 	type test struct {
 		id   uuid.UUID

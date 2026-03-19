@@ -2,6 +2,7 @@ import type { ComponentType, Dispatch, Key, ReactNode, SetStateAction } from "re
 import type { FieldPath, FieldValues, UseFormReturn } from "react-hook-form"
 import type { Node } from "reactflow"
 import type { UUID } from "@/types/common"
+import type { Provider as OAPIProvider } from "@/oapi/client"
 
 export type Class<T> = new () => T
 
@@ -325,8 +326,6 @@ export interface Project {
     timezone: string
     text_opt_out_message?: string
     text_help_message?: string
-    link_wrap_email: boolean
-    link_wrap_push: boolean
     created_at: string
     updated_at: string
     deleted_at?: string
@@ -338,7 +337,7 @@ export interface Project {
     lists_count?: number
 }
 
-export type ChannelType = "email" | "push" | "text"
+export type ChannelType = "email" | "push" | "sms"
 
 export type ProjectCreate = Omit<Project, "id" | AuditFields>
 
@@ -471,6 +470,7 @@ export interface Journey {
     stats: Record<string, number>
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface JourneyStep<T = any> {
     id: UUID
     type: string
@@ -482,6 +482,7 @@ export interface JourneyStep<T = any> {
 
 export type JourneyStepParams = Omit<JourneyStep, "id">
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface JourneyStepMapChild<E = any> {
     external_id: string
     path?: string
@@ -518,6 +519,7 @@ export interface JourneyStepTypeEdgeProps<T, E> extends ControlledProps<E> {
     project: Project
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface JourneyStepType<T = any, E = any> {
     name: string
     icon: ReactNode
@@ -575,7 +577,7 @@ export interface Campaign {
     channel: ChannelType
     delivery: CampaignDelivery
     provider_id?: UUID
-    provider?: Provider
+    provider?: OAPIProvider
     subscription_id?: UUID
     subscription?: Subscription
     transactional?: boolean
@@ -634,7 +636,8 @@ export type Template = {
     campaign_id: UUID
     type: ChannelType
     locale: string
-    data: any
+    sender_identity_id: UUID | null
+    data: EmailTemplateData | TextTemplateData | PushTemplateData
     screenshot_url: string
     created_at: string
     updated_at: string
@@ -644,7 +647,7 @@ export type Template = {
           data: EmailTemplateData
       }
     | {
-          type: "text"
+          type: "sms"
           data: TextTemplateData
       }
     | {
@@ -654,13 +657,13 @@ export type Template = {
 )
 
 export type TemplateCreateParams = Pick<Template, "data" | "locale">
-export type TemplateUpdateParams = Pick<Template, "data">
+export type TemplateUpdateParams = Pick<Template, "data" | "sender_identity_id">
 export type VariantUpdateParams = { id?: UUID }
 
 export interface TemplatePreviewParams {
-    user: Record<string, any>
-    event: Record<string, any>
-    ontext: Record<string, any>
+    user: Record<string, unknown>
+    event: Record<string, unknown>
+    ontext: Record<string, unknown>
 }
 
 export interface TemplateProofParams {
@@ -706,38 +709,7 @@ export interface Subscription {
 export type SubscriptionCreateParams = Pick<Subscription, "name" | "channel" | "is_public">
 export type SubscriptionUpdateParams = Pick<SubscriptionCreateParams, "name" | "is_public">
 
-export type ProviderGroup = "email" | "text" | "push"
-export interface Provider {
-    id: UUID
-    name: string
-    module: string
-    channel: string
-
-    data: any
-    is_default: boolean
-    setup: ProviderSetupMeta[]
-    external_id?: string
-}
-
-export type ProviderCreateParams = Pick<Provider, "name" | "data" | "module" | "channel">
-export type ProviderUpdateParams = ProviderCreateParams
-export interface ProviderMeta {
-    name: string
-    description?: string
-    url?: string
-    icon?: string
-    color?: string
-    type: string
-    group: string
-
-    schema: any
-    paths?: Record<string, string>
-}
-
-export interface ProviderSetupMeta {
-    name: string
-    value: string
-}
+export type ProviderGroup = "email" | "sms" | "push"
 
 export interface Image {
     id: UUID
@@ -756,7 +728,7 @@ export interface Resource {
     id: UUID
     type: string
     name: string
-    value: Record<string, any>
+    value: Record<string, unknown>
 }
 
 export interface Font {
@@ -787,13 +759,13 @@ export interface Action {
     project_id: UUID
     name: string
     type: ActionType
-    config: Record<string, any>
+    config: Record<string, unknown>
     created_at: string
     updated_at: string
 }
 
 export type ActionCreateParams = Pick<Action, "name" | "type"> & {
-    config?: Record<string, any>
+    config?: Record<string, unknown>
 }
 
 export type ActionUpdateParams = Partial<ActionCreateParams>

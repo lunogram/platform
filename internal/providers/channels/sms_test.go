@@ -1,6 +1,7 @@
 package channels
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -14,27 +15,33 @@ func TestComposeSMS(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
-		name        string
-		config      map[string]any
-		template    management.Template
-		user        *subjects.User
-		wantFrom    string
-		wantErr     bool
-		errContains string
+		name                  string
+		config                map[string]any
+		templateSender        *management.SenderIdentity
+		providerDefaultSender *management.SenderIdentity
+		template              management.Template
+		user                  *subjects.User
+		wantFrom              string
+		wantErr               bool
+		errContains           string
+	}
+
+	senderIdentity := func(address string) *management.SenderIdentity {
+		data, _ := json.Marshal(map[string]any{"address": address})
+		return &management.SenderIdentity{Traits: data}
 	}
 
 	tests := []test{
 		{
-			name: "uses template from when provider unlocked and template specifies",
+			name: "uses template sender when specified",
 			config: map[string]any{
-				"accountSid":                 "test-sid",
-				"authToken":                  "test-token",
-				ProviderKeyDefaultFrom:       "+10000000000",
-				ProviderKeyDefaultFromLocked: false,
+				"accountSid": "test-sid",
+				"authToken":  "test-token",
 			},
+			templateSender:        senderIdentity("+11111111111"),
+			providerDefaultSender: senderIdentity("+10000000000"),
 			template: management.Template{
 				Data: json.RawMessage(`{
-					"from": "+11111111111",
 					"body": "Test message"
 				}`),
 			},
@@ -43,16 +50,15 @@ func TestComposeSMS(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "uses provider default_from when template empty",
+			name: "uses provider default_from when template sender is nil",
 			config: map[string]any{
-				"accountSid":                 "test-sid",
-				"authToken":                  "test-token",
-				ProviderKeyDefaultFrom:       "+10000000000",
-				ProviderKeyDefaultFromLocked: false,
+				"accountSid": "test-sid",
+				"authToken":  "test-token",
 			},
+			templateSender:        nil,
+			providerDefaultSender: senderIdentity("+10000000000"),
 			template: management.Template{
 				Data: json.RawMessage(`{
-					"from": "",
 					"body": "Test message"
 				}`),
 			},
@@ -61,21 +67,20 @@ func TestComposeSMS(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "uses provider default_from when locked (ignores template)",
+			name: "template sender takes priority over provider default",
 			config: map[string]any{
-				"accountSid":                 "test-sid",
-				"authToken":                  "test-token",
-				ProviderKeyDefaultFrom:       "+10000000000",
-				ProviderKeyDefaultFromLocked: true,
+				"accountSid": "test-sid",
+				"authToken":  "test-token",
 			},
+			templateSender:        senderIdentity("+11111111111"),
+			providerDefaultSender: senderIdentity("+10000000000"),
 			template: management.Template{
 				Data: json.RawMessage(`{
-					"from": "+11111111111",
 					"body": "Test message"
 				}`),
 			},
 			user:     &subjects.User{Phone: ptr("+12222222222")},
-			wantFrom: "+10000000000",
+			wantFrom: "+11111111111",
 			wantErr:  false,
 		},
 		{
@@ -84,6 +89,8 @@ func TestComposeSMS(t *testing.T) {
 				"accountSid": "test-sid",
 				"authToken":  "test-token",
 			},
+			templateSender:        nil,
+			providerDefaultSender: nil,
 			template: management.Template{
 				Data: json.RawMessage(`{
 					"body": "Test message"
@@ -96,13 +103,13 @@ func TestComposeSMS(t *testing.T) {
 		{
 			name: "errors when user has no phone",
 			config: map[string]any{
-				"accountSid":           "test-sid",
-				"authToken":            "test-token",
-				ProviderKeyDefaultFrom: "+10000000000",
+				"accountSid": "test-sid",
+				"authToken":  "test-token",
 			},
+			templateSender:        senderIdentity("+11111111111"),
+			providerDefaultSender: senderIdentity("+10000000000"),
 			template: management.Template{
 				Data: json.RawMessage(`{
-					"from": "+11111111111",
 					"body": "Test message"
 				}`),
 			},
@@ -111,12 +118,13 @@ func TestComposeSMS(t *testing.T) {
 			errContains: "user has no phone number",
 		},
 		{
-			name: "uses provider default when template has no from field at all",
+			name: "uses provider default when template sender is nil",
 			config: map[string]any{
-				"accountSid":           "test-sid",
-				"authToken":            "test-token",
-				ProviderKeyDefaultFrom: "+10000000000",
+				"accountSid": "test-sid",
+				"authToken":  "test-token",
 			},
+			templateSender:        nil,
+			providerDefaultSender: senderIdentity("+10000000000"),
 			template: management.Template{
 				Data: json.RawMessage(`{
 					"body": "Test message"
@@ -127,11 +135,12 @@ func TestComposeSMS(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:   "handles nil data in config",
-			config: map[string]any{},
+			name:                  "handles nil senders with template sender",
+			config:                map[string]any{},
+			templateSender:        senderIdentity("+11111111111"),
+			providerDefaultSender: nil,
 			template: management.Template{
 				Data: json.RawMessage(`{
-					"from": "+11111111111",
 					"body": "Test message"
 				}`),
 			},
@@ -143,7 +152,7 @@ func TestComposeSMS(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := ComposeSMS(tc.config, tc.template, tc.user)
+			result, err := ComposeSMS(context.Background(), tc.templateSender, tc.providerDefaultSender, tc.config, tc.template, tc.user)
 
 			if tc.wantErr {
 				require.Error(t, err)

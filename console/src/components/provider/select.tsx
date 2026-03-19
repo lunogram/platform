@@ -38,15 +38,13 @@ export function ProviderSelect({ value, onChange, channel }: ProviderSelectProps
                 })
 
                 const allProviders = data?.results ?? []
-                const filteredProviders = allProviders.filter(
-                    (provider) => provider.channel === channel,
+                const filteredProviders = allProviders.filter((provider) =>
+                    provider.channels?.includes(channel),
                 )
                 setProviders(filteredProviders)
 
                 if (filteredProviders.length > 0 && !value) {
-                    const defaultProvider =
-                        filteredProviders.find((provider) => provider.is_default) ??
-                        filteredProviders[0]
+                    const defaultProvider = filteredProviders[0]
                     onChange?.(defaultProvider.id)
                 }
             } finally {

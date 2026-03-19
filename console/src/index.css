@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source "../../../packages/block-editor/src/**/*.{ts,tsx}";
 @plugin "tailwindcss-animate";
 @import "tw-animate-css";
 

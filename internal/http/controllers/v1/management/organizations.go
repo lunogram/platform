@@ -40,7 +40,8 @@ type OrganizationsController struct {
 
 func (srv *OrganizationsController) ListOrganizations(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListOrganizationsParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -76,13 +77,14 @@ func (srv *OrganizationsController) ListOrganizations(w http.ResponseWriter, r *
 
 func (srv *OrganizationsController) UpsertOrganization(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
 	body := oapi.UpsertOrganization{}
-	err := json.Decode(r.Body, &body)
+	err = json.Decode(r.Body, &body)
 	if err != nil {
 		srv.logger.Error("failed to decode request body", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
@@ -161,7 +163,8 @@ func (srv *OrganizationsController) UpsertOrganization(w http.ResponseWriter, r 
 
 func (srv *OrganizationsController) GetOrganization(w http.ResponseWriter, r *http.Request, projectID, organizationID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -192,12 +195,13 @@ func (srv *OrganizationsController) GetOrganization(w http.ResponseWriter, r *ht
 
 func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r *http.Request, projectID, organizationID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.orgs.GetOrganization(ctx, projectID, organizationID)
+	_, err = srv.orgs.GetOrganization(ctx, projectID, organizationID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
@@ -293,12 +297,13 @@ func (srv *OrganizationsController) UpdateOrganization(w http.ResponseWriter, r 
 
 func (srv *OrganizationsController) DeleteOrganization(w http.ResponseWriter, r *http.Request, projectID, organizationID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.orgs.GetOrganization(ctx, projectID, organizationID)
+	_, err = srv.orgs.GetOrganization(ctx, projectID, organizationID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
@@ -331,12 +336,13 @@ func (srv *OrganizationsController) DeleteOrganization(w http.ResponseWriter, r 
 
 func (srv *OrganizationsController) ListOrganizationMembers(w http.ResponseWriter, r *http.Request, projectID, organizationID uuid.UUID, params oapi.ListOrganizationMembersParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.orgs.GetOrganization(ctx, projectID, organizationID)
+	_, err = srv.orgs.GetOrganization(ctx, projectID, organizationID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
@@ -382,7 +388,8 @@ func (srv *OrganizationsController) ListOrganizationMembers(w http.ResponseWrite
 
 func (srv *OrganizationsController) AddOrganizationMember(w http.ResponseWriter, r *http.Request, projectID, organizationID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -484,12 +491,13 @@ func (srv *OrganizationsController) AddOrganizationMember(w http.ResponseWriter,
 
 func (srv *OrganizationsController) RemoveOrganizationMember(w http.ResponseWriter, r *http.Request, projectID, organizationID, userID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.orgs.GetOrganization(ctx, projectID, organizationID)
+	_, err = srv.orgs.GetOrganization(ctx, projectID, organizationID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
@@ -523,12 +531,13 @@ func (srv *OrganizationsController) RemoveOrganizationMember(w http.ResponseWrit
 
 func (srv *OrganizationsController) GetOrganizationEvents(w http.ResponseWriter, r *http.Request, projectID, organizationID uuid.UUID, params oapi.GetOrganizationEventsParams) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("events", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	_, err := srv.orgs.GetOrganization(ctx, projectID, organizationID)
+	_, err = srv.orgs.GetOrganization(ctx, projectID, organizationID)
 	if errors.Is(err, sql.ErrNoRows) {
 		srv.logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
@@ -574,7 +583,8 @@ func (srv *OrganizationsController) GetOrganizationEvents(w http.ResponseWriter,
 
 func (srv *OrganizationsController) ListOrganizationSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -610,7 +620,8 @@ func (srv *OrganizationsController) ListOrganizationSchemas(w http.ResponseWrite
 
 func (srv *OrganizationsController) ListOrganizationMemberSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("organizations", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -646,7 +657,8 @@ func (srv *OrganizationsController) ListOrganizationMemberSchemas(w http.Respons
 
 func (srv *OrganizationsController) ListOrganizationEventSchemas(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("events", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -687,7 +699,8 @@ func (srv *OrganizationsController) ListOrganizationEventSchemas(w http.Response
 
 func (srv *OrganizationsController) DeleteOrganizationEventSchema(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, eventID uuid.UUID) {
 	ctx := r.Context()
-	if err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("events", projectID)); err != nil {
+	err := srv.engine.Allowed(ctx, rbac.Delete, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
 		oapi.WriteProblem(w, err)
 		return
 	}
@@ -699,7 +712,7 @@ func (srv *OrganizationsController) DeleteOrganizationEventSchema(w http.Respons
 
 	logger.Info("deleting organization event schema")
 
-	err := srv.events.DeleteEvent(ctx, projectID, eventID)
+	err = srv.events.DeleteEvent(ctx, projectID, eventID)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("event not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("event not found")))

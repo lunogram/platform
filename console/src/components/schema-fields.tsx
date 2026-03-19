@@ -289,6 +289,7 @@ export interface FormSchemaFieldsProps {
     /** The JSON schema describing the fields. */
     schema: Schema
     /** The react-hook-form instance. */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     form: UseFormReturn<any>
 }
 

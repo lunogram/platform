@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+	"strings"
 
 	"github.com/extism/go-pdk"
 	pdkhttp "github.com/extism/go-pdk/http"
@@ -13,11 +13,18 @@ import (
 	"github.com/resend/resend-go/v3"
 )
 
-// safeTransport wraps the Extism HTTPTransport to guarantee that resp.Body is
-// never nil. The standard http.Client contract promises a non-nil Body, but the
-// Extism PDK transport can return nil when the response has no content. Third-
-// party libraries like the Resend SDK call resp.Body.Close() unconditionally,
-// which causes a nil-panic in WASM without this wrapper.
+// NewResendClient creates a Resend SDK client that routes HTTP through the
+// Extism PDK transport so it works inside WASM.
+func NewResendClient(apiKey string) *resend.Client {
+	httpClient := &http.Client{
+		Transport: &safeTransport{inner: &pdkhttp.HTTPTransport{}},
+	}
+	return resend.NewCustomClient(httpClient, apiKey)
+}
+
+// safeTransport wraps an http.RoundTripper to guarantee that resp.Body is
+// never nil. The standard http.Client contract promises a non-nil Body, but
+// the Extism PDK transport can return nil when the response has no content.
 type safeTransport struct {
 	inner http.RoundTripper
 }
@@ -27,8 +34,8 @@ func (t *safeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	if resp.Body == nil {
-		resp.Body = io.NopCloser(bytes.NewReader(nil))
+	if resp != nil && resp.Body == nil {
+		resp.Body = http.NoBody
 	}
 	return resp, nil
 }
@@ -53,6 +60,7 @@ func Manifest() int32 {
 			URL:   "https://lunogram.com",
 		},
 		Spec: providers.ProviderSpec{
+			Webhook:  true,
 			Channels: []providers.Channel{providers.ChannelEmail},
 			Config: &modules.JSONSchema{
 				Type: "object",
@@ -67,16 +75,13 @@ func Manifest() int32 {
 									Schema: &modules.JSONSchema{Type: "string", Title: "Resend API Key", Format: "password"},
 								},
 								{
-									Name:   "default_from",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Default From Address", Description: "Default sender email address"},
+									Name:   "webhookSecret",
+									Schema: &modules.JSONSchema{Type: "string", Title: "Webhook Signing Secret", Format: "password", Description: "Svix webhook signing secret for verifying webhook signatures"},
 								},
 								{
-									Name:   "default_from_name",
-									Schema: &modules.JSONSchema{Type: "string", Title: "Default From Name", Description: "Default sender display name"},
-								},
-								{
-									Name:   "default_from_locked",
-									Schema: &modules.JSONSchema{Type: "boolean", Title: "Lock From Address", Description: "Prevent templates from overriding the from address"},
+									Name:   "webhookId",
+									Schema: &modules.JSONSchema{Type: "string", Title: "Webhook ID", Description: "Resend webhook ID (auto-configured)"},
+									Hidden: true,
 								},
 							},
 							Required: []string{"apiKey"},
@@ -87,108 +92,282 @@ func Manifest() int32 {
 		},
 	}
 
-	err := pdk.OutputJSON(manifest)
-	if err != nil {
+	if err := pdk.OutputJSON(manifest); err != nil {
 		pdk.SetError(err)
 		return -1
 	}
-
-	return 0
-}
-
-type Config struct {
-	APIKey string `json:"apiKey"`
+	return ExitSuccess
 }
 
 //go:export send
 func Send() int32 {
 	var req providers.SendRequest[Config]
-	err := pdk.InputJSON(&req)
-	if err != nil {
+	if err := pdk.InputJSON(&req); err != nil {
 		pdk.SetError(err)
-		return -1
+		return ExitPermanent
 	}
 
-	// Only email channel is supported
 	if req.Channel != providers.ChannelEmail {
 		pdk.SetError(fmt.Errorf("unsupported channel: %s", req.Channel))
-		return -1
+		return ExitPermanent
 	}
 
-	// Get email payload
 	email, err := req.GetEmailPayload()
 	if err != nil {
 		pdk.SetError(err)
-		return -1
+		return ExitPermanent
 	}
 
-	// Validate required fields
 	if email.From.Address == "" {
 		pdk.SetError(fmt.Errorf("missing required 'from' address"))
-		return -1
+		return ExitPermanent
 	}
-
 	if email.Subject == "" {
 		pdk.SetError(fmt.Errorf("missing required 'subject'"))
-		return -1
+		return ExitPermanent
+	}
+	if email.HTML == "" && email.Text == "" {
+		pdk.SetError(fmt.Errorf("missing required 'html' or 'text' body content"))
+		return ExitPermanent
 	}
 
-	// Create HTTP client for WASM
-	httpClient := &http.Client{
-		Transport: &safeTransport{inner: &pdkhttp.HTTPTransport{}},
-	}
+	client := NewResendClient(req.Config.APIKey)
+	sendReq := ComposeSendEmailRequest(email)
 
-	client := resend.NewCustomClient(httpClient, req.Config.APIKey)
+	// Log the outgoing request payload for debugging 422 errors from Resend.
+	debugPayload, _ := json.Marshal(struct {
+		From    string   `json:"from"`
+		To      []string `json:"to"`
+		Subject string   `json:"subject"`
+		HasHTML bool     `json:"has_html"`
+		HasText bool     `json:"has_text"`
+	}{
+		From:    sendReq.From,
+		To:      sendReq.To,
+		Subject: sendReq.Subject,
+		HasHTML: sendReq.Html != "",
+		HasText: sendReq.Text != "",
+	})
+	pdk.Log(pdk.LogDebug, fmt.Sprintf("resend send request: %s", string(debugPayload)))
 
-	params := &resend.SendEmailRequest{
-		From:    formatAddress(email.From),
-		To:      []string{email.To},
-		Html:    email.HTML,
-		Subject: email.Subject,
-		Headers: email.Headers,
-	}
-
-	if email.Cc != nil {
-		params.Cc = []string{*email.Cc}
-	}
-
-	if email.Bcc != nil {
-		params.Bcc = []string{*email.Bcc}
-	}
-
-	if email.ReplyTo != nil {
-		params.ReplyTo = *email.ReplyTo
-	}
-
-	if email.Text != "" {
-		params.Text = email.Text
-	}
-
-	sent, err := client.Emails.Send(params)
+	resp, err := client.Emails.Send(sendReq)
 	if err != nil {
-		pdk.SetError(fmt.Errorf("failed to send email: %w", err))
-		return -1
+		pdk.SetError(fmt.Errorf("failed to send email (from=%s, to=%v, subject=%q): %w", sendReq.From, sendReq.To, sendReq.Subject, err))
+		return classifyError(err)
 	}
 
-	response := providers.SendResponse{
-		ID:     sent.Id,
+	err = pdk.OutputJSON(providers.SendResponse{
+		ID:     resp.Id,
 		Status: "sent",
-	}
-
-	err = pdk.OutputJSON(response)
+	})
 	if err != nil {
 		pdk.SetError(err)
 		return -1
 	}
-
-	return 0
+	return ExitSuccess
 }
 
-func formatAddress(address providers.EmailAddress) string {
-	if address.Name != "" {
-		return fmt.Sprintf("%s <%s>", address.Name, address.Address)
+//go:export webhook
+func WebhookHandler() int32 {
+	var req providers.WebhookRequest
+	if err := pdk.InputJSON(&req); err != nil {
+		pdk.SetError(err)
+		return ExitPermanent
 	}
-	return address.Address
+
+	var config Config
+	if err := json.Unmarshal(req.Config, &config); err != nil {
+		pdk.SetError(fmt.Errorf("failed to parse config: %w", err))
+		return ExitPermanent
+	}
+
+	// Verify Svix webhook signature using the SDK if a signing secret is configured.
+	if config.WebhookSecret != "" {
+		client := NewResendClient(config.APIKey)
+		err := client.Webhooks.Verify(&resend.VerifyWebhookOptions{
+			Payload: string(req.Body),
+			Headers: resend.WebhookHeaders{
+				Id:        req.Headers["svix-id"],
+				Timestamp: req.Headers["svix-timestamp"],
+				Signature: req.Headers["svix-signature"],
+			},
+			WebhookSecret: config.WebhookSecret,
+		})
+		if err != nil {
+			pdk.SetError(fmt.Errorf("invalid webhook signature: %w", err))
+			return ExitPermanent
+		}
+	}
+
+	// Parse the Resend webhook payload.
+	var payload resendWebhookPayload
+	if err := json.Unmarshal(req.Body, &payload); err != nil {
+		pdk.SetError(fmt.Errorf("failed to parse webhook body: %w", err))
+		return ExitPermanent
+	}
+
+	// Map Resend event type to canonical event name.
+	eventName, ok := mapWebhookEvent(payload.Type)
+	if !ok {
+		// Unrecognised event — return empty events list (not an error).
+		err := pdk.OutputJSON(providers.WebhookResponse{Events: []providers.WebhookEvent{}})
+		if err != nil {
+			pdk.SetError(err)
+			return ExitTransient
+		}
+
+		return ExitSuccess
+	}
+
+	response := providers.WebhookResponse{
+		Events: []providers.WebhookEvent{
+			{
+				EventName: eventName,
+				MessageID: payload.Data.EmailID,
+				Timestamp: payload.CreatedAt,
+				Data: map[string]any{
+					"to":      payload.Data.To,
+					"from":    payload.Data.From,
+					"subject": payload.Data.Subject,
+					"type":    payload.Type,
+				},
+			},
+		},
+	}
+
+	if err := pdk.OutputJSON(response); err != nil {
+		pdk.SetError(err)
+		return ExitTransient
+	}
+	return ExitSuccess
+}
+
+//go:export validate
+func Validate() int32 {
+	var req providers.ValidateRequest
+	if err := pdk.InputJSON(&req); err != nil {
+		pdk.SetError(err)
+		return ExitPermanent
+	}
+
+	var config Config
+	if err := json.Unmarshal(req.Config, &config); err != nil {
+		pdk.SetError(fmt.Errorf("failed to parse config: %w", err))
+		return ExitPermanent
+	}
+
+	errs := make(map[string]string)
+	if config.APIKey == "" {
+		errs["apiKey"] = "API key is required"
+	}
+
+	if len(errs) > 0 {
+		if err := pdk.OutputJSON(providers.ValidateResponse{
+			Valid:   false,
+			Errors:  errs,
+			Message: "invalid provider configuration",
+		}); err != nil {
+			pdk.SetError(err)
+			return ExitPermanent
+		}
+		return ExitSuccess
+	}
+
+	if err := pdk.OutputJSON(providers.ValidateResponse{Valid: true}); err != nil {
+		pdk.SetError(err)
+		return ExitPermanent
+	}
+	return ExitSuccess
+}
+
+//go:export init
+func Init() int32 {
+	var req providers.InitRequest
+	if err := pdk.InputJSON(&req); err != nil {
+		pdk.SetError(err)
+		return ExitPermanent
+	}
+
+	var config Config
+	if err := json.Unmarshal(req.Config, &config); err != nil {
+		pdk.SetError(fmt.Errorf("failed to parse config: %w", err))
+		return ExitPermanent
+	}
+
+	if config.APIKey == "" {
+		pdk.SetError(fmt.Errorf("missing required API key"))
+		return ExitPermanent
+	}
+
+	client := NewResendClient(config.APIKey)
+	res, err := client.Webhooks.Create(&resend.CreateWebhookRequest{
+		Endpoint: req.WebhookURL,
+		Events:   webhookEvents(),
+	})
+	if err != nil {
+		pdk.SetError(fmt.Errorf("failed to register webhook with Resend: %w", err))
+		return ExitTransient
+	}
+
+	// Return a config patch so the platform persists the webhook ID and signing secret.
+	patch, err := json.Marshal(map[string]string{
+		"webhookSecret": res.SigningSecret,
+		"webhookId":     res.Id,
+	})
+	if err != nil {
+		pdk.SetError(fmt.Errorf("failed to marshal config patch: %w", err))
+		return ExitTransient
+	}
+
+	err = pdk.OutputJSON(providers.InitResponse{
+		ConfigPatch: patch,
+	})
+	if err != nil {
+		pdk.SetError(err)
+		return ExitTransient
+	}
+	return ExitSuccess
+}
+
+//go:export destroy
+func Destroy() int32 {
+	var req providers.DestroyRequest
+	if err := pdk.InputJSON(&req); err != nil {
+		pdk.SetError(err)
+		return ExitPermanent
+	}
+
+	var config Config
+	if err := json.Unmarshal(req.Config, &config); err != nil {
+		pdk.SetError(fmt.Errorf("failed to parse config: %w", err))
+		return ExitPermanent
+	}
+
+	// Nothing to clean up if no webhook was registered.
+	if config.WebhookID == "" {
+		if err := pdk.OutputJSON(providers.DestroyResponse{}); err != nil {
+			pdk.SetError(err)
+			return ExitTransient
+		}
+		return ExitSuccess
+	}
+
+	client := NewResendClient(config.APIKey)
+	_, err := client.Webhooks.Remove(config.WebhookID)
+	if err != nil {
+		// If the webhook was already deleted externally, that's fine.
+		if !strings.Contains(err.Error(), "not_found") && !strings.Contains(err.Error(), "404") {
+			pdk.SetError(fmt.Errorf("failed to delete webhook from Resend: %w", err))
+			return ExitTransient
+		}
+	}
+
+	err = pdk.OutputJSON(providers.DestroyResponse{})
+	if err != nil {
+		pdk.SetError(err)
+		return ExitTransient
+	}
+	return ExitSuccess
 }
 
 func main() {}

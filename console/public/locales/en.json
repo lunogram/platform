@@ -172,6 +172,7 @@
             "description": "Review your campaign before sending."
         }
     },
+    "channel_list": "Channels",
     "channels": {
         "email": {
             "title": "Email",
@@ -851,5 +852,14 @@
             "title": "API Documentation",
             "description": "Explore the API"
         }
+    },
+    "mediaManager": {
+        "title": "Media Manager",
+        "description": "Upload, manage, and select images for your email templates.",
+        "search": "Search images...",
+        "upload": "Upload",
+        "emptyTitle": "No images yet",
+        "emptyDescription": "Drag and drop images here, or click Upload to get started.",
+        "imageCount": "{{count}} image(s)"
     }
 }
