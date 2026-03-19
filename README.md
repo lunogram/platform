@@ -70,3 +70,4 @@ Join our community on [GitHub Discussions](https://github.com/lunogram/platform/
 ## Acknowledgments
 
 Lunogram is a fork of [Parcelvoy](https://github.com/parcelvoy/platform), an open-source customer engagement platform that was publicly archived by its maintainers. We're grateful to the Parcelvoy team for their foundational work and are committed to continuing the project's development as an open-source solution.
+
