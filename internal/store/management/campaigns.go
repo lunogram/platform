@@ -43,15 +43,14 @@ type Campaign struct {
 	DeletedAt      *time.Time                     `db:"deleted_at"`
 }
 
-	
- func normalizeChannelToOAPI(channel string) oapi.Channel {
- 	switch channel {
- 	case "sms":
- 		return oapi.ChannelText
- 	default:
- 		return oapi.Channel(channel)
- 	}
- }
+func normalizeChannelToOAPI(channel string) oapi.Channel {
+	switch channel {
+	case "sms":
+		return oapi.Text
+	default:
+		return oapi.Channel(channel)
+	}
+}
 
 func (campaign Campaign) OAPI() oapi.Campaign {
 	variables := make([]oapi.CampaignVariable, len(campaign.Variables.Data))
