@@ -138,7 +138,7 @@ func run() error {
 	logger.Info("initializing cluster")
 
 	sched := scheduler.NewController(ctx, logger, conf, journeyStore, pub)
-	lead := leader.NewHandler(sched)
+	lead := leader.NewHandler(sched, managementStore, logger)
 	cons, err := consensus.NewCluster(ctx, logger, conf)
 	if err != nil {
 		return err

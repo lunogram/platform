@@ -20,6 +20,7 @@ func NewState(db store.DB) *State {
 		ApiKeysStore:          NewApiKeysStore(db),
 		ActionsStore:          NewActionsStore(db),
 		SenderIdentitiesStore: NewSenderIdentitiesStore(db),
+		VapidKeysStore:        NewVapidKeysStore(db),
 	}
 }
 
@@ -38,4 +39,5 @@ type State struct {
 	*ApiKeysStore
 	*ActionsStore
 	*SenderIdentitiesStore
+	*VapidKeysStore
 }
