@@ -108,6 +108,7 @@ func (node *Node) campaign(ctx graceful.Context) {
 
 			if !until.After(time.Now()) {
 				node.logger.Error("failed to extend leadership")
+				metrics.LeaderElectionFailuresTotal.Inc()
 			}
 
 			err = node.cluster.RegisterLeader(ctx, node.id)
@@ -137,6 +138,7 @@ func (node *Node) campaign(ctx graceful.Context) {
 		}
 
 		node.logger.Info("node is elected as leader")
+		metrics.LeaderElectionsTotal.Inc()
 		err = node.cluster.RegisterLeader(ctx, node.id)
 		if err != nil {
 			node.logger.Error("failed to register leader", zap.Error(err))

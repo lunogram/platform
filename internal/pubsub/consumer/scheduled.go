@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rules"
@@ -142,6 +143,8 @@ func ScheduledHandler(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub
 			logger.Error("failed to commit transaction", zap.Error(err))
 			return err
 		}
+
+		metrics.ScheduledEventsIngestedTotal.WithLabelValues(scheduled.SubjectType, scheduleType).Inc()
 
 		if err := PublishScheduledSchema(ctx, logger, pub, scheduled); err != nil {
 			logger.Error("failed to publish scheduled schema", zap.Error(err))

@@ -22,6 +22,7 @@ import {
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { getRandomColor } from "@/lib/colors"
+import { getUserDisplayName, getUserInitials } from "@/lib/name"
 import { formatDate, cn } from "../../utils"
 import api from "../../api"
 import {
@@ -123,19 +124,9 @@ export default function UserDetail() {
 
     const userColor = getRandomColor(user.email ?? user.external_id ?? user.id)
 
-    const displayName =
-        user.full_name ??
-        ((user.data as Record<string, unknown>)?.full_name as string) ??
-        user.email ??
-        "No name"
+    const displayName = getUserDisplayName(user, "No name")
 
-    const initials = (() => {
-        const parts = displayName.split(/[\s@.]+/)
-        if (parts.length >= 2) {
-            return (parts[0][0] + parts[1][0]).toUpperCase()
-        }
-        return displayName.substring(0, 2).toUpperCase()
-    })()
+    const initials = getUserInitials(user)
 
     // Determine active tab
     const basePath = `/projects/${project.id}/users/${user.id}`

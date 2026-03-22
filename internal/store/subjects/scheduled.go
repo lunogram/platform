@@ -58,6 +58,7 @@ type UserSchedule struct {
 	Interval    *string         `db:"interval" json:"interval,omitempty"`         // duration string for recurring (e.g. "1 month", "30 days")
 	Occurrence  int             `db:"occurrence" json:"occurrence"`               // number of intervals advanced from anchor_at
 	Data        json.RawMessage `db:"data" json:"data"`
+	PausedAt    *time.Time      `db:"paused_at" json:"paused_at,omitempty"`
 	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
 	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
 }
@@ -97,6 +98,7 @@ type OrganizationSchedule struct {
 	Interval       *string         `db:"interval" json:"interval,omitempty"`
 	Occurrence     int             `db:"occurrence" json:"occurrence"` // number of intervals advanced from anchor_at
 	Data           json.RawMessage `db:"data" json:"data"`
+	PausedAt       *time.Time      `db:"paused_at" json:"paused_at,omitempty"`
 	CreatedAt      time.Time       `db:"created_at" json:"created_at"`
 	UpdatedAt      time.Time       `db:"updated_at" json:"updated_at"`
 }
@@ -394,7 +396,7 @@ func (s *ScheduledStore) CreateUserSchedule(ctx context.Context, userID, schedul
 	stmt := `
 	INSERT INTO user_schedules (user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	RETURNING id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data, created_at, updated_at`
+	RETURNING id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
 
 	var us UserSchedule
 	err := s.db.GetContext(ctx, &us, stmt, userID, scheduleID, scheduledAt, startAt, anchorAt, interval, occurrence, data)
@@ -460,7 +462,7 @@ func (s *ScheduledStore) UpdateUserSchedule(ctx context.Context, id uuid.UUID, s
 	UPDATE user_schedules
 	SET scheduled_at = $2, start_at = $3, anchor_at = $4, interval = $5, occurrence = $6, data = $7
 	WHERE id = $1
-	RETURNING id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data, created_at, updated_at`
+	RETURNING id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
 
 	var us UserSchedule
 	err = s.db.GetContext(ctx, &us, stmt, id, scheduledAt, startAt, anchorAt, interval, occurrence, data)
@@ -512,7 +514,7 @@ func (s *ScheduledStore) UpsertUserSchedule(ctx context.Context, userID, schedul
 		interval     = COALESCE(EXCLUDED.interval, user_schedules.interval),
 		occurrence   = COALESCE(EXCLUDED.occurrence, user_schedules.occurrence),
 		data         = COALESCE(EXCLUDED.data, user_schedules.data)
-	RETURNING id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data, created_at, updated_at`
+	RETURNING id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
 
 	var us UserSchedule
 	err := s.db.GetContext(ctx, &us, stmt, userID, scheduleID, scheduledAt, startAt, anchorAt, interval, occurrence, data)
@@ -537,7 +539,7 @@ func (s *ScheduledStore) UpsertUserSchedule(ctx context.Context, userID, schedul
 // GetUserScheduleByID returns a single user schedule by its ID.
 func (s *ScheduledStore) GetUserScheduleByID(ctx context.Context, id uuid.UUID) (*UserSchedule, error) {
 	stmt := `
-	SELECT id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data, created_at, updated_at
+	SELECT id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at
 	FROM user_schedules
 	WHERE id = $1`
 
@@ -558,6 +560,110 @@ func (s *ScheduledStore) DeleteUserSchedule(ctx context.Context, id uuid.UUID) e
 	return err
 }
 
+// PauseUserSchedule sets paused_at to NOW() on a user schedule.
+// If deleteEvents is true, all unfired scheduled events are deleted immediately.
+// If false, existing events are left to fire but the scheduler won't advance to the next occurrence.
+func (s *ScheduledStore) PauseUserSchedule(ctx context.Context, id uuid.UUID, deleteEvents bool) (*UserSchedule, error) {
+	stmt := `
+	UPDATE user_schedules
+	SET paused_at = NOW()
+	WHERE id = $1 AND paused_at IS NULL
+	RETURNING id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
+
+	var us UserSchedule
+	err := s.db.GetContext(ctx, &us, stmt, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if deleteEvents {
+		deleteStmt := `DELETE FROM user_scheduled_events WHERE user_schedule_id = $1 AND fired_at IS NULL`
+		_, err = s.db.ExecContext(ctx, deleteStmt, id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &us, nil
+}
+
+// ResumeUserSchedule clears paused_at on a user schedule.
+// If recalculate is true, scheduled_at is recomputed to the next future occurrence
+// from NOW() (anchor_at is rebased to NOW(), occurrence reset to 0).
+// If false, scheduled_at is recomputed to the next natural interval from the existing anchor_at.
+// In both cases unfired events are deleted and regenerated.
+func (s *ScheduledStore) ResumeUserSchedule(ctx context.Context, id uuid.UUID, recalculate bool) (*UserSchedule, error) {
+	existing, err := s.GetUserScheduleByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing.PausedAt == nil {
+		return existing, nil // already active
+	}
+
+	now := time.Now()
+
+	if existing.Interval != nil && existing.AnchorAt != nil {
+		// Both resume modes rebase anchor to now and reset occurrence.
+		// The difference is whether events fire right away or at the next interval.
+		//
+		// Resume immediately: scheduled_at = now + 1min so the scheduler
+		//   generates events that fire right away.
+		// At next interval: scheduled_at = now so the scanner picks it up
+		//   (scheduled_at <= NOW()) and AdvanceAndGenerate computes
+		//   now + 1*interval as the next fire time.
+		scheduledAt := now
+		if recalculate {
+			scheduledAt = now.Add(time.Minute)
+		}
+
+		stmt := `
+		UPDATE user_schedules
+		SET paused_at = NULL, scheduled_at = $2, anchor_at = $3, occurrence = 0
+		WHERE id = $1
+		RETURNING id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
+
+		var us UserSchedule
+		err = s.db.GetContext(ctx, &us, stmt, id, scheduledAt, now)
+		if err != nil {
+			return nil, err
+		}
+
+		// Delete unfired events
+		deleteStmt := `DELETE FROM user_scheduled_events WHERE user_schedule_id = $1 AND fired_at IS NULL`
+		_, err = s.db.ExecContext(ctx, deleteStmt, id)
+		if err != nil {
+			return nil, err
+		}
+
+		// Only generate events immediately for "resume immediately";
+		// "at next interval" lets the scheduler advance and generate.
+		if recalculate {
+			err = s.generateScheduledEvents(ctx, us)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return &us, nil
+	}
+
+	// Non-recurring schedule: just clear paused_at
+	stmt := `
+	UPDATE user_schedules
+	SET paused_at = NULL
+	WHERE id = $1
+	RETURNING id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
+
+	var us UserSchedule
+	err = s.db.GetContext(ctx, &us, stmt, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &us, nil
+}
+
 // DeleteUserScheduleByScheduleID deletes all user schedule assignments for a user and schedule.
 func (s *ScheduledStore) DeleteUserScheduleByScheduleID(ctx context.Context, userID, scheduleID uuid.UUID) error {
 	stmt := `DELETE FROM user_schedules WHERE user_id = $1 AND schedule_id = $2`
@@ -570,7 +676,7 @@ func (s *ScheduledStore) ListUserSchedules(ctx context.Context, projectID, userI
 	query := `
 	SELECT
 		us.id, us.user_id, us.schedule_id, us.scheduled_at, us.start_at, us.anchor_at, us.interval,
-		us.occurrence, us.data, us.created_at, us.updated_at,
+		us.occurrence, COALESCE(us.data, '{}'::jsonb) AS data, us.paused_at, us.created_at, us.updated_at,
 		COUNT(*) OVER () AS total_count
 	FROM user_schedules us
 	INNER JOIN schedules sc ON us.schedule_id = sc.id
@@ -606,7 +712,7 @@ func (s *ScheduledStore) ListUserSchedules(ctx context.Context, projectID, userI
 // ListUserSchedulesByScheduleID returns all user schedules for a user and schedule.
 func (s *ScheduledStore) ListUserSchedulesByScheduleID(ctx context.Context, userID, scheduleID uuid.UUID) ([]UserSchedule, error) {
 	stmt := `
-	SELECT id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data, created_at, updated_at
+	SELECT id, user_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at
 	FROM user_schedules
 	WHERE user_id = $1 AND schedule_id = $2`
 
@@ -621,7 +727,7 @@ func (s *ScheduledStore) ListDueScheduledEvents(ctx context.Context, limit int) 
 	stmt := `
 	SELECT
 		se.id, se.user_schedule_id, se.schedule_offset_id, se.user_id, se.schedule_id,
-		se.fire_at, se.fired_at, se.data, se.created_at,
+		se.fire_at, se.fired_at, COALESCE(se.data, '{}'::jsonb) AS data, se.created_at,
 		sc.name AS schedule_name,
 		so."offset" AS "offset",
 		so.direction AS direction,
@@ -643,7 +749,7 @@ func (s *ScheduledStore) ScanDueScheduledEvents(ctx context.Context, fn func(Due
 	stmt := `
 	SELECT
 		se.id, se.user_schedule_id, se.schedule_offset_id, se.user_id, se.schedule_id,
-		se.fire_at, se.fired_at, se.data, se.created_at,
+		se.fire_at, se.fired_at, COALESCE(se.data, '{}'::jsonb) AS data, se.created_at,
 		sc.name AS schedule_name,
 		so."offset" AS "offset",
 		so.direction AS direction,
@@ -749,7 +855,7 @@ func (s *ScheduledStore) generateScheduledEvents(ctx context.Context, us UserSch
 			WHEN 'before' THEN $4::timestamptz - so."offset"
 			WHEN 'after'  THEN $4::timestamptz + so."offset"
 		  END > NOW()
-	ON CONFLICT (user_schedule_id, schedule_offset_id, user_id) DO NOTHING`
+	ON CONFLICT (user_schedule_id, schedule_offset_id, user_id) WHERE fired_at IS NULL DO NOTHING`
 
 	_, err := s.db.ExecContext(ctx, stmt, us.ID, us.UserID, us.ScheduleID, *us.ScheduledAt, us.Data)
 	return err
@@ -761,10 +867,11 @@ func (s *ScheduledStore) generateScheduledEvents(ctx context.Context, us UserSch
 // updates the row, and generates the next batch of user_scheduled_events.
 func (s *ScheduledStore) ScanRecurringUserSchedulesWithoutPendingEvents(ctx context.Context, fn func(UserSchedule) error) error {
 	stmt := `
-	SELECT us.id, us.user_id, us.schedule_id, us.scheduled_at, us.start_at, us.anchor_at, us.interval, us.occurrence, us.data, us.created_at, us.updated_at
+	SELECT us.id, us.user_id, us.schedule_id, us.scheduled_at, us.start_at, us.anchor_at, us.interval, us.occurrence, COALESCE(us.data, '{}'::jsonb) AS data, us.paused_at, us.created_at, us.updated_at
 	FROM user_schedules us
 	WHERE us.interval IS NOT NULL
 	  AND us.start_at IS NOT NULL
+	  AND us.paused_at IS NULL
 	  AND us.scheduled_at <= NOW()
 	  AND NOT EXISTS (
 	    SELECT 1 FROM user_scheduled_events use
@@ -888,7 +995,7 @@ func (s *ScheduledStore) CreateOrganizationSchedule(ctx context.Context, organiz
 	stmt := `
 	INSERT INTO organization_schedules (organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	RETURNING id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data, created_at, updated_at`
+	RETURNING id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
 
 	var os OrganizationSchedule
 	err := s.db.GetContext(ctx, &os, stmt, organizationID, scheduleID, scheduledAt, startAt, anchorAt, interval, occurrence, data)
@@ -954,7 +1061,7 @@ func (s *ScheduledStore) UpdateOrganizationSchedule(ctx context.Context, id uuid
 	UPDATE organization_schedules
 	SET scheduled_at = $2, start_at = $3, anchor_at = $4, interval = $5, occurrence = $6, data = $7
 	WHERE id = $1
-	RETURNING id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data, created_at, updated_at`
+	RETURNING id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
 
 	var os OrganizationSchedule
 	err = s.db.GetContext(ctx, &os, stmt, id, scheduledAt, startAt, anchorAt, interval, occurrence, data)
@@ -1006,7 +1113,7 @@ func (s *ScheduledStore) UpsertOrganizationSchedule(ctx context.Context, organiz
 		interval     = COALESCE(EXCLUDED.interval, organization_schedules.interval),
 		occurrence   = COALESCE(EXCLUDED.occurrence, organization_schedules.occurrence),
 		data         = COALESCE(EXCLUDED.data, organization_schedules.data)
-	RETURNING id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data, created_at, updated_at`
+	RETURNING id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
 
 	var os OrganizationSchedule
 	err := s.db.GetContext(ctx, &os, stmt, organizationID, scheduleID, scheduledAt, startAt, anchorAt, interval, occurrence, data)
@@ -1031,7 +1138,7 @@ func (s *ScheduledStore) UpsertOrganizationSchedule(ctx context.Context, organiz
 // GetOrganizationScheduleByID returns a single organization schedule by its ID.
 func (s *ScheduledStore) GetOrganizationScheduleByID(ctx context.Context, id uuid.UUID) (*OrganizationSchedule, error) {
 	stmt := `
-	SELECT id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data, created_at, updated_at
+	SELECT id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at
 	FROM organization_schedules
 	WHERE id = $1`
 
@@ -1052,6 +1159,110 @@ func (s *ScheduledStore) DeleteOrganizationSchedule(ctx context.Context, id uuid
 	return err
 }
 
+// PauseOrganizationSchedule sets paused_at to NOW() on an organization schedule.
+// If deleteEvents is true, all unfired scheduled events are deleted immediately.
+// If false, existing events are left to fire but the scheduler won't advance to the next occurrence.
+func (s *ScheduledStore) PauseOrganizationSchedule(ctx context.Context, id uuid.UUID, deleteEvents bool) (*OrganizationSchedule, error) {
+	stmt := `
+	UPDATE organization_schedules
+	SET paused_at = NOW()
+	WHERE id = $1 AND paused_at IS NULL
+	RETURNING id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
+
+	var os OrganizationSchedule
+	err := s.db.GetContext(ctx, &os, stmt, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if deleteEvents {
+		deleteStmt := `DELETE FROM organization_scheduled_events WHERE organization_schedule_id = $1 AND fired_at IS NULL`
+		_, err = s.db.ExecContext(ctx, deleteStmt, id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &os, nil
+}
+
+// ResumeOrganizationSchedule clears paused_at on an organization schedule.
+// If recalculate is true, scheduled_at is recomputed to the next future occurrence
+// from NOW() (anchor_at is rebased to NOW(), occurrence reset to 0).
+// If false, scheduled_at is recomputed to the next natural interval from the existing anchor_at.
+// In both cases unfired events are deleted and regenerated.
+func (s *ScheduledStore) ResumeOrganizationSchedule(ctx context.Context, id uuid.UUID, recalculate bool) (*OrganizationSchedule, error) {
+	existing, err := s.GetOrganizationScheduleByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing.PausedAt == nil {
+		return existing, nil // already active
+	}
+
+	now := time.Now()
+
+	if existing.Interval != nil && existing.AnchorAt != nil {
+		// Both resume modes rebase anchor to now and reset occurrence.
+		// The difference is whether events fire right away or at the next interval.
+		//
+		// Resume immediately: scheduled_at = now + 1min so the scheduler
+		//   generates events that fire right away.
+		// At next interval: scheduled_at = now so the scanner picks it up
+		//   (scheduled_at <= NOW()) and AdvanceAndGenerate computes
+		//   now + 1*interval as the next fire time.
+		scheduledAt := now
+		if recalculate {
+			scheduledAt = now.Add(time.Minute)
+		}
+
+		stmt := `
+		UPDATE organization_schedules
+		SET paused_at = NULL, scheduled_at = $2, anchor_at = $3, occurrence = 0
+		WHERE id = $1
+		RETURNING id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
+
+		var os OrganizationSchedule
+		err = s.db.GetContext(ctx, &os, stmt, id, scheduledAt, now)
+		if err != nil {
+			return nil, err
+		}
+
+		// Delete unfired events
+		deleteStmt := `DELETE FROM organization_scheduled_events WHERE organization_schedule_id = $1 AND fired_at IS NULL`
+		_, err = s.db.ExecContext(ctx, deleteStmt, id)
+		if err != nil {
+			return nil, err
+		}
+
+		// Only generate events immediately for "resume immediately";
+		// "at next interval" lets the scheduler advance and generate.
+		if recalculate {
+			err = s.generateOrgScheduledEvents(ctx, os)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return &os, nil
+	}
+
+	// Non-recurring schedule: just clear paused_at
+	stmt := `
+	UPDATE organization_schedules
+	SET paused_at = NULL
+	WHERE id = $1
+	RETURNING id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at`
+
+	var os OrganizationSchedule
+	err = s.db.GetContext(ctx, &os, stmt, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &os, nil
+}
+
 // DeleteOrganizationScheduleByScheduleID deletes all organization schedule assignments for an organization and schedule.
 func (s *ScheduledStore) DeleteOrganizationScheduleByScheduleID(ctx context.Context, organizationID, scheduleID uuid.UUID) error {
 	stmt := `DELETE FROM organization_schedules WHERE organization_id = $1 AND schedule_id = $2`
@@ -1064,7 +1275,7 @@ func (s *ScheduledStore) ListOrganizationSchedules(ctx context.Context, projectI
 	query := `
 	SELECT
 		os.id, os.organization_id, os.schedule_id, os.scheduled_at, os.start_at, os.anchor_at, os.interval,
-		os.occurrence, os.data, os.created_at, os.updated_at,
+		os.occurrence, COALESCE(os.data, '{}'::jsonb) AS data, os.paused_at, os.created_at, os.updated_at,
 		COUNT(*) OVER () AS total_count
 	FROM organization_schedules os
 	INNER JOIN schedules sc ON os.schedule_id = sc.id
@@ -1100,7 +1311,7 @@ func (s *ScheduledStore) ListOrganizationSchedules(ctx context.Context, projectI
 // ListOrganizationSchedulesByScheduleID returns all organization schedules for an organization and schedule.
 func (s *ScheduledStore) ListOrganizationSchedulesByScheduleID(ctx context.Context, organizationID, scheduleID uuid.UUID) ([]OrganizationSchedule, error) {
 	stmt := `
-	SELECT id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, data, created_at, updated_at
+	SELECT id, organization_id, schedule_id, scheduled_at, start_at, anchor_at, interval, occurrence, COALESCE(data, '{}'::jsonb) AS data, paused_at, created_at, updated_at
 	FROM organization_schedules
 	WHERE organization_id = $1 AND schedule_id = $2`
 
@@ -1115,7 +1326,7 @@ func (s *ScheduledStore) ListDueOrgScheduledEvents(ctx context.Context, limit in
 	stmt := `
 	SELECT
 		se.id, se.organization_schedule_id, se.schedule_offset_id, se.organization_id, se.schedule_id,
-		se.fire_at, se.fired_at, se.data, se.created_at,
+		se.fire_at, se.fired_at, COALESCE(se.data, '{}'::jsonb) AS data, se.created_at,
 		sc.name AS schedule_name,
 		so."offset" AS "offset",
 		so.direction AS direction,
@@ -1137,7 +1348,7 @@ func (s *ScheduledStore) ScanDueOrgScheduledEvents(ctx context.Context, fn func(
 	stmt := `
 	SELECT
 		se.id, se.organization_schedule_id, se.schedule_offset_id, se.organization_id, se.schedule_id,
-		se.fire_at, se.fired_at, se.data, se.created_at,
+		se.fire_at, se.fired_at, COALESCE(se.data, '{}'::jsonb) AS data, se.created_at,
 		sc.name AS schedule_name,
 		so."offset" AS "offset",
 		so.direction AS direction,
@@ -1218,7 +1429,7 @@ func (s *ScheduledStore) generateOrgScheduledEvents(ctx context.Context, os Orga
 			WHEN 'before' THEN $4::timestamptz - so."offset"
 			WHEN 'after'  THEN $4::timestamptz + so."offset"
 		  END > NOW()
-	ON CONFLICT (organization_schedule_id, schedule_offset_id, organization_id) DO NOTHING`
+	ON CONFLICT (organization_schedule_id, schedule_offset_id, organization_id) WHERE fired_at IS NULL DO NOTHING`
 
 	_, err := s.db.ExecContext(ctx, stmt, os.ID, os.OrganizationID, os.ScheduleID, *os.ScheduledAt, os.Data)
 	return err
@@ -1240,7 +1451,7 @@ func (s *ScheduledStore) BackfillUserScheduledEventsForOffset(ctx context.Contex
 			WHEN 'before' THEN us.scheduled_at - so."offset"
 			WHEN 'after'  THEN us.scheduled_at + so."offset"
 		END,
-		us.data
+		COALESCE(us.data, '{}'::jsonb)
 	FROM user_schedules us
 	CROSS JOIN schedule_offsets so
 	WHERE us.schedule_id = $1
@@ -1250,7 +1461,7 @@ func (s *ScheduledStore) BackfillUserScheduledEventsForOffset(ctx context.Contex
 			WHEN 'before' THEN us.scheduled_at - so."offset"
 			WHEN 'after'  THEN us.scheduled_at + so."offset"
 		  END > NOW()
-	ON CONFLICT (user_schedule_id, schedule_offset_id, user_id) DO NOTHING`
+	ON CONFLICT (user_schedule_id, schedule_offset_id, user_id) WHERE fired_at IS NULL DO NOTHING`
 
 	res, err := s.db.ExecContext(ctx, stmt, scheduleID, offsetID)
 	if err != nil {
@@ -1275,7 +1486,7 @@ func (s *ScheduledStore) BackfillOrgScheduledEventsForOffset(ctx context.Context
 			WHEN 'before' THEN os.scheduled_at - so."offset"
 			WHEN 'after'  THEN os.scheduled_at + so."offset"
 		END,
-		os.data
+		COALESCE(os.data, '{}'::jsonb)
 	FROM organization_schedules os
 	CROSS JOIN schedule_offsets so
 	WHERE os.schedule_id = $1
@@ -1285,7 +1496,7 @@ func (s *ScheduledStore) BackfillOrgScheduledEventsForOffset(ctx context.Context
 			WHEN 'before' THEN os.scheduled_at - so."offset"
 			WHEN 'after'  THEN os.scheduled_at + so."offset"
 		  END > NOW()
-	ON CONFLICT (organization_schedule_id, schedule_offset_id, organization_id) DO NOTHING`
+	ON CONFLICT (organization_schedule_id, schedule_offset_id, organization_id) WHERE fired_at IS NULL DO NOTHING`
 
 	res, err := s.db.ExecContext(ctx, stmt, scheduleID, offsetID)
 	if err != nil {
@@ -1300,10 +1511,11 @@ func (s *ScheduledStore) BackfillOrgScheduledEventsForOffset(ctx context.Context
 // updates the row, and generates the next batch of organization_scheduled_events.
 func (s *ScheduledStore) ScanRecurringOrgSchedulesWithoutPendingEvents(ctx context.Context, fn func(OrganizationSchedule) error) error {
 	stmt := `
-	SELECT os.id, os.organization_id, os.schedule_id, os.scheduled_at, os.start_at, os.anchor_at, os.interval, os.occurrence, os.data, os.created_at, os.updated_at
+	SELECT os.id, os.organization_id, os.schedule_id, os.scheduled_at, os.start_at, os.anchor_at, os.interval, os.occurrence, COALESCE(os.data, '{}'::jsonb) AS data, os.paused_at, os.created_at, os.updated_at
 	FROM organization_schedules os
 	WHERE os.interval IS NOT NULL
 	  AND os.start_at IS NOT NULL
+	  AND os.paused_at IS NULL
 	  AND os.scheduled_at <= NOW()
 	  AND NOT EXISTS (
 	    SELECT 1 FROM organization_scheduled_events ose

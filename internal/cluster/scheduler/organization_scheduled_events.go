@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
@@ -20,6 +21,7 @@ import (
 func (controller *Controller) ReconcileOrganizationScheduledEvents(ctx context.Context) func() {
 	return func() {
 		defer controller.recover("organization_scheduled_events")
+		start := time.Now()
 		var processed, published, failed int
 
 		scanner := func(event subjects.DueOrgScheduledEvent) error {
@@ -60,6 +62,7 @@ func (controller *Controller) ReconcileOrganizationScheduledEvents(ctx context.C
 			err := controller.pub.Publish(ctx, schemas.OrganizationEventsProcess(event.ProjectID), orgEvent)
 			if err != nil {
 				failed++
+				metrics.ScheduledEventsFireFailuresTotal.WithLabelValues("organization").Inc()
 				controller.logger.Error("failed to publish scheduled org event",
 					zap.Error(err),
 					zap.String("event_name", eventName),
@@ -68,6 +71,8 @@ func (controller *Controller) ReconcileOrganizationScheduledEvents(ctx context.C
 			}
 
 			published++
+			metrics.ScheduledEventsFiredTotal.WithLabelValues("organization").Inc()
+			metrics.ScheduledEventsFireDelaySeconds.WithLabelValues("organization").Observe(time.Since(event.FireAt).Seconds())
 			controller.logger.Debug("published scheduled org event",
 				zap.String("event_name", eventName),
 				zap.Stringer("organization_id", event.OrganizationID),
@@ -97,6 +102,12 @@ func (controller *Controller) ReconcileOrganizationScheduledEvents(ctx context.C
 			zap.Int("published", published),
 			zap.Int("failed", failed),
 		)
+
+		metrics.ReconciliationRunsTotal.WithLabelValues("organization_scheduled_events").Inc()
+		metrics.ReconciliationItemsProcessedTotal.WithLabelValues("organization_scheduled_events").Add(float64(processed))
+		metrics.ReconciliationItemsPublishedTotal.WithLabelValues("organization_scheduled_events").Add(float64(published))
+		metrics.ReconciliationItemsFailedTotal.WithLabelValues("organization_scheduled_events").Add(float64(failed))
+		metrics.ReconciliationDurationSeconds.WithLabelValues("organization_scheduled_events").Observe(time.Since(start).Seconds())
 	}
 }
 
@@ -107,6 +118,7 @@ func (controller *Controller) ReconcileOrganizationScheduledEvents(ctx context.C
 func (controller *Controller) ReconcileOrganizationSchedules(ctx context.Context) func() {
 	return func() {
 		defer controller.recover("organization_schedules")
+		start := time.Now()
 		var processed, advanced, failed int
 
 		scanner := func(os subjects.OrganizationSchedule) error {
@@ -115,6 +127,7 @@ func (controller *Controller) ReconcileOrganizationSchedules(ctx context.Context
 			err := controller.scheduled.AdvanceAndGenerateOrgScheduleEvents(ctx, os)
 			if err != nil {
 				failed++
+				metrics.SchedulesAdvanceFailuresTotal.WithLabelValues("organization").Inc()
 				controller.logger.Error("failed to advance organization schedule",
 					zap.Error(err),
 					zap.Stringer("organization_schedule_id", os.ID),
@@ -124,6 +137,7 @@ func (controller *Controller) ReconcileOrganizationSchedules(ctx context.Context
 			}
 
 			advanced++
+			metrics.SchedulesAdvancedTotal.WithLabelValues("organization").Inc()
 			controller.logger.Debug("advanced recurring organization schedule",
 				zap.Stringer("organization_schedule_id", os.ID),
 				zap.Stringer("organization_id", os.OrganizationID),
@@ -142,5 +156,11 @@ func (controller *Controller) ReconcileOrganizationSchedules(ctx context.Context
 			zap.Int("advanced", advanced),
 			zap.Int("failed", failed),
 		)
+
+		metrics.ReconciliationRunsTotal.WithLabelValues("organization_schedules").Inc()
+		metrics.ReconciliationItemsProcessedTotal.WithLabelValues("organization_schedules").Add(float64(processed))
+		metrics.ReconciliationItemsPublishedTotal.WithLabelValues("organization_schedules").Add(float64(advanced))
+		metrics.ReconciliationItemsFailedTotal.WithLabelValues("organization_schedules").Add(float64(failed))
+		metrics.ReconciliationDurationSeconds.WithLabelValues("organization_schedules").Observe(time.Since(start).Seconds())
 	}
 }

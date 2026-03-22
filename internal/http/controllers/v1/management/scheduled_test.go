@@ -470,7 +470,7 @@ func TestUpsertUserScheduled(t *testing.T) {
 	futureTime := time.Now().Add(48 * time.Hour).UTC().Truncate(time.Microsecond)
 	data := json.RawMessage(`{"reminder":"dentist"}`)
 	body, _ := json.Marshal(oapi.UpsertUserScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		ScheduledAt: &futureTime,
 		Data:        &data,
 	})
@@ -503,7 +503,7 @@ func TestUpsertUserScheduledRecurring(t *testing.T) {
 	interval := "7 days"
 	data := json.RawMessage(`{}`)
 	body, _ := json.Marshal(oapi.UpsertUserScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		StartAt:     &startAt,
 		Interval:    &interval,
 		Data:        &data,
@@ -535,7 +535,7 @@ func TestUpsertUserScheduledMissingScheduledAt(t *testing.T) {
 
 	data := json.RawMessage(`{}`)
 	body, _ := json.Marshal(oapi.UpsertUserScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		Data:        &data,
 		// No ScheduledAt, no Interval => bad request
 	})
@@ -558,7 +558,7 @@ func TestUpsertUserScheduledUserNotFound(t *testing.T) {
 	futureTime := time.Now().Add(24 * time.Hour).UTC()
 	data := json.RawMessage(`{}`)
 	body, _ := json.Marshal(oapi.UpsertUserScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		ScheduledAt: &futureTime,
 		Data:        &data,
 	})
@@ -582,7 +582,7 @@ func TestUpsertUserScheduledUnauthorized(t *testing.T) {
 	futureTime := time.Now().Add(24 * time.Hour).UTC()
 	data := json.RawMessage(`{}`)
 	body, _ := json.Marshal(oapi.UpsertUserScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		ScheduledAt: &futureTime,
 		Data:        &data,
 	})
@@ -606,7 +606,7 @@ func TestUpsertUserScheduledIdempotent(t *testing.T) {
 	time1 := time.Now().Add(24 * time.Hour).UTC().Truncate(time.Microsecond)
 	data := json.RawMessage(`{}`)
 	body1, _ := json.Marshal(oapi.UpsertUserScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		ScheduledAt: &time1,
 		Data:        &data,
 	})
@@ -622,7 +622,7 @@ func TestUpsertUserScheduledIdempotent(t *testing.T) {
 
 	time2 := time.Now().Add(72 * time.Hour).UTC().Truncate(time.Microsecond)
 	body2, _ := json.Marshal(oapi.UpsertUserScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		ScheduledAt: &time2,
 		Data:        &data,
 	})
@@ -732,7 +732,7 @@ func TestUpdateUserScheduled(t *testing.T) {
 
 	newTime := time.Now().Add(72 * time.Hour).UTC().Truncate(time.Microsecond)
 	body, _ := json.Marshal(oapi.UpdateUserScheduledRequest{
-		ScheduledAt: newTime,
+		ScheduledAt: &newTime,
 	})
 
 	res := httptest.NewRecorder()
@@ -756,7 +756,7 @@ func TestUpdateUserScheduledUnauthorized(t *testing.T) {
 
 	newTime := time.Now().Add(72 * time.Hour).UTC()
 	body, _ := json.Marshal(oapi.UpdateUserScheduledRequest{
-		ScheduledAt: newTime,
+		ScheduledAt: &newTime,
 	})
 
 	res := httptest.NewRecorder()
@@ -885,7 +885,7 @@ func TestUpsertOrganizationScheduled(t *testing.T) {
 	futureTime := time.Now().Add(48 * time.Hour).UTC().Truncate(time.Microsecond)
 	data := json.RawMessage(`{"meeting":"standup"}`)
 	body, _ := json.Marshal(oapi.UpsertOrganizationScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		ScheduledAt: &futureTime,
 		Data:        &data,
 	})
@@ -918,7 +918,7 @@ func TestUpsertOrganizationScheduledRecurring(t *testing.T) {
 	interval := "7 days"
 	data := json.RawMessage(`{}`)
 	body, _ := json.Marshal(oapi.UpsertOrganizationScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		StartAt:     &startAt,
 		Interval:    &interval,
 		Data:        &data,
@@ -949,7 +949,7 @@ func TestUpsertOrganizationScheduledMissingScheduledAt(t *testing.T) {
 
 	data := json.RawMessage(`{}`)
 	body, _ := json.Marshal(oapi.UpsertOrganizationScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		Data:        &data,
 	})
 
@@ -971,7 +971,7 @@ func TestUpsertOrganizationScheduledOrgNotFound(t *testing.T) {
 	futureTime := time.Now().Add(24 * time.Hour).UTC()
 	data := json.RawMessage(`{}`)
 	body, _ := json.Marshal(oapi.UpsertOrganizationScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		ScheduledAt: &futureTime,
 		Data:        &data,
 	})
@@ -995,7 +995,7 @@ func TestUpsertOrganizationScheduledUnauthorized(t *testing.T) {
 	futureTime := time.Now().Add(24 * time.Hour).UTC()
 	data := json.RawMessage(`{}`)
 	body, _ := json.Marshal(oapi.UpsertOrganizationScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		ScheduledAt: &futureTime,
 		Data:        &data,
 	})
@@ -1019,7 +1019,7 @@ func TestUpsertOrganizationScheduledIdempotent(t *testing.T) {
 	time1 := time.Now().Add(24 * time.Hour).UTC().Truncate(time.Microsecond)
 	data := json.RawMessage(`{}`)
 	body1, _ := json.Marshal(oapi.UpsertOrganizationScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		ScheduledAt: &time1,
 		Data:        &data,
 	})
@@ -1035,7 +1035,7 @@ func TestUpsertOrganizationScheduledIdempotent(t *testing.T) {
 
 	time2 := time.Now().Add(72 * time.Hour).UTC().Truncate(time.Microsecond)
 	body2, _ := json.Marshal(oapi.UpsertOrganizationScheduledRequest{
-		ScheduledId: sid,
+		ScheduledId: &sid,
 		ScheduledAt: &time2,
 		Data:        &data,
 	})
@@ -1145,7 +1145,7 @@ func TestUpdateOrganizationScheduled(t *testing.T) {
 
 	newTime := time.Now().Add(72 * time.Hour).UTC().Truncate(time.Microsecond)
 	body, _ := json.Marshal(oapi.UpdateOrganizationScheduledRequest{
-		ScheduledAt: newTime,
+		ScheduledAt: &newTime,
 	})
 
 	res := httptest.NewRecorder()
@@ -1169,7 +1169,7 @@ func TestUpdateOrganizationScheduledUnauthorized(t *testing.T) {
 
 	newTime := time.Now().Add(72 * time.Hour).UTC()
 	body, _ := json.Marshal(oapi.UpdateOrganizationScheduledRequest{
-		ScheduledAt: newTime,
+		ScheduledAt: &newTime,
 	})
 
 	res := httptest.NewRecorder()

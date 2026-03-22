@@ -15,6 +15,7 @@ import { ProjectContext, OrganizationContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { useRoute } from "../router"
 import oapiClient, { type OrganizationMember } from "../../oapi/client"
+import { getUserDisplayName, getUserInitials } from "@/lib/name"
 import type { User as UserType } from "../../types"
 
 import { Button } from "@/components/ui/button"
@@ -290,18 +291,6 @@ export default function OrganizationDetailMembers() {
         })
     }
 
-    const getMemberDisplayName = (member: OrganizationMember) => {
-        const data = member.data as Record<string, unknown>
-        if (data?.full_name) return data.full_name as string
-        if (member.email) return member.email
-        return member.external_id ?? member.anonymous_id ?? "Unknown"
-    }
-
-    const getMemberInitials = (member: OrganizationMember) => {
-        const name = getMemberDisplayName(member)
-        return name.substring(0, 2).toUpperCase()
-    }
-
     const toggleExpand = (memberId: string) => {
         setExpandedMemberId(expandedMemberId === memberId ? null : memberId)
     }
@@ -415,10 +404,10 @@ export default function OrganizationDetailMembers() {
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
                                                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium shrink-0">
-                                                        {getMemberInitials(member)}
+                                                        {getUserInitials(member)}
                                                     </div>
                                                     <span className="font-medium">
-                                                        {getMemberDisplayName(member)}
+                                                        {getUserDisplayName(member)}
                                                     </span>
                                                 </div>
                                             </TableCell>
@@ -577,11 +566,11 @@ export default function OrganizationDetailMembers() {
                         <div className="py-4">
                             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
                                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-medium">
-                                    {getMemberInitials(memberToRemove)}
+                                    {getUserInitials(memberToRemove)}
                                 </div>
                                 <div>
                                     <p className="font-medium">
-                                        {getMemberDisplayName(memberToRemove)}
+                                        {getUserDisplayName(memberToRemove)}
                                     </p>
                                     <p className="text-sm text-muted-foreground">
                                         {memberToRemove.email || memberToRemove.external_id}

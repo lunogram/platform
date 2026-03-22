@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import type { BadgeProps } from "@/components/ui/badge"
 import { camelToTitle, formatDate } from "../../utils"
+import { getUserDisplayName } from "@/lib/name"
 import { useLoaderData } from "react-router"
 import type { JourneyEntranceDetail } from "../../types"
 import { useContext } from "react"
@@ -43,7 +44,7 @@ export default function EntranceDetails() {
 
     const entrance = userSteps[0]
     const error = userSteps.find((s) => s.type === "error")
-    const displayName = user?.full_name ?? user?.email ?? user?.phone ?? user?.id
+    const displayName = getUserDisplayName(user)
 
     const columns: ColumnDef<(typeof userSteps)[number]>[] = [
         {

@@ -2,7 +2,9 @@ package scheduler
 
 import (
 	"context"
+	"time"
 
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
 	"go.uber.org/zap"
@@ -11,6 +13,7 @@ import (
 func (controller *Controller) ReconcileJourneyResumptions(ctx context.Context) func() {
 	return func() {
 		defer controller.recover("journey_resumptions")
+		start := time.Now()
 		var processed, published, failed int
 
 		scanner := func(state journey.JourneyUserState) error {
@@ -62,5 +65,11 @@ func (controller *Controller) ReconcileJourneyResumptions(ctx context.Context) f
 			zap.Int("published", published),
 			zap.Int("failed", failed),
 		)
+
+		metrics.ReconciliationRunsTotal.WithLabelValues("journey_resumptions").Inc()
+		metrics.ReconciliationItemsProcessedTotal.WithLabelValues("journey_resumptions").Add(float64(processed))
+		metrics.ReconciliationItemsPublishedTotal.WithLabelValues("journey_resumptions").Add(float64(published))
+		metrics.ReconciliationItemsFailedTotal.WithLabelValues("journey_resumptions").Add(float64(failed))
+		metrics.ReconciliationDurationSeconds.WithLabelValues("journey_resumptions").Observe(time.Since(start).Seconds())
 	}
 }

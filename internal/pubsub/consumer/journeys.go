@@ -3,10 +3,12 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/journeys"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -55,17 +57,27 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 		logger := logger.With(zap.String("step_type", step.Type), zap.String("step_id", step.ID.String()), zap.String("user_id", event.UserID.String()))
 		logger.Info("processing journey step")
 
+		start := time.Now()
 		next, children, err := journeys.Handle(ctx, db, pub, event.ProjectID, event.UserID, step, state, data, mgmt, actionRegistry)
+		duration := time.Since(start).Seconds()
+		projectID := event.ProjectID.String()
+		metrics.JourneyStepDurationSeconds.WithLabelValues(step.Type, projectID).Observe(duration)
+
 		if err != nil {
+			metrics.JourneyStepsErrorsTotal.WithLabelValues(step.Type, projectID).Inc()
 			logger.Error("failed to handle journey step", zap.Error(err))
 			return err
 		}
 
+		metrics.JourneyStepsProcessedTotal.WithLabelValues(step.Type, projectID).Inc()
+
 		if next.ResumeAt != nil && next.CompletedAt == nil {
+			metrics.JourneyStepsPausedTotal.WithLabelValues(step.Type, projectID).Inc()
 			logger.Info("journey step processing paused, waiting for resume")
 		}
 
 		if next.CompletedAt != nil {
+			metrics.JourneyStepsCompletedTotal.WithLabelValues(step.Type, projectID).Inc()
 			logger.Info("journey completed")
 
 			executed := schemas.JourneyStepExecuted{

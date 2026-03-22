@@ -3,6 +3,7 @@ package journeys
 import (
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/rules/query"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -82,12 +83,15 @@ func selectGateBranch(ctx HandlerContext, step journey.JourneyVersionStep, confi
 	matchesRule := err == nil
 
 	if matchesRule && yes != nil {
+		metrics.JourneyGateEvaluationsTotal.WithLabelValues(ctx.ProjectID.String(), "yes").Inc()
 		return yes, nil
 	}
 
 	if !matchesRule && no != nil {
+		metrics.JourneyGateEvaluationsTotal.WithLabelValues(ctx.ProjectID.String(), "no").Inc()
 		return no, nil
 	}
 
+	metrics.JourneyGateEvaluationsTotal.WithLabelValues(ctx.ProjectID.String(), "none").Inc()
 	return nil, nil
 }

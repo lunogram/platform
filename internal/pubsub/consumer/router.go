@@ -2,8 +2,10 @@ package consumer
 
 import (
 	"context"
+	"time"
 
 	"github.com/cloudproud/graceful"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
@@ -49,10 +51,15 @@ func (r *Router) HandleStream(stream, consumer string, handler HandlerFunc) {
 	}
 
 	fn := func(msg jetstream.Msg) {
+		start := time.Now()
 		err := handler(r.ctx, msg)
+		duration := time.Since(start).Seconds()
+		metrics.NATSMessageProcessingDurationSeconds.WithLabelValues(stream, consumer).Observe(duration)
+
 		if err != nil {
 			if IsPermanent(err) {
 				log.Warn("permanent error, terminating message", zap.Error(err))
+				metrics.NATSMessagesTerminatedTotal.WithLabelValues(stream, consumer).Inc()
 				if err := msg.Term(); err != nil {
 					log.Error("failed to TERM message, shutting down...", zap.Error(err))
 					r.ctx.Shutdown()
@@ -60,6 +67,7 @@ func (r *Router) HandleStream(stream, consumer string, handler HandlerFunc) {
 				return
 			}
 
+			metrics.NATSMessagesNackedTotal.WithLabelValues(stream, consumer).Inc()
 			if err := msg.Nak(); err != nil {
 				log.Error("failed to NAK message, shutting down...", zap.Error(err))
 				r.ctx.Shutdown()
@@ -74,6 +82,8 @@ func (r *Router) HandleStream(stream, consumer string, handler HandlerFunc) {
 			r.ctx.Shutdown()
 			return
 		}
+
+		metrics.NATSMessagesAckedTotal.WithLabelValues(stream, consumer).Inc()
 	}
 
 	_, err = client.Consume(fn)

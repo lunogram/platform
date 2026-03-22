@@ -265,6 +265,7 @@ export interface ScheduledInstance {
     start_at: string | null
     interval: string | null
     data: Record<string, unknown> | null
+    paused_at: string | null
     created_at: string
     updated_at: string
 }

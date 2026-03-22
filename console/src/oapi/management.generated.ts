@@ -3916,6 +3916,12 @@ export interface components {
             };
             /**
              * Format: date-time
+             * @description When set, the schedule is paused and the scheduler will not advance it
+             * @example null
+             */
+            paused_at?: string | null;
+            /**
+             * Format: date-time
              * @example 2025-01-10T08:00:00Z
              */
             created_at: string;
@@ -3965,6 +3971,12 @@ export interface components {
             };
             /**
              * Format: date-time
+             * @description When set, the schedule is paused and the scheduler will not advance it
+             * @example null
+             */
+            paused_at?: string | null;
+            /**
+             * Format: date-time
              * @example 2024-01-01T00:00:00Z
              */
             created_at: string;
@@ -3980,10 +3992,15 @@ export interface components {
         UpsertUserScheduledRequest: {
             /**
              * Format: uuid
-             * @description The scheduled definition ID
+             * @description The scheduled definition ID. Either scheduled_id or scheduled_name must be provided.
              * @example 550e8400-e29b-41d4-a716-446655440002
              */
-            scheduled_id: string;
+            scheduled_id?: string;
+            /**
+             * @description The schedule name. When provided, creates the schedule definition if it does not exist and uses its ID. Either scheduled_id or scheduled_name must be provided.
+             * @example subscription_renewal
+             */
+            scheduled_name?: string;
             /**
              * Format: date-time
              * @description The time at which the scheduled resource is set to trigger. Required for single schedules.
@@ -4015,10 +4032,15 @@ export interface components {
         UpsertOrganizationScheduledRequest: {
             /**
              * Format: uuid
-             * @description The scheduled definition ID
+             * @description The scheduled definition ID. Either scheduled_id or scheduled_name must be provided.
              * @example 550e8400-e29b-41d4-a716-446655440002
              */
-            scheduled_id: string;
+            scheduled_id?: string;
+            /**
+             * @description The schedule name. When provided, creates the schedule definition if it does not exist and uses its ID. Either scheduled_id or scheduled_name must be provided.
+             * @example subscription_renewal
+             */
+            scheduled_name?: string;
             /**
              * Format: date-time
              * @description The time at which the scheduled resource is set to trigger. Required for single schedules.
@@ -4053,7 +4075,17 @@ export interface components {
              * @description The new time at which the scheduled resource should trigger
              * @example 2025-12-25T10:00:00Z
              */
-            scheduled_at: string;
+            scheduled_at?: string;
+            /**
+             * @description Pause the schedule. "immediately" deletes all unfired events. "after_next_interval" keeps existing events but prevents advancement.
+             * @enum {string}
+             */
+            pause?: "immediately" | "after_next_interval";
+            /**
+             * @description Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+             * @enum {string}
+             */
+            resume?: "immediately" | "at_next_interval";
         };
         UpdateOrganizationScheduledRequest: {
             /**
@@ -4061,7 +4093,17 @@ export interface components {
              * @description The new time at which the scheduled resource should trigger
              * @example 2025-12-25T10:00:00Z
              */
-            scheduled_at: string;
+            scheduled_at?: string;
+            /**
+             * @description Pause the schedule. "immediately" deletes all unfired events. "after_next_interval" keeps existing events but prevents advancement.
+             * @enum {string}
+             */
+            pause?: "immediately" | "after_next_interval";
+            /**
+             * @description Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+             * @enum {string}
+             */
+            resume?: "immediately" | "at_next_interval";
         };
     };
     responses: {

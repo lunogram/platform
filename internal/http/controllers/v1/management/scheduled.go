@@ -313,10 +313,33 @@ func (srv *ScheduledController) UpsertUserScheduled(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// Resolve the schedule ID: either from scheduled_id directly, or by
+	// upserting a schedule definition from scheduled_name (same approach as the client API).
+	var scheduleID uuid.UUID
+	switch {
+	case body.ScheduledName != nil && *body.ScheduledName != "":
+		scheduleType := "single"
+		if body.Interval != nil {
+			scheduleType = "recurring"
+		}
+		scheduleID, err = srv.store.UpsertSchedule(ctx, projectID, *body.ScheduledName, scheduleType)
+		if err != nil {
+			srv.logger.Error("failed to upsert schedule definition", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	case body.ScheduledId != nil:
+		scheduleID = *body.ScheduledId
+	default:
+		srv.logger.Error("either scheduled_id or scheduled_name is required")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either scheduled_id or scheduled_name is required")))
+		return
+	}
+
 	logger := srv.logger.With(
 		zap.String("project_id", projectID.String()),
 		zap.String("user_id", userID.String()),
-		zap.String("scheduled_id", body.ScheduledId.String()),
+		zap.String("scheduled_id", scheduleID.String()),
 	)
 
 	logger.Info("upserting user scheduled")
@@ -333,7 +356,7 @@ func (srv *ScheduledController) UpsertUserScheduled(w http.ResponseWriter, r *ht
 		return
 	}
 
-	upserted, err := srv.store.UpsertUserSchedule(ctx, userID, body.ScheduledId, body.ScheduledAt, body.StartAt, body.Interval, data)
+	upserted, err := srv.store.UpsertUserSchedule(ctx, userID, scheduleID, body.ScheduledAt, body.StartAt, body.Interval, data)
 	if err != nil {
 		logger.Error("failed to upsert user schedule", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -421,7 +444,46 @@ func (srv *ScheduledController) UpdateUserScheduled(w http.ResponseWriter, r *ht
 
 	logger.Info("updating user scheduled instance")
 
-	scheduledAt := body.ScheduledAt
+	// Handle pause/resume actions
+	if body.Pause != nil && body.Resume != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("cannot pause and resume at the same time")))
+		return
+	}
+
+	if body.Pause != nil {
+		deleteEvents := *body.Pause == oapi.UpdateUserScheduledRequestPauseImmediately
+		updated, err := srv.store.PauseUserSchedule(ctx, scheduledInstanceID, deleteEvents)
+		if err != nil {
+			logger.Error("failed to pause user schedule", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		logger.Info("user scheduled instance paused")
+		json.Write(w, http.StatusOK, userScheduleToOAPI(*updated))
+		return
+	}
+
+	if body.Resume != nil {
+		recalculate := *body.Resume == oapi.UpdateUserScheduledRequestResumeImmediately
+		updated, err := srv.store.ResumeUserSchedule(ctx, scheduledInstanceID, recalculate)
+		if err != nil {
+			logger.Error("failed to resume user schedule", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		logger.Info("user scheduled instance resumed")
+		json.Write(w, http.StatusOK, userScheduleToOAPI(*updated))
+		return
+	}
+
+	if body.ScheduledAt == nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("scheduled_at is required when not pausing or resuming")))
+		return
+	}
+
+	scheduledAt := *body.ScheduledAt
 	updated, err := srv.store.UpdateUserSchedule(ctx, scheduledInstanceID, &scheduledAt, nil, nil, nil)
 	if err != nil {
 		logger.Error("failed to update user schedule", zap.Error(err))
@@ -523,10 +585,33 @@ func (srv *ScheduledController) UpsertOrganizationScheduled(w http.ResponseWrite
 		return
 	}
 
+	// Resolve the schedule ID: either from scheduled_id directly, or by
+	// upserting a schedule definition from scheduled_name (same approach as the client API).
+	var scheduleID uuid.UUID
+	switch {
+	case body.ScheduledName != nil && *body.ScheduledName != "":
+		scheduleType := "single"
+		if body.Interval != nil {
+			scheduleType = "recurring"
+		}
+		scheduleID, err = srv.store.UpsertSchedule(ctx, projectID, *body.ScheduledName, scheduleType)
+		if err != nil {
+			srv.logger.Error("failed to upsert schedule definition", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	case body.ScheduledId != nil:
+		scheduleID = *body.ScheduledId
+	default:
+		srv.logger.Error("either scheduled_id or scheduled_name is required")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either scheduled_id or scheduled_name is required")))
+		return
+	}
+
 	logger := srv.logger.With(
 		zap.String("project_id", projectID.String()),
 		zap.String("organization_id", organizationID.String()),
-		zap.String("scheduled_id", body.ScheduledId.String()),
+		zap.String("scheduled_id", scheduleID.String()),
 	)
 
 	logger.Info("upserting organization scheduled")
@@ -543,7 +628,7 @@ func (srv *ScheduledController) UpsertOrganizationScheduled(w http.ResponseWrite
 		return
 	}
 
-	upserted, err := srv.store.UpsertOrganizationSchedule(ctx, organizationID, body.ScheduledId, body.ScheduledAt, body.StartAt, body.Interval, data)
+	upserted, err := srv.store.UpsertOrganizationSchedule(ctx, organizationID, scheduleID, body.ScheduledAt, body.StartAt, body.Interval, data)
 	if err != nil {
 		logger.Error("failed to upsert organization schedule", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -631,7 +716,46 @@ func (srv *ScheduledController) UpdateOrganizationScheduled(w http.ResponseWrite
 
 	logger.Info("updating organization scheduled instance")
 
-	scheduledAt := body.ScheduledAt
+	// Handle pause/resume actions
+	if body.Pause != nil && body.Resume != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("cannot pause and resume at the same time")))
+		return
+	}
+
+	if body.Pause != nil {
+		deleteEvents := *body.Pause == oapi.UpdateOrganizationScheduledRequestPauseImmediately
+		updated, err := srv.store.PauseOrganizationSchedule(ctx, scheduledInstanceID, deleteEvents)
+		if err != nil {
+			logger.Error("failed to pause organization schedule", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		logger.Info("organization scheduled instance paused")
+		json.Write(w, http.StatusOK, orgScheduleToOAPI(*updated))
+		return
+	}
+
+	if body.Resume != nil {
+		recalculate := *body.Resume == oapi.UpdateOrganizationScheduledRequestResumeImmediately
+		updated, err := srv.store.ResumeOrganizationSchedule(ctx, scheduledInstanceID, recalculate)
+		if err != nil {
+			logger.Error("failed to resume organization schedule", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		logger.Info("organization scheduled instance resumed")
+		json.Write(w, http.StatusOK, orgScheduleToOAPI(*updated))
+		return
+	}
+
+	if body.ScheduledAt == nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("scheduled_at is required when not pausing or resuming")))
+		return
+	}
+
+	scheduledAt := *body.ScheduledAt
 	updated, err := srv.store.UpdateOrganizationSchedule(ctx, scheduledInstanceID, &scheduledAt, nil, nil, nil)
 	if err != nil {
 		logger.Error("failed to update organization schedule", zap.Error(err))
@@ -653,6 +777,7 @@ func userScheduleToOAPI(us subjects.UserSchedule) oapi.UserScheduled {
 		Interval:    us.Interval,
 		StartAt:     us.StartAt,
 		AnchorAt:    us.AnchorAt,
+		PausedAt:    us.PausedAt,
 		CreatedAt:   us.CreatedAt,
 		UpdatedAt:   us.UpdatedAt,
 	}
@@ -677,6 +802,7 @@ func orgScheduleToOAPI(os subjects.OrganizationSchedule) oapi.UserScheduled {
 		Interval:    os.Interval,
 		StartAt:     os.StartAt,
 		AnchorAt:    os.AnchorAt,
+		PausedAt:    os.PausedAt,
 		CreatedAt:   os.CreatedAt,
 		UpdatedAt:   os.UpdatedAt,
 	}

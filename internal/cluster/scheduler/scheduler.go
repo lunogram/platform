@@ -8,6 +8,7 @@ import (
 
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/config"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/subjects"
@@ -65,6 +66,7 @@ func (controller *Controller) Schedule(ctx context.Context) {
 // the top of each Reconcile* closure.
 func (controller *Controller) recover(name string) {
 	if r := recover(); r != nil {
+		metrics.ReconciliationPanicsTotal.WithLabelValues(name).Inc()
 		controller.logger.Error("panic during reconciliation",
 			zap.String("task", name),
 			zap.String("error", fmt.Sprint(r)),

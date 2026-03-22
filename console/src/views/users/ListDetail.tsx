@@ -31,6 +31,7 @@ interface ListUser {
 }
 import { formatDate, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
+import { getUserDisplayName } from "@/lib/name"
 import RuleBuilder from "./rules/RuleBuilder"
 import { useRoute } from "../router"
 import { useBlocker } from "react-router"
@@ -587,7 +588,7 @@ export default function ListDetail() {
                                             onClick={() => route(`users/${user.id}`)}
                                         >
                                             <TableCell className="font-medium">
-                                                {user.full_name || "—"}
+                                                {getUserDisplayName(user, "—")}
                                             </TableCell>
                                             <TableCell className="text-muted-foreground hidden md:table-cell">
                                                 <code className="text-xs bg-muted px-1.5 py-0.5 rounded">

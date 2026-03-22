@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
@@ -20,6 +21,7 @@ import (
 func (controller *Controller) ReconcileUserScheduledEvents(ctx context.Context) func() {
 	return func() {
 		defer controller.recover("user_scheduled_events")
+		start := time.Now()
 		var processed, published, failed int
 
 		scanner := func(event subjects.DueScheduledEvent) error {
@@ -60,6 +62,7 @@ func (controller *Controller) ReconcileUserScheduledEvents(ctx context.Context) 
 			err := controller.pub.Publish(ctx, schemas.UserEventsProcess(event.ProjectID), userEvent)
 			if err != nil {
 				failed++
+				metrics.ScheduledEventsFireFailuresTotal.WithLabelValues("user").Inc()
 				controller.logger.Error("failed to publish scheduled user event",
 					zap.Error(err),
 					zap.String("event_name", eventName),
@@ -69,6 +72,8 @@ func (controller *Controller) ReconcileUserScheduledEvents(ctx context.Context) 
 			}
 
 			published++
+			metrics.ScheduledEventsFiredTotal.WithLabelValues("user").Inc()
+			metrics.ScheduledEventsFireDelaySeconds.WithLabelValues("user").Observe(time.Since(event.FireAt).Seconds())
 			controller.logger.Debug("published scheduled user event",
 				zap.String("event_name", eventName),
 				zap.Stringer("user_id", event.UserID),
@@ -100,6 +105,12 @@ func (controller *Controller) ReconcileUserScheduledEvents(ctx context.Context) 
 			zap.Int("published", published),
 			zap.Int("failed", failed),
 		)
+
+		metrics.ReconciliationRunsTotal.WithLabelValues("user_scheduled_events").Inc()
+		metrics.ReconciliationItemsProcessedTotal.WithLabelValues("user_scheduled_events").Add(float64(processed))
+		metrics.ReconciliationItemsPublishedTotal.WithLabelValues("user_scheduled_events").Add(float64(published))
+		metrics.ReconciliationItemsFailedTotal.WithLabelValues("user_scheduled_events").Add(float64(failed))
+		metrics.ReconciliationDurationSeconds.WithLabelValues("user_scheduled_events").Observe(time.Since(start).Seconds())
 	}
 }
 
@@ -110,6 +121,7 @@ func (controller *Controller) ReconcileUserScheduledEvents(ctx context.Context) 
 func (controller *Controller) ReconcileUserSchedules(ctx context.Context) func() {
 	return func() {
 		defer controller.recover("user_schedules")
+		start := time.Now()
 		var processed, advanced, failed int
 
 		scanner := func(us subjects.UserSchedule) error {
@@ -118,15 +130,18 @@ func (controller *Controller) ReconcileUserSchedules(ctx context.Context) func()
 			err := controller.scheduled.AdvanceAndGenerateUserScheduleEvents(ctx, us)
 			if err != nil {
 				failed++
+				metrics.SchedulesAdvanceFailuresTotal.WithLabelValues("user").Inc()
 				controller.logger.Error("failed to advance user schedule",
 					zap.Error(err),
 					zap.Stringer("user_schedule_id", us.ID),
 					zap.Stringer("user_id", us.UserID),
-					zap.Stringer("schedule_id", us.ScheduleID))
+					zap.Stringer("schedule_id", us.ScheduleID),
+				)
 				return nil
 			}
 
 			advanced++
+			metrics.SchedulesAdvancedTotal.WithLabelValues("user").Inc()
 			controller.logger.Debug("advanced recurring user schedule",
 				zap.Stringer("user_schedule_id", us.ID),
 				zap.Stringer("user_id", us.UserID),
@@ -146,5 +161,11 @@ func (controller *Controller) ReconcileUserSchedules(ctx context.Context) func()
 			zap.Int("advanced", advanced),
 			zap.Int("failed", failed),
 		)
+
+		metrics.ReconciliationRunsTotal.WithLabelValues("user_schedules").Inc()
+		metrics.ReconciliationItemsProcessedTotal.WithLabelValues("user_schedules").Add(float64(processed))
+		metrics.ReconciliationItemsPublishedTotal.WithLabelValues("user_schedules").Add(float64(advanced))
+		metrics.ReconciliationItemsFailedTotal.WithLabelValues("user_schedules").Add(float64(failed))
+		metrics.ReconciliationDurationSeconds.WithLabelValues("user_schedules").Observe(time.Since(start).Seconds())
 	}
 }

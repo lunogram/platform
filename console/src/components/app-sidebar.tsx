@@ -23,7 +23,7 @@ import { AdminContext, ProjectContext } from "@/contexts"
 import { useResolver } from "@/hooks"
 import api from "@/api"
 import { UserDropdown } from "./user-dropdown"
-import type { Admin } from "@/types"
+import { getUserDisplayName } from "@/lib/name"
 import { BookIcon } from "./icons"
 
 interface AppSidebarProps {
@@ -39,13 +39,6 @@ export function AppSidebar({
     const profile = useContext(AdminContext)
     const location = useLocation()
     const { setOpenMobile } = useSidebar()
-
-    const getUserDisplayName = (profile: Admin | null) => {
-        if (profile?.first_name && profile?.last_name) {
-            return `${profile.first_name} ${profile.last_name}`
-        }
-        return profile?.first_name || profile?.email || "User"
-    }
 
     const [allProjects] = useResolver(
         React.useCallback(async () => {
@@ -115,7 +108,7 @@ export function AppSidebar({
                 </a>
                 <UserDropdown
                     user={{
-                        name: getUserDisplayName(profile),
+                        name: getUserDisplayName(profile, "User"),
                         email: profile?.email || "",
                     }}
                 />

@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rules"
@@ -22,10 +23,12 @@ import (
 // It also triggers list recomputation and journey advancement for all users in the organization.
 func OrganizationEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
+		start := time.Now()
 		event := schemas.OrganizationEvent{}
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal organization event message", zap.Error(err))
+			metrics.EventsProcessingErrorsTotal.WithLabelValues("organization").Inc()
 			return Permanent(err)
 		}
 
@@ -65,6 +68,8 @@ func OrganizationEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *j
 		}
 
 		logger.Info("organization event processed successfully", zap.Stringer("event_id", event.ID), zap.Stringer("organization_id", event.OrganizationID))
+		metrics.EventsProcessedTotal.WithLabelValues("organization").Inc()
+		metrics.EventsProcessingDurationSeconds.WithLabelValues("organization").Observe(time.Since(start).Seconds())
 		return nil
 	}
 }
@@ -105,6 +110,8 @@ func PublishOrganizationEventListDependencies(ctx context.Context, logger *zap.L
 				logger.Error("failed to publish list recompute", zap.Error(err))
 				return err
 			}
+
+			metrics.EventsListRecomputesTotal.Inc()
 		}
 
 		return nil
@@ -171,6 +178,7 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 
 				if !eligible {
 					logger.Info("user not eligible to enter journey", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("user_id", userID))
+					metrics.JourneyEntranceRejectionsTotal.WithLabelValues(event.ProjectID.String(), "not_eligible").Inc()
 					return nil
 				}
 
@@ -189,6 +197,9 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 					logger.Error("failed to create journey user state", zap.Error(err), zap.Stringer("user_id", userID))
 					return err
 				}
+
+				metrics.JourneyEntrancesTotal.WithLabelValues(event.ProjectID.String()).Inc()
+				metrics.EventsJourneyTriggersTotal.WithLabelValues("organization").Inc()
 
 				for _, child := range dep.Children {
 					step := JourneyStep{

@@ -133,6 +133,30 @@ const (
 	Unsubscribed SubscriptionState = "unsubscribed"
 )
 
+// Defines values for UpdateOrganizationScheduledRequestPause.
+const (
+	UpdateOrganizationScheduledRequestPauseAfterNextInterval UpdateOrganizationScheduledRequestPause = "after_next_interval"
+	UpdateOrganizationScheduledRequestPauseImmediately       UpdateOrganizationScheduledRequestPause = "immediately"
+)
+
+// Defines values for UpdateOrganizationScheduledRequestResume.
+const (
+	UpdateOrganizationScheduledRequestResumeAtNextInterval UpdateOrganizationScheduledRequestResume = "at_next_interval"
+	UpdateOrganizationScheduledRequestResumeImmediately    UpdateOrganizationScheduledRequestResume = "immediately"
+)
+
+// Defines values for UpdateUserScheduledRequestPause.
+const (
+	UpdateUserScheduledRequestPauseAfterNextInterval UpdateUserScheduledRequestPause = "after_next_interval"
+	UpdateUserScheduledRequestPauseImmediately       UpdateUserScheduledRequestPause = "immediately"
+)
+
+// Defines values for UpdateUserScheduledRequestResume.
+const (
+	UpdateUserScheduledRequestResumeAtNextInterval UpdateUserScheduledRequestResume = "at_next_interval"
+	UpdateUserScheduledRequestResumeImmediately    UpdateUserScheduledRequestResume = "immediately"
+)
+
 // Defines values for ListSenderIdentitiesParamsChannel.
 const (
 	ListSenderIdentitiesParamsChannelEmail ListSenderIdentitiesParamsChannel = "email"
@@ -811,8 +835,11 @@ type OrganizationScheduled struct {
 	// Interval Interval for recurring schedules
 	Interval       *string            `json:"interval"`
 	OrganizationId openapi_types.UUID `json:"organization_id"`
-	ScheduledAt    time.Time          `json:"scheduled_at"`
-	ScheduledId    openapi_types.UUID `json:"scheduled_id"`
+
+	// PausedAt When set, the schedule is paused and the scheduler will not advance it
+	PausedAt    *time.Time         `json:"paused_at"`
+	ScheduledAt time.Time          `json:"scheduled_at"`
+	ScheduledId openapi_types.UUID `json:"scheduled_id"`
 
 	// StartAt Start time of the recurring schedule interval
 	StartAt   *time.Time `json:"start_at"`
@@ -1171,9 +1198,21 @@ type UpdateOrganization struct {
 
 // UpdateOrganizationScheduledRequest defines model for UpdateOrganizationScheduledRequest.
 type UpdateOrganizationScheduledRequest struct {
+	// Pause Pause the schedule. "immediately" deletes all unfired events. "after_next_interval" keeps existing events but prevents advancement.
+	Pause *UpdateOrganizationScheduledRequestPause `json:"pause,omitempty"`
+
+	// Resume Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+	Resume *UpdateOrganizationScheduledRequestResume `json:"resume,omitempty"`
+
 	// ScheduledAt The new time at which the scheduled resource should trigger
-	ScheduledAt time.Time `json:"scheduled_at"`
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
 }
+
+// UpdateOrganizationScheduledRequestPause Pause the schedule. "immediately" deletes all unfired events. "after_next_interval" keeps existing events but prevents advancement.
+type UpdateOrganizationScheduledRequestPause string
+
+// UpdateOrganizationScheduledRequestResume Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+type UpdateOrganizationScheduledRequestResume string
 
 // UpdateProject defines model for UpdateProject.
 type UpdateProject struct {
@@ -1231,9 +1270,21 @@ type UpdateUser struct {
 
 // UpdateUserScheduledRequest defines model for UpdateUserScheduledRequest.
 type UpdateUserScheduledRequest struct {
+	// Pause Pause the schedule. "immediately" deletes all unfired events. "after_next_interval" keeps existing events but prevents advancement.
+	Pause *UpdateUserScheduledRequestPause `json:"pause,omitempty"`
+
+	// Resume Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+	Resume *UpdateUserScheduledRequestResume `json:"resume,omitempty"`
+
 	// ScheduledAt The new time at which the scheduled resource should trigger
-	ScheduledAt time.Time `json:"scheduled_at"`
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
 }
+
+// UpdateUserScheduledRequestPause Pause the schedule. "immediately" deletes all unfired events. "after_next_interval" keeps existing events but prevents advancement.
+type UpdateUserScheduledRequestPause string
+
+// UpdateUserScheduledRequestResume Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+type UpdateUserScheduledRequestResume string
 
 // UpdateUserSubscriptions defines model for UpdateUserSubscriptions.
 type UpdateUserSubscriptions = []struct {
@@ -1262,8 +1313,11 @@ type UpsertOrganizationScheduledRequest struct {
 	// ScheduledAt The time at which the scheduled resource is set to trigger. Required for single schedules.
 	ScheduledAt *time.Time `json:"scheduled_at"`
 
-	// ScheduledId The scheduled definition ID
-	ScheduledId openapi_types.UUID `json:"scheduled_id"`
+	// ScheduledId The scheduled definition ID. Either scheduled_id or scheduled_name must be provided.
+	ScheduledId *openapi_types.UUID `json:"scheduled_id,omitempty"`
+
+	// ScheduledName The schedule name. When provided, creates the schedule definition if it does not exist and uses its ID. Either scheduled_id or scheduled_name must be provided.
+	ScheduledName *string `json:"scheduled_name,omitempty"`
 
 	// StartAt Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
 	StartAt *time.Time `json:"start_at"`
@@ -1280,8 +1334,11 @@ type UpsertUserScheduledRequest struct {
 	// ScheduledAt The time at which the scheduled resource is set to trigger. Required for single schedules.
 	ScheduledAt *time.Time `json:"scheduled_at"`
 
-	// ScheduledId The scheduled definition ID
-	ScheduledId openapi_types.UUID `json:"scheduled_id"`
+	// ScheduledId The scheduled definition ID. Either scheduled_id or scheduled_name must be provided.
+	ScheduledId *openapi_types.UUID `json:"scheduled_id,omitempty"`
+
+	// ScheduledName The schedule name. When provided, creates the schedule definition if it does not exist and uses its ID. Either scheduled_id or scheduled_name must be provided.
+	ScheduledName *string `json:"scheduled_name,omitempty"`
 
 	// StartAt Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
 	StartAt *time.Time `json:"start_at"`
@@ -1394,7 +1451,10 @@ type UserScheduled struct {
 	Id        openapi_types.UUID `json:"id"`
 
 	// Interval Interval for recurring schedules
-	Interval    *string            `json:"interval"`
+	Interval *string `json:"interval"`
+
+	// PausedAt When set, the schedule is paused and the scheduler will not advance it
+	PausedAt    *time.Time         `json:"paused_at"`
 	ScheduledAt time.Time          `json:"scheduled_at"`
 	ScheduledId openapi_types.UUID `json:"scheduled_id"`
 

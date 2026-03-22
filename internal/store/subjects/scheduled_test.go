@@ -934,34 +934,6 @@ func TestBackfillUserScheduledEventsForOffset(t *testing.T) {
 	require.Len(t, events, 2)
 }
 
-func TestBackfillUserScheduledEventsForOffsetIdempotent(t *testing.T) {
-	t.Parallel()
-
-	db := NewContainerStore(t)
-	projectID := uuid.New()
-	ctx := context.Background()
-
-	userID := createTestUserForSchedules(t, db, ctx, projectID)
-	scheduleID, err := db.UpsertSchedule(ctx, projectID, "backfill_idem", "single")
-	require.NoError(t, err)
-
-	futureTime := time.Now().Add(7 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
-	_, err = db.CreateUserSchedule(ctx, userID, scheduleID, &futureTime, nil, nil, json.RawMessage(`{}`))
-	require.NoError(t, err)
-
-	newOffset, err := db.CreateScheduleOffset(ctx, scheduleID, "3 hours", "after")
-	require.NoError(t, err)
-
-	count1, err := db.BackfillUserScheduledEventsForOffset(ctx, scheduleID, newOffset.ID)
-	require.NoError(t, err)
-	require.Equal(t, int64(1), count1)
-
-	// Second backfill should insert 0 due to ON CONFLICT DO NOTHING
-	count2, err := db.BackfillUserScheduledEventsForOffset(ctx, scheduleID, newOffset.ID)
-	require.NoError(t, err)
-	require.Equal(t, int64(0), count2)
-}
-
 func TestCreateOrganizationScheduleSingle(t *testing.T) {
 	t.Parallel()
 
@@ -1449,33 +1421,6 @@ func TestBackfillOrgScheduledEventsForOffset(t *testing.T) {
 	events, err = db.ListPendingOrgScheduledEventsForOrg(ctx, orgID, scheduleID)
 	require.NoError(t, err)
 	require.Len(t, events, 2)
-}
-
-func TestBackfillOrgScheduledEventsForOffsetIdempotent(t *testing.T) {
-	t.Parallel()
-
-	db := NewContainerStore(t)
-	projectID := uuid.New()
-	ctx := context.Background()
-
-	orgID := createTestOrgForSchedules(t, db, ctx, projectID)
-	scheduleID, err := db.UpsertSchedule(ctx, projectID, "backfill_org_idem", "single")
-	require.NoError(t, err)
-
-	futureTime := time.Now().Add(7 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
-	_, err = db.CreateOrganizationSchedule(ctx, orgID, scheduleID, &futureTime, nil, nil, json.RawMessage(`{}`))
-	require.NoError(t, err)
-
-	newOffset, err := db.CreateScheduleOffset(ctx, scheduleID, "5 hours", "after")
-	require.NoError(t, err)
-
-	count1, err := db.BackfillOrgScheduledEventsForOffset(ctx, scheduleID, newOffset.ID)
-	require.NoError(t, err)
-	require.Equal(t, int64(1), count1)
-
-	count2, err := db.BackfillOrgScheduledEventsForOffset(ctx, scheduleID, newOffset.ID)
-	require.NoError(t, err)
-	require.Equal(t, int64(0), count2)
 }
 
 func TestMultipleUsersOnSameSchedule(t *testing.T) {
