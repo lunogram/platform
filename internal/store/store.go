@@ -42,12 +42,16 @@ func New(ctx graceful.Context, logger *zap.Logger, config Config) (*Connections,
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to management database: %w", err)
 	}
+	management.SetMaxOpenConns(25)
+	management.SetMaxIdleConns(5)
 
 	subjects, err := sqlx.Connect("pgx", config.SubjectsURI)
 	if err != nil {
 		management.Close()
 		return nil, fmt.Errorf("failed to connect to subjects database: %w", err)
 	}
+	subjects.SetMaxOpenConns(25)
+	subjects.SetMaxIdleConns(5)
 
 	journey, err := sqlx.Connect("pgx", config.JourneyURI)
 	if err != nil {
@@ -55,6 +59,8 @@ func New(ctx graceful.Context, logger *zap.Logger, config Config) (*Connections,
 		subjects.Close()
 		return nil, fmt.Errorf("failed to connect to journey database: %w", err)
 	}
+	journey.SetMaxOpenConns(25)
+	journey.SetMaxIdleConns(5)
 
 	conns := &Connections{
 		Management: management,
@@ -88,6 +94,11 @@ func Connect(ctx graceful.Context, logger *zap.Logger, uri string) (*sqlx.DB, er
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	// Limit connection pool to prevent exhausting PostgreSQL max_connections,
+	// especially during parallel test execution where many pools share one server.
+	db.SetMaxOpenConns(5)
+	db.SetMaxIdleConns(2)
+
 	ctx.Closer(func() {
 		logger.Info("received close signal, closing database connection")
 
@@ -113,6 +124,8 @@ func Migrate(uri string, migrations fs.FS) error {
 	if err != nil {
 		return fmt.Errorf("failed to open database connection: %w", err)
 	}
+	conn.SetMaxOpenConns(2)
+	conn.SetMaxIdleConns(1)
 	defer conn.Close()
 
 	db, err := pgx.WithInstance(conn, &pgx.Config{})

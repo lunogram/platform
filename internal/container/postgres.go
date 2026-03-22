@@ -26,6 +26,8 @@ func CreateSchema(t *testing.T, uri, schema string) string {
 
 	db, err := sql.Open("pgx", uri)
 	require.NoError(t, err)
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 	defer db.Close()
 
 	_, err = db.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schema))
@@ -47,8 +49,8 @@ func createTestDatabase(t *testing.T) string {
 		postgres.BasicWaitStrategies(),
 		testcontainers.WithReuseByName("testcontainer-postgresql"),
 		// NOTE: increase max_connections to support parallel test execution
-		// Default is 100, we increase to 500 for parallel tests
-		testcontainers.WithCmdArgs("-c", "max_connections=500"),
+		// Default is 100, we increase to 1000 for parallel tests
+		testcontainers.WithCmdArgs("-c", "max_connections=1000"),
 	)
 	require.NoError(t, err)
 
@@ -57,6 +59,8 @@ func createTestDatabase(t *testing.T) string {
 
 	admin, err := sql.Open("pgx", adminURI)
 	require.NoError(t, err)
+	admin.SetMaxOpenConns(2)
+	admin.SetMaxIdleConns(1)
 	defer admin.Close()
 
 	database := fmt.Sprintf("app_%d", time.Now().UnixNano())
