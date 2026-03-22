@@ -25,7 +25,7 @@ export default function Settings() {
         {
             key: "event-schemas",
             to: "event-schemas",
-            label: t("event_schemas", "Event Schemas"),
+            label: t("schemas", "Schemas"),
             icon: Zap,
         },
         ...(isEnterprise

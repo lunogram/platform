@@ -32,7 +32,7 @@ func NewContainerStore(t *testing.T) *State {
 	usersDB, err := store.Connect(ctx, logger, usersURI)
 	require.NoError(t, err)
 
-	return NewState(usersDB)
+	return NewState(usersDB, logger)
 }
 
 func TestCreateUser(t *testing.T) {

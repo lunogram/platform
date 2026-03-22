@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
@@ -82,12 +83,45 @@ func PublishOrganizationEvents(ctx context.Context, logger *zap.Logger, pub pubs
 			return err
 		}
 
+		err = PublishOrganizationAnniversarySchedule(ctx, logger, pub, org)
+		if err != nil {
+			logger.Error("failed to publish organization anniversary schedule", zap.Error(err))
+			return err
+		}
+
 		return nil
 	}
 
 	err := pub.Publish(ctx, schemas.OrganizationEventsProcess(org.ProjectID), org.OrganizationEvent(schemas.EventOrganizationUpdated))
 	if err != nil {
 		logger.Error("failed to publish organization updated event", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// PublishOrganizationAnniversarySchedule publishes a recurring yearly schedule for
+// a newly created organization, anchored to their creation date.
+func PublishOrganizationAnniversarySchedule(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, org schemas.Organization) error {
+	now := time.Now()
+	interval := "1 year"
+
+	msg := schemas.ScheduledMsg{
+		ProjectID:      org.ProjectID,
+		Name:           ScheduleAnniversary,
+		Type:           "recurring",
+		SubjectType:    string(subjects.SubjectTypeOrganization),
+		StartAt:        &now,
+		Interval:       &interval,
+		OrganizationID: org.ID,
+		ExternalId:     &org.ExternalID,
+		Data:           map[string]any{},
+	}
+
+	err := pub.Publish(ctx, schemas.ScheduledProcess(org.ProjectID), msg)
+	if err != nil {
+		logger.Error("failed to publish organization anniversary scheduled message", zap.Error(err))
 		return err
 	}
 

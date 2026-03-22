@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
@@ -81,12 +82,46 @@ func PublishUserEvents(ctx context.Context, logger *zap.Logger, pub pubsub.Publi
 			return err
 		}
 
+		err = PublishUserAnniversarySchedule(ctx, logger, pub, user)
+		if err != nil {
+			logger.Error("failed to publish user anniversary schedule", zap.Error(err))
+			return err
+		}
+
 		return nil
 	}
 
 	err = pub.Publish(ctx, schemas.UserEventsProcess(user.ProjectID), user.UserEvent(schemas.EventUserUpdated))
 	if err != nil {
 		logger.Error("failed to publish user updated event", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// PublishUserAnniversarySchedule publishes a recurring yearly schedule for
+// a newly created user, anchored to their creation date.
+func PublishUserAnniversarySchedule(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, user schemas.User) error {
+	now := time.Now()
+	interval := "1 year"
+
+	msg := schemas.ScheduledMsg{
+		ProjectID:   user.ProjectID,
+		Name:        ScheduleAnniversary,
+		Type:        "recurring",
+		SubjectType: string(subjects.SubjectTypeUser),
+		StartAt:     &now,
+		Interval:    &interval,
+		UserID:      user.ID,
+		ExternalId:  user.ExternalID,
+		AnonymousId: user.AnonymousID,
+		Data:        map[string]any{},
+	}
+
+	err := pub.Publish(ctx, schemas.ScheduledProcess(user.ProjectID), msg)
+	if err != nil {
+		logger.Error("failed to publish user anniversary scheduled message", zap.Error(err))
 		return err
 	}
 

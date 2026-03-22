@@ -2,62 +2,34 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/cloudproud/graceful"
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/pubsub"
-	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"go.uber.org/zap"
 )
 
-func NewController(ctx graceful.Context, logger *zap.Logger, config config.Node, jrny *journey.State, pub pubsub.Publisher) *Controller {
+func NewController(ctx graceful.Context, logger *zap.Logger, config config.Node, jrny *journey.State, usrs *subjects.State, pub pubsub.Publisher) *Controller {
 	return &Controller{
-		logger:   logger,
-		config:   config,
-		journeys: jrny.JourneysStore,
-		pub:      pub,
+		logger:    logger,
+		config:    config,
+		journeys:  jrny.JourneysStore,
+		scheduled: usrs.ScheduledStore,
+		pub:       pub,
 	}
 }
 
 type Controller struct {
-	logger   *zap.Logger
-	config   config.Node
-	journeys *journey.JourneysStore
-	pub      pubsub.Publisher
-}
-
-func (controller *Controller) ReconcileJourneyResumptions(ctx context.Context) {
-	states, err := controller.journeys.ListResumeableUserJourneys(ctx)
-	if err != nil {
-		controller.logger.Error("failed to list resumeable user journeys", zap.Error(err))
-		return
-	}
-
-	for _, state := range states {
-		stepType, err := controller.journeys.GetStepType(ctx, *state.PinnedVersionID, state.ExternalStepID)
-		if err != nil {
-			controller.logger.Error("failed to get step type", zap.Error(err), zap.Stringer("journey_id", state.JourneyID), zap.String("step_id", state.ExternalStepID))
-			continue
-		}
-
-		step := schemas.JourneyStep{
-			ProjectID:      state.ProjectID,
-			JourneyID:      state.JourneyID,
-			JourneyEntryID: state.JourneyEntryID,
-			VersionID:      state.PinnedVersionID,
-			UserID:         state.UserID,
-			ExternalStepID: state.ExternalStepID,
-			StepType:       stepType,
-			StateID:        &state.ID,
-		}
-
-		err = controller.pub.Publish(ctx, schemas.JourneysAdvance(state.ProjectID, state.JourneyID, state.UserID), step)
-		if err != nil {
-			controller.logger.Error("failed to publish journey step", zap.Error(err), zap.Stringer("journey_id", state.JourneyID), zap.Stringer("journey_entry_id", state.JourneyEntryID))
-		}
-	}
+	logger    *zap.Logger
+	config    config.Node
+	journeys  *journey.JourneysStore
+	scheduled *subjects.ScheduledStore
+	pub       pubsub.Publisher
 }
 
 func (controller *Controller) Schedule(ctx context.Context) {
@@ -76,7 +48,27 @@ func (controller *Controller) Schedule(ctx context.Context) {
 			return
 		case <-timer.C:
 			logger.Debug("reconciling cluster state")
-			controller.ReconcileJourneyResumptions(ctx)
+			var wg sync.WaitGroup
+			wg.Go(controller.ReconcileJourneyResumptions(ctx))
+			wg.Go(controller.ReconcileUserSchedules(ctx))
+			wg.Go(controller.ReconcileOrganizationSchedules(ctx))
+			wg.Go(controller.ReconcileUserScheduledEvents(ctx))
+			wg.Go(controller.ReconcileOrganizationScheduledEvents(ctx))
+			wg.Wait() // nolint:errcheck
+			logger.Debug("reconciliation complete")
 		}
+	}
+}
+
+// recover recovers from panics so that a single failing reconciliation task
+// does not crash the entire scheduler loop. It is intended to be deferred at
+// the top of each Reconcile* closure.
+func (controller *Controller) recover(name string) {
+	if r := recover(); r != nil {
+		controller.logger.Error("panic during reconciliation",
+			zap.String("task", name),
+			zap.String("error", fmt.Sprint(r)),
+			zap.Stack("stacktrace"),
+		)
 	}
 }

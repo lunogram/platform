@@ -19,6 +19,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -52,7 +53,7 @@ func setupUsersTest(t *testing.T) (*subjects.State, uuid.UUID, jetstream.JetStre
 	})
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrs)
+	usersState := subjects.NewState(usrs, zap.NewNop())
 	ns := testNamespace(t)
 
 	return usersState, projectID, jet, ns

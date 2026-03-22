@@ -176,12 +176,6 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 				continue
 			}
 
-			entry, err := uuid.NewRandom()
-			if err != nil {
-				logger.Error("failed to generate journey entry ID", zap.Error(err))
-				return err
-			}
-
 			data, err := json.Marshal(map[string]any{"data": event.Data})
 			if err != nil {
 				logger.Error("failed to marshal journey entry data", zap.Error(err))
@@ -192,7 +186,7 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 			now := time.Now()
 			result := journey.JourneyUserState{
 				JourneyID:      dep.JourneyID,
-				JourneyEntryID: entry,
+				JourneyEntryID: uuid.New(),
 				UserID:         event.UserID,
 				ExternalStepID: dep.ExternalID,
 				Data:           json.RawMessage(data),
@@ -215,7 +209,7 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 				step := JourneyStep{
 					ProjectID:      event.ProjectID,
 					JourneyID:      dep.JourneyID,
-					JourneyEntryID: entry,
+					JourneyEntryID: result.JourneyEntryID,
 					ExternalStepID: child.ChildExternalID,
 					UserID:         event.UserID,
 					StepType:       stepType,

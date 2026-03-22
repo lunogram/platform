@@ -1,5 +1,6 @@
 import Axios from "axios"
 import { env } from "./config/env"
+import { oapiClient } from "./oapi/client"
 import type {
     Action,
     ActionCreateParams,
@@ -259,9 +260,28 @@ const api = {
                 console.debug("Failed to fetch organization schemas:", error)
             }
 
+            // Fetch scheduled schemas (with fallback to empty array)
+            let scheduledSuggestions: VariableSuggestions["scheduledPaths"] = []
+            try {
+                const { data } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/subjects/user/scheduled/schema",
+                    { params: { path: { projectID: projectId } } },
+                )
+                const scheduled = data?.results ?? []
+
+                scheduledSuggestions = scheduled.map((s) => ({
+                    ...s,
+                    schema: s.schema ?? [],
+                })) as VariableSuggestions["scheduledPaths"]
+            } catch (error) {
+                // Scheduled schema endpoint may not exist yet, fallback to empty
+                console.debug("Failed to fetch scheduled schemas:", error)
+            }
+
             return {
                 eventPaths: eventSuggestions,
                 userPaths: userSuggestions,
+                scheduledPaths: scheduledSuggestions,
                 organizationEventPaths: organizationEventSuggestions,
                 organizationUserPaths: organizationUserSuggestions,
                 organizationPaths: organizationSuggestions,

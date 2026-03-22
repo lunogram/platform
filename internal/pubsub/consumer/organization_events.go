@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
@@ -163,45 +162,22 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 				return err
 			}
 
-			// Query users - either filtered by UserRule or all users in the organization
-			rows, err := queryOrganizationMembers(ctx, usrs, event.ProjectID, event.OrganizationID, entrance.UserRule)
-			if err != nil {
-				logger.Error("failed to query organization user IDs", zap.Error(err))
-				return err
-			}
-
-			total := 0
-			for rows.Next() {
-				var userID uuid.UUID
-				if err := rows.Scan(&userID); err != nil {
-					rows.Close()
-					logger.Error("failed to scan user ID", zap.Error(err))
-					return err
-				}
-
+			scanner := func(userID uuid.UUID) error {
 				eligible, err := jrny.CheckEntryEligibility(ctx, dep.JourneyID, userID, dep.ExternalID, multiple, concurrent)
 				if err != nil {
-					rows.Close()
 					logger.Error("failed to check journey entry eligibility", zap.Error(err), zap.Stringer("user_id", userID))
 					return err
 				}
 
 				if !eligible {
 					logger.Info("user not eligible to enter journey", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("user_id", userID))
-					continue
-				}
-
-				entry, err := uuid.NewRandom()
-				if err != nil {
-					rows.Close()
-					logger.Error("failed to generate journey entry ID", zap.Error(err))
-					return err
+					return nil
 				}
 
 				now := time.Now()
 				result := journey.JourneyUserState{
 					JourneyID:      dep.JourneyID,
-					JourneyEntryID: entry,
+					JourneyEntryID: uuid.New(),
 					UserID:         userID,
 					ExternalStepID: dep.ExternalID,
 					Data:           json.RawMessage(data),
@@ -210,7 +186,6 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 
 				_, err = jrny.CreateUserJourneyState(ctx, result)
 				if err != nil {
-					rows.Close()
 					logger.Error("failed to create journey user state", zap.Error(err), zap.Stringer("user_id", userID))
 					return err
 				}
@@ -219,43 +194,32 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 					step := JourneyStep{
 						ProjectID:      event.ProjectID,
 						JourneyID:      dep.JourneyID,
-						JourneyEntryID: entry,
+						JourneyEntryID: result.JourneyEntryID,
 						ExternalStepID: child.ChildExternalID,
 						UserID:         userID,
 					}
 
 					err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID, userID), step)
 					if err != nil {
-						rows.Close()
 						logger.Error("failed to publish journey state", zap.Error(err), zap.Stringer("user_id", userID))
 						return err
 					}
 				}
 
-				total++
+				return nil
 			}
 
-			rows.Close()
-			if err := rows.Err(); err != nil {
-				logger.Error("error iterating organization users", zap.Error(err))
+			err = usrs.ScanOrganizationMembers(ctx, event.ProjectID, event.OrganizationID, entrance.UserRule, scanner)
+			if err != nil {
+				logger.Error("failed to scan organization members", zap.Error(err))
 				return err
 			}
 
-			logger.Info("completed triggering journey entrance step", zap.Stringer("journey_id", dep.JourneyID), zap.Int("user_count", total))
+			logger.Info("completed triggering journey entrance step", zap.Stringer("journey_id", dep.JourneyID))
 		}
 
 		return nil
 	}
-}
-
-// queryOrganizationMembers returns user IDs for members of the given organization.
-// If a userRule is provided, it filters users matching the rule; otherwise returns all members.
-func queryOrganizationMembers(ctx context.Context, usrs *subjects.State, projectID, organizationID uuid.UUID, userRule *rules.RuleSet) (*sqlx.Rows, error) {
-	if userRule != nil {
-		return usrs.QueryOrganizationUsersMatchingRule(ctx, projectID, organizationID, *userRule)
-	}
-
-	return usrs.QueryOrganizationUserIDs(ctx, organizationID)
 }
 
 // OrganizationEventSchemasHandler creates a handler that extracts and stores organization event schema information.

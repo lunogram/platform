@@ -139,8 +139,7 @@ func (s *ActionsStore) UpdateAction(ctx context.Context, projectID, actionID uui
 	SET
 		name = COALESCE($1, name),
 		type = COALESCE($2, type),
-		config = COALESCE($3, config),
-		updated_at = NOW()
+		config = COALESCE($3, config)
 	WHERE id = $4 AND project_id = $5 AND deleted_at IS NULL`
 
 	_, err := s.db.ExecContext(ctx, stmt, name, actionType, config, actionID, projectID)
@@ -150,7 +149,7 @@ func (s *ActionsStore) UpdateAction(ctx context.Context, projectID, actionID uui
 func (s *ActionsStore) DeleteAction(ctx context.Context, projectID, actionID uuid.UUID) error {
 	stmt := `
 	UPDATE actions
-	SET deleted_at = NOW(), updated_at = NOW()
+	SET deleted_at = NOW()
 	WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`
 
 	_, err := s.db.ExecContext(ctx, stmt, actionID, projectID)

@@ -17,6 +17,7 @@ import {
     Languages,
     Pencil,
     Check,
+    CalendarClock,
 } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
@@ -154,6 +155,12 @@ export default function UserDetail() {
     const tabs = [
         { key: "details", to: "", label: t("details"), icon: FileText },
         { key: "events", to: "events", label: t("events"), icon: Activity },
+        {
+            key: "scheduled",
+            to: "scheduled",
+            label: t("scheduled", "Scheduled"),
+            icon: CalendarClock,
+        },
         { key: "subscriptions", to: "subscriptions", label: t("subscriptions"), icon: Bell },
         { key: "journeys", to: "journeys", label: t("journeys"), icon: Route },
         { key: "organizations", to: "organizations", label: t("organizations"), icon: Building2 },

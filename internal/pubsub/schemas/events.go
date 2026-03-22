@@ -2,6 +2,7 @@ package schemas
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -344,4 +345,49 @@ type ProviderWebhookEvent struct {
 // ProvidersWebhook returns the NATS subject for provider webhook events.
 func ProvidersWebhook(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("providers.webhooks.%s", projectID))
+}
+
+// ScheduledProcess returns the NATS subject for scheduled processing (both user and organization).
+func ScheduledProcess(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("scheduled.process.%s", projectID))
+}
+
+// ScheduledSchema returns the NATS subject for scheduled schema updates (both user and organization).
+func ScheduledSchema(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("scheduled.schema.%s", projectID))
+}
+
+// ScheduledBackfill returns the NATS subject for backfilling scheduled events
+// when a new offset is created on an existing schedule definition.
+func ScheduledBackfill(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("scheduled.backfill.%s", projectID))
+}
+
+// ScheduleOffsetBackfillMsg is published when a new schedule offset is created
+// so that a consumer can asynchronously backfill user_scheduled_events and
+// organization_scheduled_events for all existing schedule assignments.
+type ScheduleOffsetBackfillMsg struct {
+	ProjectID  uuid.UUID `json:"project_id"`
+	ScheduleID uuid.UUID `json:"schedule_id"`
+	OffsetID   uuid.UUID `json:"offset_id"`
+	Offset     string    `json:"offset"`
+	Direction  string    `json:"direction"`
+}
+
+// ScheduledMsg represents a scheduled event for a user or organization.
+type ScheduledMsg struct {
+	ID             uuid.UUID      `json:"id"`
+	ProjectID      uuid.UUID      `json:"project_id"`
+	ScheduledID    uuid.UUID      `json:"scheduled_id"`
+	Name           string         `json:"name"`
+	Type           string         `json:"type"`         // "single" or "recurring"
+	SubjectType    string         `json:"subject_type"` // "user" or "organization"
+	ScheduledAt    time.Time      `json:"scheduled_at"`
+	StartAt        *time.Time     `json:"start_at,omitempty"`
+	Interval       *string        `json:"interval,omitempty"`
+	Data           map[string]any `json:"data,omitempty"`
+	UserID         uuid.UUID      `json:"user_id,omitempty"`
+	OrganizationID uuid.UUID      `json:"organization_id,omitempty"`
+	ExternalId     *string        `json:"external_id,omitempty"`
+	AnonymousId    *string        `json:"anonymous_id,omitempty"`
 }

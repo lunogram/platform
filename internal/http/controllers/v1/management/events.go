@@ -20,7 +20,7 @@ func NewEventsController(logger *zap.Logger, db *sqlx.DB, engine *rbac.Engine) *
 	return &EventsController{
 		logger: logger,
 		db:     db,
-		store:  subjects.NewState(db),
+		store:  subjects.NewState(db, logger),
 		engine: engine,
 	}
 }

@@ -253,7 +253,7 @@ func (s *SubscriptionsStore) ListSubscriptions(ctx context.Context, projectID uu
 func (s *SubscriptionsStore) UpdateSubscription(ctx context.Context, subscriptionID uuid.UUID, name string, isPublic bool) error {
 	stmt := `
 	UPDATE subscriptions
-	SET name = $1, is_public = $2, updated_at = NOW()
+	SET name = $1, is_public = $2
 	WHERE id = $3`
 
 	_, err := s.db.ExecContext(ctx, stmt, name, isPublic, subscriptionID)

@@ -209,7 +209,7 @@ export type OrganizationRule = {
 export interface RulePath {
     id: UUID
     path: string
-    type: "user" | "event"
+    type: "user" | "event" | "scheduled"
     name: string
     data_type: "string" | "number" | "boolean" | "date" | "array"
     visibility: "public" | "hidden" | "classified"
@@ -241,9 +241,38 @@ export interface OrganizationSchemaPath {
     types: string[]
 }
 
+export interface ScheduleOffset {
+    id: UUID
+    schedule_id: UUID
+    offset: string
+    direction: "before" | "after"
+    created_at: string
+    updated_at: string
+}
+
+export interface ScheduledSchema {
+    id: UUID
+    name: string
+    schema: EventSchemaPath[]
+    offsets?: ScheduleOffset[]
+}
+
+export interface ScheduledInstance {
+    id: UUID
+    user_id: UUID
+    scheduled_id: UUID
+    scheduled_at: string
+    start_at: string | null
+    interval: string | null
+    data: Record<string, unknown> | null
+    created_at: string
+    updated_at: string
+}
+
 export interface VariableSuggestions {
     userPaths: UserSchemaPath[]
     eventPaths: EventSchema[]
+    scheduledPaths?: ScheduledSchema[]
     organizationEventPaths?: EventSchema[]
     organizationUserPaths?: OrganizationUserSchemaPath[]
     organizationPaths?: OrganizationSchemaPath[]

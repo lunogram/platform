@@ -439,13 +439,17 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	_, err = module.Send(ctx, request)
+	sendResp, err := module.Send(ctx, request)
 	if err != nil {
 		logger.Error("failed to send test", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to send test: "+err.Error())))
 		return
 	}
 
-	logger.Info("test sent", zap.String("to", string(body.To)))
+	logger.Info("test sent",
+		zap.String("to", string(body.To)),
+		zap.String("message_id", sendResp.ID),
+		zap.String("status", sendResp.Status),
+	)
 	w.WriteHeader(http.StatusNoContent)
 }

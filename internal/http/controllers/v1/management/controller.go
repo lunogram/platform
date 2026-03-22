@@ -9,6 +9,7 @@ import (
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store/management"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/lunogram/platform/internal/webhook"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
@@ -17,6 +18,7 @@ import (
 func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB, cfg config.Node, storage storage.Storage, urlResolver *storage.URLResolver, pub pubsub.Publisher, req pubsub.Caller, jet jetstream.JetStream, registry *providers.Registry, actionRegistry *actions.Registry, engine *rbac.Engine) (_ *Controller, err error) {
 	mgmt := management.NewState(managementDB)
 	projects := management.NewProjectsStore(managementDB)
+	usrs := subjects.NewState(usersDB, logger)
 
 	// Create webhook caller for project creation notifications
 	webhookCaller := webhook.NewCaller(logger.Named("webhook"), cfg.Webhook)
@@ -29,6 +31,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		AdminsController:           NewAdminsController(logger, managementDB, engine),
 		UsersController:            NewUsersController(logger, pub, usersDB, journeyDB, mgmt, cfg.Storage.MaxUploadSize, engine),
 		EventsController:           NewEventsController(logger, usersDB, engine),
+		ScheduledController:        NewScheduledController(logger, usrs, pub, engine),
 		TagsController:             NewTagsController(logger, managementDB, engine),
 		LocalesController:          NewLocalesController(logger, managementDB, engine),
 		JourneysController:         NewJourneysController(logger, journeyDB, usersDB, mgmt, pub, jet, engine),
@@ -57,6 +60,7 @@ type Controller struct {
 	*AdminsController
 	*UsersController
 	*EventsController
+	*ScheduledController
 	*TagsController
 	*LocalesController
 	*JourneysController

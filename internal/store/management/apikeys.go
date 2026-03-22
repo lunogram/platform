@@ -153,11 +153,10 @@ func (s *ApiKeysStore) ListApiKeys(ctx context.Context, projectID uuid.UUID, pag
 func (s *ApiKeysStore) UpdateApiKey(ctx context.Context, projectID, keyID uuid.UUID, name *string, role *string, description *string) error {
 	stmt := `
 	UPDATE project_api_keys
-	SET 
+	SET
 		name = COALESCE($1, name),
 		role = COALESCE($2, role),
-		description = COALESCE($3, description),
-		updated_at = NOW()
+		description = COALESCE($3, description)
 	WHERE id = $4 AND project_id = $5 AND deleted_at IS NULL`
 
 	_, err := s.db.ExecContext(ctx, stmt, name, role, description, keyID, projectID)
@@ -167,7 +166,7 @@ func (s *ApiKeysStore) UpdateApiKey(ctx context.Context, projectID, keyID uuid.U
 func (s *ApiKeysStore) DeleteApiKey(ctx context.Context, projectID, keyID uuid.UUID) error {
 	stmt := `
 	UPDATE project_api_keys
-	SET deleted_at = NOW(), updated_at = NOW()
+	SET deleted_at = NOW()
 	WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`
 
 	_, err := s.db.ExecContext(ctx, stmt, keyID, projectID)

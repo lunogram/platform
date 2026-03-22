@@ -202,8 +202,7 @@ func (s *ProvidersStore) UpdateProvider(ctx context.Context, projectID, provider
 	SET
 		name = COALESCE($1, name),
 		data = COALESCE($2, data),
-		link_wrap = COALESCE($3, link_wrap),
-		updated_at = NOW()
+		link_wrap = COALESCE($3, link_wrap)
 	WHERE project_id = $4
 	AND id = $5
 	AND deleted_at IS NULL`

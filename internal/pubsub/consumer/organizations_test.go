@@ -18,6 +18,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -65,7 +66,7 @@ func TestOrganizationsHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := OrganizationsHandler(logger, usersState, pub)
 
@@ -134,7 +135,7 @@ func TestOrganizationsHandlerUpdatedEvent(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := OrganizationsHandler(logger, usersState, pub)
 
@@ -189,7 +190,7 @@ func TestOrganizationsHandlerWithoutData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := OrganizationsHandler(logger, usersState, pub)
 
@@ -237,7 +238,7 @@ func TestOrganizationSchemasHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	handler := OrganizationSchemasHandler(logger, usersState)
 
 	orgID := uuid.New()
@@ -281,7 +282,7 @@ func TestOrganizationUsersHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := OrganizationUsersHandler(logger, usersState, pub)
 
@@ -350,7 +351,7 @@ func TestOrganizationUsersHandlerUpdatedEvent(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := OrganizationUsersHandler(logger, usersState, pub)
 
@@ -406,7 +407,7 @@ func TestOrganizationUsersHandlerWithoutData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
 	handler := OrganizationUsersHandler(logger, usersState, pub)
 
@@ -455,7 +456,7 @@ func TestOrganizationUserSchemasHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	handler := OrganizationUserSchemasHandler(logger, usersState)
 
 	orgID := uuid.New()

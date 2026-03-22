@@ -33,7 +33,7 @@ func NewJourneysController(logger *zap.Logger, journeyDB, subjectsDB *sqlx.DB, m
 		subjectsDB: subjectsDB,
 		mgmt:       mgmt,
 		jrny:       journey.NewState(journeyDB),
-		subjects:   subjects.NewState(subjectsDB),
+		subjects:   subjects.NewState(subjectsDB, logger),
 		pub:        pub,
 		jet:        jet,
 		engine:     engine,
@@ -743,14 +743,14 @@ func (srv *JourneysController) SetJourneySteps(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	dependencies, err := journeyEntranceEventDependencies(steps)
+	eventDependencies, err := journeyEntranceEventDependencies(steps)
 	if err != nil {
 		logger.Error("failed to get entrance event dependencies", zap.Error(err))
 		oapi.WriteProblem(w, err)
 		return
 	}
 
-	for externalID, eventName := range dependencies {
+	for externalID, eventName := range eventDependencies {
 		eventID, err := events.UpsertEvent(ctx, projectID, eventName, subjects.SubjectTypeUser)
 		if err != nil {
 			logger.Error("failed to upsert event", zap.String("event", eventName), zap.Error(err))
@@ -997,6 +997,7 @@ func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Req
 	}
 
 	logger.Info("journey published", zap.Stringer("version_id", draftVersion.ID))
+
 	json.Write(w, http.StatusOK, updated.OAPI(versionInfo))
 }
 
@@ -1014,7 +1015,7 @@ func journeyEntranceEventDependencies(steps oapi.JourneyStepMap) (map[string]str
 			return nil, err
 		}
 
-		if data.Trigger != nil && *data.Trigger == "event" && data.EventName != nil {
+		if data.Trigger != nil && (*data.Trigger == "event" || *data.Trigger == "scheduled") && data.EventName != nil {
 			events[id] = *data.EventName
 		}
 	}

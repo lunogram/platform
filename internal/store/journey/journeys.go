@@ -844,6 +844,82 @@ func (s *JourneysStore) SetJourneyStepEventDependencies(ctx context.Context, ver
 	return nil
 }
 
+// FindPendingScheduledState finds a single journey_user_state row matching the journey + user +
+// entrance step + expected resume_at, with completed_at IS NULL. Returns nil if no match found
+// (the entrance already fired or was never created).
+func (s *JourneysStore) FindPendingScheduledState(ctx context.Context, journeyID, userID uuid.UUID, externalStepID string, resumeAt time.Time) (*JourneyUserState, error) {
+	query := `
+	SELECT jus.id, j.project_id, jus.journey_id, jus.journey_entry_id, jus.user_id, jus.external_step_id,
+		jus.pinned_version_id, jus.occurrence, jus.entered_at, jus.resume_at, jus.completed_at,
+		COALESCE(jus.data, '{}'::jsonb) AS data, jus.updated_at
+	FROM journey_user_state jus
+	JOIN journeys j ON j.id = jus.journey_id
+	WHERE jus.journey_id = $1
+	AND jus.user_id = $2
+	AND jus.external_step_id = $3
+	AND jus.completed_at IS NULL
+	AND jus.resume_at = $4`
+
+	var state JourneyUserState
+	err := s.db.GetContext(ctx, &state, query, journeyID, userID, externalStepID, resumeAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &state, nil
+}
+
+// UpdateJourneyStateResumeAt updates resume_at on a single journey_user_state row.
+// Used by the update consumer to shift the entrance time when a scheduled instance is rescheduled.
+func (s *JourneysStore) UpdateJourneyStateResumeAt(ctx context.Context, stateID uuid.UUID, resumeAt time.Time) error {
+	stmt := `
+	UPDATE journey_user_state
+	SET resume_at = $1
+	WHERE id = $2`
+
+	_, err := s.db.ExecContext(ctx, stmt, resumeAt, stateID)
+	return err
+}
+
+// DeleteJourneyState hard-deletes a single journey_user_state row.
+// Used by the delete consumer to cancel a pending entrance when a scheduled instance is deleted.
+func (s *JourneysStore) DeleteJourneyState(ctx context.Context, stateID uuid.UUID) error {
+	stmt := `
+	DELETE FROM journey_user_state
+	WHERE id = $1`
+
+	_, err := s.db.ExecContext(ctx, stmt, stateID)
+	return err
+}
+
+// UpdatePendingScheduledResumeAt bulk-updates resume_at for all pending journey_user_state rows
+// matching the given journey + entrance step + old resume_at. Returns the number of rows updated.
+// Used by the organization update consumer to shift entrance times for all users at once.
+func (s *JourneysStore) UpdatePendingScheduledResumeAt(ctx context.Context, journeyID uuid.UUID, externalStepID string, oldResumeAt, newResumeAt time.Time) (int, error) {
+	stmt := `
+	UPDATE journey_user_state
+	SET resume_at = $1
+	WHERE journey_id = $2
+	AND external_step_id = $3
+	AND completed_at IS NULL
+	AND resume_at = $4`
+
+	result, err := s.db.ExecContext(ctx, stmt, newResumeAt, journeyID, externalStepID, oldResumeAt)
+	if err != nil {
+		return 0, err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(rows), nil
+}
+
 // DuplicateJourney creates a new draft version by copying an existing version.
 // If asVersion is true, creates a new version for the same journey.
 // If asVersion is false, creates a completely new journey with copied content.
@@ -1011,6 +1087,36 @@ func (s *JourneysStore) ListResumeableUserJourneys(ctx context.Context) ([]Journ
 	}
 
 	return states, nil
+}
+
+// ScanResumeableUserJourneys iterates over resumeable user journey states and
+// calls fn for each row. Rows are read via a cursor so large result sets do not
+// need to be held entirely in memory.
+func (s *JourneysStore) ScanResumeableUserJourneys(ctx context.Context, fn func(JourneyUserState) error) error {
+	query := `
+	SELECT jus.id, j.project_id, jus.journey_id, jus.user_id, jus.pinned_version_id, jus.occurrence, jus.entered_at, jus.resume_at, jus.completed_at, COALESCE(jus.data, '{}'::jsonb) AS data, jus.updated_at, jus.journey_entry_id, jus.external_step_id
+	FROM journey_user_state jus
+	JOIN journeys j ON j.id = jus.journey_id
+	WHERE jus.completed_at IS NULL
+	AND jus.resume_at <= NOW()`
+
+	rows, err := s.db.QueryxContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var state JourneyUserState
+		if err := rows.StructScan(&state); err != nil {
+			return err
+		}
+		if err := fn(state); err != nil {
+			return err
+		}
+	}
+
+	return rows.Err()
 }
 
 func (s *JourneysStore) GetJourneyStateByID(ctx context.Context, stateID uuid.UUID) (*JourneyUserState, error) {

@@ -22,7 +22,7 @@ func NewOrganizationsController(logger *zap.Logger, db *sqlx.DB, pub pubsub.Publ
 	return &OrganizationsController{
 		logger: logger,
 		db:     db,
-		orgs:   subjects.NewState(db),
+		orgs:   subjects.NewState(db, logger),
 		events: subjects.NewEventsStore(db),
 		pubsub: pub,
 		engine: engine,

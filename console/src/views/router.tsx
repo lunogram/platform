@@ -26,6 +26,7 @@ import UserDetail from "./users/UserDetail"
 import { createStatefulRoute } from "./createStatefulRoute"
 import UserDetailAttrs from "./users/UserDetailAttrs"
 import UserDetailEvents from "./users/UserDetailEvents"
+import UserDetailScheduled from "./users/UserDetailScheduled"
 import UserDetailSubscriptions from "./users/UserDetailSubscriptions"
 import Campaigns from "./campaign/Campaigns"
 import Campaign from "./campaign/Campaign"
@@ -82,6 +83,7 @@ import OrganizationDetail from "./organizations/OrganizationDetail"
 import OrganizationDetailAttrs from "./organizations/OrganizationDetailAttrs"
 import OrganizationDetailEvents from "./organizations/OrganizationDetailEvents"
 import OrganizationDetailMembers from "./organizations/OrganizationDetailMembers"
+import OrganizationDetailScheduled from "./organizations/OrganizationDetailScheduled"
 import { Translation } from "react-i18next"
 import type { UUID } from "@/types/common"
 import type { Project } from "../types"
@@ -499,6 +501,10 @@ export const createRouter = ({
                                                 element: <UserDetailEvents />,
                                             },
                                             {
+                                                path: "scheduled",
+                                                element: <UserDetailScheduled />,
+                                            },
+                                            {
                                                 path: "subscriptions",
                                                 element: <UserDetailSubscriptions />,
                                             },
@@ -564,6 +570,10 @@ export const createRouter = ({
                                             {
                                                 path: "members",
                                                 element: <OrganizationDetailMembers />,
+                                            },
+                                            {
+                                                path: "scheduled",
+                                                element: <OrganizationDetailScheduled />,
                                             },
                                         ],
                                     },

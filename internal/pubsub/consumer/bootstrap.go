@@ -82,6 +82,42 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        ns.Stream(StreamScheduled),
+		Description: "Responsible for receiving incoming scheduled entities (user and organization)",
+		Subjects:    []string{ns.Subject("scheduled.process.>"), ns.Subject("scheduled.schema.>"), ns.Subject("scheduled.backfill.>")},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamScheduled), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerScheduledProcess),
+		FilterSubject: ns.Subject("scheduled.process.>"),
+		Description:   "Processes incoming scheduled entities",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamScheduled), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerScheduledSchema),
+		FilterSubject: ns.Subject("scheduled.schema.>"),
+		Description:   "Processes scheduled schema definitions",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    DefaultMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamScheduled), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerScheduledBackfill),
+		FilterSubject: ns.Subject("scheduled.backfill.>"),
+		Description:   "Backfills scheduled events when a new offset is created",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
 		Name:        ns.Stream(StreamLists),
 		Description: "List recomputation triggers",
 		Subjects:    []string{ns.Subject("lists.>")},
@@ -218,9 +254,9 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationEvents), jetstream.ConsumerConfig{
 		Name:          ns.Consumer(ConsumerOrganizationEventsSchema),
+		FilterSubject: ns.Subject("organizations.events.schema.>"),
 		Description:   "Processes organization event schema definitions",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: ns.Subject("organizations.events.schema.>"),
 		BackOff:       DefaultBackOff,
 		MaxDeliver:    DefaultMaxDeliver,
 	})

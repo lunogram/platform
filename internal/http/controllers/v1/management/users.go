@@ -29,7 +29,7 @@ func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, usersDB, journ
 		logger:        logger,
 		usersDB:       usersDB,
 		mgmt:          mgmt,
-		users:         subjects.NewState(usersDB),
+		users:         subjects.NewState(usersDB, logger),
 		journey:       journey.NewState(journeyDB),
 		pubsub:        pub,
 		maxUploadSize: maxUploadSize,
@@ -768,7 +768,7 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	usersStore := subjects.NewState(tx)
+	usersStore := subjects.NewState(tx, logger)
 
 	for {
 		record, err := reader.Read()
@@ -842,17 +842,10 @@ func (srv *UsersController) GetUserOrganizations(w http.ResponseWriter, r *http.
 
 	logger.Info("user organizations listed", zap.Int("total", total), zap.Int("count", len(orgs)))
 
-	response := struct {
-		Results []oapi.Organization `json:"results"`
-		Total   int                 `json:"total"`
-		Limit   int                 `json:"limit"`
-		Offset  int                 `json:"offset"`
-	}{
+	json.Write(w, http.StatusOK, oapi.OrganizationList{
 		Results: subjects.Organizations(orgs).OAPI(),
 		Total:   total,
 		Limit:   pagination.Limit,
 		Offset:  pagination.Offset,
-	}
-
-	json.Write(w, http.StatusOK, response)
+	})
 }

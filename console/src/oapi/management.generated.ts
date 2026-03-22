@@ -1762,6 +1762,162 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/subjects/user/scheduled/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List scheduled schemas
+         * @description Retrieves all scheduled definitions and their schema paths for a project
+         */
+        get: operations["listScheduledSchemas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete scheduled schema
+         * @description Soft-deletes a scheduled definition by project and scheduled ID
+         */
+        delete: operations["deleteScheduledSchema"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}/offsets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create schedule offset
+         * @description Creates a new offset for a schedule definition
+         */
+        post: operations["createScheduleOffset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get user scheduled
+         * @description Retrieves scheduled instances for a specific user
+         */
+        get: operations["getUserScheduled"];
+        /**
+         * Upsert user scheduled
+         * @description Creates or updates a scheduled instance for a specific user
+         */
+        put: operations["upsertUserScheduled"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete user scheduled instance
+         * @description Deletes a specific scheduled instance for a user
+         */
+        delete: operations["deleteUserScheduled"];
+        options?: never;
+        head?: never;
+        /**
+         * Update user scheduled instance
+         * @description Updates the scheduled_at time for a user scheduled instance and recalculates offset events
+         */
+        patch: operations["updateUserScheduled"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get organization scheduled
+         * @description Retrieves scheduled instances for a specific organization
+         */
+        get: operations["getOrganizationScheduled"];
+        /**
+         * Upsert organization scheduled
+         * @description Creates or updates a scheduled instance for a specific organization
+         */
+        put: operations["upsertOrganizationScheduled"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete organization scheduled instance
+         * @description Deletes a specific scheduled instance for an organization
+         */
+        delete: operations["deleteOrganizationScheduled"];
+        options?: never;
+        head?: never;
+        /**
+         * Update organization scheduled instance
+         * @description Updates the scheduled_at time for an organization scheduled instance and recalculates offset events
+         */
+        patch: operations["updateOrganizationScheduled"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3599,6 +3755,63 @@ export interface components {
             name: string;
             schema: components["schemas"]["SchemaPath"][];
         };
+        ScheduledEventWithSchema: {
+            /**
+             * Format: uuid
+             * @example 5c9d3163-7b64-4f9e-9068-d2e4b96be56b
+             */
+            id: string;
+            /** @example subscription_renewal */
+            name: string;
+            schema: components["schemas"]["SchemaPath"][];
+            offsets: components["schemas"]["ScheduleOffset"][];
+        };
+        ScheduleOffset: {
+            /**
+             * Format: uuid
+             * @example a1b2c3d4-e5f6-7890-abcd-ef1234567890
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 5c9d3163-7b64-4f9e-9068-d2e4b96be56b
+             */
+            schedule_id: string;
+            /**
+             * @description Duration offset relative to schedule time (e.g. "0m", "-30m", "1h", "-1M"). Negative = before, positive = after, "0m" = exact. Units are m (minutes), h (hours), d (days), M (months), y (years).
+             * @example 0m
+             */
+            offset: string;
+            /**
+             * @description Whether the offset fires "before" or "after" the scheduled time.
+             * @example after
+             * @enum {string}
+             */
+            direction: "before" | "after";
+            /**
+             * Format: date-time
+             * @example 2024-01-01T00:00:00Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2024-01-01T00:00:00Z
+             */
+            updated_at: string;
+        };
+        CreateScheduleOffsetRequest: {
+            /**
+             * @description Duration offset relative to schedule time (e.g. "0m", "-30m", "1h", "-1M"). Negative = before, positive = after, "0m" = exact. Units are m (minutes), h (hours), d (days), M (months), y (years).
+             * @example -30m
+             */
+            offset: string;
+            /**
+             * @description Whether the offset fires "before" or "after" the scheduled time.
+             * @example before
+             * @enum {string}
+             */
+            direction: "before" | "after";
+        };
         SchemaPath: {
             /** @example .email */
             path: string;
@@ -3659,6 +3872,196 @@ export interface components {
             blocks?: {
                 [key: string]: unknown;
             };
+        };
+        UserScheduled: {
+            /**
+             * Format: uuid
+             * @example 550e8400-e29b-41d4-a716-446655440000
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 550e8400-e29b-41d4-a716-446655440001
+             */
+            user_id: string;
+            /**
+             * Format: uuid
+             * @example 550e8400-e29b-41d4-a716-446655440002
+             */
+            scheduled_id: string;
+            /**
+             * Format: date-time
+             * @example 2025-01-15T10:00:00Z
+             */
+            scheduled_at: string;
+            /**
+             * Format: date-time
+             * @description Start time of the recurring schedule interval
+             * @example 2025-01-15T10:00:00Z
+             */
+            start_at?: string | null;
+            /**
+             * Format: date-time
+             * @description Anchor time used as the base for occurrence calculations. Rebased when scheduled_at is explicitly set.
+             * @example 2025-01-15T10:00:00Z
+             */
+            anchor_at?: string | null;
+            /**
+             * @description Interval for recurring schedules
+             * @example 24h
+             */
+            interval?: string | null;
+            data: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: date-time
+             * @example 2025-01-10T08:00:00Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-01-10T08:00:00Z
+             */
+            updated_at: string;
+        };
+        UserScheduledList: components["schemas"]["PaginatedResponse"] & {
+            results: components["schemas"]["UserScheduled"][];
+        };
+        OrganizationScheduled: {
+            /**
+             * Format: uuid
+             * @example 550e8400-e29b-41d4-a716-446655440000
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @example 550e8400-e29b-41d4-a716-446655440001
+             */
+            organization_id: string;
+            /**
+             * Format: uuid
+             * @example 550e8400-e29b-41d4-a716-446655440002
+             */
+            scheduled_id: string;
+            /**
+             * Format: date-time
+             * @example 2024-01-15T09:00:00Z
+             */
+            scheduled_at: string;
+            /**
+             * Format: date-time
+             * @description Start time of the recurring schedule interval
+             * @example 2024-01-15T09:00:00Z
+             */
+            start_at?: string | null;
+            /**
+             * @description Interval for recurring schedules
+             * @example 24h
+             */
+            interval?: string | null;
+            data: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: date-time
+             * @example 2024-01-01T00:00:00Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2024-01-01T00:00:00Z
+             */
+            updated_at: string;
+        };
+        OrganizationScheduledList: components["schemas"]["PaginatedResponse"] & {
+            results: components["schemas"]["OrganizationScheduled"][];
+        };
+        UpsertUserScheduledRequest: {
+            /**
+             * Format: uuid
+             * @description The scheduled definition ID
+             * @example 550e8400-e29b-41d4-a716-446655440002
+             */
+            scheduled_id: string;
+            /**
+             * Format: date-time
+             * @description The time at which the scheduled resource is set to trigger. Required for single schedules.
+             * @example 2025-12-25T10:00:00Z
+             */
+            scheduled_at?: string | null;
+            /**
+             * Format: date-time
+             * @description Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+             * @example 2025-01-01T00:00:00Z
+             */
+            start_at?: string | null;
+            /**
+             * @description Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+             * @example 24h
+             */
+            interval?: string | null;
+            /**
+             * @description Scheduled resource data
+             * @example {
+             *       "plan": "pro",
+             *       "amount": 29.99
+             *     }
+             */
+            data?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        UpsertOrganizationScheduledRequest: {
+            /**
+             * Format: uuid
+             * @description The scheduled definition ID
+             * @example 550e8400-e29b-41d4-a716-446655440002
+             */
+            scheduled_id: string;
+            /**
+             * Format: date-time
+             * @description The time at which the scheduled resource is set to trigger. Required for single schedules.
+             * @example 2025-12-25T10:00:00Z
+             */
+            scheduled_at?: string | null;
+            /**
+             * Format: date-time
+             * @description Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+             * @example 2025-01-01T00:00:00Z
+             */
+            start_at?: string | null;
+            /**
+             * @description Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+             * @example 24h
+             */
+            interval?: string | null;
+            /**
+             * @description Scheduled resource data
+             * @example {
+             *       "contract_type": "enterprise",
+             *       "seats": 100
+             *     }
+             */
+            data?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        UpdateUserScheduledRequest: {
+            /**
+             * Format: date-time
+             * @description The new time at which the scheduled resource should trigger
+             * @example 2025-12-25T10:00:00Z
+             */
+            scheduled_at: string;
+        };
+        UpdateOrganizationScheduledRequest: {
+            /**
+             * Format: date-time
+             * @description The new time at which the scheduled resource should trigger
+             * @example 2025-12-25T10:00:00Z
+             */
+            scheduled_at: string;
         };
     };
     responses: {
@@ -3756,6 +4159,17 @@ export interface components {
             content: {
                 "application/json": {
                     results: components["schemas"]["EventWithSchema"][];
+                };
+            };
+        };
+        /** @description Scheduled events retrieved successfully */
+        ScheduledEventListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    results: components["schemas"]["ScheduledEventWithSchema"][];
                 };
             };
         };
@@ -7253,6 +7667,314 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listScheduledSchemas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ScheduledEventListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteScheduledSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The scheduled ID */
+                scheduledID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scheduled schema deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createScheduleOffset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The schedule definition ID */
+                scheduledID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateScheduleOffsetRequest"];
+            };
+        };
+        responses: {
+            /** @description Schedule offset created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleOffset"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getUserScheduled: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User scheduled retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserScheduledList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    upsertUserScheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertUserScheduledRequest"];
+            };
+        };
+        responses: {
+            /** @description User scheduled upserted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserScheduled"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteUserScheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The scheduled instance ID */
+                scheduledInstanceID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User scheduled instance deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateUserScheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The scheduled instance ID */
+                scheduledInstanceID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserScheduledRequest"];
+            };
+        };
+        responses: {
+            /** @description User scheduled instance updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserScheduled"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrganizationScheduled: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization scheduled retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationScheduledList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    upsertOrganizationScheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertOrganizationScheduledRequest"];
+            };
+        };
+        responses: {
+            /** @description Organization scheduled upserted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationScheduled"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteOrganizationScheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The scheduled instance ID */
+                scheduledInstanceID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization scheduled instance deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateOrganizationScheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The scheduled instance ID */
+                scheduledInstanceID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOrganizationScheduledRequest"];
+            };
+        };
+        responses: {
+            /** @description Organization scheduled instance updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationScheduled"];
+                };
             };
             default: components["responses"]["Error"];
         };

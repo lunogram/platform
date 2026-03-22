@@ -20,8 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { NavTabs } from "@/components/ui/nav-tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { JourneyForm } from "../JourneyForm"
+import { InlineEdit } from "@/components/ui/inline-edit"
 import { useTranslation } from "react-i18next"
 import { JourneyStepUsers } from "../JourneyStepUsers"
 import type { UUID } from "@/types/common"
@@ -62,7 +61,6 @@ export default function JourneyEditor() {
         stepType: string
         stepName: string
     }>(null)
-    const [editOpen, setEditOpen] = useState(false)
     const [userModalEntranceId, setUserModalEntranceId] = useState<string | null>(null)
     const [sidebarTab, setSidebarTab] = useState<"components" | "actions">("components")
     const isMobile = useIsMobile()
@@ -293,9 +291,24 @@ export default function JourneyEditor() {
 
                 <div className="h-4 w-px bg-border hidden sm:block" />
 
-                <h1 className="flex-1 text-sm sm:text-base font-semibold truncate">
-                    {journey.name}
-                </h1>
+                <div className="flex-1 min-w-0">
+                    <InlineEdit
+                        value={journey.name}
+                        onSave={async (name) => {
+                            const updated = await api.journeys.update(project.id, journey.id, {
+                                name,
+                            })
+                            setJourney(updated)
+                        }}
+                        required
+                        triggerClassName="gap-1.5 max-w-full"
+                        pencilSize="h-3.5 w-3.5"
+                    >
+                        <h1 className="text-sm sm:text-base font-semibold truncate">
+                            {journey.name}
+                        </h1>
+                    </InlineEdit>
+                </div>
 
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     {isArchived ? (
@@ -317,14 +330,6 @@ export default function JourneyEditor() {
                             )}
                             {!isMobile && (
                                 <>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setEditOpen(true)}
-                                        className="hidden sm:inline-flex"
-                                    >
-                                        {t("edit_details")}
-                                    </Button>
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -662,21 +667,6 @@ export default function JourneyEditor() {
                     onUserEnteredNode(entranceId ?? "")
                 }}
             />
-
-            <Dialog open={editOpen} onOpenChange={setEditOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{t("edit_journey_details")}</DialogTitle>
-                    </DialogHeader>
-                    <JourneyForm
-                        journey={journey}
-                        onSaved={async (j) => {
-                            setEditOpen(false)
-                            setJourney(j)
-                        }}
-                    />
-                </DialogContent>
-            </Dialog>
 
             {!!viewUsersStep && (
                 <JourneyStepUsers

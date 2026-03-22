@@ -2,9 +2,10 @@ package subjects
 
 import (
 	"github.com/lunogram/platform/internal/store"
+	"go.uber.org/zap"
 )
 
-func NewState(db store.DB) *State {
+func NewState(db store.DB, logger *zap.Logger) *State {
 	return &State{
 		UsersStore:         NewUsersStore(db),
 		OrganizationsStore: NewOrganizationsStore(db),
@@ -14,6 +15,7 @@ func NewState(db store.DB) *State {
 		RulesStore:         NewRulesStore(db),
 		ActionsStore:       NewActionsStore(db),
 		CampaignSendsStore: NewCampaignSendsStore(db),
+		ScheduledStore:     NewScheduledStore(db, logger),
 	}
 }
 
@@ -26,4 +28,5 @@ type State struct {
 	*RulesStore
 	*ActionsStore
 	*CampaignSendsStore
+	*ScheduledStore
 }

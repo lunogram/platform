@@ -92,7 +92,7 @@ func run() error {
 	}
 
 	managementStore := management.NewState(db.Management)
-	usersStore := subjects.NewState(db.Subjects)
+	usersStore := subjects.NewState(db.Subjects, logger)
 	journeyStore := journey.NewState(db.Journey)
 
 	logger.Info("initializing block storage")
@@ -143,7 +143,7 @@ func run() error {
 
 	logger.Info("initializing cluster")
 
-	sched := scheduler.NewController(ctx, logger, conf, journeyStore, pub)
+	sched := scheduler.NewController(ctx, logger, conf, journeyStore, usersStore, pub)
 	lead := leader.NewHandler(sched)
 	cons, err := consensus.NewCluster(ctx, logger, conf)
 	if err != nil {

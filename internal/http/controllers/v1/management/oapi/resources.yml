@@ -4275,6 +4275,413 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/admin/projects/{projectID}/subjects/user/scheduled/schema:
+    get:
+      summary: List scheduled schemas
+      description: Retrieves all scheduled definitions and their schema paths for a project
+      operationId: listScheduledSchemas
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      responses:
+        "200":
+          $ref: "#/components/responses/ScheduledEventListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}:
+    delete:
+      summary: Delete scheduled schema
+      description: Soft-deletes a scheduled definition by project and scheduled ID
+      operationId: deleteScheduledSchema
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: scheduledID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The scheduled ID
+      responses:
+        "204":
+          description: Scheduled schema deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}/offsets:
+    post:
+      summary: Create schedule offset
+      description: Creates a new offset for a schedule definition
+      operationId: createScheduleOffset
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: scheduledID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The schedule definition ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleOffsetRequest"
+      responses:
+        "201":
+          description: Schedule offset created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleOffset"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/users/{userID}/scheduled:
+    get:
+      summary: Get user scheduled
+      description: Retrieves scheduled instances for a specific user
+      operationId: getUserScheduled
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: User scheduled retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserScheduledList"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      summary: Upsert user scheduled
+      description: Creates or updates a scheduled instance for a specific user
+      operationId: upsertUserScheduled
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertUserScheduledRequest"
+      responses:
+        "200":
+          description: User scheduled upserted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserScheduled"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/users/{userID}/scheduled/{scheduledInstanceID}:
+    patch:
+      summary: Update user scheduled instance
+      description: Updates the scheduled_at time for a user scheduled instance and recalculates offset events
+      operationId: updateUserScheduled
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+        - name: scheduledInstanceID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The scheduled instance ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserScheduledRequest"
+      responses:
+        "200":
+          description: User scheduled instance updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserScheduled"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      summary: Delete user scheduled instance
+      description: Deletes a specific scheduled instance for a user
+      operationId: deleteUserScheduled
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+        - name: scheduledInstanceID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The scheduled instance ID
+      responses:
+        "204":
+          description: User scheduled instance deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled:
+    get:
+      summary: Get organization scheduled
+      description: Retrieves scheduled instances for a specific organization
+      operationId: getOrganizationScheduled
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Organization scheduled retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationScheduledList"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      summary: Upsert organization scheduled
+      description: Creates or updates a scheduled instance for a specific organization
+      operationId: upsertOrganizationScheduled
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertOrganizationScheduledRequest"
+      responses:
+        "200":
+          description: Organization scheduled upserted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationScheduled"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled/{scheduledInstanceID}:
+    patch:
+      summary: Update organization scheduled instance
+      description: Updates the scheduled_at time for an organization scheduled instance and recalculates offset events
+      operationId: updateOrganizationScheduled
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - name: scheduledInstanceID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The scheduled instance ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrganizationScheduledRequest"
+      responses:
+        "200":
+          description: Organization scheduled instance updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationScheduled"
+        default:
+          $ref: "#/components/responses/Error"
+
+    delete:
+      summary: Delete organization scheduled instance
+      description: Deletes a specific scheduled instance for an organization
+      operationId: deleteOrganizationScheduled
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - name: scheduledInstanceID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The scheduled instance ID
+      responses:
+        "204":
+          description: Organization scheduled instance deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
 components:
   parameters:
     Limit:
@@ -4442,6 +4849,20 @@ components:
                 type: array
                 items:
                   $ref: "#/components/schemas/EventWithSchema"
+
+    ScheduledEventListResponse:
+      description: Scheduled events retrieved successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - results
+            properties:
+              results:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScheduledEventWithSchema"
 
     ProviderListResponse:
       description: Providers retrieved successfully
@@ -6986,6 +7407,86 @@ components:
           items:
             $ref: "#/components/schemas/SchemaPath"
 
+    ScheduledEventWithSchema:
+      type: object
+      required:
+        - id
+        - name
+        - schema
+        - offsets
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "5c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        name:
+          type: string
+          example: "subscription_renewal"
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaPath"
+        offsets:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleOffset"
+
+    ScheduleOffset:
+      type: object
+      required:
+        - id
+        - schedule_id
+        - offset
+        - direction
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        schedule_id:
+          type: string
+          format: uuid
+          example: "5c9d3163-7b64-4f9e-9068-d2e4b96be56b"
+        offset:
+          type: string
+          description: Duration offset relative to schedule time (e.g. "0m", "-30m", "1h", "-1M"). Negative = before, positive = after, "0m" = exact. Units are m (minutes), h (hours), d (days), M (months), y (years).
+          example: "0m"
+        direction:
+          type: string
+          description: Whether the offset fires "before" or "after" the scheduled time.
+          enum:
+            - before
+            - after
+          example: "after"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00Z"
+
+    CreateScheduleOffsetRequest:
+      type: object
+      required:
+        - offset
+        - direction
+      properties:
+        offset:
+          type: string
+          description: Duration offset relative to schedule time (e.g. "0m", "-30m", "1h", "-1M"). Negative = before, positive = after, "0m" = exact. Units are m (minutes), h (hours), d (days), M (months), y (years).
+          example: "-30m"
+        direction:
+          type: string
+          description: Whether the offset fires "before" or "after" the scheduled time.
+          enum:
+            - before
+            - after
+          example: "before"
+
     SchemaPath:
       type: object
       required:
@@ -7061,6 +7562,232 @@ components:
           type: object
           description: Block editor JSON data for the visual editor mode
           additionalProperties: true
+
+    UserScheduled:
+      type: object
+      required:
+        - id
+        - user_id
+        - scheduled_id
+        - scheduled_at
+        - data
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        user_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        scheduled_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440002"
+        scheduled_at:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:00:00Z"
+        start_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Start time of the recurring schedule interval
+          example: "2025-01-15T10:00:00Z"
+        anchor_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Anchor time used as the base for occurrence calculations. Rebased when scheduled_at is explicitly set.
+          example: "2025-01-15T10:00:00Z"
+        interval:
+          type: string
+          nullable: true
+          description: Interval for recurring schedules
+          example: "24h"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-10T08:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-01-10T08:00:00Z"
+
+    UserScheduledList:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          required:
+            - results
+          properties:
+            results:
+              type: array
+              items:
+                $ref: "#/components/schemas/UserScheduled"
+    OrganizationScheduled:
+      type: object
+      required:
+        - id
+        - organization_id
+        - scheduled_id
+        - scheduled_at
+        - data
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        organization_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        scheduled_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440002"
+        scheduled_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T09:00:00Z"
+        start_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Start time of the recurring schedule interval
+          example: "2024-01-15T09:00:00Z"
+        interval:
+          type: string
+          nullable: true
+          description: Interval for recurring schedules
+          example: "24h"
+        data:
+          type: object
+          additionalProperties: true
+          x-go-type: json.RawMessage
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00Z"
+    OrganizationScheduledList:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          required:
+            - results
+          properties:
+            results:
+              type: array
+              items:
+                $ref: "#/components/schemas/OrganizationScheduled"
+
+    UpsertUserScheduledRequest:
+      type: object
+      required:
+        - scheduled_id
+      properties:
+        scheduled_id:
+          type: string
+          format: uuid
+          description: The scheduled definition ID
+          example: "550e8400-e29b-41d4-a716-446655440002"
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: The time at which the scheduled resource is set to trigger. Required for single schedules.
+          example: "2025-12-25T10:00:00Z"
+        start_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+          example: "2025-01-01T00:00:00Z"
+        interval:
+          type: string
+          nullable: true
+          description: Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+          example: "24h"
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: json.RawMessage
+          description: Scheduled resource data
+          example:
+            plan: "pro"
+            amount: 29.99
+
+    UpsertOrganizationScheduledRequest:
+      type: object
+      required:
+        - scheduled_id
+      properties:
+        scheduled_id:
+          type: string
+          format: uuid
+          description: The scheduled definition ID
+          example: "550e8400-e29b-41d4-a716-446655440002"
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: The time at which the scheduled resource is set to trigger. Required for single schedules.
+          example: "2025-12-25T10:00:00Z"
+        start_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+          example: "2025-01-01T00:00:00Z"
+        interval:
+          type: string
+          nullable: true
+          description: Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+          example: "24h"
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: json.RawMessage
+          description: Scheduled resource data
+          example:
+            contract_type: "enterprise"
+            seats: 100
+
+    UpdateUserScheduledRequest:
+      type: object
+      required:
+        - scheduled_at
+      properties:
+        scheduled_at:
+          type: string
+          format: date-time
+          description: The new time at which the scheduled resource should trigger
+          example: "2025-12-25T10:00:00Z"
+
+    UpdateOrganizationScheduledRequest:
+      type: object
+      required:
+        - scheduled_at
+      properties:
+        scheduled_at:
+          type: string
+          format: date-time
+          description: The new time at which the scheduled resource should trigger
+          example: "2025-12-25T10:00:00Z"
 
   securitySchemes:
     HttpBearerAuth:

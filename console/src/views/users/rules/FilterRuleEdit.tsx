@@ -40,7 +40,14 @@ export default function FilterRuleEdit({
                 isOrganizationEventGroup && suggestions.organizationEventPaths
                     ? suggestions.organizationEventPaths
                     : suggestions.eventPaths
-            const event = eventSource.find((e) => e.name === eventName)
+            let event = eventSource.find((e) => e.name === eventName)
+
+            // Check scheduled paths if not found in regular event paths
+            if (!event && eventName.startsWith("scheduled.") && suggestions.scheduledPaths) {
+                const scheduledName = eventName.slice("scheduled.".length)
+                event = suggestions.scheduledPaths.find((s) => s.name === scheduledName)
+            }
+
             if (!event) return []
             let schemaPaths = event.schema
             if (path) {
