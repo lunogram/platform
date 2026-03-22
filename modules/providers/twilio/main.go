@@ -124,6 +124,7 @@ func Send() int32 {
 
 	result := client.CreateMessage(params)
 	if result.Err != nil {
+		pdk.Log(pdk.LogError, fmt.Sprintf("Twilio API error (http_status=%d): %s", result.HTTPStatus, result.Err))
 		pdk.SetError(fmt.Errorf("failed to send SMS (to=%s, from=%s): %w", sms.To, from, result.Err))
 		if result.HTTPStatus > 0 {
 			return provider.ClassifyHTTPStatus(result.HTTPStatus)
@@ -140,6 +141,8 @@ func Send() int32 {
 	if result.Response.Status != nil {
 		status = *result.Response.Status
 	}
+
+	pdk.Log(pdk.LogInfo, fmt.Sprintf("Twilio API response: sid=%s status=%s http_status=%d", messageID, status, result.HTTPStatus))
 
 	if err := pdk.OutputJSON(providers.SendResponse{
 		ID:     messageID,
