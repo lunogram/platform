@@ -1,6 +1,7 @@
-import React, { useCallback, useContext, useState } from "react"
+import React, { useCallback, useContext, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Activity, ChevronLeft, ChevronRight, ChevronDown, Zap, Clock } from "lucide-react"
+import { Activity, ChevronLeft, ChevronRight, ChevronDown, Zap, Clock, Plus } from "lucide-react"
+import { toast } from "sonner"
 import { ProjectContext, OrganizationContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useResolver } from "../../hooks"
@@ -12,6 +13,17 @@ import type { components } from "../../oapi/management.generated"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { JsonView } from "@/components/ui/json-view"
+import { Combobox } from "@/components/ui/combobox"
+import { AttributeEditor } from "@/components/ui/attribute-editor"
+import { Label } from "@/components/ui/label"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import {
     Table,
     TableBody,
@@ -95,7 +107,12 @@ export default function OrganizationDetailEvents() {
     const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
     const limit = 25
 
-    const [result] = useResolver(
+    const [isCreateOpen, setIsCreateOpen] = useState(false)
+    const [isCreating, setIsCreating] = useState(false)
+    const [newEventName, setNewEventName] = useState("")
+    const [newEventData, setNewEventData] = useState<Record<string, unknown>>({})
+
+    const [result, , reload] = useResolver(
         useCallback(async () => {
             const response = await oapiClient.GET(
                 "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events",
@@ -124,6 +141,52 @@ export default function OrganizationDetailEvents() {
         }, [project.id, organization.id, page]),
     )
 
+    const [schemasResult] = useResolver(
+        useCallback(async () => {
+            try {
+                const { data } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/subjects/organization/events/schema",
+                    { params: { path: { projectID: project.id } } },
+                )
+                return data?.results ?? []
+            } catch {
+                return []
+            }
+        }, [project.id]),
+    )
+
+    const eventOptions = useMemo(() => {
+        if (!schemasResult) return []
+        return schemasResult.map((s: { name: string }) => ({ path: s.name }))
+    }, [schemasResult])
+
+    const createEvent = async () => {
+        if (!newEventName.trim()) return
+        setIsCreating(true)
+        try {
+            await oapiClient.POST(
+                "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events",
+                {
+                    params: { path: { projectID: project.id, organizationID: organization.id } },
+                    body: {
+                        name: newEventName.trim(),
+                        data: Object.keys(newEventData).length > 0 ? newEventData : undefined,
+                    },
+                },
+            )
+            // Reload events after a short delay to allow async processing
+            setTimeout(() => reload(), 1000)
+            setIsCreateOpen(false)
+            setNewEventName("")
+            setNewEventData({})
+            toast.success(t("event_created", "Event created"))
+        } catch {
+            toast.error(t("failed_to_create_event", "Failed to create event"))
+        } finally {
+            setIsCreating(false)
+        }
+    }
+
     const events = result?.events
     const total = result?.total ?? 0
     const totalPages = Math.ceil(total / limit)
@@ -136,6 +199,15 @@ export default function OrganizationDetailEvents() {
 
     return (
         <div className="space-y-4">
+            {/* Search / Create Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex-1" />
+                <Button onClick={() => setIsCreateOpen(true)} className="flex-1 sm:flex-initial">
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t("create")}
+                </Button>
+            </div>
+
             {/* Events Table */}
             <div className="border rounded-lg">
                 <Table>
@@ -309,6 +381,63 @@ export default function OrganizationDetailEvents() {
                     )}
                 </div>
             </div>
+
+            {/* Create Event Dialog */}
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>{t("create_event", "Create Event")}</DialogTitle>
+                        <DialogDescription>
+                            {t(
+                                "create_event_description_org",
+                                "Create a new event for this organization.",
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label>{t("event_name", "Event")} *</Label>
+                            <Combobox
+                                options={eventOptions}
+                                value={newEventName}
+                                onValueChange={setNewEventName}
+                                placeholder={t(
+                                    "enter_event_name",
+                                    "Type or select an event name...",
+                                )}
+                                emptyText={t(
+                                    "no_events_found",
+                                    "No matching events. Type a name to create one.",
+                                )}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>{t("data", "Data")}</Label>
+                            <AttributeEditor
+                                value={newEventData}
+                                onChange={setNewEventData}
+                                emptyTitle={t("no_data", "No data")}
+                                emptyDescription={t(
+                                    "no_data_description_event",
+                                    "Add custom data to this event.",
+                                )}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsCreateOpen(false)}
+                            disabled={isCreating}
+                        >
+                            {t("cancel")}
+                        </Button>
+                        <Button onClick={createEvent} disabled={!newEventName.trim() || isCreating}>
+                            {isCreating ? t("creating") : t("create")}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

@@ -369,8 +369,8 @@ export default function ScheduledDetailTable({
     return (
         <div className="space-y-4">
             {/* Search + Create */}
-            <div className="flex items-center gap-4">
-                <div className="relative max-w-sm flex-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="relative sm:max-w-sm flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder={t("search_scheduled", "Search scheduled...")}
@@ -379,7 +379,7 @@ export default function ScheduledDetailTable({
                         className="pl-9"
                     />
                 </div>
-                <Button onClick={() => setIsCreateOpen(true)} size="sm">
+                <Button onClick={() => setIsCreateOpen(true)} className="flex-1 sm:flex-initial">
                     <Plus className="mr-2 h-4 w-4" />
                     {t("create_scheduled", "Create")}
                 </Button>

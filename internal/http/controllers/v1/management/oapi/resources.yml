@@ -1908,6 +1908,40 @@ paths:
                 $ref: "#/components/schemas/UserEventList"
         default:
           $ref: "#/components/responses/Error"
+    post:
+      summary: Create user event
+      description: Creates a new event for a specific user
+      operationId: createUserEvent
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserEventRequest"
+      responses:
+        "202":
+          description: Event accepted for processing
+        default:
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/subjects/users/{userID}/subscriptions:
     get:
@@ -2483,6 +2517,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OrganizationEventList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      summary: Create organization event
+      description: Creates a new event for a specific organization
+      operationId: createOrganizationEvent
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrganizationEventRequest"
+      responses:
+        "202":
+          description: Event accepted for processing
         default:
           $ref: "#/components/responses/Error"
 
@@ -7816,6 +7884,34 @@ components:
           type: string
           enum: [immediately, at_next_interval]
           description: Resume a paused schedule. "immediately" rebases anchor to now. "at_next_interval" computes from existing anchor.
+
+    CreateUserEventRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "page_viewed"
+          description: The name of the event
+        data:
+          type: object
+          additionalProperties: true
+          description: Event data payload
+
+    CreateOrganizationEventRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "subscription_upgraded"
+          description: The name of the event
+        data:
+          type: object
+          additionalProperties: true
+          description: Event data payload
 
   securitySchemes:
     HttpBearerAuth:

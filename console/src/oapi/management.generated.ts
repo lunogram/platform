@@ -753,7 +753,11 @@ export interface paths {
          */
         get: operations["getUserEvents"];
         put?: never;
-        post?: never;
+        /**
+         * Create user event
+         * @description Creates a new event for a specific user
+         */
+        post: operations["createUserEvent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1013,7 +1017,11 @@ export interface paths {
          */
         get: operations["getOrganizationEvents"];
         put?: never;
-        post?: never;
+        /**
+         * Create organization event
+         * @description Creates a new event for a specific organization
+         */
+        post: operations["createOrganizationEvent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4105,6 +4113,28 @@ export interface components {
              */
             resume?: "immediately" | "at_next_interval";
         };
+        CreateUserEventRequest: {
+            /**
+             * @description The name of the event
+             * @example page_viewed
+             */
+            name: string;
+            /** @description Event data payload */
+            data?: {
+                [key: string]: unknown;
+            };
+        };
+        CreateOrganizationEventRequest: {
+            /**
+             * @description The name of the event
+             * @example subscription_upgraded
+             */
+            name: string;
+            /** @description Event data payload */
+            data?: {
+                [key: string]: unknown;
+            };
+        };
     };
     responses: {
         /** @description Error response */
@@ -5832,6 +5862,34 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    createUserEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserEventRequest"];
+            };
+        };
+        responses: {
+            /** @description Event accepted for processing */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getUserSubscriptions: {
         parameters: {
             query?: {
@@ -6293,6 +6351,34 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["OrganizationEventList"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createOrganizationEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOrganizationEventRequest"];
+            };
+        };
+        responses: {
+            /** @description Event accepted for processing */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
