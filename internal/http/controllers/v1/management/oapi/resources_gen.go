@@ -2584,6 +2584,9 @@ type ClientInterface interface {
 
 	SetJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CancelUserJourney request
+	CancelUserJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// StreamUserJourneySteps request
 	StreamUserJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -3658,6 +3661,18 @@ func (c *Client) SetJourneyStepsWithBody(ctx context.Context, projectID openapi_
 
 func (c *Client) SetJourneySteps(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetJourneyStepsRequest(c.Server, projectID, journeyID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CancelUserJourney(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelUserJourneyRequest(c.Server, projectID, journeyID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -7581,6 +7596,54 @@ func NewSetJourneyStepsRequestWithBody(server string, projectID openapi_types.UU
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCancelUserJourneyRequest generates requests for CancelUserJourney
+func NewCancelUserJourneyRequest(server string, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "journeyID", runtime.ParamLocationPath, journeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/journeys/%s/users/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -12728,6 +12791,9 @@ type ClientWithResponsesInterface interface {
 
 	SetJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, body SetJourneyStepsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetJourneyStepsResponse, error)
 
+	// CancelUserJourneyWithResponse request
+	CancelUserJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelUserJourneyResponse, error)
+
 	// StreamUserJourneyStepsWithResponse request
 	StreamUserJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamUserJourneyStepsResponse, error)
 
@@ -14145,6 +14211,28 @@ func (r SetJourneyStepsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r SetJourneyStepsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CancelUserJourneyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelUserJourneyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelUserJourneyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -16842,6 +16930,15 @@ func (c *ClientWithResponses) SetJourneyStepsWithResponse(ctx context.Context, p
 	return ParseSetJourneyStepsResponse(rsp)
 }
 
+// CancelUserJourneyWithResponse request returning *CancelUserJourneyResponse
+func (c *ClientWithResponses) CancelUserJourneyWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelUserJourneyResponse, error) {
+	rsp, err := c.CancelUserJourney(ctx, projectID, journeyID, userID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelUserJourneyResponse(rsp)
+}
+
 // StreamUserJourneyStepsWithResponse request returning *StreamUserJourneyStepsResponse
 func (c *ClientWithResponses) StreamUserJourneyStepsWithResponse(ctx context.Context, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID, reqEditors ...RequestEditorFn) (*StreamUserJourneyStepsResponse, error) {
 	rsp, err := c.StreamUserJourneySteps(ctx, projectID, journeyID, userID, reqEditors...)
@@ -19400,6 +19497,32 @@ func ParseSetJourneyStepsResponse(rsp *http.Response) (*SetJourneyStepsResponse,
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelUserJourneyResponse parses an HTTP response from a CancelUserJourneyWithResponse call
+func ParseCancelUserJourneyResponse(rsp *http.Response) (*CancelUserJourneyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelUserJourneyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22477,6 +22600,9 @@ type ServerInterface interface {
 	// Set journey steps
 	// (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/steps)
 	SetJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID)
+	// Cancel user journey
+	// (DELETE /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+	CancelUserJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
 	// Stream user journey steps
 	// (GET /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
 	StreamUserJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID)
@@ -23041,6 +23167,12 @@ func (_ Unimplemented) GetJourneySteps(w http.ResponseWriter, r *http.Request, p
 // Set journey steps
 // (PUT /api/admin/projects/{projectID}/journeys/{journeyID}/steps)
 func (_ Unimplemented) SetJourneySteps(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Cancel user journey
+// (DELETE /api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID})
+func (_ Unimplemented) CancelUserJourney(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, journeyID openapi_types.UUID, userID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -25554,6 +25686,55 @@ func (siw *ServerInterfaceWrapper) SetJourneySteps(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetJourneySteps(w, r, projectID, journeyID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelUserJourney operation middleware
+func (siw *ServerInterfaceWrapper) CancelUserJourney(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "journeyID" -------------
+	var journeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "journeyID", chi.URLParam(r, "journeyID"), &journeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "journeyID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelUserJourney(w, r, projectID, journeyID, userID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -29730,6 +29911,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/steps", wrapper.SetJourneySteps)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.CancelUserJourney)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}", wrapper.StreamUserJourneySteps)

@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router"
+import { useNavigate, useSearchParams as useRouterSearchParams } from "react-router"
 import type { ReactFlowInstance } from "reactflow"
 import ReactFlow, {
     Background,
@@ -25,7 +25,19 @@ import { useTranslation } from "react-i18next"
 import { JourneyStepUsers } from "../JourneyStepUsers"
 import type { UUID } from "@/types/common"
 import { UserSelectionModal } from "../JourneyUserSelectionModal"
-import { ChevronLeft, GripVertical, Info, Zap, Webhook, Blocks, SquareFunction } from "lucide-react"
+import {
+    ChevronLeft,
+    GripVertical,
+    Info,
+    Zap,
+    Webhook,
+    Blocks,
+    SquareFunction,
+    Eye,
+    EyeOff,
+    XCircle,
+    PenLine,
+} from "lucide-react"
 
 import { JourneyStepNode } from "../components/JourneyStepNode"
 import { JourneyStepEdge } from "../components/JourneyStepEdge"
@@ -53,6 +65,9 @@ export default function JourneyEditor() {
     const [project] = useContext(ProjectContext)
     const [journey, setJourney] = useContext(JourneyContext)
     const [flowInstance, setFlowInstance] = useState<null | ReactFlowInstance>(null)
+    const [routerSearchParams] = useRouterSearchParams()
+    const entranceId = routerSearchParams.get("entrance")
+    const replayUserId = routerSearchParams.get("user")
 
     const [nodes, setNodes, onNodesChange] = useNodesState<JourneyNodeData>([])
     const [edges, setEdges, onEdgesChange] = useEdgesState([])
@@ -178,8 +193,51 @@ export default function JourneyEditor() {
         await saveSteps(nodes, edges)
     }, [saveSteps, nodes, edges])
 
-    const { triggerUser, skipDelayForActiveUser, searchParams, followUser, STORAGE_KEY } =
-        useUserSelection(project.id, journey.id, onUserEnteredNode, onStepExecuted)
+    const resetFollowingState = useCallback(() => {
+        setNodes((nds) =>
+            nds.map((n) => ({
+                ...n,
+                data: { ...n.data, active: false, visited: false },
+            })),
+        )
+        setEdges((eds) =>
+            eds.map((e) => ({
+                ...e,
+                animated: false,
+                style: { ...e.style, stroke: "#b1b1b7" },
+            })),
+        )
+    }, [setNodes, setEdges])
+
+    const {
+        triggerUser,
+        skipDelayForActiveUser,
+        searchParams,
+        followUser,
+        stopFollowing,
+        cancelExecution,
+        STORAGE_KEY,
+    } = useUserSelection(
+        project.id,
+        journey.id,
+        onUserEnteredNode,
+        onStepExecuted,
+        resetFollowingState,
+        entranceId,
+    )
+
+    const isFollowing = !!searchParams.get("follow")
+    const prevFollowingRef = useRef(isFollowing)
+
+    useEffect(() => {
+        // When we transition from following → not following, reset the
+        // visual state. This covers all exit paths: stop button, cancel
+        // button, exit step reached, SSE error, etc.
+        if (prevFollowingRef.current && !isFollowing) {
+            resetFollowingState()
+        }
+        prevFollowingRef.current = isFollowing
+    }, [isFollowing, resetFollowingState])
 
     useEffect(() => {
         if (!stepsLoaded) return
@@ -191,7 +249,12 @@ export default function JourneyEditor() {
 
         const restore = async () => {
             try {
-                const states = await api.journeys.users.getState(project.id, journey.id, userId)
+                const states = await api.journeys.users.getState(
+                    project.id,
+                    journey.id,
+                    userId,
+                    entranceId ?? undefined,
+                )
                 for (const state of states) {
                     // Entrance steps complete instantly — treat them as
                     // visited even if legacy data has is_completed=false.
@@ -205,6 +268,36 @@ export default function JourneyEditor() {
                 console.error("Failed to restore state:", e)
             } finally {
                 followUser(userId)
+            }
+        }
+
+        void restore()
+        // stepsLoaded is the trigger — adding other deps would re-run this on every render cycle
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [stepsLoaded])
+
+    // Replay: restore the path a user took through a completed journey
+    // (no SSE stream — the journey has already ended).
+    useEffect(() => {
+        if (!stepsLoaded || !replayUserId || !entranceId) return
+
+        const restore = async () => {
+            try {
+                const states = await api.journeys.users.getState(
+                    project.id,
+                    journey.id,
+                    replayUserId,
+                    entranceId,
+                )
+                for (const state of states) {
+                    if (state.is_completed || state.step_type === "entrance") {
+                        onStepExecuted(state.external_step_id)
+                    } else {
+                        onUserEnteredNode(state.external_step_id)
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to restore completed journey state:", e)
             }
         }
 
@@ -312,24 +405,39 @@ export default function JourneyEditor() {
 
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     {isArchived ? (
-                        <Badge variant="destructive">{t("journey_archived")}</Badge>
+                        <Badge
+                            variant="secondary"
+                            className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-transparent"
+                        >
+                            {t("archived")}
+                        </Badge>
                     ) : (
                         <>
-                            {journey.status === "published" && (
+                            {hasUnsavedChanges ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-transparent gap-1"
+                                >
+                                    <PenLine className="h-3 w-3" />
+                                    {t("editing", "Editing")}
+                                </Badge>
+                            ) : journey.status === "published" ? (
                                 <Badge
                                     variant="secondary"
                                     className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-transparent"
                                 >
                                     {t("published")}
                                 </Badge>
+                            ) : (
+                                <Badge
+                                    variant="secondary"
+                                    className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-transparent"
+                                >
+                                    {t("draft")}
+                                </Badge>
                             )}
-                            {hasUnsavedChanges && (
-                                <span className="hidden sm:inline text-xs text-amber-600 dark:text-amber-500">
-                                    {t("unsaved_changes", "Unsaved changes")}
-                                </span>
-                            )}
-                            {!isMobile && (
-                                <>
+                            {!isMobile &&
+                                (hasUnsavedChanges ? (
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -341,6 +449,7 @@ export default function JourneyEditor() {
                                         </span>
                                         <span className="sm:hidden">{t("save", "Save")}</span>
                                     </Button>
+                                ) : (
                                     <Button
                                         size="sm"
                                         onClick={() => publishJourney(nodes, edges)}
@@ -348,8 +457,7 @@ export default function JourneyEditor() {
                                     >
                                         {t("publish")}
                                     </Button>
-                                </>
-                            )}
+                                ))}
                         </>
                     )}
                 </div>
@@ -406,41 +514,105 @@ export default function JourneyEditor() {
                                             }
                                         />
                                     )}
+
+                                    {/* Following user control bar */}
+                                    {searchParams.get("follow") && (
+                                        <Panel position="top-center">
+                                            <div className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-1.5">
+                                                <Eye className="h-4 w-4 text-orange-500 animate-pulse" />
+                                                <span className="text-sm font-medium">
+                                                    {t("following_user", "Following user")}
+                                                </span>
+                                                <div className="h-4 w-px bg-border" />
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={stopFollowing}
+                                                    className="h-7 gap-1.5 text-muted-foreground hover:text-foreground"
+                                                >
+                                                    <EyeOff className="h-3.5 w-3.5" />
+                                                    {t("stop_following", "Stop")}
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        const userId = searchParams.get("follow")
+                                                        if (userId) cancelExecution(userId)
+                                                    }}
+                                                    className="h-7 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                >
+                                                    <XCircle className="h-3.5 w-3.5" />
+                                                    {t("cancel_execution", "Cancel")}
+                                                </Button>
+                                            </div>
+                                        </Panel>
+                                    )}
+
+                                    {/* Replay: viewing a completed journey path */}
+                                    {replayUserId && !searchParams.get("follow") && (
+                                        <Panel position="top-center">
+                                            <div className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-1.5">
+                                                <Eye className="h-4 w-4 text-emerald-500" />
+                                                <span className="text-sm font-medium">
+                                                    {t("viewing_user_path", "Viewing user path")}
+                                                </span>
+                                                <div className="h-4 w-px bg-border" />
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        resetFollowingState()
+                                                        navigate(".", { replace: true })
+                                                    }}
+                                                    className="h-7 gap-1.5 text-muted-foreground hover:text-foreground"
+                                                >
+                                                    <EyeOff className="h-3.5 w-3.5" />
+                                                    {t("dismiss", "Dismiss")}
+                                                </Button>
+                                            </div>
+                                        </Panel>
+                                    )}
+
                                     {isEditable && (
                                         <Panel position="top-left">
                                             {selected.length ? (
-                                                <Button
-                                                    onClick={() => {
-                                                        const { nodeCopies, edgeCopies } =
-                                                            cloneNodes(
-                                                                edges,
-                                                                nodes.filter((n) => n.selected),
-                                                            )
-                                                        updateNodes([
-                                                            ...nodes.map((n) => ({
-                                                                ...n,
-                                                                selected: false,
-                                                            })),
-                                                            ...nodeCopies,
-                                                        ])
-                                                        setEdges([
-                                                            ...edges.map((e) => ({
-                                                                ...e,
-                                                                selected: false,
-                                                            })),
-                                                            ...edgeCopies,
-                                                        ])
-                                                    }}
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="shadow-sm"
-                                                >
-                                                    {`Duplicate Selected Steps (${selected.length})`}
-                                                </Button>
+                                                <div className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-1.5">
+                                                    <Button
+                                                        onClick={() => {
+                                                            const { nodeCopies, edgeCopies } =
+                                                                cloneNodes(
+                                                                    edges,
+                                                                    nodes.filter((n) => n.selected),
+                                                                )
+                                                            updateNodes([
+                                                                ...nodes.map((n) => ({
+                                                                    ...n,
+                                                                    selected: false,
+                                                                })),
+                                                                ...nodeCopies,
+                                                            ])
+                                                            setEdges([
+                                                                ...edges.map((e) => ({
+                                                                    ...e,
+                                                                    selected: false,
+                                                                })),
+                                                                ...edgeCopies,
+                                                            ])
+                                                        }}
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-7"
+                                                    >
+                                                        {`Duplicate Selected Steps (${selected.length})`}
+                                                    </Button>
+                                                </div>
                                             ) : (
-                                                <span className="hidden sm:inline text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-3 py-1.5 rounded-md border shadow-sm">
-                                                    Shift+Drag to Multi Select
-                                                </span>
+                                                <div className="hidden sm:flex items-center bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-1.5">
+                                                    <span className="text-xs text-muted-foreground">
+                                                        Shift+Drag to Multi Select
+                                                    </span>
+                                                </div>
                                             )}
                                         </Panel>
                                     )}

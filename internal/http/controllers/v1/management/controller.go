@@ -6,6 +6,7 @@ import (
 	"github.com/lunogram/platform/internal/config"
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
+	"github.com/lunogram/platform/internal/pubsub/consumer"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store/management"
@@ -34,7 +35,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		ScheduledController:        NewScheduledController(logger, usrs, pub, engine),
 		TagsController:             NewTagsController(logger, managementDB, engine),
 		LocalesController:          NewLocalesController(logger, managementDB, engine),
-		JourneysController:         NewJourneysController(logger, journeyDB, usersDB, mgmt, pub, jet, engine),
+		JourneysController:         NewJourneysController(logger, journeyDB, usersDB, mgmt, pub, jet, engine, consumer.Namespace(cfg.Nats.Namespace)),
 		OrganizationsController:    NewOrganizationsController(logger, usersDB, pub, engine),
 		ListsController:            NewListsController(logger, usersDB, projects, pub, cfg.Storage.MaxUploadSize, engine),
 		DocumentsController:        NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize, urlResolver, engine),

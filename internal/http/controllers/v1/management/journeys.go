@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewJourneysController(logger *zap.Logger, journeyDB, subjectsDB *sqlx.DB, mgmt *management.State, pub pubsub.Publisher, jet jetstream.JetStream, engine *rbac.Engine) *JourneysController {
+func NewJourneysController(logger *zap.Logger, journeyDB, subjectsDB *sqlx.DB, mgmt *management.State, pub pubsub.Publisher, jet jetstream.JetStream, engine *rbac.Engine, namespace consumer.Namespace) *JourneysController {
 	return &JourneysController{
 		logger:     logger,
 		journeyDB:  journeyDB,
@@ -37,6 +37,7 @@ func NewJourneysController(logger *zap.Logger, journeyDB, subjectsDB *sqlx.DB, m
 		pub:        pub,
 		jet:        jet,
 		engine:     engine,
+		namespace:  namespace,
 	}
 }
 
@@ -50,6 +51,7 @@ type JourneysController struct {
 	pub        pubsub.Publisher
 	jet        jetstream.JetStream
 	engine     *rbac.Engine
+	namespace  consumer.Namespace
 }
 
 func (srv *JourneysController) ListJourneys(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, params oapi.ListJourneysParams) {
@@ -375,8 +377,8 @@ func (srv *JourneysController) StreamUserJourneySteps(
 		oapi.WriteProblem(w, err)
 		return
 	}
-	enc := sse.NewEncoder(w)
-	enc.WriteEvent("message", "connected")
+	enc := sse.NewEncoder(ctx, w)
+	enc.WriteEvent("message", "connected") //nolint:errcheck
 	rc := http.NewResponseController(w)
 
 	err = rc.SetWriteDeadline(time.Time{})
@@ -393,13 +395,13 @@ func (srv *JourneysController) StreamUserJourneySteps(
 	logger.Info("streaming user journey steps")
 
 	nconn := srv.jet.Conn()
-	journeyAdvanceSubject := schemas.JourneysAdvance(projectID, journeyID, userID)
+	journeyAdvanceSubject := srv.namespace.PrefixSubject(schemas.JourneysAdvance(projectID, journeyID, userID))
 	journeyAdvanceSub, err := nconn.Subscribe(string(journeyAdvanceSubject), func(msg *nats.Msg) {
-		enc.WriteEvent("step", json.RawMessage(msg.Data))
+		enc.WriteEvent("step", json.RawMessage(msg.Data)) //nolint:errcheck
 	})
 
 	if err != nil {
-		enc.WriteHeader(http.StatusInternalServerError)
+		enc.WriteEvent("error", map[string]string{"message": "subscribe failed"}) //nolint:errcheck
 		logger.Error("subscribe failed", zap.Error(err))
 		return
 	}
@@ -407,13 +409,13 @@ func (srv *JourneysController) StreamUserJourneySteps(
 	//nolint: errcheck
 	defer journeyAdvanceSub.Unsubscribe()
 
-	executedSubject := schemas.JourneysStepExecuted(projectID, journeyID, userID)
+	executedSubject := srv.namespace.PrefixSubject(schemas.JourneysStepExecuted(projectID, journeyID, userID))
 	executedSub, err := nconn.Subscribe(string(executedSubject), func(msg *nats.Msg) {
-		enc.WriteEvent("step_executed", json.RawMessage(msg.Data))
+		enc.WriteEvent("step_executed", json.RawMessage(msg.Data)) //nolint:errcheck
 	})
 
 	if err != nil {
-		enc.WriteHeader(http.StatusInternalServerError)
+		enc.WriteEvent("error", map[string]string{"message": "subscribe failed"}) //nolint:errcheck
 		logger.Error("subscribe to step executed failed", zap.Error(err))
 		return
 	}
@@ -440,7 +442,18 @@ func (srv *JourneysController) GetUserJourneyState(w http.ResponseWriter, r *htt
 	)
 	logger.Info("getting user journey state")
 
-	states, err := srv.jrny.GetUserJourneyCurrentState(ctx, projectID, journeyID, userID)
+	// Optional entrance_id query param to scope state to a specific journey entry.
+	var journeyEntryID *uuid.UUID
+	if eid := r.URL.Query().Get("entrance_id"); eid != "" {
+		parsed, err := uuid.Parse(eid)
+		if err != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid entrance_id: "+err.Error())))
+			return
+		}
+		journeyEntryID = &parsed
+	}
+
+	states, err := srv.jrny.GetUserJourneyCurrentState(ctx, projectID, journeyID, userID, journeyEntryID)
 	if err != nil {
 		logger.Error("failed to get user journey state", zap.Error(err))
 		oapi.WriteProblem(w, err)
@@ -915,6 +928,32 @@ func (srv *JourneysController) DuplicateJourney(w http.ResponseWriter, r *http.R
 
 	logger.Info("journey duplicated", zap.Stringer("journey_id", duplicateJourneyID))
 	json.Write(w, http.StatusCreated, result.OAPI(versionInfo))
+}
+
+func (srv *JourneysController) CancelUserJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID, userID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Update, rbac.ProjectResourceScope("journeys", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger := srv.logger.With(
+		zap.Stringer("project_id", projectID),
+		zap.Stringer("journey_id", journeyID),
+		zap.Stringer("user_id", userID),
+	)
+
+	// Cancel active states in the database
+	err = srv.jrny.CancelActiveStates(ctx, projectID, journeyID, userID)
+	if err != nil {
+		logger.Error("failed to cancel active states", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	logger.Info("cancelled user journey")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (srv *JourneysController) PublishJourney(w http.ResponseWriter, r *http.Request, projectID, journeyID uuid.UUID) {

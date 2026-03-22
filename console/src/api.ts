@@ -432,14 +432,16 @@ const api = {
                     .then((r) => r.data),
         },
         users: {
-            getState: async (projectId: UUID, journeyId: UUID, userId: UUID) => {
+            getState: async (projectId: UUID, journeyId: UUID, userId: UUID, entranceId?: UUID) => {
                 const response = await client.get<
                     Array<{
                         external_step_id: string
                         step_type: string
                         is_completed: boolean
                     }>
-                >(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/state`)
+                >(`${projectUrl(projectId)}/journeys/${journeyId}/users/${userId}/state`, {
+                    params: entranceId ? { entrance_id: entranceId } : undefined,
+                })
                 return response.data
             },
             skipDelay: async (projectId: UUID, journeyId: UUID, userId: UUID, stepId: UUID) =>

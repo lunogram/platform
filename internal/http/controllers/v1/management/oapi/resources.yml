@@ -1330,6 +1330,41 @@ paths:
           description: Current step advanced successfully
         default:
           $ref: "#/components/responses/Error"
+    delete:
+      summary: Cancel user journey
+      description: Cancels all active (non-completed) journey states for a user, stopping further step processing including delayed steps
+      operationId: cancelUserJourney
+      tags:
+        - Journeys
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: journeyID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The journey ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID whose journey execution should be cancelled
+      responses:
+        "204":
+          description: User journey cancelled successfully
+        default:
+          $ref: "#/components/responses/Error"
 
   /api/admin/projects/{projectID}/journeys/{journeyID}/steps:
     get:

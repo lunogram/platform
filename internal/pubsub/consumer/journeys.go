@@ -26,6 +26,22 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 			return Permanent(err)
 		}
 
+		// Check if the journey has been cancelled before processing
+		if event.StateID != nil {
+			state, err := jrny.GetJourneyStateByID(ctx, *event.StateID)
+			if err != nil {
+				logger.Error("failed to check cancellation state", zap.Error(err))
+				return err
+			}
+			if state.CompletedAt != nil {
+				logger.Info("journey state already completed/cancelled, skipping",
+					zap.Stringer("state_id", *event.StateID),
+					zap.Stringer("user_id", event.UserID),
+				)
+				return nil
+			}
+		}
+
 		step, err := jrny.GetJourneyStep(ctx, event.JourneyID, event.ExternalStepID, event.VersionID)
 		if err != nil {
 			logger.Error("failed to get journey step", zap.Error(err))

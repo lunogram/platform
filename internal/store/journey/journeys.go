@@ -39,6 +39,7 @@ type Journey struct {
 	VersionID   *uuid.UUID `db:"version_id"`
 	CreatedAt   time.Time  `db:"created_at"`
 	UpdatedAt   time.Time  `db:"updated_at"`
+	DeletedAt   *time.Time `db:"deleted_at"`
 }
 
 func (j *Journey) OAPI(versionInfo *JourneyVersionInfo) oapi.Journey {
@@ -53,6 +54,11 @@ func (j *Journey) OAPI(versionInfo *JourneyVersionInfo) oapi.Journey {
 		versionNumber = &versionInfo.VersionNumber
 		draftVersionID = versionInfo.DraftVersionID
 		publishedVersionID = versionInfo.PublishedVersionID
+	}
+
+	// Archived journeys always report status as "archived"
+	if j.DeletedAt != nil {
+		status = oapi.JourneyStatus("archived")
 	}
 
 	return oapi.Journey{
@@ -178,9 +184,9 @@ func (s *JourneysStore) CountJourneys(ctx context.Context, projectID uuid.UUID) 
 
 func (s *JourneysStore) GetJourney(ctx context.Context, projectID, journeyID uuid.UUID) (*Journey, error) {
 	stmt := `
-	SELECT id, project_id, name, description, version_id, created_at, updated_at
+	SELECT id, project_id, name, description, version_id, created_at, updated_at, deleted_at
 	FROM journeys
-	WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`
+	WHERE id = $1 AND project_id = $2`
 
 	var journey Journey
 	err := s.db.GetContext(ctx, &journey, stmt, journeyID, projectID)
@@ -217,7 +223,7 @@ func (s *JourneysStore) GetJourneyVersionInfo(ctx context.Context, journeyID uui
 	LEFT JOIN journey_versions published ON j.id = published.journey_id
 		AND published.status = 'published'
 		AND published.version_number = latest_pub.max_version
-	WHERE j.id = $1 AND j.deleted_at IS NULL`
+	WHERE j.id = $1`
 
 	var info JourneyVersionInfo
 	err := s.db.GetContext(ctx, &info, stmt, journeyID)
@@ -235,7 +241,7 @@ func (s *JourneysStore) GetJourneyVersionInfo(ctx context.Context, journeyID uui
 func (s *JourneysStore) ResolveVersionID(ctx context.Context, journeyID uuid.UUID) (uuid.UUID, error) {
 	query := `
 	SELECT COALESCE(
-		(SELECT version_id FROM journeys WHERE id = $1 AND deleted_at IS NULL),
+		(SELECT version_id FROM journeys WHERE id = $1),
 		(SELECT id FROM journey_versions WHERE journey_id = $1 AND status = 'draft' ORDER BY version_number DESC LIMIT 1)
 	) as version_id`
 
@@ -615,7 +621,24 @@ type UserJourneyState struct {
 	VisitedAt      *time.Time `db:"visited_at"`
 }
 
-func (s *JourneysStore) GetUserJourneyCurrentState(ctx context.Context, projectID, journeyID, userID uuid.UUID) ([]UserJourneyState, error) {
+func (s *JourneysStore) GetUserJourneyCurrentState(ctx context.Context, projectID, journeyID, userID uuid.UUID, journeyEntryID *uuid.UUID) ([]UserJourneyState, error) {
+	// When a specific journey_entry_id is provided, use it directly.
+	// Otherwise fall back to the most recent entry for this user+journey.
+	entryFilter := `(
+			SELECT journey_entry_id
+			FROM journey_user_state
+			WHERE journey_id = $1
+			AND user_id = $2
+			ORDER BY entered_at DESC
+			LIMIT 1
+		)`
+	args := []interface{}{journeyID, userID}
+
+	if journeyEntryID != nil {
+		entryFilter = "$3"
+		args = append(args, *journeyEntryID)
+	}
+
 	query := `
 	SELECT
 		jus.external_step_id,
@@ -627,14 +650,7 @@ func (s *JourneysStore) GetUserJourneyCurrentState(ctx context.Context, projectI
 	LEFT JOIN journey_version_steps jvs ON jvs.version_id = jus.pinned_version_id AND jvs.external_id = jus.external_step_id
 	WHERE jus.journey_id = $1
 		AND jus.user_id = $2
-		AND jus.journey_entry_id = (
-			SELECT journey_entry_id
-			FROM journey_user_state
-			WHERE journey_id = $1
-			AND user_id = $2
-			ORDER BY entered_at DESC
-			LIMIT 1
-		)
+		AND jus.journey_entry_id = ` + entryFilter + `
 		AND jus.occurrence = (
 			SELECT MAX(occurrence)
 			FROM journey_user_state sub
@@ -644,7 +660,7 @@ func (s *JourneysStore) GetUserJourneyCurrentState(ctx context.Context, projectI
 	ORDER BY jus.entered_at ASC`
 
 	var states []UserJourneyState
-	err := s.db.SelectContext(ctx, &states, query, journeyID, userID)
+	err := s.db.SelectContext(ctx, &states, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -881,6 +897,23 @@ func (s *JourneysStore) UpdateJourneyStateResumeAt(ctx context.Context, stateID 
 	WHERE id = $2`
 
 	_, err := s.db.ExecContext(ctx, stmt, resumeAt, stateID)
+	return err
+}
+
+// CancelActiveStates marks all active (non-completed) journey_user_state rows
+// for the given project+journey+user as completed, effectively cancelling them.
+func (s *JourneysStore) CancelActiveStates(ctx context.Context, projectID, journeyID, userID uuid.UUID) error {
+	stmt := `
+	UPDATE journey_user_state jus
+	SET completed_at = NOW(), resume_at = NULL
+	FROM journeys j
+	WHERE j.id = jus.journey_id
+	AND j.project_id = $1
+	AND jus.journey_id = $2
+	AND jus.user_id = $3
+	AND jus.completed_at IS NULL`
+
+	_, err := s.db.ExecContext(ctx, stmt, projectID, journeyID, userID)
 	return err
 }
 
@@ -1247,22 +1280,32 @@ func (s *JourneysStore) ListUserJourneyEntrances(ctx context.Context, projectID,
 			jus.journey_entry_id,
 			jus.journey_id,
 			jus.entered_at,
-			jus.updated_at,
-			jus.completed_at
+			jus.updated_at
 		FROM journey_user_state jus
 		WHERE jus.user_id = $1
 			AND jus.journey_id IN (
 				SELECT id FROM journeys
-				WHERE project_id = $2 AND deleted_at IS NULL
+				WHERE project_id = $2
 			)
 		ORDER BY jus.journey_entry_id, jus.entered_at ASC
+	),
+	entry_status AS (
+		SELECT
+			jus.journey_entry_id,
+			CASE
+				WHEN bool_or(jus.completed_at IS NULL) THEN NULL
+				ELSE MAX(jus.completed_at)
+			END AS ended_at
+		FROM journey_user_state jus
+		WHERE jus.user_id = $1
+		GROUP BY jus.journey_entry_id
 	)
 	SELECT
 		ue.id,
 		ue.journey_entry_id AS entrance_id,
 		ue.entered_at AS created_at,
 		ue.updated_at,
-		ue.completed_at AS ended_at,
+		es.ended_at,
 		j.id AS journey_id,
 		j.name AS journey_name,
 		j.description AS journey_description,
@@ -1272,7 +1315,8 @@ func (s *JourneysStore) ListUserJourneyEntrances(ctx context.Context, projectID,
 		j.updated_at AS journey_updated_at,
 		COUNT(*) OVER () AS total_count
 	FROM unique_entrances ue
-	LEFT JOIN journeys j ON j.id = ue.journey_id AND j.project_id = $2 AND j.deleted_at IS NULL
+	JOIN entry_status es ON es.journey_entry_id = ue.journey_entry_id
+	LEFT JOIN journeys j ON j.id = ue.journey_id AND j.project_id = $2
 	ORDER BY ue.entered_at DESC
 	LIMIT $3 OFFSET $4`
 
