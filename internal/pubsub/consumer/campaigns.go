@@ -139,18 +139,6 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 			return err
 		}
 
-		project, err := mgmt.GetProject(ctx, event.ProjectID)
-		if err != nil {
-			logger.Error("failed to get project", zap.Error(err))
-			return err
-		}
-
-		user, err := usrs.GetUser(ctx, event.ProjectID, event.UserID)
-		if err != nil {
-			logger.Error("failed to get user", zap.Error(err))
-			return err
-		}
-
 		if !campaign.Transactional && campaign.SubscriptionID != nil {
 			unsubscribed, err := mgmt.IsUserUnsubscribed(ctx, event.UserID, *campaign.SubscriptionID)
 			if err != nil {
@@ -162,6 +150,18 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 					zap.String("subscription_id", campaign.SubscriptionID.String()))
 				return nil
 			}
+		}
+
+		project, err := mgmt.GetProject(ctx, event.ProjectID)
+		if err != nil {
+			logger.Error("failed to get project", zap.Error(err))
+			return err
+		}
+
+		user, err := usrs.GetUser(ctx, event.ProjectID, event.UserID)
+		if err != nil {
+			logger.Error("failed to get user", zap.Error(err))
+			return err
 		}
 
 		provider, exists := registry.Get(campaign.Provider.Module)
