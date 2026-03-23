@@ -15,7 +15,7 @@ import (
 
 func (s *ScheduledStore) ValidateInterval(ctx context.Context, interval string) bool {
 	var positive bool
-	err := s.db.GetContext(ctx, `SELECT $1::interval`, interval)
+	err := s.db.GetContext(ctx, &positive, `SELECT $1::interval > '0 seconds'::interval`, interval)
 	if err != nil {
 		return false
 	}
