@@ -288,8 +288,10 @@ func (s *OrganizationsStore) ListOrganizationMembers(ctx context.Context, projec
 		EXISTS(
 			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL
-			AND d.token != ''
+			AND (
+				(d.token IS NOT NULL AND d.token != '') OR
+				(d.device_credentials->>'endpoint' IS NOT NULL)
+			)
 		) as has_push_device,
 		ou.data as org_data,
 		COUNT(*) OVER () AS total_count

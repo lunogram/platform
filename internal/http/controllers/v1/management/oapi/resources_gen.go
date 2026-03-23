@@ -21,6 +21,7 @@ import (
 )
 
 const (
+	ApiKeyAuthScopes     = "ApiKeyAuth.Scopes"
 	HttpBearerAuthScopes = "HttpBearerAuth.Scopes"
 )
 
@@ -57,6 +58,13 @@ const (
 const (
 	CreateSenderIdentityChannelEmail CreateSenderIdentityChannel = "email"
 	CreateSenderIdentityChannelSms   CreateSenderIdentityChannel = "sms"
+)
+
+// Defines values for DeviceRegistrationOs.
+const (
+	Android DeviceRegistrationOs = "android"
+	Ios     DeviceRegistrationOs = "ios"
+	Web     DeviceRegistrationOs = "web"
 )
 
 // Defines values for JourneyStatus.
@@ -451,6 +459,26 @@ type Delivery struct {
 	Sent   int `json:"sent"`
 	Total  int `json:"total"`
 }
+
+// DeviceRegistration defines model for DeviceRegistration.
+type DeviceRegistration struct {
+	AppVersion       *string               `json:"app_version,omitempty"`
+	DeviceId         string                `json:"device_id"`
+	Model            *string               `json:"model,omitempty"`
+	Os               *DeviceRegistrationOs `json:"os,omitempty"`
+	OsVersion        *string               `json:"os_version,omitempty"`
+	PushSubscription struct {
+		Endpoint       string     `json:"endpoint"`
+		ExpirationTime *time.Time `json:"expiration_time,omitempty"`
+		Keys           struct {
+			Auth   string `json:"auth"`
+			P256dh string `json:"p256dh"`
+		} `json:"keys"`
+	} `json:"push_subscription"`
+}
+
+// DeviceRegistrationOs defines model for DeviceRegistration.Os.
+type DeviceRegistrationOs string
 
 // Document defines model for Document.
 type Document struct {
@@ -1885,6 +1913,9 @@ type UpdateAdminJSONRequestBody = UpdateAdmin
 // AuthCallbackJSONRequestBody defines body for AuthCallback for application/json ContentType.
 type AuthCallbackJSONRequestBody = AuthCallbackRequest
 
+// RegisterDeviceJSONRequestBody defines body for RegisterDevice for application/json ContentType.
+type RegisterDeviceJSONRequestBody = DeviceRegistration
+
 // AsIdentifyUser0 returns the union data inside the IdentifyUser as a IdentifyUser0
 func (t IdentifyUser) AsIdentifyUser0() (IdentifyUser0, error) {
 	var body IdentifyUser0
@@ -2562,6 +2593,9 @@ type ClientInterface interface {
 
 	UpdateTag(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, body UpdateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetVapidPublicKey request
+	GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListAdmins request
 	ListAdmins(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2594,6 +2628,11 @@ type ClientInterface interface {
 
 	// AuthWebhook request
 	AuthWebhook(ctx context.Context, driver AuthWebhookParamsDriver, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RegisterDeviceWithBody request with any body
+	RegisterDeviceWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RegisterDevice(ctx context.Context, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -4432,6 +4471,18 @@ func (c *Client) UpdateTag(ctx context.Context, projectID openapi_types.UUID, ta
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetVapidPublicKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVapidPublicKeyRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListAdmins(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListAdminsRequest(c.Server, params)
 	if err != nil {
@@ -4566,6 +4617,30 @@ func (c *Client) GetAuthMethods(ctx context.Context, reqEditors ...RequestEditor
 
 func (c *Client) AuthWebhook(ctx context.Context, driver AuthWebhookParamsDriver, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAuthWebhookRequest(c.Server, driver)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterDeviceWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterDevice(ctx context.Context, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -10875,6 +10950,33 @@ func NewUpdateTagRequestWithBody(server string, projectID openapi_types.UUID, ta
 	return req, nil
 }
 
+// NewGetVapidPublicKeyRequest generates requests for GetVapidPublicKey
+func NewGetVapidPublicKeyRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/push/vapid-public-key")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListAdminsRequest generates requests for ListAdmins
 func NewListAdminsRequest(server string, params *ListAdminsParams) (*http.Request, error) {
 	var err error
@@ -11242,6 +11344,53 @@ func NewAuthWebhookRequest(server string, driver AuthWebhookParamsDriver) (*http
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewRegisterDeviceRequest calls the generic RegisterDevice builder with application/json body
+func NewRegisterDeviceRequest(server string, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRegisterDeviceRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewRegisterDeviceRequestWithBody generates requests for RegisterDevice with any type of body
+func NewRegisterDeviceRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/client/projects/%s/devices", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -11713,6 +11862,9 @@ type ClientWithResponsesInterface interface {
 
 	UpdateTagWithResponse(ctx context.Context, projectID openapi_types.UUID, tagID openapi_types.UUID, body UpdateTagJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTagResponse, error)
 
+	// GetVapidPublicKeyWithResponse request
+	GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error)
+
 	// ListAdminsWithResponse request
 	ListAdminsWithResponse(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*ListAdminsResponse, error)
 
@@ -11745,6 +11897,11 @@ type ClientWithResponsesInterface interface {
 
 	// AuthWebhookWithResponse request
 	AuthWebhookWithResponse(ctx context.Context, driver AuthWebhookParamsDriver, reqEditors ...RequestEditorFn) (*AuthWebhookResponse, error)
+
+	// RegisterDeviceWithBodyWithResponse request with any body
+	RegisterDeviceWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
+
+	RegisterDeviceWithResponse(ctx context.Context, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
 }
 
 type GetProfileResponse struct {
@@ -14480,6 +14637,32 @@ func (r UpdateTagResponse) StatusCode() int {
 	return 0
 }
 
+type GetVapidPublicKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		// PublicKey The VAPID public key
+		PublicKey string `json:"public_key"`
+	}
+	JSONDefault *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetVapidPublicKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetVapidPublicKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListAdminsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -14678,6 +14861,27 @@ func (r AuthWebhookResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r AuthWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RegisterDeviceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r RegisterDeviceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RegisterDeviceResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -16026,6 +16230,15 @@ func (c *ClientWithResponses) UpdateTagWithResponse(ctx context.Context, project
 	return ParseUpdateTagResponse(rsp)
 }
 
+// GetVapidPublicKeyWithResponse request returning *GetVapidPublicKeyResponse
+func (c *ClientWithResponses) GetVapidPublicKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVapidPublicKeyResponse, error) {
+	rsp, err := c.GetVapidPublicKey(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetVapidPublicKeyResponse(rsp)
+}
+
 // ListAdminsWithResponse request returning *ListAdminsResponse
 func (c *ClientWithResponses) ListAdminsWithResponse(ctx context.Context, params *ListAdminsParams, reqEditors ...RequestEditorFn) (*ListAdminsResponse, error) {
 	rsp, err := c.ListAdmins(ctx, params, reqEditors...)
@@ -16129,6 +16342,23 @@ func (c *ClientWithResponses) AuthWebhookWithResponse(ctx context.Context, drive
 		return nil, err
 	}
 	return ParseAuthWebhookResponse(rsp)
+}
+
+// RegisterDeviceWithBodyWithResponse request with arbitrary body returning *RegisterDeviceResponse
+func (c *ClientWithResponses) RegisterDeviceWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDeviceWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDeviceResponse(rsp)
+}
+
+func (c *ClientWithResponses) RegisterDeviceWithResponse(ctx context.Context, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDevice(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDeviceResponse(rsp)
 }
 
 // ParseGetProfileResponse parses an HTTP response from a GetProfileWithResponse call
@@ -19876,6 +20106,42 @@ func ParseUpdateTagResponse(rsp *http.Response) (*UpdateTagResponse, error) {
 	return response, nil
 }
 
+// ParseGetVapidPublicKeyResponse parses an HTTP response from a GetVapidPublicKeyWithResponse call
+func ParseGetVapidPublicKeyResponse(rsp *http.Response) (*GetVapidPublicKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetVapidPublicKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// PublicKey The VAPID public key
+			PublicKey string `json:"public_key"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListAdminsResponse parses an HTTP response from a ListAdminsWithResponse call
 func ParseListAdminsResponse(rsp *http.Response) (*ListAdminsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -20147,6 +20413,22 @@ func ParseAuthWebhookResponse(rsp *http.Response) (*AuthWebhookResponse, error) 
 		}
 		response.JSONDefault = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParseRegisterDeviceResponse parses an HTTP response from a RegisterDeviceWithResponse call
+func ParseRegisterDeviceResponse(rsp *http.Response) (*RegisterDeviceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RegisterDeviceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil
@@ -20508,6 +20790,9 @@ type ServerInterface interface {
 	// Update tag
 	// (PATCH /api/admin/projects/{projectID}/tags/{tagID})
 	UpdateTag(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, tagID openapi_types.UUID)
+	// Get VAPID public key
+	// (GET /api/admin/push/vapid-public-key)
+	GetVapidPublicKey(w http.ResponseWriter, r *http.Request)
 	// List organization admins
 	// (GET /api/admin/tenant/admins)
 	ListAdmins(w http.ResponseWriter, r *http.Request, params ListAdminsParams)
@@ -20535,6 +20820,9 @@ type ServerInterface interface {
 	// Auth provider webhook
 	// (POST /api/auth/{driver}/webhook)
 	AuthWebhook(w http.ResponseWriter, r *http.Request, driver AuthWebhookParamsDriver)
+	// Register device
+	// (POST /api/client/projects/{projectID}/devices)
+	RegisterDevice(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -21249,6 +21537,12 @@ func (_ Unimplemented) UpdateTag(w http.ResponseWriter, r *http.Request, project
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Get VAPID public key
+// (GET /api/admin/push/vapid-public-key)
+func (_ Unimplemented) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List organization admins
 // (GET /api/admin/tenant/admins)
 func (_ Unimplemented) ListAdmins(w http.ResponseWriter, r *http.Request, params ListAdminsParams) {
@@ -21300,6 +21594,12 @@ func (_ Unimplemented) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
 // Auth provider webhook
 // (POST /api/auth/{driver}/webhook)
 func (_ Unimplemented) AuthWebhook(w http.ResponseWriter, r *http.Request, driver AuthWebhookParamsDriver) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Register device
+// (POST /api/client/projects/{projectID}/devices)
+func (_ Unimplemented) RegisterDevice(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -26374,6 +26674,26 @@ func (siw *ServerInterfaceWrapper) UpdateTag(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// GetVapidPublicKey operation middleware
+func (siw *ServerInterfaceWrapper) GetVapidPublicKey(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetVapidPublicKey(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListAdmins operation middleware
 func (siw *ServerInterfaceWrapper) ListAdmins(w http.ResponseWriter, r *http.Request) {
 
@@ -26611,6 +26931,37 @@ func (siw *ServerInterfaceWrapper) AuthWebhook(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AuthWebhook(w, r, driver)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RegisterDevice operation middleware
+func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, ApiKeyAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegisterDevice(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -27088,6 +27439,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/api/admin/projects/{projectID}/tags/{tagID}", wrapper.UpdateTag)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/push/vapid-public-key", wrapper.GetVapidPublicKey)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/tenant/admins", wrapper.ListAdmins)
 	})
 	r.Group(func(r chi.Router) {
@@ -27113,6 +27467,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/auth/{driver}/webhook", wrapper.AuthWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/client/projects/{projectID}/devices", wrapper.RegisterDevice)
 	})
 
 	return r

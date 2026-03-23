@@ -64,6 +64,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/push/vapid-public-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get VAPID public key
+         * @description Retrieves the VAPID public key for push notifications
+         */
+        get: operations["getVapidPublicKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/projects/{projectID}/campaigns": {
         parameters: {
             query?: never;
@@ -390,6 +410,26 @@ export interface paths {
          * @description Updates project properties
          */
         patch: operations["updateProject"];
+        trace?: never;
+    };
+    "/api/client/projects/{projectID}/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register device
+         * @description Register or update a device's push subscription
+         */
+        post: operations["registerDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/projects/{projectID}/journeys": {
@@ -3674,6 +3714,23 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        DeviceRegistration: {
+            device_id: string;
+            /** @enum {string} */
+            os?: "web" | "ios" | "android";
+            os_version?: string;
+            model?: string;
+            app_version?: string;
+            push_subscription: {
+                endpoint: string;
+                /** Format: date-time */
+                expiration_time?: string;
+                keys: {
+                    p256dh: string;
+                    auth: string;
+                };
+            };
+        };
     };
     responses: {
         /** @description Error response */
@@ -3886,6 +3943,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getVapidPublicKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description VAPID public key retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description The VAPID public key */
+                        public_key: string;
+                    };
+                };
             };
             default: components["responses"]["Error"];
         };
@@ -4611,6 +4692,31 @@ export interface operations {
                 };
             };
             default: components["responses"]["Error"];
+        };
+    };
+    registerDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DeviceRegistration"];
+            };
+        };
+        responses: {
+            /** @description Device registered successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     listJourneys: {

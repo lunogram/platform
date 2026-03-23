@@ -67,13 +67,23 @@ func (d Devices) Value() (driver.Value, error) {
 	return json.Marshal(d)
 }
 
-func (d Devices) HasPushDevice() bool {
+func (d Devices) HasFCMToken() bool {
 	for _, device := range d {
-		if device.HasPushToken() {
+		if device.HasFCMToken() {
 			return true
 		}
 	}
 	return false
+}
+
+func (d *Device) HasWebPushSubscription() bool {
+	return d.DeviceCredentials != nil &&
+		d.DeviceCredentials.Endpoint != ""
+}
+
+// HasFCMToken returns true if the device has a non-null FCM token
+func (d *Device) HasFCMToken() bool {
+	return d.Token != nil && *d.Token != ""
 }
 
 type DeviceCredentials struct {
@@ -86,24 +96,19 @@ type DeviceCredentials struct {
 }
 
 type Device struct {
-	ID                uuid.UUID         `db:"id" json:"id"`
-	ProjectID         uuid.UUID         `db:"project_id" json:"project_id"`
-	UserID            uuid.UUID         `db:"user_id" json:"user_id"`
-	DeviceID          string            `db:"device_id" json:"device_id"`
-	DeviceCredentials DeviceCredentials `db:"device_credentials" json:"device_credentials"`
-	Token             *string           `db:"token" json:"token"`
-	OS                *string           `db:"os" json:"os"`
-	OSVersion         *string           `db:"os_version" json:"os_version"`
-	Model             *string           `db:"model" json:"model"`
-	AppBuild          *string           `db:"app_build" json:"app_build"`
-	AppVersion        *string           `db:"app_version" json:"app_version"`
-	CreatedAt         time.Time         `db:"created_at" json:"created_at"`
-	UpdatedAt         time.Time         `db:"updated_at" json:"updated_at"`
-}
-
-// HasPushToken returns true if the device has a non-null token
-func (d *Device) HasPushToken() bool {
-	return d.Token != nil && *d.Token != ""
+	ID                uuid.UUID          `db:"id" json:"id"`
+	ProjectID         uuid.UUID          `db:"project_id" json:"project_id"`
+	UserID            uuid.UUID          `db:"user_id" json:"user_id"`
+	DeviceID          string             `db:"device_id" json:"device_id"`
+	DeviceCredentials *DeviceCredentials `db:"device_credentials" json:"device_credentials"`
+	Token             *string            `db:"token" json:"token"`
+	OS                *string            `db:"os" json:"os"`
+	OSVersion         *string            `db:"os_version" json:"os_version"`
+	Model             *string            `db:"model" json:"model"`
+	AppBuild          *string            `db:"app_build" json:"app_build"`
+	AppVersion        *string            `db:"app_version" json:"app_version"`
+	CreatedAt         time.Time          `db:"created_at" json:"created_at"`
+	UpdatedAt         time.Time          `db:"updated_at" json:"updated_at"`
 }
 
 func (d *Device) OAPI() oapi.UserDevice {
@@ -177,10 +182,13 @@ func (s *DevicesStore) ListDevicesByUser(ctx context.Context, projectID, userID 
 
 func (s *DevicesStore) ListDevicesByUserWithTokens(ctx context.Context, projectID, userID uuid.UUID) (Devices, error) {
 	query := `
-	SELECT id, project_id, user_id, device_id, token, os, os_version, model, app_build, app_version, created_at, updated_at
+	SELECT id, project_id, user_id, device_id, device_credentials, token, os, os_version, model, app_build, app_version, created_at, updated_at
 	FROM devices
 	WHERE project_id = $1 AND user_id = $2
-	AND token IS NOT NULL AND token != ''
+	AND (
+		(token IS NOT NULL AND token != '')
+		OR (device_credentials->>'endpoint' IS NOT NULL)
+	)
 	AND deleted_at IS NULL`
 
 	var devices Devices
@@ -201,5 +209,21 @@ func (s *DevicesStore) DeleteDevice(ctx context.Context, projectID, deviceID uui
 	AND deleted_at IS NULL`
 
 	_, err := s.db.ExecContext(ctx, query, projectID, deviceID)
+	return err
+}
+
+func (s *DevicesStore) UpdateDeviceCredentials(ctx context.Context, projectID, userID uuid.UUID, deviceID string, creds DeviceCredentials) error {
+	query := `
+    UPDATE devices
+    SET device_credentials = $1, updated_at = NOW()
+    WHERE project_id = $2 AND user_id = $3 AND device_id = $4
+    AND deleted_at IS NULL`
+
+	credsJSON, err := json.Marshal(creds)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.ExecContext(ctx, query, credsJSON, projectID, userID, deviceID)
 	return err
 }

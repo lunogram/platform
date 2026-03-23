@@ -998,6 +998,30 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/client/projects/{projectID}/devices:
+    post:
+      summary: Register device
+      description: Register or update a device's push subscription
+      operationId: registerDevice
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceRegistration"
+      responses:
+        "201":
+          description: Device registered successfully
+
   /api/admin/projects/{projectID}/journeys:
     get:
       summary: List journeys
@@ -7121,6 +7145,43 @@ components:
           type: object
           description: Block editor JSON data for the visual editor mode
           additionalProperties: true
+
+    DeviceRegistration:
+      type: object
+      required:
+        - device_id
+        - push_subscription
+      properties:
+        device_id:
+          type: string
+        os:
+          type: string
+          enum: [web, ios, android]
+        os_version:
+          type: string
+        model:
+          type: string
+        app_version:
+          type: string
+        push_subscription:
+          type: object
+          required:
+            - endpoint
+            - keys
+          properties:
+            endpoint:
+              type: string
+            expiration_time:
+              type: string
+              format: date-time
+            keys:
+              type: object
+              required: [p256dh, auth]
+              properties:
+                p256dh:
+                  type: string
+                auth:
+                  type: string
 
   securitySchemes:
     HttpBearerAuth:

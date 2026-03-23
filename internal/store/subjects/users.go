@@ -103,8 +103,10 @@ func (s *UsersStore) GetUser(ctx context.Context, projectID, userID uuid.UUID) (
 		EXISTS(
 			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL
-			AND d.token != ''
+			AND (
+				(d.token IS NOT NULL AND d.token != '') OR
+				(d.device_credentials->>'endpoint' IS NOT NULL)
+			)
 		) as has_push_device
 	FROM users u
 	WHERE u.id = $1 AND u.project_id = $2`
@@ -125,8 +127,10 @@ func (s *UsersStore) GetUserByExternalID(ctx context.Context, projectID uuid.UUI
 		EXISTS(
 			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL
-			AND d.token != ''
+			AND (
+				(d.token IS NOT NULL AND d.token != '') OR
+				(d.device_credentials->>'endpoint' IS NOT NULL)
+			)
 		) as has_push_device
 	FROM users u
 	WHERE u.external_id = $1 AND u.project_id = $2`
@@ -147,8 +151,10 @@ func (s *UsersStore) GetUserByAnonymousID(ctx context.Context, projectID uuid.UU
 		EXISTS(
 			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL
-			AND d.token != ''
+			AND (
+				(d.token IS NOT NULL AND d.token != '') OR
+				(d.device_credentials->>'endpoint' IS NOT NULL)
+			)
 		) as has_push_device
 	FROM users u
 	WHERE u.anonymous_id = $1 AND u.project_id = $2`
@@ -184,8 +190,10 @@ func (s *UsersStore) ListUsers(ctx context.Context, projectID uuid.UUID, paginat
 		EXISTS(
 			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL
-			AND d.token != ''
+			AND (
+				(d.token IS NOT NULL AND d.token != '') OR
+				(d.device_credentials->>'endpoint' IS NOT NULL)
+			)
 		) as has_push_device,
 		COUNT(*) OVER () AS total_count
 	FROM users u

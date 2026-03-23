@@ -481,8 +481,10 @@ func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid
 		EXISTS(
 			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL
-			AND d.token != ''
+			AND (
+				(d.token IS NOT NULL AND d.token != '') OR
+				(d.device_credentials->>'endpoint' IS NOT NULL)
+			)
 		) as has_push_device,
 		COUNT(*) OVER () AS total_count
 	FROM users u
@@ -543,8 +545,10 @@ func (s *ListsStore) PreviewListUsers(ctx context.Context, projectID uuid.UUID, 
 		EXISTS(
 			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
-			AND d.token IS NOT NULL
-			AND d.token != ''
+			AND (
+				(d.token IS NOT NULL AND d.token != '') OR
+				(d.device_credentials->>'endpoint' IS NOT NULL)
+			)
 		) as has_push_device,
 		COUNT(*) OVER () AS total_count
 	FROM users u
