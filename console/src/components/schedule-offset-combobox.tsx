@@ -142,7 +142,7 @@ export function ScheduleOffsetCombobox({
                 "/api/admin/projects/{projectID}/subjects/user/scheduled/schema/{scheduledID}/offsets",
                 {
                     params: { path: { projectID: projectId, scheduledID: scheduledId } },
-                    body: { offset: computedOffset },
+                    body: { offset: computedOffset, direction },
                 },
             )
             if (error) throw error
