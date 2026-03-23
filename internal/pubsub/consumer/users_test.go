@@ -550,6 +550,12 @@ func TestPublishUserEventsUserCreated(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	_, err = jet.CreateStream(ctx, jetstream.StreamConfig{
+		Name:     ns.Stream(StreamScheduled),
+		Subjects: []string{ns.Subject("scheduled.process.>"), ns.Subject("scheduled.schema.>"), ns.Subject("scheduled.backfill.>")},
+	})
+	require.NoError(t, err)
+
 	pub := pubsub.NewPublisher(jet, string(ns))
 	projectID := uuid.New()
 
