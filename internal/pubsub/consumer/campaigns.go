@@ -151,6 +151,19 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 			return err
 		}
 
+		if !campaign.Transactional && campaign.SubscriptionID != nil {
+			unsubscribed, err := mgmt.IsUserUnsubscribed(ctx, event.UserID, *campaign.SubscriptionID)
+			if err != nil {
+				logger.Error("failed to check subscription status", zap.Error(err))
+				return err
+			}
+			if unsubscribed {
+				logger.Info("skipping send, user has unsubscribed from subscription",
+					zap.String("subscription_id", campaign.SubscriptionID.String()))
+				return nil
+			}
+		}
+
 		provider, exists := registry.Get(campaign.Provider.Module)
 		if !exists {
 			logger.Error("provider module not found", zap.String("module", campaign.Provider.Module))

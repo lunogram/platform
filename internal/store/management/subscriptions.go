@@ -2,6 +2,8 @@ package management
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -207,6 +209,20 @@ func (s *SubscriptionsStore) SetSubscriptionState(ctx context.Context, userID, s
 		return s.Subscribe(ctx, userID, subscriptionID)
 	}
 	return s.Unsubscribe(ctx, userID, subscriptionID)
+}
+
+func (s *SubscriptionsStore) IsUserUnsubscribed(ctx context.Context, userID, subscriptionID uuid.UUID) (bool, error) {
+	var state *int
+	err := s.db.GetContext(ctx, &state,
+		`SELECT state FROM user_subscription WHERE user_id = $1 AND subscription_id = $2`,
+		userID, subscriptionID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return state != nil && *state == 1, nil
 }
 
 func (s *SubscriptionsStore) ListSubscriptions(ctx context.Context, projectID uuid.UUID, pagination store.Pagination) (Subscriptions, int, error) {
