@@ -525,6 +525,42 @@ func TestUpsertUserScheduledRecurring(t *testing.T) {
 	require.True(t, result.ScheduledAt.After(time.Now()), "recurring scheduled_at should be in the future")
 }
 
+func TestUpsertUserScheduledRecurringWithoutStartAt(t *testing.T) {
+	t.Parallel()
+
+	tc := setupScheduledController(t)
+
+	userID := tc.createUser(t)
+	sid := tc.createSchedule(t, "user_recurring_no_start", "recurring")
+
+	interval := "7 days"
+	data := json.RawMessage(`{}`)
+	body, _ := json.Marshal(oapi.UpsertUserScheduledRequest{
+		ScheduledId: &sid,
+		Interval:    &interval,
+		Data:        &data,
+		// No StartAt, no ScheduledAt — start_at should default to now
+	})
+
+	res := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/", bytes.NewReader(body))
+	req = req.WithContext(tc.actorCtx)
+
+	tc.controller.UpsertUserScheduled(res, req, tc.projectID, userID)
+
+	require.Equal(t, 200, res.Code)
+
+	var result oapi.UserScheduled
+	err := json.Unmarshal(res.Body.Bytes(), &result)
+	require.NoError(t, err)
+	require.Equal(t, userID, result.UserId)
+	require.NotNil(t, result.Interval)
+	require.NotNil(t, result.StartAt, "start_at should be defaulted when not provided")
+	require.WithinDuration(t, time.Now(), *result.StartAt, 5*time.Second, "start_at should default to approximately now")
+	require.False(t, result.ScheduledAt.IsZero(), "scheduled_at should not be zero time")
+	require.True(t, result.ScheduledAt.After(time.Now()), "recurring scheduled_at should be in the future")
+}
+
 func TestUpsertUserScheduledMissingScheduledAt(t *testing.T) {
 	t.Parallel()
 

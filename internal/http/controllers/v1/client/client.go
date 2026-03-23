@@ -708,6 +708,13 @@ func (srv *ClientController) UpsertUserScheduledClient(w http.ResponseWriter, r 
 		}
 	}
 
+	// For recurring schedules, default start_at to now if not provided.
+	// This ensures the scheduler has a valid anchor for computing occurrences.
+	if scheduleType == "recurring" && req.StartAt == nil {
+		now := time.Now().UTC()
+		req.StartAt = &now
+	}
+
 	if scheduleType == "single" && req.ScheduledAt == nil {
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("scheduled_at is required for single schedules")))
 		return
@@ -747,13 +754,6 @@ func (srv *ClientController) UpsertUserScheduledClient(w http.ResponseWriter, r 
 
 	logger.Info("user scheduled accepted for processing", zap.Stringer("id", msg.ID))
 
-	// Determine the best time to return as scheduled_at in the response.
-	// For single schedules, this is the scheduled_at time.
-	// For recurring schedules, this is the start_at time.
-	// NOTE: If neither is set (which validation above should prevent for single schedules),
-	// a zero-value time.Time is returned. The ScheduledAccepted OAPI type uses a non-pointer
-	// time.Time, so this cannot be nil. Consider updating the OpenAPI spec to use a pointer
-	// if this becomes an issue for recurring schedules without start_at.
 	var scheduledAt time.Time
 	if req.ScheduledAt != nil {
 		scheduledAt = *req.ScheduledAt
@@ -896,6 +896,13 @@ func (srv *ClientController) UpsertOrganizationScheduledClient(w http.ResponseWr
 		}
 	}
 
+	// For recurring schedules, default start_at to now if not provided.
+	// This ensures the scheduler has a valid anchor for computing occurrences.
+	if scheduleType == "recurring" && req.StartAt == nil {
+		now := time.Now().UTC()
+		req.StartAt = &now
+	}
+
 	if scheduleType == "single" && req.ScheduledAt == nil {
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("scheduled_at is required for single schedules")))
 		return
@@ -933,7 +940,6 @@ func (srv *ClientController) UpsertOrganizationScheduledClient(w http.ResponseWr
 
 	logger.Info("organization scheduled accepted for processing", zap.Stringer("id", msg.ID))
 
-	// See comment in UpsertUserScheduledClient about zero-value scheduledAt.
 	var scheduledAt time.Time
 	if req.ScheduledAt != nil {
 		scheduledAt = *req.ScheduledAt
