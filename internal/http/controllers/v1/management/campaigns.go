@@ -66,6 +66,25 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	if body.SubscriptionId != nil {
+		subscription, subErr := srv.mgmt.SubscriptionsStore.GetSubscription(ctx, projectID, *body.SubscriptionId)
+		if errors.Is(subErr, sql.ErrNoRows) {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription not found")))
+			return
+		}
+
+		if subErr != nil {
+			logger.Error("failed to get subscription", zap.Error(subErr))
+			oapi.WriteProblem(w, subErr)
+			return
+		}
+
+		if subscription.Channel != string(body.Channel) {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription channel does not match campaign channel")))
+			return
+		}
+	}
+
 	tx, err := srv.mgmtDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("unexpected error while attempting to start a transaction", zap.Error(err))
