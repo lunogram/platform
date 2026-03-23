@@ -486,7 +486,11 @@ export interface paths {
          * @description Triggers a user into a journey at a specific entrance step, typically used for testing or manual overrides
          */
         post: operations["triggerUser"];
-        delete?: never;
+        /**
+         * Cancel user journey
+         * @description Cancels all active (non-completed) journey states for a user, stopping further step processing including delayed steps
+         */
+        delete: operations["cancelUserJourney"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5347,6 +5351,32 @@ export interface operations {
         responses: {
             /** @description User enrolled in journey successfully */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelUserJourney: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The journey ID */
+                journeyID: string;
+                /** @description The user ID whose journey execution should be cancelled */
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User journey cancelled successfully */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
