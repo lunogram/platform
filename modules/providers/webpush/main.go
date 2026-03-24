@@ -359,7 +359,7 @@ func sendWebPushNotification(config Config, target types.WebPushTarget, payload 
 	}
 
 	// Encrypt payload per RFC 8291 (aes128gcm)
-	encrypted, senderPubKey, salt, err := encryptWebPushPayload(payload, target.Keys.P256dh, target.Keys.Auth)
+	encrypted, _, _, err := encryptWebPushPayload(payload, target.Keys.P256dh, target.Keys.Auth)
 	if err != nil {
 		return fmt.Errorf("encryption failed: %w", err)
 	}
@@ -373,18 +373,14 @@ func sendWebPushNotification(config Config, target types.WebPushTarget, payload 
 	// Authorization: vapid t=<jwt>, k=<pubkey>
 	authHeader := "vapid t=" + vapidJWT + ", k=" + config.VapidPublicKey
 
-	// Crypto-Key: dh=<senderPubKey>
-	cryptoKeyHeader := "dh=" + base64.RawURLEncoding.EncodeToString(senderPubKey)
-
-	// Encryption: salt=<salt>
-	encryptionHeader := "salt=" + base64.RawURLEncoding.EncodeToString(salt)
+	pdk.Log(pdk.LogDebug, fmt.Sprintf("endpoint: %s", target.Endpoint))
+	pdk.Log(pdk.LogDebug, fmt.Sprintf("origin: %s", extractOrigin(target.Endpoint)))
+	pdk.Log(pdk.LogDebug, fmt.Sprintf("auth header: %s", authHeader))
 
 	resp := pdk.NewHTTPRequest(pdk.MethodPost, target.Endpoint).
 		SetHeader("Authorization", authHeader).
 		SetHeader("Content-Type", "application/octet-stream").
 		SetHeader("Content-Encoding", "aes128gcm").
-		SetHeader("Crypto-Key", cryptoKeyHeader).
-		SetHeader("Encryption", encryptionHeader).
 		SetHeader("TTL", "86400").
 		SetBody(encrypted).
 		Send()

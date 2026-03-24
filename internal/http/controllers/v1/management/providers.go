@@ -175,6 +175,33 @@ func (srv *ProvidersController) CreateProvider(w http.ResponseWriter, r *http.Re
 		data = *body.Data
 	}
 
+	// Auto-inject VAPID keys for webpush providers so users can't misconfigure them.
+	if providerType == "webpush" {
+		vapidKey, err := srv.store.VapidKeysStore.GetVapidKeyByName("default")
+		if err != nil {
+			logger.Error("failed to fetch VAPID keys for webpush provider", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to fetch VAPID keys")))
+			return
+		}
+
+		vapidPatch, err := json.Marshal(map[string]string{
+			"vapidPublicKey":  vapidKey.PublicKey,
+			"vapidPrivateKey": vapidKey.PrivateKey,
+		})
+		if err != nil {
+			logger.Error("failed to marshal VAPID patch", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+
+		data, err = mergeJSON(data, vapidPatch)
+		if err != nil {
+			logger.Error("failed to merge VAPID keys into provider config", zap.Error(err))
+			oapi.WriteProblem(w, err)
+			return
+		}
+	}
+
 	// Validate the provider configuration before persisting.
 	// If the module does not export a validate() function, this is a no-op.
 	valid, err := module.Validate(ctx, providers.ValidateRequest{
