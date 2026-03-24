@@ -1,7 +1,7 @@
 import { useCallback, useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
-import { Route, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react"
+import { Route, ChevronLeft, ChevronRight, ExternalLink, Eye } from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useResolver } from "../../hooks"
@@ -110,7 +110,15 @@ export default function UserDetailJourneys() {
                                 <TableRow
                                     key={entry.id}
                                     className="cursor-pointer"
-                                    onClick={() => navigate(`../../journeys/${entry.journey?.id}`)}
+                                    onClick={() => {
+                                        const base = `../../journeys/${entry.journey?.id}`
+                                        // Running: follow (SSE) + entrance scoping.
+                                        // Ended:   replay the path taken (no SSE).
+                                        const params = entry.ended_at
+                                            ? `?user=${user.id}&entrance=${entry.entrance_id}`
+                                            : `?follow=${user.id}&entrance=${entry.entrance_id}`
+                                        navigate(`${base}${params}`)
+                                    }}
                                 >
                                     <TableCell className="font-medium">
                                         {entry.journey?.name ?? "—"}
@@ -130,7 +138,11 @@ export default function UserDetailJourneys() {
                                         )}
                                     </TableCell>
                                     <TableCell>
-                                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                                        {entry.ended_at ? (
+                                            <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                                        ) : (
+                                            <Eye className="h-4 w-4 text-orange-500" />
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))

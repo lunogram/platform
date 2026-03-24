@@ -173,6 +173,110 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
+  /api/client/users/scheduled:
+    post:
+      summary: Upsert user scheduled
+      description: |
+        Used by client libraries to create or update a scheduled resource for a user.
+        The user is identified by external_id or anonymous_id.
+        This triggers journey entrance recalculation for any journeys that depend on the scheduled resource.
+        The project is determined from the API key.
+      operationId: upsertUserScheduledClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertUserScheduledRequest"
+      responses:
+        "202":
+          description: Scheduled resource accepted for asynchronous processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduledAccepted"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: Delete user scheduled
+      description: |
+        Used by client libraries to delete all scheduled instances for a user with a given scheduled resource name.
+        The user is identified by external_id or anonymous_id.
+        This cancels any pending journey entrance states that depend on the scheduled resource.
+        The project is determined from the API key.
+      operationId: deleteUserScheduledClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteUserScheduledRequest"
+      responses:
+        "200":
+          description: User scheduled deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/client/organizations/scheduled:
+    post:
+      summary: Upsert organization scheduled
+      description: |
+        Used by client libraries to create or update a scheduled resource for an organization.
+        The organization is identified by external_id.
+        This triggers journey entrance recalculation for any journeys that depend on the scheduled resource.
+        The project is determined from the API key.
+      operationId: upsertOrganizationScheduledClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertOrganizationScheduledRequest"
+      responses:
+        "202":
+          description: Scheduled resource accepted for asynchronous processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduledAccepted"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: Delete organization scheduled
+      description: |
+        Used by client libraries to delete all scheduled instances for an organization with a given scheduled resource name.
+        The organization is identified by external_id.
+        This cancels any pending journey entrance states that depend on the scheduled resource.
+        The project is determined from the API key.
+      operationId: deleteOrganizationScheduledClient
+      tags:
+        - Client
+      security:
+        - HttpBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteOrganizationScheduledRequest"
+      responses:
+        "200":
+          description: Organization scheduled deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
   /api/client/organizations/events:
     post:
       summary: Post organization events
@@ -633,6 +737,156 @@ components:
             plan: "enterprise"
             seats: 100
           description: Event-specific data
+
+    UpsertUserScheduledRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "renewal_date"
+          description: The name of the scheduled resource
+        external_id:
+          type: string
+          nullable: true
+          example: "user_12345"
+          description: External identifier for the user from your system
+        anonymous_id:
+          type: string
+          nullable: true
+          example: "anon_abc123"
+          description: Anonymous identifier for the user
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-12-25T10:00:00Z"
+          description: The time at which the scheduled resource is set to trigger. Required for single schedules.
+        start_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-01-01T00:00:00Z"
+          description: Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+        interval:
+          type: string
+          nullable: true
+          example: "24h"
+          description: Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          example:
+            plan: "pro"
+            amount: 29.99
+          description: Scheduled resource data
+
+    UpsertOrganizationScheduledRequest:
+      type: object
+      required:
+        - name
+        - organization_external_id
+      properties:
+        name:
+          type: string
+          example: "contract_renewal"
+          description: The name of the scheduled resource
+        organization_external_id:
+          type: string
+          example: "org_123"
+          description: External identifier for the organization from your system
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-12-25T10:00:00Z"
+          description: The time at which the scheduled resource is set to trigger. Required for single schedules.
+        start_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-01-01T00:00:00Z"
+          description: Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
+        interval:
+          type: string
+          nullable: true
+          example: "24h"
+          description: Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          example:
+            contract_type: "enterprise"
+            seats: 100
+          description: Scheduled resource data
+
+    DeleteUserScheduledRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "renewal_date"
+          description: The name of the scheduled resource to delete
+        external_id:
+          type: string
+          nullable: true
+          example: "user_12345"
+          description: External identifier for the user from your system
+        anonymous_id:
+          type: string
+          nullable: true
+          example: "anon_abc123"
+          description: Anonymous identifier for the user
+
+    ScheduledAccepted:
+      type: object
+      required:
+        - id
+        - name
+        - scheduled_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          description: The unique identifier for the scheduled instance
+        name:
+          type: string
+          example: "trial_end"
+          description: The name of the scheduled resource
+        scheduled_at:
+          type: string
+          format: date-time
+          example: "2025-01-15T09:00:00Z"
+          description: The time at which the scheduled resource is set to trigger
+        data:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: "map[string]any"
+          description: Scheduled resource data
+
+    DeleteOrganizationScheduledRequest:
+      type: object
+      required:
+        - name
+        - organization_external_id
+      properties:
+        name:
+          type: string
+          example: "contract_renewal"
+          description: The name of the scheduled resource to delete
+        organization_external_id:
+          type: string
+          example: "org_123"
+          description: External identifier for the organization from your system
 
   securitySchemes:
     HttpBearerAuth:

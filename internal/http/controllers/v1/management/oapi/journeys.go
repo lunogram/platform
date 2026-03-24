@@ -21,12 +21,13 @@ type DelayStepDataFormat string
 
 // EntranceStepData represents data for entrance step - entry point into journey
 type EntranceStepData struct {
-	Trigger    *string        `json:"trigger,omitempty"`
-	EventName  *string        `json:"event_name,omitempty"`
-	Rule       *rules.RuleSet `json:"rule,omitempty"`
-	UserRule   *rules.RuleSet `json:"user_rule,omitempty"`
-	Concurrent *bool          `json:"concurrent,omitempty"`
-	Multiple   *bool          `json:"multiple,omitempty"`
+	Trigger          *string        `json:"trigger,omitempty"`
+	EventName        *string        `json:"event_name,omitempty"`
+	ScheduleOffsetID *uuid.UUID     `json:"schedule_offset_id,omitempty"`
+	Rule             *rules.RuleSet `json:"rule,omitempty"`
+	UserRule         *rules.RuleSet `json:"user_rule,omitempty"`
+	Concurrent       *bool          `json:"concurrent,omitempty"`
+	Multiple         *bool          `json:"multiple,omitempty"`
 }
 
 // ExitStepData represents data for exit step - exits user from journey

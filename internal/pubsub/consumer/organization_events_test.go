@@ -14,6 +14,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -28,7 +29,7 @@ func TestOrganizationEventsHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	journeyState := journey.NewState(jrnyDB)
 	pub := pubsub.NewPublisher(jet, string(ns))
 
@@ -91,7 +92,7 @@ func TestOrganizationEventsHandlerWithExternalID(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	journeyState := journey.NewState(jrnyDB)
 	pub := pubsub.NewPublisher(jet, string(ns))
 
@@ -143,7 +144,7 @@ func TestOrganizationEventsHandlerWithoutData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	journeyState := journey.NewState(jrnyDB)
 	pub := pubsub.NewPublisher(jet, string(ns))
 
@@ -197,7 +198,7 @@ func TestOrganizationEventSchemasHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 
 	// First, create the event in the database
 	eventID, err := usersState.UpsertEvent(ctx, projectID, "org.contract.signed", subjects.SubjectTypeOrganization)
@@ -246,7 +247,7 @@ func TestOrganizationEventSchemasHandlerComplexNestedData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 
 	// Create event
 	eventID, err := usersState.UpsertEvent(ctx, projectID, "org.deal.closed", subjects.SubjectTypeOrganization)

@@ -17,14 +17,14 @@ type PushTemplateData struct {
 	Data  map[string]any `json:"data,omitempty"`
 }
 
-func ComposePush(_ context.Context, config map[string]any, template management.Template, user *subjects.User, devices subjects.Devices) (*providers.SendRequest[map[string]any], error) {
+func ComposePush(_ context.Context, config map[string]any, template management.Template, user *subjects.User, devices subjects.Devices) (providers.SendRequest[map[string]any], error) {
 	if !user.HasPushDevice {
-		return nil, fmt.Errorf("user has no push-enabled device")
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("user has no push-enabled device")
 	}
 
 	var data PushTemplateData
 	if err := json.Unmarshal(template.Data, &data); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal push template data: %w", err)
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("failed to unmarshal push template data: %w", err)
 	}
 
 	// Collect FCM tokens

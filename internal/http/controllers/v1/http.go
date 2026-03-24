@@ -8,7 +8,6 @@ import (
 	"mime"
 	nethttp "net/http"
 	"path/filepath"
-	"regexp"
 
 	"github.com/cloudproud/graceful"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -42,7 +41,7 @@ var staticFiles embed.FS
 // use API Key only authentication.
 func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *store.Connections, storageDriver storage.Storage, jet jetstream.JetStream, pub pubsub.Publisher, req pubsub.Caller, registry *providers.Registry, actionRegistry *actions.Registry, rbacEngine *rbac.Engine) (*http.Server, error) {
 	mgmtStores := management.NewState(db.Management)
-	usersStore := subjects.NewState(db.Subjects)
+	usersStore := subjects.NewState(db.Subjects, logger)
 
 	// Load OpenAPI specs
 	mgmtSpec, err := mgmtoapi.Spec()
@@ -56,7 +55,7 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	}
 
 	// Create URL resolver for public document URLs
-	urlResolver := storage.NewURLResolver(cfg.Storage.BaseURL, cfg.PublicURL)
+	urlResolver := storage.NewURLResolver(cfg.Storage.BaseURL)
 
 	// Create management controller
 	mgmtController, err := managementv1.NewController(logger, db.Management, db.Subjects, db.Journey, cfg, storageDriver, urlResolver, pub, req, jet, registry, actionRegistry, rbacEngine)
@@ -88,13 +87,19 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	})
 
 	// Mount client routes with API Key only auth
-	clientoapi.HandlerWithOptions(clientController, clientoapi.ChiServerOptions{
-		BaseRouter: router,
-		Middlewares: []clientoapi.MiddlewareFunc{clientoapi.Validator(clientSpec, openapi3filter.Options{
-			AuthenticationFunc: auth.Middleware(
-				auth.WithKey(mgmtStores),
-			),
-		})},
+	router.Group(func(r chi.Router) {
+		r.Use(clientoapi.CORS())
+		r.Options("/api/client/*", func(w nethttp.ResponseWriter, r *nethttp.Request) {})
+		clientoapi.HandlerWithOptions(clientController, clientoapi.ChiServerOptions{
+			BaseRouter: r,
+			Middlewares: []clientoapi.MiddlewareFunc{
+				clientoapi.Validator(clientSpec, openapi3filter.Options{
+					AuthenticationFunc: auth.Middleware(
+						auth.WithKey(mgmtStores),
+					),
+				}),
+			},
+		})
 	})
 
 	if cfg.Storage.BaseURL == "" {
@@ -104,6 +109,16 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 		router.Get("/uploads/documents/{key}", documentsHandler(logger, storageDriver))
 	}
 
+	// Mount link tracking redirect endpoint (unauthenticated, outside OpenAPI validation).
+	linkKey := cfg.Link.SecretBytes()
+	linkPub := pubsub.NewPublisher(jet, cfg.Nats.Namespace)
+	router.Get("/c/{token}", LinkRedirectHandler(logger, linkKey, linkPub))
+
+	// Provider webhook endpoint (unauthenticated — providers can't send JWTs).
+	router.Post("/webhooks/{projectID}/providers/{providerID}",
+		ProviderWebhookHandler(logger, mgmtStores, registry, linkPub, cfg.Webhook.MaxBodySize, cfg.PublicBaseURL()),
+	)
+
 	// Serve static assets - use sub-filesystem to strip the "client/static" prefix
 	staticSubFS, err := fs.Sub(staticFiles, "client/static")
 	if err != nil {
@@ -111,8 +126,15 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	}
 	router.Handle("/static/*", nethttp.StripPrefix("/static/", nethttp.FileServer(nethttp.FS(staticSubFS))))
 
+	// Mount enterprise proxy routes (backoffice, courier).
+	// In OSS builds this is a no-op; in enterprise builds it registers
+	// reverse proxy handlers based on PROXY_*_URL environment variables.
+	MountProxyRoutes(logger, router, cfg.Enterprise)
+
 	// Serve console (admin UI) as fallback
-	consoleHandler, err := console.Handler()
+	consoleHandler, err := console.Handler(console.Config{
+		ClerkPublishableKey: cfg.Console.ClerkPublishableKey,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create console handler: %w", err)
 	}
@@ -150,16 +172,13 @@ func apiDocsMiddleware() func(next nethttp.Handler) nethttp.Handler {
 	}
 }
 
-// validDocumentKey matches keys in the format {uuid}.{ext} (e.g. "6870cd7c-9ff2-4a08-9e9a-fe2d3b12f899.pdf").
-var validDocumentKey = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$`)
-
 // documentsHandler returns an HTTP handler that serves document files from
 // storage. This endpoint is unauthenticated so that documents can be loaded
 // publicly (e.g. images embedded in emails).
 func documentsHandler(logger *zap.Logger, s storage.Storage) nethttp.HandlerFunc {
 	return func(w nethttp.ResponseWriter, r *nethttp.Request) {
 		key := chi.URLParam(r, "key")
-		if key == "" || !validDocumentKey.MatchString(key) {
+		if key == "" {
 			nethttp.Error(w, "Not Found", nethttp.StatusNotFound)
 			return
 		}

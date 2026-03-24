@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rules"
@@ -32,11 +33,13 @@ type JourneyStep struct {
 // UserEventsHandler creates a handler that processes incoming user events and stores them in the database.
 func UserEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
+		start := time.Now()
 		event := schemas.UserEvent{}
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal event message", zap.Error(err))
-			return err
+			metrics.EventsProcessingErrorsTotal.WithLabelValues("user").Inc()
+			return Permanent(err)
 		}
 
 		logger.Info("incoming event", zap.String("name", event.Name), zap.Stringer("project_id", event.ProjectID))
@@ -75,6 +78,8 @@ func UserEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.S
 		}
 
 		logger.Info("user event processed successfully", zap.Stringer("event_id", event.ID))
+		metrics.EventsProcessedTotal.WithLabelValues("user").Inc()
+		metrics.EventsProcessingDurationSeconds.WithLabelValues("user").Observe(time.Since(start).Seconds())
 		return nil
 	}
 }
@@ -116,6 +121,8 @@ func PublishUserEventListDependencies(ctx context.Context, logger *zap.Logger, u
 				logger.Error("failed to publish rule to project subject", zap.Error(err))
 				return err
 			}
+
+			metrics.EventsListRecomputesTotal.Inc()
 		}
 
 		return nil
@@ -173,13 +180,8 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 
 			if !eligible {
 				logger.Info("user not eligible to enter journey", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("user_id", event.UserID), zap.Bool("multiple", multiple), zap.Bool("concurrent", concurrent))
+				metrics.JourneyEntranceRejectionsTotal.WithLabelValues(event.ProjectID.String(), "not_eligible").Inc()
 				continue
-			}
-
-			entry, err := uuid.NewRandom()
-			if err != nil {
-				logger.Error("failed to generate journey entry ID", zap.Error(err))
-				return err
 			}
 
 			data, err := json.Marshal(map[string]any{"data": event.Data})
@@ -192,7 +194,7 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 			now := time.Now()
 			result := journey.JourneyUserState{
 				JourneyID:      dep.JourneyID,
-				JourneyEntryID: entry,
+				JourneyEntryID: uuid.New(),
 				UserID:         event.UserID,
 				ExternalStepID: dep.ExternalID,
 				Data:           json.RawMessage(data),
@@ -205,6 +207,9 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 				return err
 			}
 
+			metrics.JourneyEntrancesTotal.WithLabelValues(event.ProjectID.String()).Inc()
+			metrics.EventsJourneyTriggersTotal.WithLabelValues("user").Inc()
+
 			for _, child := range dep.Children {
 				stepType, err := jrny.GetStepType(ctx, dep.VersionID, child.ChildExternalID)
 				if err != nil {
@@ -215,7 +220,7 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 				step := JourneyStep{
 					ProjectID:      event.ProjectID,
 					JourneyID:      dep.JourneyID,
-					JourneyEntryID: entry,
+					JourneyEntryID: result.JourneyEntryID,
 					ExternalStepID: child.ChildExternalID,
 					UserID:         event.UserID,
 					StepType:       stepType,
@@ -241,7 +246,7 @@ func UserEventSchemasHandler(logger *zap.Logger, usrs *subjects.State) HandlerFu
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal event message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming event schema", zap.Stringer("event_id", event.ID), zap.Stringer("project_id", event.ProjectID))

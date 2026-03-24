@@ -43,4 +43,9 @@ export type TestActionFunctionResult = components["schemas"]["TestActionFunction
 export type SenderIdentity = components["schemas"]["SenderIdentity"]
 export type CreateSenderIdentity = components["schemas"]["CreateSenderIdentity"]
 
+export type Provider = components["schemas"]["Provider"]
+export type CreateProvider = components["schemas"]["CreateProvider"]
+export type UpdateProvider = components["schemas"]["UpdateProvider"]
+export type ProviderMeta = components["schemas"]["ProviderMeta"]
+
 export default oapiClient

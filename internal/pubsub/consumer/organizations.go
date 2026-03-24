@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
@@ -19,7 +20,7 @@ func OrganizationsHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.P
 		err := json.Unmarshal(msg.Data(), &org)
 		if err != nil {
 			logger.Error("failed to unmarshal organization message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming organization", zap.Stringer("organization_id", org.ID), zap.Stringer("project_id", org.ProjectID))
@@ -82,12 +83,45 @@ func PublishOrganizationEvents(ctx context.Context, logger *zap.Logger, pub pubs
 			return err
 		}
 
+		err = PublishOrganizationAnniversarySchedule(ctx, logger, pub, org)
+		if err != nil {
+			logger.Error("failed to publish organization anniversary schedule", zap.Error(err))
+			return err
+		}
+
 		return nil
 	}
 
 	err := pub.Publish(ctx, schemas.OrganizationEventsProcess(org.ProjectID), org.OrganizationEvent(schemas.EventOrganizationUpdated))
 	if err != nil {
 		logger.Error("failed to publish organization updated event", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// PublishOrganizationAnniversarySchedule publishes a recurring yearly schedule for
+// a newly created organization, anchored to their creation date.
+func PublishOrganizationAnniversarySchedule(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, org schemas.Organization) error {
+	now := time.Now()
+	interval := "1 year"
+
+	msg := schemas.ScheduledMsg{
+		ProjectID:      org.ProjectID,
+		Name:           ScheduleAnniversary,
+		Type:           "recurring",
+		SubjectType:    string(subjects.SubjectTypeOrganization),
+		StartAt:        &now,
+		Interval:       &interval,
+		OrganizationID: org.ID,
+		ExternalId:     &org.ExternalID,
+		Data:           map[string]any{},
+	}
+
+	err := pub.Publish(ctx, schemas.ScheduledProcess(org.ProjectID), msg)
+	if err != nil {
+		logger.Error("failed to publish organization anniversary scheduled message", zap.Error(err))
 		return err
 	}
 
@@ -101,7 +135,7 @@ func OrganizationSchemasHandler(logger *zap.Logger, usrs *subjects.State) Handle
 		err := json.Unmarshal(msg.Data(), &org)
 		if err != nil {
 			logger.Error("failed to unmarshal organization message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming organization schema", zap.Stringer("organization_id", org.ID), zap.Stringer("project_id", org.ProjectID))
@@ -125,7 +159,7 @@ func OrganizationUsersHandler(logger *zap.Logger, usrs *subjects.State, pub pubs
 		err := json.Unmarshal(msg.Data(), &orgUser)
 		if err != nil {
 			logger.Error("failed to unmarshal organization user message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming organization user", zap.Stringer("organization_id", orgUser.OrganizationID), zap.Stringer("user_id", orgUser.UserID), zap.Stringer("project_id", orgUser.ProjectID))
@@ -207,7 +241,7 @@ func OrganizationUserSchemasHandler(logger *zap.Logger, usrs *subjects.State) Ha
 		err := json.Unmarshal(msg.Data(), &orgUser)
 		if err != nil {
 			logger.Error("failed to unmarshal organization user message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming organization user schema", zap.Stringer("organization_id", orgUser.OrganizationID), zap.Stringer("user_id", orgUser.UserID), zap.Stringer("project_id", orgUser.ProjectID))

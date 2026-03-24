@@ -844,6 +844,56 @@ func TestRuleDependsOnOrganizationUsers(t *testing.T) {
 			rule:     Rule{},
 			expected: false,
 		},
+		"organization wrapper with member conditions": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeWrapper,
+						Group:    RuleGroupOrganization,
+						Operator: OperatorAnd,
+						UserMatch: &UserMatch{
+							Type: UserMatchConditions,
+							MemberConditions: &Rule{
+								Type:     RuleTypeWrapper,
+								Group:    RuleGroupParent,
+								Operator: OperatorAnd,
+								Children: []Rule{
+									{
+										Type:     RuleTypeBoolean,
+										Group:    RuleGroupUser,
+										Path:     "is_primary_contact",
+										Operator: OperatorEquals,
+										Value:    false,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		"organization wrapper with user_match all": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+				Children: []Rule{
+					{
+						Type:     RuleTypeWrapper,
+						Group:    RuleGroupOrganization,
+						Operator: OperatorAnd,
+						UserMatch: &UserMatch{
+							Type: UserMatchAll,
+						},
+					},
+				},
+			},
+			expected: false,
+		},
 	}
 
 	for name, test := range tests {

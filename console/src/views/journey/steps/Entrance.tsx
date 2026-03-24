@@ -1,8 +1,14 @@
 /* eslint-disable react-refresh/only-export-components */
-import type { JourneyStepType, Rule, RulePath } from "../../../types"
+import type {
+    JourneyStepType,
+    Rule,
+    RulePath,
+    ScheduledSchema,
+    ScheduleOffset,
+} from "../../../types"
 import { EntranceStepIcon } from "../../../components/icons"
 import RuleBuilder from "../../users/rules/RuleBuilder"
-import { useCallback, useContext, useRef, useState } from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
@@ -15,12 +21,15 @@ import { useTranslation, Trans } from "react-i18next"
 import { createSimpleEventRule, isEventWrapper } from "../../users/rules/RuleHelpers"
 import { ruleDescription } from "../../users/rules/RuleDescriptions"
 import { Badge } from "@/components/ui/badge"
-import { Webhook, Zap, Copy, Check } from "lucide-react"
+import { Webhook, Zap, Copy, Check, CalendarClock } from "lucide-react"
+import { ScheduleOffsetCombobox } from "@/components/schedule-offset-combobox"
+import { formatOffset } from "@/utils"
+
 import { Link } from "react-router"
 import type { UUID } from "@/types/common"
 
 interface EntranceConfig {
-    trigger: "none" | "event"
+    trigger: "none" | "event" | "scheduled"
 
     // event based
     event_name?: string
@@ -28,14 +37,21 @@ interface EntranceConfig {
     multiple?: boolean
     concurrent?: boolean
 
+    // scheduled based
+    scheduled_name?: string
+    schedule_offset_id?: UUID
+    schedule_offset?: string
+    schedule_offset_direction?: string
+
     references?: Array<{ id: UUID; name: string }>
 }
 
-const triggers = ["none", "event"] as const
+const triggers = ["none", "event", "scheduled"] as const
 
 const triggerConfig = {
     none: { icon: Webhook, label: "API" },
     event: { icon: Zap, label: "Event" },
+    scheduled: { icon: CalendarClock, label: "Scheduled" },
 } as const
 
 const codeExample = (journeyId: UUID, entranceId: UUID) => `curl --request POST \\
@@ -52,6 +68,79 @@ const codeExample = (journeyId: UUID, entranceId: UUID) => `curl --request POST 
         "purchase_amount": 29.99
     }
 }'`
+
+import type { MutableRefObject } from "react"
+
+interface ScheduledOffsetSelectorProps {
+    projectId: string
+    scheduledCacheRef: MutableRefObject<ScheduledSchema[] | null>
+    scheduledName: string
+    value: EntranceConfig
+    onChange: (value: EntranceConfig) => void
+    onOffsetsChange: (offsets: ScheduleOffset[], schedule: ScheduledSchema) => void
+    t: (key: string, fallback?: string) => string
+}
+
+function ScheduledOffsetSelector({
+    projectId,
+    scheduledCacheRef,
+    scheduledName,
+    value,
+    onChange,
+    onOffsetsChange,
+    t,
+}: ScheduledOffsetSelectorProps) {
+    const schedule = scheduledCacheRef.current?.find((s) => s.name === scheduledName)
+    const offsets = useMemo(() => schedule?.offsets ?? [], [schedule?.offsets])
+
+    // Auto-select the first offset when offsets become available but none is selected.
+    // Use a ref for onChange/value to avoid re-triggering when the parent re-renders.
+    const onChangeRef = useRef(onChange)
+    const valueRef = useRef(value)
+    onChangeRef.current = onChange
+    valueRef.current = value
+
+    useEffect(() => {
+        if (!valueRef.current.schedule_offset_id && offsets.length > 0) {
+            const first = offsets[0]
+            onChangeRef.current({
+                ...valueRef.current,
+                schedule_offset_id: first.id,
+                schedule_offset: first.offset,
+                schedule_offset_direction: first.direction,
+            })
+        }
+    }, [offsets])
+
+    return (
+        <div className="space-y-1.5">
+            <Label className="inline-flex items-center gap-0.5 text-sm font-medium">
+                {t("schedule_offset", "Schedule Offset")}
+                <span className="text-destructive">*</span>
+            </Label>
+            <ScheduleOffsetCombobox
+                projectId={projectId}
+                scheduledId={schedule?.id ?? ("" as UUID)}
+                offsets={offsets}
+                value={value.schedule_offset_id}
+                onChange={(offsetId, offset, direction) => {
+                    onChange({
+                        ...value,
+                        schedule_offset_id: offsetId,
+                        schedule_offset: offset,
+                        schedule_offset_direction: direction,
+                    })
+                }}
+                onOffsetsChange={(updated) => {
+                    if (schedule) {
+                        onOffsetsChange(updated, schedule)
+                    }
+                }}
+                disabled={!schedule}
+            />
+        </div>
+    )
+}
 
 function ApiTriggerSection({ journeyId, stepId }: { journeyId: UUID; stepId: UUID }) {
     const { t } = useTranslation()
@@ -123,7 +212,18 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
     newData: async () => ({
         trigger: "event",
     }),
-    Describe({ value: { trigger, event_name, rule, references = [] } }) {
+    Describe({
+        value: {
+            trigger,
+            event_name,
+            rule,
+            scheduled_name,
+            schedule_offset_id,
+            schedule_offset,
+            schedule_offset_direction,
+            references = [],
+        },
+    }) {
         const { t } = useTranslation()
         const [preferences] = useContext(PreferencesContext)
 
@@ -149,6 +249,26 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                             ))}
                         </div>
                     )}
+                </div>
+            )
+        }
+
+        if (trigger === "scheduled") {
+            return (
+                <div className="flex items-center gap-1.5 text-sm">
+                    <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
+                    <span>
+                        <span className="font-medium">{scheduled_name}</span>
+                        {schedule_offset_id && schedule_offset != null && (
+                            <span className="text-muted-foreground">
+                                {" "}
+                                {formatOffset(
+                                    schedule_offset,
+                                    schedule_offset_direction ?? "before",
+                                )}
+                            </span>
+                        )}
+                    </span>
                 </div>
             )
         }
@@ -181,27 +301,68 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
         const { t } = useTranslation()
 
         const cacheRef = useRef<RulePath[] | null>(null)
+        const scheduledCacheRef = useRef<ScheduledSchema[] | null>(null)
+        const [scheduledCacheVersion, setScheduledCacheVersion] = useState(0)
+
+        const ensureSuggestionsLoaded = useCallback(async () => {
+            if (cacheRef.current && scheduledCacheRef.current) return
+            const suggestions = await api.projects.pathSuggestions(projectId)
+            if (!cacheRef.current) {
+                cacheRef.current = Array.isArray(suggestions?.eventPaths)
+                    ? suggestions.eventPaths.map((event, index) => ({
+                          id: `event-${index}` as UUID,
+                          name: event.name,
+                          path: event.name,
+                          type: "event" as const,
+                          data_type: "string" as const,
+                          visibility: "public" as const,
+                      }))
+                    : []
+            }
+            if (!scheduledCacheRef.current) {
+                scheduledCacheRef.current = Array.isArray(suggestions?.scheduledPaths)
+                    ? suggestions.scheduledPaths
+                    : []
+            }
+        }, [projectId])
+
+        // Eagerly load suggestions on mount when trigger is scheduled
+        // so that the offset selector has data immediately (not just on search)
+        useEffect(() => {
+            if (value.trigger === "scheduled" && value.scheduled_name) {
+                ensureSuggestionsLoaded().then(() => {
+                    setScheduledCacheVersion((v) => v + 1)
+                })
+            }
+        }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
         const handleSearch = useCallback(
             async (query: string): Promise<RulePath[]> => {
-                if (!cacheRef.current) {
-                    const suggestions = await api.projects.pathSuggestions(projectId)
-                    cacheRef.current = Array.isArray(suggestions?.eventPaths)
-                        ? suggestions.eventPaths.map((event, index) => ({
-                              id: `event-${index}` as UUID,
-                              name: event.name,
-                              path: event.name,
-                              type: "event" as const,
-                              data_type: "string" as const,
-                              visibility: "public" as const,
-                          }))
-                        : []
-                }
-                if (!query) return cacheRef.current
+                await ensureSuggestionsLoaded()
+                if (!query) return cacheRef.current!
                 const lower = query.toLowerCase()
-                return cacheRef.current.filter((o) => o.name.toLowerCase().includes(lower))
+                return cacheRef.current!.filter((o) => o.name.toLowerCase().includes(lower))
             },
-            [projectId],
+            [ensureSuggestionsLoaded],
+        )
+
+        const handleScheduledSearch = useCallback(
+            async (query: string): Promise<RulePath[]> => {
+                await ensureSuggestionsLoaded()
+                const schedules = scheduledCacheRef.current ?? []
+                const paths: RulePath[] = schedules.map((s, index) => ({
+                    id: `scheduled-${index}` as UUID,
+                    name: s.name,
+                    path: s.name,
+                    type: "scheduled" as const,
+                    data_type: "string" as const,
+                    visibility: "public" as const,
+                }))
+                if (!query) return paths
+                const lower = query.toLowerCase()
+                return paths.filter((o) => o.name.toLowerCase().includes(lower))
+            },
+            [ensureSuggestionsLoaded],
         )
 
         return (
@@ -308,15 +469,130 @@ export const entranceStep: JourneyStepType<EntranceConfig> = {
                         )}
                     </>
                 )}
+                {value.trigger === "scheduled" && (
+                    <>
+                        {/* Schedule name selector */}
+                        <div className="space-y-1.5">
+                            <Label className="inline-flex items-center gap-0.5 text-sm font-medium">
+                                {t("scheduled_name", "Scheduled Name")}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <Combobox<RulePath>
+                                onSearch={handleScheduledSearch}
+                                value={value.scheduled_name ?? ""}
+                                displayValue={value.scheduled_name}
+                                onValueChange={(scheduled_name) => {
+                                    // When schedule changes, reset offset selection
+                                    onChange({
+                                        ...value,
+                                        scheduled_name,
+                                        schedule_offset_id: undefined,
+                                        event_name: scheduled_name
+                                            ? `scheduled.${scheduled_name}`
+                                            : undefined,
+                                    })
+                                }}
+                                placeholder={t("scheduled_name", "Scheduled Name")}
+                                renderOption={(option) => option.name}
+                            />
+                        </div>
+
+                        {/* Offset selector - shown after schedule is selected */}
+                        {value.scheduled_name && (
+                            <ScheduledOffsetSelector
+                                key={scheduledCacheVersion}
+                                projectId={projectId}
+                                scheduledCacheRef={scheduledCacheRef}
+                                scheduledName={value.scheduled_name}
+                                value={value}
+                                onChange={onChange}
+                                onOffsetsChange={(updated, schedule) => {
+                                    const idx = scheduledCacheRef.current?.findIndex(
+                                        (s) => s.id === schedule.id,
+                                    )
+                                    if (scheduledCacheRef.current && idx != null && idx >= 0) {
+                                        scheduledCacheRef.current = scheduledCacheRef.current.map(
+                                            (s, i) => (i === idx ? { ...s, offsets: updated } : s),
+                                        )
+                                        setScheduledCacheVersion((v) => v + 1)
+                                    }
+                                }}
+                                t={t}
+                            />
+                        )}
+
+                        {/* RuleBuilder - shown after schedule + offset are selected */}
+                        {value.scheduled_name && value.schedule_offset_id && value.event_name && (
+                            <RuleBuilder
+                                rule={value.rule ?? createSimpleEventRule(value.event_name)}
+                                setRule={(rule) =>
+                                    onChange({
+                                        ...value,
+                                        rule: {
+                                            ...rule,
+                                            value: value.event_name,
+                                        },
+                                    })
+                                }
+                                eventName={value.event_name}
+                                headerPrefix={t("entrance_matching")}
+                            />
+                        )}
+
+                        {/* Multiple entries toggle */}
+                        <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="multiple-scheduled" className="text-sm font-medium">
+                                    {t("entrance_multiple_entries")}
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    {t("entrance_multiple_entries_desc")}
+                                </p>
+                            </div>
+                            <Switch
+                                id="multiple-scheduled"
+                                checked={Boolean(value.multiple)}
+                                onCheckedChange={(multiple) => onChange({ ...value, multiple })}
+                            />
+                        </div>
+
+                        {/* Concurrent entries toggle */}
+                        {value.multiple && (
+                            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="concurrent-scheduled"
+                                        className="text-sm font-medium"
+                                    >
+                                        {t("entrance_simultaneous_entries")}
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t("entrance_simultaneous_entries_desc")}
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="concurrent-scheduled"
+                                    checked={Boolean(value.concurrent)}
+                                    onCheckedChange={(concurrent) =>
+                                        onChange({ ...value, concurrent })
+                                    }
+                                />
+                            </div>
+                        )}
+                    </>
+                )}
                 {!!stepId && value.trigger === "none" && (
                     <ApiTriggerSection journeyId={journeyId} stepId={stepId} />
                 )}
             </>
         )
     },
-    validate: ({ trigger, event_name }) => {
+    validate: ({ trigger, event_name, scheduled_name, schedule_offset_id }) => {
         if (trigger === "event") {
             return !!event_name
+        }
+        if (trigger === "scheduled") {
+            return !!scheduled_name && !!schedule_offset_id
         }
         return true
     },

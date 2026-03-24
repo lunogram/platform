@@ -61,7 +61,7 @@ export function UserSelection({
                     aria-expanded={open}
                     className={cn(
                         "max-w-sm justify-between min-w-0",
-                        size === "sm" && "h-7 text-xs px-2 [&_svg]:size-3.5",
+                        size === "sm" && "h-8 text-xs px-2.5 [&_svg]:size-3.5",
                     )}
                 >
                     <span className="truncate">{value ? value.email : "Select user..."}</span>

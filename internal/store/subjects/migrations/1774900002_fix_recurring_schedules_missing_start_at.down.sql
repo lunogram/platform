@@ -1,0 +1,6 @@
+-- Down migration is a no-op.
+--
+-- This migration backfilled start_at, anchor_at, and scheduled_at for
+-- recurring schedules that were missing these values. Reverting would
+-- re-introduce broken schedules with NULL anchors, which serves no
+-- useful purpose.

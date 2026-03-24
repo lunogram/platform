@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -91,9 +92,9 @@ func (srv *SenderIdentitiesController) CreateSenderIdentity(w http.ResponseWrite
 		return
 	}
 
-	// Verify provider channel matches identity channel
-	if provider.Channel != string(body.Channel) {
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("channel does not match provider channel")))
+	// Verify provider supports the requested channel
+	if !slices.Contains(provider.Channels, string(body.Channel)) {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("channel not supported by provider")))
 		return
 	}
 

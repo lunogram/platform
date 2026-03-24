@@ -20,6 +20,7 @@ import (
 	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -71,7 +72,7 @@ func setupOrganizationsController(t *testing.T) *testOrganizationsController {
 	engine, actorCtx := rbac.TestSetup(t, ctx, actor, "owner", "admin")
 
 	controller := NewOrganizationsController(logger, usrsDB, pub, engine)
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 
 	return &testOrganizationsController{
 		controller: controller,

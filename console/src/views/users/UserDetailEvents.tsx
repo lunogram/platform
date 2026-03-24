@@ -1,18 +1,32 @@
-import React, { useCallback, useContext, useState, useRef } from "react"
+import React, { useCallback, useContext, useMemo, useState, useRef } from "react"
 import { useTranslation } from "react-i18next"
-import { Activity, ChevronLeft, ChevronRight, ChevronDown, Zap, Clock, Search } from "lucide-react"
+import {
+    Activity,
+    ChevronLeft,
+    ChevronRight,
+    ChevronDown,
+    Plus,
+    Zap,
+    Clock,
+    Search,
+} from "lucide-react"
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useResolver } from "../../hooks"
 import { formatDate, cn } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
+import { toast } from "sonner"
 import api from "../../api"
+import oapiClient from "../../oapi/client"
 import type { SearchParams, UserEvent } from "../../types"
 import Iframe from "@/components/iframe"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Combobox } from "@/components/ui/combobox"
+import { AttributeEditor } from "@/components/ui/attribute-editor"
+import { Label } from "@/components/ui/label"
 import { JsonView } from "@/components/ui/json-view"
 import {
     Table,
@@ -22,7 +36,14 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 
 function getPageNumbers(current: number, total: number): (number | "...")[] {
     if (total <= 7) {
@@ -96,6 +117,10 @@ export default function UserDetailEvents() {
     const [debouncedQuery, setDebouncedQuery] = useState("")
     const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
     const [previewEvent, setPreviewEvent] = useState<UserEvent | null>(null)
+    const [isCreateOpen, setIsCreateOpen] = useState(false)
+    const [isCreating, setIsCreating] = useState(false)
+    const [newEventName, setNewEventName] = useState("")
+    const [newEventData, setNewEventData] = useState<Record<string, unknown>>({})
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
     const limit = 15
 
@@ -108,7 +133,7 @@ export default function UserDetailEvents() {
         }, 300)
     }
 
-    const [result] = useResolver(
+    const [result, , reload] = useResolver(
         useCallback(async () => {
             const params: SearchParams = {
                 limit,
@@ -125,6 +150,52 @@ export default function UserDetailEvents() {
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
 
+    const [schemasResult] = useResolver(
+        useCallback(async () => {
+            try {
+                const { data } = await oapiClient.GET(
+                    "/api/admin/projects/{projectID}/subjects/user/events/schema",
+                    { params: { path: { projectID: project.id } } },
+                )
+                return data?.results ?? []
+            } catch {
+                return []
+            }
+        }, [project.id]),
+    )
+
+    const eventOptions = useMemo(() => {
+        if (!schemasResult) return []
+        return schemasResult.map((s) => ({ path: s.name }))
+    }, [schemasResult])
+
+    const createEvent = async () => {
+        if (!newEventName.trim()) return
+        setIsCreating(true)
+        try {
+            await oapiClient.POST(
+                "/api/admin/projects/{projectID}/subjects/users/{userID}/events",
+                {
+                    params: { path: { projectID: project.id, userID: user.id } },
+                    body: {
+                        name: newEventName.trim(),
+                        data: Object.keys(newEventData).length > 0 ? newEventData : undefined,
+                    },
+                },
+            )
+            // Reload events after a short delay to allow async processing
+            setTimeout(() => reload(), 1000)
+            setIsCreateOpen(false)
+            setNewEventName("")
+            setNewEventData({})
+            toast.success(t("event_created", "Event created"))
+        } catch {
+            toast.error(t("failed_to_create_event", "Failed to create event"))
+        } finally {
+            setIsCreating(false)
+        }
+    }
+
     const toggleExpand = (event: UserEvent) => {
         const hasPreview = !!event.data?.result?.message?.html
         if (hasPreview) {
@@ -137,8 +208,8 @@ export default function UserDetailEvents() {
     return (
         <div className="space-y-4">
             {/* Search */}
-            <div className="flex items-center gap-4">
-                <div className="relative max-w-sm flex-1">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="relative sm:max-w-sm flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder={t("search_events", "Search events...")}
@@ -147,6 +218,10 @@ export default function UserDetailEvents() {
                         className="pl-9"
                     />
                 </div>
+                <Button className="flex-1 sm:flex-initial" onClick={() => setIsCreateOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t("create")}
+                </Button>
             </div>
 
             {/* Events Table */}
@@ -359,6 +434,60 @@ export default function UserDetailEvents() {
                             </div>
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Create Event Dialog */}
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>{t("create_event", "Create Event")}</DialogTitle>
+                        <DialogDescription>
+                            {t("create_event_description", "Create a new event for this user.")}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label>{t("event_name", "Event")} *</Label>
+                            <Combobox
+                                options={eventOptions}
+                                value={newEventName}
+                                onValueChange={setNewEventName}
+                                placeholder={t(
+                                    "enter_event_name",
+                                    "Type or select an event name...",
+                                )}
+                                emptyText={t(
+                                    "no_events_found",
+                                    "No matching events. Type a name to create one.",
+                                )}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>{t("data", "Data")}</Label>
+                            <AttributeEditor
+                                value={newEventData}
+                                onChange={setNewEventData}
+                                emptyTitle={t("no_data", "No data")}
+                                emptyDescription={t(
+                                    "no_data_description_event",
+                                    "Add custom data to this event.",
+                                )}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsCreateOpen(false)}
+                            disabled={isCreating}
+                        >
+                            {t("cancel")}
+                        </Button>
+                        <Button onClick={createEvent} disabled={!newEventName.trim() || isCreating}>
+                            {isCreating ? t("creating") : t("create")}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

@@ -36,7 +36,7 @@ func RecomputeListHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.P
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal recompute list message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger := logger.With(zap.Stringer("project_id", event.ProjectID), zap.Stringer("list_id", event.ID))

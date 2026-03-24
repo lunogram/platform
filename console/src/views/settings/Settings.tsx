@@ -1,11 +1,12 @@
 import { Outlet, useLocation } from "react-router"
 import { useTranslation } from "react-i18next"
 import { useContext } from "react"
-import { Settings as SettingsLucideIcon, Globe, Key, Bell, Zap } from "lucide-react"
+import { Settings as SettingsLucideIcon, Globe, Key, Bell, Zap, Mail } from "lucide-react"
 import { ProjectContext } from "../../contexts"
 import { ProjectRoleRequired } from "../project/ProjectRoleRequired"
 import { SettingsIcon } from "@/components/icons"
 import { NavTabs } from "@/components/ui/nav-tabs"
+import { isEnterprise } from "@/config/enterprise"
 
 export default function Settings() {
     const { t } = useTranslation()
@@ -24,9 +25,19 @@ export default function Settings() {
         {
             key: "event-schemas",
             to: "event-schemas",
-            label: t("event_schemas", "Event Schemas"),
+            label: t("schemas", "Schemas"),
             icon: Zap,
         },
+        ...(isEnterprise
+            ? [
+                  {
+                      key: "domains",
+                      to: "domains",
+                      label: t("domains", "Domains"),
+                      icon: Mail,
+                  },
+              ]
+            : []),
     ]
 
     return (

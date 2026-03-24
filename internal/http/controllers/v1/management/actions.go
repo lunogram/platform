@@ -26,7 +26,7 @@ func NewActionsController(logger *zap.Logger, db *sqlx.DB, actionCaller *pubsub.
 		store:        management.NewState(db),
 		registry:     actionRegistry,
 		actionCaller: actionCaller,
-		subjects:     subjects.NewState(usersDB),
+		subjects:     subjects.NewState(usersDB, logger),
 		engine:       engine,
 	}
 }

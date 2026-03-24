@@ -1,6 +1,7 @@
-import { memo, useCallback, useContext, useMemo, createElement } from "react"
+import { memo, useCallback, useContext, useMemo, createElement, useState } from "react"
 import type { EdgeProps } from "reactflow"
 import { getBezierPath, EdgeLabelRenderer, useNodes, useEdges, useReactFlow } from "reactflow"
+import { Trash2 } from "lucide-react"
 import { ProjectContext, JourneyContext } from "@/contexts"
 import { getStepType } from "../editor/JourneyEditor.utils"
 import type { JourneyNode } from "../editor/JourneyEditor.types"
@@ -21,11 +22,18 @@ export const JourneyStepEdge = memo(
         targetHandleId,
         data = {},
         style = {},
+        selected,
+        markerEnd,
     }: EdgeProps) => {
         const [project] = useContext(ProjectContext)
         const [journey] = useContext(JourneyContext)
         const nodes = useNodes() as JourneyNode[]
         const edges = useEdges()
+
+        const [hovered, setHovered] = useState(false)
+
+        const isEditable = journey.status !== "archived"
+        const showDelete = isEditable && (hovered || selected)
 
         const siblingData = useMemo(
             () =>
@@ -54,14 +62,58 @@ export const JourneyStepEdge = memo(
             [id, setEdges],
         )
 
+        const onDelete = useCallback(
+            () => setEdges((edges) => edges.filter((e) => e.id !== id)),
+            [id, setEdges],
+        )
+
         const sourceNode = nodes.find((n) => n.id === source)
         const sourceType = sourceNode?.data?.type ? getStepType(sourceNode.data.type) : null
+        const hasEditEdge = !!(sourceNode && sourceType?.EditEdge)
 
         return (
             <>
-                <path id={id} className="react-flow__edge-path" style={style} d={edgePath} />
-                {!!(sourceNode && sourceType?.EditEdge) && (
-                    <EdgeLabelRenderer>
+                {/* Invisible wider path for easier mouse targeting */}
+                <path
+                    d={edgePath}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={20}
+                    onMouseEnter={() => setHovered(true)}
+                    onMouseLeave={() => setHovered(false)}
+                    className="react-flow__edge-interaction"
+                />
+                {/* Visible edge path — pointer-events disabled so the wider
+                    interaction path underneath handles all mouse events */}
+                <path
+                    id={id}
+                    className="react-flow__edge-path"
+                    style={{ ...style, pointerEvents: "none" }}
+                    d={edgePath}
+                    markerEnd={markerEnd}
+                />
+                <EdgeLabelRenderer>
+                    {/* Delete button — offset when an edge editor label is present */}
+                    {showDelete && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                onDelete()
+                            }}
+                            onMouseEnter={() => setHovered(true)}
+                            onMouseLeave={() => setHovered(false)}
+                            style={{
+                                position: "absolute",
+                                transform: `translate(-50%, -50%) translate(${labelX}px,${labelY + (hasEditEdge ? -28 : 0)}px)`,
+                            }}
+                            className="pointer-events-auto flex items-center justify-center w-6 h-6 rounded-full bg-destructive text-white shadow-md hover:bg-red-700 transition-colors cursor-pointer"
+                        >
+                            <Trash2 className="h-3 w-3" />
+                        </button>
+                    )}
+                    {/* Step-type edge editor (e.g. condition labels) */}
+                    {hasEditEdge && (
                         <div
                             style={{
                                 position: "absolute",
@@ -69,17 +121,17 @@ export const JourneyStepEdge = memo(
                             }}
                             className="nodrag nopan bg-background border rounded-lg p-2.5 pointer-events-auto"
                         >
-                            {createElement(sourceType.EditEdge, {
+                            {createElement(sourceType!.EditEdge!, {
                                 value: data,
                                 onChange: onChangeData,
-                                stepData: sourceNode.data.data,
+                                stepData: sourceNode!.data.data,
                                 siblingData,
                                 journey,
                                 project,
                             })}
                         </div>
-                    </EdgeLabelRenderer>
-                )}
+                    )}
+                </EdgeLabelRenderer>
             </>
         )
     },

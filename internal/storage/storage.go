@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"io"
-	"strings"
 )
 
 type Config struct {
@@ -30,23 +29,15 @@ func New(cfg Config) (Storage, error) {
 }
 
 // URLResolver generates public URLs for stored documents.
-// When a BaseURL is configured (e.g. a CDN or S3 bucket URL), it constructs
-// URLs as {BaseURL}/{key}. Otherwise it falls back to the application's
-// public URL with a local serving path.
+// It constructs URLs as {baseURL}/{key} using the configured STORAGE_BASE_URL.
 type URLResolver struct {
 	baseURL string
 }
 
-// NewURLResolver creates a URLResolver. If storageBaseURL is set it takes
-// precedence. Otherwise the publicURL of the application is used with
-// the /uploads/documents/ path as fallback for local storage.
-func NewURLResolver(storageBaseURL, publicURL string) *URLResolver {
-	base := storageBaseURL
-	if base == "" {
-		base = strings.TrimRight(publicURL, "/") + "/uploads/documents"
-	}
-	base = strings.TrimRight(base, "/")
-	return &URLResolver{baseURL: base}
+// NewURLResolver creates a URLResolver from the configured storage base URL
+// (e.g. a CDN or S3 bucket public URL).
+func NewURLResolver(storageBaseURL string) *URLResolver {
+	return &URLResolver{baseURL: storageBaseURL}
 }
 
 // URL returns the public URL for the given storage key.

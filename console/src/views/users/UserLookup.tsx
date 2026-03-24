@@ -2,6 +2,7 @@ import { useCallback, useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Search, User, Mail, Hash } from "lucide-react"
 import type { User as UserType } from "../../types"
+import { getUserDisplayName, getUserInitials } from "@/lib/name"
 import { ProjectContext } from "../../contexts"
 import api from "../../api"
 import { useResolver } from "../../hooks"
@@ -78,17 +79,6 @@ export const UserLookup = ({ open, onClose, onSelected }: UserLookupProps) => {
             setDebouncedQuery("")
         }
         onClose(isOpen)
-    }
-
-    const getUserDisplayName = (user: UserType) => {
-        if (user.full_name) return user.full_name
-        if (user.email) return user.email
-        return user.external_id ?? user.anonymous_id ?? "Unknown"
-    }
-
-    const getUserInitials = (user: UserType) => {
-        const name = getUserDisplayName(user)
-        return name.substring(0, 2).toUpperCase()
     }
 
     return (

@@ -4,9 +4,10 @@ import { useTranslation } from "react-i18next"
 import { ChevronLeft } from "lucide-react"
 import { NIL } from "uuid"
 import api from "../../api"
+import oapiClient from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
-import { snakeToTitle } from "../../utils"
+import { snakeToTitle, hasCourierProvider } from "../../utils"
 import { IntegrationForm } from "../settings/IntegrationModal"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,8 +18,9 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
+import { isEnterprise } from "@/config/enterprise"
 import type { UUID } from "@/types/common"
-import type { ProviderMeta } from "../../types"
+import type { ProviderMeta } from "@/oapi/client"
 
 export default function ProjectOnboardingIntegration() {
     const navigate = useNavigate()
@@ -28,11 +30,22 @@ export default function ProjectOnboardingIntegration() {
     const [meta, setMeta] = useState<ProviderMeta | undefined>()
 
     const [options] = useResolver(
-        useCallback(async () => await api.providers.options(projectId), [projectId]),
+        useCallback(async () => {
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/providers/meta",
+                {
+                    params: { path: { projectID: projectId } },
+                },
+            )
+            return data
+        }, [projectId]),
     )
 
+    const [hasProvider] = useResolver(useCallback(() => hasCourierProvider(projectId), [projectId]))
+    const nextStep = isEnterprise && hasProvider === true ? "domain" : "users"
+
     async function handleSkip() {
-        await navigate(`/projects/${projectId}/onboarding/users`)
+        await navigate(`/projects/${projectId}/onboarding/${nextStep}`)
     }
 
     return (
@@ -84,7 +97,11 @@ export default function ProjectOnboardingIntegration() {
                             onChange={async () => {
                                 const updatedProject = await api.projects.get(projectId)
                                 setProject(updatedProject)
-                                await navigate(`/projects/${projectId}/onboarding/users`)
+                                const step =
+                                    isEnterprise && (await hasCourierProvider(projectId))
+                                        ? "domain"
+                                        : "users"
+                                await navigate(`/projects/${projectId}/onboarding/${step}`)
                             }}
                         />
                     </>

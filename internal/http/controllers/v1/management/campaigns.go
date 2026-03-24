@@ -66,24 +66,6 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if body.ProviderId == nil {
-		provider, err := srv.mgmt.ProvidersStore.GetDefaultProviderChannel(ctx, project.ID, string(body.Channel))
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			logger.Error("failed to get default provider", zap.Error(err))
-			oapi.WriteProblem(w, err)
-			return
-		}
-
-		// NOTE: if no default provider is found (ErrNoRows), we proceed with nil ProviderId.
-		// This allows campaign creation to continue even if no provider is set for the channel.
-		// Downstream, a nil ProviderId means the campaign will not be associated with any provider,
-		// and it is up to later validation or business logic to handle this case (e.g., by rejecting
-		// campaigns without a provider, or allowing them for manual assignment).
-		if err == nil {
-			body.ProviderId = &provider.ID
-		}
-	}
-
 	tx, err := srv.mgmtDB.BeginTxx(ctx, nil)
 	if err != nil {
 		logger.Error("unexpected error while attempting to start a transaction", zap.Error(err))

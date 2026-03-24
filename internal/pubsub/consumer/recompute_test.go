@@ -19,6 +19,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -40,7 +41,7 @@ func setupRecomputeTest(t *testing.T) (*subjects.State, uuid.UUID, jetstream.Jet
 	require.NoError(t, err)
 
 	mgmtState := management.NewState(mgmt)
-	usersState := subjects.NewState(usrs)
+	usersState := subjects.NewState(usrs, zap.NewNop())
 
 	orgID, err := mgmtState.OrganizationsStore.CreateOrganization(ctx, "Test Org")
 	require.NoError(t, err)

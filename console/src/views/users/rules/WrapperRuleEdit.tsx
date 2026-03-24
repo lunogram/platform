@@ -1,3 +1,4 @@
+import type { ReactElement } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -125,7 +126,9 @@ export default function WrapperRuleEdit({
                             size="sm"
                             variant="outline"
                             className="h-8 shrink-0 shadow-none"
-                            onClick={(controls as any).props.onClick}
+                            onClick={
+                                (controls as ReactElement<{ onClick?: () => void }>).props.onClick
+                            }
                         >
                             <Trash2 className="h-3.5 w-3.5" />
                         </Button>

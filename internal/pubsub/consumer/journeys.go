@@ -3,10 +3,12 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/journeys"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -21,7 +23,23 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal journey state message", zap.Error(err))
-			return err
+			return Permanent(err)
+		}
+
+		// Check if the journey has been cancelled before processing
+		if event.StateID != nil {
+			state, err := jrny.GetJourneyStateByID(ctx, *event.StateID)
+			if err != nil {
+				logger.Error("failed to check cancellation state", zap.Error(err))
+				return err
+			}
+			if state.CompletedAt != nil {
+				logger.Info("journey state already completed/cancelled, skipping",
+					zap.Stringer("state_id", *event.StateID),
+					zap.Stringer("user_id", event.UserID),
+				)
+				return nil
+			}
 		}
 
 		step, err := jrny.GetJourneyStep(ctx, event.JourneyID, event.ExternalStepID, event.VersionID)
@@ -55,17 +73,27 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 		logger := logger.With(zap.String("step_type", step.Type), zap.String("step_id", step.ID.String()), zap.String("user_id", event.UserID.String()))
 		logger.Info("processing journey step")
 
+		start := time.Now()
 		next, children, err := journeys.Handle(ctx, db, pub, event.ProjectID, event.UserID, step, state, data, mgmt, actionRegistry)
+		duration := time.Since(start).Seconds()
+		projectID := event.ProjectID.String()
+		metrics.JourneyStepDurationSeconds.WithLabelValues(step.Type, projectID).Observe(duration)
+
 		if err != nil {
+			metrics.JourneyStepsErrorsTotal.WithLabelValues(step.Type, projectID).Inc()
 			logger.Error("failed to handle journey step", zap.Error(err))
 			return err
 		}
 
+		metrics.JourneyStepsProcessedTotal.WithLabelValues(step.Type, projectID).Inc()
+
 		if next.ResumeAt != nil && next.CompletedAt == nil {
+			metrics.JourneyStepsPausedTotal.WithLabelValues(step.Type, projectID).Inc()
 			logger.Info("journey step processing paused, waiting for resume")
 		}
 
 		if next.CompletedAt != nil {
+			metrics.JourneyStepsCompletedTotal.WithLabelValues(step.Type, projectID).Inc()
 			logger.Info("journey completed")
 
 			executed := schemas.JourneyStepExecuted{

@@ -19,6 +19,7 @@ import (
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -68,7 +69,7 @@ func setupClientController(t *testing.T) *testClientController {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, "")
-	usersState := subjects.NewState(usrs)
+	usersState := subjects.NewState(usrs, zap.NewNop())
 
 	// Start with a bare engine; tests that need permissions call actorContext.
 	controller := NewClientController(logger, usrs, usersState, pub, rbac.NewTestEngine(t))

@@ -172,6 +172,7 @@
             "description": "Review your campaign before sending."
         }
     },
+    "channel_list": "Channels",
     "channels": {
         "email": {
             "title": "Email",
@@ -269,6 +270,7 @@
     "api_keys": "API Keys",
     "api_triggered": "API Triggered",
     "archive": "Archive",
+    "archived": "Archived",
     "associations": "Associations",
     "average": "Average",
     "auth_driver_basic": "Continue with email",
@@ -375,6 +377,7 @@
     "duplicate": "Duplicate",
     "dynamic": "Dynamic",
     "edit": "Edit",
+    "editing": "Editing",
     "edit_admin": "Edit Admin",
     "edit_admin_description": "Update the details of this admin.",
     "edit_campaign": "Edit Campaign",
@@ -623,6 +626,25 @@
     "save_settings": "Save Settings",
     "saving": "Saving...",
     "scheduled": "Scheduled",
+    "scheduled_name": "Scheduled Name",
+    "schedule_offset": "Schedule Offset",
+    "select_offset": "Select an offset...",
+    "no_offsets_configured": "No offsets configured yet.",
+    "add_offset_to_start": "Add one to get started.",
+    "create_new_offset": "Create new offset...",
+    "create_offset_title": "Create new offset",
+    "create_offset": "Create offset",
+    "schedule_offset_create_error": "Failed to create offset. It may already exist.",
+    "offset_at_exact_time": "at exact time",
+    "offset_before": "before",
+    "offset_after": "after",
+    "offset_direction_before": "Before",
+    "offset_direction_after": "After",
+    "offset_unit_minutes": "Minutes",
+    "offset_unit_hours": "Hours",
+    "offset_unit_days": "Days",
+    "offset_unit_weeks": "Weeks",
+    "offset_unit_months": "Months",
     "scope": "Scope",
     "search": "Search",
     "search_users": "Search by ID, email or phone",
@@ -851,5 +873,14 @@
             "title": "API Documentation",
             "description": "Explore the API"
         }
+    },
+    "mediaManager": {
+        "title": "Media Manager",
+        "description": "Upload, manage, and select images for your email templates.",
+        "search": "Search images...",
+        "upload": "Upload",
+        "emptyTitle": "No images yet",
+        "emptyDescription": "Drag and drop images here, or click Upload to get started.",
+        "imageCount": "{{count}} image(s)"
     }
 }

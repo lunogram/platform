@@ -18,11 +18,6 @@ export interface LocaleEntry {
     label: string
 }
 
-// ---------------------------------------------------------------------------
-// Curated locale list – covers the most widely-used language + region combos.
-// Keys follow BCP 47 (language[-Script][-Region]).
-// ---------------------------------------------------------------------------
-
 const LOCALE_KEYS = [
     // Major languages – base codes
     "en",
@@ -162,10 +157,6 @@ const LOCALE_KEYS = [
     "gl-ES",
 ] as const
 
-// ---------------------------------------------------------------------------
-// Display name resolution
-// ---------------------------------------------------------------------------
-
 /** Resolve a BCP 47 key into a human-readable label using Intl.DisplayNames. */
 export function resolveLocaleName(key: string): string {
     try {
@@ -184,10 +175,6 @@ export const LOCALES: LocaleEntry[] = LOCALE_KEYS.map((key) => ({
 
 // Fast lookup set for validation
 const LOCALE_KEY_SET = new Set<string>(LOCALE_KEYS)
-
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
 
 /**
  * BCP 47 regex (simplified but sufficient for practical use):
@@ -208,10 +195,6 @@ export function isValidLocaleKey(key: string): boolean {
 export function isKnownLocale(key: string): boolean {
     return LOCALE_KEY_SET.has(key)
 }
-
-// ---------------------------------------------------------------------------
-// Search / filter
-// ---------------------------------------------------------------------------
 
 /**
  * Resolve a BCP 47 tag to a LocaleEntry.

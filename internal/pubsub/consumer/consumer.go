@@ -17,6 +17,7 @@ import (
 const (
 	StreamUsers              = "users"
 	StreamUserEvents         = "users-events"
+	StreamScheduled          = "scheduled"
 	StreamLists              = "lists"
 	StreamJourneys           = "journeys"
 	StreamCampaigns          = "campaigns"
@@ -33,12 +34,19 @@ const (
 	SubjectActionsValidate = "actions.validate.>"
 )
 
+// Schedule names for automatically created schedules.
+const (
+	ScheduleAnniversary = "anniversary"
+)
+
 // Consumer names for NATS JetStream subscribers.
 const (
 	ConsumerUsersProcess              = "users-process"
 	ConsumerUsersSchema               = "users-schema"
 	ConsumerUserEventsProcess         = "users-events-process"
 	ConsumerUserEventsSchema          = "users-events-schema"
+	ConsumerScheduledProcess          = "scheduled-process"
+	ConsumerScheduledSchema           = "scheduled-schema"
 	ConsumerListsRecompute            = "lists-recompute"
 	ConsumerJourneysAdvance           = "journeys-advance"
 	ConsumerJourneysAdvanceUser       = "journeys-advance-user"
@@ -50,11 +58,12 @@ const (
 	ConsumerOrganizationEventsProcess = "organizations-events-process"
 	ConsumerOrganizationEventsSchema  = "organizations-events-schema"
 	ConsumerActionsSchema             = "actions-schema"
+	ConsumerScheduledBackfill         = "scheduled-backfill"
 	ConsumerProjectEventsProcess      = "projects-events-process"
 )
 
 // Serve starts all JetStream consumers and registers their handlers.
-func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns Namespace, db *store.Connections, mgmt *management.State, usrs *subjects.State, jrny *journey.State, registry *providers.Registry, actionRegistry *actions.Registry, caller pubsub.Caller, publicURL string) {
+func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns Namespace, db *store.Connections, mgmt *management.State, usrs *subjects.State, jrny *journey.State, registry *providers.Registry, actionRegistry *actions.Registry, caller pubsub.Caller, publicURL string, linkKey []byte, trackingURL string) {
 	pub := pubsub.NewPublisher(jet, string(ns))
 	renderer := pubsub.NewEmailRenderer(caller)
 	router := NewRouter(ctx, jet, logger)
@@ -63,9 +72,12 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersSchema), UserSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess), UserEventsHandler(logger, usrs, jrny, pub))
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsSchema), UserEventSchemasHandler(logger, usrs))
+	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledProcess), ScheduledHandler(logger, db.Subjects, usrs, pub))
+	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledSchema), ScheduledSchemasHandler(logger, usrs))
+	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledBackfill), ScheduledBackfillHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute), RecomputeListHandler(logger, usrs, pub))
 	router.HandleStream(ns.Stream(StreamJourneys), ns.Consumer(ConsumerJourneysAdvance), JourneyStepHandler(logger, db.Subjects, jrny, mgmt, pub, actionRegistry))
-	router.HandleStream(ns.Stream(StreamCampaigns), ns.Consumer(ConsumerCampaignsSend), CampaignsSendHandler(logger, mgmt, usrs, registry, renderer, publicURL))
+	router.HandleStream(ns.Stream(StreamCampaigns), ns.Consumer(ConsumerCampaignsSend), CampaignsSendHandler(logger, mgmt, usrs, registry, renderer, publicURL, linkKey, trackingURL))
 	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationsProcess), OrganizationsHandler(logger, usrs, pub))
 	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationsSchema), OrganizationSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamOrganizationUsers), ns.Consumer(ConsumerOrganizationUsersProcess), OrganizationUsersHandler(logger, usrs, pub))

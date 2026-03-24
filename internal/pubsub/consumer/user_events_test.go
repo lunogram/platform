@@ -19,6 +19,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -66,7 +67,7 @@ func TestUserEventsProjectHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	journeyState := journey.NewState(jrnyDB)
 	email := "test@example.com"
 	userID, err := usersState.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
@@ -125,7 +126,7 @@ func TestUserEventsProjectHandlerWithoutData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	journeyState := journey.NewState(jrnyDB)
 	email := "test2@example.com"
 	userID, err := usersState.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
@@ -176,7 +177,7 @@ func TestUserEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	journeyState := journey.NewState(jrnyDB)
 	externalID := "user_123"
 	anonymousID := "anon_abc"
@@ -224,7 +225,7 @@ func TestUserEventsSchemaHandlerSuccess(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "test_event", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 
@@ -270,7 +271,7 @@ func TestUserEventsSchemaHandlerComplexNestedData(t *testing.T) {
 	err := Bootstrap(ctx, logger, jet, ns)
 	require.NoError(t, err)
 
-	usersState := subjects.NewState(usrsDB)
+	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	eventID, err := usersState.EventsStore.UpsertEvent(ctx, projectID, "complex_event", subjects.SubjectTypeUser)
 	require.NoError(t, err)
 

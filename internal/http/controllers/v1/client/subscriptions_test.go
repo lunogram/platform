@@ -14,6 +14,7 @@ import (
 	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -25,7 +26,7 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 	mgmtDB, usrsDB, _ := teststore.RunPostgreSQL(t)
 
 	mgmt := management.NewState(mgmtDB)
-	usrs := subjects.NewState(usrsDB)
+	usrs := subjects.NewState(usrsDB, zap.NewNop())
 
 	// Create project
 	projectsStore := management.NewProjectsStore(mgmtDB)
@@ -137,7 +138,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 	mgmtDB, usrsDB, _ := teststore.RunPostgreSQL(t)
 
 	mgmt := management.NewState(mgmtDB)
-	usrs := subjects.NewState(usrsDB)
+	usrs := subjects.NewState(usrsDB, zap.NewNop())
 
 	// Create project
 	projectsStore := management.NewProjectsStore(mgmtDB)

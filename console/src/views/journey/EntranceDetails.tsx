@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import type { BadgeProps } from "@/components/ui/badge"
 import { camelToTitle, formatDate } from "../../utils"
+import { getUserDisplayName } from "@/lib/name"
 import { useLoaderData } from "react-router"
 import type { JourneyEntranceDetail } from "../../types"
 import { useContext } from "react"
@@ -43,7 +44,7 @@ export default function EntranceDetails() {
 
     const entrance = userSteps[0]
     const error = userSteps.find((s) => s.type === "error")
-    const displayName = user?.full_name ?? user?.email ?? user?.phone ?? user?.id
+    const displayName = getUserDisplayName(user)
 
     const columns: ColumnDef<(typeof userSteps)[number]>[] = [
         {
@@ -110,12 +111,12 @@ export default function EntranceDetails() {
                         {items.length > 0 ? (
                             items.map((item, index) => {
                                 const args = { item }
-                                const key = (item as any).id ?? index
+                                const key = item.id ?? index
 
                                 return (
                                     <TableRow key={key}>
                                         {columns.map((col) => {
-                                            let value: any = col.cell
+                                            let value: unknown = col.cell
                                                 ? col.cell(args)
                                                 : item[col.key as keyof typeof item]
                                             if (
@@ -129,7 +130,7 @@ export default function EntranceDetails() {
                                             }
                                             return (
                                                 <TableCell key={col.key}>
-                                                    {value ?? <>&#8211;</>}
+                                                    {(value as React.ReactNode) ?? <>&#8211;</>}
                                                 </TableCell>
                                             )
                                         })}

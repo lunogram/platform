@@ -14,29 +14,74 @@ import (
 	"github.com/lunogram/platform/internal/providers/channels"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/rbac"
+	"github.com/lunogram/platform/internal/render"
 	"github.com/lunogram/platform/internal/store/management"
 
 	"go.uber.org/zap"
 )
 
-func NewTemplatesController(logger *zap.Logger, db *sqlx.DB, renderer *pubsub.EmailRenderer, registry *providers.Registry, engine *rbac.Engine) *TemplatesController {
+// templateDataEnvelope partially unmarshals email template data so that the
+// code block can be inspected and mutated in a type-safe way, while all other
+// fields (e.g. blocks, editorMode) are preserved via the embedded RawMessage.
+type templateDataEnvelope struct {
+	Code channels.EmailCodeData `json:"code,omitempty"`
+
+	// Remaining holds every top-level field *except* "code". We use it to
+	// reconstruct the full JSON after mutating Code.
+	Remaining map[string]json.RawMessage `json:"-"`
+}
+
+func (t *templateDataEnvelope) UnmarshalJSON(data []byte) error {
+	// Unmarshal all top-level keys into the generic map.
+	if err := json.Unmarshal(data, &t.Remaining); err != nil {
+		return err
+	}
+	// Unmarshal the typed Code field from the "code" key, if present.
+	if raw, ok := t.Remaining["code"]; ok {
+		if err := json.Unmarshal(raw, &t.Code); err != nil {
+			return err
+		}
+		delete(t.Remaining, "code")
+	}
+	return nil
+}
+
+func (t templateDataEnvelope) MarshalJSON() ([]byte, error) {
+	// Start from a copy of the remaining fields so we don't mutate the original.
+	merged := make(map[string]json.RawMessage, len(t.Remaining)+1)
+	for k, v := range t.Remaining {
+		merged[k] = v
+	}
+	codeBytes, err := json.Marshal(t.Code)
+	if err != nil {
+		return nil, err
+	}
+	merged["code"] = codeBytes
+	return json.Marshal(merged)
+}
+
+func NewTemplatesController(logger *zap.Logger, db *sqlx.DB, renderer *pubsub.EmailRenderer, registry *providers.Registry, engine *rbac.Engine, linkKey []byte, trackingURL string) *TemplatesController {
 	return &TemplatesController{
-		logger:   logger,
-		db:       db,
-		store:    management.NewState(db),
-		renderer: renderer,
-		registry: registry,
-		engine:   engine,
+		logger:      logger,
+		db:          db,
+		store:       management.NewState(db),
+		renderer:    renderer,
+		registry:    registry,
+		engine:      engine,
+		linkKey:     linkKey,
+		trackingURL: trackingURL,
 	}
 }
 
 type TemplatesController struct {
-	logger   *zap.Logger
-	db       *sqlx.DB
-	store    *management.State
-	renderer *pubsub.EmailRenderer
-	registry *providers.Registry
-	engine   *rbac.Engine
+	logger      *zap.Logger
+	db          *sqlx.DB
+	store       *management.State
+	renderer    *pubsub.EmailRenderer
+	registry    *providers.Registry
+	engine      *rbac.Engine
+	linkKey     []byte
+	trackingURL string
 }
 
 func (srv *TemplatesController) GetTemplate(w http.ResponseWriter, r *http.Request, projectID uuid.UUID, campaignID uuid.UUID, templateID uuid.UUID) {
@@ -197,27 +242,27 @@ func (srv *TemplatesController) UpdateTemplate(w http.ResponseWriter, r *http.Re
 
 	// If the template data contains React Email source code, compile it via
 	// the Deno renderer service and store the compiled JS alongside the source.
+	// Extra fields stored by the frontend (e.g. blocks, editorMode) are
+	// preserved through the marshal/unmarshal round-trip via templateDataEnvelope.
 	if body.Data != nil {
-		var data channels.EmailTemplateData
-		err := json.Unmarshal(*body.Data, &data)
-		if err != nil {
+		var envelope templateDataEnvelope
+		if err := json.Unmarshal(*body.Data, &envelope); err != nil {
 			logger.Error("failed to unmarshal template data", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to unmarshal template data")))
 			return
 		}
 
-		if data.Code.Source != "" {
-			data.Code.Bundle, data.Code.BundleHash, err = srv.renderer.Compile(ctx, projectID, data.Code.Source)
+		if envelope.Code.Source != "" {
+			envelope.Code.Bundle, envelope.Code.BundleHash, err = srv.renderer.Compile(ctx, projectID, envelope.Code.Source)
 			if err != nil {
 				logger.Error("failed to compile template", zap.Error(err))
 				oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to compile email template")))
 				return
 			}
 
-			updatedData, _ := json.Marshal(data)
-			rawData := json.RawMessage(updatedData)
-
-			body.Data = &rawData
+			updated, _ := json.Marshal(envelope) //nolint:errcheck
+			raw := json.RawMessage(updated)
+			body.Data = &raw
 		}
 	}
 
@@ -325,7 +370,6 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 
 	templateData := template.Data
 
-	// Email-specific: compile and render React Email source code.
 	if campaign.Channel == "email" {
 		templateData, err = channels.ComposeEmailTemplateData(ctx, srv.renderer, projectID, templateData, props)
 		if err != nil {
@@ -333,6 +377,13 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 			oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to compose email template")))
 			return
 		}
+	}
+
+	templateData, err = render.RenderJSON(templateData, props)
+	if err != nil {
+		logger.Error("failed to render template data", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to render template data")))
+		return
 	}
 
 	var config map[string]any
@@ -362,20 +413,43 @@ func (srv *TemplatesController) SendTest(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	request, err := channels.ComposePayload(ctx, campaign.Channel, templateSender, providerDefaultSender, config, templateData, string(body.To))
+	var wrapper *channels.LinkWrapConfig
+	if len(srv.linkKey) > 0 && srv.trackingURL != "" && provider.LinkWrap {
+		wrapper = &channels.LinkWrapConfig{
+			Key:         srv.linkKey,
+			TrackingURL: srv.trackingURL,
+			ProjectID:   projectID,
+			CampaignID:  campaignID,
+		}
+
+		// TODO: we might want to create a type for props
+		props, ok := props["user"].(map[string]any)
+		if ok {
+			id, ok := props["id"].(string)
+			if ok {
+				wrapper.UserID, _ = uuid.Parse(id)
+			}
+		}
+	}
+
+	request, err := channels.ComposePayload(ctx, logger, campaign.Channel, templateSender, providerDefaultSender, config, templateData, string(body.To), wrapper)
 	if err != nil {
-		logger.Error("failed to compose payload", zap.Error(err))
+		logger.Warn("failed to compose payload", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe(err.Error())))
 		return
 	}
 
-	_, err = module.Send(ctx, request)
+	sendResp, err := module.Send(ctx, request)
 	if err != nil {
 		logger.Error("failed to send test", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrInternal(problem.Describe("failed to send test: "+err.Error())))
 		return
 	}
 
-	logger.Info("test sent", zap.String("to", string(body.To)))
+	logger.Info("test sent",
+		zap.String("to", string(body.To)),
+		zap.String("message_id", sendResp.ID),
+		zap.String("status", sendResp.Status),
+	)
 	w.WriteHeader(http.StatusNoContent)
 }

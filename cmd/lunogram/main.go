@@ -92,7 +92,7 @@ func run() error {
 	}
 
 	managementStore := management.NewState(db.Management)
-	usersStore := subjects.NewState(db.Subjects)
+	usersStore := subjects.NewState(db.Subjects, logger)
 	journeyStore := journey.NewState(db.Journey)
 
 	logger.Info("initializing block storage")
@@ -133,11 +133,17 @@ func run() error {
 	pub := pubsub.NewPublisher(jet, conf.Nats.Namespace)
 	req := pubsub.NewCaller(jet, conf.Nats.Namespace)
 	ns := consumer.Namespace(conf.Nats.Namespace)
-	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, conf.PublicURL)
+
+	trackingURL := conf.Link.TrackingBaseURL()
+	linkKey := conf.Link.SecretBytes()
+
+	logger.Info("link wrapping enabled", zap.String("tracking_url", trackingURL))
+
+	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, conf.PublicBaseURL(), linkKey, trackingURL)
 
 	logger.Info("initializing cluster")
 
-	sched := scheduler.NewController(ctx, logger, conf, journeyStore, pub)
+	sched := scheduler.NewController(ctx, logger, conf, journeyStore, usersStore, pub)
 	lead := leader.NewHandler(sched, managementStore, logger)
 	cons, err := consensus.NewCluster(ctx, logger, conf)
 	if err != nil {

@@ -18,6 +18,7 @@ import { useRoute } from "../router"
 import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
+import { getUserDisplayName, getUserInitials } from "@/lib/name"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { UsersIcon as UsersPageIcon } from "@/components/icons"
 import api from "../../api"
@@ -44,6 +45,8 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { AttributeEditor } from "@/components/ui/attribute-editor"
+import { LocalePicker } from "@/components/locale/picker"
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export declare namespace Intl {
@@ -80,9 +83,16 @@ export default function Users() {
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
     const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
-    const [newUserFullName, setNewUserFullName] = useState("")
+    const [newUserExternalId, setNewUserExternalId] = useState("")
     const [newUserEmail, setNewUserEmail] = useState("")
     const [newUserPhone, setNewUserPhone] = useState("")
+    const [newUserTimezone, setNewUserTimezone] = useState(
+        () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    )
+    const [newUserLocale, setNewUserLocale] = useState(
+        () => navigator.languages[0]?.split("-")[0] ?? "en",
+    )
+    const [newUserData, setNewUserData] = useState<Record<string, unknown>>({})
     const [page, setPage] = useState(1)
     const limit = 25
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
@@ -113,44 +123,30 @@ export default function Users() {
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
 
-    const getUserDisplayName = (user: User) => {
-        if (user.full_name) return user.full_name
-        if ((user.data as Record<string, unknown>)?.full_name)
-            return (user.data as Record<string, unknown>).full_name as string
-        if (user.email) return user.email
-        return user.external_id ?? "No name"
-    }
-
-    const getUserInitials = (user: User) => {
-        const name = getUserDisplayName(user)
-        const parts = name.split(/[\s@.]+/)
-        if (parts.length >= 2) {
-            return (parts[0][0] + parts[1][0]).toUpperCase()
-        }
-        return name.substring(0, 2).toUpperCase()
-    }
-
     const createUser = async () => {
-        if (!newUserEmail.trim() && !newUserFullName.trim()) return
+        if (!newUserEmail.trim() && !newUserExternalId.trim()) return
 
         setIsCreating(true)
         try {
-            const locale = navigator.languages[0]?.split("-")[0] ?? "en"
             const newUser: User = {
                 anonymous_id: crypto.randomUUID() as UUID,
+                external_id: newUserExternalId.trim() || undefined,
                 email: newUserEmail.trim() || undefined,
                 phone: newUserPhone.trim() || undefined,
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                locale,
-                data: newUserFullName.trim() ? { full_name: newUserFullName.trim() } : {},
+                timezone: newUserTimezone.trim() || undefined,
+                locale: newUserLocale.trim() || undefined,
+                data: newUserData,
             } as User
 
             await api.users.create(projectId, newUser)
             await reload()
             setIsCreateOpen(false)
-            setNewUserFullName("")
+            setNewUserExternalId("")
             setNewUserEmail("")
             setNewUserPhone("")
+            setNewUserTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)
+            setNewUserLocale(navigator.languages[0]?.split("-")[0] ?? "en")
+            setNewUserData({})
         } finally {
             setIsCreating(false)
         }
@@ -417,7 +413,7 @@ export default function Users() {
 
             {/* Create User Dialog */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{t("create_user")}</DialogTitle>
                         <DialogDescription>
@@ -429,31 +425,60 @@ export default function Users() {
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="full_name">{t("full_name")}</Label>
+                            <Label htmlFor="external_id">{t("external_id")}</Label>
                             <Input
-                                id="full_name"
-                                placeholder={t("enter_full_name", "e.g., John Doe")}
-                                value={newUserFullName}
-                                onChange={(e) => setNewUserFullName(e.target.value)}
+                                id="external_id"
+                                placeholder={t("enter_external_id", "e.g., usr_123")}
+                                value={newUserExternalId}
+                                onChange={(e) => setNewUserExternalId(e.target.value)}
                             />
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="email">{t("email")}</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder={t("enter_email", "e.g., john@example.com")}
-                                value={newUserEmail}
-                                onChange={(e) => setNewUserEmail(e.target.value)}
-                            />
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            <div className="grid gap-2 content-start">
+                                <Label htmlFor="email">{t("email")}</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    placeholder={t("enter_email", "e.g., john@example.com")}
+                                    value={newUserEmail}
+                                    onChange={(e) => setNewUserEmail(e.target.value)}
+                                />
+                            </div>
+                            <div className="grid gap-2 content-start">
+                                <Label htmlFor="phone">{t("phone")}</Label>
+                                <Input
+                                    id="phone"
+                                    placeholder={t("enter_phone", "e.g., +1 555 0123")}
+                                    value={newUserPhone}
+                                    onChange={(e) => setNewUserPhone(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            <div className="grid gap-2 content-start">
+                                <Label htmlFor="timezone">{t("timezone")}</Label>
+                                <Input
+                                    id="timezone"
+                                    placeholder={t("enter_timezone", "e.g., America/New_York")}
+                                    value={newUserTimezone}
+                                    onChange={(e) => setNewUserTimezone(e.target.value)}
+                                />
+                            </div>
+                            <div className="grid gap-2 content-start">
+                                <Label>{t("locale.singular")}</Label>
+                                <LocalePicker value={newUserLocale} onChange={setNewUserLocale} />
+                            </div>
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="phone">{t("phone")}</Label>
-                            <Input
-                                id="phone"
-                                placeholder={t("enter_phone", "e.g., +1 555 0123")}
-                                value={newUserPhone}
-                                onChange={(e) => setNewUserPhone(e.target.value)}
+                            <Label>{t("data", "Data")}</Label>
+                            <AttributeEditor
+                                value={newUserData}
+                                onChange={setNewUserData}
+                                emptyTitle={t("no_data", "No data")}
+                                emptyDescription={t(
+                                    "no_data_description",
+                                    "Add custom attributes to this user.",
+                                )}
                             />
                         </div>
                     </div>
@@ -468,7 +493,7 @@ export default function Users() {
                         <Button
                             onClick={createUser}
                             disabled={
-                                (!newUserEmail.trim() && !newUserFullName.trim()) || isCreating
+                                (!newUserEmail.trim() && !newUserExternalId.trim()) || isCreating
                             }
                         >
                             {isCreating ? t("creating") : t("create")}

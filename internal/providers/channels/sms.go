@@ -18,9 +18,9 @@ type SMSTemplateData struct {
 
 // ComposeSMS creates a SendRequest for SMS delivery to a user.
 // templateSender and providerDefaultSender should be pre-resolved (or nil).
-func ComposeSMS(ctx context.Context, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, template management.Template, user *subjects.User) (*providers.SendRequest[map[string]any], error) {
+func ComposeSMS(ctx context.Context, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, template management.Template, user *subjects.User) (providers.SendRequest[map[string]any], error) {
 	if user.Phone == nil {
-		return nil, fmt.Errorf("user has no phone number")
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("user has no phone number")
 	}
 
 	return ComposeSMSPayload(ctx, templateSender, providerDefaultSender, config, template.Data, *user.Phone)
@@ -28,10 +28,10 @@ func ComposeSMS(ctx context.Context, templateSender, providerDefaultSender *mana
 
 // ComposeSMSPayload creates a SendRequest for SMS delivery to an explicit recipient.
 // It uses pre-resolved sender identities for the template and provider default_from.
-func ComposeSMSPayload(ctx context.Context, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, templateData json.RawMessage, to string) (*providers.SendRequest[map[string]any], error) {
+func ComposeSMSPayload(ctx context.Context, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, templateData json.RawMessage, to string) (providers.SendRequest[map[string]any], error) {
 	var data SMSTemplateData
 	if err := json.Unmarshal(templateData, &data); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal SMS template data: %w", err)
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("failed to unmarshal SMS template data: %w", err)
 	}
 
 	// Use the pre-resolved template sender identity.
@@ -46,7 +46,7 @@ func ComposeSMSPayload(ctx context.Context, templateSender, providerDefaultSende
 	}
 
 	if fromNumber == "" {
-		return nil, fmt.Errorf("no from number specified in template or provider config")
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("no from number specified in template or provider config")
 	}
 
 	payload := providers.SMSPayload{

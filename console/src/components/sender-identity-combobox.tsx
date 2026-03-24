@@ -116,6 +116,13 @@ export function SenderIdentityCombobox({
         fetchedRef.current = false
     }, [projectId, providerId, channel])
 
+    // Fetch on mount when a value is already set so the display resolves
+    React.useEffect(() => {
+        if (value && !fetchedRef.current) {
+            fetchIdentities()
+        }
+    }, [value, fetchIdentities])
+
     // Fetch when popover opens, reset view
     React.useEffect(() => {
         if (open) {
@@ -272,10 +279,6 @@ export function SenderIdentityCombobox({
     )
 }
 
-// ---------------------------------------------------------------------------
-// List View — search & select from existing addresses
-// ---------------------------------------------------------------------------
-
 interface ListViewProps {
     channel: "email" | "sms"
     loading: boolean
@@ -402,10 +405,6 @@ function ListView({
         </div>
     )
 }
-
-// ---------------------------------------------------------------------------
-// Create View — inline form for adding a new sender address
-// ---------------------------------------------------------------------------
 
 interface CreateViewProps {
     channel: "email" | "sms"

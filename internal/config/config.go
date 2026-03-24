@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"github.com/lunogram/platform/internal/claim"
@@ -15,17 +16,26 @@ type Node struct {
 	HTTPAddress     string `env:"HTTP_ADDRESS" envDefault:":8080"`
 	DatabaseMigrate bool   `env:"DATABASE_MIGRATE" envDefault:"true"`
 
-	PublicURL string      `env:"PUBLIC_URL" envDefault:"http://localhost:8080"`
-	Redis     Redis       `envPrefix:"REDIS_"`
-	Cluster   Cluster     `envPrefix:"CLUSTER_"`
-	Auth      Auth        `envPrefix:"AUTH_"`
-	Nats      Nats        `envPrefix:"NATS_"`
-	WASM      WASM        `envPrefix:"WASM_"`
-	Webhook   Webhook     `envPrefix:"WEBHOOK_"`
-	RBAC      rbac.Config `envPrefix:"RBAC_"`
-	HTTP      http.Config
-	Store     store.Config
-	Storage   storage.Config
+	PublicURL  string      `env:"PUBLIC_URL" envDefault:"http://localhost:8080"`
+	Redis      Redis       `envPrefix:"REDIS_"`
+	Cluster    Cluster     `envPrefix:"CLUSTER_"`
+	Auth       Auth        `envPrefix:"AUTH_"`
+	Nats       Nats        `envPrefix:"NATS_"`
+	WASM       WASM        `envPrefix:"WASM_"`
+	Webhook    Webhook     `envPrefix:"WEBHOOK_"`
+	Link       Link        `envPrefix:"LINK_"`
+	RBAC       rbac.Config `envPrefix:"RBAC_"`
+	Enterprise Enterprise
+	Console    Console `envPrefix:"CONSOLE_"`
+	HTTP       http.Config
+	Store      store.Config
+	Storage    storage.Config
+}
+
+// PublicBaseURL returns the public URL with any trailing slash removed,
+// suitable for concatenating with request paths.
+func (n Node) PublicBaseURL() string {
+	return strings.TrimRight(n.PublicURL, "/")
 }
 
 type Auth struct {
@@ -79,4 +89,47 @@ type Webhook struct {
 	EmailTemplatesURL string `env:"EMAIL_TEMPLATES_URL"`
 	// EmailTemplatesTimeout is the HTTP timeout for the email templates webhook call
 	EmailTemplatesTimeout time.Duration `env:"EMAIL_TEMPLATES_TIMEOUT" envDefault:"10s"`
+
+	// MaxBodySize is the maximum allowed request body size in bytes for
+	// inbound provider webhook payloads. Defaults to 1 MB.
+	MaxBodySize int64 `env:"MAX_BODY_SIZE" envDefault:"1048576"`
+}
+
+// Link holds the configuration for self-hosted click tracking.
+// Both Secret (a 64-char hex string encoding a 32-byte AES-256 key) and
+// TrackingURL (the public base URL for the redirect endpoint) must be set
+// for link wrapping to be active.
+type Link struct {
+	// Secret is a 32-byte key encoded, used for
+	// AES-256-GCM encryption of click-tracking tokens.
+	Secret string `env:"SECRET"`
+	// TrackingURL is the public base URL where the redirect endpoint is
+	// reachable (e.g. "https://t.example.com"). When empty, the platform's
+	// PublicURL is used instead.
+	TrackingURL string `env:"TRACKING_URL"`
+}
+
+// SecretBytes decodes the hex-encoded secret into raw bytes.
+func (l Link) SecretBytes() []byte {
+	if l.Secret == "" {
+		return nil
+	}
+
+	key := make([]byte, 32)
+	copy(key, []byte(l.Secret))
+	return key
+}
+
+// TrackingBaseURL returns the base URL for click-tracking redirects,
+// with any trailing slash removed.
+func (l Link) TrackingBaseURL() string {
+	return strings.TrimRight(l.TrackingURL, "/")
+}
+
+type Console struct {
+	// ClerkPublishableKey is the Clerk publishable key injected into the
+	// console frontend at runtime via /config.js. This allows different
+	// environments (stg, prd) to use different Clerk instances without
+	// rebuilding the Docker image.
+	ClerkPublishableKey string `env:"CLERK_PUBLISHABLE_KEY"`
 }

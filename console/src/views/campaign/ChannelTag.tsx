@@ -11,7 +11,7 @@ interface ChannelTagParams {
 export function ChannelIcon({ channel }: Pick<ChannelTagParams, "channel">) {
     const icons = {
         email: EmailIcon,
-        text: TextIcon,
+        sms: TextIcon,
         push: PushIcon,
     }
     const Icon = icons[channel]
@@ -27,7 +27,7 @@ export default function ChannelTag({
 
     const title: Record<ChannelType, string> = {
         email: t("email"),
-        text: t("text"),
+        sms: t("sms"),
         push: t("push"),
     }
 

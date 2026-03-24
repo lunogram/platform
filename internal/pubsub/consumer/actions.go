@@ -23,7 +23,7 @@ func ActionSchemasHandler(logger *zap.Logger, usrs *subjects.State) HandlerFunc 
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal action schema message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming action schema", zap.Stringer("action_id", event.ActionID), zap.String("function_id", event.FunctionID), zap.Stringer("project_id", event.ProjectID))

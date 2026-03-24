@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
+	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/rules"
@@ -23,11 +23,13 @@ import (
 // It also triggers list recomputation and journey advancement for all users in the organization.
 func OrganizationEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
+		start := time.Now()
 		event := schemas.OrganizationEvent{}
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal organization event message", zap.Error(err))
-			return err
+			metrics.EventsProcessingErrorsTotal.WithLabelValues("organization").Inc()
+			return Permanent(err)
 		}
 
 		logger.Info("incoming organization event", zap.String("name", event.Name), zap.Stringer("project_id", event.ProjectID))
@@ -66,6 +68,8 @@ func OrganizationEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *j
 		}
 
 		logger.Info("organization event processed successfully", zap.Stringer("event_id", event.ID), zap.Stringer("organization_id", event.OrganizationID))
+		metrics.EventsProcessedTotal.WithLabelValues("organization").Inc()
+		metrics.EventsProcessingDurationSeconds.WithLabelValues("organization").Observe(time.Since(start).Seconds())
 		return nil
 	}
 }
@@ -106,6 +110,8 @@ func PublishOrganizationEventListDependencies(ctx context.Context, logger *zap.L
 				logger.Error("failed to publish list recompute", zap.Error(err))
 				return err
 			}
+
+			metrics.EventsListRecomputesTotal.Inc()
 		}
 
 		return nil
@@ -163,45 +169,23 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 				return err
 			}
 
-			// Query users - either filtered by UserRule or all users in the organization
-			rows, err := queryOrganizationMembers(ctx, usrs, event.ProjectID, event.OrganizationID, entrance.UserRule)
-			if err != nil {
-				logger.Error("failed to query organization user IDs", zap.Error(err))
-				return err
-			}
-
-			total := 0
-			for rows.Next() {
-				var userID uuid.UUID
-				if err := rows.Scan(&userID); err != nil {
-					rows.Close()
-					logger.Error("failed to scan user ID", zap.Error(err))
-					return err
-				}
-
+			scanner := func(userID uuid.UUID) error {
 				eligible, err := jrny.CheckEntryEligibility(ctx, dep.JourneyID, userID, dep.ExternalID, multiple, concurrent)
 				if err != nil {
-					rows.Close()
 					logger.Error("failed to check journey entry eligibility", zap.Error(err), zap.Stringer("user_id", userID))
 					return err
 				}
 
 				if !eligible {
 					logger.Info("user not eligible to enter journey", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("user_id", userID))
-					continue
-				}
-
-				entry, err := uuid.NewRandom()
-				if err != nil {
-					rows.Close()
-					logger.Error("failed to generate journey entry ID", zap.Error(err))
-					return err
+					metrics.JourneyEntranceRejectionsTotal.WithLabelValues(event.ProjectID.String(), "not_eligible").Inc()
+					return nil
 				}
 
 				now := time.Now()
 				result := journey.JourneyUserState{
 					JourneyID:      dep.JourneyID,
-					JourneyEntryID: entry,
+					JourneyEntryID: uuid.New(),
 					UserID:         userID,
 					ExternalStepID: dep.ExternalID,
 					Data:           json.RawMessage(data),
@@ -210,52 +194,43 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 
 				_, err = jrny.CreateUserJourneyState(ctx, result)
 				if err != nil {
-					rows.Close()
 					logger.Error("failed to create journey user state", zap.Error(err), zap.Stringer("user_id", userID))
 					return err
 				}
+
+				metrics.JourneyEntrancesTotal.WithLabelValues(event.ProjectID.String()).Inc()
+				metrics.EventsJourneyTriggersTotal.WithLabelValues("organization").Inc()
 
 				for _, child := range dep.Children {
 					step := JourneyStep{
 						ProjectID:      event.ProjectID,
 						JourneyID:      dep.JourneyID,
-						JourneyEntryID: entry,
+						JourneyEntryID: result.JourneyEntryID,
 						ExternalStepID: child.ChildExternalID,
 						UserID:         userID,
 					}
 
 					err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID, userID), step)
 					if err != nil {
-						rows.Close()
 						logger.Error("failed to publish journey state", zap.Error(err), zap.Stringer("user_id", userID))
 						return err
 					}
 				}
 
-				total++
+				return nil
 			}
 
-			rows.Close()
-			if err := rows.Err(); err != nil {
-				logger.Error("error iterating organization users", zap.Error(err))
+			err = usrs.ScanOrganizationMembers(ctx, event.ProjectID, event.OrganizationID, entrance.UserRule, scanner)
+			if err != nil {
+				logger.Error("failed to scan organization members", zap.Error(err))
 				return err
 			}
 
-			logger.Info("completed triggering journey entrance step", zap.Stringer("journey_id", dep.JourneyID), zap.Int("user_count", total))
+			logger.Info("completed triggering journey entrance step", zap.Stringer("journey_id", dep.JourneyID))
 		}
 
 		return nil
 	}
-}
-
-// queryOrganizationMembers returns user IDs for members of the given organization.
-// If a userRule is provided, it filters users matching the rule; otherwise returns all members.
-func queryOrganizationMembers(ctx context.Context, usrs *subjects.State, projectID, organizationID uuid.UUID, userRule *rules.RuleSet) (*sqlx.Rows, error) {
-	if userRule != nil {
-		return usrs.QueryOrganizationUsersMatchingRule(ctx, projectID, organizationID, *userRule)
-	}
-
-	return usrs.QueryOrganizationUserIDs(ctx, organizationID)
 }
 
 // OrganizationEventSchemasHandler creates a handler that extracts and stores organization event schema information.
@@ -265,7 +240,7 @@ func OrganizationEventSchemasHandler(logger *zap.Logger, usrs *subjects.State) H
 		err := json.Unmarshal(msg.Data(), &event)
 		if err != nil {
 			logger.Error("failed to unmarshal organization event message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming organization event schema", zap.Stringer("event_id", event.ID), zap.Stringer("project_id", event.ProjectID))

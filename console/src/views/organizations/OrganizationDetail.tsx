@@ -7,6 +7,7 @@ import {
     FileText,
     Users,
     Activity,
+    CalendarClock,
     ChevronRight,
     MoreHorizontal,
 } from "lucide-react"
@@ -76,6 +77,12 @@ export default function OrganizationDetail() {
         { key: "details", to: "", label: t("details"), icon: FileText },
         { key: "members", to: "members", label: t("members"), icon: Users },
         { key: "events", to: "events", label: t("events"), icon: Activity },
+        {
+            key: "scheduled",
+            to: "scheduled",
+            label: t("scheduled", "Scheduled"),
+            icon: CalendarClock,
+        },
     ]
 
     return (

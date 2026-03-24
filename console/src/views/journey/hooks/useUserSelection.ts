@@ -4,6 +4,8 @@ import oapiClient from "@/oapi/client"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router"
+import { fetchEventSource } from "@microsoft/fetch-event-source"
+import { client } from "@/api"
 
 const STORAGE_KEY = (projectId: string, journeyId: string) =>
     `journey_follow_${projectId}_${journeyId}`
@@ -13,24 +15,34 @@ export function useUserSelection(
     journeyId: string,
     onUserEnteredNode: (external_id: string) => void,
     onStepExecuted: (external_id: string) => void,
+    onStopFollowing?: () => void,
+    entranceId?: string | null,
 ) {
     const { t } = useTranslation()
     const [searchParams, setSearchParams] = useSearchParams()
 
-    const eventSourceRef = useRef<EventSource | null>(null)
+    const abortControllerRef = useRef<AbortController | null>(null)
     const activeUserIdRef = useRef<string | null>(null)
     const onUserEnteredNodeRef = useRef(onUserEnteredNode)
     onUserEnteredNodeRef.current = onUserEnteredNode
     const onStepExecutedRef = useRef(onStepExecuted)
     onStepExecutedRef.current = onStepExecuted
+    const onStopFollowingRef = useRef(onStopFollowing)
+    onStopFollowingRef.current = onStopFollowing
+    const entranceIdRef = useRef(entranceId)
+    entranceIdRef.current = entranceId
 
     const stopFollowing = useCallback(() => {
-        if (eventSourceRef.current) {
-            eventSourceRef.current.close()
-            eventSourceRef.current = null
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+            abortControllerRef.current = null
         }
         activeUserIdRef.current = null
         sessionStorage.removeItem(STORAGE_KEY(projectId, journeyId))
+        // Reset visual state before clearing the search param, so the
+        // node/edge updates batch together in a single render cycle
+        // rather than being split across a React Router navigation.
+        onStopFollowingRef.current?.()
         setSearchParams({})
         // NOTE: adding followUser to deps is physically impossible because it has this function in it's own deps
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -38,50 +50,101 @@ export function useUserSelection(
 
     useEffect(() => {
         return () => {
-            if (eventSourceRef.current) {
-                eventSourceRef.current.close()
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort()
             }
         }
     }, [])
 
+    /**
+     * Opens an SSE stream and returns a promise that resolves once the
+     * connection is established (onopen fires with 200 OK). This lets
+     * callers wait for the stream to be ready before triggering work
+     * that would publish events the stream must not miss.
+     */
     const followUser = useCallback(
-        (userId: string) => {
+        (userId: string): Promise<void> => {
             activeUserIdRef.current = userId
             sessionStorage.setItem(STORAGE_KEY(projectId, journeyId), userId)
-            setSearchParams({ follow: userId })
+            setSearchParams((prev) => {
+                const next = new URLSearchParams(prev)
+                next.set("follow", userId)
+                return next
+            })
 
-            if (eventSourceRef.current) {
-                eventSourceRef.current.close()
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort()
             }
 
-            const es = new EventSource(apiUrl(projectId, `journeys/${journeyId}/users/${userId}`), {
-                withCredentials: true,
+            const abortController = new AbortController()
+            abortControllerRef.current = abortController
+
+            const url = apiUrl(projectId, `journeys/${journeyId}/users/${userId}`)
+
+            return new Promise<void>((resolve, reject) => {
+                fetchEventSource(url, {
+                    signal: abortController.signal,
+                    credentials: "include",
+                    onopen: async (response) => {
+                        if (!response.ok) {
+                            reject(new Error(`SSE connection failed: ${response.status}`))
+                            return
+                        }
+                        resolve()
+                    },
+                    onmessage: (event) => {
+                        switch (event.event) {
+                            case "step": {
+                                const data = JSON.parse(event.data)
+                                // When scoped to a specific entrance, ignore
+                                // events from other concurrent entrances.
+                                if (
+                                    entranceIdRef.current &&
+                                    data.journey_entry_id &&
+                                    data.journey_entry_id !== entranceIdRef.current
+                                ) {
+                                    break
+                                }
+                                onUserEnteredNodeRef.current(data.external_step_id)
+
+                                if (data.step_type === "exit") {
+                                    stopFollowing()
+                                }
+                                break
+                            }
+                            case "step_executed": {
+                                const data = JSON.parse(event.data)
+                                if (
+                                    entranceIdRef.current &&
+                                    data.journey_entry_id &&
+                                    data.journey_entry_id !== entranceIdRef.current
+                                ) {
+                                    break
+                                }
+                                onStepExecutedRef.current(data.external_step_id)
+                                break
+                            }
+                            case "cancelled": {
+                                stopFollowing()
+                                break
+                            }
+                            case "error": {
+                                console.error("SSE server error:", event.data)
+                                toast.error("Connection lost. Please try following the user again.")
+                                stopFollowing()
+                                break
+                            }
+                        }
+                    },
+                    onerror: (err) => {
+                        console.error("SSE connection error:", err)
+                        toast.error("Connection lost. Please try following the user again.")
+                        reject(err)
+                        // Throw to prevent automatic retry
+                        throw err
+                    },
+                })
             })
-
-            es.addEventListener("step", (e) => {
-                const data = JSON.parse(e.data)
-                onUserEnteredNodeRef.current(data.external_step_id)
-
-                if (data.step_type === "exit") {
-                    stopFollowing()
-                }
-            })
-
-            es.addEventListener("step_executed", (e) => {
-                const data = JSON.parse(e.data)
-                onStepExecutedRef.current(data.external_step_id)
-            })
-
-            es.onerror = (e) => {
-                console.error("EventSource error:", e)
-                toast.error("Connection lost. Please try following the user again.")
-
-                if (eventSourceRef.current) {
-                    eventSourceRef.current.close()
-                }
-            }
-
-            eventSourceRef.current = es
         },
         [projectId, journeyId, stopFollowing, setSearchParams],
     )
@@ -89,7 +152,11 @@ export function useUserSelection(
     const triggerUser = useCallback(
         async (stepId: string, userId: string, data?: Record<string, unknown>) => {
             try {
-                followUser(userId)
+                // 1. Open SSE stream first and wait for connection to be established
+                //    so we never miss events that fire immediately after the trigger POST.
+                await followUser(userId)
+
+                // 2. Now that the stream is open, trigger the journey
                 const { error } = await oapiClient.POST(
                     "/api/admin/projects/{projectID}/journeys/{journeyID}/users/{userID}",
                     {
@@ -103,13 +170,33 @@ export function useUserSelection(
                         body: { externalStepID: stepId, data },
                     },
                 )
-                if (error) throw new Error(error.detail ?? "Failed to trigger user")
+
+                if (error) {
+                    // POST failed — close the SSE stream we just opened
+                    stopFollowing()
+                    throw new Error(error.detail ?? "Failed to trigger user")
+                }
+
                 toast.success(t("user_triggered"))
             } catch (e) {
                 toast.error(`Error: ${e}`)
             }
         },
-        [projectId, journeyId, t, followUser],
+        [projectId, journeyId, t, followUser, stopFollowing],
+    )
+
+    const cancelExecution = useCallback(
+        async (userId: string) => {
+            try {
+                await client.delete(
+                    `/admin/projects/${projectId}/journeys/${journeyId}/users/${userId}`,
+                )
+                stopFollowing()
+            } catch (e) {
+                toast.error(`Error cancelling execution: ${e}`)
+            }
+        },
+        [projectId, journeyId, stopFollowing],
     )
 
     const skipDelay = useCallback(
@@ -152,6 +239,8 @@ export function useUserSelection(
     return {
         triggerUser,
         followUser,
+        stopFollowing,
+        cancelExecution,
         skipDelay,
         skipDelayForActiveUser,
         searchParams,

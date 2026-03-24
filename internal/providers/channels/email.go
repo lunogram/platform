@@ -47,9 +47,9 @@ type EmailTemplateData struct {
 
 // ComposeEmail creates a SendRequest for email delivery to a user.
 // templateSender and providerDefaultSender should be pre-resolved (or nil).
-func ComposeEmail(ctx context.Context, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, template management.Template, user *subjects.User) (*providers.SendRequest[map[string]any], error) {
+func ComposeEmail(ctx context.Context, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, template management.Template, user *subjects.User) (providers.SendRequest[map[string]any], error) {
 	if user.Email == nil {
-		return nil, fmt.Errorf("user has no email address")
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("user has no email address")
 	}
 
 	return ComposeEmailPayload(ctx, templateSender, providerDefaultSender, config, template.Data, *user.Email)
@@ -91,6 +91,11 @@ func ComposeEmailTemplateData(ctx context.Context, renderer *pubsub.EmailRendere
 		email.Text = email.Plaintext.Custom
 	}
 
+	// Clear Code fields after rendering. The source and bundle contain JSX/JS
+	// which may include {{ }} style objects (e.g. inline styles) that the
+	// downstream Liquid renderer would incorrectly try to evaluate.
+	email.Code = EmailCodeData{}
+
 	out, err := json.Marshal(email)
 	if err != nil {
 		return nil, fmt.Errorf("marshal template data: %w", err)
@@ -101,10 +106,10 @@ func ComposeEmailTemplateData(ctx context.Context, renderer *pubsub.EmailRendere
 
 // ComposeEmailPayload creates a SendRequest for email delivery to an explicit recipient.
 // It uses pre-resolved sender identities for the template and provider default_from.
-func ComposeEmailPayload(ctx context.Context, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, templateData json.RawMessage, to string) (*providers.SendRequest[map[string]any], error) {
+func ComposeEmailPayload(ctx context.Context, templateSender, providerDefaultSender *management.SenderIdentity, config map[string]any, templateData json.RawMessage, to string) (providers.SendRequest[map[string]any], error) {
 	var data EmailTemplateData
 	if err := json.Unmarshal(templateData, &data); err != nil {
-		return nil, fmt.Errorf("failed to parse email template data: %w", err)
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("failed to parse email template data: %w", err)
 	}
 
 	// Use the pre-resolved template sender identity.
@@ -137,7 +142,15 @@ func ComposeEmailPayload(ctx context.Context, templateSender, providerDefaultSen
 	}
 
 	if fromAddress == "" {
-		return nil, fmt.Errorf("no from address specified in template or provider config")
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("no from address specified in template or provider config")
+	}
+
+	if data.Subject == "" {
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("email subject is required")
+	}
+
+	if data.HTML == "" && data.Text == "" {
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("email body is required: provide either html or text content")
 	}
 
 	payload := providers.EmailPayload{

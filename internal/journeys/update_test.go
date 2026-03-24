@@ -15,6 +15,7 @@ import (
 	teststore "github.com/lunogram/platform/internal/store/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func setupStore(t *testing.T) (*management.State, *subjects.State, *sqlx.DB) {
@@ -22,7 +23,7 @@ func setupStore(t *testing.T) (*management.State, *subjects.State, *sqlx.DB) {
 
 	mgmt, usrs, _ := teststore.RunPostgreSQL(t)
 
-	return management.NewState(mgmt), subjects.NewState(usrs), usrs
+	return management.NewState(mgmt), subjects.NewState(usrs, zap.NewNop()), usrs
 }
 
 func TestHandleUpdate(t *testing.T) {

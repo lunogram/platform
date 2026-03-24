@@ -3,11 +3,11 @@ import { useNavigate } from "react-router"
 import { useTranslation } from "react-i18next"
 import { ArrowLeft, ArrowRight, Puzzle, Search } from "lucide-react"
 
-import api from "../../api"
+import oapiClient from "@/oapi/client"
+import type { ProviderMeta } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
-import type { ProviderMeta } from "../../types"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -24,7 +24,15 @@ export default function NewIntegration() {
     const [searchQuery, setSearchQuery] = useState("")
 
     const [options] = useResolver(
-        useCallback(async () => await api.providers.options(project.id), [project]),
+        useCallback(async () => {
+            const { data } = await oapiClient.GET(
+                "/api/admin/projects/{projectID}/providers/meta",
+                {
+                    params: { path: { projectID: project.id } },
+                },
+            )
+            return data
+        }, [project]),
     )
 
     const filteredOptions = useMemo(() => {
@@ -35,7 +43,7 @@ export default function NewIntegration() {
             (o: ProviderMeta) =>
                 o.name.toLowerCase().includes(q) ||
                 o.type.toLowerCase().includes(q) ||
-                o.group.toLowerCase().includes(q) ||
+                o.channels?.some((c) => c.toLowerCase().includes(q)) ||
                 o.description?.toLowerCase().includes(q),
         )
     }, [options, searchQuery])
@@ -127,7 +135,7 @@ export default function NewIntegration() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {filteredOptions.map((option: ProviderMeta) => {
-                            const key = `${option.group}-${option.type}`
+                            const key = option.type
                             const showIcon = option.icon && !failedIcons.has(key)
                             return (
                                 <Card
@@ -136,7 +144,7 @@ export default function NewIntegration() {
                                     className="group flex items-center gap-4 p-4 cursor-pointer transition-colors hover:border-primary hover:bg-accent/50"
                                     onClick={() =>
                                         navigate(
-                                            `/projects/${project.id}/integrations/new/${option.group}/${option.type}`,
+                                            `/projects/${project.id}/integrations/new/${option.type}`,
                                         )
                                     }
                                     onMouseEnter={() => setHoveredMeta(option)}
@@ -162,12 +170,15 @@ export default function NewIntegration() {
                                             <span className="text-sm font-medium">
                                                 {option.name}
                                             </span>
-                                            <Badge
-                                                variant="secondary"
-                                                className="text-[10px] px-1.5 py-0"
-                                            >
-                                                {snakeToTitle(option.group)}
-                                            </Badge>
+                                            {option.channels?.map((ch) => (
+                                                <Badge
+                                                    key={ch}
+                                                    variant="secondary"
+                                                    className="text-[10px] px-1.5 py-0"
+                                                >
+                                                    {snakeToTitle(ch)}
+                                                </Badge>
+                                            ))}
                                         </div>
                                         {option.description && (
                                             <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">

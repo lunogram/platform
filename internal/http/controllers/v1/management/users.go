@@ -29,7 +29,7 @@ func NewUsersController(logger *zap.Logger, pub pubsub.Publisher, usersDB, journ
 		logger:        logger,
 		usersDB:       usersDB,
 		mgmt:          mgmt,
-		users:         subjects.NewState(usersDB),
+		users:         subjects.NewState(usersDB, logger),
 		journey:       journey.NewState(journeyDB),
 		pubsub:        pub,
 		maxUploadSize: maxUploadSize,
@@ -477,6 +477,59 @@ func (srv *UsersController) GetUserEvents(w http.ResponseWriter, r *http.Request
 	json.Write(w, http.StatusOK, response)
 }
 
+func (srv *UsersController) CreateUserEvent(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID) {
+	ctx := r.Context()
+	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("events", projectID))
+	if err != nil {
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	_, err = srv.users.GetUser(ctx, projectID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		srv.logger.Info("user not found")
+		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
+		return
+	}
+
+	if err != nil {
+		srv.logger.Error("failed to get user", zap.Error(err))
+		oapi.WriteProblem(w, err)
+		return
+	}
+
+	var body oapi.CreateUserEventJSONRequestBody
+	err = json.Decode(r.Body, &body)
+	if err != nil {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
+		return
+	}
+
+	if body.Name == "" {
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("name is required")))
+		return
+	}
+
+	msg := schemas.UserEvent{
+		ProjectID: projectID,
+		UserID:    userID,
+		Name:      body.Name,
+		Data:      nil,
+	}
+	if body.Data != nil {
+		msg.Data = *body.Data
+	}
+
+	err = srv.pubsub.Publish(ctx, schemas.UserEventsProcess(projectID), msg)
+	if err != nil {
+		srv.logger.Error("failed to publish user event", zap.Error(err))
+		oapi.WriteProblem(w, problem.ErrInternal())
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (srv *UsersController) GetUserSubscriptions(w http.ResponseWriter, r *http.Request, projectID, userID uuid.UUID, params oapi.GetUserSubscriptionsParams) {
 	ctx := r.Context()
 	err := srv.engine.Allowed(ctx, rbac.Read, rbac.ProjectResourceScope("subscriptions", projectID))
@@ -768,7 +821,7 @@ func (srv *UsersController) processUserImport(ctx context.Context, logger *zap.L
 	}
 
 	defer tx.Rollback() //nolint:errcheck
-	usersStore := subjects.NewState(tx)
+	usersStore := subjects.NewState(tx, logger)
 
 	for {
 		record, err := reader.Read()
@@ -842,17 +895,10 @@ func (srv *UsersController) GetUserOrganizations(w http.ResponseWriter, r *http.
 
 	logger.Info("user organizations listed", zap.Int("total", total), zap.Int("count", len(orgs)))
 
-	response := struct {
-		Results []oapi.Organization `json:"results"`
-		Total   int                 `json:"total"`
-		Limit   int                 `json:"limit"`
-		Offset  int                 `json:"offset"`
-	}{
+	json.Write(w, http.StatusOK, oapi.OrganizationList{
 		Results: subjects.Organizations(orgs).OAPI(),
 		Total:   total,
 		Limit:   pagination.Limit,
 		Offset:  pagination.Offset,
-	}
-
-	json.Write(w, http.StatusOK, response)
+	})
 }
