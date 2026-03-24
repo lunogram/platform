@@ -54,7 +54,7 @@ func ComposePush(_ context.Context, config map[string]any, template management.T
 
 	// Ensure we have at least one target
 	if len(tokens) == 0 && len(webPushTargets) == 0 {
-		return nil, fmt.Errorf("user has no devices with push tokens or web push subscriptions")
+		return providers.SendRequest[map[string]any]{}, fmt.Errorf("user has no devices with push tokens or web push subscriptions")
 	}
 
 	custom := data.Data

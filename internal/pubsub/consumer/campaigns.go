@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/lunogram/platform/internal/providers/channels"
@@ -239,7 +240,13 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 		response, err := provider.Send(ctx, request)
 		if err != nil {
 			logger.Error("failed to send via provider", zap.Error(err))
-			// Check if the WASM provider signaled a permanent failure.
+
+			// TEMPORARY: wasm crashes are not retryable — stop the storm
+			if strings.Contains(err.Error(), "wasm error:") {
+				logger.Warn("wasm crash detected, marking as permanent failure")
+				return Permanent(err)
+			}
+
 			var providerErr *wasmProviders.ProviderError
 			if errors.As(err, &providerErr) && providerErr.IsPermanent() {
 				return Permanent(err)
