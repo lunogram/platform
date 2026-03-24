@@ -25,7 +25,7 @@ type VapidKeysStore struct {
 
 func (s *VapidKeysStore) GetVapidKeyByName(name string) (*VapidKey, error) {
 	var key VapidKey
-	err := s.db.Get(&key, "SELECT * FROM vapid_keys WHERE name = $1 AND deleted_at IS NULL", name)
+	err := s.db.Get(&key, "SELECT id, name, public_key, private_key, created_at FROM vapid_keys WHERE name = $1 AND deleted_at IS NULL", name)
 	if err != nil {
 		return nil, err
 	}

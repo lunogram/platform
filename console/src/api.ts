@@ -679,6 +679,26 @@ const api = {
                 })
                 .then((r) => r.data),
     },
+
+    push: {
+        getVapidPublicKey: async () =>
+            await client
+                .get<{ public_key: string }>("/admin/push/vapid-public-key")
+                .then((r) => r.data),
+    },
+
+    devices: {
+        register: async (
+            projectId: UUID,
+            params: {
+                device_id: string
+                external_id?: string
+                anonymous_id?: string
+                os?: "web" | "ios" | "android"
+                push_subscription: any
+            },
+        ) => await client.post(`${projectUrl(projectId)}/devices`, params).then((r) => r.data),
+    },
 }
 
 export default api

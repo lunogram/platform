@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS devices_project_device_active_idx 

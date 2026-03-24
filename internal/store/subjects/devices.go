@@ -86,6 +86,18 @@ func (d *Device) HasFCMToken() bool {
 	return d.Token != nil && *d.Token != ""
 }
 
+func (d *DeviceCredentials) Scan(src any) error {
+	b, ok := src.([]byte)
+	if !ok {
+		return nil
+	}
+	return json.Unmarshal(b, d)
+}
+
+func (d DeviceCredentials) Value() (driver.Value, error) {
+	return json.Marshal(d)
+}
+
 type DeviceCredentials struct {
 	Endpoint       string     `json:"endpoint"`
 	ExpirationTime *time.Time `json:"expirationTime,omitempty"`
@@ -225,5 +237,42 @@ func (s *DevicesStore) UpdateDeviceCredentials(ctx context.Context, projectID, u
 	}
 
 	_, err = s.db.ExecContext(ctx, query, credsJSON, projectID, userID, deviceID)
+	return err
+}
+
+func (s *DevicesStore) UpsertDevice(ctx context.Context, device Device) error {
+	query := `
+	INSERT INTO devices (project_id, user_id, device_id, device_credentials, token, os, os_version, model, app_build, app_version)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	ON CONFLICT (project_id, device_id, deleted_at) 
+	WHERE deleted_at IS NULL
+	DO UPDATE SET 
+		user_id = EXCLUDED.user_id,
+		device_credentials = EXCLUDED.device_credentials,
+		token = COALESCE(EXCLUDED.token, devices.token),
+		os = COALESCE(EXCLUDED.os, devices.os),
+		os_version = COALESCE(EXCLUDED.os_version, devices.os_version),
+		model = COALESCE(EXCLUDED.model, devices.model),
+		app_build = COALESCE(EXCLUDED.app_build, devices.app_build),
+		app_version = COALESCE(EXCLUDED.app_version, devices.app_version),
+		updated_at = NOW()`
+
+	credsJSON, err := json.Marshal(device.DeviceCredentials)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.ExecContext(ctx, query,
+		device.ProjectID,
+		device.UserID,
+		device.DeviceID,
+		credsJSON,
+		device.Token,
+		device.OS,
+		device.OSVersion,
+		device.Model,
+		device.AppBuild,
+		device.AppVersion,
+	)
 	return err
 }

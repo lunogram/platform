@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	ApiKeyAuthScopes     = "ApiKeyAuth.Scopes"
 	HttpBearerAuthScopes = "HttpBearerAuth.Scopes"
 )
 
@@ -462,8 +461,13 @@ type Delivery struct {
 
 // DeviceRegistration defines model for DeviceRegistration.
 type DeviceRegistration struct {
-	AppVersion       *string               `json:"app_version,omitempty"`
-	DeviceId         string                `json:"device_id"`
+	// AnonymousId User's anonymous ID to associate with this device
+	AnonymousId *string `json:"anonymous_id,omitempty"`
+	AppVersion  *string `json:"app_version,omitempty"`
+	DeviceId    string  `json:"device_id"`
+
+	// ExternalId User's external ID to associate with this device
+	ExternalId       *string               `json:"external_id,omitempty"`
 	Model            *string               `json:"model,omitempty"`
 	Os               *DeviceRegistrationOs `json:"os,omitempty"`
 	OsVersion        *string               `json:"os_version,omitempty"`
@@ -475,6 +479,9 @@ type DeviceRegistration struct {
 			P256dh string `json:"p256dh"`
 		} `json:"keys"`
 	} `json:"push_subscription"`
+
+	// UserId User ID to associate with this device
+	UserId *string `json:"user_id,omitempty"`
 }
 
 // DeviceRegistrationOs defines model for DeviceRegistration.Os.
@@ -1826,6 +1833,9 @@ type UpdateTemplateJSONRequestBody = UpdateTemplate
 // SendTestJSONRequestBody defines body for SendTest for application/json ContentType.
 type SendTestJSONRequestBody = SendTest
 
+// RegisterDeviceJSONRequestBody defines body for RegisterDevice for application/json ContentType.
+type RegisterDeviceJSONRequestBody = DeviceRegistration
+
 // UploadDocumentsMultipartRequestBody defines body for UploadDocuments for multipart/form-data ContentType.
 type UploadDocumentsMultipartRequestBody UploadDocumentsMultipartBody
 
@@ -1912,9 +1922,6 @@ type UpdateAdminJSONRequestBody = UpdateAdmin
 
 // AuthCallbackJSONRequestBody defines body for AuthCallback for application/json ContentType.
 type AuthCallbackJSONRequestBody = AuthCallbackRequest
-
-// RegisterDeviceJSONRequestBody defines body for RegisterDevice for application/json ContentType.
-type RegisterDeviceJSONRequestBody = DeviceRegistration
 
 // AsIdentifyUser0 returns the union data inside the IdentifyUser as a IdentifyUser0
 func (t IdentifyUser) AsIdentifyUser0() (IdentifyUser0, error) {
@@ -2289,6 +2296,11 @@ type ClientInterface interface {
 	// GetCampaignUsers request
 	GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// RegisterDeviceWithBody request with any body
+	RegisterDeviceWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RegisterDevice(ctx context.Context, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListDocuments request
 	ListDocuments(ctx context.Context, projectID openapi_types.UUID, params *ListDocumentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2628,11 +2640,6 @@ type ClientInterface interface {
 
 	// AuthWebhook request
 	AuthWebhook(ctx context.Context, driver AuthWebhookParamsDriver, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// RegisterDeviceWithBody request with any body
-	RegisterDeviceWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	RegisterDevice(ctx context.Context, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) GetProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3153,6 +3160,30 @@ func (c *Client) SendTest(ctx context.Context, projectID openapi_types.UUID, cam
 
 func (c *Client) GetCampaignUsers(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCampaignUsersRequest(c.Server, projectID, campaignID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterDeviceWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequestWithBody(c.Server, projectID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RegisterDevice(ctx context.Context, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRegisterDeviceRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4617,30 +4648,6 @@ func (c *Client) GetAuthMethods(ctx context.Context, reqEditors ...RequestEditor
 
 func (c *Client) AuthWebhook(ctx context.Context, driver AuthWebhookParamsDriver, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAuthWebhookRequest(c.Server, driver)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RegisterDeviceWithBody(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRegisterDeviceRequestWithBody(c.Server, projectID, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RegisterDevice(ctx context.Context, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRegisterDeviceRequest(c.Server, projectID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6299,6 +6306,53 @@ func NewGetCampaignUsersRequest(server string, projectID openapi_types.UUID, cam
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewRegisterDeviceRequest calls the generic RegisterDevice builder with application/json body
+func NewRegisterDeviceRequest(server string, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRegisterDeviceRequestWithBody(server, projectID, "application/json", bodyReader)
+}
+
+// NewRegisterDeviceRequestWithBody generates requests for RegisterDevice with any type of body
+func NewRegisterDeviceRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/devices", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -11348,53 +11402,6 @@ func NewAuthWebhookRequest(server string, driver AuthWebhookParamsDriver) (*http
 	return req, nil
 }
 
-// NewRegisterDeviceRequest calls the generic RegisterDevice builder with application/json body
-func NewRegisterDeviceRequest(server string, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewRegisterDeviceRequestWithBody(server, projectID, "application/json", bodyReader)
-}
-
-// NewRegisterDeviceRequestWithBody generates requests for RegisterDevice with any type of body
-func NewRegisterDeviceRequestWithBody(server string, projectID openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/client/projects/%s/devices", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -11557,6 +11564,11 @@ type ClientWithResponsesInterface interface {
 
 	// GetCampaignUsersWithResponse request
 	GetCampaignUsersWithResponse(ctx context.Context, projectID openapi_types.UUID, campaignID openapi_types.UUID, params *GetCampaignUsersParams, reqEditors ...RequestEditorFn) (*GetCampaignUsersResponse, error)
+
+	// RegisterDeviceWithBodyWithResponse request with any body
+	RegisterDeviceWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
+
+	RegisterDeviceWithResponse(ctx context.Context, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
 
 	// ListDocumentsWithResponse request
 	ListDocumentsWithResponse(ctx context.Context, projectID openapi_types.UUID, params *ListDocumentsParams, reqEditors ...RequestEditorFn) (*ListDocumentsResponse, error)
@@ -11897,11 +11909,6 @@ type ClientWithResponsesInterface interface {
 
 	// AuthWebhookWithResponse request
 	AuthWebhookWithResponse(ctx context.Context, driver AuthWebhookParamsDriver, reqEditors ...RequestEditorFn) (*AuthWebhookResponse, error)
-
-	// RegisterDeviceWithBodyWithResponse request with any body
-	RegisterDeviceWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
-
-	RegisterDeviceWithResponse(ctx context.Context, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error)
 }
 
 type GetProfileResponse struct {
@@ -12636,6 +12643,27 @@ func (r GetCampaignUsersResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetCampaignUsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RegisterDeviceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r RegisterDeviceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RegisterDeviceResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -14867,27 +14895,6 @@ func (r AuthWebhookResponse) StatusCode() int {
 	return 0
 }
 
-type RegisterDeviceResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-}
-
-// Status returns HTTPResponse.Status
-func (r RegisterDeviceResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r RegisterDeviceResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 // GetProfileWithResponse request returning *GetProfileResponse
 func (c *ClientWithResponses) GetProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetProfileResponse, error) {
 	rsp, err := c.GetProfile(ctx, reqEditors...)
@@ -15270,6 +15277,23 @@ func (c *ClientWithResponses) GetCampaignUsersWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetCampaignUsersResponse(rsp)
+}
+
+// RegisterDeviceWithBodyWithResponse request with arbitrary body returning *RegisterDeviceResponse
+func (c *ClientWithResponses) RegisterDeviceWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDeviceWithBody(ctx, projectID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDeviceResponse(rsp)
+}
+
+func (c *ClientWithResponses) RegisterDeviceWithResponse(ctx context.Context, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
+	rsp, err := c.RegisterDevice(ctx, projectID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRegisterDeviceResponse(rsp)
 }
 
 // ListDocumentsWithResponse request returning *ListDocumentsResponse
@@ -16344,23 +16368,6 @@ func (c *ClientWithResponses) AuthWebhookWithResponse(ctx context.Context, drive
 	return ParseAuthWebhookResponse(rsp)
 }
 
-// RegisterDeviceWithBodyWithResponse request with arbitrary body returning *RegisterDeviceResponse
-func (c *ClientWithResponses) RegisterDeviceWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
-	rsp, err := c.RegisterDeviceWithBody(ctx, projectID, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRegisterDeviceResponse(rsp)
-}
-
-func (c *ClientWithResponses) RegisterDeviceWithResponse(ctx context.Context, projectID openapi_types.UUID, body RegisterDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterDeviceResponse, error) {
-	rsp, err := c.RegisterDevice(ctx, projectID, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRegisterDeviceResponse(rsp)
-}
-
 // ParseGetProfileResponse parses an HTTP response from a GetProfileWithResponse call
 func ParseGetProfileResponse(rsp *http.Response) (*GetProfileResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -17372,6 +17379,22 @@ func ParseGetCampaignUsersResponse(rsp *http.Response) (*GetCampaignUsersRespons
 		}
 		response.JSONDefault = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParseRegisterDeviceResponse parses an HTTP response from a RegisterDeviceWithResponse call
+func ParseRegisterDeviceResponse(rsp *http.Response) (*RegisterDeviceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RegisterDeviceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil
@@ -20418,22 +20441,6 @@ func ParseAuthWebhookResponse(rsp *http.Response) (*AuthWebhookResponse, error) 
 	return response, nil
 }
 
-// ParseRegisterDeviceResponse parses an HTTP response from a RegisterDeviceWithResponse call
-func ParseRegisterDeviceResponse(rsp *http.Response) (*RegisterDeviceResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RegisterDeviceResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	return response, nil
-}
-
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Get current admin profile
@@ -20532,6 +20539,9 @@ type ServerInterface interface {
 	// Get campaign users
 	// (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 	GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams)
+	// Register device
+	// (POST /api/admin/projects/{projectID}/devices)
+	RegisterDevice(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 	// List documents
 	// (GET /api/admin/projects/{projectID}/documents)
 	ListDocuments(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, params ListDocumentsParams)
@@ -20820,9 +20830,6 @@ type ServerInterface interface {
 	// Auth provider webhook
 	// (POST /api/auth/{driver}/webhook)
 	AuthWebhook(w http.ResponseWriter, r *http.Request, driver AuthWebhookParamsDriver)
-	// Register device
-	// (POST /api/client/projects/{projectID}/devices)
-	RegisterDevice(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -21018,6 +21025,12 @@ func (_ Unimplemented) SendTest(w http.ResponseWriter, r *http.Request, projectI
 // Get campaign users
 // (GET /api/admin/projects/{projectID}/campaigns/{campaignID}/users)
 func (_ Unimplemented) GetCampaignUsers(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, campaignID openapi_types.UUID, params GetCampaignUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Register device
+// (POST /api/admin/projects/{projectID}/devices)
+func (_ Unimplemented) RegisterDevice(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -21594,12 +21607,6 @@ func (_ Unimplemented) GetAuthMethods(w http.ResponseWriter, r *http.Request) {
 // Auth provider webhook
 // (POST /api/auth/{driver}/webhook)
 func (_ Unimplemented) AuthWebhook(w http.ResponseWriter, r *http.Request, driver AuthWebhookParamsDriver) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Register device
-// (POST /api/client/projects/{projectID}/devices)
-func (_ Unimplemented) RegisterDevice(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -22916,6 +22923,37 @@ func (siw *ServerInterfaceWrapper) GetCampaignUsers(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCampaignUsers(w, r, projectID, campaignID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RegisterDevice operation middleware
+func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegisterDevice(w, r, projectID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -26940,37 +26978,6 @@ func (siw *ServerInterfaceWrapper) AuthWebhook(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
-// RegisterDevice operation middleware
-func (siw *ServerInterfaceWrapper) RegisterDevice(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "projectID" -------------
-	var projectID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, ApiKeyAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RegisterDevice(w, r, projectID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -27179,6 +27186,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/campaigns/{campaignID}/users", wrapper.GetCampaignUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/devices", wrapper.RegisterDevice)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/documents", wrapper.ListDocuments)
@@ -27467,9 +27477,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/auth/{driver}/webhook", wrapper.AuthWebhook)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/client/projects/{projectID}/devices", wrapper.RegisterDevice)
 	})
 
 	return r

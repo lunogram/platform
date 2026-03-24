@@ -37,6 +37,7 @@ func NewController(logger *zap.Logger, managementDB, usersDB, journeyDB *sqlx.DB
 		DocumentsController:        NewDocumentsController(logger, managementDB, storage, cfg.Storage.MaxUploadSize, urlResolver, engine),
 		ProvidersController:        NewProvidersController(logger, managementDB, registry, engine),
 		SubscriptionsController:    NewSubscriptionsController(logger, managementDB, engine),
+		DevicesController:          NewDevicesController(logger, managementDB, usersDB, engine),
 		ApiKeysController:          NewApiKeysController(logger, managementDB, engine),
 		EmailTemplatesController:   NewEmailTemplatesController(logger, webhookCaller, engine),
 		SenderIdentitiesController: NewSenderIdentitiesController(logger, managementDB, engine),
@@ -65,6 +66,7 @@ type Controller struct {
 	*DocumentsController
 	*ProvidersController
 	*SubscriptionsController
+	*DevicesController
 	*AuthController
 	*ApiKeysController
 	*ActionsController

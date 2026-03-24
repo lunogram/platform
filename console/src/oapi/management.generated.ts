@@ -412,7 +412,7 @@ export interface paths {
         patch: operations["updateProject"];
         trace?: never;
     };
-    "/api/client/projects/{projectID}/devices": {
+    "/api/admin/projects/{projectID}/devices": {
         parameters: {
             query?: never;
             header?: never;
@@ -3715,7 +3715,13 @@ export interface components {
             };
         };
         DeviceRegistration: {
+            /** @description User ID to associate with this device */
+            user_id?: string;
             device_id: string;
+            /** @description User's external ID to associate with this device */
+            external_id?: string;
+            /** @description User's anonymous ID to associate with this device */
+            anonymous_id?: string;
             /** @enum {string} */
             os?: "web" | "ios" | "android";
             os_version?: string;

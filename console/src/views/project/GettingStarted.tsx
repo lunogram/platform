@@ -11,20 +11,26 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ProjectContext } from "@/contexts"
+import { AdminContext, ProjectContext } from "@/contexts"
 import { useNavigate, useParams } from "react-router"
 import type { UUID } from "@/types/common"
 import { NIL } from "uuid"
 import api from "@/api"
 import { cn } from "@/utils"
 import { t } from "i18next"
-import { Puzzle } from "lucide-react"
+import { BellIcon, Puzzle } from "lucide-react"
 
 export default function ProjectGettingStarted() {
     const navigate = useNavigate()
     const { projectId = NIL as UUID } = useParams<{ projectId: UUID }>()
     const [project, setProject] = useContext(ProjectContext)
     const [isJourneyLoading, setIsJourneyLoading] = useState(false)
+    const [isPushLoading, setIsPushLoading] = useState(false)
+    const [pushStatus, setPushStatus] = useState<"unsupported" | "default" | "granted" | "denied">(
+        "default",
+    )
+
+    const profile = useContext(AdminContext)
 
     useEffect(() => {
         const loadProject = async () => {
@@ -32,64 +38,13 @@ export default function ProjectGettingStarted() {
             setProject(projectState)
         }
         loadProject().catch(console.error)
+
+        if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+            setPushStatus("unsupported")
+        } else {
+            setPushStatus(Notification.permission)
+        }
     }, [setProject, projectId])
-
-    // Probably in App.tsx or useEffect somewhere
-    useEffect(() => {
-        // Check if browser even supports this cursed API
-        if (!("serviceWorker" in navigator)) {
-            console.log("Browser said no to service workers, RIP")
-            return
-        }
-
-        if (!("Notification" in window)) {
-            console.log("This browser is from 2009 apparently")
-            return
-        }
-
-        console.log("Permission status:", Notification.permission)
-
-        Notification.requestPermission().then((permission) => {
-            if (permission === "granted") {
-                // Now you can test SW notifications
-                console.log("User said yes, we can annoy them now")
-
-                // Register the service worker
-                navigator.serviceWorker
-                    .register("/sw.js", { scope: "/" }) // path relative to your domain root
-                    .then((registration) => {
-                        console.log("SW registered, somehow:", registration)
-                    })
-                    .catch((error) => {
-                        console.error("SW registration ate shit:", error)
-                    })
-                    .finally(() => {
-                        navigator.serviceWorker.getRegistration().then((reg) => {
-                            console.log("Current SW:", reg)
-                            if (reg && reg.active) {
-                                console.log("SW is active, script URL:", reg.active.scriptURL)
-                            }
-                        })
-
-                        navigator.serviceWorker.ready.then((reg) => {
-                            reg.showNotification("Manual Test", {
-                                body: "If this shows, notifications work",
-                            })
-                        })
-
-                        navigator.serviceWorker.controller?.postMessage({
-                            type: "test",
-                            payload: "hello from main thread",
-                        })
-                    })
-            } else if (permission === "denied") {
-                console.log("User said fuck off")
-                // They have to manually unblock in browser settings now
-            } else {
-                console.log("User dismissed, coward")
-            }
-        })
-    }, []) // Empty deps = run once on mount
 
     const hasCampaigns = (project.campaigns_count ?? 0) > 0
     const hasJourneys = (project.journeys_count ?? 0) > 0
@@ -109,6 +64,53 @@ export default function ProjectGettingStarted() {
             await navigate(`/projects/${projectId}/journeys/${journey.id}`)
         } finally {
             setIsJourneyLoading(false)
+        }
+    }
+
+    async function enablePushNotifications() {
+        setIsPushLoading(true)
+        try {
+            const permission = await Notification.requestPermission()
+            setPushStatus(permission)
+
+            if (permission !== "granted") {
+                return
+            }
+
+            const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" })
+            await navigator.serviceWorker.ready
+
+            const { public_key } = await api.push.getVapidPublicKey()
+
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: public_key,
+            })
+
+            const subJSON = subscription.toJSON()
+
+            // Just use a random user or an anonymous ID to register the device for testing
+            const testDeviceId = "test-device-" + Math.random().toString(36).substring(7)
+
+            await api.devices.register(projectId, {
+                device_id: testDeviceId,
+                os: "web",
+                user_id: "804d7827-25b7-4fbc-8852-b1b110686a47",
+                push_subscription: {
+                    endpoint: subJSON.endpoint,
+                    keys: subJSON.keys,
+                    expiration_time: subJSON.expirationTime
+                        ? new Date(subJSON.expirationTime).toISOString()
+                        : undefined,
+                },
+            })
+
+            alert("Push notifications enabled! You can now send a test push campaign.")
+        } catch (error) {
+            console.error("Failed to enable push:", error)
+            alert("Failed to enable push notifications. Check console.")
+        } finally {
+            setIsPushLoading(false)
         }
     }
 
@@ -213,6 +215,51 @@ export default function ProjectGettingStarted() {
                                 )}
                             </li>
                         ))}
+
+                        {/* Add Push Notification Test Tool */}
+                        <li className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 py-4 first:pt-2 last:pb-2">
+                            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                                <div
+                                    className={cn(
+                                        "w-6 h-6 flex items-center justify-center shrink-0 text-muted-foreground [&>svg]:w-full [&>svg]:h-full",
+                                        pushStatus === "granted" && "text-green-600",
+                                    )}
+                                >
+                                    {pushStatus === "granted" ? (
+                                        <CheckCircleIcon />
+                                    ) : (
+                                        <BellIcon className="h-4 w-4" />
+                                    )}
+                                </div>
+                                <div className="flex flex-col flex-1 gap-1 min-w-0">
+                                    <strong className="text-sm font-medium">
+                                        Test Web Push Notifications
+                                    </strong>
+                                    <small className="text-xs text-muted-foreground">
+                                        Enable notifications for your browser to receive test
+                                        messages.
+                                    </small>
+                                </div>
+                            </div>
+                            <div className="sm:shrink-0 pl-9 sm:pl-0">
+                                <Button
+                                    variant="secondary"
+                                    onClick={enablePushNotifications}
+                                    disabled={
+                                        pushStatus === "unsupported" || pushStatus === "denied"
+                                    }
+                                    isLoading={isPushLoading}
+                                >
+                                    {pushStatus === "granted"
+                                        ? "Enabled"
+                                        : pushStatus === "denied"
+                                          ? "Denied"
+                                          : pushStatus === "unsupported"
+                                            ? "Unsupported"
+                                            : "Enable"}
+                                </Button>
+                            </div>
+                        </li>
                     </ul>
                 </CardContent>
             </Card>
