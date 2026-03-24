@@ -387,8 +387,9 @@ func TestDeleteJourney(t *testing.T) {
 
 			if test.code == 204 {
 				journey, err := journeysStore.GetJourney(ctx, projectID, test.journeyID)
-				require.Error(t, err)
-				require.Nil(t, journey)
+				require.NoError(t, err)
+				require.NotNil(t, journey)
+				require.NotNil(t, journey.DeletedAt)
 			}
 		})
 	}
