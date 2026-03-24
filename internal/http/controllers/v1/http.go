@@ -132,7 +132,9 @@ func NewServer(ctx graceful.Context, logger *zap.Logger, cfg config.Node, db *st
 	MountProxyRoutes(logger, router, cfg.Enterprise)
 
 	// Serve console (admin UI) as fallback
-	consoleHandler, err := console.Handler()
+	consoleHandler, err := console.Handler(console.Config{
+		ClerkPublishableKey: cfg.Console.ClerkPublishableKey,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create console handler: %w", err)
 	}

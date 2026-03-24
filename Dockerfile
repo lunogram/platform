@@ -12,7 +12,6 @@ COPY pkg/ ./pkg/
 RUN mkdir -p internal/providers/modules internal/actions/modules && make modules
 
 FROM node:24-alpine AS console
-ARG VITE_CLERK_PUBLISHABLE_KEY
 
 WORKDIR /src
 RUN corepack enable

@@ -9,7 +9,8 @@ import { ClerkProvider } from "@clerk/clerk-react"
 import "./variables.css"
 import "./index.css"
 
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+const CLERK_PUBLISHABLE_KEY =
+    window.__CONFIG__?.CLERK_PUBLISHABLE_KEY || import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement)
 root.render(
