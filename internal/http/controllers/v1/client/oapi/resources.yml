@@ -497,8 +497,9 @@ components:
           format: date-time
           example: "2025-11-23T17:20:00.021Z"
 
-    IdentifyRequest:
+    UserIdentifier:
       type: object
+      description: User identification object containing external and/or anonymous identifiers
       properties:
         external_id:
           type: string
@@ -510,6 +511,14 @@ components:
           nullable: true
           example: "anon_abc123"
           description: Anonymous identifier for the user
+
+    IdentifyRequest:
+      type: object
+      required:
+        - user
+      properties:
+        user:
+          $ref: "#/components/schemas/UserIdentifier"
         email:
           type: string
           nullable: true
@@ -558,16 +567,8 @@ components:
           type: string
           example: "purchase_completed"
           description: The name of the event
-        anonymous_id:
-          type: string
-          nullable: true
-          example: "anon_abc123"
-          description: Anonymous identifier for the user
-        external_id:
-          type: string
-          nullable: true
-          example: "user_12345"
-          description: External identifier for the user from your system
+        user:
+          $ref: "#/components/schemas/UserIdentifier"
         data:
           type: object
           additionalProperties: true
@@ -671,17 +672,11 @@ components:
 
     DeleteUserRequest:
       type: object
+      required:
+        - user
       properties:
-        external_id:
-          type: string
-          nullable: true
-          example: "user_456"
-          description: External identifier for the user
-        anonymous_id:
-          type: string
-          nullable: true
-          example: "anon_789"
-          description: Anonymous identifier for the user
+        user:
+          $ref: "#/components/schemas/UserIdentifier"
 
     DeleteOrganizationRequest:
       type: object
@@ -747,16 +742,8 @@ components:
           type: string
           example: "renewal_date"
           description: The name of the scheduled resource
-        external_id:
-          type: string
-          nullable: true
-          example: "user_12345"
-          description: External identifier for the user from your system
-        anonymous_id:
-          type: string
-          nullable: true
-          example: "anon_abc123"
-          description: Anonymous identifier for the user
+        user:
+          $ref: "#/components/schemas/UserIdentifier"
         scheduled_at:
           type: string
           format: date-time
@@ -834,16 +821,8 @@ components:
           type: string
           example: "renewal_date"
           description: The name of the scheduled resource to delete
-        external_id:
-          type: string
-          nullable: true
-          example: "user_12345"
-          description: External identifier for the user from your system
-        anonymous_id:
-          type: string
-          nullable: true
-          example: "anon_abc123"
-          description: Anonymous identifier for the user
+        user:
+          $ref: "#/components/schemas/UserIdentifier"
 
     ScheduledAccepted:
       type: object

@@ -69,11 +69,13 @@ func (srv *ClientController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 
 	for _, event := range events {
 		msg := schemas.UserEvent{
-			ProjectID:   projectID,
-			Name:        event.Name,
-			AnonymousId: event.AnonymousId,
-			Data:        event.Data,
-			ExternalId:  event.ExternalId,
+			ProjectID: projectID,
+			Name:      event.Name,
+			Data:      event.Data,
+		}
+		if event.User != nil {
+			msg.ExternalId = event.User.ExternalId
+			msg.AnonymousId = event.User.AnonymousId
 		}
 
 		err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), msg)
@@ -117,7 +119,7 @@ func (srv *ClientController) DeleteUserClient(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if req.ExternalId == nil && req.AnonymousId == nil {
+	if req.User.ExternalId == nil && req.User.AnonymousId == nil {
 		srv.logger.Error("either external_id or anonymous_id is required")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either external_id or anonymous_id is required")))
 		return
@@ -126,7 +128,7 @@ func (srv *ClientController) DeleteUserClient(w http.ResponseWriter, r *http.Req
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("deleting user")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, req.ExternalId, req.AnonymousId)
+	userID, err := srv.users.LookupUserID(ctx, projectID, req.User.ExternalId, req.User.AnonymousId)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -181,7 +183,7 @@ func (srv *ClientController) UpsertUserClient(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if req.ExternalId == nil && req.AnonymousId == nil {
+	if req.User.ExternalId == nil && req.User.AnonymousId == nil {
 		logger.Error("either external_id or anonymous_id is required")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either external_id or anonymous_id is required")))
 		return
@@ -203,8 +205,8 @@ func (srv *ClientController) UpsertUserClient(w http.ResponseWriter, r *http.Req
 	}
 
 	params := subjects.UpsertUserParams{
-		AnonymousID: req.AnonymousId,
-		ExternalID:  req.ExternalId,
+		AnonymousID: req.User.AnonymousId,
+		ExternalID:  req.User.ExternalId,
 		Email:       req.Email,
 		Phone:       req.Phone,
 		Timezone:    req.Timezone,
@@ -692,7 +694,7 @@ func (srv *ClientController) UpsertUserScheduledClient(w http.ResponseWriter, r 
 		return
 	}
 
-	if req.ExternalId == nil && req.AnonymousId == nil {
+	if req.User == nil || (req.User.ExternalId == nil && req.User.AnonymousId == nil) {
 		srv.logger.Error("either external_id or anonymous_id is required")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either external_id or anonymous_id is required")))
 		return
@@ -735,8 +737,8 @@ func (srv *ClientController) UpsertUserScheduledClient(w http.ResponseWriter, r 
 		Type:        scheduleType,
 		SubjectType: "user",
 		Data:        data,
-		ExternalId:  req.ExternalId,
-		AnonymousId: req.AnonymousId,
+		ExternalId:  req.User.ExternalId,
+		AnonymousId: req.User.AnonymousId,
 		StartAt:     req.StartAt,
 		Interval:    req.Interval,
 	}
@@ -798,7 +800,7 @@ func (srv *ClientController) DeleteUserScheduledClient(w http.ResponseWriter, r 
 		return
 	}
 
-	if req.ExternalId == nil && req.AnonymousId == nil {
+	if req.User == nil || (req.User.ExternalId == nil && req.User.AnonymousId == nil) {
 		srv.logger.Error("either external_id or anonymous_id is required")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either external_id or anonymous_id is required")))
 		return
@@ -807,7 +809,7 @@ func (srv *ClientController) DeleteUserScheduledClient(w http.ResponseWriter, r 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("scheduled_name", req.Name))
 	logger.Info("deleting user scheduled")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, req.ExternalId, req.AnonymousId)
+	userID, err := srv.users.LookupUserID(ctx, projectID, req.User.ExternalId, req.User.AnonymousId)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))

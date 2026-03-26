@@ -91,8 +91,10 @@ func TestPostEvents(t *testing.T) {
 		"single event with external_id": {
 			events: []map[string]any{
 				{
-					"name":        "purchase_completed",
-					"external_id": "user_123",
+					"name": "purchase_completed",
+					"user": map[string]any{
+						"external_id": "user_123",
+					},
 					"data": map[string]any{
 						"amount":     99.99,
 						"product_id": "prod_456",
@@ -104,8 +106,10 @@ func TestPostEvents(t *testing.T) {
 		"single event with anonymous_id": {
 			events: []map[string]any{
 				{
-					"name":         "page_viewed",
-					"anonymous_id": "anon_abc",
+					"name": "page_viewed",
+					"user": map[string]any{
+						"anonymous_id": "anon_abc",
+					},
 					"data": map[string]any{
 						"page": "/home",
 					},
@@ -116,28 +120,29 @@ func TestPostEvents(t *testing.T) {
 		"multiple events": {
 			events: []map[string]any{
 				{
-					"name":        "cart_updated",
-					"external_id": "user_123",
+					"name": "cart_updated",
+					"user": map[string]any{
+						"external_id": "user_123",
+					},
 				},
 				{
-					"name":         "product_viewed",
-					"anonymous_id": "anon_xyz",
+					"name": "product_viewed",
+					"user": map[string]any{
+						"anonymous_id": "anon_xyz",
+					},
 				},
 			},
 			statusCode: 202,
 		},
-		"event with user data": {
+		"event with user identifiers": {
 			events: []map[string]any{
 				{
-					"name":        "signup",
-					"external_id": "user_789",
+					"name": "signup",
 					"user": map[string]any{
-						"email":    "user@example.com",
-						"timezone": "America/New_York",
-						"locale":   "en",
-						"data": map[string]any{
-							"plan": "premium",
-						},
+						"external_id": "user_789",
+					},
+					"data": map[string]any{
+						"plan": "premium",
 					},
 				},
 			},
@@ -214,8 +219,10 @@ func TestPostEventsMissingRBACScope(t *testing.T) {
 
 	events := []map[string]any{
 		{
-			"name":        "test_event",
-			"external_id": "user_123",
+			"name": "test_event",
+			"user": map[string]any{
+				"external_id": "user_123",
+			},
 		},
 	}
 
@@ -241,8 +248,10 @@ func TestPostEventsMissingProjectID(t *testing.T) {
 
 	events := []map[string]any{
 		{
-			"name":        "test_event",
-			"external_id": "user_123",
+			"name": "test_event",
+			"user": map[string]any{
+				"external_id": "user_123",
+			},
 		},
 	}
 
@@ -281,8 +290,10 @@ func TestPostEventsWithNestedData(t *testing.T) {
 
 	events := []map[string]any{
 		{
-			"name":        "complex_event",
-			"external_id": "user_123",
+			"name": "complex_event",
+			"user": map[string]any{
+				"external_id": "user_123",
+			},
 			"data": map[string]any{
 				"product": map[string]any{
 					"id":    "prod_123",
@@ -358,10 +369,12 @@ func TestClientIdentifyUser(t *testing.T) {
 	tests := map[string]test{
 		"identify with external_id": {
 			body: map[string]any{
-				"external_id": "user_123",
-				"email":       "user@example.com",
-				"timezone":    "America/Chicago",
-				"locale":      "en",
+				"user": map[string]any{
+					"external_id": "user_123",
+				},
+				"email":    "user@example.com",
+				"timezone": "America/Chicago",
+				"locale":   "en",
 				"data": map[string]any{
 					"first_name": "John",
 					"last_name":  "Smith",
@@ -371,22 +384,28 @@ func TestClientIdentifyUser(t *testing.T) {
 		},
 		"identify with anonymous_id": {
 			body: map[string]any{
-				"anonymous_id": "anon_abc",
-				"email":        "test@test.com",
+				"user": map[string]any{
+					"anonymous_id": "anon_abc",
+				},
+				"email": "test@test.com",
 			},
 			statusCode: 200,
 		},
 		"identify with minimal data": {
 			body: map[string]any{
-				"external_id": "user_456",
+				"user": map[string]any{
+					"external_id": "user_456",
+				},
 			},
 			statusCode: 200,
 		},
 		"identify with phone": {
 			body: map[string]any{
-				"external_id": "user_789",
-				"phone":       "+1234567890",
-				"timezone":    "Europe/Amsterdam",
+				"user": map[string]any{
+					"external_id": "user_789",
+				},
+				"phone":    "+1234567890",
+				"timezone": "Europe/Amsterdam",
 			},
 			statusCode: 200,
 		},
@@ -444,6 +463,7 @@ func TestClientIdentifyUserInvalidRequest(t *testing.T) {
 	tests := map[string]test{
 		"missing both identifiers": {
 			body: map[string]any{
+				"user":  map[string]any{},
 				"email": "test@test.com",
 			},
 			statusCode: 400,
@@ -499,8 +519,10 @@ func TestClientIdentifyUserMissingRBACScope(t *testing.T) {
 	controller := setupClientController(t)
 
 	body, err := json.Marshal(map[string]any{
-		"external_id": "user_123",
-		"email":       "test@test.com",
+		"user": map[string]any{
+			"external_id": "user_123",
+		},
+		"email": "test@test.com",
 	})
 	require.NoError(t, err)
 
@@ -522,8 +544,10 @@ func TestClientIdentifyUserMissingProjectID(t *testing.T) {
 	require.NoError(t, err)
 
 	body, err := json.Marshal(map[string]any{
-		"external_id": "user_123",
-		"email":       "test@test.com",
+		"user": map[string]any{
+			"external_id": "user_123",
+		},
+		"email": "test@test.com",
 	})
 	require.NoError(t, err)
 
@@ -561,9 +585,11 @@ func TestClientIdentifyUserUpdateExisting(t *testing.T) {
 
 	// First identify call
 	body1, err := json.Marshal(map[string]any{
-		"external_id": "user_123",
-		"email":       "original@example.com",
-		"timezone":    "America/New_York",
+		"user": map[string]any{
+			"external_id": "user_123",
+		},
+		"email":    "original@example.com",
+		"timezone": "America/New_York",
 		"data": map[string]any{
 			"first_name": "John",
 		},
@@ -586,9 +612,11 @@ func TestClientIdentifyUserUpdateExisting(t *testing.T) {
 
 	// Second identify call with updated data
 	body2, err := json.Marshal(map[string]any{
-		"external_id": "user_123",
-		"email":       "updated@example.com",
-		"timezone":    "Europe/Amsterdam",
+		"user": map[string]any{
+			"external_id": "user_123",
+		},
+		"email":    "updated@example.com",
+		"timezone": "Europe/Amsterdam",
 		"data": map[string]any{
 			"first_name": "John",
 			"last_name":  "Doe",
@@ -635,9 +663,11 @@ func TestClientIdentifyUserWithBothIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 
 	body, err := json.Marshal(map[string]any{
-		"external_id":  "user_123",
-		"anonymous_id": "anon_abc",
-		"email":        "test@test.com",
+		"user": map[string]any{
+			"external_id":  "user_123",
+			"anonymous_id": "anon_abc",
+		},
+		"email": "test@test.com",
 	})
 	require.NoError(t, err)
 
@@ -942,8 +972,10 @@ func TestAddOrganizationUserClient(t *testing.T) {
 			// Create the user
 			userExternalID := tc.body["user_external_id"].(string)
 			userBody, err := json.Marshal(map[string]any{
-				"external_id": userExternalID,
-				"email":       userExternalID + "@example.com",
+				"user": map[string]any{
+					"external_id": userExternalID,
+				},
+				"email": userExternalID + "@example.com",
 			})
 			require.NoError(t, err)
 
@@ -1106,8 +1138,10 @@ func TestRemoveOrganizationUserClient(t *testing.T) {
 
 	// Create the user
 	userBody, err := json.Marshal(map[string]any{
-		"external_id": "user_456",
-		"email":       "user@example.com",
+		"user": map[string]any{
+			"external_id": "user_456",
+		},
+		"email": "user@example.com",
 	})
 	require.NoError(t, err)
 
