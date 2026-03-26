@@ -25,32 +25,32 @@ const (
 
 // DeleteOrganizationRequest defines model for DeleteOrganizationRequest.
 type DeleteOrganizationRequest struct {
-	// ExternalId External identifier for the organization
-	ExternalId string `json:"external_id"`
+	// Identifier Organization identification object containing an external identifier
+	Identifier OrganizationIdentifier `json:"identifier"`
 }
 
 // DeleteOrganizationScheduledRequest defines model for DeleteOrganizationScheduledRequest.
 type DeleteOrganizationScheduledRequest struct {
+	// Identifier Organization identification object containing an external identifier
+	Identifier OrganizationIdentifier `json:"identifier"`
+
 	// Name The name of the scheduled resource to delete
 	Name string `json:"name"`
-
-	// OrganizationExternalId External identifier for the organization from your system
-	OrganizationExternalId string `json:"organization_external_id"`
 }
 
 // DeleteUserRequest defines model for DeleteUserRequest.
 type DeleteUserRequest struct {
-	// User User identification object containing external and/or anonymous identifiers
-	User UserIdentifier `json:"user"`
+	// Identifier User identification object containing external and/or anonymous identifiers
+	Identifier UserIdentifier `json:"identifier"`
 }
 
 // DeleteUserScheduledRequest defines model for DeleteUserScheduledRequest.
 type DeleteUserScheduledRequest struct {
+	// Identifier User identification object containing external and/or anonymous identifiers
+	Identifier *UserIdentifier `json:"identifier,omitempty"`
+
 	// Name The name of the scheduled resource to delete
 	Name string `json:"name"`
-
-	// User User identification object containing external and/or anonymous identifiers
-	User *UserIdentifier `json:"user,omitempty"`
 }
 
 // Event defines model for Event.
@@ -58,26 +58,26 @@ type Event struct {
 	// Data Event-specific data
 	Data map[string]any `json:"data"`
 
+	// Identifier User identification object containing external and/or anonymous identifiers
+	Identifier *UserIdentifier `json:"identifier,omitempty"`
+
 	// Name The name of the event
 	Name string `json:"name"`
-
-	// User User identification object containing external and/or anonymous identifiers
-	User *UserIdentifier `json:"user,omitempty"`
 }
 
 // IdentifyRequest defines model for IdentifyRequest.
 type IdentifyRequest struct {
 	// Data User-specific attributes
-	Data   *map[string]any `json:"data"`
-	Email  *string         `json:"email"`
-	Locale *string         `json:"locale"`
+	Data  *map[string]any `json:"data"`
+	Email *string         `json:"email"`
+
+	// Identifier User identification object containing external and/or anonymous identifiers
+	Identifier UserIdentifier `json:"identifier"`
+	Locale     *string        `json:"locale"`
 
 	// Phone E.164 formatted phone number
 	Phone    *string `json:"phone"`
 	Timezone *string `json:"timezone"`
-
-	// User User identification object containing external and/or anonymous identifiers
-	User UserIdentifier `json:"user"`
 }
 
 // Organization defines model for Organization.
@@ -99,32 +99,40 @@ type OrganizationEvent struct {
 	// Data Event-specific data
 	Data *map[string]any `json:"data"`
 
+	// Identifier Organization identification object containing an external identifier
+	Identifier OrganizationIdentifier `json:"identifier"`
+
 	// Name The name of the event
 	Name string `json:"name"`
+}
 
-	// OrganizationExternalId External identifier for the organization
-	OrganizationExternalId string `json:"organization_external_id"`
+// OrganizationIdentifier Organization identification object containing an external identifier
+type OrganizationIdentifier struct {
+	// ExternalId External identifier for the organization from your system
+	ExternalId string `json:"external_id"`
 }
 
 // OrganizationRequest defines model for OrganizationRequest.
 type OrganizationRequest struct {
 	Data *map[string]any `json:"data"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string  `json:"external_id"`
-	Name       *string `json:"name"`
+	// Identifier Organization identification object containing an external identifier
+	Identifier OrganizationIdentifier `json:"identifier"`
+	Name       *string                `json:"name"`
 }
 
 // OrganizationUserRequest defines model for OrganizationUserRequest.
 type OrganizationUserRequest struct {
 	// Data Organization-specific data for this user
-	Data *map[string]any `json:"data"`
-
-	// OrganizationExternalId External identifier for the organization
-	OrganizationExternalId string `json:"organization_external_id"`
-
-	// UserExternalId External identifier for the user
-	UserExternalId string `json:"user_external_id"`
+	Data         *map[string]any `json:"data"`
+	Organization struct {
+		// Identifier Organization identification object containing an external identifier
+		Identifier OrganizationIdentifier `json:"identifier"`
+	} `json:"organization"`
+	User struct {
+		// Identifier User identification object containing external and/or anonymous identifiers
+		Identifier UserIdentifier `json:"identifier"`
+	} `json:"user"`
 }
 
 // PostEventsRequest defines model for PostEventsRequest.
@@ -144,11 +152,14 @@ type Problem struct {
 
 // RemoveOrganizationUserRequest defines model for RemoveOrganizationUserRequest.
 type RemoveOrganizationUserRequest struct {
-	// OrganizationExternalId External identifier for the organization
-	OrganizationExternalId string `json:"organization_external_id"`
-
-	// UserExternalId External identifier for the user
-	UserExternalId string `json:"user_external_id"`
+	Organization struct {
+		// Identifier Organization identification object containing an external identifier
+		Identifier OrganizationIdentifier `json:"identifier"`
+	} `json:"organization"`
+	User struct {
+		// Identifier User identification object containing external and/or anonymous identifiers
+		Identifier UserIdentifier `json:"identifier"`
+	} `json:"user"`
 }
 
 // ScheduledAccepted defines model for ScheduledAccepted.
@@ -171,14 +182,14 @@ type UpsertOrganizationScheduledRequest struct {
 	// Data Scheduled resource data
 	Data *map[string]any `json:"data"`
 
+	// Identifier Organization identification object containing an external identifier
+	Identifier OrganizationIdentifier `json:"identifier"`
+
 	// Interval Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
 	Interval *string `json:"interval"`
 
 	// Name The name of the scheduled resource
 	Name string `json:"name"`
-
-	// OrganizationExternalId External identifier for the organization from your system
-	OrganizationExternalId string `json:"organization_external_id"`
 
 	// ScheduledAt The time at which the scheduled resource is set to trigger. Required for single schedules.
 	ScheduledAt *time.Time `json:"scheduled_at"`
@@ -192,6 +203,9 @@ type UpsertUserScheduledRequest struct {
 	// Data Scheduled resource data
 	Data *map[string]any `json:"data"`
 
+	// Identifier User identification object containing external and/or anonymous identifiers
+	Identifier *UserIdentifier `json:"identifier,omitempty"`
+
 	// Interval Interval for recurring schedules. When set, the schedule type is automatically set to recurring.
 	Interval *string `json:"interval"`
 
@@ -203,9 +217,6 @@ type UpsertUserScheduledRequest struct {
 
 	// StartAt Start time for recurring schedules. If omitted for recurring schedules, defaults to now.
 	StartAt *time.Time `json:"start_at"`
-
-	// User User identification object containing external and/or anonymous identifiers
-	User *UserIdentifier `json:"user,omitempty"`
 }
 
 // User defines model for User.

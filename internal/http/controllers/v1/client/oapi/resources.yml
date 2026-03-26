@@ -512,12 +512,23 @@ components:
           example: "anon_abc123"
           description: Anonymous identifier for the user
 
+    OrganizationIdentifier:
+      type: object
+      description: Organization identification object containing an external identifier
+      required:
+        - external_id
+      properties:
+        external_id:
+          type: string
+          example: "org_123"
+          description: External identifier for the organization from your system
+
     IdentifyRequest:
       type: object
       required:
-        - user
+        - identifier
       properties:
-        user:
+        identifier:
           $ref: "#/components/schemas/UserIdentifier"
         email:
           type: string
@@ -567,7 +578,7 @@ components:
           type: string
           example: "purchase_completed"
           description: The name of the event
-        user:
+        identifier:
           $ref: "#/components/schemas/UserIdentifier"
         data:
           type: object
@@ -627,12 +638,10 @@ components:
     OrganizationRequest:
       type: object
       required:
-        - external_id
+        - identifier
       properties:
-        external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
         name:
           type: string
           nullable: true
@@ -649,17 +658,23 @@ components:
     OrganizationUserRequest:
       type: object
       required:
-        - organization_external_id
-        - user_external_id
+        - organization
+        - user
       properties:
-        organization_external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization
-        user_external_id:
-          type: string
-          example: "user_456"
-          description: External identifier for the user
+        organization:
+          type: object
+          required:
+            - identifier
+          properties:
+            identifier:
+              $ref: "#/components/schemas/OrganizationIdentifier"
+        user:
+          type: object
+          required:
+            - identifier
+          properties:
+            identifier:
+              $ref: "#/components/schemas/UserIdentifier"
         data:
           type: object
           additionalProperties: true
@@ -673,35 +688,39 @@ components:
     DeleteUserRequest:
       type: object
       required:
-        - user
+        - identifier
       properties:
-        user:
+        identifier:
           $ref: "#/components/schemas/UserIdentifier"
 
     DeleteOrganizationRequest:
       type: object
       required:
-        - external_id
+        - identifier
       properties:
-        external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
 
     RemoveOrganizationUserRequest:
       type: object
       required:
-        - organization_external_id
-        - user_external_id
+        - organization
+        - user
       properties:
-        organization_external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization
-        user_external_id:
-          type: string
-          example: "user_456"
-          description: External identifier for the user
+        organization:
+          type: object
+          required:
+            - identifier
+          properties:
+            identifier:
+              $ref: "#/components/schemas/OrganizationIdentifier"
+        user:
+          type: object
+          required:
+            - identifier
+          properties:
+            identifier:
+              $ref: "#/components/schemas/UserIdentifier"
 
     PostOrganizationEventsRequest:
       type: array
@@ -712,13 +731,11 @@ components:
     OrganizationEvent:
       type: object
       required:
-        - organization_external_id
+        - identifier
         - name
       properties:
-        organization_external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
         name:
           type: string
           example: "subscription_upgraded"
@@ -742,7 +759,7 @@ components:
           type: string
           example: "renewal_date"
           description: The name of the scheduled resource
-        user:
+        identifier:
           $ref: "#/components/schemas/UserIdentifier"
         scheduled_at:
           type: string
@@ -775,16 +792,14 @@ components:
       type: object
       required:
         - name
-        - organization_external_id
+        - identifier
       properties:
         name:
           type: string
           example: "contract_renewal"
           description: The name of the scheduled resource
-        organization_external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
         scheduled_at:
           type: string
           format: date-time
@@ -821,7 +836,7 @@ components:
           type: string
           example: "renewal_date"
           description: The name of the scheduled resource to delete
-        user:
+        identifier:
           $ref: "#/components/schemas/UserIdentifier"
 
     ScheduledAccepted:
@@ -856,16 +871,14 @@ components:
       type: object
       required:
         - name
-        - organization_external_id
+        - identifier
       properties:
         name:
           type: string
           example: "contract_renewal"
           description: The name of the scheduled resource to delete
-        organization_external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+        identifier:
+          $ref: "#/components/schemas/OrganizationIdentifier"
 
   securitySchemes:
     HttpBearerAuth:

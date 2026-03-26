@@ -73,9 +73,9 @@ func (srv *ClientController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 			Name:      event.Name,
 			Data:      event.Data,
 		}
-		if event.User != nil {
-			msg.ExternalId = event.User.ExternalId
-			msg.AnonymousId = event.User.AnonymousId
+		if event.Identifier != nil {
+			msg.ExternalId = event.Identifier.ExternalId
+			msg.AnonymousId = event.Identifier.AnonymousId
 		}
 
 		err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), msg)
@@ -119,7 +119,7 @@ func (srv *ClientController) DeleteUserClient(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if req.User.ExternalId == nil && req.User.AnonymousId == nil {
+	if req.Identifier.ExternalId == nil && req.Identifier.AnonymousId == nil {
 		srv.logger.Error("either external_id or anonymous_id is required")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either external_id or anonymous_id is required")))
 		return
@@ -128,7 +128,7 @@ func (srv *ClientController) DeleteUserClient(w http.ResponseWriter, r *http.Req
 	logger := srv.logger.With(zap.Stringer("project_id", projectID))
 	logger.Info("deleting user")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, req.User.ExternalId, req.User.AnonymousId)
+	userID, err := srv.users.LookupUserID(ctx, projectID, req.Identifier.ExternalId, req.Identifier.AnonymousId)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -183,7 +183,7 @@ func (srv *ClientController) UpsertUserClient(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if req.User.ExternalId == nil && req.User.AnonymousId == nil {
+	if req.Identifier.ExternalId == nil && req.Identifier.AnonymousId == nil {
 		logger.Error("either external_id or anonymous_id is required")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either external_id or anonymous_id is required")))
 		return
@@ -205,8 +205,8 @@ func (srv *ClientController) UpsertUserClient(w http.ResponseWriter, r *http.Req
 	}
 
 	params := subjects.UpsertUserParams{
-		AnonymousID: req.User.AnonymousId,
-		ExternalID:  req.User.ExternalId,
+		AnonymousID: req.Identifier.AnonymousId,
+		ExternalID:  req.Identifier.ExternalId,
 		Email:       req.Email,
 		Phone:       req.Phone,
 		Timezone:    req.Timezone,
@@ -283,7 +283,7 @@ func (srv *ClientController) UpsertOrganizationClient(w http.ResponseWriter, r *
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
-		zap.String("external_id", req.ExternalId),
+		zap.String("external_id", req.Identifier.ExternalId),
 	)
 	logger.Info("upserting organization")
 
@@ -303,7 +303,7 @@ func (srv *ClientController) UpsertOrganizationClient(w http.ResponseWriter, r *
 	orgsStore := subjects.NewOrganizationsStore(tx)
 
 	params := subjects.UpsertOrganizationParams{
-		ExternalID: req.ExternalId,
+		ExternalID: req.Identifier.ExternalId,
 		Name:       req.Name,
 		Data:       data,
 	}
@@ -381,11 +381,11 @@ func (srv *ClientController) DeleteOrganizationClient(w http.ResponseWriter, r *
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
-		zap.String("external_id", req.ExternalId),
+		zap.String("external_id", req.Identifier.ExternalId),
 	)
 	logger.Info("deleting organization")
 
-	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, req.ExternalId)
+	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, req.Identifier.ExternalId)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
@@ -439,8 +439,8 @@ func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r 
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
-		zap.String("org_external_id", req.OrganizationExternalId),
-		zap.String("user_external_id", req.UserExternalId),
+		zap.String("org_external_id", req.Organization.Identifier.ExternalId),
+		zap.Stringp("user_external_id", req.User.Identifier.ExternalId),
 	)
 	logger.Info("adding user to organization")
 
@@ -456,7 +456,7 @@ func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r 
 	usersStore := subjects.NewUsersStore(tx)
 
 	// Look up organization by external ID
-	orgID, err := orgsStore.LookupOrganizationID(ctx, projectID, req.OrganizationExternalId)
+	orgID, err := orgsStore.LookupOrganizationID(ctx, projectID, req.Organization.Identifier.ExternalId)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
@@ -469,7 +469,7 @@ func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r 
 	}
 
 	// Look up user by external ID
-	userID, err := usersStore.LookupUserID(ctx, projectID, &req.UserExternalId, nil)
+	userID, err := usersStore.LookupUserID(ctx, projectID, req.User.Identifier.ExternalId, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -495,7 +495,7 @@ func (srv *ClientController) AddOrganizationUserClient(w http.ResponseWriter, r 
 
 	msg := schemas.OrganizationUser{
 		OrganizationID:         orgID,
-		OrganizationExternalID: req.OrganizationExternalId,
+		OrganizationExternalID: req.Organization.Identifier.ExternalId,
 		UserID:                 userID,
 		ProjectID:              projectID,
 		Data:                   data,
@@ -551,13 +551,13 @@ func (srv *ClientController) RemoveOrganizationUserClient(w http.ResponseWriter,
 
 	logger := srv.logger.With(
 		zap.Stringer("project_id", projectID),
-		zap.String("org_external_id", req.OrganizationExternalId),
-		zap.String("user_external_id", req.UserExternalId),
+		zap.String("org_external_id", req.Organization.Identifier.ExternalId),
+		zap.Stringp("user_external_id", req.User.Identifier.ExternalId),
 	)
 	logger.Info("removing user from organization")
 
 	// Look up organization by external ID
-	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, req.OrganizationExternalId)
+	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, req.Organization.Identifier.ExternalId)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
@@ -570,7 +570,7 @@ func (srv *ClientController) RemoveOrganizationUserClient(w http.ResponseWriter,
 	}
 
 	// Look up user by external ID
-	userID, err := srv.users.LookupUserID(ctx, projectID, &req.UserExternalId, nil)
+	userID, err := srv.users.LookupUserID(ctx, projectID, req.User.Identifier.ExternalId, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -627,10 +627,10 @@ func (srv *ClientController) PostOrganizationEventsClient(w http.ResponseWriter,
 
 	for _, event := range events {
 		// Look up organization by external ID
-		orgID, err := srv.users.LookupOrganizationID(ctx, projectID, event.OrganizationExternalId)
+		orgID, err := srv.users.LookupOrganizationID(ctx, projectID, event.Identifier.ExternalId)
 		if errors.Is(err, sql.ErrNoRows) {
 			logger.Warn("organization not found, skipping event",
-				zap.String("org_external_id", event.OrganizationExternalId),
+				zap.String("org_external_id", event.Identifier.ExternalId),
 				zap.String("event_name", event.Name))
 			continue
 		}
@@ -649,7 +649,7 @@ func (srv *ClientController) PostOrganizationEventsClient(w http.ResponseWriter,
 			Name:                   event.Name,
 			ProjectID:              projectID,
 			OrganizationID:         orgID,
-			OrganizationExternalID: event.OrganizationExternalId,
+			OrganizationExternalID: event.Identifier.ExternalId,
 			Data:                   data,
 		}
 
@@ -694,7 +694,7 @@ func (srv *ClientController) UpsertUserScheduledClient(w http.ResponseWriter, r 
 		return
 	}
 
-	if req.User == nil || (req.User.ExternalId == nil && req.User.AnonymousId == nil) {
+	if req.Identifier == nil || (req.Identifier.ExternalId == nil && req.Identifier.AnonymousId == nil) {
 		srv.logger.Error("either external_id or anonymous_id is required")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either external_id or anonymous_id is required")))
 		return
@@ -737,8 +737,8 @@ func (srv *ClientController) UpsertUserScheduledClient(w http.ResponseWriter, r 
 		Type:        scheduleType,
 		SubjectType: "user",
 		Data:        data,
-		ExternalId:  req.User.ExternalId,
-		AnonymousId: req.User.AnonymousId,
+		ExternalId:  req.Identifier.ExternalId,
+		AnonymousId: req.Identifier.AnonymousId,
 		StartAt:     req.StartAt,
 		Interval:    req.Interval,
 	}
@@ -800,7 +800,7 @@ func (srv *ClientController) DeleteUserScheduledClient(w http.ResponseWriter, r 
 		return
 	}
 
-	if req.User == nil || (req.User.ExternalId == nil && req.User.AnonymousId == nil) {
+	if req.Identifier == nil || (req.Identifier.ExternalId == nil && req.Identifier.AnonymousId == nil) {
 		srv.logger.Error("either external_id or anonymous_id is required")
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("either external_id or anonymous_id is required")))
 		return
@@ -809,7 +809,7 @@ func (srv *ClientController) DeleteUserScheduledClient(w http.ResponseWriter, r 
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("scheduled_name", req.Name))
 	logger.Info("deleting user scheduled")
 
-	userID, err := srv.users.LookupUserID(ctx, projectID, req.User.ExternalId, req.User.AnonymousId)
+	userID, err := srv.users.LookupUserID(ctx, projectID, req.Identifier.ExternalId, req.Identifier.AnonymousId)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("user not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("user not found")))
@@ -876,7 +876,7 @@ func (srv *ClientController) UpsertOrganizationScheduledClient(w http.ResponseWr
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("scheduled_name", req.Name))
 	logger.Info("upserting organization scheduled")
 
-	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, req.OrganizationExternalId)
+	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, req.Identifier.ExternalId)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
@@ -915,7 +915,7 @@ func (srv *ClientController) UpsertOrganizationScheduledClient(w http.ResponseWr
 		data = *req.Data
 	}
 
-	externalID := req.OrganizationExternalId
+	externalID := req.Identifier.ExternalId
 	msg := schemas.ScheduledMsg{
 		ID:             uuid.New(),
 		ProjectID:      projectID,
@@ -989,7 +989,7 @@ func (srv *ClientController) DeleteOrganizationScheduledClient(w http.ResponseWr
 	logger := srv.logger.With(zap.Stringer("project_id", projectID), zap.String("scheduled_name", req.Name))
 	logger.Info("deleting organization scheduled")
 
-	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, req.OrganizationExternalId)
+	orgID, err := srv.users.LookupOrganizationID(ctx, projectID, req.Identifier.ExternalId)
 	if errors.Is(err, sql.ErrNoRows) {
 		logger.Info("organization not found")
 		oapi.WriteProblem(w, problem.ErrNotFound(problem.Describe("organization not found")))
