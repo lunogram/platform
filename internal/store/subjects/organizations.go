@@ -489,7 +489,7 @@ func (e OrganizationEvents) OAPI() []oapi.OrganizationEvent {
 }
 
 // ListOrganizationEvents retrieves events for an organization with pagination.
-func (s *OrganizationsStore) ListOrganizationEvents(ctx context.Context, projectID, organizationID uuid.UUID, pagination store.Pagination) (OrganizationEvents, int, error) {
+func (s *OrganizationsStore) ListOrganizationEvents(ctx context.Context, projectID, organizationID uuid.UUID, pagination store.Pagination, search string) (OrganizationEvents, int, error) {
 	query := `
 	SELECT
 		oe.id, o.project_id, oe.organization_id, oe.event_id, e.name, oe.data, oe.created_at,
@@ -498,6 +498,10 @@ func (s *OrganizationsStore) ListOrganizationEvents(ctx context.Context, project
 	INNER JOIN organizations o ON oe.organization_id = o.id
 	INNER JOIN events e ON oe.event_id = e.id
 	WHERE o.project_id = $1 AND oe.organization_id = $2
+	AND (
+		$5 = '' OR
+		e.name ILIKE '%' || $5 || '%'
+	)
 	ORDER BY oe.created_at DESC
 	LIMIT $3 OFFSET $4`
 
@@ -507,7 +511,7 @@ func (s *OrganizationsStore) ListOrganizationEvents(ctx context.Context, project
 	}
 
 	var results []result
-	err := s.db.SelectContext(ctx, &results, query, projectID, organizationID, pagination.Limit, pagination.Offset)
+	err := s.db.SelectContext(ctx, &results, query, projectID, organizationID, pagination.Limit, pagination.Offset, search)
 	if err != nil {
 		return nil, 0, err
 	}

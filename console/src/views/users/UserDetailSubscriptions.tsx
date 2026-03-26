@@ -1,6 +1,7 @@
 import { useCallback, useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Bell, BellOff } from "lucide-react"
+import { Bell, BellOff, Link2 } from "lucide-react"
+import { toast } from "sonner"
 import { ProjectContext, UserContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { snakeToTitle } from "../../utils"
@@ -91,17 +92,32 @@ export default function UserDetailSubscriptions() {
                         )}
                     </p>
                 </div>
-                {subscriptions && subscriptions.length > 0 && (
+                <div className="flex items-center gap-2 self-start sm:self-auto">
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={handleUnsubscribeAll}
-                        className="self-start sm:self-auto shrink-0"
+                        onClick={async () => {
+                            const url = `${window.location.origin}/preferences/${project.id}/${user.id}`
+                            await navigator.clipboard.writeText(url)
+                            toast.success(t("copied_to_clipboard", "Copied to clipboard"))
+                        }}
+                        className="shrink-0"
                     >
-                        <BellOff className="mr-2 h-4 w-4" />
-                        {t("unsubscribe_all")}
+                        <Link2 className="mr-2 h-4 w-4" />
+                        {t("copy_preferences_link", "Copy preferences link")}
                     </Button>
-                )}
+                    {subscriptions && subscriptions.length > 0 && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleUnsubscribeAll}
+                            className="shrink-0"
+                        >
+                            <BellOff className="mr-2 h-4 w-4" />
+                            {t("unsubscribe_all")}
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* Subscriptions Table */}

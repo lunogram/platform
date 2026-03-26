@@ -2545,6 +2545,7 @@ paths:
           description: The organization ID
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
       responses:
         "200":
           description: Organization events retrieved successfully

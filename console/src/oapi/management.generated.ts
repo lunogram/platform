@@ -6361,6 +6361,8 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Number of items to skip */
                 offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
             };
             header?: never;
             path: {

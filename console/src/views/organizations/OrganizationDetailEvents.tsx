@@ -1,6 +1,6 @@
-import React, { useCallback, useContext, useMemo, useState } from "react"
+import React, { useCallback, useContext, useMemo, useState, useRef } from "react"
 import { useTranslation } from "react-i18next"
-import { Activity, ChevronLeft, ChevronRight, ChevronDown, Zap, Clock, Plus } from "lucide-react"
+import { Activity, ChevronLeft, ChevronRight, ChevronDown, Zap, Clock, Plus, Search } from "lucide-react"
 import { toast } from "sonner"
 import { ProjectContext, OrganizationContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
@@ -11,6 +11,7 @@ import oapiClient from "../../oapi/client"
 import type { components } from "../../oapi/management.generated"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { JsonView } from "@/components/ui/json-view"
 import { Combobox } from "@/components/ui/combobox"
@@ -104,13 +105,25 @@ export default function OrganizationDetailEvents() {
     const [organization] = useContext(OrganizationContext)
 
     const [page, setPage] = useState(1)
+    const [searchQuery, setSearchQuery] = useState("")
+    const [debouncedQuery, setDebouncedQuery] = useState("")
     const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
     const limit = 25
 
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
     const [newEventName, setNewEventName] = useState("")
     const [newEventData, setNewEventData] = useState<Record<string, unknown>>({})
+
+    const handleSearch = (value: string) => {
+        setSearchQuery(value)
+        setPage(1)
+        clearTimeout(searchTimeoutRef.current)
+        searchTimeoutRef.current = setTimeout(() => {
+            setDebouncedQuery(value)
+        }, 300)
+    }
 
     const [result, , reload] = useResolver(
         useCallback(async () => {
@@ -125,6 +138,7 @@ export default function OrganizationDetailEvents() {
                         query: {
                             limit,
                             offset: (page - 1) * limit,
+                            search: debouncedQuery || undefined,
                         },
                     },
                 },
@@ -138,7 +152,7 @@ export default function OrganizationDetailEvents() {
                 events: response.data.results,
                 total: response.data.total,
             }
-        }, [project.id, organization.id, page]),
+        }, [project.id, organization.id, page, debouncedQuery]),
     )
 
     const [schemasResult] = useResolver(
@@ -201,7 +215,15 @@ export default function OrganizationDetailEvents() {
         <div className="space-y-4">
             {/* Search / Create Bar */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
-                <div className="flex-1" />
+                <div className="relative sm:max-w-sm flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder={t("search_events", "Search events...")}
+                        value={searchQuery}
+                        onChange={(e) => handleSearch(e.target.value)}
+                        className="pl-9"
+                    />
+                </div>
                 <Button onClick={() => setIsCreateOpen(true)} className="flex-1 sm:flex-initial">
                     <Plus className="mr-2 h-4 w-4" />
                     {t("create")}

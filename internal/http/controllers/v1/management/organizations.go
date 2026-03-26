@@ -555,6 +555,7 @@ func (srv *OrganizationsController) GetOrganizationEvents(w http.ResponseWriter,
 		zap.String("organization_id", organizationID.String()),
 	)
 
+	search := params.Search.ToString()
 	pagination := store.Pagination{
 		Limit:  params.Limit.ToInt(),
 		Offset: params.Offset.ToInt(),
@@ -562,7 +563,7 @@ func (srv *OrganizationsController) GetOrganizationEvents(w http.ResponseWriter,
 
 	logger.Info("listing organization events", zap.Int("limit", pagination.Limit), zap.Int("offset", pagination.Offset))
 
-	events, total, err := srv.orgs.ListOrganizationEvents(ctx, projectID, organizationID, pagination)
+	events, total, err := srv.orgs.ListOrganizationEvents(ctx, projectID, organizationID, pagination, search)
 	if err != nil {
 		logger.Error("failed to list organization events", zap.Error(err))
 		oapi.WriteProblem(w, err)
