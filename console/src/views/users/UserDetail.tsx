@@ -22,7 +22,7 @@ import {
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { getRandomColor } from "@/lib/colors"
-import { getUserDisplayName, getUserInitials } from "@/lib/name"
+import { getUserDisplayName, getUserInitials, getPrimaryExternalId } from "@/lib/name"
 import { formatDate, cn } from "../../utils"
 import api from "../../api"
 import {
@@ -122,7 +122,9 @@ export default function UserDetail() {
         }
     }
 
-    const userColor = getRandomColor(user.email ?? user.external_id ?? user.id)
+    const userColor = getRandomColor(
+        user.email ?? getPrimaryExternalId(user as unknown as Record<string, unknown>) ?? user.id,
+    )
 
     const displayName = getUserDisplayName(user, "No name")
 
@@ -618,15 +620,7 @@ export default function UserDetail() {
                                             <span className="mx-2">·</span>
                                         </>
                                     )}
-                                    {/* 4. External ID */}
-                                    {user.external_id && (
-                                        <>
-                                            <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                                {user.external_id}
-                                            </code>
-                                            <span className="mx-2">·</span>
-                                        </>
-                                    )}
+
                                     {/* 5. Timezone */}
                                     {user.timezone
                                         ? (() => {
@@ -827,7 +821,10 @@ export default function UserDetail() {
                             <div>
                                 <p className="font-medium">{displayName}</p>
                                 <p className="text-sm text-muted-foreground">
-                                    {user.email || user.external_id}
+                                    {user.email ||
+                                        getPrimaryExternalId(
+                                            user as unknown as Record<string, unknown>,
+                                        )}
                                 </p>
                             </div>
                         </div>

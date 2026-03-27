@@ -1739,7 +1739,7 @@ paths:
 
     post:
       summary: Identify user
-      description: Creates or updates a user by anonymous_id or external_id
+      description: Creates or updates a user by external identifiers
       operationId: identifyUser
       tags:
         - Users
@@ -1798,7 +1798,7 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: CSV file with user data (must include external_id column)
+                  description: CSV file with user data (must include source and external_id columns)
       responses:
         "204":
           description: Users imported successfully
@@ -1904,6 +1904,43 @@ paths:
       responses:
         "204":
           description: User deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID}:
+    delete:
+      summary: Delete user external identifier
+      description: Removes an external identifier from a user. Cannot remove the last remaining identifier.
+      operationId: deleteUserExternalID
+      tags:
+        - Users
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The user ID
+        - name: identifierID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The external identifier ID to delete
+      responses:
+        "204":
+          description: External identifier deleted successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -2279,7 +2316,7 @@ paths:
 
     post:
       summary: Create or update subject organization
-      description: Creates or updates an organization (subject) by external_id
+      description: Creates or updates an organization (subject) by external identifiers
       operationId: upsertOrganization
       tags:
         - Organizations
@@ -2408,6 +2445,43 @@ paths:
       responses:
         "204":
           description: Organization deleted successfully
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID}:
+    delete:
+      summary: Delete organization external identifier
+      description: Removes an external identifier from an organization. Cannot remove the last remaining identifier.
+      operationId: deleteOrganizationExternalID
+      tags:
+        - Organizations
+      security:
+        - HttpBearerAuth: []
+      parameters:
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The project ID
+        - name: organizationID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The organization ID
+        - name: identifierID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The external identifier ID to delete
+      responses:
+        "204":
+          description: External identifier deleted successfully
         default:
           $ref: "#/components/responses/Error"
 
@@ -5480,6 +5554,62 @@ components:
           description: Number of items skipped
           example: 0
 
+    ExternalID:
+      type: object
+      description: An external identifier with source and optional metadata
+      required:
+        - external_id
+      properties:
+        source:
+          type: string
+          default: "default"
+          example: "default"
+          description: Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+        external_id:
+          type: string
+          example: "user_12345"
+          description: The external identifier value
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          description: Optional metadata associated with this identifier
+
+    ExternalIDResponse:
+      type: object
+      description: An external identifier as returned in responses, including database ID and timestamps
+      required:
+        - id
+        - source
+        - external_id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        source:
+          type: string
+          example: "default"
+        external_id:
+          type: string
+          example: "user_12345"
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
     UserList:
       allOf:
         - $ref: "#/components/schemas/PaginatedResponse"
@@ -6285,7 +6415,7 @@ components:
       required:
         - id
         - project_id
-        - anonymous_id
+        - identifier
         - data
         - has_push_device
         - version
@@ -6300,12 +6430,11 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        anonymous_id:
-          type: string
-          example: "anon_abc123xyz"
-        external_id:
-          type: string
-          example: "user_123"
+        identifier:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIDResponse"
+          description: External identifiers associated with this user
         email:
           type: string
           format: email
@@ -6348,18 +6477,15 @@ components:
 
     IdentifyUser:
       type: object
-      oneOf:
-        - required:
-            - anonymous_id
-        - required:
-            - external_id
+      required:
+        - identifier
       properties:
-        anonymous_id:
-          type: string
-          example: "anon_abc123xyz"
-        external_id:
-          type: string
-          example: "user_123"
+        identifier:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ExternalID"
+          description: One or more external identifiers to identify the user
         email:
           type: string
           format: email
@@ -6418,7 +6544,7 @@ components:
       required:
         - id
         - project_id
-        - external_id
+        - identifier
         - data
         - version
         - created_at
@@ -6432,10 +6558,11 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+        identifier:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIDResponse"
+          description: External identifiers associated with this organization
         name:
           type: string
           example: "Acme Corp"
@@ -6522,12 +6649,14 @@ components:
     UpsertOrganization:
       type: object
       required:
-        - external_id
+        - identifier
       properties:
-        external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+        identifier:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ExternalID"
+          description: One or more external identifiers to identify the organization
         name:
           type: string
           example: "Acme Corp"
@@ -6558,7 +6687,7 @@ components:
       required:
         - id
         - project_id
-        - anonymous_id
+        - identifier
         - data
         - has_push_device
         - version
@@ -6574,12 +6703,11 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        anonymous_id:
-          type: string
-          example: "anon_abc123xyz"
-        external_id:
-          type: string
-          example: "user_123"
+        identifier:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIDResponse"
+          description: External identifiers associated with this user
         email:
           type: string
           format: email

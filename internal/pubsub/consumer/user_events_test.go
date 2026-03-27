@@ -183,8 +183,10 @@ func TestUserEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	anonymousID := "anon_abc"
 
 	_, err = usersState.UsersStore.UpsertUser(ctx, projectID, subjects.UpsertUserParams{
-		ExternalID:  &externalID,
-		AnonymousID: &anonymousID,
+		Identifiers: []subjects.ExternalIDParam{
+			{Source: "default", ExternalID: externalID},
+			{Source: "anonymous", ExternalID: anonymousID},
+		},
 	})
 	require.NoError(t, err)
 
@@ -192,10 +194,12 @@ func TestUserEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	handler := UserEventsHandler(logger, usersState, journeyState, pub)
 
 	event := schemas.UserEvent{
-		Name:        "user_action",
-		ProjectID:   projectID,
-		ExternalId:  &externalID,
-		AnonymousId: &anonymousID,
+		Name:      "user_action",
+		ProjectID: projectID,
+		Identifiers: []schemas.ExternalID{
+			{Source: "default", ExternalID: externalID},
+			{Source: "anonymous", ExternalID: anonymousID},
+		},
 		Data: map[string]any{
 			"action": "click",
 		},

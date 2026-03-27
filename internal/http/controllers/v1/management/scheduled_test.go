@@ -69,11 +69,7 @@ func setupScheduledController(t *testing.T) *testScheduledController {
 func (tc *testScheduledController) createUser(t *testing.T) uuid.UUID {
 	t.Helper()
 	anonID := uuid.New().String()
-	userID, err := tc.store.CreateUser(context.Background(), subjects.User{
-		ProjectID:   tc.projectID,
-		AnonymousID: &anonID,
-		Data:        json.RawMessage(`{}`),
-	})
+	userID, err := tc.store.CreateUser(context.Background(), tc.projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{{Source: "anonymous", ExternalID: anonID}})
 	require.NoError(t, err)
 	return userID
 }
@@ -81,8 +77,8 @@ func (tc *testScheduledController) createUser(t *testing.T) uuid.UUID {
 func (tc *testScheduledController) createOrg(t *testing.T) uuid.UUID {
 	t.Helper()
 	orgID, err := tc.store.UpsertOrganization(context.Background(), tc.projectID, subjects.UpsertOrganizationParams{
-		ExternalID: uuid.New().String(),
-		Name:       ptr("Test Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: uuid.New().String()}},
+		Name:        ptr("Test Org"),
 	})
 	require.NoError(t, err)
 	return orgID

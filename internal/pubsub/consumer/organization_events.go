@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,9 +42,14 @@ func OrganizationEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *j
 		}
 
 		if event.OrganizationID == uuid.Nil {
-			logger.Info("looking up organization ID", zap.String("external_id", event.OrganizationExternalID))
+			if len(event.OrganizationIdentifiers) == 0 {
+				logger.Error("organization_id or identifiers are required")
+				return Permanent(fmt.Errorf("organization_id or identifiers are required for organization event"))
+			}
 
-			event.OrganizationID, err = usrs.LookupOrganizationID(ctx, event.ProjectID, event.OrganizationExternalID)
+			logger.Info("looking up organization ID from identifiers")
+
+			event.OrganizationID, err = usrs.LookupOrganizationID(ctx, event.ProjectID, event.OrganizationIdentifiers)
 			if err != nil {
 				logger.Error("failed to lookup organization ID", zap.Error(err))
 				return err

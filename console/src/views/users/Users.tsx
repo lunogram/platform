@@ -18,7 +18,7 @@ import { useRoute } from "../router"
 import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
-import { getUserDisplayName, getUserInitials } from "@/lib/name"
+import { getUserDisplayName, getUserInitials, getPrimaryExternalId } from "@/lib/name"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { UsersIcon as UsersPageIcon } from "@/components/icons"
 import api from "../../api"
@@ -129,8 +129,9 @@ export default function Users() {
         setIsCreating(true)
         try {
             const newUser: User = {
-                anonymous_id: crypto.randomUUID() as UUID,
-                external_id: newUserExternalId.trim() || undefined,
+                identifier: newUserExternalId.trim()
+                    ? [{ source: "default", external_id: newUserExternalId.trim() }]
+                    : [{ source: "anonymous", external_id: crypto.randomUUID() }],
                 email: newUserEmail.trim() || undefined,
                 phone: newUserPhone.trim() || undefined,
                 timezone: newUserTimezone.trim() || undefined,
@@ -219,9 +220,7 @@ export default function Users() {
                         <TableRow>
                             <TableHead>{t("name")}</TableHead>
                             <TableHead className="hidden sm:table-cell">{t("email")}</TableHead>
-                            <TableHead className="hidden lg:table-cell">
-                                {t("external_id")}
-                            </TableHead>
+
                             <TableHead className="hidden md:table-cell">
                                 {t("created_at")}
                             </TableHead>
@@ -244,9 +243,7 @@ export default function Users() {
                                     <TableCell className="hidden sm:table-cell">
                                         <Skeleton className="h-4 w-36" />
                                     </TableCell>
-                                    <TableCell className="hidden lg:table-cell">
-                                        <Skeleton className="h-4 w-24" />
-                                    </TableCell>
+
                                     <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-28" />
                                     </TableCell>
@@ -254,7 +251,7 @@ export default function Users() {
                             ))
                         ) : users.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={4} className="h-32 text-center">
+                                <TableCell colSpan={3} className="h-32 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <UserCircle2 className="h-8 w-8" />
                                         <p>
@@ -279,7 +276,11 @@ export default function Users() {
                         ) : (
                             users.map((user) => {
                                 const userColor = getRandomColor(
-                                    user.email ?? user.external_id ?? user.id,
+                                    user.email ??
+                                        getPrimaryExternalId(
+                                            user as unknown as Record<string, unknown>,
+                                        ) ??
+                                        user.id,
                                 )
                                 return (
                                     <TableRow
@@ -310,15 +311,7 @@ export default function Users() {
                                         <TableCell className="hidden sm:table-cell text-muted-foreground">
                                             {user.email ?? "—"}
                                         </TableCell>
-                                        <TableCell className="hidden lg:table-cell">
-                                            {user.external_id ? (
-                                                <code className="text-sm text-muted-foreground">
-                                                    {user.external_id}
-                                                </code>
-                                            ) : (
-                                                <span className="text-muted-foreground">—</span>
-                                            )}
-                                        </TableCell>
+
                                         <TableCell className="hidden md:table-cell text-muted-foreground">
                                             {formatDate(preferences, user.created_at, "PP")}
                                         </TableCell>
@@ -425,10 +418,10 @@ export default function Users() {
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="external_id">{t("external_id")}</Label>
+                            <Label htmlFor="external_id">{t("identifier", "Identifier")}</Label>
                             <Input
                                 id="external_id"
-                                placeholder={t("enter_external_id", "e.g., usr_123")}
+                                placeholder={t("enter_identifier", "e.g., usr_123")}
                                 value={newUserExternalId}
                                 onChange={(e) => setNewUserExternalId(e.target.value)}
                             />

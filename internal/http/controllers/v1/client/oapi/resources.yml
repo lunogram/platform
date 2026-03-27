@@ -431,12 +431,68 @@ components:
             A human readable explanation specific to this occurrence of the problem that is helpful to locate the problem and give advice on how to proceed. Written in English and readable for engineers, usually not suited for non technical stakeholders and not localized.
           example: some description for the error situation
 
+    ExternalID:
+      type: object
+      description: An external identifier with source and optional metadata
+      required:
+        - external_id
+      properties:
+        source:
+          type: string
+          default: "default"
+          example: "default"
+          description: Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+        external_id:
+          type: string
+          example: "user_12345"
+          description: The external identifier value
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          description: Optional metadata associated with this identifier
+
+    ExternalIDResponse:
+      type: object
+      description: An external identifier as returned in responses, including database ID and timestamps
+      required:
+        - id
+        - source
+        - external_id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        source:
+          type: string
+          example: "default"
+        external_id:
+          type: string
+          example: "user_12345"
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-19T14:18:42.960Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-23T17:20:00.021Z"
+
     User:
       type: object
       required:
         - id
         - project_id
-        - anonymous_id
+        - identifier
         - data
         - has_push_device
         - version
@@ -451,12 +507,11 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        anonymous_id:
-          type: string
-          example: "anon_abc123xyz"
-        external_id:
-          type: string
-          example: "user_123"
+        identifier:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIDResponse"
+          description: External identifiers associated with this user
         email:
           type: string
           format: email
@@ -498,30 +553,18 @@ components:
           example: "2025-11-23T17:20:00.021Z"
 
     UserIdentifier:
-      type: object
-      description: User identification object containing external and/or anonymous identifiers
-      properties:
-        external_id:
-          type: string
-          nullable: true
-          example: "user_12345"
-          description: External identifier for the user from your system
-        anonymous_id:
-          type: string
-          nullable: true
-          example: "anon_abc123"
-          description: Anonymous identifier for the user
+      type: array
+      description: One or more external identifiers to identify the user
+      minItems: 1
+      items:
+        $ref: "#/components/schemas/ExternalID"
 
     OrganizationIdentifier:
-      type: object
-      description: Organization identification object containing an external identifier
-      required:
-        - external_id
-      properties:
-        external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+      type: array
+      description: One or more external identifiers to identify the organization
+      minItems: 1
+      items:
+        $ref: "#/components/schemas/ExternalID"
 
     IdentifyRequest:
       type: object
@@ -594,7 +637,7 @@ components:
       required:
         - id
         - project_id
-        - external_id
+        - identifier
         - data
         - version
         - created_at
@@ -608,10 +651,11 @@ components:
           type: string
           format: uuid
           example: "4c9d3163-7b64-4f9e-9068-d2e4b96be56b"
-        external_id:
-          type: string
-          example: "org_123"
-          description: External identifier for the organization from your system
+        identifier:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalIDResponse"
+          description: External identifiers associated with this organization
         name:
           type: string
           example: "Acme Corp"

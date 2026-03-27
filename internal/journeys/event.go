@@ -44,12 +44,13 @@ func HandleEvent(ctx HandlerContext, step journey.JourneyVersionStep, state jour
 		return state, nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
+	identifiers := user.ExternalIDs.Params()
+
 	event := schemas.UserEvent{
 		Name:        eventName,
 		ProjectID:   ctx.ProjectID,
 		UserID:      ctx.UserID,
-		ExternalId:  user.ExternalID,
-		AnonymousId: user.AnonymousID,
+		Identifiers: identifiers,
 		Data:        payload,
 	}
 

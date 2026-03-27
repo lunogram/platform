@@ -618,28 +618,44 @@ type ExperimentChildData struct {
 	Ratio float32 `json:"ratio"`
 }
 
+// ExternalID An external identifier with source and optional metadata
+type ExternalID struct {
+	// ExternalId The external identifier value
+	ExternalId string `json:"external_id"`
+
+	// Metadata Optional metadata associated with this identifier
+	Metadata *map[string]any `json:"metadata"`
+
+	// Source Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+	Source *string `json:"source,omitempty"`
+}
+
+// ExternalIDResponse An external identifier as returned in responses, including database ID and timestamps
+type ExternalIDResponse struct {
+	CreatedAt  time.Time          `json:"created_at"`
+	ExternalId string             `json:"external_id"`
+	Id         openapi_types.UUID `json:"id"`
+	Metadata   *map[string]any    `json:"metadata"`
+	Source     string             `json:"source"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+}
+
 // GateChildData Data for gate step children - typically empty, path determines branch
 type GateChildData = map[string]interface{}
 
 // IdentifyUser defines model for IdentifyUser.
 type IdentifyUser struct {
-	AnonymousId *string         `json:"anonymous_id,omitempty"`
-	Data        *map[string]any `json:"data,omitempty"`
-	Email       *string         `json:"email,omitempty"`
-	ExternalId  *string         `json:"external_id,omitempty"`
-	Locale      *string         `json:"locale,omitempty"`
+	Data  *map[string]any `json:"data,omitempty"`
+	Email *string         `json:"email,omitempty"`
+
+	// Identifier One or more external identifiers to identify the user
+	Identifier []ExternalID `json:"identifier"`
+	Locale     *string      `json:"locale,omitempty"`
 
 	// Phone E.164 formatted phone number
 	Phone    *string `json:"phone,omitempty"`
 	Timezone *string `json:"timezone,omitempty"`
-	union    json.RawMessage
 }
-
-// IdentifyUser0 defines model for .
-type IdentifyUser0 = interface{}
-
-// IdentifyUser1 defines model for .
-type IdentifyUser1 = interface{}
 
 // Journey defines model for Journey.
 type Journey struct {
@@ -758,16 +774,16 @@ type Locale struct {
 
 // Organization defines model for Organization.
 type Organization struct {
-	CreatedAt time.Time       `json:"created_at"`
-	Data      json.RawMessage `json:"data"`
+	CreatedAt time.Time          `json:"created_at"`
+	Data      json.RawMessage    `json:"data"`
+	Id        openapi_types.UUID `json:"id"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string             `json:"external_id"`
-	Id         openapi_types.UUID `json:"id"`
-	Name       *string            `json:"name,omitempty"`
-	ProjectId  openapi_types.UUID `json:"project_id"`
-	UpdatedAt  time.Time          `json:"updated_at"`
-	Version    int32              `json:"version"`
+	// Identifier External identifiers associated with this organization
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Name       *string              `json:"name,omitempty"`
+	ProjectId  openapi_types.UUID   `json:"project_id"`
+	UpdatedAt  time.Time            `json:"updated_at"`
+	Version    int32                `json:"version"`
 }
 
 // OrganizationEvent defines model for OrganizationEvent.
@@ -808,14 +824,15 @@ type OrganizationList struct {
 
 // OrganizationMember defines model for OrganizationMember.
 type OrganizationMember struct {
-	AnonymousId   string             `json:"anonymous_id"`
 	CreatedAt     time.Time          `json:"created_at"`
 	Data          json.RawMessage    `json:"data"`
 	Email         *string            `json:"email,omitempty"`
-	ExternalId    *string            `json:"external_id,omitempty"`
 	HasPushDevice bool               `json:"has_push_device"`
 	Id            openapi_types.UUID `json:"id"`
-	Locale        *string            `json:"locale,omitempty"`
+
+	// Identifier External identifiers associated with this user
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Locale     *string              `json:"locale,omitempty"`
 
 	// OrganizationData Organization-specific data for this user
 	OrganizationData json.RawMessage `json:"organization_data"`
@@ -1315,9 +1332,9 @@ type UpdateUserSubscriptions = []struct {
 type UpsertOrganization struct {
 	Data *map[string]any `json:"data,omitempty"`
 
-	// ExternalId External identifier for the organization from your system
-	ExternalId string  `json:"external_id"`
-	Name       *string `json:"name,omitempty"`
+	// Identifier One or more external identifiers to identify the organization
+	Identifier []ExternalID `json:"identifier"`
+	Name       *string      `json:"name,omitempty"`
 }
 
 // UpsertOrganizationScheduledRequest defines model for UpsertOrganizationScheduledRequest.
@@ -1364,14 +1381,15 @@ type UpsertUserScheduledRequest struct {
 
 // User defines model for User.
 type User struct {
-	AnonymousId   string             `json:"anonymous_id"`
 	CreatedAt     time.Time          `json:"created_at"`
 	Data          json.RawMessage    `json:"data"`
 	Email         *string            `json:"email,omitempty"`
-	ExternalId    *string            `json:"external_id,omitempty"`
 	HasPushDevice bool               `json:"has_push_device"`
 	Id            openapi_types.UUID `json:"id"`
-	Locale        *string            `json:"locale,omitempty"`
+
+	// Identifier External identifiers associated with this user
+	Identifier []ExternalIDResponse `json:"identifier"`
+	Locale     *string              `json:"locale,omitempty"`
 
 	// Phone E.164 formatted phone number
 	Phone     *string            `json:"phone,omitempty"`
@@ -1922,7 +1940,7 @@ type ListUsersParams struct {
 
 // ImportUsersMultipartBody defines parameters for ImportUsers.
 type ImportUsersMultipartBody struct {
-	// File CSV file with user data (must include external_id column)
+	// File CSV file with user data (must include source and external_id columns)
 	File openapi_types.File `json:"file"`
 }
 
@@ -2159,186 +2177,6 @@ type UpdateAdminJSONRequestBody = UpdateAdmin
 
 // AuthCallbackJSONRequestBody defines body for AuthCallback for application/json ContentType.
 type AuthCallbackJSONRequestBody = AuthCallbackRequest
-
-// AsIdentifyUser0 returns the union data inside the IdentifyUser as a IdentifyUser0
-func (t IdentifyUser) AsIdentifyUser0() (IdentifyUser0, error) {
-	var body IdentifyUser0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromIdentifyUser0 overwrites any union data inside the IdentifyUser as the provided IdentifyUser0
-func (t *IdentifyUser) FromIdentifyUser0(v IdentifyUser0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeIdentifyUser0 performs a merge with any union data inside the IdentifyUser, using the provided IdentifyUser0
-func (t *IdentifyUser) MergeIdentifyUser0(v IdentifyUser0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsIdentifyUser1 returns the union data inside the IdentifyUser as a IdentifyUser1
-func (t IdentifyUser) AsIdentifyUser1() (IdentifyUser1, error) {
-	var body IdentifyUser1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromIdentifyUser1 overwrites any union data inside the IdentifyUser as the provided IdentifyUser1
-func (t *IdentifyUser) FromIdentifyUser1(v IdentifyUser1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeIdentifyUser1 performs a merge with any union data inside the IdentifyUser, using the provided IdentifyUser1
-func (t *IdentifyUser) MergeIdentifyUser1(v IdentifyUser1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t IdentifyUser) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	object := make(map[string]json.RawMessage)
-	if t.union != nil {
-		err = json.Unmarshal(b, &object)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if t.AnonymousId != nil {
-		object["anonymous_id"], err = json.Marshal(t.AnonymousId)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'anonymous_id': %w", err)
-		}
-	}
-
-	if t.Data != nil {
-		object["data"], err = json.Marshal(t.Data)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'data': %w", err)
-		}
-	}
-
-	if t.Email != nil {
-		object["email"], err = json.Marshal(t.Email)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'email': %w", err)
-		}
-	}
-
-	if t.ExternalId != nil {
-		object["external_id"], err = json.Marshal(t.ExternalId)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'external_id': %w", err)
-		}
-	}
-
-	if t.Locale != nil {
-		object["locale"], err = json.Marshal(t.Locale)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'locale': %w", err)
-		}
-	}
-
-	if t.Phone != nil {
-		object["phone"], err = json.Marshal(t.Phone)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'phone': %w", err)
-		}
-	}
-
-	if t.Timezone != nil {
-		object["timezone"], err = json.Marshal(t.Timezone)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'timezone': %w", err)
-		}
-	}
-	b, err = json.Marshal(object)
-	return b, err
-}
-
-func (t *IdentifyUser) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	if err != nil {
-		return err
-	}
-	object := make(map[string]json.RawMessage)
-	err = json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["anonymous_id"]; found {
-		err = json.Unmarshal(raw, &t.AnonymousId)
-		if err != nil {
-			return fmt.Errorf("error reading 'anonymous_id': %w", err)
-		}
-	}
-
-	if raw, found := object["data"]; found {
-		err = json.Unmarshal(raw, &t.Data)
-		if err != nil {
-			return fmt.Errorf("error reading 'data': %w", err)
-		}
-	}
-
-	if raw, found := object["email"]; found {
-		err = json.Unmarshal(raw, &t.Email)
-		if err != nil {
-			return fmt.Errorf("error reading 'email': %w", err)
-		}
-	}
-
-	if raw, found := object["external_id"]; found {
-		err = json.Unmarshal(raw, &t.ExternalId)
-		if err != nil {
-			return fmt.Errorf("error reading 'external_id': %w", err)
-		}
-	}
-
-	if raw, found := object["locale"]; found {
-		err = json.Unmarshal(raw, &t.Locale)
-		if err != nil {
-			return fmt.Errorf("error reading 'locale': %w", err)
-		}
-	}
-
-	if raw, found := object["phone"]; found {
-		err = json.Unmarshal(raw, &t.Phone)
-		if err != nil {
-			return fmt.Errorf("error reading 'phone': %w", err)
-		}
-	}
-
-	if raw, found := object["timezone"]; found {
-		err = json.Unmarshal(raw, &t.Timezone)
-		if err != nil {
-			return fmt.Errorf("error reading 'timezone': %w", err)
-		}
-	}
-
-	return err
-}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -2745,6 +2583,9 @@ type ClientInterface interface {
 
 	CreateOrganizationEvent(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteOrganizationExternalID request
+	DeleteOrganizationExternalID(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetOrganizationScheduled request
 	GetOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2827,6 +2668,9 @@ type ClientInterface interface {
 	CreateUserEventWithBody(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateUserEvent(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteUserExternalID request
+	DeleteUserExternalID(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUserJourneys request
 	GetUserJourneys(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -4367,6 +4211,18 @@ func (c *Client) CreateOrganizationEvent(ctx context.Context, projectID openapi_
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteOrganizationExternalID(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrganizationExternalIDRequest(c.Server, projectID, organizationID, identifierID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetOrganizationScheduled(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetOrganizationScheduledRequest(c.Server, projectID, organizationID, params)
 	if err != nil {
@@ -4717,6 +4573,18 @@ func (c *Client) CreateUserEventWithBody(ctx context.Context, projectID openapi_
 
 func (c *Client) CreateUserEvent(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateUserEventRequest(c.Server, projectID, userID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteUserExternalID(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUserExternalIDRequest(c.Server, projectID, userID, identifierID)
 	if err != nil {
 		return nil, err
 	}
@@ -9966,6 +9834,54 @@ func NewCreateOrganizationEventRequestWithBody(server string, projectID openapi_
 	return req, nil
 }
 
+// NewDeleteOrganizationExternalIDRequest generates requests for DeleteOrganizationExternalID
+func NewDeleteOrganizationExternalIDRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "organizationID", runtime.ParamLocationPath, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "identifierID", runtime.ParamLocationPath, identifierID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/organizations/%s/identifiers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetOrganizationScheduledRequest generates requests for GetOrganizationScheduled
 func NewGetOrganizationScheduledRequest(server string, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams) (*http.Request, error) {
 	var err error
@@ -11168,6 +11084,54 @@ func NewCreateUserEventRequestWithBody(server string, projectID openapi_types.UU
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteUserExternalIDRequest generates requests for DeleteUserExternalID
+func NewDeleteUserExternalIDRequest(server string, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "identifierID", runtime.ParamLocationPath, identifierID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/projects/%s/subjects/users/%s/identifiers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -12952,6 +12916,9 @@ type ClientWithResponsesInterface interface {
 
 	CreateOrganizationEventWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, body CreateOrganizationEventJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrganizationEventResponse, error)
 
+	// DeleteOrganizationExternalIDWithResponse request
+	DeleteOrganizationExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationExternalIDResponse, error)
+
 	// GetOrganizationScheduledWithResponse request
 	GetOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*GetOrganizationScheduledResponse, error)
 
@@ -13034,6 +13001,9 @@ type ClientWithResponsesInterface interface {
 	CreateUserEventWithBodyWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUserEventResponse, error)
 
 	CreateUserEventWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, body CreateUserEventJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUserEventResponse, error)
+
+	// DeleteUserExternalIDWithResponse request
+	DeleteUserExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserExternalIDResponse, error)
 
 	// GetUserJourneysWithResponse request
 	GetUserJourneysWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, params *GetUserJourneysParams, reqEditors ...RequestEditorFn) (*GetUserJourneysResponse, error)
@@ -15267,6 +15237,28 @@ func (r CreateOrganizationEventResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteOrganizationExternalIDResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrganizationExternalIDResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrganizationExternalIDResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetOrganizationScheduledResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -15783,6 +15775,28 @@ func (r CreateUserEventResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateUserEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteUserExternalIDResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteUserExternalIDResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteUserExternalIDResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -17439,6 +17453,15 @@ func (c *ClientWithResponses) CreateOrganizationEventWithResponse(ctx context.Co
 	return ParseCreateOrganizationEventResponse(rsp)
 }
 
+// DeleteOrganizationExternalIDWithResponse request returning *DeleteOrganizationExternalIDResponse
+func (c *ClientWithResponses) DeleteOrganizationExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteOrganizationExternalIDResponse, error) {
+	rsp, err := c.DeleteOrganizationExternalID(ctx, projectID, organizationID, identifierID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrganizationExternalIDResponse(rsp)
+}
+
 // GetOrganizationScheduledWithResponse request returning *GetOrganizationScheduledResponse
 func (c *ClientWithResponses) GetOrganizationScheduledWithResponse(ctx context.Context, projectID openapi_types.UUID, organizationID openapi_types.UUID, params *GetOrganizationScheduledParams, reqEditors ...RequestEditorFn) (*GetOrganizationScheduledResponse, error) {
 	rsp, err := c.GetOrganizationScheduled(ctx, projectID, organizationID, params, reqEditors...)
@@ -17700,6 +17723,15 @@ func (c *ClientWithResponses) CreateUserEventWithResponse(ctx context.Context, p
 		return nil, err
 	}
 	return ParseCreateUserEventResponse(rsp)
+}
+
+// DeleteUserExternalIDWithResponse request returning *DeleteUserExternalIDResponse
+func (c *ClientWithResponses) DeleteUserExternalIDWithResponse(ctx context.Context, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteUserExternalIDResponse, error) {
+	rsp, err := c.DeleteUserExternalID(ctx, projectID, userID, identifierID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteUserExternalIDResponse(rsp)
 }
 
 // GetUserJourneysWithResponse request returning *GetUserJourneysResponse
@@ -20931,6 +20963,32 @@ func ParseCreateOrganizationEventResponse(rsp *http.Response) (*CreateOrganizati
 	return response, nil
 }
 
+// ParseDeleteOrganizationExternalIDResponse parses an HTTP response from a DeleteOrganizationExternalIDWithResponse call
+func ParseDeleteOrganizationExternalIDResponse(rsp *http.Response) (*DeleteOrganizationExternalIDResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrganizationExternalIDResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetOrganizationScheduledResponse parses an HTTP response from a GetOrganizationScheduledWithResponse call
 func ParseGetOrganizationScheduledResponse(rsp *http.Response) (*GetOrganizationScheduledResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -21612,6 +21670,32 @@ func ParseCreateUserEventResponse(rsp *http.Response) (*CreateUserEventResponse,
 	}
 
 	response := &CreateUserEventResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteUserExternalIDResponse parses an HTTP response from a DeleteUserExternalIDWithResponse call
+func ParseDeleteUserExternalIDResponse(rsp *http.Response) (*DeleteUserExternalIDResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteUserExternalIDResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -22735,6 +22819,9 @@ type ServerInterface interface {
 	// Create organization event
 	// (POST /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events)
 	CreateOrganizationEvent(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID)
+	// Delete organization external identifier
+	// (DELETE /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID})
+	DeleteOrganizationExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID)
 	// Get organization scheduled
 	// (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled)
 	GetOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params GetOrganizationScheduledParams)
@@ -22804,6 +22891,9 @@ type ServerInterface interface {
 	// Create user event
 	// (POST /api/admin/projects/{projectID}/subjects/users/{userID}/events)
 	CreateUserEvent(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID)
+	// Delete user external identifier
+	// (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID})
+	DeleteUserExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID)
 	// Get user journeys
 	// (GET /api/admin/projects/{projectID}/subjects/users/{userID}/journeys)
 	GetUserJourneys(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, params GetUserJourneysParams)
@@ -23440,6 +23530,12 @@ func (_ Unimplemented) CreateOrganizationEvent(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Delete organization external identifier
+// (DELETE /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID})
+func (_ Unimplemented) DeleteOrganizationExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, identifierID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Get organization scheduled
 // (GET /api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled)
 func (_ Unimplemented) GetOrganizationScheduled(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, organizationID openapi_types.UUID, params GetOrganizationScheduledParams) {
@@ -23575,6 +23671,12 @@ func (_ Unimplemented) GetUserEvents(w http.ResponseWriter, r *http.Request, pro
 // Create user event
 // (POST /api/admin/projects/{projectID}/subjects/users/{userID}/events)
 func (_ Unimplemented) CreateUserEvent(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete user external identifier
+// (DELETE /api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID})
+func (_ Unimplemented) DeleteUserExternalID(w http.ResponseWriter, r *http.Request, projectID openapi_types.UUID, userID openapi_types.UUID, identifierID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -27626,6 +27728,55 @@ func (siw *ServerInterfaceWrapper) CreateOrganizationEvent(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteOrganizationExternalID operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrganizationExternalID(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "identifierID" -------------
+	var identifierID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "identifierID", chi.URLParam(r, "identifierID"), &identifierID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "identifierID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrganizationExternalID(w, r, projectID, organizationID, identifierID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetOrganizationScheduled operation middleware
 func (siw *ServerInterfaceWrapper) GetOrganizationScheduled(w http.ResponseWriter, r *http.Request) {
 
@@ -28611,6 +28762,55 @@ func (siw *ServerInterfaceWrapper) CreateUserEvent(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateUserEvent(w, r, projectID, userID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteUserExternalID operation middleware
+func (siw *ServerInterfaceWrapper) DeleteUserExternalID(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userID" -------------
+	var userID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "identifierID" -------------
+	var identifierID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "identifierID", chi.URLParam(r, "identifierID"), &identifierID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "identifierID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, HttpBearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteUserExternalID(w, r, projectID, userID, identifierID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -30048,6 +30248,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/events", wrapper.CreateOrganizationEvent)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID}", wrapper.DeleteOrganizationExternalID)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/scheduled", wrapper.GetOrganizationScheduled)
 	})
 	r.Group(func(r chi.Router) {
@@ -30115,6 +30318,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/events", wrapper.CreateUserEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID}", wrapper.DeleteUserExternalID)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/projects/{projectID}/subjects/users/{userID}/journeys", wrapper.GetUserJourneys)

@@ -1,10 +1,15 @@
 import { getRandomColor } from "@/lib/colors"
 import type { User } from "@/types"
-import { getUserDisplayName, getUserInitials, getUserSubtext } from "./userUtils"
+import {
+    getUserDisplayName,
+    getUserInitials,
+    getUserSubtext,
+    getPrimaryExternalId,
+} from "./userUtils"
 
 function getUserColorSeed(user?: User): string {
     if (!user) return "unknown"
-    return user.email ?? user.external_id ?? user.id
+    return user.email ?? getPrimaryExternalId(user as unknown as Record<string, unknown>) ?? user.id
 }
 
 interface UserCellProps {

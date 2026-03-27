@@ -114,8 +114,7 @@ func PublishUserAnniversarySchedule(ctx context.Context, logger *zap.Logger, pub
 		StartAt:     &now,
 		Interval:    &interval,
 		UserID:      user.ID,
-		ExternalId:  user.ExternalID,
-		AnonymousId: user.AnonymousID,
+		Identifiers: user.Identifiers,
 		Data:        map[string]any{},
 	}
 

@@ -10,14 +10,13 @@ import (
 // organizationDirectColumns are columns that exist directly on the organizations table
 // and should NOT be normalized to the JSONB data column.
 var organizationDirectColumns = map[string]bool{
-	".name":        true,
-	".external_id": true,
-	".created_at":  true,
-	".updated_at":  true,
+	".name":       true,
+	".created_at": true,
+	".updated_at": true,
 }
 
 // normalizeOrganizationPath normalizes a path for organization queries.
-// Direct columns (name, external_id, etc.) are left as-is, while other
+// Direct columns (name, etc.) are left as-is, while other
 // paths are normalized to access the JSONB data column.
 func normalizeOrganizationPath(path string) string {
 	if organizationDirectColumns[path] {

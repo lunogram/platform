@@ -91,10 +91,8 @@ func TestPostEvents(t *testing.T) {
 		"single event with external_id": {
 			events: []map[string]any{
 				{
-					"name": "purchase_completed",
-					"identifier": map[string]any{
-						"external_id": "user_123",
-					},
+					"name":       "purchase_completed",
+					"identifier": []map[string]any{{"source": "default", "external_id": "user_123"}},
 					"data": map[string]any{
 						"amount":     99.99,
 						"product_id": "prod_456",
@@ -106,10 +104,8 @@ func TestPostEvents(t *testing.T) {
 		"single event with anonymous_id": {
 			events: []map[string]any{
 				{
-					"name": "page_viewed",
-					"identifier": map[string]any{
-						"anonymous_id": "anon_abc",
-					},
+					"name":       "page_viewed",
+					"identifier": []map[string]any{{"source": "anonymous", "external_id": "anon_abc"}},
 					"data": map[string]any{
 						"page": "/home",
 					},
@@ -120,16 +116,12 @@ func TestPostEvents(t *testing.T) {
 		"multiple events": {
 			events: []map[string]any{
 				{
-					"name": "cart_updated",
-					"identifier": map[string]any{
-						"external_id": "user_123",
-					},
+					"name":       "cart_updated",
+					"identifier": []map[string]any{{"source": "default", "external_id": "user_123"}},
 				},
 				{
-					"name": "product_viewed",
-					"identifier": map[string]any{
-						"anonymous_id": "anon_xyz",
-					},
+					"name":       "product_viewed",
+					"identifier": []map[string]any{{"source": "anonymous", "external_id": "anon_xyz"}},
 				},
 			},
 			statusCode: 202,
@@ -137,10 +129,8 @@ func TestPostEvents(t *testing.T) {
 		"event with user identifiers": {
 			events: []map[string]any{
 				{
-					"name": "signup",
-					"identifier": map[string]any{
-						"external_id": "user_789",
-					},
+					"name":       "signup",
+					"identifier": []map[string]any{{"source": "default", "external_id": "user_789"}},
 					"data": map[string]any{
 						"plan": "premium",
 					},
@@ -219,10 +209,8 @@ func TestPostEventsMissingRBACScope(t *testing.T) {
 
 	events := []map[string]any{
 		{
-			"name": "test_event",
-			"identifier": map[string]any{
-				"external_id": "user_123",
-			},
+			"name":       "test_event",
+			"identifier": []map[string]any{{"source": "default", "external_id": "user_123"}},
 		},
 	}
 
@@ -248,10 +236,8 @@ func TestPostEventsMissingProjectID(t *testing.T) {
 
 	events := []map[string]any{
 		{
-			"name": "test_event",
-			"identifier": map[string]any{
-				"external_id": "user_123",
-			},
+			"name":       "test_event",
+			"identifier": []map[string]any{{"source": "default", "external_id": "user_123"}},
 		},
 	}
 
@@ -290,10 +276,8 @@ func TestPostEventsWithNestedData(t *testing.T) {
 
 	events := []map[string]any{
 		{
-			"name": "complex_event",
-			"identifier": map[string]any{
-				"external_id": "user_123",
-			},
+			"name":       "complex_event",
+			"identifier": []map[string]any{{"source": "default", "external_id": "user_123"}},
 			"data": map[string]any{
 				"product": map[string]any{
 					"id":    "prod_123",
@@ -369,8 +353,8 @@ func TestClientIdentifyUser(t *testing.T) {
 	tests := map[string]test{
 		"identify with external_id": {
 			body: map[string]any{
-				"identifier": map[string]any{
-					"external_id": "user_123",
+				"identifier": []map[string]any{
+					{"source": "default", "external_id": "user_123"},
 				},
 				"email":    "user@example.com",
 				"timezone": "America/Chicago",
@@ -384,8 +368,8 @@ func TestClientIdentifyUser(t *testing.T) {
 		},
 		"identify with anonymous_id": {
 			body: map[string]any{
-				"identifier": map[string]any{
-					"anonymous_id": "anon_abc",
+				"identifier": []map[string]any{
+					{"source": "anonymous", "external_id": "anon_abc"},
 				},
 				"email": "test@test.com",
 			},
@@ -393,16 +377,16 @@ func TestClientIdentifyUser(t *testing.T) {
 		},
 		"identify with minimal data": {
 			body: map[string]any{
-				"identifier": map[string]any{
-					"external_id": "user_456",
+				"identifier": []map[string]any{
+					{"source": "default", "external_id": "user_456"},
 				},
 			},
 			statusCode: 200,
 		},
 		"identify with phone": {
 			body: map[string]any{
-				"identifier": map[string]any{
-					"external_id": "user_789",
+				"identifier": []map[string]any{
+					{"source": "default", "external_id": "user_789"},
 				},
 				"phone":    "+1234567890",
 				"timezone": "Europe/Amsterdam",
@@ -463,7 +447,7 @@ func TestClientIdentifyUserInvalidRequest(t *testing.T) {
 	tests := map[string]test{
 		"missing both identifiers": {
 			body: map[string]any{
-				"identifier": map[string]any{},
+				"identifier": []map[string]any{},
 				"email":      "test@test.com",
 			},
 			statusCode: 400,
@@ -519,10 +503,8 @@ func TestClientIdentifyUserMissingRBACScope(t *testing.T) {
 	controller := setupClientController(t)
 
 	body, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "user_123",
-		},
-		"email": "test@test.com",
+		"identifier": []map[string]any{{"source": "default", "external_id": "user_123"}},
+		"email":      "test@test.com",
 	})
 	require.NoError(t, err)
 
@@ -544,10 +526,8 @@ func TestClientIdentifyUserMissingProjectID(t *testing.T) {
 	require.NoError(t, err)
 
 	body, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "user_123",
-		},
-		"email": "test@test.com",
+		"identifier": []map[string]any{{"source": "default", "external_id": "user_123"}},
+		"email":      "test@test.com",
 	})
 	require.NoError(t, err)
 
@@ -585,11 +565,9 @@ func TestClientIdentifyUserUpdateExisting(t *testing.T) {
 
 	// First identify call
 	body1, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "user_123",
-		},
-		"email":    "original@example.com",
-		"timezone": "America/New_York",
+		"identifier": []map[string]any{{"source": "default", "external_id": "user_123"}},
+		"email":      "original@example.com",
+		"timezone":   "America/New_York",
 		"data": map[string]any{
 			"first_name": "John",
 		},
@@ -612,11 +590,9 @@ func TestClientIdentifyUserUpdateExisting(t *testing.T) {
 
 	// Second identify call with updated data
 	body2, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "user_123",
-		},
-		"email":    "updated@example.com",
-		"timezone": "Europe/Amsterdam",
+		"identifier": []map[string]any{{"source": "default", "external_id": "user_123"}},
+		"email":      "updated@example.com",
+		"timezone":   "Europe/Amsterdam",
 		"data": map[string]any{
 			"first_name": "John",
 			"last_name":  "Doe",
@@ -663,11 +639,8 @@ func TestClientIdentifyUserWithBothIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 
 	body, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id":  "user_123",
-			"anonymous_id": "anon_abc",
-		},
-		"email": "test@test.com",
+		"identifier": []map[string]any{{"source": "default", "external_id": "user_123"}, {"source": "anonymous", "external_id": "anon_abc"}},
+		"email":      "test@test.com",
 	})
 	require.NoError(t, err)
 
@@ -699,10 +672,8 @@ func TestUpsertOrganizationClient(t *testing.T) {
 	tests := map[string]test{
 		"create organization with all fields": {
 			body: map[string]any{
-				"identifier": map[string]any{
-					"external_id": "org_123",
-				},
-				"name": "Acme Corp",
+				"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+				"name":       "Acme Corp",
 				"data": map[string]any{
 					"industry": "technology",
 					"size":     "enterprise",
@@ -712,18 +683,14 @@ func TestUpsertOrganizationClient(t *testing.T) {
 		},
 		"create organization with minimal data": {
 			body: map[string]any{
-				"identifier": map[string]any{
-					"external_id": "org_456",
-				},
+				"identifier": []map[string]any{{"source": "default", "external_id": "org_456"}},
 			},
 			statusCode: 200,
 		},
 		"create organization with name only": {
 			body: map[string]any{
-				"identifier": map[string]any{
-					"external_id": "org_789",
-				},
-				"name": "Simple Corp",
+				"identifier": []map[string]any{{"source": "default", "external_id": "org_789"}},
+				"name":       "Simple Corp",
 			},
 			statusCode: 200,
 		},
@@ -764,8 +731,11 @@ func TestUpsertOrganizationClient(t *testing.T) {
 				err = json.Unmarshal(w.Body.Bytes(), &response)
 				require.NoError(t, err)
 				assert.NotEmpty(t, response["id"])
-				identifier := tc.body["identifier"].(map[string]any)
-				assert.Equal(t, identifier["external_id"], response["external_id"])
+				reqIdentifiers := tc.body["identifier"].([]map[string]any)
+				respIdentifiers := response["identifier"].([]any)
+				require.Len(t, respIdentifiers, len(reqIdentifiers))
+				respFirst := respIdentifiers[0].(map[string]any)
+				assert.Equal(t, reqIdentifiers[0]["external_id"], respFirst["external_id"])
 			}
 		})
 	}
@@ -791,10 +761,8 @@ func TestUpsertOrganizationClientUpdate(t *testing.T) {
 
 	// First upsert - create
 	body1, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "org_123",
-		},
-		"name": "Original Name",
+		"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+		"name":       "Original Name",
 		"data": map[string]any{
 			"plan": "basic",
 		},
@@ -816,10 +784,8 @@ func TestUpsertOrganizationClientUpdate(t *testing.T) {
 
 	// Second upsert - update
 	body2, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "org_123",
-		},
-		"name": "Updated Name",
+		"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+		"name":       "Updated Name",
 		"data": map[string]any{
 			"plan": "enterprise",
 		},
@@ -848,10 +814,8 @@ func TestUpsertOrganizationClientMissingRBACScope(t *testing.T) {
 	controller := setupClientController(t)
 
 	body, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "org_123",
-		},
-		"name": "Test Org",
+		"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+		"name":       "Test Org",
 	})
 	require.NoError(t, err)
 
@@ -873,10 +837,8 @@ func TestUpsertOrganizationClientMissingProjectID(t *testing.T) {
 	require.NoError(t, err)
 
 	body, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "org_123",
-		},
-		"name": "Test Org",
+		"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+		"name":       "Test Org",
 	})
 	require.NoError(t, err)
 
@@ -934,14 +896,10 @@ func TestAddOrganizationUserClient(t *testing.T) {
 		"add user with data": {
 			body: map[string]any{
 				"organization": map[string]any{
-					"identifier": map[string]any{
-						"external_id": "org_123",
-					},
+					"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
 				},
 				"user": map[string]any{
-					"identifier": map[string]any{
-						"external_id": "user_456",
-					},
+					"identifier": []map[string]any{{"source": "default", "external_id": "user_456"}},
 				},
 				"data": map[string]any{
 					"role":       "admin",
@@ -953,14 +911,10 @@ func TestAddOrganizationUserClient(t *testing.T) {
 		"add user without data": {
 			body: map[string]any{
 				"organization": map[string]any{
-					"identifier": map[string]any{
-						"external_id": "org_123",
-					},
+					"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
 				},
 				"user": map[string]any{
-					"identifier": map[string]any{
-						"external_id": "user_789",
-					},
+					"identifier": []map[string]any{{"source": "default", "external_id": "user_789"}},
 				},
 			},
 			statusCode: 200,
@@ -988,10 +942,8 @@ func TestAddOrganizationUserClient(t *testing.T) {
 
 			// Create the subject organization first
 			orgBody, err := json.Marshal(map[string]any{
-				"identifier": map[string]any{
-					"external_id": "org_123",
-				},
-				"name": "Test Subject Org",
+				"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+				"name":       "Test Subject Org",
 			})
 			require.NoError(t, err)
 
@@ -1004,13 +956,11 @@ func TestAddOrganizationUserClient(t *testing.T) {
 
 			// Create the user
 			userObj := tc.body["user"].(map[string]any)
-			userIdent := userObj["identifier"].(map[string]any)
-			userExternalID := userIdent["external_id"].(string)
+			userIdent := userObj["identifier"].([]map[string]any)
+			userExternalID := userIdent[0]["external_id"].(string)
 			userBody, err := json.Marshal(map[string]any{
-				"identifier": map[string]any{
-					"external_id": userExternalID,
-				},
-				"email": userExternalID + "@example.com",
+				"identifier": []map[string]any{{"source": "default", "external_id": userExternalID}},
+				"email":      userExternalID + "@example.com",
 			})
 			require.NoError(t, err)
 
@@ -1055,14 +1005,10 @@ func TestAddOrganizationUserClientOrganizationNotFound(t *testing.T) {
 
 	body, err := json.Marshal(map[string]any{
 		"organization": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "nonexistent_org",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "nonexistent_org"}},
 		},
 		"user": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "user_123",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "user_123"}},
 		},
 	})
 	require.NoError(t, err)
@@ -1099,10 +1045,8 @@ func TestAddOrganizationUserClientUserNotFound(t *testing.T) {
 
 	// Create the subject organization first
 	orgBody, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "org_123",
-		},
-		"name": "Test Subject Org",
+		"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+		"name":       "Test Subject Org",
 	})
 	require.NoError(t, err)
 
@@ -1115,14 +1059,10 @@ func TestAddOrganizationUserClientUserNotFound(t *testing.T) {
 
 	body, err := json.Marshal(map[string]any{
 		"organization": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "org_123",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
 		},
 		"user": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "nonexistent_user",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "nonexistent_user"}},
 		},
 	})
 	require.NoError(t, err)
@@ -1144,14 +1084,10 @@ func TestAddOrganizationUserClientMissingRBACScope(t *testing.T) {
 
 	body, err := json.Marshal(map[string]any{
 		"organization": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "org_123",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
 		},
 		"user": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "user_456",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "user_456"}},
 		},
 	})
 	require.NoError(t, err)
@@ -1185,10 +1121,8 @@ func TestRemoveOrganizationUserClient(t *testing.T) {
 
 	// Create the subject organization
 	orgBody, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "org_123",
-		},
-		"name": "Test Subject Org",
+		"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+		"name":       "Test Subject Org",
 	})
 	require.NoError(t, err)
 
@@ -1201,10 +1135,8 @@ func TestRemoveOrganizationUserClient(t *testing.T) {
 
 	// Create the user
 	userBody, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "user_456",
-		},
-		"email": "user@example.com",
+		"identifier": []map[string]any{{"source": "default", "external_id": "user_456"}},
+		"email":      "user@example.com",
 	})
 	require.NoError(t, err)
 
@@ -1218,14 +1150,10 @@ func TestRemoveOrganizationUserClient(t *testing.T) {
 	// Add user to organization
 	addBody, err := json.Marshal(map[string]any{
 		"organization": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "org_123",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
 		},
 		"user": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "user_456",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "user_456"}},
 		},
 	})
 	require.NoError(t, err)
@@ -1240,14 +1168,10 @@ func TestRemoveOrganizationUserClient(t *testing.T) {
 	// Remove user from organization
 	removeBody, err := json.Marshal(map[string]any{
 		"organization": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "org_123",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
 		},
 		"user": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "user_456",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "user_456"}},
 		},
 	})
 	require.NoError(t, err)
@@ -1280,14 +1204,10 @@ func TestRemoveOrganizationUserClientOrganizationNotFound(t *testing.T) {
 
 	body, err := json.Marshal(map[string]any{
 		"organization": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "nonexistent_org",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "nonexistent_org"}},
 		},
 		"user": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "user_123",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "user_123"}},
 		},
 	})
 	require.NoError(t, err)
@@ -1324,10 +1244,8 @@ func TestRemoveOrganizationUserClientUserNotFound(t *testing.T) {
 
 	// Create the subject organization
 	orgBody, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "org_123",
-		},
-		"name": "Test Subject Org",
+		"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+		"name":       "Test Subject Org",
 	})
 	require.NoError(t, err)
 
@@ -1340,14 +1258,10 @@ func TestRemoveOrganizationUserClientUserNotFound(t *testing.T) {
 
 	body, err := json.Marshal(map[string]any{
 		"organization": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "org_123",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
 		},
 		"user": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "nonexistent_user",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "nonexistent_user"}},
 		},
 	})
 	require.NoError(t, err)
@@ -1369,14 +1283,10 @@ func TestRemoveOrganizationUserClientMissingRBACScope(t *testing.T) {
 
 	body, err := json.Marshal(map[string]any{
 		"organization": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "org_123",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
 		},
 		"user": map[string]any{
-			"identifier": map[string]any{
-				"external_id": "user_456",
-			},
+			"identifier": []map[string]any{{"source": "default", "external_id": "user_456"}},
 		},
 	})
 	require.NoError(t, err)
@@ -1402,10 +1312,8 @@ func TestPostOrganizationEventsClient(t *testing.T) {
 		"single event with data": {
 			events: []map[string]any{
 				{
-					"identifier": map[string]any{
-						"external_id": "org_123",
-					},
-					"name": "subscription_upgraded",
+					"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+					"name":       "subscription_upgraded",
 					"data": map[string]any{
 						"plan":  "enterprise",
 						"seats": 100,
@@ -1417,10 +1325,8 @@ func TestPostOrganizationEventsClient(t *testing.T) {
 		"single event without data": {
 			events: []map[string]any{
 				{
-					"identifier": map[string]any{
-						"external_id": "org_123",
-					},
-					"name": "account_activated",
+					"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+					"name":       "account_activated",
 				},
 			},
 			statusCode: 202,
@@ -1428,19 +1334,15 @@ func TestPostOrganizationEventsClient(t *testing.T) {
 		"multiple events": {
 			events: []map[string]any{
 				{
-					"identifier": map[string]any{
-						"external_id": "org_123",
-					},
-					"name": "feature_enabled",
+					"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+					"name":       "feature_enabled",
 					"data": map[string]any{
 						"feature": "advanced_analytics",
 					},
 				},
 				{
-					"identifier": map[string]any{
-						"external_id": "org_123",
-					},
-					"name": "user_invited",
+					"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+					"name":       "user_invited",
 					"data": map[string]any{
 						"invitee_email": "new@example.com",
 					},
@@ -1471,10 +1373,8 @@ func TestPostOrganizationEventsClient(t *testing.T) {
 
 			// Create the subject organization first
 			orgBody, err := json.Marshal(map[string]any{
-				"identifier": map[string]any{
-					"external_id": "org_123",
-				},
-				"name": "Test Subject Org",
+				"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+				"name":       "Test Subject Org",
 			})
 			require.NoError(t, err)
 
@@ -1519,10 +1419,8 @@ func TestPostOrganizationEventsClientNonexistentOrg(t *testing.T) {
 
 	events := []map[string]any{
 		{
-			"identifier": map[string]any{
-				"external_id": "nonexistent_org",
-			},
-			"name": "test_event",
+			"identifier": []map[string]any{{"source": "default", "external_id": "nonexistent_org"}},
+			"name":       "test_event",
 		},
 	}
 
@@ -1549,10 +1447,8 @@ func TestPostOrganizationEventsClientMissingRBACScope(t *testing.T) {
 
 	events := []map[string]any{
 		{
-			"identifier": map[string]any{
-				"external_id": "org_123",
-			},
-			"name": "test_event",
+			"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+			"name":       "test_event",
 		},
 	}
 
@@ -1578,10 +1474,8 @@ func TestPostOrganizationEventsClientMissingProjectID(t *testing.T) {
 
 	events := []map[string]any{
 		{
-			"identifier": map[string]any{
-				"external_id": "org_123",
-			},
-			"name": "test_event",
+			"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+			"name":       "test_event",
 		},
 	}
 
@@ -1650,10 +1544,8 @@ func TestPostOrganizationEventsClientWithNestedData(t *testing.T) {
 
 	// Create the subject organization first
 	orgBody, err := json.Marshal(map[string]any{
-		"identifier": map[string]any{
-			"external_id": "org_123",
-		},
-		"name": "Test Subject Org",
+		"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+		"name":       "Test Subject Org",
 	})
 	require.NoError(t, err)
 
@@ -1666,10 +1558,8 @@ func TestPostOrganizationEventsClientWithNestedData(t *testing.T) {
 
 	events := []map[string]any{
 		{
-			"identifier": map[string]any{
-				"external_id": "org_123",
-			},
-			"name": "complex_event",
+			"identifier": []map[string]any{{"source": "default", "external_id": "org_123"}},
+			"name":       "complex_event",
 			"data": map[string]any{
 				"subscription": map[string]any{
 					"plan":     "enterprise",

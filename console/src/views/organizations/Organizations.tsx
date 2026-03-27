@@ -16,6 +16,7 @@ import { useRoute } from "../router"
 import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
+import { getPrimaryExternalId } from "@/lib/name"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useContext } from "react"
 import { BuildingIcon } from "@/components/icons"
@@ -104,7 +105,7 @@ export default function Organizations() {
             await oapiClient.POST("/api/admin/projects/{projectID}/subjects/organizations", {
                 params: { path: { projectID: projectId } },
                 body: {
-                    external_id: newOrgExternalId.trim(),
+                    identifier: [{ source: "default", external_id: newOrgExternalId.trim() }],
                     name: newOrgName.trim() || undefined,
                     data: Object.keys(newOrgData).length > 0 ? newOrgData : undefined,
                 } as UpsertOrganization,
@@ -220,7 +221,11 @@ export default function Organizations() {
                             </TableRow>
                         ) : (
                             organizations.map((org) => {
-                                const orgColor = getRandomColor(org.external_id)
+                                const orgColor = getRandomColor(
+                                    getPrimaryExternalId(
+                                        org as unknown as Record<string, unknown>,
+                                    ) ?? org.id,
+                                )
                                 return (
                                     <TableRow
                                         key={org.id}
@@ -237,10 +242,21 @@ export default function Organizations() {
                                                 </div>
                                                 <div>
                                                     <div className="font-medium">
-                                                        {org.name || org.external_id}
+                                                        {org.name ||
+                                                            getPrimaryExternalId(
+                                                                org as unknown as Record<
+                                                                    string,
+                                                                    unknown
+                                                                >,
+                                                            )}
                                                     </div>
                                                     <div className="text-sm text-muted-foreground">
-                                                        {org.external_id}
+                                                        {getPrimaryExternalId(
+                                                            org as unknown as Record<
+                                                                string,
+                                                                unknown
+                                                            >,
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -355,15 +371,17 @@ export default function Organizations() {
                     <div className="grid gap-4 py-4">
                         <div className="grid sm:grid-cols-2 gap-4">
                             <div className="grid gap-2 content-start">
-                                <Label htmlFor="external_id">{t("external_id")} *</Label>
+                                <Label htmlFor="external_id">
+                                    {t("identifier", "Identifier")} *
+                                </Label>
                                 <Input
                                     id="external_id"
-                                    placeholder={t("enter_external_id", "e.g., org-123")}
+                                    placeholder={t("enter_identifier", "e.g., org-123")}
                                     value={newOrgExternalId}
                                     onChange={(e) => setNewOrgExternalId(e.target.value)}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    {t("external_id_help", "A unique identifier from your system")}
+                                    {t("identifier_help", "A unique identifier from your system")}
                                 </p>
                             </div>
                             <div className="grid gap-2 content-start">
