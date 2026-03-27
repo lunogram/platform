@@ -58,13 +58,16 @@ Create or update a user profile with associated traits.
 `POST /api/client/identify`
 
 #### Body
-- **anonymous_id** string (optional)
-- **external_id** string
+- **user** object (required) - User identification object
+  - **external_id** string (optional) - External identifier for the user from your system
+  - **anonymous_id** string (optional) - Anonymous identifier for the user
 - **email** string (optional)
 - **phone** string (optional) - Phone number in E.164 format
 - **timezone** string (optional) - The users timezone provided in IANA format (i.e. America/Chicago)
 - **locale** string (optional) - The locale of the user use for language and formatting (i.e `es` or `en`)
 - **data** object (optional)
+
+Either `external_id` or `anonymous_id` must be provided within the `user` object.
 
 #### Responses
 - **204** - Success
@@ -79,7 +82,9 @@ Headers: {
 }
 
 Body: {
-    "external_id": "EXTERNAL_ID",
+    "user": {
+        "external_id": "EXTERNAL_ID"
+    },
     "email": "test@test.com",
     "timezone": "America/Chicago",
     "locale": "en",
@@ -145,11 +150,12 @@ Track and event or interaction.
 An array containing at least one object with the following parameters:
 
 - **name** string (optional) - The name of the event
-- **anonymous_id** string
-- **external_id** string
+- **user** object (optional) - User identification object
+  - **external_id** string (optional) - External identifier for the user from your system
+  - **anonymous_id** string (optional) - Anonymous identifier for the user
 - **data** object (optional)
 
-Either an anonymous or external ID is required in order to post an event.
+Either an anonymous or external ID is required within the `user` object in order to post an event.
 
 #### Responses
 - **204** - Success
@@ -164,7 +170,9 @@ Headers: {
 }
 
 Body: [{
-    "external_id": "EXTERNAL_ID",
+    "user": {
+        "external_id": "EXTERNAL_ID"
+    },
     "name": "Product Purchased",
     "data": {
         "product_id": 12345,

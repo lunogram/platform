@@ -18,19 +18,20 @@ import (
 )
 
 // resolveUserID ensures scheduled.UserID is populated, looking it up by
-// external/anonymous ID when necessary.
+// identifiers when necessary.
 func resolveUserID(ctx context.Context, logger *zap.Logger, txState *subjects.State, scheduled *schemas.ScheduledMsg) error {
 	if scheduled.UserID != uuid.Nil {
 		return nil
 	}
 
-	logger.Info("looking up user ID",
-		zap.Stringp("external_id", scheduled.ExternalId),
-		zap.Stringp("anonymous_id", scheduled.AnonymousId),
-	)
+	if len(scheduled.Identifiers) == 0 {
+		return fmt.Errorf("user_id or identifiers are required for user scheduled")
+	}
+
+	logger.Info("looking up user ID from identifiers")
 
 	var err error
-	scheduled.UserID, err = txState.LookupUserID(ctx, scheduled.ProjectID, scheduled.ExternalId, scheduled.AnonymousId)
+	scheduled.UserID, err = txState.LookupUserID(ctx, scheduled.ProjectID, scheduled.Identifiers)
 	if err != nil {
 		logger.Error("failed to lookup user ID", zap.Error(err))
 		return err
@@ -39,18 +40,18 @@ func resolveUserID(ctx context.Context, logger *zap.Logger, txState *subjects.St
 }
 
 // resolveOrganizationID ensures scheduled.OrganizationID is populated, looking
-// it up by external ID when necessary.
+// it up by identifiers when necessary.
 func resolveOrganizationID(ctx context.Context, logger *zap.Logger, txState *subjects.State, scheduled *schemas.ScheduledMsg) error {
 	if scheduled.OrganizationID != uuid.Nil {
 		return nil
 	}
 
-	if scheduled.ExternalId == nil || *scheduled.ExternalId == "" {
-		return fmt.Errorf("organization_id or external_id is required for organization scheduled")
+	if len(scheduled.Identifiers) == 0 {
+		return fmt.Errorf("organization_id or identifiers are required for organization scheduled")
 	}
 
 	var err error
-	scheduled.OrganizationID, err = txState.LookupOrganizationID(ctx, scheduled.ProjectID, *scheduled.ExternalId)
+	scheduled.OrganizationID, err = txState.LookupOrganizationID(ctx, scheduled.ProjectID, scheduled.Identifiers)
 	if err != nil {
 		logger.Error("failed to lookup organization ID", zap.Error(err))
 		return err
@@ -70,7 +71,7 @@ func ScheduledHandler(logger *zap.Logger, db *sqlx.DB, usrs *subjects.State, pub
 		var scheduled schemas.ScheduledMsg
 		if err := json.Unmarshal(msg.Data(), &scheduled); err != nil {
 			logger.Error("failed to unmarshal scheduled message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger := logger.With(
@@ -178,7 +179,7 @@ func ScheduledSchemasHandler(logger *zap.Logger, usrs *subjects.State) HandlerFu
 		err := json.Unmarshal(msg.Data(), &scheduled)
 		if err != nil {
 			logger.Error("failed to unmarshal scheduled message", zap.Error(err))
-			return err
+			return Permanent(err)
 		}
 
 		logger.Info("incoming scheduled schema",

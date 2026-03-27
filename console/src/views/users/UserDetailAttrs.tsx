@@ -1,6 +1,6 @@
 import { useCallback, useContext, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Save, Smartphone, Monitor, Tablet, Trash2 } from "lucide-react"
+import { Save, Smartphone, Monitor, Tablet, Trash2, Braces } from "lucide-react"
 import { toast } from "sonner"
 import { ProjectContext, UserContext } from "../../contexts"
 import { useResolver } from "../../hooks"
@@ -9,6 +9,7 @@ import oapiClient from "../../oapi/client"
 
 import { Button } from "@/components/ui/button"
 import { AttributeEditor } from "@/components/ui/attribute-editor"
+import UserDetailIdentifiers from "./UserDetailIdentifiers"
 import type { User } from "../../types"
 
 function getDeviceIcon(os: string) {
@@ -106,6 +107,9 @@ export default function UserDetailAttrs() {
 
     return (
         <div className="space-y-8">
+            {/* Identifiers Section */}
+            <UserDetailIdentifiers />
+
             {/* Devices Section */}
             {devices.length > 0 && (
                 <div className="space-y-3">
@@ -162,6 +166,7 @@ export default function UserDetailAttrs() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-base font-medium">
+                            <Braces className="inline h-4 w-4 mr-1.5 -mt-0.5" />
                             {t("custom_attributes", "Custom attributes")}
                         </h2>
                         <p className="text-sm text-muted-foreground mt-0.5">

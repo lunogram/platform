@@ -477,24 +477,30 @@ func (s *ListsStore) DuplicateList(ctx context.Context, projectID, listID uuid.U
 func (s *ListsStore) SelectListUsers(ctx context.Context, projectID, listID uuid.UUID, pagination store.Pagination, search string) (Users, int, error) {
 	query := `
 	SELECT
-		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
+		u.id, u.project_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
 		EXISTS(
 			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
 			AND d.token IS NOT NULL
 			AND d.token != ''
 		) as has_push_device,
+		COALESCE(ueia.external_ids, '[]'::jsonb) AS external_ids,
 		COUNT(*) OVER () AS total_count
 	FROM users u
 	INNER JOIN list_users ul ON u.id = ul.user_id
 	INNER JOIN lists l ON ul.list_id = l.id
+	LEFT JOIN user_external_ids_agg ueia ON ueia.user_id = u.id
 	WHERE l.project_id = $1
 	AND l.id = $2
 	AND (
 		$3 = '' OR
-		u.external_id ILIKE '%' || $3 || '%' OR
 		u.email ILIKE '%' || $3 || '%' OR
-		u.phone ILIKE '%' || $3 || '%'
+		u.phone ILIKE '%' || $3 || '%' OR
+		EXISTS(
+			SELECT 1 FROM user_external_ids uei
+			WHERE uei.user_id = u.id
+			AND uei.external_id ILIKE '%' || $3 || '%'
+		)
 	)
 	ORDER BY ul.created_at DESC
 	LIMIT $4 OFFSET $5`
@@ -539,16 +545,18 @@ func (s *ListsStore) PreviewListUsers(ctx context.Context, projectID uuid.UUID, 
 		%s
 	)
 	SELECT
-		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
+		u.id, u.project_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
 		EXISTS(
 			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
 			AND d.token IS NOT NULL
 			AND d.token != ''
 		) as has_push_device,
+		COALESCE(ueia.external_ids, '[]'::jsonb) AS external_ids,
 		COUNT(*) OVER () AS total_count
 	FROM users u
 	INNER JOIN matched m ON u.id = m.id
+	LEFT JOIN user_external_ids_agg ueia ON ueia.user_id = u.id
 	ORDER BY u.created_at DESC
 	LIMIT %d`, query.SQL, limit)
 

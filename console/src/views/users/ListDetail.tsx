@@ -25,7 +25,11 @@ import type { DynamicList, ListUpdateParams, Rule, WrapperRule } from "../../typ
 interface ListUser {
     id: string
     full_name?: string
-    external_id?: string
+    identifier?: Array<{
+        source: string
+        external_id: string
+        metadata?: Record<string, unknown> | null
+    }>
     email?: string
     phone?: string
 }
@@ -537,9 +541,6 @@ export default function ListDetail() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>{t("name")}</TableHead>
-                                    <TableHead className="hidden md:table-cell">
-                                        {t("external_id")}
-                                    </TableHead>
                                     <TableHead>{t("email")}</TableHead>
                                     <TableHead className="hidden sm:table-cell">
                                         {t("phone")}
@@ -553,9 +554,6 @@ export default function ListDetail() {
                                             <TableCell>
                                                 <Skeleton className="h-4 w-32" />
                                             </TableCell>
-                                            <TableCell className="hidden md:table-cell">
-                                                <Skeleton className="h-4 w-24" />
-                                            </TableCell>
                                             <TableCell>
                                                 <Skeleton className="h-4 w-36" />
                                             </TableCell>
@@ -566,7 +564,7 @@ export default function ListDetail() {
                                     ))
                                 ) : users.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-32 text-center">
+                                        <TableCell colSpan={3} className="h-32 text-center">
                                             <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                                 <Users className="h-8 w-8" />
                                                 <p>
@@ -589,11 +587,6 @@ export default function ListDetail() {
                                         >
                                             <TableCell className="font-medium">
                                                 {getUserDisplayName(user, "—")}
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground hidden md:table-cell">
-                                                <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                                                    {user.external_id}
-                                                </code>
                                             </TableCell>
                                             <TableCell className="text-muted-foreground">
                                                 {user.email || "—"}

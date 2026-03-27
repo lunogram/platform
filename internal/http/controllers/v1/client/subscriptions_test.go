@@ -39,11 +39,7 @@ func setupSubscriptionsController(t *testing.T) (*SubscriptionsController, uuid.
 
 	// Create user
 	email := "test@example.com"
-	userID, err := usrs.CreateUser(ctx, subjects.User{
-		ProjectID: projectID,
-		Email:     &email,
-		Data:      json.RawMessage("{}"),
-	})
+	userID, err := usrs.CreateUser(ctx, projectID, &email, nil, json.RawMessage("{}"), nil, nil, nil)
 	require.NoError(t, err)
 
 	controller, err := NewSubscriptionsController(logger, mgmtDB, mgmt, usrs)
@@ -151,11 +147,7 @@ func TestEmailUnsubscribe(t *testing.T) {
 
 	// Create user
 	email := "test@example.com"
-	userID, err := usrs.CreateUser(ctx, subjects.User{
-		ProjectID: projectID,
-		Email:     &email,
-		Data:      json.RawMessage("{}"),
-	})
+	userID, err := usrs.CreateUser(ctx, projectID, &email, nil, json.RawMessage("{}"), nil, nil, nil)
 	require.NoError(t, err)
 
 	// Create subscription

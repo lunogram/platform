@@ -1044,28 +1044,13 @@ func TestPreviewListUsers(t *testing.T) {
 
 	// Create users with different data
 	usersStore := subjects.NewUsersStore(usrs)
-	_, err = usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:  projectID,
-		ExternalID: ptr("alice"),
-		Email:      ptr("alice@example.com"),
-		Data:       []byte(`{"name":"Alice","age":30}`),
-	})
+	_, err = usersStore.CreateUser(ctx, projectID, ptr("alice@example.com"), nil, []byte(`{"name":"Alice","age":30}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "alice"}})
 	require.NoError(t, err)
 
-	_, err = usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:  projectID,
-		ExternalID: ptr("bob"),
-		Email:      ptr("bob@example.com"),
-		Data:       []byte(`{"name":"Bob","age":17}`),
-	})
+	_, err = usersStore.CreateUser(ctx, projectID, ptr("bob@example.com"), nil, []byte(`{"name":"Bob","age":17}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "bob"}})
 	require.NoError(t, err)
 
-	_, err = usersStore.CreateUser(ctx, subjects.User{
-		ProjectID:  projectID,
-		ExternalID: ptr("carol"),
-		Email:      ptr("carol@example.com"),
-		Data:       []byte(`{"name":"Carol","age":25}`),
-	})
+	_, err = usersStore.CreateUser(ctx, projectID, ptr("carol@example.com"), nil, []byte(`{"name":"Carol","age":25}`), nil, nil, []subjects.ExternalIDParam{{Source: "default", ExternalID: "carol"}})
 	require.NoError(t, err)
 
 	actor := rbac.NewActor(rbac.ActorAdmin, uuid.New().String(),
@@ -1131,8 +1116,10 @@ func TestPreviewListUsers(t *testing.T) {
 
 		extIDs := make(map[string]bool)
 		for _, u := range response.Results {
-			if u.ExternalId != nil {
-				extIDs[*u.ExternalId] = true
+			for _, ident := range u.Identifier {
+				if ident.Source == "default" {
+					extIDs[ident.ExternalId] = true
+				}
 			}
 		}
 		require.True(t, extIDs["alice"])

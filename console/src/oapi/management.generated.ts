@@ -687,7 +687,7 @@ export interface paths {
         put?: never;
         /**
          * Identify user
-         * @description Creates or updates a user by anonymous_id or external_id
+         * @description Creates or updates a user by external identifiers
          */
         post: operations["identifyUser"];
         delete?: never;
@@ -742,6 +742,26 @@ export interface paths {
          * @description Updates user properties
          */
         patch: operations["updateUser"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/users/{userID}/identifiers/{identifierID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete user external identifier
+         * @description Removes an external identifier from a user. Cannot remove the last remaining identifier.
+         */
+        delete: operations["deleteUserExternalID"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/projects/{projectID}/subjects/users/{userID}/events": {
@@ -927,7 +947,7 @@ export interface paths {
         put?: never;
         /**
          * Create or update subject organization
-         * @description Creates or updates an organization (subject) by external_id
+         * @description Creates or updates an organization (subject) by external identifiers
          */
         post: operations["upsertOrganization"];
         delete?: never;
@@ -962,6 +982,26 @@ export interface paths {
          * @description Updates organization properties
          */
         patch: operations["updateOrganization"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/identifiers/{identifierID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete organization external identifier
+         * @description Removes an external identifier from an organization. Cannot remove the last remaining identifier.
+         */
+        delete: operations["deleteOrganizationExternalID"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/projects/{projectID}/subjects/organizations/{organizationID}/users": {
@@ -2293,6 +2333,49 @@ export interface components {
              */
             offset: number;
         };
+        /** @description An external identifier with source and optional metadata */
+        ExternalID: {
+            /**
+             * @description Source of the identifier (e.g. "default", "anonymous", or a custom source). Defaults to "default" if not provided.
+             * @default default
+             * @example default
+             */
+            source: string;
+            /**
+             * @description The external identifier value
+             * @example user_12345
+             */
+            external_id: string;
+            /** @description Optional metadata associated with this identifier */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** @description An external identifier as returned in responses, including database ID and timestamps */
+        ExternalIDResponse: {
+            /**
+             * Format: uuid
+             * @example a1b2c3d4-e5f6-7890-abcd-ef1234567890
+             */
+            id: string;
+            /** @example default */
+            source: string;
+            /** @example user_12345 */
+            external_id: string;
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Format: date-time
+             * @example 2025-11-19T14:18:42.960Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @example 2025-11-23T17:20:00.021Z
+             */
+            updated_at: string;
+        };
         UserList: components["schemas"]["PaginatedResponse"] & {
             results: components["schemas"]["User"][];
         };
@@ -2835,10 +2918,8 @@ export interface components {
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
             project_id: string;
-            /** @example anon_abc123xyz */
-            anonymous_id: string;
-            /** @example user_123 */
-            external_id?: string;
+            /** @description External identifiers associated with this user */
+            identifier: components["schemas"]["ExternalIDResponse"][];
             /**
              * Format: email
              * @example user@example.com
@@ -2879,10 +2960,8 @@ export interface components {
             updated_at: string;
         };
         IdentifyUser: {
-            /** @example anon_abc123xyz */
-            anonymous_id?: string;
-            /** @example user_123 */
-            external_id?: string;
+            /** @description One or more external identifiers to identify the user */
+            identifier: components["schemas"]["ExternalID"][];
             /**
              * Format: email
              * @example user@example.com
@@ -2907,7 +2986,7 @@ export interface components {
             data?: {
                 [key: string]: unknown;
             };
-        } & (unknown | unknown);
+        };
         UpdateUser: {
             /**
              * Format: email
@@ -2945,11 +3024,8 @@ export interface components {
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
             project_id: string;
-            /**
-             * @description External identifier for the organization from your system
-             * @example org_123
-             */
-            external_id: string;
+            /** @description External identifiers associated with this organization */
+            identifier: components["schemas"]["ExternalIDResponse"][];
             /** @example Acme Corp */
             name?: string;
             /**
@@ -3014,11 +3090,8 @@ export interface components {
             results: components["schemas"]["OrganizationEvent"][];
         };
         UpsertOrganization: {
-            /**
-             * @description External identifier for the organization from your system
-             * @example org_123
-             */
-            external_id: string;
+            /** @description One or more external identifiers to identify the organization */
+            identifier: components["schemas"]["ExternalID"][];
             /** @example Acme Corp */
             name?: string;
             /**
@@ -3055,10 +3128,8 @@ export interface components {
              * @example 4c9d3163-7b64-4f9e-9068-d2e4b96be56b
              */
             project_id: string;
-            /** @example anon_abc123xyz */
-            anonymous_id: string;
-            /** @example user_123 */
-            external_id?: string;
+            /** @description External identifiers associated with this user */
+            identifier: components["schemas"]["ExternalIDResponse"][];
             /**
              * Format: email
              * @example user@example.com
@@ -5762,7 +5833,7 @@ export interface operations {
                 "multipart/form-data": {
                     /**
                      * Format: binary
-                     * @description CSV file with user data (must include external_id column)
+                     * @description CSV file with user data (must include source and external_id columns)
                      */
                     file: string;
                 };
@@ -5855,6 +5926,32 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["User"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteUserExternalID: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The user ID */
+                userID: string;
+                /** @description The external identifier ID to delete */
+                identifierID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description External identifier deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -6265,6 +6362,32 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Organization"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteOrganizationExternalID: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The organization ID */
+                organizationID: string;
+                /** @description The external identifier ID to delete */
+                identifierID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description External identifier deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

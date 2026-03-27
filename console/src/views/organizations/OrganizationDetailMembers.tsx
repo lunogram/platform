@@ -15,7 +15,7 @@ import { ProjectContext, OrganizationContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import { useRoute } from "../router"
 import oapiClient, { type OrganizationMember } from "../../oapi/client"
-import { getUserDisplayName, getUserInitials } from "@/lib/name"
+import { getUserDisplayName, getUserInitials, getPrimaryExternalId } from "@/lib/name"
 import type { User as UserType } from "../../types"
 
 import { Button } from "@/components/ui/button"
@@ -86,7 +86,7 @@ function MemberExpandedRow({
 
     return (
         <TableRow className="bg-muted/50 hover:bg-muted/50">
-            <TableCell colSpan={5} className="p-0">
+            <TableCell colSpan={4} className="p-0">
                 <div className="px-4 sm:px-6 py-4 flex flex-col gap-3">
                     {/* Member Attributes */}
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -323,9 +323,7 @@ export default function OrganizationDetailMembers() {
                         <TableRow>
                             <TableHead className="w-8 p-0"></TableHead>
                             <TableHead>{t("member")}</TableHead>
-                            <TableHead className="hidden sm:table-cell w-32">
-                                {t("external_id")}
-                            </TableHead>
+
                             <TableHead className="hidden md:table-cell w-20">
                                 {t("attributes")}
                             </TableHead>
@@ -345,9 +343,7 @@ export default function OrganizationDetailMembers() {
                                             <Skeleton className="h-4 w-36" />
                                         </div>
                                     </TableCell>
-                                    <TableCell className="hidden sm:table-cell">
-                                        <Skeleton className="h-4 w-20" />
-                                    </TableCell>
+
                                     <TableCell className="hidden md:table-cell">
                                         <Skeleton className="h-4 w-12" />
                                     </TableCell>
@@ -356,7 +352,7 @@ export default function OrganizationDetailMembers() {
                             ))
                         ) : members.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="h-48">
+                                <TableCell colSpan={4} className="h-48">
                                     <div className="flex flex-col items-center justify-center">
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
                                             <Users className="h-6 w-6 text-muted-foreground" />
@@ -411,15 +407,7 @@ export default function OrganizationDetailMembers() {
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="hidden sm:table-cell">
-                                                {member.external_id ? (
-                                                    <code className="text-sm text-muted-foreground">
-                                                        {member.external_id}
-                                                    </code>
-                                                ) : (
-                                                    <span className="text-muted-foreground">—</span>
-                                                )}
-                                            </TableCell>
+
                                             <TableCell className="hidden md:table-cell">
                                                 {attrCount > 0 ? (
                                                     <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
@@ -573,7 +561,13 @@ export default function OrganizationDetailMembers() {
                                         {getUserDisplayName(memberToRemove)}
                                     </p>
                                     <p className="text-sm text-muted-foreground">
-                                        {memberToRemove.email || memberToRemove.external_id}
+                                        {memberToRemove.email ||
+                                            getPrimaryExternalId(
+                                                memberToRemove as unknown as Record<
+                                                    string,
+                                                    unknown
+                                                >,
+                                            )}
                                     </p>
                                 </div>
                             </div>

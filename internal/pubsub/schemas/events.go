@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/store/subjects"
 )
 
 // Subject represents a NATS subject for publishing messages.
@@ -25,22 +26,24 @@ const (
 	EventProjectCreated = "project.created"
 )
 
+// ExternalID is an alias for subjects.ExternalIDParam so that pubsub messages
+// use the same type as the store layer without manual conversion.
+type ExternalID = subjects.ExternalIDParam
+
 // UserEvent represents a tracked event with associated user and project information.
 type UserEvent struct {
 	ID          uuid.UUID      `json:"id"`
 	Name        string         `json:"name"`
 	ProjectID   uuid.UUID      `json:"project_id"`
 	UserID      uuid.UUID      `json:"user_id"`
-	AnonymousId *string        `json:"anonymous_id"`
-	ExternalId  *string        `json:"external_id"`
+	Identifiers []ExternalID   `json:"identifiers,omitempty"`
 	Data        map[string]any `json:"data"`
 }
 
 type User struct {
 	ID          uuid.UUID      `json:"id"`
 	ProjectID   uuid.UUID      `json:"project_id"`
-	AnonymousID *string        `json:"anonymous_id"`
-	ExternalID  *string        `json:"external_id"`
+	Identifiers []ExternalID   `json:"identifiers,omitempty"`
 	Email       *string        `json:"email"`
 	Phone       *string        `json:"phone"`
 	Timezone    *string        `json:"timezone"`
@@ -53,8 +56,7 @@ func (u User) UserEvent(name string) UserEvent {
 	return UserEvent{
 		Name:        name,
 		ProjectID:   u.ProjectID,
-		AnonymousId: u.AnonymousID,
-		ExternalId:  u.ExternalID,
+		Identifiers: u.Identifiers,
 		Data: map[string]any{
 			"id":       u.ID,
 			"email":    u.Email,
@@ -97,24 +99,24 @@ type JourneyStepExecuted struct {
 
 // Organization represents an organization with associated project information.
 type Organization struct {
-	ID         uuid.UUID      `json:"id"`
-	ProjectID  uuid.UUID      `json:"project_id"`
-	ExternalID string         `json:"external_id"`
-	Name       *string        `json:"name"`
-	Data       map[string]any `json:"data"`
-	Version    int32          `json:"version"`
+	ID          uuid.UUID      `json:"id"`
+	ProjectID   uuid.UUID      `json:"project_id"`
+	Identifiers []ExternalID   `json:"identifiers,omitempty"`
+	Name        *string        `json:"name"`
+	Data        map[string]any `json:"data"`
+	Version     int32          `json:"version"`
 }
 
 // OrganizationEvent creates an OrganizationEvent from this Organization with the given event name.
 func (o Organization) OrganizationEvent(name string) OrganizationEvent {
 	return OrganizationEvent{
-		Name:                   name,
-		ProjectID:              o.ProjectID,
-		OrganizationID:         o.ID,
-		OrganizationExternalID: o.ExternalID,
+		Name:                    name,
+		ProjectID:               o.ProjectID,
+		OrganizationID:          o.ID,
+		OrganizationIdentifiers: o.Identifiers,
 		Data: map[string]any{
 			"id":          o.ID,
-			"external_id": o.ExternalID,
+			"identifiers": o.Identifiers,
 			"name":        o.Name,
 			"traits":      o.Data,
 			"version":     o.Version,
@@ -124,24 +126,24 @@ func (o Organization) OrganizationEvent(name string) OrganizationEvent {
 
 // OrganizationUser represents a user's membership in an organization.
 type OrganizationUser struct {
-	OrganizationID         uuid.UUID      `json:"organization_id"`
-	OrganizationExternalID string         `json:"organization_external_id"`
-	UserID                 uuid.UUID      `json:"user_id"`
-	ProjectID              uuid.UUID      `json:"project_id"`
-	Data                   map[string]any `json:"data"`
-	Version                int32          `json:"version"`
+	OrganizationID          uuid.UUID      `json:"organization_id"`
+	OrganizationIdentifiers []ExternalID   `json:"organization_identifiers,omitempty"`
+	UserID                  uuid.UUID      `json:"user_id"`
+	ProjectID               uuid.UUID      `json:"project_id"`
+	Data                    map[string]any `json:"data"`
+	Version                 int32          `json:"version"`
 }
 
 // OrganizationEvent creates an OrganizationEvent from this OrganizationUser with the given event name.
 func (ou OrganizationUser) OrganizationEvent(name string) OrganizationEvent {
 	return OrganizationEvent{
-		Name:                   name,
-		ProjectID:              ou.ProjectID,
-		OrganizationID:         ou.OrganizationID,
-		OrganizationExternalID: ou.OrganizationExternalID,
+		Name:                    name,
+		ProjectID:               ou.ProjectID,
+		OrganizationID:          ou.OrganizationID,
+		OrganizationIdentifiers: ou.OrganizationIdentifiers,
 		Data: map[string]any{
 			"organization_id":          ou.OrganizationID,
-			"organization_external_id": ou.OrganizationExternalID,
+			"organization_identifiers": ou.OrganizationIdentifiers,
 			"user_id":                  ou.UserID,
 			"traits":                   ou.Data,
 			"version":                  ou.Version,
@@ -151,12 +153,12 @@ func (ou OrganizationUser) OrganizationEvent(name string) OrganizationEvent {
 
 // OrganizationEvent represents an event that occurs on an organization (not a user).
 type OrganizationEvent struct {
-	ID                     uuid.UUID      `json:"id"`
-	Name                   string         `json:"name"`
-	ProjectID              uuid.UUID      `json:"project_id"`
-	OrganizationID         uuid.UUID      `json:"organization_id"`
-	OrganizationExternalID string         `json:"organization_external_id"`
-	Data                   map[string]any `json:"data"`
+	ID                      uuid.UUID      `json:"id"`
+	Name                    string         `json:"name"`
+	ProjectID               uuid.UUID      `json:"project_id"`
+	OrganizationID          uuid.UUID      `json:"organization_id"`
+	OrganizationIdentifiers []ExternalID   `json:"organization_identifiers,omitempty"`
+	Data                    map[string]any `json:"data"`
 }
 
 // CampaignsSend returns the NATS subject for campaign sending.
@@ -388,6 +390,5 @@ type ScheduledMsg struct {
 	Data           map[string]any `json:"data,omitempty"`
 	UserID         uuid.UUID      `json:"user_id,omitempty"`
 	OrganizationID uuid.UUID      `json:"organization_id,omitempty"`
-	ExternalId     *string        `json:"external_id,omitempty"`
-	AnonymousId    *string        `json:"anonymous_id,omitempty"`
+	Identifiers    []ExternalID   `json:"identifiers,omitempty"`
 }

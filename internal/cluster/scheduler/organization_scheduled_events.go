@@ -47,12 +47,11 @@ func (controller *Controller) ReconcileOrganizationScheduledEvents(ctx context.C
 			data["schedule_id"] = event.ScheduleID.String()
 
 			orgEvent := schemas.OrganizationEvent{
-				ID:                     uuid.New(),
-				Name:                   eventName,
-				ProjectID:              event.ProjectID,
-				OrganizationID:         event.OrganizationID,
-				OrganizationExternalID: "",
-				Data:                   data,
+				ID:             uuid.New(),
+				Name:           eventName,
+				ProjectID:      event.ProjectID,
+				OrganizationID: event.OrganizationID,
+				Data:           data,
 			}
 
 			// NOTE: There is an intentional gap between Publish and MarkOrgScheduledEventFired.

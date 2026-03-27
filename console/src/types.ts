@@ -382,10 +382,18 @@ export interface ProjectApiKey {
 
 export type ProjectApiKeyParams = Pick<ProjectApiKey, "name" | "description" | "scope" | "role">
 
+export interface ExternalIDResponse {
+    id: UUID
+    source: string
+    external_id: string
+    metadata?: Record<string, unknown> | null
+    created_at: string
+    updated_at: string
+}
+
 export interface User {
     id: UUID
-    anonymous_id?: string
-    external_id?: string
+    identifier: ExternalIDResponse[]
     full_name?: string
     email?: string
     phone?: string
@@ -399,7 +407,7 @@ export interface User {
 export interface SubjectOrganization {
     id: UUID
     project_id: UUID
-    external_id: string
+    identifier: ExternalIDResponse[]
     name?: string
     data: Record<string, unknown>
     version: number
@@ -407,10 +415,11 @@ export interface SubjectOrganization {
     updated_at: string
 }
 
-export type SubjectOrganizationCreateParams = Pick<
-    SubjectOrganization,
-    "external_id" | "name" | "data"
->
+export type SubjectOrganizationCreateParams = {
+    identifier: { source: string; external_id: string; metadata?: Record<string, unknown> | null }[]
+    name?: string
+    data: Record<string, unknown>
+}
 export type SubjectOrganizationUpdateParams = Pick<SubjectOrganization, "name" | "data">
 
 export interface SubjectOrganizationMember {

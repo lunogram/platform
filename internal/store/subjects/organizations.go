@@ -2,8 +2,11 @@ package subjects
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,8 +17,21 @@ import (
 	"github.com/lunogram/platform/internal/store"
 )
 
+// ErrOrgNotFound is returned when no organization matches the given identifiers.
+var ErrOrgNotFound = errors.New("no organization found for the given identifiers")
+
+// ErrOrgConflictingIdentifiers is returned when identifiers in a request resolve to different existing organizations.
+var ErrOrgConflictingIdentifiers = errors.New("identifiers resolve to different existing organizations")
+
+// ErrOrgLastIdentifier is returned when attempting to delete the last remaining external ID for an organization.
+var ErrOrgLastIdentifier = errors.New("cannot delete the last remaining identifier for organization")
+
+// ErrOrgIdentifierBelongsToOther is returned when an external identifier already belongs to a different organization.
+var ErrOrgIdentifierBelongsToOther = errors.New("identifier already belongs to a different organization")
+
 type Organizations []Organization
 
+// TODO: update after oapi regeneration
 func (o Organizations) OAPI() []oapi.Organization {
 	results := make([]oapi.Organization, len(o))
 	for i, org := range o {
@@ -25,21 +41,31 @@ func (o Organizations) OAPI() []oapi.Organization {
 }
 
 type Organization struct {
-	ID         uuid.UUID       `db:"id"`
-	ProjectID  uuid.UUID       `db:"project_id"`
-	ExternalID string          `db:"external_id"`
-	Name       *string         `db:"name"`
-	Data       json.RawMessage `db:"data"`
-	Version    int32           `db:"version"`
-	CreatedAt  time.Time       `db:"created_at"`
-	UpdatedAt  time.Time       `db:"updated_at"`
+	ID          uuid.UUID       `db:"id"`
+	ProjectID   uuid.UUID       `db:"project_id"`
+	Name        *string         `db:"name"`
+	Data        json.RawMessage `db:"data"`
+	Version     int32           `db:"version"`
+	CreatedAt   time.Time       `db:"created_at"`
+	UpdatedAt   time.Time       `db:"updated_at"`
+	ExternalIDs ExternalIDs     `db:"external_ids"`
+}
+
+// ExternalIDBySource returns the first external ID matching the given source, or nil.
+func (o *Organization) ExternalIDBySource(source string) *ExternalIDRecord {
+	for i := range o.ExternalIDs {
+		if o.ExternalIDs[i].Source == source {
+			return &o.ExternalIDs[i]
+		}
+	}
+	return nil
 }
 
 func (o *Organization) OAPI() oapi.Organization {
 	return oapi.Organization{
 		Id:         o.ID,
 		ProjectId:  o.ProjectID,
-		ExternalId: o.ExternalID,
+		Identifier: o.ExternalIDs.OAPI(),
 		Name:       o.Name,
 		Data:       o.Data,
 		Version:    o.Version,
@@ -59,9 +85,11 @@ type OrganizationsStore struct {
 // GetOrganization retrieves an organization by its internal ID.
 func (s *OrganizationsStore) GetOrganization(ctx context.Context, projectID, orgID uuid.UUID) (*Organization, error) {
 	stmt := `
-	SELECT id, project_id, external_id, name, data, version, created_at, updated_at
-	FROM organizations
-	WHERE id = $1 AND project_id = $2`
+	SELECT o.id, o.project_id, o.name, o.data, o.version, o.created_at, o.updated_at,
+		COALESCE(oeia.external_ids, '[]'::jsonb) AS external_ids
+	FROM organizations o
+	LEFT JOIN organization_external_ids_agg oeia ON oeia.organization_id = o.id
+	WHERE o.id = $1 AND o.project_id = $2`
 
 	var org Organization
 	err := s.db.GetContext(ctx, &org, stmt, orgID, projectID)
@@ -72,15 +100,18 @@ func (s *OrganizationsStore) GetOrganization(ctx context.Context, projectID, org
 	return &org, nil
 }
 
-// GetOrganizationByExternalID retrieves an organization by its external ID.
-func (s *OrganizationsStore) GetOrganizationByExternalID(ctx context.Context, projectID uuid.UUID, externalID string) (*Organization, error) {
+// GetOrganizationByExternalID retrieves an organization by a specific source and external_id pair.
+func (s *OrganizationsStore) GetOrganizationByExternalID(ctx context.Context, projectID uuid.UUID, source, externalID string) (*Organization, error) {
 	stmt := `
-	SELECT id, project_id, external_id, name, data, version, created_at, updated_at
-	FROM organizations
-	WHERE external_id = $1 AND project_id = $2`
+	SELECT o.id, o.project_id, o.name, o.data, o.version, o.created_at, o.updated_at,
+		COALESCE(oeia.external_ids, '[]'::jsonb) AS external_ids
+	FROM organizations o
+	INNER JOIN organization_external_ids oei ON o.id = oei.organization_id
+	LEFT JOIN organization_external_ids_agg oeia ON oeia.organization_id = o.id
+	WHERE oei.source = $1 AND oei.external_id = $2 AND o.project_id = $3`
 
 	var org Organization
-	err := s.db.GetContext(ctx, &org, stmt, externalID, projectID)
+	err := s.db.GetContext(ctx, &org, stmt, source, externalID, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -88,35 +119,155 @@ func (s *OrganizationsStore) GetOrganizationByExternalID(ctx context.Context, pr
 	return &org, nil
 }
 
-type UpsertOrganizationParams struct {
-	ExternalID string
-	Name       *string
-	Data       map[string]any
+// LookupOrganizationID resolves an organization's internal ID from a set of external identifiers.
+// If multiple identifiers resolve to different organizations, returns ErrOrgConflictingIdentifiers.
+func (s *OrganizationsStore) LookupOrganizationID(ctx context.Context, projectID uuid.UUID, identifiers []ExternalIDParam) (uuid.UUID, error) {
+	if len(identifiers) == 0 {
+		return uuid.Nil, fmt.Errorf("at least one identifier is required")
+	}
+
+	arguments := store.NewQueryArgs()
+
+	conditions := make([]string, 0, len(identifiers))
+	for _, ident := range identifiers {
+		conditions = append(conditions, arguments.Clause("(source = %s AND external_id = %s)", arguments.Add(ident.Source), arguments.Add(ident.ExternalID)))
+	}
+
+	q := fmt.Sprintf(`
+	SELECT DISTINCT organization_id
+	FROM organization_external_ids
+	WHERE project_id = %s
+	AND (%s)`, arguments.Add(projectID), strings.Join(conditions, " OR "))
+
+	var organizations []uuid.UUID
+	err := s.db.SelectContext(ctx, &organizations, q, arguments.Args()...)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	switch len(organizations) {
+	case 0:
+		return uuid.Nil, ErrOrgNotFound
+	case 1:
+		return organizations[0], nil
+	default:
+		return uuid.Nil, ErrOrgConflictingIdentifiers
+	}
 }
 
-// UpsertOrganization creates or updates an organization by external ID.
+type UpsertOrganizationParams struct {
+	Identifiers []ExternalIDParam
+	Name        *string
+	Data        map[string]any
+}
+
+// UpsertOrganization creates or updates an organization based on the provided identifiers.
 func (s *OrganizationsStore) UpsertOrganization(ctx context.Context, projectID uuid.UUID, params UpsertOrganizationParams) (uuid.UUID, error) {
 	data := params.Data
 	if data == nil {
 		data = make(map[string]any)
 	}
 
-	stmt := `
-	INSERT INTO organizations (project_id, external_id, name, data)
-	VALUES ($1, $2, $3, $4)
-	ON CONFLICT (project_id, external_id)
-	DO UPDATE SET
-		name = COALESCE(EXCLUDED.name, organizations.name),
-		data = organizations.data || EXCLUDED.data
-	RETURNING id`
+	// Try to find an existing organization by any of the identifiers
+	var existingOrgID uuid.UUID
+	if len(params.Identifiers) > 0 {
+		id, err := s.LookupOrganizationID(ctx, projectID, params.Identifiers)
+		if err != nil && !errors.Is(err, ErrOrgNotFound) {
+			return uuid.Nil, err
+		}
+		existingOrgID = id
+	}
 
-	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, projectID, params.ExternalID, params.Name, data)
+	if existingOrgID != uuid.Nil {
+		// Update existing organization
+		dataJSON, err := json.Marshal(data)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		rawData := json.RawMessage(dataJSON)
+
+		stmt := `
+		UPDATE organizations
+		SET
+			name = COALESCE($2, name),
+			data = CASE
+				WHEN $3::jsonb IS NOT NULL THEN data || $3::jsonb
+				ELSE data
+			END
+		WHERE id = $1`
+
+		_, err = s.db.ExecContext(ctx, stmt, existingOrgID, params.Name, rawData)
+		if err != nil {
+			return uuid.Nil, err
+		}
+
+		// Upsert all identifiers to this organization
+		for _, ident := range params.Identifiers {
+			if err := s.upsertOrgExternalID(ctx, projectID, existingOrgID, ident); err != nil {
+				return uuid.Nil, err
+			}
+		}
+
+		return existingOrgID, nil
+	}
+
+	// Create new organization
+	dataJSON, err := json.Marshal(data)
 	if err != nil {
 		return uuid.Nil, err
 	}
 
+	stmt := `
+	INSERT INTO organizations (project_id, name, data)
+	VALUES ($1, $2, $3)
+	RETURNING id`
+
+	var id uuid.UUID
+	err = s.db.GetContext(ctx, &id, stmt, projectID, params.Name, dataJSON)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	// Insert all identifiers
+	for _, ident := range params.Identifiers {
+		if err := s.upsertOrgExternalID(ctx, projectID, id, ident); err != nil {
+			return uuid.Nil, err
+		}
+	}
+
 	return id, nil
+}
+
+// upsertOrgExternalID inserts or updates an external identifier for an organization.
+// Returns ErrOrgIdentifierBelongsToOther if the identifier already belongs to a different organization.
+func (s *OrganizationsStore) upsertOrgExternalID(ctx context.Context, projectID, orgID uuid.UUID, ident ExternalIDParam) error {
+	metadata := ident.Metadata
+	if metadata == nil {
+		metadata = make(map[string]any)
+	}
+
+	// Check if this identifier already exists for a different organization.
+	var existingOrgID *uuid.UUID
+	err := s.db.GetContext(ctx, &existingOrgID,
+		`SELECT organization_id FROM organization_external_ids
+		 WHERE project_id = $1 AND source = $2 AND external_id = $3`,
+		projectID, ident.Source, ident.ExternalID)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if existingOrgID != nil && *existingOrgID != orgID {
+		return ErrOrgIdentifierBelongsToOther
+	}
+
+	stmt := `
+	INSERT INTO organization_external_ids (project_id, organization_id, source, external_id, metadata)
+	VALUES ($1, $2, $3, $4, $5)
+	ON CONFLICT (project_id, source, external_id)
+	DO UPDATE SET
+		metadata = organization_external_ids.metadata || EXCLUDED.metadata`
+
+	_, err = s.db.ExecContext(ctx, stmt, projectID, orgID, ident.Source, ident.ExternalID, metadata)
+	return err
 }
 
 type OrganizationUpdate struct {
@@ -141,6 +292,82 @@ func (s *OrganizationsStore) UpdateOrganization(ctx context.Context, projectID, 
 	return err
 }
 
+// AddOrgExternalID adds or updates a single external identifier for an organization.
+func (s *OrganizationsStore) AddOrgExternalID(ctx context.Context, projectID, orgID uuid.UUID, ident ExternalIDParam) error {
+	return s.upsertOrgExternalID(ctx, projectID, orgID, ident)
+}
+
+// DeleteOrgExternalID removes a specific external identifier from an organization.
+// Returns ErrOrgLastIdentifier if this is the organization's only remaining identifier.
+// The check and delete are performed atomically to prevent TOCTOU races.
+func (s *OrganizationsStore) DeleteOrgExternalID(ctx context.Context, projectID, orgID uuid.UUID, source, externalID string) error {
+	stmt := `
+	WITH guard AS (
+		SELECT COUNT(*) AS cnt FROM organization_external_ids WHERE organization_id = $2
+	)
+	DELETE FROM organization_external_ids
+	USING guard
+	WHERE guard.cnt > 1
+	  AND project_id = $1 AND organization_id = $2 AND source = $3 AND external_id = $4`
+
+	result, err := s.db.ExecContext(ctx, stmt, projectID, orgID, source, externalID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		var count int
+		if err := s.db.GetContext(ctx, &count,
+			`SELECT COUNT(*) FROM organization_external_ids WHERE organization_id = $1`, orgID); err != nil {
+			return err
+		}
+		if count <= 1 {
+			return ErrOrgLastIdentifier
+		}
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// DeleteOrgExternalIDByID removes a specific external identifier by its primary key ID.
+// Returns ErrOrgLastIdentifier if this is the organization's only remaining identifier.
+// Returns sql.ErrNoRows if the identifier does not exist.
+// The check and delete are performed atomically to prevent TOCTOU races.
+func (s *OrganizationsStore) DeleteOrgExternalIDByID(ctx context.Context, orgID, identifierID uuid.UUID) error {
+	stmt := `
+	WITH guard AS (
+		SELECT COUNT(*) AS cnt FROM organization_external_ids WHERE organization_id = $1
+	)
+	DELETE FROM organization_external_ids
+	USING guard
+	WHERE guard.cnt > 1
+	  AND id = $2 AND organization_id = $1`
+
+	result, err := s.db.ExecContext(ctx, stmt, orgID, identifierID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		var count int
+		if err := s.db.GetContext(ctx, &count,
+			`SELECT COUNT(*) FROM organization_external_ids WHERE organization_id = $1`, orgID); err != nil {
+			return err
+		}
+		if count <= 1 {
+			return ErrOrgLastIdentifier
+		}
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 // DeleteOrganization deletes an organization and all its user memberships (via CASCADE).
 func (s *OrganizationsStore) DeleteOrganization(ctx context.Context, projectID, orgID uuid.UUID) error {
 	stmt := `DELETE FROM organizations WHERE id = $1 AND project_id = $2`
@@ -150,18 +377,23 @@ func (s *OrganizationsStore) DeleteOrganization(ctx context.Context, projectID, 
 
 // ListOrganizations lists all organizations for a project with pagination and optional search.
 func (s *OrganizationsStore) ListOrganizations(ctx context.Context, projectID uuid.UUID, pagination store.Pagination, search string) (Organizations, int, error) {
-	query := `
-	SELECT
-		id, project_id, external_id, name, data, version, created_at, updated_at,
+	q := `
+	SELECT o.id, o.project_id, o.name, o.data, o.version, o.created_at, o.updated_at,
+		COALESCE(oeia.external_ids, '[]'::jsonb) AS external_ids,
 		COUNT(*) OVER () AS total_count
-	FROM organizations
-	WHERE project_id = $1
+	FROM organizations o
+	LEFT JOIN organization_external_ids_agg oeia ON oeia.organization_id = o.id
+	WHERE o.project_id = $1
 	AND (
 		$2 = '' OR
-		external_id ILIKE '%' || $2 || '%' OR
-		name ILIKE '%' || $2 || '%'
+		o.name ILIKE '%' || $2 || '%' OR
+		EXISTS (
+			SELECT 1 FROM organization_external_ids oei
+			WHERE oei.organization_id = o.id
+			AND oei.external_id ILIKE '%' || $2 || '%'
+		)
 	)
-	ORDER BY created_at DESC
+	ORDER BY o.created_at DESC
 	LIMIT $3 OFFSET $4`
 
 	type result struct {
@@ -170,7 +402,7 @@ func (s *OrganizationsStore) ListOrganizations(ctx context.Context, projectID uu
 	}
 
 	var results []result
-	err := s.db.SelectContext(ctx, &results, query, projectID, search, pagination.Limit, pagination.Offset)
+	err := s.db.SelectContext(ctx, &results, q, projectID, search, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -181,7 +413,6 @@ func (s *OrganizationsStore) ListOrganizations(ctx context.Context, projectID uu
 
 	total := results[0].TotalCount
 	orgs := make([]Organization, len(results))
-
 	for i, r := range results {
 		orgs[i] = r.Organization
 	}
@@ -248,15 +479,10 @@ type OrganizationMember struct {
 }
 
 func (m *OrganizationMember) OAPI() oapi.OrganizationMember {
-	anonID := ""
-	if m.AnonymousID != nil {
-		anonID = *m.AnonymousID
-	}
 	return oapi.OrganizationMember{
 		Id:               m.ID,
 		ProjectId:        m.ProjectID,
-		AnonymousId:      anonID,
-		ExternalId:       m.ExternalID,
+		Identifier:       m.ExternalIDs.OAPI(),
 		Email:            m.Email,
 		Phone:            m.Phone,
 		Data:             m.Data,
@@ -282,19 +508,20 @@ func (m OrganizationMembers) OAPI() []oapi.OrganizationMember {
 
 // ListOrganizationMembers lists all users belonging to an organization with pagination.
 func (s *OrganizationsStore) ListOrganizationMembers(ctx context.Context, projectID, orgID uuid.UUID, pagination store.Pagination) (OrganizationMembers, int, error) {
-	query := `
-	SELECT
-		u.id, u.project_id, u.anonymous_id, u.external_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
+	q := `
+	SELECT u.id, u.project_id, u.email, u.phone, u.data, u.timezone, u.locale, u.version, u.created_at, u.updated_at,
 		EXISTS(
 			SELECT 1 FROM devices d
 			WHERE d.user_id = u.id
 			AND d.token IS NOT NULL
 			AND d.token != ''
 		) as has_push_device,
+		COALESCE(ueia.external_ids, '[]'::jsonb) AS external_ids,
 		ou.data as org_data,
 		COUNT(*) OVER () AS total_count
 	FROM users u
 	INNER JOIN organization_users ou ON u.id = ou.user_id
+	LEFT JOIN user_external_ids_agg ueia ON ueia.user_id = u.id
 	WHERE ou.organization_id = $1 AND u.project_id = $2
 	ORDER BY ou.created_at DESC
 	LIMIT $3 OFFSET $4`
@@ -305,7 +532,7 @@ func (s *OrganizationsStore) ListOrganizationMembers(ctx context.Context, projec
 	}
 
 	var results []result
-	err := s.db.SelectContext(ctx, &results, query, orgID, projectID, pagination.Limit, pagination.Offset)
+	err := s.db.SelectContext(ctx, &results, q, orgID, projectID, pagination.Limit, pagination.Offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -316,7 +543,6 @@ func (s *OrganizationsStore) ListOrganizationMembers(ctx context.Context, projec
 
 	total := results[0].TotalCount
 	members := make([]OrganizationMember, len(results))
-
 	for i, r := range results {
 		members[i] = r.OrganizationMember
 	}
@@ -326,16 +552,22 @@ func (s *OrganizationsStore) ListOrganizationMembers(ctx context.Context, projec
 
 // ListUserOrganizations lists all organizations a user belongs to.
 func (s *OrganizationsStore) ListUserOrganizations(ctx context.Context, projectID, userID uuid.UUID, pagination store.Pagination, search string) ([]Organization, int, error) {
-	query := `
-	SELECT o.id, o.project_id, o.external_id, o.name, o.data, o.version, o.created_at, o.updated_at,
+	q := `
+	SELECT o.id, o.project_id, o.name, o.data, o.version, o.created_at, o.updated_at,
+		COALESCE(oeia.external_ids, '[]'::jsonb) AS external_ids,
 		COUNT(*) OVER () AS total_count
 	FROM organizations o
 	INNER JOIN organization_users ou ON o.id = ou.organization_id
+	LEFT JOIN organization_external_ids_agg oeia ON oeia.organization_id = o.id
 	WHERE ou.user_id = $1 AND o.project_id = $2
 	AND (
 		$5 = '' OR
-		o.external_id ILIKE '%' || $5 || '%' OR
-		o.name ILIKE '%' || $5 || '%'
+		o.name ILIKE '%' || $5 || '%' OR
+		EXISTS (
+			SELECT 1 FROM organization_external_ids oei
+			WHERE oei.organization_id = o.id
+			AND oei.external_id ILIKE '%' || $5 || '%'
+		)
 	)
 	ORDER BY ou.created_at DESC
 	LIMIT $3 OFFSET $4`
@@ -346,7 +578,7 @@ func (s *OrganizationsStore) ListUserOrganizations(ctx context.Context, projectI
 	}
 
 	var results []result
-	err := s.db.SelectContext(ctx, &results, query, userID, projectID, pagination.Limit, pagination.Offset, search)
+	err := s.db.SelectContext(ctx, &results, q, userID, projectID, pagination.Limit, pagination.Offset, search)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -394,7 +626,6 @@ func (s *OrganizationsStore) upsertSubjectSchema(ctx context.Context, projectID 
 	ON CONFLICT (project_id, path, data_type, subject_type) DO NOTHING`
 
 	// TODO: consider batch insert if path count becomes large enough to impact performance.
-	// Current usage suggests path counts are small (typically <50 paths per schema update).
 	for _, path := range paths {
 		_, err := s.db.ExecContext(ctx, stmt, projectID, path.Path, path.Type, subjectType)
 		if err != nil {
@@ -528,21 +759,6 @@ func (s *OrganizationsStore) ListOrganizationEvents(ctx context.Context, project
 	}
 
 	return events, total, nil
-}
-
-// LookupOrganizationID looks up an organization's internal ID by external ID.
-func (s *OrganizationsStore) LookupOrganizationID(ctx context.Context, projectID uuid.UUID, externalID string) (uuid.UUID, error) {
-	stmt := `
-	SELECT id FROM organizations
-	WHERE project_id = $1 AND external_id = $2`
-
-	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, projectID, externalID)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return id, nil
 }
 
 // ListOrganizationUserIDs returns all user IDs belonging to an organization.

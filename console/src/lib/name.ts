@@ -13,8 +13,7 @@
  *   data.first_name+data.last_name / data.firstName+data.lastName  →
  *   email  →
  *   phone  →
- *   external_id  →
- *   anonymous_id  →
+ *   primary identifier external_id  →
  *   "Unknown"
  */
 
@@ -31,6 +30,20 @@ function fromParts(first: unknown, last: unknown): string | undefined {
     const l = str(last)
     if (f && l) return `${f} ${l}`
     return f ?? l
+}
+
+/**
+ * Extract the primary external_id from an identifier array.
+ * Prefers source="default", then falls back to the first entry.
+ */
+export function getPrimaryExternalId(obj: Rec): string | undefined {
+    const identifiers = obj.identifier
+    if (!Array.isArray(identifiers) || identifiers.length === 0) return undefined
+    const defaultId = identifiers.find(
+        (id: { source?: string; external_id?: string }) => id.source === "default",
+    )
+    const entry = defaultId ?? identifiers[0]
+    return str(entry?.external_id)
 }
 
 /**
@@ -76,13 +89,7 @@ export function getUserDisplayName(user?: Rec | null, fallback = "Unknown"): str
     if (name) return name
 
     // Identifiers
-    return (
-        str(user.email) ??
-        str(user.phone) ??
-        str(user.external_id) ??
-        str(user.anonymous_id) ??
-        fallback
-    )
+    return str(user.email) ?? str(user.phone) ?? getPrimaryExternalId(user) ?? fallback
 }
 
 /**
@@ -102,14 +109,14 @@ export function getUserInitials(user?: Rec | null): string {
 
 /**
  * Return secondary text to show below the display name (e.g. email when the
- * name is already shown, or external_id).
+ * name is already shown, or identifier external_id).
  */
 export function getUserSubtext(user?: Rec | null): string | null {
     if (!user) return null
 
     const name = resolveNameFields(user)
     const email = str(user.email)
-    const externalId = str(user.external_id)
+    const externalId = getPrimaryExternalId(user)
 
     if (name && email) return email
     if (name && externalId) return externalId

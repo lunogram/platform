@@ -35,8 +35,8 @@ func TestOrganizationEventsHandlerSuccess(t *testing.T) {
 
 	// First, create an organization in the database
 	orgID, err := usersState.UpsertOrganization(ctx, projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_event_test",
-		Name:       strPtr("Test Org for Events"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_event_test"}},
+		Name:        strPtr("Test Org for Events"),
 	})
 	require.NoError(t, err)
 
@@ -99,8 +99,8 @@ func TestOrganizationEventsHandlerWithExternalID(t *testing.T) {
 	// Create an organization with a known external ID
 	externalID := "org_external_123"
 	_, err = usersState.UpsertOrganization(ctx, projectID, subjects.UpsertOrganizationParams{
-		ExternalID: externalID,
-		Name:       strPtr("External ID Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: externalID}},
+		Name:        strPtr("External ID Org"),
 	})
 	require.NoError(t, err)
 
@@ -108,10 +108,10 @@ func TestOrganizationEventsHandlerWithExternalID(t *testing.T) {
 
 	// Send event using external ID instead of internal ID
 	event := schemas.OrganizationEvent{
-		Name:                   "subscription.renewed",
-		ProjectID:              projectID,
-		OrganizationID:         uuid.Nil, // No internal ID
-		OrganizationExternalID: externalID,
+		Name:                    "subscription.renewed",
+		ProjectID:               projectID,
+		OrganizationID:          uuid.Nil, // No internal ID
+		OrganizationIdentifiers: []schemas.ExternalID{{Source: "default", ExternalID: externalID}},
 		Data: map[string]any{
 			"plan": "enterprise",
 		},
@@ -150,8 +150,8 @@ func TestOrganizationEventsHandlerWithoutData(t *testing.T) {
 
 	// Create an organization
 	orgID, err := usersState.UpsertOrganization(ctx, projectID, subjects.UpsertOrganizationParams{
-		ExternalID: "org_no_data_event",
-		Name:       strPtr("No Data Event Org"),
+		Identifiers: []subjects.ExternalIDParam{{Source: "default", ExternalID: "org_no_data_event"}},
+		Name:        strPtr("No Data Event Org"),
 	})
 	require.NoError(t, err)
 

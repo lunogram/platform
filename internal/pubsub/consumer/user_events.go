@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,9 +52,14 @@ func UserEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.S
 		}
 
 		if event.UserID == uuid.Nil {
-			logger.Info("looking up user ID", zap.Stringp("external_id", event.ExternalId), zap.Stringp("anonymous_id", event.AnonymousId))
+			if len(event.Identifiers) == 0 {
+				logger.Error("user_id or identifiers are required")
+				return Permanent(fmt.Errorf("user_id or identifiers are required for user event"))
+			}
 
-			event.UserID, err = usrs.LookupUserID(ctx, event.ProjectID, event.ExternalId, event.AnonymousId)
+			logger.Info("looking up user ID from identifiers")
+
+			event.UserID, err = usrs.LookupUserID(ctx, event.ProjectID, event.Identifiers)
 			if err != nil {
 				logger.Error("failed to lookup user ID", zap.Error(err))
 				return err

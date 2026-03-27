@@ -57,11 +57,12 @@ func HandleUpdate(ctx HandlerContext, step journey.JourneyVersionStep, state jou
 		return state, nil, fmt.Errorf("failed to unmarshal user data: %w", err)
 	}
 
+	identifiers := user.ExternalIDs.Params()
+
 	msg := schemas.User{
 		ProjectID:   ctx.ProjectID,
 		ID:          user.ID,
-		AnonymousID: user.AnonymousID,
-		ExternalID:  user.ExternalID,
+		Identifiers: identifiers,
 		Email:       user.Email,
 		Phone:       user.Phone,
 		Timezone:    user.Timezone,

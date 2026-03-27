@@ -20,15 +20,15 @@ func TestGetOrganizationByExternalID(t *testing.T) {
 
 	externalID := "org_external_123"
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: externalID,
-		Name:       ptr("Test Organization"),
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: externalID}},
+		Name:        ptr("Test Organization"),
 	})
 	require.NoError(t, err)
 
-	org, err := db.GetOrganizationByExternalID(ctx, projectID, externalID)
+	org, err := db.GetOrganizationByExternalID(ctx, projectID, "default", externalID)
 	require.NoError(t, err)
 	require.Equal(t, orgID, org.ID)
-	require.Equal(t, externalID, org.ExternalID)
+	require.Equal(t, externalID, org.ExternalIDBySource("default").ExternalID)
 }
 
 func TestListOrganizations(t *testing.T) {
@@ -41,8 +41,8 @@ func TestListOrganizations(t *testing.T) {
 	// Create multiple orgs
 	for i := 0; i < 5; i++ {
 		_, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-			ExternalID: uuid.New().String(),
-			Name:       ptr("Test Org"),
+			Identifiers: []ExternalIDParam{{Source: "default", ExternalID: uuid.New().String()}},
+			Name:        ptr("Test Org"),
 		})
 		require.NoError(t, err)
 	}
@@ -94,32 +94,30 @@ func TestUpsertOrganization(t *testing.T) {
 	ctx := context.Background()
 
 	type test struct {
-		setupOrg     *Organization
-		upsertData   UpsertOrganizationParams
-		expectedName *string
-		description  string
+		setupIdentifiers []ExternalIDParam
+		setupName        *string
+		upsertData       UpsertOrganizationParams
+		expectedName     *string
+		description      string
 	}
 
 	tests := map[string]test{
 		"insert new org": {
 			upsertData: UpsertOrganizationParams{
-				ExternalID: "new_org",
-				Name:       ptr("New Organization"),
-				Data:       map[string]any{"plan": "free"},
+				Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "new_org"}},
+				Name:        ptr("New Organization"),
+				Data:        map[string]any{"plan": "free"},
 			},
 			expectedName: ptr("New Organization"),
 			description:  "should create new org",
 		},
 		"update existing org by external_id": {
-			setupOrg: &Organization{
-				ProjectID:  projectID,
-				ExternalID: "existing_org",
-				Name:       ptr("Old Name"),
-			},
+			setupIdentifiers: []ExternalIDParam{{Source: "default", ExternalID: "existing_org"}},
+			setupName:        ptr("Old Name"),
 			upsertData: UpsertOrganizationParams{
-				ExternalID: "existing_org",
-				Name:       ptr("Updated Name"),
-				Data:       map[string]any{},
+				Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "existing_org"}},
+				Name:        ptr("Updated Name"),
+				Data:        map[string]any{},
 			},
 			expectedName: ptr("Updated Name"),
 			description:  "should update name on conflict",
@@ -129,11 +127,11 @@ func TestUpsertOrganization(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			var existingOrgID uuid.UUID
-			if tt.setupOrg != nil {
+			if tt.setupIdentifiers != nil {
 				var err error
 				existingOrgID, err = db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-					ExternalID: tt.setupOrg.ExternalID,
-					Name:       tt.setupOrg.Name,
+					Identifiers: tt.setupIdentifiers,
+					Name:        tt.setupName,
 				})
 				require.NoError(t, err)
 			}
@@ -142,7 +140,7 @@ func TestUpsertOrganization(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, uuid.Nil, orgID)
 
-			if tt.setupOrg != nil {
+			if tt.setupIdentifiers != nil {
 				require.Equal(t, existingOrgID, orgID, "should return existing org ID on conflict")
 			}
 
@@ -161,8 +159,8 @@ func TestUpdateOrganizationWithDataMerge(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_merge",
-		Data:       map[string]any{"plan": "free", "seats": 10},
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_merge"}},
+		Data:        map[string]any{"plan": "free", "seats": 10},
 	})
 	require.NoError(t, err)
 
@@ -196,17 +194,17 @@ func TestUpsertOrganizationDataMergeOnConflict(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_upsert_merge",
-		Name:       ptr("Original Name"),
-		Data:       map[string]any{"plan": "free", "seats": 10},
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_upsert_merge"}},
+		Name:        ptr("Original Name"),
+		Data:        map[string]any{"plan": "free", "seats": 10},
 	})
 	require.NoError(t, err)
 
 	t.Run("preserves data when upserting with nil data", func(t *testing.T) {
 		upsertedID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-			ExternalID: "org_upsert_merge",
-			Name:       ptr("Updated Name"),
-			Data:       nil,
+			Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_upsert_merge"}},
+			Name:        ptr("Updated Name"),
+			Data:        nil,
 		})
 		require.NoError(t, err)
 		require.Equal(t, orgID, upsertedID)
@@ -224,8 +222,8 @@ func TestUpsertOrganizationDataMergeOnConflict(t *testing.T) {
 
 	t.Run("merges data when upserting with new data", func(t *testing.T) {
 		upsertedID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-			ExternalID: "org_upsert_merge",
-			Data:       map[string]any{"seats": 50, "feature": "beta"},
+			Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_upsert_merge"}},
+			Data:        map[string]any{"seats": 50, "feature": "beta"},
 		})
 		require.NoError(t, err)
 		require.Equal(t, orgID, upsertedID)
@@ -250,7 +248,7 @@ func TestDeleteOrganization(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_delete",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_delete"}},
 	})
 	require.NoError(t, err)
 
@@ -269,7 +267,7 @@ func TestOrganizationVersionAutoIncrement(t *testing.T) {
 	ctx := context.Background()
 
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_version",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_version"}},
 	})
 	require.NoError(t, err)
 
@@ -296,15 +294,13 @@ func TestUpsertAndGetOrganizationMember(t *testing.T) {
 
 	// Create org
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_membership",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_membership"}},
 	})
 	require.NoError(t, err)
 
 	// Create user
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_org_member"),
-		Data:        json.RawMessage(`{}`),
+	userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_org_member"},
 	})
 	require.NoError(t, err)
 
@@ -340,14 +336,12 @@ func TestUpsertAndGetOrganizationMemberMergesData(t *testing.T) {
 
 	// Create org and user
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_data_merge",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_data_merge"}},
 	})
 	require.NoError(t, err)
 
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_data_merge"),
-		Data:        json.RawMessage(`{}`),
+	userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_data_merge"},
 	})
 	require.NoError(t, err)
 
@@ -387,14 +381,12 @@ func TestRemoveUserFromOrganization(t *testing.T) {
 
 	// Create org and user
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_remove",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_remove"}},
 	})
 	require.NoError(t, err)
 
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_remove"),
-		Data:        json.RawMessage(`{}`),
+	userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_remove"},
 	})
 	require.NoError(t, err)
 
@@ -421,16 +413,14 @@ func TestListOrganizationMembersWithPagination(t *testing.T) {
 
 	// Create org
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_pagination",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_pagination"}},
 	})
 	require.NoError(t, err)
 
 	// Create and add multiple users
 	for i := 0; i < 5; i++ {
-		userID, err := db.CreateUser(ctx, User{
-			ProjectID:   projectID,
-			AnonymousID: ptr(uuid.New().String()),
-			Data:        json.RawMessage(`{}`),
+		userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+			{Source: "anonymous", ExternalID: uuid.New().String()},
 		})
 		require.NoError(t, err)
 		_, err = db.UpsertAndGetOrganizationMember(ctx, orgID, userID, nil)
@@ -479,10 +469,8 @@ func TestListUserOrganizations(t *testing.T) {
 	ctx := context.Background()
 
 	// Create user
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_multi_org"),
-		Data:        json.RawMessage(`{}`),
+	userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_multi_org"},
 	})
 	require.NoError(t, err)
 
@@ -490,8 +478,8 @@ func TestListUserOrganizations(t *testing.T) {
 	orgIDs := make([]uuid.UUID, 3)
 	for i := 0; i < 3; i++ {
 		orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-			ExternalID: uuid.New().String(),
-			Name:       ptr("Test Org"),
+			Identifiers: []ExternalIDParam{{Source: "default", ExternalID: uuid.New().String()}},
+			Name:        ptr("Test Org"),
 		})
 		require.NoError(t, err)
 		orgIDs[i] = orgID
@@ -524,7 +512,7 @@ func TestCountOrganizationMembers(t *testing.T) {
 
 	// Create org
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_count",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_count"}},
 	})
 	require.NoError(t, err)
 
@@ -535,10 +523,8 @@ func TestCountOrganizationMembers(t *testing.T) {
 
 	// Add users
 	for i := 0; i < 3; i++ {
-		userID, err := db.CreateUser(ctx, User{
-			ProjectID:   projectID,
-			AnonymousID: ptr(uuid.New().String()),
-			Data:        json.RawMessage(`{}`),
+		userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+			{Source: "anonymous", ExternalID: uuid.New().String()},
 		})
 		require.NoError(t, err)
 		_, err = db.UpsertAndGetOrganizationMember(ctx, orgID, userID, nil)
@@ -559,14 +545,12 @@ func TestUpdateOrganizationUserData(t *testing.T) {
 
 	// Create org and user
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_user_data",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_user_data"}},
 	})
 	require.NoError(t, err)
 
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_user_data"),
-		Data:        json.RawMessage(`{}`),
+	userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_user_data"},
 	})
 	require.NoError(t, err)
 
@@ -602,15 +586,13 @@ func TestDeleteOrganizationCascadesMembers(t *testing.T) {
 
 	// Create org
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_cascade",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_cascade"}},
 	})
 	require.NoError(t, err)
 
 	// Create user and add to org
-	userID, err := db.CreateUser(ctx, User{
-		ProjectID:   projectID,
-		AnonymousID: ptr("anon_cascade"),
-		Data:        json.RawMessage(`{}`),
+	userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_cascade"},
 	})
 	require.NoError(t, err)
 	_, err = db.UpsertAndGetOrganizationMember(ctx, orgID, userID, nil)
@@ -942,13 +924,13 @@ func TestLookupOrganizationID(t *testing.T) {
 
 	// Create an organization
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: externalID,
-		Name:       ptr("Lookup Test Organization"),
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: externalID}},
+		Name:        ptr("Lookup Test Organization"),
 	})
 	require.NoError(t, err)
 
 	// Lookup the organization ID by external ID
-	foundID, err := db.LookupOrganizationID(ctx, projectID, externalID)
+	foundID, err := db.LookupOrganizationID(ctx, projectID, []ExternalIDParam{{Source: "default", ExternalID: externalID}})
 	require.NoError(t, err)
 	require.Equal(t, orgID, foundID)
 }
@@ -961,7 +943,7 @@ func TestLookupOrganizationIDNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// Lookup a non-existent organization
-	_, err := db.LookupOrganizationID(ctx, projectID, "non_existent_org")
+	_, err := db.LookupOrganizationID(ctx, projectID, []ExternalIDParam{{Source: "default", ExternalID: "non_existent_org"}})
 	require.Error(t, err, "should return error when organization not found")
 }
 
@@ -974,8 +956,8 @@ func TestInsertOrganizationEvent(t *testing.T) {
 
 	// Create an organization
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_event_test",
-		Name:       ptr("Event Test Organization"),
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_event_test"}},
+		Name:        ptr("Event Test Organization"),
 	})
 	require.NoError(t, err)
 
@@ -1003,7 +985,7 @@ func TestInsertOrganizationEventWithNilData(t *testing.T) {
 
 	// Create an organization
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_event_nil_data",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_event_nil_data"}},
 	})
 	require.NoError(t, err)
 
@@ -1026,7 +1008,7 @@ func TestInsertMultipleOrganizationEvents(t *testing.T) {
 
 	// Create an organization
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_multi_events",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_multi_events"}},
 	})
 	require.NoError(t, err)
 
@@ -1060,7 +1042,7 @@ func TestListOrganizationUserIDs(t *testing.T) {
 
 	// Create an organization
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_user_ids",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_user_ids"}},
 	})
 	require.NoError(t, err)
 
@@ -1072,10 +1054,8 @@ func TestListOrganizationUserIDs(t *testing.T) {
 	// Create users and add them to the organization
 	expectedUserIDs := make([]uuid.UUID, 3)
 	for i := 0; i < 3; i++ {
-		userID, err := db.CreateUser(ctx, User{
-			ProjectID:   projectID,
-			AnonymousID: ptr(uuid.New().String()),
-			Data:        json.RawMessage(`{}`),
+		userID, err := db.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []ExternalIDParam{
+			{Source: "anonymous", ExternalID: uuid.New().String()},
 		})
 		require.NoError(t, err)
 		expectedUserIDs[i] = userID
@@ -1108,7 +1088,7 @@ func TestListOrganizationUserIDsEmpty(t *testing.T) {
 
 	// Create an organization with no members
 	orgID, err := db.UpsertOrganization(ctx, projectID, UpsertOrganizationParams{
-		ExternalID: "org_empty_users",
+		Identifiers: []ExternalIDParam{{Source: "default", ExternalID: "org_empty_users"}},
 	})
 	require.NoError(t, err)
 

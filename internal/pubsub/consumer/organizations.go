@@ -115,7 +115,7 @@ func PublishOrganizationAnniversarySchedule(ctx context.Context, logger *zap.Log
 		StartAt:        &now,
 		Interval:       &interval,
 		OrganizationID: org.ID,
-		ExternalId:     &org.ExternalID,
+		Identifiers:    org.Identifiers,
 		Data:           map[string]any{},
 	}
 

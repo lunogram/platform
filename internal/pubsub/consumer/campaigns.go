@@ -36,11 +36,11 @@ func userToMap(user *subjects.User) map[string]any {
 	if user.Phone != nil {
 		m["phone"] = *user.Phone
 	}
-	if user.ExternalID != nil {
-		m["external_id"] = *user.ExternalID
+	if r := user.ExternalIDBySource("default"); r != nil {
+		m["external_id"] = r.ExternalID
 	}
-	if user.AnonymousID != nil {
-		m["anonymous_id"] = *user.AnonymousID
+	if r := user.ExternalIDBySource("anonymous"); r != nil {
+		m["anonymous_id"] = r.ExternalID
 	}
 	if user.Timezone != nil {
 		m["timezone"] = *user.Timezone
