@@ -2128,7 +2128,7 @@ export interface components {
          * @example entrance
          * @enum {string}
          */
-        JourneyStepType: "entrance" | "exit" | "delay" | "action" | "campaign" | "gate" | "experiment" | "sticky" | "balancer" | "update" | "event";
+        JourneyStepType: "entrance" | "exit" | "delay" | "action" | "campaign" | "gate" | "experiment" | "sticky" | "balancer" | "update" | "event" | "schedule";
         /** @description Data for entrance step - entry point into journey */
         EntranceStepData: {
             /**
@@ -2272,6 +2272,34 @@ export interface components {
             /**
              * @description JSON template string for event data
              * @example {"milestone": "completed_step_1"}
+             */
+            template?: string;
+        };
+        /** @description Data for schedule step - assign user to a schedule */
+        ScheduleStepData: {
+            /**
+             * @description Name of the schedule to assign the user to
+             * @example onboarding_reminders
+             */
+            schedule_name: string;
+            /**
+             * @description Optional RFC3339 date-time for when the schedule should fire. Supports Liquid templates.
+             * @example 2024-01-15T09:00:00Z
+             */
+            scheduled_at?: string;
+            /**
+             * @description Optional PostgreSQL interval string (e.g. '1 day', '2 hours'). Supports Liquid templates.
+             * @example 1 day
+             */
+            interval?: string;
+            /**
+             * @description Optional RFC3339 date-time for when the schedule interval should start. Supports Liquid templates.
+             * @example 2024-01-15T09:00:00Z
+             */
+            start_at?: string;
+            /**
+             * @description JSON template string for schedule data
+             * @example {"source": "journey"}
              */
             template?: string;
         };

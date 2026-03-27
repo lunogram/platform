@@ -88,3 +88,12 @@ type EventStepData struct {
 	EventName string  `json:"event_name"`
 	Template  *string `json:"template,omitempty"`
 }
+
+// ScheduleStepData represents data for schedule step - assign user to a schedule
+type ScheduleStepData struct {
+	ScheduleName string  `json:"schedule_name"`
+	ScheduledAt  *string `json:"scheduled_at,omitempty"` // Liquid template rendering to ISO 8601 timestamp
+	Interval     *string `json:"interval,omitempty"`     // Liquid template rendering to PG interval (e.g. "1 month")
+	StartAt      *string `json:"start_at,omitempty"`     // Liquid template rendering to ISO 8601 timestamp
+	Template     *string `json:"template,omitempty"`     // Liquid template rendering to JSON data payload
+}
