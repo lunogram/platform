@@ -1,5 +1,5 @@
 {
-  "title": "Providers",
+  "title": "Integrations",
   "pages": [
     "---Email---",
     "resend",
@@ -13,9 +13,6 @@
     "plivo",
     "vonage",
     "---Push Notifications---",
-    "push-notifications",
-    "---Analytics---",
-    "segment",
-    "posthog"
+    "push-notifications"
   ]
 }

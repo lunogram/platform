@@ -3,8 +3,6 @@ title: Twilio
 description: Configure Twilio for SMS and email messaging in Lunogram
 ---
 
-# Twilio
-
 Twilio is a cloud communications platform that provides SMS and email (via SendGrid) capabilities for Lunogram.
 
 ## Setup
@@ -19,10 +17,10 @@ Twilio is a cloud communications platform that provides SMS and email (via SendG
 3. Select **Twilio** from the list
 4. Enter your credentials:
 
-| Field | Description |
-|-------|-------------|
+| Field       | Description                                |
+| ----------- | ------------------------------------------ |
 | Account SID | Your Twilio Account SID (starts with `AC`) |
-| Auth Token | Your Twilio Auth Token |
+| Auth Token  | Your Twilio Auth Token                     |
 
 5. Click **Save** to create the integration
 
@@ -42,7 +40,9 @@ If you don't already have a Twilio phone number:
 When creating SMS campaigns in Lunogram, you'll specify the **From** phone number. Use the Twilio phone number you purchased.
 
 <Callout type="info">
-For high-volume SMS or toll-free numbers, you may need to complete carrier registration. See [Twilio's A2P 10DLC guide](https://www.twilio.com/docs/sms/a2p-10dlc).
+  For high-volume SMS or toll-free numbers, you may need to complete carrier
+  registration. See [Twilio's A2P 10DLC
+  guide](https://www.twilio.com/docs/sms/a2p-10dlc).
 </Callout>
 
 ## Inbound Webhooks
@@ -66,7 +66,9 @@ Twilio automatically handles standard opt-out keywords (STOP, UNSUBSCRIBE, etc.)
 Twilio owns SendGrid, and the Twilio provider can send emails through SendGrid's API.
 
 <Callout type="warn">
-Email support via Twilio SendGrid requires additional setup. For dedicated email functionality, consider using the [Resend provider](/providers/resend) instead.
+  Email support via Twilio SendGrid requires additional setup. For dedicated
+  email functionality, consider using the [Resend
+  integration](/integrations/resend) instead.
 </Callout>
 
 ## Related Links

@@ -1,20 +1,34 @@
 ---
 title: Weekly Summary
-description: Send weekly stats to vendors on a schedule
+description: Send users a weekly usage report using schedules
 ---
 
-You have an e-commerce site and want to send weekly stats to all vendors that sell products through your platform, letting them know how many people viewed and purchased their products in the past 7 days.
+Send your users a weekly usage report by combining [schedules](/schedules) with a journey. A schedule emits events at a defined interval for each user, and the journey reacts to those events to fetch data and send the report.
 
-## Steps
+![Weekly Summary Example](/img/schedule-report-example.png)
 
-Create an `Entrance` step that uses the `Schedule` trigger. Configure the frequency at which you would like to have this sent out. In this case, we're sending out "Daily", but only on Mondays.
+## Setting Up the Schedule
 
-![Journey Welcome Example](/img/journeys_example_weekly_summary.png)
+Use the JS SDK to create a recurring weekly schedule for a user. The schedule name becomes part of the event that the journey will listen for.
 
-Create a `Send` step that uses a Webhook Campaign to call your service and load the target vendor's stats. Set a data key on the step to expose the response data (`stats` in this example).
+```javascript
+await lunogram.user.schedule.create({
+  externalId: "user-123",
+  name: "usage.report",
+  scheduledAt: "2026-04-07T09:00:00Z",
+  interval: "7 days",
+});
+```
 
-![Journey Welcome Example](/img/journeys_example_weekly_stats_webhook.png)
+This creates a recurring schedule that fires every 7 days starting from the given date. Each time it fires, the platform emits a `scheduled.usage.report` event for that user. See [Schedules](/schedules) for more details on intervals and offsets.
 
-Finally, create a second `Send` step that uses an Email Campaign to send the summary to your vendor.
+## Building the Journey
 
-![Journey Welcome Example](/img/journeys_example_weekly_stats_email.png)
+1. Create an `Entrance` step:
+   - Schedule-based, listening for the `usage.report` schedule
+   - This will trigger the journey each time the schedule fires for a user
+2. Add an `Action` step to fetch the user's usage data:
+   - Select a Webhook action configured to call your reporting API
+   - Set a data key (e.g. `report`) to expose the response to later steps
+3. Add a `Send` step with an Email campaign:
+   - Include the fetched data in the template, for example `{{ journey.report.body.total_usage }}`

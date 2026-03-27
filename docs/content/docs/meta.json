@@ -5,17 +5,17 @@
     "introduction",
     "quick-start",
     "---Guides---",
+    "users",
+    "events",
+    "lists",
+    "organizations",
     "campaigns",
     "journeys",
-    "lists",
-    "users",
-    "organizations",
+    "schedules",
     "settings",
     "---Reference---",
-    "providers",
-    "clients",
-    "api",
-    "---Configuration---",
-    "advanced"
+    "integrations",
+    "sdks",
+    "api"
   ]
 }

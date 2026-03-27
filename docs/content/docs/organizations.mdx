@@ -3,10 +3,14 @@ title: Organizations
 description: Model companies, teams, and accounts to power B2B messaging and segmentation
 ---
 
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
 Organizations represent the companies, teams, or accounts that your users belong to. They add a layer of structure on top of user profiles, enabling B2B segmentation, account-based messaging, and organization-level event tracking.
 
 <Callout type="info">
-**Organizations vs Users**: Users are individual people who receive messages. Organizations group users together and can have their own properties and events. A user can belong to multiple organizations.
+  **Organizations vs Users**: Users are individual people who receive messages.
+  Organizations group users together and can have their own properties and
+  events. A user can belong to multiple organizations.
 </Callout>
 
 ---
@@ -22,8 +26,8 @@ Every organization has a profile containing:
 
 ### Identifiers
 
-| Field | Description |
-|-------|-------------|
+| Field         | Description                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------------- |
 | `external_id` | Your system's unique identifier for the organization (company ID, account ID, workspace ID) |
 
 The `external_id` is required and must be unique within your project. Lunogram uses it to match organizations across API calls — if you upsert an organization with the same `external_id`, the existing record is updated rather than duplicated.
@@ -32,29 +36,47 @@ The `external_id` is required and must be unique within your project. Lunogram u
 
 ## Creating Organizations
 
-Create organizations through the Admin API. If an organization with the same `external_id` already exists, the call updates it instead.
+Create organizations through the client API. If an organization with the same `external_id` already exists, the call updates it instead.
 
-```bash
-curl -X POST https://your-instance.com/api/admin/projects/{projectId}/subjects/organizations \
-  -H "Authorization: Bearer sk_..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "external_id": "acme_inc",
-    "name": "Acme Inc",
-    "data": {
-      "plan": "enterprise",
-      "industry": "technology",
-      "employee_count": 250,
-      "arr": 120000
-    }
-  }'
-```
+<Tabs items={['JavaScript SDK', 'API']}>
+  <Tab value="JavaScript SDK">
+    ```typescript
+    client.organization.upsert({
+      externalId: "acme_inc",
+      name: "Acme Inc",
+      data: {
+        plan: "enterprise",
+        industry: "technology",
+        employee_count: 250,
+        arr: 120000
+      }
+    })
+    ```
+  </Tab>
+  <Tab value="API">
+    ```bash
+    curl -X POST https://your-instance.com/api/client/organizations \
+      -H "Authorization: Bearer pk_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "external_id": "acme_inc",
+        "name": "Acme Inc",
+        "data": {
+          "plan": "enterprise",
+          "industry": "technology",
+          "employee_count": 250,
+          "arr": 120000
+        }
+      }'
+    ```
+  </Tab>
+</Tabs>
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `external_id` | string | Yes | Your unique identifier for this organization |
-| `name` | string | No | Display name |
-| `data` | object | No | Custom properties |
+| Field         | Type   | Required | Description                                  |
+| ------------- | ------ | -------- | -------------------------------------------- |
+| `external_id` | string | Yes      | Your unique identifier for this organization |
+| `name`        | string | No       | Display name                                 |
+| `data`        | object | No       | Custom properties                            |
 
 ---
 
@@ -66,33 +88,58 @@ Store any data you need on organization profiles. Custom properties let you segm
 
 Pass custom data as a JSON object when creating or updating an organization:
 
-```bash
-curl -X POST https://your-instance.com/api/admin/projects/{projectId}/subjects/organizations \
-  -H "Authorization: Bearer sk_..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "external_id": "acme_inc",
-    "name": "Acme Inc",
-    "data": {
-      "plan": "enterprise",
-      "industry": "technology",
-      "region": "north_america",
-      "employee_count": 250,
-      "arr": 120000,
-      "features": ["sso", "audit_log", "api_access"],
-      "billing": {
-        "cycle": "annual",
-        "currency": "USD"
+<Tabs items={['JavaScript SDK', 'API']}>
+  <Tab value="JavaScript SDK">
+    ```typescript
+    client.organization.upsert({
+      externalId: "acme_inc",
+      name: "Acme Inc",
+      data: {
+        plan: "enterprise",
+        industry: "technology",
+        region: "north_america",
+        employee_count: 250,
+        arr: 120000,
+        features: ["sso", "audit_log", "api_access"],
+        billing: {
+          cycle: "annual",
+          currency: "USD"
+        }
       }
-    }
-  }'
-```
+    })
+    ```
+  </Tab>
+  <Tab value="API">
+    ```bash
+    curl -X POST https://your-instance.com/api/client/organizations \
+      -H "Authorization: Bearer pk_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "external_id": "acme_inc",
+        "name": "Acme Inc",
+        "data": {
+          "plan": "enterprise",
+          "industry": "technology",
+          "region": "north_america",
+          "employee_count": 250,
+          "arr": 120000,
+          "features": ["sso", "audit_log", "api_access"],
+          "billing": {
+            "cycle": "annual",
+            "currency": "USD"
+          }
+        }
+      }'
+    ```
+  </Tab>
+</Tabs>
 
 ### Using Custom Data
 
 Once stored, organization data is available across Lunogram:
 
 **In lists** (segmentation):
+
 ```
 organization.plan = "enterprise"
 AND
@@ -100,106 +147,172 @@ organization.arr > 50000
 ```
 
 **In campaigns** (personalization):
-```handlebars
-Hi {{ user.first_name }},
 
-Your team at {{ organization.name }} has been using the {{ organization.plan }} plan.
+```handlebars
+Hi
+{{user.first_name}}, Your team at
+{{organization.name}}
+has been using the
+{{organization.plan}}
+plan.
 ```
 
 ### Common Custom Properties
 
-| Property | Type | Use Case |
-|----------|------|----------|
-| `plan`, `tier` | string | Account-based segmentation |
-| `industry`, `vertical` | string | Industry targeting |
-| `employee_count`, `team_size` | number | Size-based segmentation |
-| `arr`, `mrr` | number | Revenue-based segmentation |
-| `region`, `country` | string | Geographic targeting |
-| `signup_date`, `renewal_date` | date | Lifecycle targeting |
-| `features` | array | Feature-based segmentation |
-| `csm`, `account_owner` | string | Internal routing |
+| Property                      | Type   | Use Case                   |
+| ----------------------------- | ------ | -------------------------- |
+| `plan`, `tier`                | string | Account-based segmentation |
+| `industry`, `vertical`        | string | Industry targeting         |
+| `employee_count`, `team_size` | number | Size-based segmentation    |
+| `arr`, `mrr`                  | number | Revenue-based segmentation |
+| `region`, `country`           | string | Geographic targeting       |
+| `signup_date`, `renewal_date` | date   | Lifecycle targeting        |
+| `features`                    | array  | Feature-based segmentation |
+| `csm`, `account_owner`        | string | Internal routing           |
 
 ---
 
 ## Updating Organizations
 
-Update an existing organization by its internal ID:
+Organization data uses a **shallow merge** on update. Top-level keys in `data` are added or overwritten, and unmentioned keys are preserved.
 
-```bash
-curl -X PATCH https://your-instance.com/api/admin/projects/{projectId}/subjects/organizations/{organizationId} \
-  -H "Authorization: Bearer sk_..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Acme Inc (Enterprise)",
-    "data": {
-      "plan": "enterprise",
-      "arr": 150000
-    }
-  }'
+<Callout type="warn">
+The merge is **shallow**. Nested objects are replaced entirely. If you have `billing: { cycle: "annual", currency: "USD" }` and update with `billing: { cycle: "monthly" }`, the result is `billing: { cycle: "monthly" }` — the `currency` key is lost. To preserve nested fields, include the full object in your update.
+</Callout>
+
+**Initial upsert:**
+
+```typescript title="JavaScript SDK"
+client.organization.upsert({
+  externalId: "acme_inc",
+  data: { plan: "free", region: "north_america" },
+});
+// Result: { plan: "free", region: "north_america" }
 ```
 
-The `data` field replaces the entire custom data object. To preserve existing properties, include them in the update.
+**Later update:**
+
+```typescript title="JavaScript SDK"
+client.organization.upsert({
+  externalId: "acme_inc",
+  data: { plan: "enterprise", arr: 120000 },
+});
+// Result: { plan: "enterprise", region: "north_america", arr: 120000 }
+```
+
+---
+
+## Deleting Organizations
+
+Delete an organization by its `external_id`. This also removes all memberships.
+
+<Tabs items={['JavaScript SDK', 'API']}>
+  <Tab value="JavaScript SDK">
+    ```typescript
+    client.organization.delete({
+      externalId: "acme_inc"
+    })
+    ```
+  </Tab>
+  <Tab value="API">
+    ```bash
+    curl -X DELETE https://your-instance.com/api/client/organizations \
+      -H "Authorization: Bearer pk_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "external_id": "acme_inc"
+      }'
+    ```
+  </Tab>
+</Tabs>
 
 ---
 
 ## Members
 
-Members are the users who belong to an organization. The membership link can also carry its own custom data, such as a user's role or permissions within that organization.
+Members are the users who belong to an organization. The membership link can carry its own custom data, such as a user's role or permissions within that organization.
 
 ### Adding Members
 
-Add a user to an organization by their user ID:
+Add a user to an organization using both external IDs:
 
-```bash
-curl -X POST https://your-instance.com/api/admin/projects/{projectId}/subjects/organizations/{organizationId}/users \
-  -H "Authorization: Bearer sk_..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_id": "uuid-of-the-user",
-    "data": {
-      "role": "admin",
-      "department": "engineering",
-      "joined_org": "2025-01-15"
-    }
-  }'
-```
+<Tabs items={['JavaScript SDK', 'API']}>
+  <Tab value="JavaScript SDK">
+    ```typescript
+    client.organization.addUser({
+      organizationExternalId: "acme_inc",
+      userExternalId: "user_123",
+      data: {
+        role: "admin",
+        department: "engineering",
+        joined_org: "2025-01-15"
+      }
+    })
+    ```
+  </Tab>
+  <Tab value="API">
+    ```bash
+    curl -X POST https://your-instance.com/api/client/organizations/users \
+      -H "Authorization: Bearer pk_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "organization_external_id": "acme_inc",
+        "user_external_id": "user_123",
+        "data": {
+          "role": "admin",
+          "department": "engineering",
+          "joined_org": "2025-01-15"
+        }
+      }'
+    ```
+  </Tab>
+</Tabs>
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `user_id` | UUID | Yes | The internal ID of the user to add |
-| `data` | object | No | Custom data specific to this membership |
+| Field                      | Type   | Required | Description                             |
+| -------------------------- | ------ | -------- | --------------------------------------- |
+| `organization_external_id` | string | Yes      | The organization's external ID          |
+| `user_external_id`         | string | Yes      | The user's external ID                  |
+| `data`                     | object | No       | Custom data specific to this membership |
 
-If the user is already a member, the call updates their membership data instead.
+If the user is already a member, the call updates their membership data using a shallow merge.
 
 ### Member Data vs User Data
 
 Member data is specific to the user's relationship with that organization. It's separate from the user's profile data.
 
-| Data Type | Stored On | Example |
-|-----------|-----------|---------|
-| **User data** | User profile | `first_name`, `email`, `timezone` |
-| **Organization data** | Organization profile | `plan`, `industry`, `arr` |
-| **Member data** | Membership link | `role`, `department`, `permissions` |
+| Data Type             | Stored On            | Example                             |
+| --------------------- | -------------------- | ----------------------------------- |
+| **User data**         | User profile         | `first_name`, `email`, `timezone`   |
+| **Organization data** | Organization profile | `plan`, `industry`, `arr`           |
+| **Member data**       | Membership link      | `role`, `department`, `permissions` |
 
 This separation means a user can be an "admin" in one organization and a "viewer" in another, without conflicting data.
-
-### Listing Members
-
-Retrieve the members of an organization:
-
-```bash
-curl https://your-instance.com/api/admin/projects/{projectId}/subjects/organizations/{organizationId}/users \
-  -H "Authorization: Bearer sk_..."
-```
 
 ### Removing Members
 
 Remove a user from an organization:
 
-```bash
-curl -X DELETE https://your-instance.com/api/admin/projects/{projectId}/subjects/organizations/{organizationId}/users/{userId} \
-  -H "Authorization: Bearer sk_..."
-```
+<Tabs items={['JavaScript SDK', 'API']}>
+  <Tab value="JavaScript SDK">
+    ```typescript
+    client.organization.removeUser({
+      organizationExternalId: "acme_inc",
+      userExternalId: "user_123"
+    })
+    ```
+  </Tab>
+  <Tab value="API">
+    ```bash
+    curl -X DELETE https://your-instance.com/api/client/organizations/users \
+      -H "Authorization: Bearer pk_..." \
+      -H "Content-Type: application/json" \
+      -d '{
+        "organization_external_id": "acme_inc",
+        "user_external_id": "user_123"
+      }'
+    ```
+  </Tab>
+</Tabs>
 
 Removing a member only removes the association — neither the user nor the organization is deleted.
 
@@ -209,26 +322,56 @@ Removing a member only removes the association — neither the user nor the orga
 
 Organizations have their own event timeline, separate from user events. Organization events track things that happen at the company level rather than the individual level.
 
+### Sending Events
+
+<Tabs items={['JavaScript SDK', 'API']}>
+  <Tab value="JavaScript SDK">
+    ```typescript
+    client.organization.events.post([
+      {
+        organizationExternalId: "acme_inc",
+        name: "subscription_upgraded",
+        data: {
+          previous_plan: "pro",
+          new_plan: "enterprise",
+          seats: 100
+        }
+      }
+    ])
+    ```
+  </Tab>
+  <Tab value="API">
+    ```bash
+    curl -X POST https://your-instance.com/api/client/organizations/events \
+      -H "Authorization: Bearer pk_..." \
+      -H "Content-Type: application/json" \
+      -d '[
+        {
+          "organization_external_id": "acme_inc",
+          "name": "subscription_upgraded",
+          "data": {
+            "previous_plan": "pro",
+            "new_plan": "enterprise",
+            "seats": 100
+          }
+        }
+      ]'
+    ```
+  </Tab>
+</Tabs>
+
+Events are processed asynchronously. You can send multiple events in a single call.
+
 ### System Events
 
 Lunogram automatically emits the following system events:
 
-| Event | When |
-|-------|------|
-| `organization.created` | A new organization is created |
-| `organization.updated` | An organization's properties are updated |
-| `organization.user.added` | A user is added to an organization |
-| `organization.user.updated` | A member's membership data is updated |
-| `organization.user.removed` | A user is removed from an organization |
-
-### Viewing Events
-
-Retrieve the event history for an organization:
-
-```bash
-curl https://your-instance.com/api/admin/projects/{projectId}/subjects/organizations/{organizationId}/events \
-  -H "Authorization: Bearer sk_..."
-```
+| Event                       | When                                     |
+| --------------------------- | ---------------------------------------- |
+| `organization.created`      | A new organization is created            |
+| `organization.updated`      | An organization's properties are updated |
+| `organization.user.added`   | A user is added to an organization       |
+| `organization.user.updated` | A member's membership data is updated    |
 
 ### Using Organization Events
 
@@ -289,41 +432,16 @@ Organization member has role = "admin"
 
 ---
 
-## Using Organizations
-
-Once created, organizations integrate with other Lunogram features:
-
-| Feature | How Organizations Are Used |
-|---------|---------------------------|
-| **Lists** | Segment users by organization properties, member roles, and organization events |
-| **Journeys** | Trigger journeys from organization events; add all organization members to a journey |
-| **Campaigns** | Personalize messages with organization data (name, plan, custom properties) |
-| **Rules** | Build rules that filter users based on their organization memberships |
-
----
-
 ## API Reference
 
-All organization endpoints are scoped to a project:
+All organization endpoints use the client API and authenticate with your project API key:
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/admin/projects/{projectId}/subjects/organizations` | List organizations |
-| `POST` | `/api/admin/projects/{projectId}/subjects/organizations` | Create or update organization |
-| `GET` | `/api/admin/projects/{projectId}/subjects/organizations/{id}` | Get organization |
-| `PATCH` | `/api/admin/projects/{projectId}/subjects/organizations/{id}` | Update organization |
-| `DELETE` | `/api/admin/projects/{projectId}/subjects/organizations/{id}` | Delete organization |
-| `GET` | `/api/admin/projects/{projectId}/subjects/organizations/{id}/users` | List members |
-| `POST` | `/api/admin/projects/{projectId}/subjects/organizations/{id}/users` | Add member |
-| `DELETE` | `/api/admin/projects/{projectId}/subjects/organizations/{id}/users/{userId}` | Remove member |
-| `GET` | `/api/admin/projects/{projectId}/subjects/organizations/{id}/events` | List organization events |
-
-### Query Parameters
-
-List endpoints support pagination and search:
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `limit` | int | 20 | Maximum results to return |
-| `offset` | int | 0 | Number of results to skip |
-| `search` | string | — | Filter by name or external ID |
+| Method   | Endpoint                              | Description                   |
+| -------- | ------------------------------------- | ----------------------------- |
+| `POST`   | `/api/client/organizations`           | Create or update organization |
+| `DELETE` | `/api/client/organizations`           | Delete organization           |
+| `POST`   | `/api/client/organizations/users`     | Add member                    |
+| `DELETE` | `/api/client/organizations/users`     | Remove member                 |
+| `POST`   | `/api/client/organizations/events`    | Send organization events      |
+| `POST`   | `/api/client/organizations/scheduled` | Create or update schedule     |
+| `DELETE` | `/api/client/organizations/scheduled` | Delete schedule               |

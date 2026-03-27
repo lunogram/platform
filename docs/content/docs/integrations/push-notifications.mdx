@@ -3,10 +3,9 @@ title: Push Notifications
 description: Configure Apple Push Notifications (APNs) and Firebase Cloud Messaging for push notifications
 ---
 
-# Push Notifications
-
 <Callout type="warn">
-Push notification provider support is coming soon. This documentation describes the planned functionality.
+  Push notification provider support is coming soon. This documentation
+  describes the planned functionality.
 </Callout>
 
 Lunogram supports sending push notifications to both major mobile platforms:
@@ -47,12 +46,12 @@ Lunogram uses token-based authentication with a .p8 key file. This is Apple's re
 2. Select **APNs & FCM**
 3. Fill in the APNs fields:
 
-| Field | Description | Where to Find |
-|-------|-------------|---------------|
-| Key | Contents of your .p8 file | Open in text editor |
-| Key ID | 10-character identifier | Apple Developer > Keys |
-| Team ID | 10-character identifier | Apple Developer (top right) |
-| Bundle ID | Your app identifier | Apple Developer > Identifiers or Xcode |
+| Field     | Description               | Where to Find                          |
+| --------- | ------------------------- | -------------------------------------- |
+| Key       | Contents of your .p8 file | Open in text editor                    |
+| Key ID    | 10-character identifier   | Apple Developer > Keys                 |
+| Team ID   | 10-character identifier   | Apple Developer (top right)            |
+| Bundle ID | Your app identifier       | Apple Developer > Identifiers or Xcode |
 
 4. Save the integration
 
@@ -84,7 +83,7 @@ Follow Google's guide to add Firebase to your Android app: [Add Firebase to your
 
 ### iOS
 
-Use the [Lunogram iOS SDK](/clients/ios) to register device tokens:
+Use the [Lunogram iOS SDK](/sdks/ios) to register device tokens:
 
 ```swift
 func application(
@@ -97,7 +96,7 @@ func application(
 
 ### Android
 
-Use the [Lunogram Android SDK](/clients/android) to register FCM tokens:
+Use the [Lunogram Android SDK](/sdks/android) to register FCM tokens:
 
 ```kotlin
 class MyFirebaseMessagingService : FirebaseMessagingService() {

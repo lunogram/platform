@@ -7,24 +7,25 @@ Create a campaign by clicking **Create Campaign** in the Campaigns tab or throug
 
 ## Campaign Settings
 
-### Name
+When creating a campaign, first select the channel you want to use. Then configure the campaign name and integration on the setup page.
 
-Give your campaign a descriptive name. This appears in lists and reports throughout Lunogram.
+### Channel
 
-### Integrations
+Choose the channel for your campaign:
 
-Select one or more integrations (channels) to send your campaign through. Each integration connects to an external provider like Resend for email or Twilio for SMS.
+| Channel | Description                    |
+| ------- | ------------------------------ |
+| Email   | Send HTML or plain text emails |
+| SMS     | Send text messages             |
+| Push    | Send mobile push notifications |
 
-| Channel | Description |
-|---------|-------------|
-| Email | Send HTML or plain text emails |
-| SMS | Send text messages |
-| Push | Send mobile push notifications |
+### Integration
 
-You can select multiple integrations of the same type to send through different providers, or mix channels to reach users across multiple touchpoints.
+Select the integration to send your campaign through. Each integration connects to an external provider like Resend for email or Twilio for SMS. Only integrations matching the selected channel are shown.
 
 <Callout type="info">
-Before creating a campaign, make sure you have [configured at least one integration](/settings/integrations) in your project settings.
+  Before creating a campaign, make sure you have [configured at least one
+  integration](/integrations) in your project settings.
 </Callout>
 
 ## Templates

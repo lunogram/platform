@@ -3,18 +3,23 @@ title: Quick Start
 description: Get up and running with Lunogram using Docker Compose
 ---
 
-import { Cards, Card } from 'fumadocs-ui/components/card';
+import { Cards, Card } from "fumadocs-ui/components/card";
 
 <div className="rounded-xl border bg-muted/50 p-6 mb-8 not-prose">
   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div>
-      <span className="font-semibold leading-none block">Want to skip the setup?</span>
+      <span className="font-semibold leading-none block">
+        Want to skip the setup?
+      </span>
       <span className="text-sm text-muted-foreground block mt-1">
-        Get started in minutes with Lunogram Cloud. No infrastructure to maintain.
+        Get started in minutes with Lunogram Cloud. No infrastructure to
+        maintain.
       </span>
     </div>
     <Button asChild className="shrink-0">
-      <a href="https://console.lunogram.com" className="no-underline">Try Lunogram Cloud</a>
+      <a href="https://console.lunogram.com" className="no-underline">
+        Try Lunogram Cloud
+      </a>
     </Button>
   </div>
 </div>
@@ -22,7 +27,9 @@ import { Cards, Card } from 'fumadocs-ui/components/card';
 This guide gets you from zero to a running self-hosted Lunogram instance in under 5 minutes.
 
 <Callout type="info">
-**Prerequisites:** Make sure you have [Docker](https://docs.docker.com/get-docker/) installed and running on your machine.
+  **Prerequisites:** Make sure you have
+  [Docker](https://docs.docker.com/get-docker/) installed and running on your
+  machine.
 </Callout>
 
 ## Install & Run
@@ -39,32 +46,32 @@ That's it. Lunogram is now running at [http://localhost:8080](http://localhost:8
 
 Use the default credentials to access the dashboard:
 
-| Field | Value |
-|-------|-------|
-| Email | `admin@localhost` |
-| Password | `admin` |
+| Field    | Value             |
+| -------- | ----------------- |
+| Email    | `admin@localhost` |
+| Password | `admin`           |
 
 <Callout type="warn">
-Change these credentials before deploying to production. See [Configuration](/advanced/config) for details.
+  Change these credentials before deploying to production.
 </Callout>
 
 ## What's Running
 
 Docker Compose starts everything you need:
 
-| Service | Purpose | Port |
-|---------|---------|------|
-| Lunogram | Main application | 8080 |
-| PostgreSQL | Database | 5432 |
-| Redis | Caching | 6379 |
-| NATS | Event streaming | 4222 |
+| Service    | Purpose          | Port |
+| ---------- | ---------------- | ---- |
+| Lunogram   | Main application | 8080 |
+| PostgreSQL | Database         | 5432 |
+| Redis      | Caching          | 6379 |
+| NATS       | Event streaming  | 4222 |
 
 ## Your First Campaign
 
 Once logged in, you'll go through a quick onboarding to create your first project. Then:
 
 <Cards>
-  <Card title="1. Add a Provider" href="/providers">
+  <Card title="1. Add an Integration" href="/integrations">
     Connect an email provider like Resend or Twilio for SMS.
   </Card>
   <Card title="2. Create a List" href="lists">
@@ -83,29 +90,32 @@ Once logged in, you'll go through a quick onboarding to create your first projec
 Start tracking users and events:
 
 ```bash
-npm install @lunogram/javascript-sdk
+npm install @lunogram/js-sdk
 ```
 
 ```javascript
-import Lunogram from '@lunogram/javascript-sdk';
+import { Lunogram } from "@lunogram/js-sdk";
 
-const lunogram = new Lunogram({
-  apiKey: 'pk_your_public_key', // Get this from Project Settings > API Keys
-  endpoint: 'http://localhost:8080/api'
+const lunogram = new Lunogram(
+  "pk_your_public_key", // Get this from Project Settings > API Keys
+  "http://localhost:8080/api",
+);
+
+await lunogram.user.upsert({
+  externalId: "user_123",
+  email: "user@example.com",
 });
-
-lunogram.identify('user_123', { email: 'user@example.com' });
-lunogram.track('Signed Up');
+await lunogram.user.events.post([{ name: "user.signed_up" }]);
 ```
 
 <Cards>
-  <Card title="JavaScript SDK" href="/clients/javascript">
+  <Card title="JavaScript SDK" href="/sdks/javascript">
     For web browsers and Node.js
   </Card>
-  <Card title="iOS SDK" href="/clients/ios">
+  <Card title="iOS SDK" href="/sdks/ios">
     For Swift applications
   </Card>
-  <Card title="Android SDK" href="/clients/android">
+  <Card title="Android SDK" href="/sdks/android">
     For Kotlin/Java applications
   </Card>
 </Cards>

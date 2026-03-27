@@ -1,11 +1,9 @@
 ---
 title: Templates
-description: Design your campaign content with the visual editor or code
+description: Design email campaigns with the block builder or React Email code editor
 ---
 
-import { Cards, Card } from 'fumadocs-ui/components/card';
-
-Each campaign has templates for your project's locales. After creating a campaign, navigate to the **Design** tab to edit your templates.
+Each campaign has templates for your project's locales. After creating a campaign, navigate to the **Editor** step to design your templates.
 
 ![Design Campaign](/img/campaigns_overview.png)
 
@@ -15,59 +13,80 @@ A locale defines the user's language and region, from broad (`es` for Spanish) t
 
 ## Email Templates
 
-Email templates offer the most flexibility. Choose between two editing modes:
+Email templates are built on [React Email](https://react.email), giving you access to a full set of battle-tested components designed for email client compatibility. Choose between two editing modes depending on your needs.
 
-### Visual Editor
+### Block Builder
 
-The drag-and-drop interface lets you build emails without code. Drag building blocks from the sidebar and customize styles, layouts, and content for each block.
+The block builder is a Notion-like editor that lets you compose emails by typing and using slash commands. Type `/` to insert content blocks such as images, buttons, headings, lists, and more. Select any block to adjust its properties in the sidebar.
 
-![Design Campaign Visual](/img/campaigns_design_visual.png)
+This mode is ideal for marketers and content creators who want to build polished emails without writing code.
+
+![Email Block Builder](/img/email-block-builder.png)
 
 ### Code Editor
 
-For full control, use the code editor with syntax highlighting, code suggestions, and direct image imports. Write HTML and CSS with Handlebars for personalization.
+The code editor gives you full programmatic control over your email templates. Write JSX using [React Email components](https://react.email/docs/components/html) in a TypeScript-enabled Monaco editor with autocompletion, syntax highlighting, and type checking.
 
-![Design Campaign Code](/img/campaigns_design_code.png)
+Your template is a React component that receives typed `props` containing user data, event properties, and system variables. This means you can use JavaScript expressions, conditional rendering, loops, and any logic you need directly in your template.
+
+![Email Code Editor](/img/email-code-editor.png)
+
+The editor includes:
+
+- **Live preview** — see your email render in real time as you type, with responsive viewport toggles for mobile, tablet, and desktop
+- **`props.json` panel** — edit preview data or select a real user to see how the email renders with actual data
+- **Plain text tab** — edit the plain text version of your email alongside the HTML version
+- **Image and variable toolbars** — insert images from the media manager and variables from a searchable picker
+- **Send test** — send a test email to yourself with the current preview data
+
+#### Supported Components
+
+The following [React Email](https://react.email/docs/components/html) components are available out of the box:
+
+| Component                               | Purpose                    |
+| --------------------------------------- | -------------------------- |
+| `Html`, `Head`, `Body`                  | Document structure         |
+| `Container`, `Section`, `Row`, `Column` | Layout                     |
+| `Text`, `Heading`, `Link`               | Typography                 |
+| `Button`                                | Call-to-action with `href` |
+| `Img`                                   | Images                     |
+| `Hr`                                    | Horizontal rule            |
+| `Preview`                               | Preheader / preview text   |
+| `Font`                                  | Web font declarations      |
+| `Tailwind`                              | Tailwind CSS styling       |
+| `Markdown`                              | Render Markdown to HTML    |
+| `CodeBlock`, `CodeInline`               | Code snippets              |
+
+All components support Tailwind CSS classes via the `className` prop when wrapped in a `<Tailwind>` component.
+
+<Callout type="info">
+  Both the block builder and code editor produce React Email output under the
+  hood. You can switch between modes, but switching from block builder to code
+  editor is a one-way operation since the block structure cannot be
+  reconstructed from raw code.
+</Callout>
 
 ## SMS Templates
 
-SMS templates have a single body field. Use Handlebars to include user data.
+SMS templates have a single body field. Use template variables like `{{ user.email }}` to include user data.
 
 ![Design Campaign Text](/img/campaigns_design_text.png)
 
 <Callout type="info">
-Messages over 160 characters are split into multiple segments. Lunogram automatically includes opt-out instructions in the first message sent to each user.
+  Messages over 160 characters are split into multiple segments. Lunogram
+  automatically includes opt-out instructions in the first message sent to each
+  user.
 </Callout>
 
 ## Push Notification Templates
 
 Push templates include:
 
-| Field | Description |
-|-------|-------------|
-| Title | Bold headline text |
-| Body | Main message content |
-| Deeplink | URL to open when tapped |
+| Field    | Description                         |
+| -------- | ----------------------------------- |
+| Title    | Bold headline text                  |
+| Body     | Main message content                |
+| Deeplink | URL to open when tapped             |
 | Raw JSON | Custom data for your app to process |
 
 ![Design Campaign Push](/img/campaigns_design_push.png)
-
-## Webhook Templates
-
-Webhook templates define HTTP requests to external services:
-
-| Field | Description |
-|-------|-------------|
-| URL | The endpoint to call |
-| Method | GET, POST, PUT, etc. |
-| Headers | Custom HTTP headers (supports Handlebars) |
-| Body | JSON request body (supports Handlebars) |
-
-<Cards>
-  <Card title="Personalization" href="personalization">
-    Access user data and event properties in your templates.
-  </Card>
-  <Card title="Helpers Reference" href="helpers">
-    String manipulation, date formatting, conditionals, and more.
-  </Card>
-</Cards>

@@ -1,198 +1,42 @@
 ---
 title: Client API
-description: Ingestion API endpoints used by client SDKs for tracking users and events
+description: Public API for ingesting user data, events, and device information
 ---
 
-# Client API
+The Client API is used by SDKs and client applications to ingest data into Lunogram. It supports user identification, event tracking, organization management, and scheduling.
 
-<Callout type="info">
-This is the documentation for our ingestion API's which are used by our client SDKs. They can be used to create additional clients or ingest data without a secret key.
-</Callout>
+For the full endpoint reference, see the [interactive API documentation](https://console.lunogram.com/api#client).
 
 ## Authentication
 
-Authentication to client endpoints is handled via public bearer API keys. These API keys allow for ingestion only of data and only on select endpoints. You can [generate a new public key](settings/api-keys) at any time in the portal and we recommend using a separate key per platform.
+Client endpoints authenticate via Bearer token using an API key with the **client** role. Client keys are write-only and safe to use in frontend applications.
 
-To authenticate requests, set the `Authorization` header to be `Bearer YOUR_KEY` where `YOUR_KEY` is the API key you generated.
-
-### Example
-
-```json
-{
-    "Authorization": "Bearer pk_dbf68c87-e579-4dac-b083-77fed0294e67"
-}
+```
+Authorization: Bearer YOUR_API_KEY
 ```
 
-## Endpoints
+You can [create and manage API keys](/settings/api-keys) in your project settings.
 
-### Alias User
+<Callout type="info">
+  Client keys can ingest data but cannot read or modify existing resources. See
+  [API Keys](/settings/api-keys) for a full breakdown of roles and permissions.
+</Callout>
 
-Merge a previous identifier to the users new identifier. This action can only be performed once.
+## Available Endpoints
 
-**Endpoint:** `POST /api/client/alias`
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| `PUT` | `/api/client/users` | Create or update a user |
+| `POST` | `/api/client/users/events` | Track user events |
+| `DELETE` | `/api/client/users` | Delete a user |
+| `PUT` | `/api/client/organizations` | Create or update an organization |
+| `POST` | `/api/client/organizations/events` | Track organization events |
+| `PUT` | `/api/client/users/scheduled` | Create or update a user schedule |
+| `DELETE` | `/api/client/users/scheduled` | Delete a user schedule |
+| `PUT` | `/api/client/organizations/scheduled` | Create or update an org schedule |
+| `DELETE` | `/api/client/organizations/scheduled` | Delete an org schedule |
+| `POST` | `/api/client/devices` | Register a device for push notifications |
 
-**Body:**
+## SDKs
 
-- `anonymous_id` (string) - The anonymous identifier to merge from
-- `external_id` (string) - The external identifier to merge to
-
-**Responses:**
-
-- `204` - Success
-- `422` - Validation error
-
-**Example:**
-
-```json
-// Endpoint: POST /api/client/alias
-
-// Headers:
-{
-    "Authorization": "Bearer pk_token_here"
-}
-
-// Body:
-{
-    "anonymous_id": "ANONYMOUS_ID",
-    "external_id": "EXTERNAL_ID"
-}
-```
-
----
-
-### Identify User
-
-Create or update a user profile with associated traits.
-
-**Endpoint:** `POST /api/client/identify`
-
-**Body:**
-
-- `anonymous_id` (string, optional) - Anonymous identifier for the user
-- `external_id` (string) - Your internal identifier for the user
-- `email` (string, optional) - User's email address
-- `phone` (string, optional) - Phone number in E.164 format
-- `timezone` (string, optional) - The users timezone provided in IANA format (i.e. America/Chicago)
-- `locale` (string, optional) - The locale of the user used for language and formatting (i.e `es` or `en`)
-- `data` (object, optional) - Custom properties to associate with the user
-
-**Responses:**
-
-- `204` - Success
-- `422` - Validation error
-
-**Example:**
-
-```json
-// Endpoint: POST /api/client/identify
-
-// Headers:
-{
-    "Authorization": "Bearer pk_token_here"
-}
-
-// Body:
-{
-    "external_id": "EXTERNAL_ID",
-    "email": "test@test.com",
-    "timezone": "America/Chicago",
-    "locale": "en",
-    "data": {
-        "first_name": "John",
-        "last_name": "Smith",
-        "has_completed_onboarding": true
-    }
-}
-```
-
----
-
-### Register Device
-
-Ingest information about the users device including the push notification token used for sending push notifications.
-
-**Endpoint:** `POST /api/client/devices`
-
-**Body:**
-
-- `anonymous_id` (string) - Anonymous identifier for the user
-- `external_id` (string) - Your internal identifier for the user
-- `device_id` (string) - A UUID or other identifier that can be used to identify this device across requests
-- `token` (string) - The push notification token for that device
-- `os` (string) - Operating system of the device
-- `model` (string) - Device model
-- `app_build` (string) - App build number (i.e. 465)
-- `app_version` (string) - App version string (i.e. 1.2.4)
-
-**Responses:**
-
-- `204` - Success
-- `422` - Validation error
-
-**Example:**
-
-```json
-// Endpoint: POST /api/client/devices
-
-// Headers:
-{
-    "Authorization": "Bearer pk_token_here"
-}
-
-// Body:
-{
-    "external_id": "EXTERNAL_ID",
-    "device_id": "5e356e66-03aa-4926-a322-d7f5c89049c1",
-    "token": "45d2e0c7bbb649679723a96d92d0fa305e356e6603aa4926a322d7f5c89",
-    "os": "iOS 16.3",
-    "model": "iPhone15,2",
-    "app_build": "465",
-    "app_version": "1.2.4"
-}
-```
-
----
-
-### Post Event
-
-Track an event or interaction.
-
-**Endpoint:** `POST /api/client/events`
-
-**Body:**
-
-An array containing at least one object with the following parameters:
-
-- `name` (string) - The name of the event
-- `anonymous_id` (string, optional) - Anonymous identifier for the user
-- `external_id` (string, optional) - Your internal identifier for the user
-- `data` (object, optional) - Custom properties to associate with the event
-
-Either an anonymous or external ID is required in order to post an event.
-
-**Responses:**
-
-- `204` - Success
-- `422` - Validation error
-
-**Example:**
-
-```json
-// Endpoint: POST /api/client/events
-
-// Headers:
-{
-    "Authorization": "Bearer pk_token_here"
-}
-
-// Body:
-[{
-    "external_id": "EXTERNAL_ID",
-    "name": "Product Purchased",
-    "data": {
-        "product_id": 12345,
-        "price": 49.99,
-        "quantity": 4
-    }
-}]
-```
+The Client API is the foundation for all Lunogram SDKs. See the [JavaScript SDK](/sdks/javascript) documentation for a higher-level integration option.

@@ -3,16 +3,18 @@ title: API
 description: API documentation for integrating with Lunogram
 ---
 
-import { Cards, Card } from 'fumadocs-ui/components/card';
+import { Cards, Card } from "fumadocs-ui/components/card";
 
-Lunogram provides two types of APIs for different use cases:
+Lunogram provides two APIs for different use cases. Full interactive documentation is available at [console.lunogram.com/api](https://console.lunogram.com/api).
 
 <Cards>
   <Card title="Client API" href="/api/client">
-    Public APIs for ingesting data from client applications. Used by SDKs for user identification, event tracking, and device registration.
+    Public API for ingesting data from client applications. Used by SDKs for
+    user identification, event tracking, and device registration.
   </Card>
-  <Card title="Admin API" href="/api/admin">
-    Private APIs for managing campaigns, triggering sends, and accessing platform data. Requires secret API keys.
+  <Card title="Management API" href="/api/management">
+    Private API for managing campaigns, journeys, users, and platform
+    configuration. Requires secret API keys.
   </Card>
 </Cards>
 
@@ -24,4 +26,4 @@ Both APIs use Bearer token authentication. Include your API key in the `Authoriz
 Authorization: Bearer YOUR_API_KEY
 ```
 
-Learn how to [create API keys](settings/api-keys) in your project settings.
+Each API key has a **role** that determines what it can access. Learn how to [create and manage API keys](/settings/api-keys) in your project settings.

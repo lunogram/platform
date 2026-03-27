@@ -3,7 +3,7 @@ title: Introduction
 description: Reach your users at the right moment, through the right channel
 ---
 
-import { Cards, Card } from 'fumadocs-ui/components/card';
+import { Cards, Card } from "fumadocs-ui/components/card";
 
 Lunogram is an open source customer engagement platform. Send personalized emails, SMS, and push notifications, all from one place.
 
@@ -26,7 +26,8 @@ Lunogram is fully open source. Run it yourself for complete control, or use Luno
 
 <Cards>
   <Card title="Lunogram Cloud" href="https://lunogram.com">
-    Managed hosting with a marketplace of pre-built integrations. No infrastructure to manage.
+    Managed hosting with a marketplace of pre-built integrations. No
+    infrastructure to manage.
   </Card>
   <Card title="Self-Hosted" href="/quick-start">
     Deploy on your own infrastructure. Always free, no limits.
@@ -45,8 +46,9 @@ Lunogram is fully open source. Run it yourself for complete control, or use Luno
   <Card title="Lists" href="lists">
     Segment users dynamically based on attributes and events.
   </Card>
-  <Card title="Multi-Channel" href="/providers">
-    Send via email, SMS, or push notifications through your preferred providers.
+  <Card title="Multi-Channel" href="/integrations">
+    Send via email, SMS, or push notifications through your preferred
+    integrations.
   </Card>
 </Cards>
 
@@ -55,21 +57,21 @@ Lunogram is fully open source. Run it yourself for complete control, or use Luno
 Integrate Lunogram with a few lines of code:
 
 ```javascript
-import Lunogram from '@lunogram/javascript-sdk';
+import { Lunogram } from "@lunogram/js-sdk";
 
-const lunogram = new Lunogram({ apiKey: 'pk_your_key' });
+const lunogram = new Lunogram("your-api-key");
 
-// Identify users
-lunogram.identify('user_123', { 
-  email: 'user@example.com',
-  plan: 'premium' 
-});
+// User operations
+await lunogram.user.upsert({ email: "user@example.com" });
+await lunogram.user.events.post([
+  { name: "user.signed_up", data: { plan: "free" } },
+]);
 
-// Track events
-lunogram.track('Order Completed', { total: 99.99 });
+// Organization operations
+await lunogram.organization.upsert({ externalId: "org-123", name: "Acme" });
 ```
 
-SDKs available for [JavaScript](/clients/javascript), [iOS](/clients/ios), and [Android](/clients/android).
+SDKs available for [JavaScript](/sdks/javascript), [iOS](/sdks/ios), and [Android](/sdks/android).
 
 ## Acknowledgments
 

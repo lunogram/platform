@@ -3,13 +3,15 @@ title: Users
 description: Store customer data and use it across campaigns, journeys, and lists
 ---
 
-import { Cards, Card } from 'fumadocs-ui/components/card';
-import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Cards, Card } from "fumadocs-ui/components/card";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 Users represent your customers, the people who receive your messages. Each user profile stores contact information, preferences, and custom properties that you define. This data powers personalization in campaigns, segmentation in lists, and branching logic in journeys.
 
 <Callout type="info">
-**Users vs Admins**: Users are your customers who receive messages. Admins are team members who log into Lunogram to create campaigns and manage the platform. They're completely separate.
+  **Users vs Admins**: Users are your customers who receive messages. Admins are
+  team members who log into Lunogram to create campaigns and manage the
+  platform. They're completely separate.
 </Callout>
 
 ---
@@ -25,46 +27,48 @@ Every user has a profile containing:
 
 ### Identifiers
 
-| Field | Description |
-|-------|-------------|
-| `anonymous_id` | Identifier for unknown visitors |
-| `external_id` | Your system's unique identifier (user ID, customer ID) |
+| Field          | Description                                            |
+| -------------- | ------------------------------------------------------ |
+| `anonymous_id` | Identifier for unknown visitors                        |
+| `external_id`  | Your system's unique identifier (user ID, customer ID) |
 
-Users need at least one identifier. The `anonymous_id` tracks users before they sign up or log in. Once identified, call `identify` with their `external_id` to link their anonymous activity to their known identity.
+Users need at least one identifier. The `anonymous_id` tracks users before they sign up or log in. Once you know who the user is, call `user.upsert` with their `external_id` to link their anonymous activity to their known identity.
 
 **Where anonymous IDs come from:**
-- **Auto-generated**: The browser SDK creates one automatically
+
+- **Auto-generated**: The [JavaScript SDK](/sdks/javascript) creates one automatically when using the browser client
 - **From analytics tools**: Pass an existing ID from PostHog, Segment, or Mixpanel
 - **Your own system**: Use any unique string you generate
 
-```typescript
-// Use an existing anonymous ID from another tool
-client.identify({
+```typescript title="JavaScript SDK"
+// The browser client auto-generates an anonymous ID,
+// but you can override it with one from another tool
+client.user.upsert({
   anonymousId: posthog.get_distinct_id(),
-  traits: { source: "marketing_site" }
-})
+  data: { source: "marketing_site" },
+});
 
 // Later, link to a known user
-client.identify({
+client.user.upsert({
   anonymousId: posthog.get_distinct_id(),
   externalId: "user_123",
-  email: "alice@example.com"
-})
+  email: "alice@example.com",
+});
 ```
 
 ### Contact Information
 
-| Field | Format | Required For |
-|-------|--------|--------------|
-| `email` | `user@example.com` | Email campaigns |
-| `phone` | E.164 format (`+1234567890`) | SMS campaigns |
+| Field   | Format                       | Required For    |
+| ------- | ---------------------------- | --------------- |
+| `email` | `user@example.com`           | Email campaigns |
+| `phone` | E.164 format (`+1234567890`) | SMS campaigns   |
 
 ### Preferences
 
-| Field | Description | Example |
-|-------|-------------|---------|
-| `timezone` | IANA timezone for send-time optimization | `America/New_York` |
-| `locale` | Language/region for template selection | `en`, `es-MX`, `fr-CA` |
+| Field      | Description                              | Example                |
+| ---------- | ---------------------------------------- | ---------------------- |
+| `timezone` | IANA timezone for send-time optimization | `America/New_York`     |
+| `locale`   | Language/region for template selection   | `en`, `es-MX`, `fr-CA` |
 
 ---
 
@@ -74,13 +78,13 @@ Store any data you need on user profiles. Custom properties let you personalize 
 
 ### Setting Custom Data
 
-<Tabs items={['JavaScript', 'iOS', 'Android', 'API']}>
-  <Tab value="JavaScript">
+<Tabs items={['JavaScript SDK', 'API']}>
+  <Tab value="JavaScript SDK">
     ```typescript
-    client.identify({
+    client.user.upsert({
       externalId: "user_123",
       email: "alice@example.com",
-      traits: {
+      data: {
         first_name: "Alice",
         plan: "premium",
         company: "Acme Inc",
@@ -94,40 +98,10 @@ Store any data you need on user profiles. Custom properties let you personalize 
     })
     ```
   </Tab>
-  <Tab value="iOS">
-    ```swift
-    Lunogram.shared.identify(
-      id: "user_123",
-      traits: [
-        "first_name": "Alice",
-        "email": "alice@example.com",
-        "plan": "premium",
-        "company": "Acme Inc",
-        "signup_source": "webinar",
-        "lifetime_value": 2500
-      ]
-    )
-    ```
-  </Tab>
-  <Tab value="Android">
-    ```kotlin
-    Lunogram.shared.identify(
-      id = "user_123",
-      traits = mapOf(
-        "first_name" to "Alice",
-        "email" to "alice@example.com",
-        "plan" to "premium",
-        "company" to "Acme Inc",
-        "signup_source" to "webinar",
-        "lifetime_value" to 2500
-      )
-    )
-    ```
-  </Tab>
   <Tab value="API">
     ```bash
-    curl -X POST https://your-instance.com/api/admin/projects/{id}/users \
-      -H "Authorization: Bearer sk_..." \
+    curl -X POST https://your-instance.com/api/client/users \
+      -H "Authorization: Bearer pk_..." \
       -H "Content-Type: application/json" \
       -d '{
         "external_id": "user_123",
@@ -146,29 +120,31 @@ Store any data you need on user profiles. Custom properties let you personalize 
 
 ### Using Custom Data
 
-Once stored, custom data is available everywhere:
+Once stored, custom data is available everywhere via `user.data`:
 
 **In campaigns** (personalization):
+
 ```handlebars
-Hi {{ user.first_name }},
-
-Thanks for being a {{ user.plan }} member!
-
-{{#if user.company}}
-We hope the team at {{ user.company }} is enjoying Lunogram.
-{{/if}}
+Hi
+{{user.data.first_name}}, Thanks for being a
+{{user.data.plan}}
+member! {% if user.data.company %} We hope the team at
+{{user.data.company}}
+is enjoying Lunogram. {% endif %}
 ```
 
 **In lists** (segmentation):
+
 ```
-user.plan = "premium"
+user.data.plan = "premium"
 AND
-user.lifetime_value > 1000
+user.data.lifetime_value > 1000
 ```
 
 **In journeys** (branching):
+
 ```
-Gate: user.plan = "enterprise"
+Gate: user.data.plan = "enterprise"
   Yes → Send enterprise onboarding
   No → Send standard onboarding
 ```
@@ -177,39 +153,40 @@ Gate: user.plan = "enterprise"
 
 Store structured data using nested objects:
 
-```typescript
-client.identify({
+```typescript title="JavaScript SDK"
+client.user.upsert({
   externalId: "user_123",
-  traits: {
+  data: {
     address: {
       city: "Austin",
       state: "TX",
-      country: "US"
+      country: "US",
     },
     preferences: {
       email_frequency: "weekly",
-      product_updates: true
-    }
-  }
-})
+      product_updates: true,
+    },
+  },
+});
 ```
 
 Access nested properties with dot notation:
+
 ```handlebars
-{{ user.address.city }}, {{ user.address.state }}
+{{user.data.address.city}}, {{user.data.address.state}}
 ```
 
 ### Common Custom Properties
 
-| Property | Type | Use Case |
-|----------|------|----------|
-| `first_name`, `last_name` | string | Personalization |
-| `plan`, `tier` | string | Feature-based segmentation |
-| `company`, `team_size` | string/number | B2B targeting |
-| `signup_source`, `referrer` | string | Attribution tracking |
-| `lifetime_value`, `orders_count` | number | Value-based segmentation |
-| `last_login`, `last_purchase` | date | Engagement tracking |
-| `tags`, `interests` | array | Multi-value segmentation |
+| Property                         | Type          | Use Case                   |
+| -------------------------------- | ------------- | -------------------------- |
+| `first_name`, `last_name`        | string        | Personalization            |
+| `plan`, `tier`                   | string        | Feature-based segmentation |
+| `company`, `team_size`           | string/number | B2B targeting              |
+| `signup_source`, `referrer`      | string        | Attribution tracking       |
+| `lifetime_value`, `orders_count` | number        | Value-based segmentation   |
+| `last_login`, `last_purchase`    | date          | Engagement tracking        |
+| `tags`, `interests`              | array         | Multi-value segmentation   |
 
 ---
 
@@ -217,45 +194,53 @@ Access nested properties with dot notation:
 
 User properties merge on update. New properties are added, existing properties are overwritten, and unmentioned properties remain unchanged.
 
-**Initial identify:**
-```typescript
-client.identify({
+<Callout type="warn">
+Updates use a **shallow merge**. Top-level keys in `data` are replaced entirely. If you have a nested object like `address: { city: "Austin", state: "TX" }` and update with `address: { city: "Dallas" }`, the result will be `address: { city: "Dallas" }` — the `state` key is lost. To preserve nested fields, include the full object in your update.
+</Callout>
+
+**Initial upsert:**
+
+```typescript title="JavaScript SDK"
+client.user.upsert({
   externalId: "user_123",
-  traits: { plan: "free", city: "Austin" }
-})
+  data: { plan: "free", city: "Austin" },
+});
 // Result: { plan: "free", city: "Austin" }
 ```
 
 **Later update:**
-```typescript
-client.identify({
-  externalId: "user_123", 
-  traits: { plan: "premium", company: "Acme" }
-})
+
+```typescript title="JavaScript SDK"
+client.user.upsert({
+  externalId: "user_123",
+  data: { plan: "premium", company: "Acme" },
+});
 // Result: { plan: "premium", city: "Austin", company: "Acme" }
 ```
 
 ### Updating from Journeys
 
-Use the [Update step](/journeys/types#update) to modify user data based on journey context:
+Use the [Update step](/journeys/types#update) to modify user data based on journey context. The template is a JSON string with Liquid expressions that can reference `user` properties and upstream step data via `journey.<data_key>`:
 
 ```json
 {
-  "last_campaign_sent": "{{ journey.entrance.campaign_name }}",
-  "engagement_score": "{{ journey.webhook.calculated_score }}"
+  "full_name": "{{ user.data.first_name }} {{ user.data.last_name }}",
+  "last_score": "{{ journey.score_lookup.body.score }}"
 }
 ```
+
+In this example, `score_lookup` is the data key of an upstream [Action step](/journeys/actions) whose response contained a `score` field.
 
 ---
 
 ## Creating Users
 
-| Method | When to Use |
-|--------|-------------|
-| **Client SDK** | Track users from your web or mobile app |
-| **Admin API** | Create users from your backend |
-| **CSV Import** | Bulk import users directly |
-| **List Import** | Import users and add them to a static list in one step |
+| Method             | When to Use                                            |
+| ------------------ | ------------------------------------------------------ |
+| **JavaScript SDK** | Track users from your website or web app               |
+| **Client API**     | Create users from your backend                         |
+| **CSV Import**     | Bulk import users directly                             |
+| **List Import**    | Import users and add them to a static list in one step |
 
 ### CSV Import
 
@@ -275,20 +260,15 @@ The `external_id` column is required. The following columns map to standard user
 All other columns (like `plan` and `company` above) become custom properties.
 
 <Callout type="info">
-Importing via a [static list](/lists#static-lists) also creates users, but adds them to the list. Direct CSV imports only create or update profiles.
+  Importing via a [static list](/lists#static-lists) also creates users, but
+  adds them to the list. Direct CSV imports only create or update profiles.
 </Callout>
 
 <Cards>
-  <Card title="JavaScript" href="/clients/javascript">
+  <Card title="JavaScript SDK" href="/sdks/javascript">
     Web browsers and Node.js
   </Card>
-  <Card title="iOS" href="/clients/ios">
-    Swift SDK for iOS apps
-  </Card>
-  <Card title="Android" href="/clients/android">
-    Kotlin SDK for Android apps
-  </Card>
-  <Card title="Admin API" href="/api/admin#users">
+  <Card title="Client API" href="/api/client">
     Backend integration
   </Card>
 </Cards>
@@ -299,32 +279,34 @@ Importing via a [static list](/lists#static-lists) also creates users, but adds 
 
 Users can subscribe or unsubscribe from each [subscription group](/settings/subscriptions). Subscription state controls whether a user receives messages for that group.
 
-| State | Behavior |
-|-------|----------|
-| **Subscribed** | User receives messages |
-| **Unsubscribed** | User has opted out and will not receive messages |
-| **Not set** | Depends on your project settings (default subscribe or require explicit opt-in) |
+| State            | Behavior                                                                        |
+| ---------------- | ------------------------------------------------------------------------------- |
+| **Subscribed**   | User receives messages                                                          |
+| **Unsubscribed** | User has opted out and will not receive messages                                |
+| **Not set**      | Depends on your project settings (default subscribe or require explicit opt-in) |
 
 ### Why Use Multiple Subscription Groups?
 
 Instead of a single "subscribed/unsubscribed" toggle, you can create separate groups for different message types:
 
-| Group | Example Messages |
-|-------|------------------|
-| **Marketing** | Promotions, sales, new product announcements |
-| **Product Updates** | Feature releases, changelog, tips |
-| **Transactional** | Order confirmations, password resets, receipts |
-| **Weekly Digest** | Summary emails, newsletters |
+| Group               | Example Messages                               |
+| ------------------- | ---------------------------------------------- |
+| **Marketing**       | Promotions, sales, new product announcements   |
+| **Product Updates** | Feature releases, changelog, tips              |
+| **Transactional**   | Order confirmations, password resets, receipts |
+| **Weekly Digest**   | Summary emails, newsletters                    |
 
 This lets users opt out of promotional emails while still receiving important product updates or transactional messages.
 
 ### How Users Manage Subscriptions
 
-- **Preference center**: Include `{{ preferencesUrl }}` in emails to link to a page where users manage all their subscription groups
-- **One-click unsubscribe**: Include `{{ unsubscribeEmailUrl }}` for a direct unsubscribe link for that specific group
+- **Preference center**: Include `{{ preferences_url }}` in emails to link to a page where users manage all their subscription groups
+- **One-click unsubscribe**: Include `{{ unsubscribe_url }}` for a direct unsubscribe link for that specific group
 - **SMS reply**: Users can reply STOP to unsubscribe from SMS messages
 - **Your app**: Call the SDK or API to update subscription state from your own UI
 
 <Callout type="warn">
-Never send messages to unsubscribed users. Lunogram automatically filters them out, but respecting user preferences is essential for deliverability and legal compliance.
+  Never send messages to unsubscribed users. Lunogram automatically filters them
+  out, but respecting user preferences is essential for deliverability and legal
+  compliance.
 </Callout>
