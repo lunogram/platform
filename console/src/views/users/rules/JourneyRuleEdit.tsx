@@ -12,7 +12,6 @@ import {
 import { Combobox } from "../../../components/ui/combobox"
 import { Input } from "@/components/ui/input"
 import { TemplateInput } from "@/components/ui/template-input"
-import type { Variable, VariableGroup } from "@/views/journey/JourneyVariableContext"
 
 interface PathOption {
     path: string

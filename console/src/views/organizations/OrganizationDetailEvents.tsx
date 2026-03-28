@@ -1,6 +1,15 @@
 import React, { useCallback, useContext, useMemo, useState, useRef } from "react"
 import { useTranslation } from "react-i18next"
-import { Activity, ChevronLeft, ChevronRight, ChevronDown, Zap, Clock, Plus, Search } from "lucide-react"
+import {
+    Activity,
+    ChevronLeft,
+    ChevronRight,
+    ChevronDown,
+    Zap,
+    Clock,
+    Plus,
+    Search,
+} from "lucide-react"
 import { toast } from "sonner"
 import { ProjectContext, OrganizationContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
