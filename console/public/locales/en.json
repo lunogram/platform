@@ -341,7 +341,7 @@
     "default_locale_description": "This locale will be used as the default when creating campaigns.",
     "defaults": "Defaults",
     "delay": "Delay",
-    "delay_date_desc": "Delay until the specified date in the user's timezone.",
+    "delay_date_desc": "Delay until the specified date and time. Accepts RFC 3339 (2025-01-15T09:00:00+02:00), datetime (2025-01-15T09:00:00), or date-only (2025-01-15). Formats without a timezone offset use the user's timezone.",
     "delay_desc": "Add a delay between the previous and next step.",
     "delay_time_desc": "Delay until the specified time in the user's timezone.",
     "delay_until": "Delay Until",

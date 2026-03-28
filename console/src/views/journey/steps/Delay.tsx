@@ -15,9 +15,9 @@ import { useJourneyVariableContext } from "../JourneyVariableContext"
 
 interface DelayStepConfig {
     format: "duration" | "time" | "date"
-    minutes: number
-    hours: number
-    days: number
+    minutes: number | string
+    hours: number | string
+    days: number | string
     time?: string
     date?: string
     exclusion_days?: number[]
@@ -50,26 +50,43 @@ export const delayStep: JourneyStepType<DelayStepConfig> = {
         const { t } = useTranslation()
         const [preferences] = useContext(PreferencesContext)
         if (value.format === "duration") {
+            const hasTemplate = [value.days, value.hours, value.minutes].some(
+                (v) => typeof v === "string" && v.includes("{{"),
+            )
             return (
                 <>
                     {t("wait") + " "}
                     <strong>
-                        {formatDuration(preferences, {
-                            days: value.days ?? 0,
-                            hours: value.hours ?? 0,
-                            minutes: value.minutes ?? 0,
-                        }) || <>&#8211;</>}
+                        {hasTemplate ? (
+                            <>
+                                {value.days ? `${value.days}d ` : ""}
+                                {value.hours ? `${value.hours}h ` : ""}
+                                {value.minutes ? `${value.minutes}m` : ""}
+                            </>
+                        ) : (
+                            formatDuration(preferences, {
+                                days: Number(value.days) || 0,
+                                hours: Number(value.hours) || 0,
+                                minutes: Number(value.minutes) || 0,
+                            }) || <>&#8211;</>
+                        )}
                     </strong>
                 </>
             )
         }
         if (value.format === "time") {
-            const parsed = parse(value.time ?? "", "HH:mm", new Date())
+            const timeVal = value.time ?? ""
+            const hasTemplate = timeVal.includes("{{")
+            const parsed = parse(timeVal, "HH:mm", new Date())
             return (
                 <>
                     {t("wait_until") + " "}
                     <strong>
-                        {isNaN(parsed.getTime()) ? "--:--" : formatDate(preferences, parsed, "p")}
+                        {hasTemplate
+                            ? timeVal
+                            : isNaN(parsed.getTime())
+                              ? "--:--"
+                              : formatDate(preferences, parsed, "p")}
                     </strong>
                 </>
             )
@@ -138,13 +155,19 @@ export const delayStep: JourneyStepType<DelayStepConfig> = {
                     (["days", "hours", "minutes"] as const).map((name) => (
                         <div key={name} className="space-y-1.5">
                             <Label className="text-sm font-medium">{snakeToTitle(name)}</Label>
-                            <Input
-                                type="number"
-                                min={0}
-                                value={value[name] ?? 0}
-                                onChange={(e) =>
-                                    onChange({ ...value, [name]: e.target.valueAsNumber })
-                                }
+                            <TemplateInput
+                                value={String(value[name] ?? 0)}
+                                onChange={(v) => {
+                                    const num = Number(v)
+                                    onChange({
+                                        ...value,
+                                        [name]:
+                                            v.includes("{{") || v.includes("{%") || isNaN(num)
+                                                ? v
+                                                : num,
+                                    })
+                                }}
+                                variables={variables}
                             />
                         </div>
                     ))}
@@ -153,10 +176,11 @@ export const delayStep: JourneyStepType<DelayStepConfig> = {
                         <div className="space-y-1.5">
                             <Label className="text-sm font-medium">{t("time")}</Label>
                             <p className="text-xs text-muted-foreground">{t("delay_time_desc")}</p>
-                            <Input
-                                type="time"
+                            <TemplateInput
+                                placeholder="HH:mm or {{ variable }}"
                                 value={value.time ?? ""}
-                                onChange={(e) => onChange({ ...value, time: e.target.value })}
+                                onChange={(time) => onChange({ ...value, time })}
+                                variables={variables}
                             />
                         </div>
                         <div className="space-y-1.5">
@@ -206,7 +230,7 @@ export const delayStep: JourneyStepType<DelayStepConfig> = {
                         <Label className="text-sm font-medium">{t("date")}</Label>
                         <p className="text-xs text-muted-foreground">{t("delay_date_desc")}</p>
                         <TemplateInput
-                            placeholder="YYYY-MM-DD or {{ variable }}"
+                            placeholder="2025-01-15T09:00:00Z, 2025-01-15T09:00:00, 2025-01-15 or {{ variable }}"
                             value={value.date ?? ""}
                             onChange={(date) => onChange({ ...value, date })}
                             variables={variables}

@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label"
 import { TemplateInput } from "@/components/ui/template-input"
 import { useTranslation } from "react-i18next"
 import { useJourneyVariableContext } from "../JourneyVariableContext"
+import { Zap } from "lucide-react"
 
 interface EventConfig {
     event_name: string
@@ -18,22 +19,33 @@ export const eventStep: JourneyStepType<EventConfig> = {
     description: "trigger_event_desc",
     Describe({ value }) {
         const { t } = useTranslation()
-        if (value?.template) {
-            try {
-                JSON.parse(value.template)
-                return (
-                    <CodeEditor
-                        value={value.template}
-                        onChange={() => {}}
-                        readOnly
-                        language="json"
-                    />
-                )
-            } catch {
-                return <>{t("trigger_event_empty")}</>
-            }
-        }
-        return null
+        if (!value?.event_name && !value?.template) return null
+        return (
+            <div className="space-y-2">
+                <div className="flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-xs text-muted-foreground font-mono truncate">
+                    <Zap className="h-3.5 w-3.5 shrink-0" />
+                    {value.event_name || (
+                        <span className="text-muted-foreground">{t("trigger_event_empty")}</span>
+                    )}
+                </div>
+                {value?.template &&
+                    (() => {
+                        try {
+                            JSON.parse(value.template)
+                            return (
+                                <CodeEditor
+                                    value={value.template}
+                                    onChange={() => {}}
+                                    readOnly
+                                    language="json"
+                                />
+                            )
+                        } catch {
+                            return null
+                        }
+                    })()}
+            </div>
+        )
     },
     newData: async () => ({
         template: "{\n\n}\n",

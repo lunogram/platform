@@ -10,6 +10,32 @@ import (
 	"github.com/osteele/liquid"
 )
 
+// TimeOption configures the behaviour of RenderTime.
+type TimeOption func(*timeOptions)
+
+type timeOptions struct {
+	formats  []string
+	fallback *time.Location
+}
+
+// WithFormats overrides the set of time layouts that RenderTime will attempt,
+// in order. The first format that parses successfully wins.
+// When not provided, RenderTime defaults to time.RFC3339 only.
+func WithFormats(formats ...string) TimeOption {
+	return func(o *timeOptions) {
+		o.formats = formats
+	}
+}
+
+// WithFallbackLocation sets the *time.Location applied to parsed times whose
+// format does not carry timezone information (e.g. "2006-01-02").
+// When not provided, such times are returned as-is (typically UTC).
+func WithFallbackLocation(loc *time.Location) TimeOption {
+	return func(o *timeOptions) {
+		o.fallback = loc
+	}
+}
+
 const TemplatePrefix = "{{"
 
 // RenderString renders a Liquid template string against the provided data bindings.
@@ -27,9 +53,15 @@ func RenderString(template string, data map[string]any) (string, error) {
 	return rendered, nil
 }
 
-// RenderTime renders a Liquid template string and parses the result as an RFC3339 timestamp.
+// RenderTime renders a Liquid template string and parses the result as a time.Time.
 // It returns nil when the input pointer is nil or points to an empty string.
-func RenderTime(template *string, data map[string]any) (*time.Time, error) {
+//
+// By default only time.RFC3339 is attempted. Use WithFormats to supply
+// additional layouts and WithFallbackLocation to assign a timezone to
+// formats that don't carry one.
+//
+// Existing call sites that pass no options retain the original behaviour.
+func RenderTime(template *string, data map[string]any, opts ...TimeOption) (*time.Time, error) {
 	if template == nil || *template == "" {
 		return nil, nil
 	}
@@ -39,12 +71,50 @@ func RenderTime(template *string, data map[string]any) (*time.Time, error) {
 		return nil, fmt.Errorf("failed to render template: %w", err)
 	}
 
-	t, err := time.Parse(time.RFC3339, rendered)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse %q as RFC3339: %w", rendered, err)
+	rendered = strings.TrimSpace(rendered)
+	if rendered == "" {
+		return nil, nil
 	}
 
-	return &t, nil
+	o := timeOptions{
+		formats: []string{time.RFC3339},
+	}
+	for _, fn := range opts {
+		fn(&o)
+	}
+
+	var lastErr error
+	for _, layout := range o.formats {
+		t, err := time.Parse(layout, rendered)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		// When the format lacks timezone info and a fallback location was
+		// provided, reconstruct the time in that location.
+		if o.fallback != nil && !hasTimezone(layout) {
+			t = time.Date(t.Year(), t.Month(), t.Day(),
+				t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), o.fallback)
+		}
+
+		return &t, nil
+	}
+
+	return nil, fmt.Errorf("failed to parse %q with any of the configured formats: %w", rendered, lastErr)
+}
+
+// hasTimezone reports whether a Go time layout contains an explicit timezone
+// component. It looks for the reference-time tokens that encode zone info.
+func hasTimezone(layout string) bool {
+	// Reference-time timezone tokens: "MST", "Z07", "Z07:00", "Z0700",
+	// "-07", "-07:00", "-0700", "+07", etc.
+	for _, tok := range []string{"MST", "Z07", "Z0700", "Z07:00", "-07", "-0700", "-07:00"} {
+		if strings.Contains(layout, tok) {
+			return true
+		}
+	}
+	return false
 }
 
 // RenderJSON walks a JSON value and renders all Liquid template strings

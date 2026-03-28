@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label"
 import { TemplateInput } from "@/components/ui/template-input"
 import { useTranslation } from "react-i18next"
 import { useJourneyVariableContext } from "../JourneyVariableContext"
+import { CalendarClock } from "lucide-react"
 
 interface ScheduleConfig {
     schedule_name: string
@@ -21,22 +22,33 @@ export const scheduleStep: JourneyStepType<ScheduleConfig> = {
     description: "assign_schedule_desc",
     Describe({ value }) {
         const { t } = useTranslation()
-        if (value?.template) {
-            try {
-                JSON.parse(value.template)
-                return (
-                    <CodeEditor
-                        value={value.template}
-                        onChange={() => {}}
-                        readOnly
-                        language="json"
-                    />
-                )
-            } catch {
-                return <>{t("assign_schedule_empty")}</>
-            }
-        }
-        return null
+        if (!value?.schedule_name && !value?.template) return null
+        return (
+            <div className="space-y-2">
+                <div className="flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-xs text-muted-foreground font-mono truncate">
+                    <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+                    {value.schedule_name || (
+                        <span className="text-muted-foreground">{t("assign_schedule_empty")}</span>
+                    )}
+                </div>
+                {value?.template &&
+                    (() => {
+                        try {
+                            JSON.parse(value.template)
+                            return (
+                                <CodeEditor
+                                    value={value.template}
+                                    onChange={() => {}}
+                                    readOnly
+                                    language="json"
+                                />
+                            )
+                        } catch {
+                            return null
+                        }
+                    })()}
+            </div>
+        )
     },
     newData: async () => ({
         schedule_name: "",
@@ -58,7 +70,9 @@ export const scheduleStep: JourneyStepType<ScheduleConfig> = {
                     />
                 </div>
                 <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">{t("assign_schedule_scheduled_at")}</Label>
+                    <Label className="text-sm font-medium">
+                        {t("assign_schedule_scheduled_at")}
+                    </Label>
                     <TemplateInput
                         value={value.scheduled_at ?? ""}
                         onChange={(scheduled_at) =>

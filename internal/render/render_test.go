@@ -86,6 +86,7 @@ func TestRenderTime(t *testing.T) {
 	tests := map[string]struct {
 		template *string
 		data     map[string]any
+		opts     []TimeOption
 		expected *time.Time
 		wantErr  bool
 	}{
@@ -125,11 +126,98 @@ func TestRenderTime(t *testing.T) {
 			data:     map[string]any{},
 			wantErr:  true,
 		},
+		// --- no options: backward compat ---
+		"default rejects date-only string": {
+			template: ptr("2025-06-15"),
+			data:     map[string]any{},
+			wantErr:  true,
+		},
+		// --- WithFormats ---
+		"multi-format: RFC3339 matched first": {
+			template: ptr("2025-06-01T12:00:00+02:00"),
+			data:     map[string]any{},
+			opts: []TimeOption{
+				WithFormats(time.RFC3339, "2006-01-02T15:04:05", "2006-01-02"),
+			},
+			expected: timePtr(time.Date(2025, 6, 1, 12, 0, 0, 0, time.FixedZone("", 2*60*60))),
+		},
+		"multi-format: datetime without timezone": {
+			template: ptr("2025-08-20T14:30:00"),
+			data:     map[string]any{},
+			opts: []TimeOption{
+				WithFormats(time.RFC3339, "2006-01-02T15:04:05", "2006-01-02"),
+			},
+			expected: timePtr(time.Date(2025, 8, 20, 14, 30, 0, 0, time.UTC)),
+		},
+		"multi-format: date-only": {
+			template: ptr("2025-03-10"),
+			data:     map[string]any{},
+			opts: []TimeOption{
+				WithFormats(time.RFC3339, "2006-01-02T15:04:05", "2006-01-02"),
+			},
+			expected: timePtr(time.Date(2025, 3, 10, 0, 0, 0, 0, time.UTC)),
+		},
+		"multi-format: none match": {
+			template: ptr("March 10, 2025"),
+			data:     map[string]any{},
+			opts: []TimeOption{
+				WithFormats(time.RFC3339, "2006-01-02"),
+			},
+			wantErr: true,
+		},
+		// --- WithFallbackLocation ---
+		"fallback location applied to date-only": {
+			template: ptr("2025-07-04"),
+			data:     map[string]any{},
+			opts: []TimeOption{
+				WithFormats(time.RFC3339, "2006-01-02"),
+				WithFallbackLocation(time.FixedZone("EST", -5*60*60)),
+			},
+			expected: timePtr(time.Date(2025, 7, 4, 0, 0, 0, 0, time.FixedZone("EST", -5*60*60))),
+		},
+		"fallback location applied to datetime without tz": {
+			template: ptr("2025-07-04T09:30:00"),
+			data:     map[string]any{},
+			opts: []TimeOption{
+				WithFormats(time.RFC3339, "2006-01-02T15:04:05", "2006-01-02"),
+				WithFallbackLocation(time.FixedZone("CET", 1*60*60)),
+			},
+			expected: timePtr(time.Date(2025, 7, 4, 9, 30, 0, 0, time.FixedZone("CET", 1*60*60))),
+		},
+		"fallback location NOT applied to RFC3339 (has tz)": {
+			template: ptr("2025-07-04T09:30:00Z"),
+			data:     map[string]any{},
+			opts: []TimeOption{
+				WithFormats(time.RFC3339, "2006-01-02"),
+				WithFallbackLocation(time.FixedZone("CET", 1*60*60)),
+			},
+			expected: timePtr(time.Date(2025, 7, 4, 9, 30, 0, 0, time.UTC)),
+		},
+		// --- Liquid template + multi-format ---
+		"liquid resolves to date-only with fallback tz": {
+			template: ptr("{{ user.birthday }}"),
+			data: map[string]any{
+				"user": map[string]any{
+					"birthday": "1990-05-15",
+				},
+			},
+			opts: []TimeOption{
+				WithFormats(time.RFC3339, "2006-01-02"),
+				WithFallbackLocation(time.FixedZone("JST", 9*60*60)),
+			},
+			expected: timePtr(time.Date(1990, 5, 15, 0, 0, 0, 0, time.FixedZone("JST", 9*60*60))),
+		},
+		// --- whitespace trimming ---
+		"whitespace around rendered value is trimmed": {
+			template: ptr("  2025-06-01T00:00:00Z  "),
+			data:     map[string]any{},
+			expected: timePtr(time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)),
+		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			result, err := RenderTime(tc.template, tc.data)
+			result, err := RenderTime(tc.template, tc.data, tc.opts...)
 			if tc.wantErr {
 				assert.Error(t, err)
 				return

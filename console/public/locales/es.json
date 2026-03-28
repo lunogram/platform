@@ -129,7 +129,7 @@
     "default_locale_description": "Esta localidad se utilizará por defecto al crear campañas y cuando la localidad de un usuario no coincida con ninguna de las disponibles.",
     "defaults": "Por defecto",
     "delay": "Retraso",
-    "delay_date_desc": "Retraso hasta la fecha especificada en la zona horaria del usuario.",
+    "delay_date_desc": "Retraso hasta la fecha y hora especificadas. Formatos aceptados: fecha completa con zona horaria (2025-01-15T09:00:00+02:00), fecha y hora sin zona horaria (2025-01-15T09:00:00, se usa la zona horaria del usuario), o solo fecha (2025-01-15, se reanuda a medianoche en la zona horaria del usuario).",
     "delay_desc": "Agregue un retraso entre el paso anterior y el siguiente.",
     "delay_time_desc": "Retraso hasta la hora especificada en la zona horaria del usuario.",
     "delay_until": "Espera Hasta",
