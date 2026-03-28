@@ -83,6 +83,7 @@ const (
 	JourneyStepTypeExit       JourneyStepType = "exit"
 	JourneyStepTypeExperiment JourneyStepType = "experiment"
 	JourneyStepTypeGate       JourneyStepType = "gate"
+	JourneyStepTypeSchedule   JourneyStepType = "schedule"
 	JourneyStepTypeSticky     JourneyStepType = "sticky"
 	JourneyStepTypeUpdate     JourneyStepType = "update"
 )
