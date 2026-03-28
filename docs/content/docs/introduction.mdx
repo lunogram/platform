@@ -1,0 +1,78 @@
+---
+title: Introduction
+description: Reach your users at the right moment, through the right channel
+---
+
+import { Cards, Card } from "fumadocs-ui/components/card";
+
+Lunogram is an open source customer engagement platform. Send personalized emails, SMS, and push notifications, all from one place.
+
+<Cards>
+  <Card title="Quick Start" href="/quick-start">
+    Get up and running in minutes with Docker Compose.
+  </Card>
+  <Card title="Campaigns" href="/campaigns">
+    Learn about campaigns, journeys, lists, and more.
+  </Card>
+</Cards>
+
+## Why Lunogram?
+
+Customer engagement shouldn't require stitching together multiple tools or paying per-message fees. Lunogram gives you everything in one platform.
+
+### Open Source, Your Way
+
+Lunogram is fully open source. Run it yourself for complete control, or use Lunogram Cloud to get started in minutes.
+
+<Cards>
+  <Card title="Lunogram Cloud" href="https://lunogram.com">
+    Managed hosting with a marketplace of pre-built integrations. No
+    infrastructure to manage.
+  </Card>
+  <Card title="Self-Hosted" href="/quick-start">
+    Deploy on your own infrastructure. Always free, no limits.
+  </Card>
+</Cards>
+
+## What You Can Do
+
+<Cards>
+  <Card title="Campaigns" href="campaigns">
+    Design emails visually, target specific users, and track engagement.
+  </Card>
+  <Card title="Journeys" href="journeys">
+    Build automated workflows that respond to user behavior in real-time.
+  </Card>
+  <Card title="Lists" href="lists">
+    Segment users dynamically based on attributes and events.
+  </Card>
+  <Card title="Multi-Channel" href="/integrations">
+    Send via email, SMS, or push notifications through your preferred
+    integrations.
+  </Card>
+</Cards>
+
+## Connect Your App
+
+Integrate Lunogram with a few lines of code:
+
+```javascript
+import { Lunogram } from "@lunogram/js-sdk";
+
+const lunogram = new Lunogram("your-api-key");
+
+// User operations
+await lunogram.user.upsert({ identifier: [{ externalId: "user_123" }], email: "user@example.com" });
+await lunogram.user.events.post([
+  { name: "user.signed_up", data: { plan: "free" } },
+]);
+
+// Organization operations
+await lunogram.organization.upsert({ identifier: [{ externalId: "org-123" }], name: "Acme" });
+```
+
+SDKs available for [JavaScript](/sdks/javascript), [iOS](/sdks/ios), and [Android](/sdks/android).
+
+## Acknowledgments
+
+Lunogram is a fork of [Parcelvoy](https://github.com/parcelvoy/platform), an open-source customer engagement platform. We're grateful to the Parcelvoy team for their foundational work and are committed to continuing the project's development as an open-source solution.

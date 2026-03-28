@@ -1,0 +1,149 @@
+---
+title: API Keys
+description: Create and manage API keys for accessing Lunogram APIs
+---
+
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Cards, Card } from 'fumadocs-ui/components/card';
+
+To ingest data into Lunogram via the client libraries or modify data via admin endpoints, you first need to create an API Key. Each key is bound to a project and only allows interacting with data in that project.
+
+---
+
+## Create an API Key
+
+<div className="not-prose mb-6">
+  <div className="flex flex-col gap-4">
+    <div className="flex gap-4 items-start">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">1</div>
+      <div className="pt-0.5">
+        <p className="font-medium">Navigate to Settings -> API Keys</p>
+        <p className="text-sm text-muted-foreground">Open your project settings and select the API Keys section.</p>
+      </div>
+    </div>
+    <div className="flex gap-4 items-start">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">2</div>
+      <div className="pt-0.5">
+        <p className="font-medium">Click Create Key</p>
+        <p className="text-sm text-muted-foreground">A dialog will open where you can configure your new key.</p>
+      </div>
+    </div>
+    <div className="flex gap-4 items-start">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">3</div>
+      <div className="pt-0.5">
+        <p className="font-medium">Fill in the details</p>
+        <p className="text-sm text-muted-foreground">Provide a name, optional description, and select a role.</p>
+      </div>
+    </div>
+    <div className="flex gap-4 items-start">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">4</div>
+      <div className="pt-0.5">
+        <p className="font-medium">Copy your key</p>
+        <p className="text-sm text-muted-foreground">The key value is shown after creation. Copy and store it securely, you can always view it again from the table.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+---
+
+## Roles
+
+Every API key is assigned a role that determines what it can access. Roles are additive — each higher level includes all permissions from the levels below it.
+
+<div className="not-prose grid grid-cols-4 gap-px rounded-xl overflow-hidden border mb-6">
+  <div className="bg-card flex flex-col items-center gap-1 p-4 text-center">
+    <span className="text-2xl">📱</span>
+    <span className="font-semibold text-sm">Client</span>
+    <span className="text-xs text-muted-foreground">Write-only</span>
+  </div>
+  <div className="bg-card flex flex-col items-center gap-1 p-4 text-center">
+    <span className="text-2xl">👁</span>
+    <span className="font-semibold text-sm">Support</span>
+    <span className="text-xs text-muted-foreground">Read-only</span>
+  </div>
+  <div className="bg-card flex flex-col items-center gap-1 p-4 text-center">
+    <span className="text-2xl">✏️</span>
+    <span className="font-semibold text-sm">Editor</span>
+    <span className="text-xs text-muted-foreground">Manage content</span>
+  </div>
+  <div className="bg-card flex flex-col items-center gap-1 p-4 text-center">
+    <span className="text-2xl">🛡</span>
+    <span className="font-semibold text-sm">Admin</span>
+    <span className="text-xs text-muted-foreground">Full access</span>
+  </div>
+</div>
+
+<Tabs items={['Client', 'Support', 'Editor', 'Admin']}>
+  <Tab value="Client">
+    **Write-only** access designed for client-side SDKs and public integrations. Safe to expose in frontend code.
+
+    | Permission | |
+    |------------|---|
+    | Create & update users, events, and organizations | ✅ |
+    | Read any resource | ❌ |
+    | Modify campaigns, journeys, or settings | ❌ |
+
+    <Callout type="info">
+    Client keys are the only role safe to use in browser or mobile app code. They can ingest data but cannot read or modify existing resources.
+    </Callout>
+  </Tab>
+  <Tab value="Support">
+    **Read-only** access across all project resources. Ideal for dashboards, monitoring tools, and reporting integrations.
+
+    | Permission | |
+    |------------|---|
+    | View users, campaigns, journeys, templates | ✅ |
+    | View events, lists, tags, and documents | ✅ |
+    | Create, update, or delete any resource | ❌ |
+  </Tab>
+  <Tab value="Editor">
+    **Full content management** for campaigns, journeys, and more. Includes everything in Support and Client.
+
+    | Permission | |
+    |------------|---|
+    | Everything in Support and Client | ✅ |
+    | Create & manage campaigns, templates, journeys | ✅ |
+    | Manage lists, tags, documents, locales, and actions | ✅ |
+    | Manage providers and integrations | ❌ |
+    | Destructive operations (delete subscriptions, etc.) | ❌ |
+  </Tab>
+  <Tab value="Admin">
+    **Full project access** including providers, integrations, and dangerous operations. Includes everything in Editor.
+
+    | Permission | |
+    |------------|---|
+    | Everything in Editor | ✅ |
+    | Manage providers and integrations | ✅ |
+    | Delete subscriptions, actions, and organizations | ✅ |
+
+    <Callout type="warn">
+    Admin keys have unrestricted access to your project. Never expose them in client-side code or public repositories.
+    </Callout>
+  </Tab>
+</Tabs>
+
+---
+
+## Update an API Key
+
+Click on an existing API key to update its name, description, or role. The key value itself cannot be changed.
+
+---
+
+## Which Role Should I Use?
+
+<Cards>
+  <Card title="Frontend App or Mobile SDK">
+    Use a **Client** key. It can only write data and is safe to ship in public code.
+  </Card>
+  <Card title="Analytics Dashboard">
+    Use a **Support** key. It provides read-only access for reporting and monitoring.
+  </Card>
+  <Card title="Backend Integration">
+    Use an **Editor** key if you need to manage campaigns and content, or an **Admin** key for full control.
+  </Card>
+  <Card title="CI/CD or Automation">
+    Use an **Admin** key for scripts that need unrestricted access. Keep it in environment variables.
+  </Card>
+</Cards>

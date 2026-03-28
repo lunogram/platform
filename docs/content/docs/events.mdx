@@ -1,0 +1,265 @@
+---
+title: Events
+description: Track user and organization actions to trigger journeys, update lists, and power segmentation
+---
+
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+Events are at the heart of Lunogram. Every meaningful action — a user signing up, a link being clicked, a subscription being upgraded — is recorded as an event. These events drive the rest of the platform: they trigger [journeys](/journeys), recompute [list](/lists) memberships, fire [schedules](/schedules), and provide the data that powers segmentation and personalization.
+
+There are two kinds of events:
+
+- **Custom events** — actions you track from your application (purchases, feature usage, form submissions)
+- **System events** — actions Lunogram records automatically (user created, list membership changed, link clicked)
+
+Both kinds work identically once recorded. They can trigger journey entrances, appear in list rules, and carry arbitrary data properties.
+
+---
+
+## Tracking Events
+
+Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Events are processed asynchronously — the API returns `202 Accepted` immediately, and processing happens in the background.
+
+### User Events
+
+`POST /api/client/users/events`
+
+<Tabs items={['JavaScript SDK', 'API']}>
+  <Tab value="JavaScript SDK">
+    ```typescript
+    // Browser — identifier can be omitted if already set on the client
+    await lunogram.user.events.post([
+      {
+        name: "order.completed",
+        data: {
+          orderId: "ord_abc123",
+          total: 149.99,
+          currency: "USD",
+          items: 3
+        }
+      }
+    ])
+
+    // Node.js — include the user identifier explicitly
+    await lunogram.user.events.post([
+      {
+        name: "order.completed",
+        identifier: [{ externalId: "user_123" }],
+        data: {
+          orderId: "ord_abc123",
+          total: 149.99,
+          currency: "USD",
+          items: 3
+        }
+      }
+    ])
+    ```
+  </Tab>
+  <Tab value="API">
+    ```bash
+    curl -X POST https://your-instance.com/api/client/users/events \
+      -H "Authorization: Bearer pk_..." \
+      -H "Content-Type: application/json" \
+      -d '[
+        {
+          "name": "order.completed",
+          "identifier": [{ "external_id": "user_123" }],
+          "data": {
+            "orderId": "ord_abc123",
+            "total": 149.99,
+            "currency": "USD",
+            "items": 3
+          }
+        }
+      ]'
+    ```
+  </Tab>
+</Tabs>
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Name of the event |
+| `data` | object | Yes | Event properties |
+| `identifier` | array | No* | Array of `{ externalId, source? }` objects to identify the user |
+
+\* The `identifier` is required when the user cannot be inferred from context (e.g., server-side calls). In the browser, the SDK can include it automatically if a user has been identified.
+
+The request body is an array — you can send multiple events in a single call. Each event is processed independently.
+
+```typescript
+await lunogram.user.events.post([
+  { name: "page.viewed", data: { path: "/pricing" } },
+  { name: "cta.clicked", data: { buttonId: "signup" } },
+])
+```
+
+### Organization Events
+
+`POST /api/client/organizations/events`
+
+<Tabs items={['JavaScript SDK', 'API']}>
+  <Tab value="JavaScript SDK">
+    ```typescript
+    await lunogram.organization.events.post([
+      {
+        identifier: [{ externalId: "acme_inc" }],
+        name: "subscription.upgraded",
+        data: {
+          previousPlan: "pro",
+          newPlan: "enterprise",
+          seats: 100
+        }
+      }
+    ])
+    ```
+  </Tab>
+  <Tab value="API">
+    ```bash
+    curl -X POST https://your-instance.com/api/client/organizations/events \
+      -H "Authorization: Bearer pk_..." \
+      -H "Content-Type: application/json" \
+      -d '[
+        {
+          "identifier": [{ "external_id": "acme_inc" }],
+          "name": "subscription.upgraded",
+          "data": {
+            "previous_plan": "pro",
+            "new_plan": "enterprise",
+            "seats": 100
+          }
+        }
+      ]'
+    ```
+  </Tab>
+</Tabs>
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Name of the event |
+| `data` | object | No | Arbitrary event properties |
+| `identifier` | array | Yes | Array of `{ externalId, source? }` objects to identify the organization |
+
+Organization events can also trigger journeys. When they do, the journey entrance evaluates each member of the organization — optionally filtered by a user rule — and enters matching members into the flow.
+
+---
+
+## System Events
+
+Lunogram automatically tracks events as things happen across the platform. You don't need to send these — they're emitted internally and are available in journey triggers, list rules, and the event timeline.
+
+### User Events
+
+| Event | When It Fires |
+|-------|---------------|
+| `user.created` | A new user is identified for the first time |
+| `user.updated` | A user's profile properties change |
+
+### Organization Events
+
+| Event | When It Fires |
+|-------|---------------|
+| `organization.created` | A new organization is created |
+| `organization.updated` | An organization's properties change |
+| `organization.user.added` | A user is added as a member |
+| `organization.user.updated` | A member's role or properties change |
+
+### List Events
+
+| Event | When It Fires |
+|-------|---------------|
+| `list.user.added` | A user enters a list (dynamic rule match or static addition) |
+| `list.user.removed` | A user leaves a list (no longer matches or manually removed) |
+
+List events are especially useful for triggering journeys. For example, you can start a winback flow when a user is removed from your "Active Customers" list, or send an onboarding sequence when they're added to a "Trial Users" list.
+
+### Link Events
+
+| Event | When It Fires |
+|-------|---------------|
+| `link.clicked` | A tracked link redirect is followed |
+
+Link click events include `campaign_id` and `original_url` in their data, letting you build segments or trigger automations based on which specific links users interact with.
+
+### Scheduled Events
+
+| Event | When It Fires |
+|-------|---------------|
+| `scheduled.<schedule_name>` | A [schedule](/schedules) fires at its configured time |
+| `scheduled.anniversary` | Built-in schedule that fires on the anniversary of user/org creation |
+
+Scheduled events follow the pattern `scheduled.<schedule_name>`, where the name matches the schedule you configured. The `scheduled.anniversary` schedule is created automatically for every project.
+
+Journey entrances can listen for scheduled events and apply an offset (e.g., trigger 30 minutes before or 2 hours after the scheduled time). See [Step Types — Scheduled Entrance](/journeys/types#entrance) for details.
+
+---
+
+## How Events Are Processed
+
+When an event is received, Lunogram processes it through a pipeline:
+
+1. **Record** — The event occurrence is stored against the user or organization, with its full data payload
+2. **Schema extraction** — Property names and types are automatically discovered and stored, providing autocomplete in the rule builder and journey trigger UIs
+3. **List recomputation** — Any dynamic lists with rules that reference this event type are re-evaluated for the affected user
+4. **Journey evaluation** — Journey entrance steps that listen for this event are checked, and matching users are entered into the flow
+
+Steps 2–4 happen concurrently through a fan-out pipeline. This means a single event can simultaneously update list memberships and trigger multiple journeys.
+
+<Callout type="info">
+  **Auto-discovered schemas**: You don't need to pre-define event properties. Lunogram automatically learns the shape of your event data and surfaces property names in the rule builder and journey trigger UIs. The more events you send, the richer the autocomplete becomes.
+</Callout>
+
+---
+
+## Events in List Rules
+
+Dynamic [lists](/lists) can use event rules to segment users based on behavior. An event rule checks whether a user performed a specific event a certain number of times within a rolling time window.
+
+```
+User did "order.completed" at least 2 times in last 30 days
+  WHERE .data.total >= 100
+```
+
+This creates a list of users who made at least 2 purchases over $100 in the past month. As new `order.completed` events come in, list membership updates automatically.
+
+See [Lists — Event Rules](/lists#event-rules) for the full syntax and available operators.
+
+---
+
+## Events in Journeys
+
+Events are the most common way to trigger [journey](/journeys) entrances. When you configure an event-triggered entrance:
+
+1. Choose the **event name** to listen for
+2. Optionally add a **condition** to filter which events qualify (e.g., only orders over $50)
+3. Configure **re-entry rules** — whether users can enter the journey multiple times, and whether they can have concurrent runs
+
+When the event fires and the condition matches, the user enters the journey. The event data is available to all downstream steps through the entrance's data key.
+
+```
+journey.<entrance_data_key>.<property>
+```
+
+For example, if your entrance listens for `order.completed` with data key `order`, a send step can personalize the email with `journey.order.total` or `journey.order.orderId`.
+
+See [Journey Data](/journeys/data) for more on accessing event data in steps.
+
+---
+
+## Event Data
+
+Every event can carry an arbitrary JSON `data` object. This data is:
+
+- **Stored** with the event occurrence, visible in the user or organization timeline
+- **Available in journeys** through the entrance data key
+- **Queryable in list rules** using dot notation (e.g., `.data.total >= 100`)
+- **Schema-discovered** automatically, populating autocomplete in the UI
+
+There's no need to register event names or define schemas upfront. Send any event with any properties, and Lunogram handles the rest.
+
+### Naming Conventions
+
+Event names are case-sensitive strings. A few recommendations:
+
+- Use a consistent format across your application (e.g., `order.completed`, `page.viewed`)
+- Avoid names that collide with [system events](#system-events) (anything starting with `user.`, `organization.`, `list.`, `link.`, or `scheduled.`)
+- Keep names descriptive — they appear in the journey builder, list rule editor, and event timeline

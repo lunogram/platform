@@ -1,0 +1,316 @@
+---
+title: JavaScript
+description: Install and use the Lunogram JavaScript SDK for web browsers and Node.js
+---
+
+The Lunogram JavaScript SDK provides user identification, event tracking, organization management, and scheduling for both browser and Node.js environments.
+
+- **npm:** [`@lunogram/js-sdk`](https://www.npmjs.com/package/@lunogram/js-sdk)
+- **Source:** [github.com/lunogram/js-sdk](https://github.com/lunogram/js-sdk)
+
+## Installation
+
+```bash
+npm install @lunogram/js-sdk
+```
+
+Or with yarn/pnpm:
+
+```bash
+yarn add @lunogram/js-sdk
+# or
+pnpm add @lunogram/js-sdk
+```
+
+### Script tag (CDN)
+
+For quick prototyping or simple websites:
+
+```html
+<script src="https://unpkg.com/@lunogram/js-sdk/lib/esm/index.js"></script>
+```
+
+This exposes a global `Lunogram` object on `window`.
+
+## Getting started
+
+```typescript
+import { Lunogram } from "@lunogram/js-sdk";
+
+const lunogram = new Lunogram("pk_your_public_api_key");
+```
+
+If you are self-hosting, pass the URL endpoint as the second argument:
+
+```typescript
+const lunogram = new Lunogram(
+  "pk_your_public_api_key",
+  "https://your-instance.com/api",
+);
+```
+
+<Callout type="info">
+  In the browser, the SDK automatically generates an anonymous identifier
+  (`source: "anonymous"`) and includes it with every request. When you upsert a
+  user with an explicit identifier, the anonymous profile is merged with the
+  identified user. The anonymous ID persists for the lifetime of the `Lunogram`
+  instance.
+</Callout>
+
+## Users
+
+### Upsert a user
+
+Create or update a user profile. If any of the provided identifiers match an existing user, their attributes are updated.
+
+```typescript
+await lunogram.user.upsert({
+  identifier: [{ externalId: "user_123" }],
+  email: "user@example.com",
+  phone: "+1234567890",
+  timezone: "America/Chicago",
+  locale: "en",
+  data: {
+    firstName: "John",
+    lastName: "Doe",
+    plan: "premium",
+  },
+});
+```
+
+You can attach multiple identifiers from different sources:
+
+```typescript
+await lunogram.user.upsert({
+  identifier: [
+    { externalId: "user_123" },
+    { externalId: "ph_abc", source: "posthog" },
+  ],
+  email: "user@example.com",
+});
+```
+
+| Field        | Type       | Required | Description                                                            |
+| ------------ | ---------- | -------- | ---------------------------------------------------------------------- |
+| `identifier` | array      | Yes      | Array of identity objects (see below)                                  |
+| `email`      | string     | No       | User's email address                                                   |
+| `phone`      | string     | No       | Phone in E.164 format                                                  |
+| `timezone`   | string     | No       | IANA timezone (e.g. `America/Chicago`)                                 |
+| `locale`     | string     | No       | Locale code (e.g. `en`, `es-MX`)                                      |
+| `data`       | object     | No       | Custom user attributes                                                 |
+
+Each entry in the `identifier` array:
+
+| Field        | Type   | Required | Description                                                    |
+| ------------ | ------ | -------- | -------------------------------------------------------------- |
+| `externalId` | string | Yes      | The identifier value                                           |
+| `source`     | string | No       | Namespace for the identifier. Defaults to `"default"`          |
+| `metadata`   | object | No       | Optional key-value metadata associated with this identifier    |
+
+### Delete a user
+
+```typescript
+await lunogram.user.delete({
+  identifier: [{ externalId: "user_123" }],
+});
+```
+
+## Events
+
+Record user actions that can trigger journeys and update list membership.
+
+```typescript
+await lunogram.user.events.post([
+  {
+    name: "order.completed",
+    identifier: [{ externalId: "user_123" }],
+    data: {
+      orderId: "ord_456",
+      total: 99.99,
+      currency: "USD",
+    },
+  },
+]);
+```
+
+You can send multiple events in a single call. In the browser, `identifier` is auto-injected and can be omitted:
+
+```typescript
+await lunogram.user.events.post([
+  { name: "page.viewed", data: { path: "/pricing" } },
+  { name: "cta.clicked", data: { buttonId: "signup" } },
+]);
+```
+
+| Field        | Type   | Required | Description                                           |
+| ------------ | ------ | -------- | ----------------------------------------------------- |
+| `name`       | string | Yes      | Event name (use dot-notation, e.g. `order.completed`) |
+| `identifier` | array  | No       | User identifier array (auto-injected in browser)      |
+| `data`       | object | Yes      | Event properties                                      |
+
+## Organizations
+
+Group users into organizations with shared attributes and events.
+
+### Upsert an organization
+
+```typescript
+await lunogram.organization.upsert({
+  identifier: [{ externalId: "org_123" }],
+  name: "Acme Inc",
+  data: {
+    plan: "enterprise",
+    industry: "saas",
+  },
+});
+```
+
+### Add or remove users
+
+```typescript
+// Add a user to an organization
+await lunogram.organization.addUser({
+  organization: { identifier: [{ externalId: "org_123" }] },
+  user: { identifier: [{ externalId: "user_456" }] },
+});
+
+// Remove a user from an organization
+await lunogram.organization.removeUser({
+  organization: { identifier: [{ externalId: "org_123" }] },
+  user: { identifier: [{ externalId: "user_456" }] },
+});
+```
+
+### Organization events
+
+```typescript
+await lunogram.organization.events.post([
+  {
+    identifier: [{ externalId: "org_123" }],
+    name: "subscription.upgraded",
+    data: { from: "starter", to: "enterprise" },
+  },
+]);
+```
+
+### Delete an organization
+
+```typescript
+await lunogram.organization.delete({
+  identifier: [{ externalId: "org_123" }],
+});
+```
+
+## Schedules
+
+Create recurring or one-time schedules that emit events through the standard event pipeline. See [Schedules](/schedules) for how these integrate with journeys.
+
+### User schedules
+
+```typescript
+// Create a recurring weekly schedule
+await lunogram.user.schedule.upsert({
+  name: "usage.report",
+  identifier: [{ externalId: "user_123" }],
+  scheduledAt: "2025-04-01T09:00:00Z",
+  interval: "7 days",
+});
+
+// Delete a schedule
+await lunogram.user.schedule.delete({
+  name: "usage.report",
+  identifier: [{ externalId: "user_123" }],
+});
+```
+
+### Organization schedules
+
+```typescript
+await lunogram.organization.schedule.upsert({
+  name: "billing.reminder",
+  identifier: [{ externalId: "org_123" }],
+  scheduledAt: "2025-04-01T09:00:00Z",
+  interval: "1 month",
+});
+```
+
+| Field         | Type   | Required | Description                                       |
+| ------------- | ------ | -------- | ------------------------------------------------- |
+| `name`        | string | Yes      | Schedule name (emits as `scheduled.<name>`)       |
+| `identifier`  | array  | No       | User or organization identifier array             |
+| `scheduledAt` | string | No       | ISO 8601 timestamp for first execution            |
+| `startAt`     | string | No       | Earliest time the schedule should begin           |
+| `interval`    | string | No       | Recurrence interval (e.g. `7 days`, `1 month`)   |
+| `data`        | object | No       | Custom data included with each emitted event      |
+
+## Server-side usage
+
+For Node.js or other server environments, use the `Client` class directly. Unlike `Lunogram` (which is browser-oriented and auto-manages anonymous IDs), `Client` is stateless and requires you to pass identifiers on each call.
+
+```typescript
+import { Client } from "@lunogram/js-sdk";
+
+const client = new Client({
+  apiKey: "pk_your_api_key",
+  urlEndpoint: "https://your-instance.com/api",
+});
+
+await client.user.upsert({
+  identifier: [{ externalId: "user_123" }],
+  email: "user@example.com",
+});
+
+await client.user.events.post([
+  {
+    name: "invoice.paid",
+    identifier: [{ externalId: "user_123" }],
+    data: { amount: 49.99 },
+  },
+]);
+```
+
+The API surface is identical to `Lunogram`. The only difference is that `Client` does not auto-inject the anonymous identifier.
+
+## Error handling
+
+All methods are async and return promises. The SDK provides typed error classes:
+
+```typescript
+import { Lunogram, UnauthorizedError, ValidationError } from "@lunogram/js-sdk";
+
+const lunogram = new Lunogram("pk_your_api_key");
+
+try {
+  await lunogram.user.upsert({
+    identifier: [{ externalId: "user_123" }],
+  });
+} catch (error) {
+  if (error instanceof UnauthorizedError) {
+    // Invalid or expired API key
+  } else if (error instanceof ValidationError) {
+    // Invalid request data
+  }
+}
+```
+
+| Error class         | Status code | Description                        |
+| ------------------- | ----------- | ---------------------------------- |
+| `NetworkError`      | n/a         | Request failed to reach the server |
+| `UnauthorizedError` | 401         | Invalid API key                    |
+| `ForbiddenError`    | 403         | Forbidden                          |
+| `NotFoundError`     | 404         | Resource not found                 |
+| `ValidationError`   | 400         | Invalid request data               |
+| `RequestError`      | other       | Any other server error             |
+
+## TypeScript
+
+The SDK ships with full TypeScript definitions. All request and response types are exported:
+
+```typescript
+import type {
+  UpsertUserRequest,
+  UserEvent,
+  ExternalID,
+  UserIdentifier,
+} from "@lunogram/js-sdk";
+```

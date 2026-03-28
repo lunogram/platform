@@ -1,0 +1,18 @@
+---
+title: Welcome Emails
+description: Send a welcome email to new users when they sign up
+---
+
+Send people that sign up for your product or service a welcome email that helps them get started.
+
+![Journey Welcome Example](/img/journeys_example_welcome.png)
+
+## Steps
+
+1. Create an `Entrance` step:
+   - Event-based
+   - Listen for the `user.created` event
+   - Use rules to only include users with an email address defined
+   - Multiple entries is not needed
+   - Optionally set a data key to expose any signup information captured
+2. Connect it to a `Send` step that uses an Email campaign

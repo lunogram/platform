@@ -1,0 +1,42 @@
+---
+title: Client API
+description: Public API for ingesting user data, events, and device information
+---
+
+The Client API is used by SDKs and client applications to ingest data into Lunogram. It supports user identification, event tracking, organization management, and scheduling.
+
+For the full endpoint reference, see the [interactive API documentation](https://console.lunogram.com/api#client).
+
+## Authentication
+
+Client endpoints authenticate via Bearer token using an API key with the **client** role. Client keys are write-only and safe to use in frontend applications.
+
+```
+Authorization: Bearer YOUR_API_KEY
+```
+
+You can [create and manage API keys](/settings/api-keys) in your project settings.
+
+<Callout type="info">
+  Client keys can ingest data but cannot read or modify existing resources. See
+  [API Keys](/settings/api-keys) for a full breakdown of roles and permissions.
+</Callout>
+
+## Available Endpoints
+
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| `POST` | `/api/client/users` | Create or update a user |
+| `POST` | `/api/client/users/events` | Track user events |
+| `DELETE` | `/api/client/users` | Delete a user |
+| `POST` | `/api/client/organizations` | Create or update an organization |
+| `POST` | `/api/client/organizations/events` | Track organization events |
+| `POST` | `/api/client/users/scheduled` | Create or update a user schedule |
+| `DELETE` | `/api/client/users/scheduled` | Delete a user schedule |
+| `POST` | `/api/client/organizations/scheduled` | Create or update an org schedule |
+| `DELETE` | `/api/client/organizations/scheduled` | Delete an org schedule |
+| `POST` | `/api/client/devices` | Register a device for push notifications |
+
+## SDKs
+
+The Client API is the foundation for all Lunogram SDKs. See the [JavaScript SDK](/sdks/javascript) documentation for a higher-level integration option.
