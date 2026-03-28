@@ -3,6 +3,7 @@ package journeys
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/render"
@@ -48,6 +49,17 @@ func HandleSchedule(ctx HandlerContext, step journey.JourneyVersionStep, state j
 	startAt, err := render.RenderTime(config.StartAt, ctx.Data)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to resolve start_at: %w", err)
+	}
+
+	// Apply sensible defaults matching the client API behaviour:
+	// - single schedules default scheduled_at to now
+	// - recurring schedules default start_at to now
+	now := time.Now().UTC()
+	if scheduleType == "single" && scheduledAt == nil {
+		scheduledAt = &now
+	}
+	if scheduleType == "recurring" && startAt == nil {
+		startAt = &now
 	}
 
 	// Parse optional interval

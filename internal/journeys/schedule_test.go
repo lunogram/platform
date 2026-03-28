@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/pubsub"
@@ -28,10 +29,11 @@ func TestHandleSchedule(t *testing.T) {
 	require.NoError(t, err)
 
 	type test struct {
-		step    journey.JourneyVersionStep
-		state   journey.JourneyUserState
-		data    map[string]any
-		wantErr bool
+		step      journey.JourneyVersionStep
+		state     journey.JourneyUserState
+		data      map[string]any
+		wantErr   bool
+		recurring bool // when true, assert start_at is set instead of scheduled_at
 	}
 
 	tests := map[string]test{
@@ -108,9 +110,24 @@ func TestHandleSchedule(t *testing.T) {
 					{ChildExternalID: "next-step"},
 				},
 			},
-			state:   journey.JourneyUserState{},
-			data:    map[string]any{},
-			wantErr: false,
+			state:     journey.JourneyUserState{},
+			data:      map[string]any{},
+			wantErr:   false,
+			recurring: true,
+		},
+		"recurring schedule defaults start_at to now": {
+			step: journey.JourneyVersionStep{
+				ID:   uuid.New(),
+				Type: ScheduleStepType,
+				Data: json.RawMessage(`{"schedule_name":"weekly_digest","interval":"7 days"}`),
+				Children: []journey.JourneyVersionStepChild{
+					{ChildExternalID: "next-step"},
+				},
+			},
+			state:     journey.JourneyUserState{},
+			data:      map[string]any{},
+			wantErr:   false,
+			recurring: true,
 		},
 		"missing schedule_name": {
 			step: journey.JourneyVersionStep{
@@ -173,8 +190,21 @@ func TestHandleSchedule(t *testing.T) {
 			require.Len(t, gotChildren, 1)
 			assert.Equal(t, "next-step", gotChildren[0].ChildExternalID)
 
-			// Verify state data contains the user schedule
+			// Verify state data contains the user schedule with valid times
 			assert.NotNil(t, gotState.Data)
+
+			var userSchedule subjects.UserSchedule
+			require.NoError(t, json.Unmarshal(gotState.Data, &userSchedule))
+
+			if tc.recurring {
+				require.NotNil(t, userSchedule.StartAt, "recurring schedule must have start_at set")
+				assert.False(t, userSchedule.StartAt.IsZero(), "start_at must not be zero time")
+			} else {
+				require.NotNil(t, userSchedule.ScheduledAt, "single schedule must have scheduled_at set")
+				assert.False(t, userSchedule.ScheduledAt.IsZero(), "scheduled_at must not be zero time")
+				assert.True(t, userSchedule.ScheduledAt.After(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)),
+					"scheduled_at should be a reasonable date, got %v", userSchedule.ScheduledAt)
+			}
 
 			// Verify the schedule was actually created in the database
 			scheduledStore := subjects.NewScheduledStore(dbConn, zap.NewNop())
