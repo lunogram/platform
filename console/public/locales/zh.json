@@ -304,6 +304,7 @@
     "rule_add_condition": "添加条件",
     "rule_add_event_condition": "添加事件条件",
     "rule_add_user_condition": "添加用户条件",
+    "rule_add_journey_condition": "添加旅程数据条件",
     "rule_did": "执行了",
     "rule_include_users_matching": "包含匹配的用户 ",
     "rule_matching": " 匹配 ",

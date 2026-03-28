@@ -608,6 +608,7 @@
     "rule_add_org_property_condition": "Add Property Condition",
     "rule_add_user_condition": "Add User Condition",
     "rule_add_member_condition": "Add Member Condition",
+    "rule_add_journey_condition": "Add Journey Data Condition",
     "rule_did": "Did",
     "rule_organization_did": "Organization did",
     "rule_organization_has": "Organization",

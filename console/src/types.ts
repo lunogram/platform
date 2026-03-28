@@ -82,6 +82,7 @@ export type RuleGroup =
     | "organization"
     | "organization_user"
     | "organization_event"
+    | "journey"
 
 export type AnyJson = boolean | number | string | null | JsonArray | JsonMap
 export interface JsonMap {

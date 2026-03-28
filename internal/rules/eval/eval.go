@@ -375,7 +375,8 @@ func (e *Evaluator) compareArrays(actual any, operator rules.Operator, expected 
 	}
 }
 
-// toFloat64 converts various numeric types to float64
+// toFloat64 converts various numeric types to float64.
+// Strings are parsed as numbers since rule values from JSON are often stored as strings.
 func toFloat64(value any) (float64, error) {
 	switch v := value.(type) {
 	case float64:
@@ -394,6 +395,12 @@ func toFloat64(value any) (float64, error) {
 		return float64(v), nil
 	case uint32:
 		return float64(v), nil
+	case string:
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return 0, fmt.Errorf("cannot convert string %q to float64: %w", v, err)
+		}
+		return f, nil
 	default:
 		return 0, fmt.Errorf("cannot convert %T to float64", value)
 	}

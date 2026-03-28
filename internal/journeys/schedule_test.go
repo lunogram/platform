@@ -4,24 +4,28 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
-	"time"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/store/journey"
+	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestHandleSchedule(t *testing.T) {
 	t.Parallel()
 
+	_, usersState, dbConn := setupStore(t)
+	pub := pubsub.NewNoopPublisher()
 	ctx := context.Background()
 	projectID := uuid.New()
-	userID := uuid.New()
-	scheduleID := uuid.New()
-	userScheduleID := uuid.New()
+
+	userID, err := usersState.CreateUser(ctx, projectID, nil, nil, json.RawMessage(`{}`), nil, nil, []subjects.ExternalIDParam{
+		{Source: "anonymous", ExternalID: "anon_" + uuid.New().String()},
+	})
+	require.NoError(t, err)
 
 	type test struct {
 		step    journey.JourneyVersionStep
@@ -29,8 +33,6 @@ func TestHandleSchedule(t *testing.T) {
 		data    map[string]any
 		wantErr bool
 	}
-
-	now := time.Now()
 
 	tests := map[string]test{
 		"simple schedule assignment": {
@@ -50,7 +52,7 @@ func TestHandleSchedule(t *testing.T) {
 			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: ScheduleStepType,
-				Data: json.RawMessage(`{"schedule_name":"renewal","scheduled_at":"2025-06-01T00:00:00Z"}`),
+				Data: json.RawMessage(`{"schedule_name":"appointment","scheduled_at":"2025-06-01T00:00:00Z"}`),
 				Children: []journey.JourneyVersionStepChild{
 					{ChildExternalID: "next-step"},
 				},
@@ -63,7 +65,7 @@ func TestHandleSchedule(t *testing.T) {
 			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: ScheduleStepType,
-				Data: json.RawMessage(`{"schedule_name":"renewal","template":"{\"plan\":\"{{ journey.entrance.plan }}\"}"}`),
+				Data: json.RawMessage(`{"schedule_name":"plan_renewal","template":"{\"plan\":\"{{ journey.entrance.plan }}\"}"}`),
 				Children: []journey.JourneyVersionStepChild{
 					{ChildExternalID: "next-step"},
 				},
@@ -91,10 +93,23 @@ func TestHandleSchedule(t *testing.T) {
 			data: map[string]any{
 				"journey": map[string]any{
 					"entrance": map[string]any{
-						"schedule_type": "renewal",
+						"schedule_type": "dynamic_renewal",
 					},
 				},
 			},
+			wantErr: false,
+		},
+		"recurring schedule with interval": {
+			step: journey.JourneyVersionStep{
+				ID:   uuid.New(),
+				Type: ScheduleStepType,
+				Data: json.RawMessage(`{"schedule_name":"monthly_check","interval":"1 month","start_at":"2025-01-01T00:00:00Z"}`),
+				Children: []journey.JourneyVersionStepChild{
+					{ChildExternalID: "next-step"},
+				},
+			},
+			state:   journey.JourneyUserState{},
+			data:    map[string]any{},
 			wantErr: false,
 		},
 		"missing schedule_name": {
@@ -111,7 +126,7 @@ func TestHandleSchedule(t *testing.T) {
 			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: ScheduleStepType,
-				Data: json.RawMessage(`{"schedule_name":"renewal","template":"not valid json"}`),
+				Data: json.RawMessage(`{"schedule_name":"bad_template","template":"not valid json"}`),
 				Children: []journey.JourneyVersionStepChild{
 					{ChildExternalID: "next-step"},
 				},
@@ -124,7 +139,7 @@ func TestHandleSchedule(t *testing.T) {
 			step: journey.JourneyVersionStep{
 				ID:   uuid.New(),
 				Type: ScheduleStepType,
-				Data: json.RawMessage(`{"schedule_name":"renewal","scheduled_at":"not-a-date"}`),
+				Data: json.RawMessage(`{"schedule_name":"bad_date","scheduled_at":"not-a-date"}`),
 				Children: []journey.JourneyVersionStepChild{
 					{ChildExternalID: "next-step"},
 				},
@@ -137,50 +152,10 @@ func TestHandleSchedule(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockDB, mock, err := sqlmock.New()
-			require.NoError(t, err)
-			defer mockDB.Close()
-			db := sqlx.NewDb(mockDB, "sqlmock")
-
-			mockPub := &mockPublisher{}
-
-			if !tc.wantErr {
-				// Expect GetScheduleByName query
-				scheduleRows := sqlmock.NewRows([]string{
-					"id", "project_id", "name", "type", "created_at", "updated_at",
-				}).AddRow(
-					scheduleID, projectID, "renewal", "single", now, now,
-				)
-				mock.ExpectQuery(`SELECT (.+) FROM schedules`).
-					WithArgs(projectID, "renewal").
-					WillReturnRows(scheduleRows)
-
-				// Expect UpsertUserSchedule INSERT
-				userScheduleRows := sqlmock.NewRows([]string{
-					"id", "user_id", "schedule_id", "scheduled_at", "start_at", "anchor_at",
-					"interval", "occurrence", "data", "paused_at", "created_at", "updated_at",
-				}).AddRow(
-					userScheduleID, userID, scheduleID, nil, nil, nil,
-					nil, 0, []byte("{}"), nil, now, now,
-				)
-				mock.ExpectQuery(`INSERT INTO user_schedules`).
-					WillReturnRows(userScheduleRows)
-
-				// Expect delete of unfired events (from UpsertUserSchedule)
-				mock.ExpectExec(`DELETE FROM user_scheduled_events`).
-					WillReturnResult(sqlmock.NewResult(0, 0))
-
-				// Expect generateScheduledEvents INSERT (from UpsertUserSchedule)
-				// This may not match if scheduledAt is nil (generateScheduledEvents returns early)
-				// For cases with scheduled_at, expect the INSERT
-				mock.ExpectExec(`INSERT INTO user_scheduled_events`).
-					WillReturnResult(sqlmock.NewResult(0, 0))
-			}
-
 			hctx := HandlerContext{
 				Context:   ctx,
-				DB:        db,
-				Publisher: mockPub,
+				DB:        dbConn,
+				Publisher: pub,
 				ProjectID: projectID,
 				UserID:    userID,
 				Data:      tc.data,
@@ -200,6 +175,29 @@ func TestHandleSchedule(t *testing.T) {
 
 			// Verify state data contains the user schedule
 			assert.NotNil(t, gotState.Data)
+
+			// Verify the schedule was actually created in the database
+			scheduledStore := subjects.NewScheduledStore(dbConn, zap.NewNop())
+
+			var scheduleName string
+			switch tc.step.Type {
+			default:
+				var stepData struct {
+					ScheduleName string `json:"schedule_name"`
+				}
+				require.NoError(t, json.Unmarshal(tc.step.Data, &stepData))
+				scheduleName = stepData.ScheduleName
+			}
+
+			// If the schedule name is a liquid expression, resolve what it would have become
+			if scheduleName == "{{ journey.entrance.schedule_type }}" {
+				scheduleName = "dynamic_renewal"
+			}
+
+			schedule, err := scheduledStore.GetScheduleByName(ctx, projectID, scheduleName)
+			require.NoError(t, err)
+			assert.Equal(t, scheduleName, schedule.Name)
+			assert.Equal(t, projectID, schedule.ProjectID)
 		})
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
+	"go.uber.org/zap"
 )
 
 const (
@@ -35,6 +36,7 @@ type Publisher interface {
 
 type HandlerContext struct {
 	context.Context
+	logger         *zap.Logger
 	DB             *sqlx.DB
 	Publisher      Publisher
 	ProjectID      uuid.UUID
@@ -45,9 +47,10 @@ type HandlerContext struct {
 	ActionRegistry *actions.Registry
 }
 
-func Handle(parent context.Context, db *sqlx.DB, pub pubsub.Publisher, projectID, userID uuid.UUID, step journey.JourneyVersionStep, state *journey.JourneyUserState, data map[string]any, mgmt *management.State, actionRegistry *actions.Registry) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
+func Handle(parent context.Context, logger *zap.Logger, db *sqlx.DB, pub pubsub.Publisher, projectID, userID uuid.UUID, step journey.JourneyVersionStep, state *journey.JourneyUserState, data map[string]any, mgmt *management.State, actionRegistry *actions.Registry) (journey.JourneyUserState, journey.JourneyVersionStepChildren, error) {
 	ctx := HandlerContext{
 		Context:        parent,
+		logger:         logger,
 		DB:             db,
 		Publisher:      pub,
 		ProjectID:      projectID,

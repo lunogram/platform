@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/osteele/liquid"
@@ -24,6 +25,26 @@ func RenderString(template string, data map[string]any) (string, error) {
 	}
 
 	return rendered, nil
+}
+
+// RenderTime renders a Liquid template string and parses the result as an RFC3339 timestamp.
+// It returns nil when the input pointer is nil or points to an empty string.
+func RenderTime(template *string, data map[string]any) (*time.Time, error) {
+	if template == nil || *template == "" {
+		return nil, nil
+	}
+
+	rendered, err := RenderString(*template, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render template: %w", err)
+	}
+
+	t, err := time.Parse(time.RFC3339, rendered)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %q as RFC3339: %w", rendered, err)
+	}
+
+	return &t, nil
 }
 
 // RenderJSON walks a JSON value and renders all Liquid template strings

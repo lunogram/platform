@@ -3,7 +3,6 @@ package journeys
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
 	"github.com/lunogram/platform/internal/render"
@@ -29,39 +28,26 @@ func HandleSchedule(ctx HandlerContext, step journey.JourneyVersionStep, state j
 
 	scheduledStore := subjects.NewScheduledStore(ctx.DB, zap.NewNop())
 
-	schedule, err := scheduledStore.GetScheduleByName(ctx, ctx.ProjectID, scheduleName)
+	scheduleType := "single"
+	if config.Interval != nil && *config.Interval != "" {
+		scheduleType = "recurring"
+	}
+
+	scheduleID, err := scheduledStore.UpsertSchedule(ctx, ctx.ProjectID, scheduleName, scheduleType)
 	if err != nil {
-		return state, nil, fmt.Errorf("failed to get schedule %q: %w", scheduleName, err)
+		return state, nil, fmt.Errorf("failed to upsert schedule %q: %w", scheduleName, err)
 	}
 
 	// Parse optional scheduled_at
-	var scheduledAt *time.Time
-	if config.ScheduledAt != nil && *config.ScheduledAt != "" {
-		rendered, err := render.RenderString(*config.ScheduledAt, ctx.Data)
-		if err != nil {
-			return state, nil, fmt.Errorf("failed to render scheduled_at: %w", err)
-		}
-
-		t, err := time.Parse(time.RFC3339, rendered)
-		if err != nil {
-			return state, nil, fmt.Errorf("failed to parse scheduled_at %q as RFC3339: %w", rendered, err)
-		}
-		scheduledAt = &t
+	scheduledAt, err := render.RenderTime(config.ScheduledAt, ctx.Data)
+	if err != nil {
+		return state, nil, fmt.Errorf("failed to resolve scheduled_at: %w", err)
 	}
 
 	// Parse optional start_at
-	var startAt *time.Time
-	if config.StartAt != nil && *config.StartAt != "" {
-		rendered, err := render.RenderString(*config.StartAt, ctx.Data)
-		if err != nil {
-			return state, nil, fmt.Errorf("failed to render start_at: %w", err)
-		}
-
-		t, err := time.Parse(time.RFC3339, rendered)
-		if err != nil {
-			return state, nil, fmt.Errorf("failed to parse start_at %q as RFC3339: %w", rendered, err)
-		}
-		startAt = &t
+	startAt, err := render.RenderTime(config.StartAt, ctx.Data)
+	if err != nil {
+		return state, nil, fmt.Errorf("failed to resolve start_at: %w", err)
 	}
 
 	// Parse optional interval
@@ -89,7 +75,7 @@ func HandleSchedule(ctx HandlerContext, step journey.JourneyVersionStep, state j
 		data = json.RawMessage(rendered)
 	}
 
-	userSchedule, err := scheduledStore.UpsertUserSchedule(ctx, ctx.UserID, schedule.ID, scheduledAt, startAt, interval, data)
+	userSchedule, err := scheduledStore.UpsertUserSchedule(ctx, ctx.UserID, scheduleID, scheduledAt, startAt, interval, data)
 	if err != nil {
 		return state, nil, fmt.Errorf("failed to upsert user schedule: %w", err)
 	}

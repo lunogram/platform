@@ -74,7 +74,7 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 		logger.Info("processing journey step")
 
 		start := time.Now()
-		next, children, err := journeys.Handle(ctx, db, pub, event.ProjectID, event.UserID, step, state, data, mgmt, actionRegistry)
+		next, children, err := journeys.Handle(ctx, logger, db, pub, event.ProjectID, event.UserID, step, state, data, mgmt, actionRegistry)
 		duration := time.Since(start).Seconds()
 		projectID := event.ProjectID.String()
 		metrics.JourneyStepDurationSeconds.WithLabelValues(step.Type, projectID).Observe(duration)

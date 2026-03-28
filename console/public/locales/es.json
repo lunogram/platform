@@ -316,6 +316,7 @@
     "rule_add_condition": "Añadir condición",
     "rule_add_event_condition": "Añadir condición de evento",
     "rule_add_user_condition": "Añadir condición de usuario",
+    "rule_add_journey_condition": "Añadir condición de datos del journey",
     "rule_did": "Hizo",
     "rule_include_users_matching": "Incluir usuarios que coincidan ",
     "rule_matching": " pareo ",

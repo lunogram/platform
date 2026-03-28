@@ -42,6 +42,7 @@ const (
 	RuleGroupOrganization      RuleGroup = "organization"
 	RuleGroupOrganizationUser  RuleGroup = "organization_user"
 	RuleGroupOrganizationEvent RuleGroup = "organization_event"
+	RuleGroupJourney           RuleGroup = "journey"
 )
 
 // Operator defines logical and comparison operators
@@ -281,6 +282,20 @@ func (r Rule) DependsOnOrganizationUsers() bool {
 	return false
 }
 
+func (r Rule) DependsOnJourney() bool {
+	if r.Group == RuleGroupJourney {
+		return true
+	}
+
+	for _, child := range r.Children {
+		if child.DependsOnJourney() {
+			return true
+		}
+	}
+
+	return false
+}
+
 // RuleSet represents the complete rule configuration
 type RuleSet struct {
 	Rule
@@ -294,4 +309,59 @@ func (r *Rule) HasChildren() bool {
 // IsRoot returns true if the rule is a root node
 func (r *Rule) IsRoot() bool {
 	return r.ParentUUID == nil
+}
+
+// Local returns the subset of rules that are evaluated in-memory against
+// journey data. Returns nil when no such rules exist.
+func (rs RuleSet) Local() *RuleSet {
+	if !rs.Rule.IsWrapper() || !rs.Rule.HasChildren() {
+		return nil
+	}
+
+	var children []Rule
+	for _, child := range rs.Children {
+		if child.Group == RuleGroupJourney {
+			children = append(children, child)
+		}
+	}
+
+	if len(children) == 0 {
+		return nil
+	}
+
+	if len(children) == len(rs.Children) {
+		return &rs
+	}
+
+	r := rs.Rule
+	r.Children = children
+	return &RuleSet{Rule: r}
+}
+
+// Historical returns the subset of rules that are evaluated via SQL against
+// the database. Returns nil when no such rules exist. If the root rule is not
+// a wrapper or has no children, the entire RuleSet is returned.
+func (rs RuleSet) Historical() *RuleSet {
+	if !rs.Rule.IsWrapper() || !rs.Rule.HasChildren() {
+		return &rs
+	}
+
+	var children []Rule
+	for _, child := range rs.Children {
+		if child.Group != RuleGroupJourney {
+			children = append(children, child)
+		}
+	}
+
+	if len(children) == 0 {
+		return nil
+	}
+
+	if len(children) == len(rs.Children) {
+		return &rs
+	}
+
+	r := rs.Rule
+	r.Children = children
+	return &RuleSet{Rule: r}
 }

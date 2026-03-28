@@ -3,6 +3,7 @@ package render
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/rules"
@@ -78,6 +79,74 @@ func TestRenderString(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderTime(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		template *string
+		data     map[string]any
+		expected *time.Time
+		wantErr  bool
+	}{
+		"nil pointer returns nil": {
+			template: nil,
+			data:     map[string]any{},
+			expected: nil,
+		},
+		"empty string returns nil": {
+			template: ptr(""),
+			data:     map[string]any{},
+			expected: nil,
+		},
+		"static RFC3339 timestamp": {
+			template: ptr("2025-06-01T00:00:00Z"),
+			data:     map[string]any{},
+			expected: timePtr(time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)),
+		},
+		"liquid template resolving to timestamp": {
+			template: ptr("{{ journey.entrance.scheduled_at }}"),
+			data: map[string]any{
+				"journey": map[string]any{
+					"entrance": map[string]any{
+						"scheduled_at": "2025-12-25T10:30:00Z",
+					},
+				},
+			},
+			expected: timePtr(time.Date(2025, 12, 25, 10, 30, 0, 0, time.UTC)),
+		},
+		"invalid RFC3339 format": {
+			template: ptr("not-a-date"),
+			data:     map[string]any{},
+			wantErr:  true,
+		},
+		"liquid template rendering error": {
+			template: ptr("{% invalid %}"),
+			data:     map[string]any{},
+			wantErr:  true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			result, err := RenderTime(tc.template, tc.data)
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if tc.expected == nil {
+				assert.Nil(t, result)
+			} else {
+				require.NotNil(t, result)
+				assert.True(t, tc.expected.Equal(*result), "expected %v, got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
+func ptr(s string) *string           { return &s }
+func timePtr(t time.Time) *time.Time { return &t }
 
 func TestRenderJSON(t *testing.T) {
 	t.Parallel()
