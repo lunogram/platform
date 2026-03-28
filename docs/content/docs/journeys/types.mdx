@@ -17,6 +17,7 @@ Journeys are built by connecting steps together. Each step type serves a differe
 | [Balancer](#balancer)     | Rate limit and distribute traffic                        |
 | [Action](actions)         | Execute external integrations (webhooks, APIs)           |
 | [Update](#update)         | Modify user profile data                                 |
+| [Schedule](#schedule)     | Assign a user to a schedule                              |
 | [Event](#event)           | Trigger an analytics event                               |
 | [Exit](#exit)             | End a user's progress in an entrance flow                |
 | [Note](#note)             | Add a text annotation to the canvas                      |
@@ -110,7 +111,9 @@ Journey variables are resolved using Liquid templates before the rule is evaluat
 
 ## Delay
 
-Pause the journey before continuing. Three delay types are available:
+Pause the journey before continuing. Three delay types are available.
+
+All delay fields support [Liquid template expressions](/journeys/data), so you can use dynamic values from entrance events, action responses, or user data instead of hardcoded values.
 
 <Tabs items={['Duration', 'Until Time', 'Until Date']}>
   <Tab value="Duration">
@@ -118,25 +121,56 @@ Pause the journey before continuing. Three delay types are available:
 
     | Parameter | Description |
     |-----------|-------------|
-    | Days | Number of days |
-    | Hours | Number of hours |
-    | Minutes | Number of minutes |
+    | Days | Number of days to wait |
+    | Hours | Number of hours to wait |
+    | Minutes | Number of minutes to wait |
+
+    Each field accepts a number or a Liquid template that resolves to a number:
+
+    ```handlebars
+    {{ journey.my_entrance.data.reminder_days }}
+    ```
 
   </Tab>
   <Tab value="Until Time">
-    Wait until a specific time of day (in the user's timezone). If the time has passed today, waits until tomorrow.
+    Wait until a specific time of day in the user's timezone. If the time has already passed today, the delay rolls forward to the next day.
 
     | Parameter | Description |
     |-----------|-------------|
-    | Time | Time to continue (user's timezone) |
+    | Time | Time of day in `HH:mm` format (user's timezone) |
+    | Exclusion Days | Days of the week to skip (e.g. Saturday, Sunday) |
+
+    The time field accepts a fixed value or a Liquid template that resolves to `HH:mm`:
+
+    ```handlebars
+    {{ journey.my_entrance.data.preferred_time }}
+    ```
+
+    When **exclusion days** are set, the delay skips forward day-by-day until it lands on a non-excluded day. This is useful for avoiding weekends or specific days when you don't want the journey to continue.
 
   </Tab>
   <Tab value="Until Date">
-    Wait until a specific date (in the user's timezone).
+    Wait until a specific date in the user's timezone.
 
     | Parameter | Description |
     |-----------|-------------|
     | Date | Date to continue (user's timezone) |
+
+    The date field accepts multiple formats:
+
+    | Format | Example |
+    |--------|---------|
+    | ISO 8601 with timezone | `2025-01-15T09:00:00Z` |
+    | Date and time (no timezone) | `2025-01-15T09:00:00` |
+    | Date only | `2025-01-15` |
+
+    When the format does not include a timezone, the user's timezone is used. If no timezone is set on the user profile, UTC is the fallback.
+
+    Use a Liquid template to reference a date from earlier in the journey:
+
+    ```handlebars
+    {{ journey.my_entrance.data.flight_date }}
+    ```
 
   </Tab>
 </Tabs>
@@ -192,6 +226,43 @@ Use template expressions to reference user data and journey step results:
 <Callout type="warn">
   The merge is shallow. Nested objects are fully replaced, not merged.
 </Callout>
+
+---
+
+## Schedule
+
+Assign a user to a [schedule](/schedules). The schedule step creates or updates a schedule for the user, which the platform's scheduler then processes in the background. Schedules can be one-time or recurring.
+
+| Parameter     | Description                                                                             |
+| ------------- | --------------------------------------------------------------------------------------- |
+| Schedule Name | Name of the schedule to assign the user to (required)                                   |
+| Scheduled At  | When the schedule should fire (ISO 8601 datetime). Defaults to now for single schedules |
+| Interval      | Repeat interval (e.g. `1 day`, `2 hours`). When set, the schedule becomes recurring     |
+| Start At      | When the first occurrence should start for recurring schedules. Defaults to now         |
+| Data Template | JSON object attached to the schedule, available to downstream steps                     |
+
+All fields support [Liquid template expressions](/journeys/data), so values can be derived from user properties or earlier step results.
+
+### Single vs recurring
+
+The schedule type is determined automatically. If **Interval** is provided, the schedule is **recurring** — the scheduler advances through occurrences at the given interval. Otherwise it is a **single** one-time schedule.
+
+### How schedules connect to entrances
+
+When a schedule fires, the scheduler emits an event named `scheduled.<schedule_name>`. An [Entrance](#entrance) step configured with the **Scheduled** trigger type listens for these events, allowing you to start a journey at the scheduled time.
+
+This means you can use a Schedule step in one journey to set up a future trigger, and a Scheduled entrance in another journey (or the same one) to react when that time arrives.
+
+### Data template
+
+The data template lets you attach arbitrary JSON data to the schedule. This data is included in the `scheduled.<schedule_name>` event when it fires, making it accessible to the entrance and downstream steps.
+
+```json
+{
+  "plan": "{{ user.plan }}",
+  "renewal_date": "{{ journey.signup.renewal_date }}"
+}
+```
 
 ---
 

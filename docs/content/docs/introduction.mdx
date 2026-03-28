@@ -62,13 +62,13 @@ import { Lunogram } from "@lunogram/js-sdk";
 const lunogram = new Lunogram("your-api-key");
 
 // User operations
-await lunogram.user.upsert({ email: "user@example.com" });
+await lunogram.user.upsert({ identifier: [{ externalId: "user_123" }], email: "user@example.com" });
 await lunogram.user.events.post([
   { name: "user.signed_up", data: { plan: "free" } },
 ]);
 
 // Organization operations
-await lunogram.organization.upsert({ externalId: "org-123", name: "Acme" });
+await lunogram.organization.upsert({ identifier: [{ externalId: "org-123" }], name: "Acme" });
 ```
 
 SDKs available for [JavaScript](/sdks/javascript), [iOS](/sdks/ios), and [Android](/sdks/android).

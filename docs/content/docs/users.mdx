@@ -27,34 +27,41 @@ Every user has a profile containing:
 
 ### Identifiers
 
-| Field          | Description                                            |
-| -------------- | ------------------------------------------------------ |
-| `anonymous_id` | Identifier for unknown visitors                        |
-| `external_id`  | Your system's unique identifier (user ID, customer ID) |
+Users are identified through an `identifier` array. Each identifier has a `source` and an `external_id`, allowing a single user to be recognized across multiple systems.
 
-Users need at least one identifier. The `anonymous_id` tracks users before they sign up or log in. Once you know who the user is, call `user.upsert` with their `external_id` to link their anonymous activity to their known identity.
+| Field         | Type   | Required | Description                                                             |
+| ------------- | ------ | -------- | ----------------------------------------------------------------------- |
+| `external_id` | string | Yes      | The identifier value (user ID, customer ID, device ID, etc.)            |
+| `source`      | string | No       | Namespace for the identifier. Defaults to `"default"` if not provided   |
+| `metadata`    | object | No       | Optional key-value metadata associated with this identifier             |
 
-**Where anonymous IDs come from:**
+A user needs at least one identifier. You can attach as many identifiers as needed — one per source system. The `source` field acts as a namespace, so the same `external_id` value can exist under different sources without conflict.
 
-- **Auto-generated**: The [JavaScript SDK](/sdks/javascript) creates one automatically when using the browser client
-- **From analytics tools**: Pass an existing ID from PostHog, Segment, or Mixpanel
-- **Your own system**: Use any unique string you generate
+**Common sources:**
+
+- **`default`** — your primary system's user ID
+- **`anonymous`** — auto-generated IDs for unknown visitors (e.g., from the JavaScript SDK)
+- **`posthog`**, **`segment`**, **`mixpanel`** — IDs from analytics tools
+- **Any custom string** — use whatever fits your architecture
 
 ```typescript title="JavaScript SDK"
-// The browser client auto-generates an anonymous ID,
-// but you can override it with one from another tool
+// Identify a known user with your system's ID
 client.user.upsert({
-  anonymousId: posthog.get_distinct_id(),
-  data: { source: "marketing_site" },
+  identifier: [{ externalId: "user_123" }],
+  email: "alice@example.com",
 });
 
-// Later, link to a known user
+// Attach multiple identifiers from different systems
 client.user.upsert({
-  anonymousId: posthog.get_distinct_id(),
-  externalId: "user_123",
+  identifier: [
+    { externalId: "user_123", source: "default" },
+    { externalId: posthog.get_distinct_id(), source: "posthog" },
+  ],
   email: "alice@example.com",
 });
 ```
+
+When you call `user.upsert` with multiple identifiers, Lunogram resolves the user by looking up any of the provided `(source, external_id)` pairs. If a match is found, the existing user is updated and any new identifiers are added to their profile.
 
 ### Contact Information
 
@@ -82,7 +89,7 @@ Store any data you need on user profiles. Custom properties let you personalize 
   <Tab value="JavaScript SDK">
     ```typescript
     client.user.upsert({
-      externalId: "user_123",
+      identifier: [{ externalId: "user_123" }],
       email: "alice@example.com",
       data: {
         first_name: "Alice",
@@ -104,7 +111,7 @@ Store any data you need on user profiles. Custom properties let you personalize 
       -H "Authorization: Bearer pk_..." \
       -H "Content-Type: application/json" \
       -d '{
-        "external_id": "user_123",
+        "identifier": [{ "external_id": "user_123" }],
         "email": "alice@example.com",
         "data": {
           "first_name": "Alice",
@@ -155,7 +162,7 @@ Store structured data using nested objects:
 
 ```typescript title="JavaScript SDK"
 client.user.upsert({
-  externalId: "user_123",
+  identifier: [{ externalId: "user_123" }],
   data: {
     address: {
       city: "Austin",
@@ -202,7 +209,7 @@ Updates use a **shallow merge**. Top-level keys in `data` are replaced entirely.
 
 ```typescript title="JavaScript SDK"
 client.user.upsert({
-  externalId: "user_123",
+  identifier: [{ externalId: "user_123" }],
   data: { plan: "free", city: "Austin" },
 });
 // Result: { plan: "free", city: "Austin" }
@@ -212,7 +219,7 @@ client.user.upsert({
 
 ```typescript title="JavaScript SDK"
 client.user.upsert({
-  externalId: "user_123",
+  identifier: [{ externalId: "user_123" }],
   data: { plan: "premium", company: "Acme" },
 });
 // Result: { plan: "premium", city: "Austin", company: "Acme" }
@@ -247,13 +254,13 @@ In this example, `score_lookup` is the data key of an upstream [Action step](/jo
 Upload a CSV file from the Users page to bulk create or update users. Each row becomes a user profile.
 
 ```csv
-external_id,email,first_name,last_name,plan,company
+identifier,email,first_name,last_name,plan,company
 user_001,alice@example.com,Alice,Smith,premium,Acme Inc
 user_002,bob@example.com,Bob,Jones,free,Globex
 user_003,carol@example.com,Carol,White,premium,Initech
 ```
 
-The `external_id` column is required. The following columns map to standard user fields:
+The `identifier` column is required and is used as the `external_id` with the `default` source. The following columns map to standard user fields:
 
 `email`, `phone`, `first_name`, `last_name`, `timezone`, `locale`
 

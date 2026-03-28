@@ -69,7 +69,7 @@ A single schedule fires once at a specific time. Provide `scheduled_at` when ass
 ```json
 {
   "name": "trial_expiration",
-  "external_id": "user_123",
+  "identifier": [{ "external_id": "user_123" }],
   "scheduled_at": "2025-02-14T00:00:00Z",
   "data": {
     "plan": "free"
@@ -84,7 +84,7 @@ A recurring schedule fires repeatedly at a fixed interval. Provide `interval` an
 ```json
 {
   "name": "weekly_digest",
-  "external_id": "user_123",
+  "identifier": [{ "external_id": "user_123" }],
   "interval": "7 days",
   "start_at": "2025-01-06T09:00:00Z",
   "data": {
@@ -107,32 +107,30 @@ Schedules are assigned through the client API. The endpoints use an upsert model
 ### User Schedules
 
 ```
-PUT /api/client/users/scheduled
+POST /api/client/users/scheduled
 ```
 
 | Field          | Type     | Required | Description                                                |
 | -------------- | -------- | -------- | ---------------------------------------------------------- |
 | `name`         | string   | Yes      | Schedule name (must match an existing schedule definition) |
-| `external_id`  | string   | \*       | User's external ID                                         |
-| `anonymous_id` | string   | \*       | User's anonymous ID                                        |
+| `identifier`   | array    | Yes      | Array of `{ externalId, source? }` objects to identify the user |
 | `scheduled_at` | datetime | \*\*     | Fire time for single schedules                             |
 | `interval`     | string   | \*\*     | Interval for recurring schedules (e.g. `7 days`)           |
 | `start_at`     | datetime | No       | Start time for recurring schedules (defaults to now)       |
 | `data`         | object   | No       | Custom data included in fired events                       |
 
-\* At least one of `external_id` or `anonymous_id` is required.
 \*\* Provide `scheduled_at` for single schedules or `interval` for recurring schedules.
 
 ### Organization Schedules
 
 ```
-PUT /api/client/organizations/scheduled
+POST /api/client/organizations/scheduled
 ```
 
 | Field                      | Type     | Required | Description                                          |
 | -------------------------- | -------- | -------- | ---------------------------------------------------- |
 | `name`                     | string   | Yes      | Schedule name                                        |
-| `organization_external_id` | string   | Yes      | Organization's external ID                           |
+| `identifier`               | array    | Yes      | Array of `{ externalId, source? }` objects to identify the organization |
 | `scheduled_at`             | datetime | \*\*     | Fire time for single schedules                       |
 | `interval`                 | string   | \*\*     | Interval for recurring schedules                     |
 | `start_at`                 | datetime | No       | Start time for recurring schedules (defaults to now) |
@@ -149,7 +147,7 @@ DELETE /api/client/users/scheduled
 ```json
 {
   "name": "trial_expiration",
-  "external_id": "user_123"
+  "identifier": [{ "external_id": "user_123" }]
 }
 ```
 
@@ -160,7 +158,7 @@ DELETE /api/client/organizations/scheduled
 ```json
 {
   "name": "trial_expiration",
-  "organization_external_id": "org_456"
+  "identifier": [{ "external_id": "org_456" }]
 }
 ```
 

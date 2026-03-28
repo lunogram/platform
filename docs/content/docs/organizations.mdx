@@ -28,21 +28,21 @@ Every organization has a profile containing:
 
 | Field         | Description                                                                                 |
 | ------------- | ------------------------------------------------------------------------------------------- |
-| `external_id` | Your system's unique identifier for the organization (company ID, account ID, workspace ID) |
+| `identifier`  | An array of `{ externalId, source? }` objects that identify the organization               |
 
-The `external_id` is required and must be unique within your project. Lunogram uses it to match organizations across API calls — if you upsert an organization with the same `external_id`, the existing record is updated rather than duplicated.
+At least one identifier is required. The `source` defaults to `"default"` if not provided. Lunogram uses the `(source, externalId)` pair to match organizations across API calls — if you upsert an organization with a matching identifier, the existing record is updated rather than duplicated.
 
 ---
 
 ## Creating Organizations
 
-Create organizations through the client API. If an organization with the same `external_id` already exists, the call updates it instead.
+Create organizations through the client API. If an organization with a matching identifier already exists, the call updates it instead.
 
 <Tabs items={['JavaScript SDK', 'API']}>
   <Tab value="JavaScript SDK">
     ```typescript
     client.organization.upsert({
-      externalId: "acme_inc",
+      identifier: [{ externalId: "acme_inc" }],
       name: "Acme Inc",
       data: {
         plan: "enterprise",
@@ -59,7 +59,7 @@ Create organizations through the client API. If an organization with the same `e
       -H "Authorization: Bearer pk_..." \
       -H "Content-Type: application/json" \
       -d '{
-        "external_id": "acme_inc",
+        "identifier": [{ "external_id": "acme_inc" }],
         "name": "Acme Inc",
         "data": {
           "plan": "enterprise",
@@ -74,7 +74,7 @@ Create organizations through the client API. If an organization with the same `e
 
 | Field         | Type   | Required | Description                                  |
 | ------------- | ------ | -------- | -------------------------------------------- |
-| `external_id` | string | Yes      | Your unique identifier for this organization |
+| `identifier`  | array  | Yes      | Array of `{ externalId, source? }` objects  |
 | `name`        | string | No       | Display name                                 |
 | `data`        | object | No       | Custom properties                            |
 
@@ -92,7 +92,7 @@ Pass custom data as a JSON object when creating or updating an organization:
   <Tab value="JavaScript SDK">
     ```typescript
     client.organization.upsert({
-      externalId: "acme_inc",
+      identifier: [{ externalId: "acme_inc" }],
       name: "Acme Inc",
       data: {
         plan: "enterprise",
@@ -115,7 +115,7 @@ Pass custom data as a JSON object when creating or updating an organization:
       -H "Authorization: Bearer pk_..." \
       -H "Content-Type: application/json" \
       -d '{
-        "external_id": "acme_inc",
+        "identifier": [{ "external_id": "acme_inc" }],
         "name": "Acme Inc",
         "data": {
           "plan": "enterprise",
@@ -184,7 +184,7 @@ The merge is **shallow**. Nested objects are replaced entirely. If you have `bil
 
 ```typescript title="JavaScript SDK"
 client.organization.upsert({
-  externalId: "acme_inc",
+  identifier: [{ externalId: "acme_inc" }],
   data: { plan: "free", region: "north_america" },
 });
 // Result: { plan: "free", region: "north_america" }
@@ -194,7 +194,7 @@ client.organization.upsert({
 
 ```typescript title="JavaScript SDK"
 client.organization.upsert({
-  externalId: "acme_inc",
+  identifier: [{ externalId: "acme_inc" }],
   data: { plan: "enterprise", arr: 120000 },
 });
 // Result: { plan: "enterprise", region: "north_america", arr: 120000 }
@@ -204,13 +204,13 @@ client.organization.upsert({
 
 ## Deleting Organizations
 
-Delete an organization by its `external_id`. This also removes all memberships.
+Delete an organization by its identifier. This also removes all memberships.
 
 <Tabs items={['JavaScript SDK', 'API']}>
   <Tab value="JavaScript SDK">
     ```typescript
     client.organization.delete({
-      externalId: "acme_inc"
+      identifier: [{ externalId: "acme_inc" }]
     })
     ```
   </Tab>
@@ -220,7 +220,7 @@ Delete an organization by its `external_id`. This also removes all memberships.
       -H "Authorization: Bearer pk_..." \
       -H "Content-Type: application/json" \
       -d '{
-        "external_id": "acme_inc"
+        "identifier": [{ "external_id": "acme_inc" }]
       }'
     ```
   </Tab>
@@ -234,14 +234,18 @@ Members are the users who belong to an organization. The membership link can car
 
 ### Adding Members
 
-Add a user to an organization using both external IDs:
+Add a user to an organization using their identifiers:
 
 <Tabs items={['JavaScript SDK', 'API']}>
   <Tab value="JavaScript SDK">
     ```typescript
     client.organization.addUser({
-      organizationExternalId: "acme_inc",
-      userExternalId: "user_123",
+      organization: {
+        identifier: [{ externalId: "acme_inc" }]
+      },
+      user: {
+        identifier: [{ externalId: "user_123" }]
+      },
       data: {
         role: "admin",
         department: "engineering",
@@ -256,8 +260,12 @@ Add a user to an organization using both external IDs:
       -H "Authorization: Bearer pk_..." \
       -H "Content-Type: application/json" \
       -d '{
-        "organization_external_id": "acme_inc",
-        "user_external_id": "user_123",
+        "organization": {
+          "identifier": [{ "external_id": "acme_inc" }]
+        },
+        "user": {
+          "identifier": [{ "external_id": "user_123" }]
+        },
         "data": {
           "role": "admin",
           "department": "engineering",
@@ -268,11 +276,11 @@ Add a user to an organization using both external IDs:
   </Tab>
 </Tabs>
 
-| Field                      | Type   | Required | Description                             |
-| -------------------------- | ------ | -------- | --------------------------------------- |
-| `organization_external_id` | string | Yes      | The organization's external ID          |
-| `user_external_id`         | string | Yes      | The user's external ID                  |
-| `data`                     | object | No       | Custom data specific to this membership |
+| Field                        | Type   | Required | Description                             |
+| ---------------------------- | ------ | -------- | --------------------------------------- |
+| `organization.identifier`    | array  | Yes      | The organization's identifiers          |
+| `user.identifier`            | array  | Yes      | The user's identifiers                  |
+| `data`                       | object | No       | Custom data specific to this membership |
 
 If the user is already a member, the call updates their membership data using a shallow merge.
 
@@ -296,8 +304,12 @@ Remove a user from an organization:
   <Tab value="JavaScript SDK">
     ```typescript
     client.organization.removeUser({
-      organizationExternalId: "acme_inc",
-      userExternalId: "user_123"
+      organization: {
+        identifier: [{ externalId: "acme_inc" }]
+      },
+      user: {
+        identifier: [{ externalId: "user_123" }]
+      }
     })
     ```
   </Tab>
@@ -307,8 +319,12 @@ Remove a user from an organization:
       -H "Authorization: Bearer pk_..." \
       -H "Content-Type: application/json" \
       -d '{
-        "organization_external_id": "acme_inc",
-        "user_external_id": "user_123"
+        "organization": {
+          "identifier": [{ "external_id": "acme_inc" }]
+        },
+        "user": {
+          "identifier": [{ "external_id": "user_123" }]
+        }
       }'
     ```
   </Tab>
@@ -329,7 +345,7 @@ Organizations have their own event timeline, separate from user events. Organiza
     ```typescript
     client.organization.events.post([
       {
-        organizationExternalId: "acme_inc",
+        identifier: [{ externalId: "acme_inc" }],
         name: "subscription_upgraded",
         data: {
           previous_plan: "pro",
@@ -347,7 +363,7 @@ Organizations have their own event timeline, separate from user events. Organiza
       -H "Content-Type: application/json" \
       -d '[
         {
-          "organization_external_id": "acme_inc",
+          "identifier": [{ "external_id": "acme_inc" }],
           "name": "subscription_upgraded",
           "data": {
             "previous_plan": "pro",

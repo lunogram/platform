@@ -124,16 +124,16 @@ Static lists contain a fixed set of users. Add users by uploading a CSV file or 
 
 ### Importing via CSV
 
-Upload a CSV file with your user data. The file must include an `external_id` column.
+Upload a CSV file with your user data. The file must include an `identifier` column.
 
 ```csv
-external_id,email,first_name,company,source
+identifier,email,first_name,company,source
 user_001,alice@example.com,Alice,Acme Inc,webinar
 user_002,bob@example.com,Bob,Globex,partner
 user_003,carol@example.com,Carol,Initech,organic
 ```
 
-**Reserved columns** (mapped to standard fields): `external_id`, `email`, `phone`, `first_name`, `last_name`, `timezone`, `locale`
+**Reserved columns** (mapped to standard fields): `identifier`, `email`, `phone`, `first_name`, `last_name`, `timezone`, `locale`
 
 All other columns become custom properties on the user.
 

@@ -102,7 +102,7 @@ const lunogram = new Lunogram(
 );
 
 await lunogram.user.upsert({
-  externalId: "user_123",
+  identifier: [{ externalId: "user_123" }],
   email: "user@example.com",
 });
 await lunogram.user.events.post([{ name: "user.signed_up" }]);

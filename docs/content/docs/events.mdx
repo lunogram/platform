@@ -27,7 +27,7 @@ Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Ev
 <Tabs items={['JavaScript SDK', 'API']}>
   <Tab value="JavaScript SDK">
     ```typescript
-    // Browser — anonymous ID is included automatically
+    // Browser — identifier can be omitted if already set on the client
     await lunogram.user.events.post([
       {
         name: "order.completed",
@@ -44,7 +44,7 @@ Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Ev
     await lunogram.user.events.post([
       {
         name: "order.completed",
-        externalId: "user_123",
+        identifier: [{ externalId: "user_123" }],
         data: {
           orderId: "ord_abc123",
           total: 149.99,
@@ -63,13 +63,13 @@ Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Ev
       -d '[
         {
           "name": "order.completed",
+          "identifier": [{ "external_id": "user_123" }],
           "data": {
             "orderId": "ord_abc123",
             "total": 149.99,
             "currency": "USD",
             "items": 3
-          },
-          "external_id": "user_123"
+          }
         }
       ]'
     ```
@@ -79,11 +79,10 @@ Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Ev
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | Name of the event |
-| `data` | object | No | Arbitrary event properties |
-| `externalId` / `external_id` | string | No* | Your unique user identifier |
-| `anonymousId` / `anonymous_id` | string | No* | Anonymous user identifier |
+| `data` | object | Yes | Event properties |
+| `identifier` | array | No* | Array of `{ externalId, source? }` objects to identify the user |
 
-\* At least one identifier is required. In the browser, the SDK includes the anonymous ID automatically.
+\* The `identifier` is required when the user cannot be inferred from context (e.g., server-side calls). In the browser, the SDK can include it automatically if a user has been identified.
 
 The request body is an array — you can send multiple events in a single call. Each event is processed independently.
 
@@ -103,7 +102,7 @@ await lunogram.user.events.post([
     ```typescript
     await lunogram.organization.events.post([
       {
-        organizationExternalId: "acme_inc",
+        identifier: [{ externalId: "acme_inc" }],
         name: "subscription.upgraded",
         data: {
           previousPlan: "pro",
@@ -121,7 +120,7 @@ await lunogram.user.events.post([
       -H "Content-Type: application/json" \
       -d '[
         {
-          "organization_external_id": "acme_inc",
+          "identifier": [{ "external_id": "acme_inc" }],
           "name": "subscription.upgraded",
           "data": {
             "previous_plan": "pro",
@@ -138,7 +137,7 @@ await lunogram.user.events.post([
 |-------|------|----------|-------------|
 | `name` | string | Yes | Name of the event |
 | `data` | object | No | Arbitrary event properties |
-| `organizationExternalId` / `organization_external_id` | string | Yes | Your unique organization identifier |
+| `identifier` | array | Yes | Array of `{ externalId, source? }` objects to identify the organization |
 
 Organization events can also trigger journeys. When they do, the journey entrance evaluates each member of the organization — optionally filtered by a user rule — and enters matching members into the flow.
 

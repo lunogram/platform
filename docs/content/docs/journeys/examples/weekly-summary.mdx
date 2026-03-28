@@ -12,8 +12,8 @@ Send your users a weekly usage report by combining [schedules](/schedules) with 
 Use the JS SDK to create a recurring weekly schedule for a user. The schedule name becomes part of the event that the journey will listen for.
 
 ```javascript
-await lunogram.user.schedule.create({
-  externalId: "user-123",
+await lunogram.user.schedule.upsert({
+  identifier: [{ externalId: "user-123" }],
   name: "usage.report",
   scheduledAt: "2026-04-07T09:00:00Z",
   interval: "7 days",
