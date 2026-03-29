@@ -463,6 +463,14 @@ func TestRuleDependsOnUsers(t *testing.T) {
 			rule:     Rule{},
 			expected: false,
 		},
+		"parent wrapper with no children matches all users": {
+			rule: Rule{
+				Type:     RuleTypeWrapper,
+				Group:    RuleGroupParent,
+				Operator: OperatorAnd,
+			},
+			expected: true,
+		},
 	}
 
 	for name, test := range tests {

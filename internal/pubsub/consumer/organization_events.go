@@ -190,12 +190,13 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 
 				now := time.Now()
 				result := journey.JourneyUserState{
-					JourneyID:      dep.JourneyID,
-					JourneyEntryID: uuid.New(),
-					UserID:         userID,
-					ExternalStepID: dep.ExternalID,
-					Data:           json.RawMessage(data),
-					CompletedAt:    &now,
+					JourneyID:       dep.JourneyID,
+					JourneyEntryID:  uuid.New(),
+					UserID:          userID,
+					ExternalStepID:  dep.ExternalID,
+					PinnedVersionID: &dep.VersionID,
+					Data:            json.RawMessage(data),
+					CompletedAt:     &now,
 				}
 
 				_, err = jrny.CreateUserJourneyState(ctx, result)
@@ -208,12 +209,20 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 				metrics.EventsJourneyTriggersTotal.WithLabelValues("organization").Inc()
 
 				for _, child := range dep.Children {
+					stepType, err := jrny.GetStepType(ctx, dep.VersionID, child.ChildExternalID)
+					if err != nil {
+						logger.Error("failed to get step type for child", zap.Error(err))
+						continue
+					}
+
 					step := JourneyStep{
 						ProjectID:      event.ProjectID,
 						JourneyID:      dep.JourneyID,
 						JourneyEntryID: result.JourneyEntryID,
+						VersionID:      &dep.VersionID,
 						ExternalStepID: child.ChildExternalID,
 						UserID:         userID,
+						StepType:       stepType,
 					}
 
 					err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID, userID), step)
@@ -226,7 +235,7 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 				return nil
 			}
 
-			err = usrs.ScanOrganizationMembers(ctx, event.ProjectID, event.OrganizationID, entrance.UserRule, scanner)
+			_, err = usrs.ScanOrganizationMembers(ctx, event.ProjectID, event.OrganizationID, entrance.UserRule, scanner)
 			if err != nil {
 				logger.Error("failed to scan organization members", zap.Error(err))
 				return err

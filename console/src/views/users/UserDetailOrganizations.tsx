@@ -11,7 +11,7 @@ import {
 import { ProjectContext, UserContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
 import { useResolver } from "../../hooks"
-import { useRoute } from "../router"
+import { useRoute } from "@/hooks/use-route"
 import { formatDate, cn } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import { getPrimaryExternalId } from "@/lib/name"

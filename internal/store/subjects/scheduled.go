@@ -745,7 +745,7 @@ func (s *ScheduledStore) ListDueScheduledEvents(ctx context.Context, limit int) 
 }
 
 // ScanDueScheduledEvents iterates over due scheduled events and calls fn for each row.
-func (s *ScheduledStore) ScanDueScheduledEvents(ctx context.Context, fn func(DueScheduledEvent) error) error {
+func (s *ScheduledStore) ScanDueScheduledEvents(ctx context.Context, fn func(DueScheduledEvent) error) (int, error) {
 	stmt := `
 	SELECT
 		se.id, se.user_schedule_id, se.schedule_offset_id, se.user_id, se.schedule_id,
@@ -762,21 +762,23 @@ func (s *ScheduledStore) ScanDueScheduledEvents(ctx context.Context, fn func(Due
 
 	rows, err := s.db.QueryxContext(ctx, stmt)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer rows.Close()
 
+	var n int
 	for rows.Next() {
 		var event DueScheduledEvent
 		if err := rows.StructScan(&event); err != nil {
-			return err
+			return n, err
 		}
 		if err := fn(event); err != nil {
-			return err
+			return n, err
 		}
+		n++
 	}
 
-	return rows.Err()
+	return n, rows.Err()
 }
 
 // MarkScheduledEventFired marks a scheduled event as fired.
@@ -865,7 +867,7 @@ func (s *ScheduledStore) generateScheduledEvents(ctx context.Context, us UserSch
 // scheduled_at is in the past and that have no pending (unfired) user_scheduled_events.
 // For each match it advances scheduled_at by the interval until it is in the future,
 // updates the row, and generates the next batch of user_scheduled_events.
-func (s *ScheduledStore) ScanRecurringUserSchedulesWithoutPendingEvents(ctx context.Context, fn func(UserSchedule) error) error {
+func (s *ScheduledStore) ScanRecurringUserSchedulesWithoutPendingEvents(ctx context.Context, fn func(UserSchedule) error) (int, error) {
 	stmt := `
 	SELECT us.id, us.user_id, us.schedule_id, us.scheduled_at, us.start_at, us.anchor_at, us.interval, us.occurrence, COALESCE(us.data, '{}'::jsonb) AS data, us.paused_at, us.created_at, us.updated_at
 	FROM user_schedules us
@@ -881,21 +883,23 @@ func (s *ScheduledStore) ScanRecurringUserSchedulesWithoutPendingEvents(ctx cont
 
 	rows, err := s.db.QueryxContext(ctx, stmt)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer rows.Close()
 
+	var n int
 	for rows.Next() {
 		var us UserSchedule
 		if err := rows.StructScan(&us); err != nil {
-			return err
+			return n, err
 		}
 		if err := fn(us); err != nil {
-			return err
+			return n, err
 		}
+		n++
 	}
 
-	return rows.Err()
+	return n, rows.Err()
 }
 
 // AdvanceAndGenerateUserScheduleEvents advances a recurring user schedule by
@@ -1344,7 +1348,7 @@ func (s *ScheduledStore) ListDueOrgScheduledEvents(ctx context.Context, limit in
 }
 
 // ScanDueOrgScheduledEvents iterates over due org scheduled events and calls fn for each row.
-func (s *ScheduledStore) ScanDueOrgScheduledEvents(ctx context.Context, fn func(DueOrgScheduledEvent) error) error {
+func (s *ScheduledStore) ScanDueOrgScheduledEvents(ctx context.Context, fn func(DueOrgScheduledEvent) error) (int, error) {
 	stmt := `
 	SELECT
 		se.id, se.organization_schedule_id, se.schedule_offset_id, se.organization_id, se.schedule_id,
@@ -1361,21 +1365,23 @@ func (s *ScheduledStore) ScanDueOrgScheduledEvents(ctx context.Context, fn func(
 
 	rows, err := s.db.QueryxContext(ctx, stmt)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer rows.Close()
 
+	var n int
 	for rows.Next() {
 		var event DueOrgScheduledEvent
 		if err := rows.StructScan(&event); err != nil {
-			return err
+			return n, err
 		}
 		if err := fn(event); err != nil {
-			return err
+			return n, err
 		}
+		n++
 	}
 
-	return rows.Err()
+	return n, rows.Err()
 }
 
 // MarkOrgScheduledEventFired marks an org scheduled event as fired.
@@ -1509,7 +1515,7 @@ func (s *ScheduledStore) BackfillOrgScheduledEventsForOffset(ctx context.Context
 // scheduled_at is in the past and that have no pending (unfired) organization_scheduled_events.
 // For each match it advances scheduled_at by the interval until it is in the future,
 // updates the row, and generates the next batch of organization_scheduled_events.
-func (s *ScheduledStore) ScanRecurringOrgSchedulesWithoutPendingEvents(ctx context.Context, fn func(OrganizationSchedule) error) error {
+func (s *ScheduledStore) ScanRecurringOrgSchedulesWithoutPendingEvents(ctx context.Context, fn func(OrganizationSchedule) error) (int, error) {
 	stmt := `
 	SELECT os.id, os.organization_id, os.schedule_id, os.scheduled_at, os.start_at, os.anchor_at, os.interval, os.occurrence, COALESCE(os.data, '{}'::jsonb) AS data, os.paused_at, os.created_at, os.updated_at
 	FROM organization_schedules os
@@ -1525,21 +1531,23 @@ func (s *ScheduledStore) ScanRecurringOrgSchedulesWithoutPendingEvents(ctx conte
 
 	rows, err := s.db.QueryxContext(ctx, stmt)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer rows.Close()
 
+	var n int
 	for rows.Next() {
 		var os OrganizationSchedule
 		if err := rows.StructScan(&os); err != nil {
-			return err
+			return n, err
 		}
 		if err := fn(os); err != nil {
-			return err
+			return n, err
 		}
+		n++
 	}
 
-	return rows.Err()
+	return n, rows.Err()
 }
 
 // AdvanceAndGenerateOrgScheduleEvents advances a recurring organization schedule by

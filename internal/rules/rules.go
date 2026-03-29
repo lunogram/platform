@@ -238,6 +238,12 @@ func (r Rule) DependsOnUsers() bool {
 		return true
 	}
 
+	// A parent wrapper with no children matches all users, so it depends on
+	// user data (any newly created user should appear in the list).
+	if r.Type == RuleTypeWrapper && r.Group == RuleGroupParent && len(r.Children) == 0 {
+		return true
+	}
+
 	for _, child := range r.Children {
 		if child.DependsOnUsers() {
 			return true

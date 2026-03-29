@@ -70,10 +70,11 @@ func (u User) UserEvent(name string) UserEvent {
 }
 
 type SendCampaign struct {
-	ProjectID  uuid.UUID         `json:"project_id"`
-	UserID     uuid.UUID         `json:"user_id"`
-	CampaignID uuid.UUID         `json:"campaign_id"`
-	Data       map[string]string `json:"data,omitempty"`
+	ProjectID   uuid.UUID         `json:"project_id"`
+	UserID      uuid.UUID         `json:"user_id"`
+	CampaignID  uuid.UUID         `json:"campaign_id"`
+	BroadcastID *uuid.UUID        `json:"broadcast_id,omitempty"`
+	Data        map[string]string `json:"data,omitempty"`
 }
 
 type JourneyStep struct {
@@ -159,6 +160,33 @@ type OrganizationEvent struct {
 	OrganizationID          uuid.UUID      `json:"organization_id"`
 	OrganizationIdentifiers []ExternalID   `json:"organization_identifiers,omitempty"`
 	Data                    map[string]any `json:"data"`
+}
+
+// ProcessBroadcast represents a request to process a broadcast send.
+type ProcessBroadcast struct {
+	ProjectID   uuid.UUID `json:"project_id"`
+	BroadcastID uuid.UUID `json:"broadcast_id"`
+}
+
+// ProcessBroadcastBatch represents a single batch of users to fan out during
+// broadcast processing. Each batch publishes SendCampaign messages for a page
+// of list users and then chains the next batch until the list is exhausted.
+type ProcessBroadcastBatch struct {
+	ProjectID   uuid.UUID `json:"project_id"`
+	BroadcastID uuid.UUID `json:"broadcast_id"`
+	Offset      int       `json:"offset"`
+	BatchSize   int       `json:"batch_size"`
+	Processed   int       `json:"processed"` // running total from prior batches
+}
+
+// BroadcastsProcess returns the NATS subject for broadcast processing.
+func BroadcastsProcess(projectID, broadcastID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("broadcasts.process.%s.%s", projectID, broadcastID))
+}
+
+// BroadcastsBatch returns the NATS subject for broadcast batch processing.
+func BroadcastsBatch(projectID, broadcastID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("broadcasts.batch.%s.%s", projectID, broadcastID))
 }
 
 // CampaignsSend returns the NATS subject for campaign sending.

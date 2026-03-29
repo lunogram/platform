@@ -56,10 +56,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_schedule_offsets_unique
 
 CREATE TABLE IF NOT EXISTS user_schedules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     schedule_id UUID NOT NULL REFERENCES schedules(id),
     scheduled_at TIMESTAMPTZ,              -- fire time for single-type schedules
     start_at TIMESTAMPTZ,                  -- start of interval for recurring (supports future dates)
+    anchor_at TIMESTAMPTZ,                 -- reference point from which occurrence is computed:
+                                           --   scheduled_at = anchor_at + occurrence * interval
+                                           -- starts equal to start_at; reset when scheduled_at is
+                                           -- explicitly overridden (e.g. via PATCH)
+    paused_at TIMESTAMPTZ,                 -- NULL = active; non-NULL = paused (scheduler will not
+                                           -- advance and pending events may be deleted)
     interval INTERVAL,                     -- recurrence interval, NULL for single
     occurrence INTEGER NOT NULL DEFAULT 0, -- number of intervals advanced from start_at (scheduled_at = start_at + occurrence * interval)
     data JSONB DEFAULT '{}'::jsonb,
@@ -107,8 +113,11 @@ CREATE INDEX IF NOT EXISTS idx_user_scheduled_events_user
     ON user_scheduled_events (user_id, schedule_id)
     WHERE fired_at IS NULL;
 
+-- Partial unique index: only prevents duplicate *pending* events for the same
+-- offset. Fired events no longer block new inserts for subsequent occurrences.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_scheduled_events_unique
-    ON user_scheduled_events (user_schedule_id, schedule_offset_id, user_id);
+    ON user_scheduled_events (user_schedule_id, schedule_offset_id, user_id)
+    WHERE fired_at IS NULL;
 
 
 -- ============================================================
@@ -133,10 +142,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_scheduled_schemas_unique
 
 CREATE TABLE IF NOT EXISTS organization_schedules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id UUID NOT NULL REFERENCES organizations(id),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     schedule_id UUID NOT NULL REFERENCES schedules(id),
     scheduled_at TIMESTAMPTZ,
     start_at TIMESTAMPTZ,
+    anchor_at TIMESTAMPTZ,                 -- reference point from which occurrence is computed
+    paused_at TIMESTAMPTZ,                 -- NULL = active; non-NULL = paused
     interval INTERVAL,
     occurrence INTEGER NOT NULL DEFAULT 0, -- number of intervals advanced from start_at (scheduled_at = start_at + occurrence * interval)
     data JSONB DEFAULT '{}'::jsonb,
@@ -182,8 +193,11 @@ CREATE INDEX IF NOT EXISTS idx_organization_scheduled_events_org
     ON organization_scheduled_events (organization_id, schedule_id)
     WHERE fired_at IS NULL;
 
+-- Partial unique index: only prevents duplicate *pending* events for the same
+-- offset. Fired events no longer block new inserts for subsequent occurrences.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_organization_scheduled_events_unique
-    ON organization_scheduled_events (organization_schedule_id, schedule_offset_id, organization_id);
+    ON organization_scheduled_events (organization_schedule_id, schedule_offset_id, organization_id)
+    WHERE fired_at IS NULL;
 
 
 -- ============================================================

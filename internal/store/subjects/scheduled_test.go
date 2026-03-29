@@ -765,7 +765,7 @@ func TestScanDueScheduledEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	var scanned []DueScheduledEvent
-	err = db.ScanDueScheduledEvents(ctx, func(e DueScheduledEvent) error {
+	_, err = db.ScanDueScheduledEvents(ctx, func(e DueScheduledEvent) error {
 		scanned = append(scanned, e)
 		return nil
 	})
@@ -879,7 +879,7 @@ func TestScanRecurringUserSchedulesWithoutPendingEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	var found []UserSchedule
-	err = db.ScanRecurringUserSchedulesWithoutPendingEvents(ctx, func(us UserSchedule) error {
+	_, err = db.ScanRecurringUserSchedulesWithoutPendingEvents(ctx, func(us UserSchedule) error {
 		found = append(found, us)
 		return nil
 	})
@@ -1263,7 +1263,7 @@ func TestScanDueOrgScheduledEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	var scanned []DueOrgScheduledEvent
-	err = db.ScanDueOrgScheduledEvents(ctx, func(e DueOrgScheduledEvent) error {
+	_, err = db.ScanDueOrgScheduledEvents(ctx, func(e DueOrgScheduledEvent) error {
 		scanned = append(scanned, e)
 		return nil
 	})
@@ -1372,7 +1372,7 @@ func TestScanRecurringOrgSchedulesWithoutPendingEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	var found []OrganizationSchedule
-	err = db.ScanRecurringOrgSchedulesWithoutPendingEvents(ctx, func(os OrganizationSchedule) error {
+	_, err = db.ScanRecurringOrgSchedulesWithoutPendingEvents(ctx, func(os OrganizationSchedule) error {
 		found = append(found, os)
 		return nil
 	})

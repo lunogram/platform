@@ -721,6 +721,56 @@ func (s *ListsStore) RecomputeList(ctx context.Context, projectID, listID uuid.U
 	return results, nil
 }
 
+// ScanListUsers iterates over user IDs in a list and calls fn for each user ID.
+// Rows are read via a cursor so large result sets do not need to be held
+// entirely in memory.
+func (s *ListsStore) ScanListUsers(ctx context.Context, listID uuid.UUID, fn func(uuid.UUID) error) (int, error) {
+	q := `
+	SELECT user_id
+	FROM list_users
+	WHERE list_id = $1
+	ORDER BY user_id`
+
+	rows, err := s.db.QueryxContext(ctx, q, listID)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	var n int
+	for rows.Next() {
+		var userID uuid.UUID
+		if err := rows.Scan(&userID); err != nil {
+			return n, err
+		}
+		if err := fn(userID); err != nil {
+			return n, err
+		}
+		n++
+	}
+
+	return n, rows.Err()
+}
+
+// ListUsersBatch returns up to limit user IDs from the list starting at the
+// given offset, ordered by user_id. It is used for paginated broadcast fan-out
+// so that large lists are processed in manageable chunks.
+func (s *ListsStore) ListUsersBatch(ctx context.Context, listID uuid.UUID, limit, offset int) ([]uuid.UUID, error) {
+	q := `
+	SELECT user_id
+	FROM list_users
+	WHERE list_id = $1
+	ORDER BY user_id
+	LIMIT $2 OFFSET $3`
+
+	var userIDs []uuid.UUID
+	if err := s.db.SelectContext(ctx, &userIDs, q, listID, limit, offset); err != nil {
+		return nil, err
+	}
+
+	return userIDs, nil
+}
+
 // GetPublishedRule returns the published rule for a list by looking up the
 // published version's rule. Returns nil if no published version/rule exists.
 func (s *ListsStore) GetPublishedRule(ctx context.Context, listID uuid.UUID) (*rules.RuleSet, error) {

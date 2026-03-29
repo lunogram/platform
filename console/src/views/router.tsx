@@ -1,5 +1,5 @@
 import type { RouteObject } from "react-router"
-import { createBrowserRouter, Outlet, redirect, useNavigate, useParams } from "react-router"
+import { createBrowserRouter, Outlet, redirect } from "react-router"
 import api from "../api"
 import oapiClient from "../oapi/client"
 
@@ -60,7 +60,9 @@ import {
     SettingsIcon,
     UsersIcon,
 } from "@/components/icons"
-import { Zap } from "lucide-react"
+import { Radio, Zap } from "lucide-react"
+import Broadcasts from "./broadcast/Broadcasts"
+import { BroadcastDetailRoute } from "./broadcast/BroadcastDetail"
 import { Projects } from "./project/Projects"
 import { completedGettingStarted } from "../utils"
 import Settings from "./settings/Settings"
@@ -88,21 +90,6 @@ import { Translation } from "react-i18next"
 import type { UUID } from "@/types/common"
 import type { Project } from "../types"
 import type { SidebarLink } from "@/types/sidebar"
-
-export const useRoute = (includeProject = true) => {
-    const { projectId = "" } = useParams()
-    const navigate = useNavigate()
-    const parts: string[] = []
-    if (includeProject) {
-        parts.push("projects", projectId)
-    }
-    return (path: string) => {
-        const newParts = [...parts, path]
-        navigate("/" + newParts.join("/"))?.catch((e) => {
-            console.error("Failed to navigate to:", e)
-        })
-    }
-}
 
 export interface RouterProps {
     routes?: (routes: RouteObject[]) => RouteObject[]
@@ -254,6 +241,23 @@ export const createRouter = ({
                                                 icon: <CampaignsIcon />,
                                                 minRole: "editor",
                                             },
+                                            ...(isEnterprise
+                                                ? [
+                                                      {
+                                                          key: "broadcasts",
+                                                          to: "broadcasts",
+                                                          children: (
+                                                              <Translation>
+                                                                  {(t) =>
+                                                                      t("broadcasts", "Broadcasts")
+                                                                  }
+                                                              </Translation>
+                                                          ),
+                                                          icon: <Radio className="h-4 w-4" />,
+                                                          minRole: "editor" as const,
+                                                      },
+                                                  ]
+                                                : []),
                                             {
                                                 key: "journeys",
                                                 to: "journeys",
@@ -438,6 +442,18 @@ export const createRouter = ({
                                             }),
                                         ],
                                     },
+                                    ...(isEnterprise
+                                        ? [
+                                              {
+                                                  path: "broadcasts",
+                                                  element: <Broadcasts />,
+                                              },
+                                              {
+                                                  path: "broadcasts/:broadcastId",
+                                                  element: <BroadcastDetailRoute />,
+                                              },
+                                          ]
+                                        : []),
                                     createStatefulRoute({
                                         path: "journeys",
                                         apiPath: api.journeys,

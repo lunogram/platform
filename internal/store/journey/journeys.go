@@ -1125,7 +1125,7 @@ func (s *JourneysStore) ListResumeableUserJourneys(ctx context.Context) ([]Journ
 // ScanResumeableUserJourneys iterates over resumeable user journey states and
 // calls fn for each row. Rows are read via a cursor so large result sets do not
 // need to be held entirely in memory.
-func (s *JourneysStore) ScanResumeableUserJourneys(ctx context.Context, fn func(JourneyUserState) error) error {
+func (s *JourneysStore) ScanResumeableUserJourneys(ctx context.Context, fn func(JourneyUserState) error) (int, error) {
 	query := `
 	SELECT jus.id, j.project_id, jus.journey_id, jus.user_id, jus.pinned_version_id, jus.occurrence, jus.entered_at, jus.resume_at, jus.completed_at, COALESCE(jus.data, '{}'::jsonb) AS data, jus.updated_at, jus.journey_entry_id, jus.external_step_id
 	FROM journey_user_state jus
@@ -1135,21 +1135,23 @@ func (s *JourneysStore) ScanResumeableUserJourneys(ctx context.Context, fn func(
 
 	rows, err := s.db.QueryxContext(ctx, query)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer rows.Close()
 
+	var n int
 	for rows.Next() {
 		var state JourneyUserState
 		if err := rows.StructScan(&state); err != nil {
-			return err
+			return n, err
 		}
 		if err := fn(state); err != nil {
-			return err
+			return n, err
 		}
+		n++
 	}
 
-	return rows.Err()
+	return n, rows.Err()
 }
 
 func (s *JourneysStore) GetJourneyStateByID(ctx context.Context, stateID uuid.UUID) (*JourneyUserState, error) {

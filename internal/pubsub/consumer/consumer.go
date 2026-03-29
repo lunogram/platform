@@ -21,6 +21,7 @@ const (
 	StreamLists              = "lists"
 	StreamJourneys           = "journeys"
 	StreamCampaigns          = "campaigns"
+	StreamBroadcasts         = "broadcasts"
 	StreamOrganizations      = "organizations"
 	StreamOrganizationUsers  = "organizations-users"
 	StreamOrganizationEvents = "organizations-events"
@@ -51,6 +52,8 @@ const (
 	ConsumerJourneysAdvance           = "journeys-advance"
 	ConsumerJourneysAdvanceUser       = "journeys-advance-user"
 	ConsumerCampaignsSend             = "campaigns-send"
+	ConsumerBroadcastsProcess         = "broadcasts-process"
+	ConsumerBroadcastsBatch           = "broadcasts-batch"
 	ConsumerOrganizationsProcess      = "organizations-process"
 	ConsumerOrganizationsSchema       = "organizations-schema"
 	ConsumerOrganizationUsersProcess  = "organizations-users-process"
@@ -77,7 +80,9 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledBackfill), ScheduledBackfillHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute), RecomputeListHandler(logger, usrs, pub))
 	router.HandleStream(ns.Stream(StreamJourneys), ns.Consumer(ConsumerJourneysAdvance), JourneyStepHandler(logger, db.Subjects, jrny, mgmt, pub, actionRegistry))
-	router.HandleStream(ns.Stream(StreamCampaigns), ns.Consumer(ConsumerCampaignsSend), CampaignsSendHandler(logger, mgmt, usrs, registry, renderer, publicURL, linkKey, trackingURL))
+	router.HandleStream(ns.Stream(StreamCampaigns), ns.Consumer(ConsumerCampaignsSend), CampaignsSendHandler(logger, mgmt, usrs, registry, renderer, pub, publicURL, linkKey, trackingURL))
+	router.HandleStream(ns.Stream(StreamBroadcasts), ns.Consumer(ConsumerBroadcastsProcess), BroadcastProcessHandler(logger, mgmt, usrs, pub, ns))
+	router.HandleStream(ns.Stream(StreamBroadcasts), ns.Consumer(ConsumerBroadcastsBatch), BroadcastBatchHandler(logger, mgmt, usrs, pub, ns))
 	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationsProcess), OrganizationsHandler(logger, usrs, pub))
 	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationsSchema), OrganizationSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamOrganizationUsers), ns.Consumer(ConsumerOrganizationUsersProcess), OrganizationUsersHandler(logger, usrs, pub))

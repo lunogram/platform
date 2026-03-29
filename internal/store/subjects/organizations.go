@@ -811,7 +811,7 @@ func (s *OrganizationsStore) QueryOrganizationUsersMatchingRule(ctx context.Cont
 // ScanOrganizationMembers iterates over user IDs in an organization, optionally
 // filtered by a ruleset, and calls fn for each user ID. Rows are read via a
 // cursor so large result sets do not need to be held entirely in memory.
-func (s *OrganizationsStore) ScanOrganizationMembers(ctx context.Context, projectID, orgID uuid.UUID, userRule *rules.RuleSet, fn func(userID uuid.UUID) error) error {
+func (s *OrganizationsStore) ScanOrganizationMembers(ctx context.Context, projectID, orgID uuid.UUID, userRule *rules.RuleSet, fn func(userID uuid.UUID) error) (int, error) {
 	var rows *sqlx.Rows
 	var err error
 
@@ -821,19 +821,21 @@ func (s *OrganizationsStore) ScanOrganizationMembers(ctx context.Context, projec
 		rows, err = s.QueryOrganizationUserIDs(ctx, orgID)
 	}
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer rows.Close()
 
+	var n int
 	for rows.Next() {
 		var userID uuid.UUID
 		if err := rows.Scan(&userID); err != nil {
-			return err
+			return n, err
 		}
 		if err := fn(userID); err != nil {
-			return err
+			return n, err
 		}
+		n++
 	}
 
-	return rows.Err()
+	return n, rows.Err()
 }

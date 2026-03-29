@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/providers/channels"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
@@ -122,7 +123,7 @@ func buildRenderData(publicURL string, user *subjects.User, campaign *management
 	return data
 }
 
-func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, renderer *pubsub.EmailRenderer, publicURL string, linkKey []byte, trackingURL string) HandlerFunc {
+func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, renderer *pubsub.EmailRenderer, pub pubsub.Publisher, publicURL string, linkKey []byte, trackingURL string) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		var event schemas.SendCampaign
 		if err := json.Unmarshal(msg.Data(), &event); err != nil {
@@ -245,6 +246,30 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 				return Permanent(err)
 			}
 			return err
+		}
+
+		// Persist the send record so we can track delivery and attribute the
+		// send back to a broadcast (when present).
+		now := time.Now()
+		state := "sent"
+		referenceType := campaign.Provider.Module
+		referenceID := response.ID
+		if referenceID == "" {
+			referenceID = uuid.New().String()
+		}
+
+		sendRecord := subjects.CampaignSend{
+			CampaignID:    event.CampaignID,
+			UserID:        event.UserID,
+			BroadcastID:   event.BroadcastID,
+			State:         &state,
+			SentAt:        &now,
+			ReferenceType: &referenceType,
+			ReferenceID:   referenceID,
+		}
+		if insertErr := usrs.CampaignSendsStore.InsertCampaignSend(ctx, sendRecord); insertErr != nil {
+			logger.Error("failed to insert campaign send record", zap.Error(insertErr))
+			// Non-fatal: the message was already delivered to the provider.
 		}
 
 		logger.Info("campaign sent successfully", zap.String("status", response.Status), zap.String("id", response.ID))

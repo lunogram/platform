@@ -1970,6 +1970,118 @@ export interface paths {
         patch: operations["updateOrganizationScheduled"];
         trace?: never;
     };
+    "/api/admin/projects/{projectID}/broadcasts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List broadcasts
+         * @description Retrieves a list of broadcasts with optional filtering
+         */
+        get: operations["listBroadcasts"];
+        put?: never;
+        /**
+         * Create broadcast
+         * @description Creates a new broadcast for a campaign and list
+         */
+        post: operations["createBroadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/broadcasts/{broadcastID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get broadcast
+         * @description Retrieves a single broadcast by ID
+         */
+        get: operations["getBroadcast"];
+        put?: never;
+        post?: never;
+        /**
+         * Cancel broadcast
+         * @description Cancels a broadcast. Only allowed when the broadcast is in 'pending' or 'scheduled' state.
+         */
+        delete: operations["cancelBroadcast"];
+        options?: never;
+        head?: never;
+        /**
+         * Update broadcast
+         * @description Updates a broadcast. Only allowed when the broadcast is in 'pending' or 'scheduled' state.
+         */
+        patch: operations["updateBroadcast"];
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/broadcasts/{broadcastID}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get broadcast users
+         * @description Retrieves the users that were sent to as part of a broadcast
+         */
+        get: operations["getBroadcastUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/broadcasts/{broadcastID}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream broadcast progress
+         * @description Streams real-time broadcast sending progress using Server-Sent Events (SSE). Events include individual send completions and terminal state changes (completed, failed, cancelled).
+         */
+        get: operations["streamBroadcastProgress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/projects/{projectID}/broadcasts/{broadcastID}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send broadcast
+         * @description Triggers sending of a pending broadcast
+         */
+        post: operations["sendBroadcast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4238,6 +4350,117 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * @description Current state of the broadcast
+         * @example pending
+         * @enum {string}
+         */
+        BroadcastState: "scheduled" | "pending" | "sending" | "completed" | "failed" | "cancelled";
+        /** @description Real-time progress event published during broadcast processing. Sent via SSE to connected clients. */
+        BroadcastProgressEvent: {
+            /**
+             * Format: uuid
+             * @description The broadcast this event belongs to
+             */
+            broadcast_id: string;
+            /**
+             * Format: uuid
+             * @description The user this send was for. Only present on non-terminal per-send events.
+             */
+            user_id?: string;
+            /**
+             * @description Current state: sent (per-user), completed, failed, or cancelled (terminal)
+             * @example sent
+             */
+            state: string;
+            /**
+             * @description Running count of successfully sent messages
+             * @example 42
+             */
+            total_sent: number;
+            /**
+             * @description True when the broadcast has reached a final state and no more events will follow
+             * @example false
+             */
+            terminal: boolean;
+            /** @description Full name of the recipient user (non-terminal events only) */
+            full_name?: string;
+            /** @description Email of the recipient user (non-terminal events only) */
+            email?: string;
+            /** @description Phone number of the recipient user (non-terminal events only) */
+            phone?: string;
+        };
+        CreateBroadcast: {
+            /**
+             * Format: uuid
+             * @description The campaign to broadcast
+             */
+            campaign_id: string;
+            /**
+             * Format: uuid
+             * @description The list of users to send the broadcast to
+             */
+            list_id: string;
+            /**
+             * Format: date-time
+             * @description Optional scheduled send time. If provided, the broadcast is created in 'scheduled' state.
+             */
+            scheduled_at?: string;
+        };
+        UpdateBroadcast: {
+            /**
+             * Format: date-time
+             * @description Set or update the scheduled send time. Pass null to remove the schedule and revert to pending. Only allowed when the broadcast is in 'pending' or 'scheduled' state.
+             */
+            scheduled_at?: string | null;
+        };
+        Broadcast: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            campaign_id: string;
+            /** Format: uuid */
+            list_id: string;
+            /** @description Snapshot of the list name at broadcast creation time */
+            list_name: string;
+            /** @description Snapshot of the list type at broadcast creation time */
+            list_type: string;
+            state: components["schemas"]["BroadcastState"];
+            /**
+             * @description Total number of users processed
+             * @example 0
+             */
+            total: number;
+            /** @description Error message if the broadcast failed */
+            error?: string;
+            /**
+             * Format: date-time
+             * @description When the broadcast is scheduled to be sent
+             */
+            scheduled_at?: string;
+            /**
+             * Format: date-time
+             * @description When the broadcast started sending
+             */
+            started_at?: string;
+            /**
+             * Format: date-time
+             * @description When the broadcast completed or failed
+             */
+            completed_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            campaign?: {
+                /** Format: uuid */
+                id?: string;
+                name?: string;
+                channel?: string;
+            };
+        };
     };
     responses: {
         /** @description Error response */
@@ -4378,6 +4601,17 @@ export interface components {
             content: {
                 "application/json": components["schemas"]["PaginatedResponse"] & {
                     results: components["schemas"]["Action"][];
+                };
+            };
+        };
+        /** @description Broadcasts retrieved successfully */
+        BroadcastListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PaginatedResponse"] & {
+                    results: components["schemas"]["Broadcast"][];
                 };
             };
         };
@@ -8285,6 +8519,246 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganizationScheduled"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listBroadcasts: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+                /** @description Filter by campaign ID */
+                campaign_id?: string;
+                /** @description Filter by list ID */
+                list_id?: string;
+                /** @description Filter by broadcast state */
+                state?: components["schemas"]["BroadcastState"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BroadcastListResponse"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBroadcast"];
+            };
+        };
+        responses: {
+            /** @description Broadcast created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The broadcast ID */
+                broadcastID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Broadcast retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The broadcast ID */
+                broadcastID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Broadcast cancelled successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The broadcast ID */
+                broadcastID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBroadcast"];
+            };
+        };
+        responses: {
+            /** @description Broadcast updated successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getBroadcastUsers: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: components["parameters"]["Limit"];
+                /** @description Number of items to skip */
+                offset?: components["parameters"]["Offset"];
+                /** @description Search query string */
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The broadcast ID */
+                broadcastID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Broadcast users retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: {
+                            /** Format: uuid */
+                            id?: string;
+                            /** Format: uuid */
+                            user_id?: string;
+                            state?: string;
+                            /** Format: date-time */
+                            sent_at?: string;
+                            full_name?: string;
+                            email?: string;
+                            phone?: string;
+                        }[];
+                        total: number;
+                        limit: number;
+                        offset: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    streamBroadcastProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The broadcast ID */
+                broadcastID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-Sent Event stream of broadcast progress updates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    sendBroadcast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The project ID */
+                projectID: string;
+                /** @description The broadcast ID */
+                broadcastID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Broadcast send triggered successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Broadcast"];
                 };
             };
             default: components["responses"]["Error"];

@@ -6,6 +6,8 @@ import { Controller, useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import api from "@/api"
+import { Radio } from "lucide-react"
+import { isEnterprise } from "@/config/enterprise"
 
 import { channels } from "./template/channels"
 import { CampaignVariables } from "./CampaignVariables"
@@ -15,7 +17,9 @@ import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ProviderSelect } from "@/components/provider/select"
+import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
 const campaignVariableSchema = z.object({
     name: z.string(),
@@ -36,6 +40,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
     const [, setCampaign] = useContext(CampaignContext)
     const templateState = useState<Template>(template)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
 
     const form = useForm<CampaignReviewFormData>({
         resolver: zodResolver(campaignSchema),
@@ -157,7 +162,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                 />
                             </FieldGroup>
 
-                            <div>
+                            <div className="flex items-center gap-2">
                                 <Button
                                     type="submit"
                                     disabled={isSubmitting}
@@ -165,7 +170,36 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                 >
                                     {t("actions.save")}
                                 </Button>
+                                {isEnterprise && (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <div>
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => setIsBroadcastOpen(true)}
+                                                    disabled={!form.watch("provider_id")}
+                                                >
+                                                    <Radio className="mr-2 h-3.5 w-3.5" />
+                                                    {t("send_broadcast", "Send Broadcast")}
+                                                </Button>
+                                            </div>
+                                        </TooltipTrigger>
+                                        {!form.watch("provider_id") && (
+                                            <TooltipContent>
+                                                {t(
+                                                    "broadcast_requires_provider",
+                                                    "Select an integration before sending a broadcast",
+                                                )}
+                                            </TooltipContent>
+                                        )}
+                                    </Tooltip>
+                                )}
                             </div>
+                            <CreateBroadcastDialog
+                                open={isBroadcastOpen}
+                                onOpenChange={setIsBroadcastOpen}
+                                campaignId={campaign.id}
+                            />
                         </form>
                     </div>
 

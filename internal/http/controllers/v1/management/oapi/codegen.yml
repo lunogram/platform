@@ -1,0 +1,9 @@
+package: oapi
+output: resources_gen.go
+generate:
+  models: true
+  client: true
+  chi-server: true
+output-options:
+  overlay:
+    path: overlay.yml

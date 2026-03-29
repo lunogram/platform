@@ -14,10 +14,9 @@ func (controller *Controller) ReconcileJourneyResumptions(ctx context.Context) f
 	return func() {
 		defer controller.recover("journey_resumptions")
 		start := time.Now()
-		var processed, published, failed int
+		var published, failed int
 
 		scanner := func(state journey.JourneyUserState) error {
-			processed++
 			stepType, err := controller.journeys.GetStepType(ctx, *state.PinnedVersionID, state.ExternalStepID)
 			if err != nil {
 				controller.logger.Error("failed to get step type", zap.Error(err), zap.Stringer("journey_id", state.JourneyID), zap.String("step_id", state.ExternalStepID))
@@ -55,7 +54,7 @@ func (controller *Controller) ReconcileJourneyResumptions(ctx context.Context) f
 			return nil
 		}
 
-		err := controller.journeys.ScanResumeableUserJourneys(ctx, scanner)
+		processed, err := controller.journeys.ScanResumeableUserJourneys(ctx, scanner)
 		if err != nil {
 			controller.logger.Error("failed to scan resumeable user journeys", zap.Error(err))
 		}

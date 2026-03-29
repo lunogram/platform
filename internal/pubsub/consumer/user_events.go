@@ -199,12 +199,13 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 			// TODO: include support to pin to specific journey version
 			now := time.Now()
 			result := journey.JourneyUserState{
-				JourneyID:      dep.JourneyID,
-				JourneyEntryID: uuid.New(),
-				UserID:         event.UserID,
-				ExternalStepID: dep.ExternalID,
-				Data:           json.RawMessage(data),
-				CompletedAt:    &now,
+				JourneyID:       dep.JourneyID,
+				JourneyEntryID:  uuid.New(),
+				UserID:          event.UserID,
+				ExternalStepID:  dep.ExternalID,
+				PinnedVersionID: &dep.VersionID,
+				Data:            json.RawMessage(data),
+				CompletedAt:     &now,
 			}
 
 			_, err = jrny.CreateUserJourneyState(ctx, result)
@@ -227,6 +228,7 @@ func PublishUserEventJourneyDependencies(ctx context.Context, logger *zap.Logger
 					ProjectID:      event.ProjectID,
 					JourneyID:      dep.JourneyID,
 					JourneyEntryID: result.JourneyEntryID,
+					VersionID:      &dep.VersionID,
 					ExternalStepID: child.ChildExternalID,
 					UserID:         event.UserID,
 					StepType:       stepType,

@@ -12,7 +12,7 @@ import {
     Settings,
 } from "lucide-react"
 import { NIL } from "uuid"
-import { useRoute } from "../router"
+import { useRoute } from "@/hooks/use-route"
 import { useResolver } from "../../hooks"
 import { formatDate } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
@@ -59,7 +59,7 @@ export default function Organizations() {
     const [newOrgName, setNewOrgName] = useState("")
     const [newOrgData, setNewOrgData] = useState<Record<string, unknown>>({})
     const [page, setPage] = useState(1)
-    const limit = 25
+    const limit = 15
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
     // Debounce search

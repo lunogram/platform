@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 import { ProjectContext, OrganizationContext } from "../../contexts"
 import { useResolver } from "../../hooks"
-import { useRoute } from "../router"
+import { useRoute } from "@/hooks/use-route"
 import oapiClient, { type OrganizationMember } from "../../oapi/client"
 import { getUserDisplayName, getUserInitials, getPrimaryExternalId } from "@/lib/name"
 import type { User as UserType } from "../../types"

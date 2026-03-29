@@ -181,6 +181,33 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
+		Name:        ns.Stream(StreamBroadcasts),
+		Description: "Broadcast processing and execution",
+		Subjects:    []string{ns.Subject("broadcasts.process.>"), ns.Subject("broadcasts.batch.>")},
+		Discard:     jetstream.DiscardOld,
+		MaxAge:      24 * time.Hour,
+		Replicas:    1,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamBroadcasts), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerBroadcastsProcess),
+		Description:   "Processes broadcast send requests",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("broadcasts.process.>"),
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamBroadcasts), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerBroadcastsBatch),
+		Description:   "Processes broadcast batch fan-out",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("broadcasts.batch.>"),
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
+	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
 		Name:        ns.Stream(StreamOrganizations),
 		Description: "Organization processing and schema extraction",
 		Subjects:    []string{ns.Subject("organizations.process.>"), ns.Subject("organizations.schema.>")},

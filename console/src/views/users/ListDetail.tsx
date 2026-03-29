@@ -14,11 +14,13 @@ import {
     AlertCircle,
     Users,
     Eye,
+    Radio,
 } from "lucide-react"
 import api from "../../api"
 import oapiClient from "../../oapi/client"
 import { ListContext, ProjectContext } from "../../contexts"
 import { PreferencesContext } from "@/contexts/PreferencesContext"
+import { isEnterprise } from "@/config/enterprise"
 import type { DynamicList, ListUpdateParams, Rule, WrapperRule } from "../../types"
 
 /** Subset of user fields used by the list detail view, compatible with both the local User type and the OAPI-generated User type. */
@@ -37,7 +39,7 @@ import { formatDate, snakeToTitle } from "../../utils"
 import { getRandomColor } from "@/lib/colors"
 import { getUserDisplayName } from "@/lib/name"
 import RuleBuilder from "./rules/RuleBuilder"
-import { useRoute } from "../router"
+import { useRoute } from "@/hooks/use-route"
 import { useBlocker } from "react-router"
 
 import { Button } from "@/components/ui/button"
@@ -70,6 +72,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { InlineEdit } from "@/components/ui/inline-edit"
+import { CreateBroadcastDialog } from "@/views/broadcast/CreateBroadcastDialog"
 
 import type { ListState } from "../../types"
 
@@ -161,6 +164,7 @@ export default function ListDetail() {
     const [preferences] = useContext(PreferencesContext)
     const [list, setList] = useContext(ListContext)
     const [isUploadOpen, setIsUploadOpen] = useState(false)
+    const [isBroadcastOpen, setIsBroadcastOpen] = useState(false)
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const [savingAction, setSavingAction] = useState<"rule" | "publish" | "other" | null>(null)
@@ -411,6 +415,31 @@ export default function ListDetail() {
                                     <Upload className="mr-2 h-3.5 w-3.5" />
                                     {t("upload_list")}
                                 </Button>
+                            )}
+                            {isEnterprise && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setIsBroadcastOpen(true)}
+                                                disabled={list.state !== "ready"}
+                                            >
+                                                <Radio className="mr-2 h-3.5 w-3.5" />
+                                                {t("send_broadcast", "Send Broadcast")}
+                                            </Button>
+                                        </div>
+                                    </TooltipTrigger>
+                                    {list.state !== "ready" && (
+                                        <TooltipContent>
+                                            {t(
+                                                "broadcast_requires_published_list",
+                                                "Publish the list before sending a broadcast",
+                                            )}
+                                        </TooltipContent>
+                                    )}
+                                </Tooltip>
                             )}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -684,6 +713,13 @@ export default function ListDetail() {
                     </form>
                 </DialogContent>
             </Dialog>
+
+            <CreateBroadcastDialog
+                open={isBroadcastOpen}
+                onOpenChange={setIsBroadcastOpen}
+                listId={list.id}
+                list={list}
+            />
         </div>
     )
 }
