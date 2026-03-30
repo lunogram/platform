@@ -122,15 +122,23 @@ func (s *CampaignSendsStore) CountSendsByBroadcastID(ctx context.Context, broadc
 	return count, err
 }
 
-// InsertCampaignSend creates a new campaign_sends row. The reference_id is used
-// as part of the composite primary key — pass the provider response ID when
-// available, or a generated UUID otherwise.
+// InsertCampaignSend creates a new campaign_sends row. The composite primary
+// key is (campaign_id, user_id, broadcast_id, reference_id) so that the same
+// user can appear in multiple broadcasts for the same campaign.
 func (s *CampaignSendsStore) InsertCampaignSend(ctx context.Context, send CampaignSend) error {
 	stmt := `
 	INSERT INTO campaign_sends (campaign_id, user_id, broadcast_id, state, sent_at, reference_type, reference_id)
 	VALUES ($1, $2, $3, $4, $5, $6, $7)
-	ON CONFLICT (campaign_id, user_id, reference_id) DO NOTHING`
+	ON CONFLICT (campaign_id, user_id, broadcast_id, reference_id) DO NOTHING`
 
-	_, err := s.db.ExecContext(ctx, stmt, send.CampaignID, send.UserID, send.BroadcastID, send.State, send.SentAt, send.ReferenceType, send.ReferenceID)
+	// broadcast_id is part of the composite PK and NOT NULL in the schema.
+	// Non-broadcast sends (e.g. journey triggers) pass a nil BroadcastID;
+	// coalesce to the zero UUID so every row has a deterministic value.
+	broadcastID := uuid.Nil
+	if send.BroadcastID != nil {
+		broadcastID = *send.BroadcastID
+	}
+
+	_, err := s.db.ExecContext(ctx, stmt, send.CampaignID, send.UserID, broadcastID, send.State, send.SentAt, send.ReferenceType, send.ReferenceID)
 	return err
 }
