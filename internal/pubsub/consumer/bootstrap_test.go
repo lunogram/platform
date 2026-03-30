@@ -153,20 +153,22 @@ func TestBootstrapperEnsureStream(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
 	bootstrapper := NewBootstrapper(logger, jet, false)
 
+	streamName := ns.Stream("test_stream")
 	config := jetstream.StreamConfig{
-		Name:        "test_stream",
+		Name:        streamName,
 		Description: "Test stream",
-		Subjects:    []string{"test.>"},
+		Subjects:    []string{ns.Subject("test.>")},
 		MaxAge:      24 * time.Hour,
 	}
 
 	bootstrapper.EnsureStream(ctx, config)
 	require.NoError(t, bootstrapper.Error())
 
-	stream, err := jet.Stream(ctx, "test_stream")
+	stream, err := jet.Stream(ctx, streamName)
 	require.NoError(t, err)
 	assert.NotNil(t, stream)
 }
@@ -177,25 +179,28 @@ func TestBootstrapperEnsureConsumer(t *testing.T) {
 	jet := setupBootstrapTest(t)
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
+	ns := testNamespace(t)
 
+	streamName := ns.Stream("test_stream")
 	_, err := jet.CreateStream(ctx, jetstream.StreamConfig{
-		Name:     "test_stream",
-		Subjects: []string{"test.>"},
+		Name:     streamName,
+		Subjects: []string{ns.Subject("test.>")},
 	})
 	require.NoError(t, err)
 
 	bootstrapper := NewBootstrapper(logger, jet, false)
 
+	consumerName := ns.Consumer("test_consumer")
 	config := jetstream.ConsumerConfig{
-		Name:          "test_consumer",
-		FilterSubject: "test.>",
+		Name:          consumerName,
+		FilterSubject: ns.Subject("test.>"),
 		AckPolicy:     jetstream.AckExplicitPolicy,
 	}
 
-	bootstrapper.EnsureConsumer(ctx, "test_stream", config)
+	bootstrapper.EnsureConsumer(ctx, streamName, config)
 	require.NoError(t, bootstrapper.Error())
 
-	consumer, err := jet.Consumer(ctx, "test_stream", "test_consumer")
+	consumer, err := jet.Consumer(ctx, streamName, consumerName)
 	require.NoError(t, err)
 	assert.NotNil(t, consumer)
 }
