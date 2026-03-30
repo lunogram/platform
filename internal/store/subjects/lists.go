@@ -799,14 +799,14 @@ func (s *ListsStore) GetPublishedRule(ctx context.Context, listID uuid.UUID) (*r
 }
 
 // ListDueForReconciliation identifies a list that needs time-based
-// recomputation (its recompile interval has elapsed since the last recompute).
+// recomputation (its recompute interval has elapsed since the last recompute).
 type ListDueForReconciliation struct {
 	ID        uuid.UUID `db:"id"`
 	ProjectID uuid.UUID `db:"project_id"`
 }
 
 // SelectListsDueForTimeReconciliation returns dynamic lists whose rules depend
-// on rolling time periods and whose recompile interval has elapsed since the
+// on rolling time periods and whose recompute interval has elapsed since the
 // last recomputation. Lists that have never been recomputed (last_recomputed_at
 // IS NULL) are always included.
 func (s *ListsStore) SelectListsDueForTimeReconciliation(ctx context.Context) ([]ListDueForReconciliation, error) {
@@ -818,10 +818,10 @@ func (s *ListsStore) SelectListsDueForTimeReconciliation(ctx context.Context) ([
 	WHERE l.type = 'dynamic'
 		AND l.deleted_at IS NULL
 		AND r.depends_on_time = TRUE
-		AND r.recompile_interval IS NOT NULL
+		AND r.recompute_interval IS NOT NULL
 		AND (
 			l.last_recomputed_at IS NULL
-			OR l.last_recomputed_at + r.recompile_interval <= NOW()
+			OR l.last_recomputed_at + r.recompute_interval <= NOW()
 		)`
 
 	var results []ListDueForReconciliation

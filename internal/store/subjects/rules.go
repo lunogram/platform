@@ -27,7 +27,7 @@ type Rule struct {
 	DependsOnOrganizations     bool                       `db:"depends_on_organizations"`
 	DependsOnOrganizationUsers bool                       `db:"depends_on_organization_users"`
 	DependsOnTime              bool                       `db:"depends_on_time"`
-	RecompileInterval          *string                    `db:"recompile_interval"`
+	RecomputeInterval          *string                    `db:"recompute_interval"`
 	Events                     store.UUIDArray            `db:"events"`
 	Version                    int                        `db:"version"`
 	CreatedAt                  time.Time                  `db:"created_at"`
@@ -46,10 +46,10 @@ type RulesStore struct {
 
 func (s *RulesStore) CreateOrUpdateRule(ctx context.Context, projectID uuid.UUID, id *uuid.UUID, rule rules.RuleSet) (uuid.UUID, error) {
 	dependsOnTime := rule.DependsOnTime()
-	var recompileInterval *string
-	if ri := rule.RecompileInterval(); ri != nil {
+	var recomputeInterval *string
+	if ri := rule.RecomputeInterval(); ri != nil {
 		v := durationToPostgresInterval(*ri)
-		recompileInterval = &v
+		recomputeInterval = &v
 	}
 
 	if id != nil {
@@ -60,7 +60,7 @@ func (s *RulesStore) CreateOrUpdateRule(ctx context.Context, projectID uuid.UUID
 			DependsOnOrganizations:     rule.DependsOnOrganizations(),
 			DependsOnOrganizationUsers: rule.DependsOnOrganizationUsers(),
 			DependsOnTime:              dependsOnTime,
-			RecompileInterval:          recompileInterval,
+			RecomputeInterval:          recomputeInterval,
 		})
 
 		return *id, err
@@ -74,19 +74,19 @@ func (s *RulesStore) CreateOrUpdateRule(ctx context.Context, projectID uuid.UUID
 		DependsOnOrganizations:     rule.DependsOnOrganizations(),
 		DependsOnOrganizationUsers: rule.DependsOnOrganizationUsers(),
 		DependsOnTime:              dependsOnTime,
-		RecompileInterval:          recompileInterval,
+		RecomputeInterval:          recomputeInterval,
 		Version:                    1,
 	})
 }
 
 func (s *RulesStore) CreateRule(ctx context.Context, rule Rule) (uuid.UUID, error) {
 	stmt := `
-	INSERT INTO rules (project_id, rule, depends_on_events, depends_on_users, depends_on_organizations, depends_on_organization_users, depends_on_time, recompile_interval, version)
+	INSERT INTO rules (project_id, rule, depends_on_events, depends_on_users, depends_on_organizations, depends_on_organization_users, depends_on_time, recompute_interval, version)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8::interval, $9)
 	RETURNING id`
 
 	var id uuid.UUID
-	err := s.db.GetContext(ctx, &id, stmt, rule.ProjectID, rule.Rule, rule.DependsOnEvents, rule.DependsOnUsers, rule.DependsOnOrganizations, rule.DependsOnOrganizationUsers, rule.DependsOnTime, rule.RecompileInterval, rule.Version)
+	err := s.db.GetContext(ctx, &id, stmt, rule.ProjectID, rule.Rule, rule.DependsOnEvents, rule.DependsOnUsers, rule.DependsOnOrganizations, rule.DependsOnOrganizationUsers, rule.DependsOnTime, rule.RecomputeInterval, rule.Version)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -152,7 +152,7 @@ func (s *RulesStore) GetRule(ctx context.Context, projectID, ruleID uuid.UUID) (
 		r.depends_on_organizations,
 		r.depends_on_organization_users,
 		r.depends_on_time,
-		r.recompile_interval,
+		r.recompute_interval,
 		COALESCE(
 			(
 				SELECT array_agg(re.event_id)
@@ -184,7 +184,7 @@ type RuleUpdate struct {
 	DependsOnOrganizations     bool
 	DependsOnOrganizationUsers bool
 	DependsOnTime              bool
-	RecompileInterval          *string
+	RecomputeInterval          *string
 }
 
 func (s *RulesStore) UpdateRule(ctx context.Context, projectID, id uuid.UUID, update RuleUpdate) error {
@@ -197,11 +197,11 @@ func (s *RulesStore) UpdateRule(ctx context.Context, projectID, id uuid.UUID, up
 		depends_on_organizations = $6,
 		depends_on_organization_users = $7,
 		depends_on_time = $8,
-		recompile_interval = $9::interval
+		recompute_interval = $9::interval
 	WHERE project_id = $1
 	AND id = $2`
 
-	_, err := s.db.ExecContext(ctx, query, projectID, id, update.Rule, update.DependsOnEvents, update.DependsOnUsers, update.DependsOnOrganizations, update.DependsOnOrganizationUsers, update.DependsOnTime, update.RecompileInterval)
+	_, err := s.db.ExecContext(ctx, query, projectID, id, update.Rule, update.DependsOnEvents, update.DependsOnUsers, update.DependsOnOrganizations, update.DependsOnOrganizationUsers, update.DependsOnTime, update.RecomputeInterval)
 	return err
 }
 
@@ -213,17 +213,17 @@ func (s *RulesStore) DuplicateRule(ctx context.Context, projectID, ruleID uuid.U
 	WITH src AS (
 		SELECT project_id, rule, depends_on_events, depends_on_users,
 			depends_on_organizations, depends_on_organization_users,
-			depends_on_time, recompile_interval
+			depends_on_time, recompute_interval
 		FROM rules
 		WHERE project_id = $1 AND id = $2
 	),
 	new_rule AS (
 		INSERT INTO rules (project_id, rule, depends_on_events, depends_on_users,
 			depends_on_organizations, depends_on_organization_users,
-			depends_on_time, recompile_interval, version)
+			depends_on_time, recompute_interval, version)
 		SELECT project_id, rule, depends_on_events, depends_on_users,
 			depends_on_organizations, depends_on_organization_users,
-			depends_on_time, recompile_interval, 1
+			depends_on_time, recompute_interval, 1
 		FROM src
 		RETURNING id
 	),

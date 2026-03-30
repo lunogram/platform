@@ -135,11 +135,11 @@ func (unit PeriodUnit) SQL() string {
 	}
 }
 
-// RecompileInterval returns the recommended recomputation interval for a
+// RecomputeInterval returns the recommended recomputation interval for a
 // rolling period with this unit. The intervals are chosen so that lists are
 // recomputed frequently enough to keep membership reasonably fresh without
 // being wasteful.
-func (unit PeriodUnit) RecompileInterval() time.Duration {
+func (unit PeriodUnit) RecomputeInterval() time.Duration {
 	switch unit {
 	case PeriodUnitMinute:
 		return time.Minute
@@ -350,19 +350,19 @@ func (r Rule) DependsOnTime() bool {
 	return false
 }
 
-// smallestRecompileInterval recursively finds the smallest recompile interval
+// smallestRecomputeInterval recursively finds the smallest recompute interval
 // across all rolling period nodes in the rule tree. Returns nil when no rolling
 // periods exist.
-func (r Rule) smallestRecompileInterval() *time.Duration {
+func (r Rule) smallestRecomputeInterval() *time.Duration {
 	var smallest *time.Duration
 
 	if r.Frequency != nil && r.Frequency.Period.Type == PeriodTypeRolling {
-		d := r.Frequency.Period.Unit.RecompileInterval()
+		d := r.Frequency.Period.Unit.RecomputeInterval()
 		smallest = &d
 	}
 
 	if r.UserMatch != nil && r.UserMatch.MemberConditions != nil {
-		if child := r.UserMatch.MemberConditions.smallestRecompileInterval(); child != nil {
+		if child := r.UserMatch.MemberConditions.smallestRecomputeInterval(); child != nil {
 			if smallest == nil || *child < *smallest {
 				smallest = child
 			}
@@ -370,7 +370,7 @@ func (r Rule) smallestRecompileInterval() *time.Duration {
 	}
 
 	for _, child := range r.Children {
-		if child := child.smallestRecompileInterval(); child != nil {
+		if child := child.smallestRecomputeInterval(); child != nil {
 			if smallest == nil || *child < *smallest {
 				smallest = child
 			}
@@ -385,12 +385,12 @@ type RuleSet struct {
 	Rule
 }
 
-// RecompileInterval returns the recommended recomputation interval for the
+// RecomputeInterval returns the recommended recomputation interval for the
 // entire rule set. It walks the rule tree and returns the smallest tier-based
 // interval across all rolling period nodes. Returns nil when the rule set
 // contains no rolling periods (i.e. no time-based reconciliation needed).
-func (rs RuleSet) RecompileInterval() *time.Duration {
-	return rs.Rule.smallestRecompileInterval()
+func (rs RuleSet) RecomputeInterval() *time.Duration {
+	return rs.Rule.smallestRecomputeInterval()
 }
 
 // HasChildren returns true if the rule has child rules

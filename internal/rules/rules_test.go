@@ -1043,7 +1043,7 @@ func TestPeriodUnitSQL(t *testing.T) {
 	}
 }
 
-func TestPeriodUnitRecompileInterval(t *testing.T) {
+func TestPeriodUnitRecomputeInterval(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
@@ -1084,7 +1084,7 @@ func TestPeriodUnitRecompileInterval(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			result := test.unit.RecompileInterval()
+			result := test.unit.RecomputeInterval()
 			assert.Equal(t, test.expected, result)
 		})
 	}
@@ -1213,7 +1213,7 @@ func TestRuleDependsOnTime(t *testing.T) {
 	}
 }
 
-func TestRuleSetRecompileInterval(t *testing.T) {
+func TestRuleSetRecomputeInterval(t *testing.T) {
 	t.Parallel()
 
 	t.Run("no rolling periods returns nil", func(t *testing.T) {
@@ -1233,7 +1233,7 @@ func TestRuleSetRecompileInterval(t *testing.T) {
 				},
 			},
 		}
-		assert.Nil(t, rs.RecompileInterval())
+		assert.Nil(t, rs.RecomputeInterval())
 	})
 
 	t.Run("single rolling period returns tier interval", func(t *testing.T) {
@@ -1260,7 +1260,7 @@ func TestRuleSetRecompileInterval(t *testing.T) {
 				},
 			},
 		}
-		interval := rs.RecompileInterval()
+		interval := rs.RecomputeInterval()
 		require.NotNil(t, interval)
 		assert.Equal(t, time.Hour, *interval)
 	})
@@ -1303,7 +1303,7 @@ func TestRuleSetRecompileInterval(t *testing.T) {
 				},
 			},
 		}
-		interval := rs.RecompileInterval()
+		interval := rs.RecomputeInterval()
 		require.NotNil(t, interval)
 		// hour tier (5 min) < month tier (24 hours), so hour wins
 		assert.Equal(t, 5*time.Minute, *interval)
@@ -1354,7 +1354,7 @@ func TestRuleSetRecompileInterval(t *testing.T) {
 				},
 			},
 		}
-		interval := rs.RecompileInterval()
+		interval := rs.RecomputeInterval()
 		require.NotNil(t, interval)
 		// Only the week rolling period counts; since_entered is not rolling
 		assert.Equal(t, 6*time.Hour, *interval)
