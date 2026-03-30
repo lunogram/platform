@@ -674,7 +674,8 @@ func (srv *ClientController) PostOrganizationEventsClient(w http.ResponseWriter,
 
 		case event.Identifier != nil:
 			orgIdentifiers := oapi.ToParams(*event.Identifier)
-			orgID, err := srv.users.LookupOrganizationID(ctx, projectID, orgIdentifiers)
+			var orgID uuid.UUID
+			orgID, err = srv.users.LookupOrganizationID(ctx, projectID, orgIdentifiers)
 			if errors.Is(err, subjects.ErrOrgNotFound) {
 				logger.Warn("organization not found, skipping event",
 					zap.Int("org_identifiers", len(*event.Identifier)),
