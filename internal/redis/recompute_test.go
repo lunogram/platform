@@ -436,7 +436,14 @@ func TestRecomputeLockerConcurrentFullCycle(t *testing.T) {
 		wg             sync.WaitGroup
 		recomputeCount int64
 		mu             sync.Mutex
+		handlerReady   = make(chan struct{})
 	)
+
+	// Ensure the handler acquires the lock before any producer starts,
+	// otherwise a zero-delay producer can win the SetNX race and the
+	// handler never enters the recompute loop.
+	acquired, gen := locker.Acquire(ctx, projectID, listID)
+	require.True(t, acquired, "handler must win initial acquire")
 
 	wg.Add(producers + 1)
 
@@ -444,10 +451,8 @@ func TestRecomputeLockerConcurrentFullCycle(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		acquired, gen := locker.Acquire(ctx, projectID, listID)
-		if !acquired {
-			return
-		}
+		gen := gen
+		close(handlerReady)
 
 		for {
 			mu.Lock()
@@ -476,6 +481,7 @@ func TestRecomputeLockerConcurrentFullCycle(t *testing.T) {
 	for i := 0; i < producers; i++ {
 		go func(delay int) {
 			defer wg.Done()
+			<-handlerReady
 			time.Sleep(time.Duration(delay) * time.Millisecond)
 			locker.Acquire(ctx, projectID, listID) //nolint:errcheck
 		}(i)
