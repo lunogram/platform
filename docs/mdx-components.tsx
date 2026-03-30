@@ -11,12 +11,15 @@ import {
   CardAction,
 } from "@/components/ui/card";
 import { Mermaid } from "@/components/mermaid";
+import { EnterpriseFeature, EnterpriseBadge } from "@/components/enterprise";
 
 export function getMDXComponents(components?: MDXComponents): MDXComponents {
   return {
     ...defaultMdxComponents,
     Button,
     Mermaid,
+    EnterpriseFeature,
+    EnterpriseBadge,
     ShadCard: Card,
     ShadCardHeader: CardHeader,
     ShadCardTitle: CardTitle,
