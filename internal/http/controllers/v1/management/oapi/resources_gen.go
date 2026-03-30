@@ -535,6 +535,7 @@ type DeviceRegistration struct {
 	Model            *string               `json:"model,omitempty"`
 	Os               *DeviceRegistrationOs `json:"os,omitempty"`
 	OsVersion        *string               `json:"os_version,omitempty"`
+	Token            *string               `json:"token,omitempty"`
 	PushSubscription struct {
 		Endpoint       string     `json:"endpoint"`
 		ExpirationTime *time.Time `json:"expiration_time,omitempty"`
@@ -542,7 +543,7 @@ type DeviceRegistration struct {
 			Auth   string `json:"auth"`
 			P256dh string `json:"p256dh"`
 		} `json:"keys"`
-	} `json:"push_subscription"`
+	} `json:"push_subscription,omitempty"`
 
 	// UserId User ID to associate with this device
 	UserId *string `json:"user_id,omitempty"`

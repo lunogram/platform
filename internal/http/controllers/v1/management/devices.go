@@ -34,22 +34,8 @@ type DevicesController struct {
 
 func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Request, projectID uuid.UUID) {
 	ctx := r.Context()
-	actor := rbac.FromContext(ctx)
-	if actor == nil {
-		oapi.WriteProblem(w, problem.ErrUnauthorized())
-		srv.logger.Warn("unauthenticated request to register device")
-		return
-	}
-
-	err := srv.engine.Allowed(ctx, rbac.Create, rbac.ProjectResourceScope("devices", projectID))
-	if err != nil {
-		oapi.WriteProblem(w, err)
-		srv.logger.Warn("access denied for registering device", zap.Error(err))
-		return
-	}
-
 	var req oapi.DeviceRegistration
-	err = json.Decode(r.Body, &req)
+	err := json.Decode(r.Body, &req)
 	if err != nil {
 		srv.logger.Error("failed to decode request body", zap.Error(err))
 		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid request body")))
@@ -92,42 +78,67 @@ func (srv *DevicesController) RegisterDevice(w http.ResponseWriter, r *http.Requ
 		logger.Info("no user association for device")
 	}
 
-	creds := &subjects.DeviceCredentials{
-		Endpoint: req.PushSubscription.Endpoint,
-		Keys: struct {
-			Auth   string `json:"auth"`
-			P256dh string `json:"p256dh"`
-		}{
-			Auth:   req.PushSubscription.Keys.Auth,
-			P256dh: req.PushSubscription.Keys.P256dh,
-		},
-	}
-	if req.PushSubscription.ExpirationTime != nil {
-		creds.ExpirationTime = req.PushSubscription.ExpirationTime
-	}
-
 	var osStr *string
 	if req.Os != nil {
 		osVal := string(*req.Os)
 		osStr = &osVal
 	}
 
-	userId, err := uuid.Parse(*req.UserId)
-	if err != nil {
-		logger.Error("failed to parse user ID", zap.Error(err))
-		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid user ID")))
-		return
+	// Use userID resolved from external_id/anonymous_id lookup, or fall back to req.UserId
+	userId := userID
+	if userId == uuid.Nil {
+		if req.UserId == nil || *req.UserId == "" {
+			logger.Error("no user ID provided")
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("user ID is required")))
+			return
+		}
+		var err error
+		userId, err = uuid.Parse(*req.UserId)
+		if err != nil {
+			logger.Error("failed to parse user ID", zap.Error(err))
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("invalid user ID")))
+			return
+		}
 	}
 
 	device := subjects.Device{
-		ProjectID:         projectID,
-		UserID:            userId,
-		DeviceID:          req.DeviceId,
-		DeviceCredentials: creds,
-		OS:                osStr,
-		OSVersion:         req.OsVersion,
-		Model:             req.Model,
-		AppVersion:        req.AppVersion,
+		ProjectID:  projectID,
+		UserID:     userId,
+		DeviceID:   req.DeviceId,
+		OS:         osStr,
+		OSVersion:  req.OsVersion,
+		Model:      req.Model,
+		AppVersion: req.AppVersion,
+	}
+
+	// Handle push credentials - either FCM token OR Web Push subscription, not both
+	if req.Token != nil && *req.Token != "" {
+		// FCM token provided - save token, leave device_credentials NULL
+		logger.Info("registering device with FCM token")
+		device.Token = req.Token
+		device.DeviceCredentials = nil
+	} else if req.PushSubscription.Endpoint != "" {
+		// Web Push subscription provided - save credentials, leave token NULL
+		logger.Info("registering device with Web Push subscription")
+		device.Token = nil
+		device.DeviceCredentials = &subjects.DeviceCredentials{
+			Endpoint: req.PushSubscription.Endpoint,
+			Keys: struct {
+				Auth   string `json:"auth"`
+				P256dh string `json:"p256dh"`
+			}{
+				Auth:   req.PushSubscription.Keys.Auth,
+				P256dh: req.PushSubscription.Keys.P256dh,
+			},
+		}
+		if req.PushSubscription.ExpirationTime != nil {
+			device.DeviceCredentials.ExpirationTime = req.PushSubscription.ExpirationTime
+		}
+	} else {
+		// Neither provided - error
+		logger.Error("neither token nor push_subscription provided")
+		oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("must provide either 'token' (FCM) or 'push_subscription' (Web Push)")))
+		return
 	}
 
 	err = devicesStore.UpsertDevice(ctx, device)

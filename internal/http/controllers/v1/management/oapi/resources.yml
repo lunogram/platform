@@ -1003,8 +1003,6 @@ paths:
       summary: Register device
       description: Register or update a device's push subscription
       operationId: registerDevice
-      security:
-        - HttpBearerAuth: []
       parameters:
         - name: projectID
           in: path
@@ -8001,7 +7999,6 @@ components:
       type: object
       required:
         - device_id
-        - push_subscription
       properties:
         user_id:
           type: string
@@ -8018,6 +8015,8 @@ components:
           type: string
           enum: [web, ios, android]
         os_version:
+          type: string
+        token:
           type: string
         model:
           type: string

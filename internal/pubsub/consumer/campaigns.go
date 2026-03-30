@@ -23,6 +23,19 @@ import (
 	internalProviders "github.com/lunogram/platform/internal/providers"
 )
 
+func toInt(v any) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case int64:
+		return int(n)
+	case float64:
+		return int(n)
+	default:
+		return 0
+	}
+}
+
 // userToMap converts a User to a map suitable for Liquid template rendering.
 // The result can be used as the "user" key in the render context so that
 // {{ user.email }}, {{ user.data.first_name }} etc. work in templates.
@@ -252,6 +265,24 @@ func CampaignsSendHandler(logger *zap.Logger, mgmt *management.State, usrs *subj
 				return Permanent(err)
 			}
 			return err
+		}
+
+		// Log detailed status from provider response
+		if response.Metadata != nil {
+			if fcmMeta, ok := response.Metadata["fcm"].(map[string]any); ok {
+				logger.Info("FCM delivery details",
+					zap.Int("success_count", toInt(fcmMeta["success_count"])),
+					zap.Int("failure_count", toInt(fcmMeta["failure_count"])),
+					zap.Any("errors", fcmMeta["errors"]),
+				)
+			}
+			if wpMeta, ok := response.Metadata["webpush"].(map[string]any); ok {
+				logger.Info("Web Push delivery details",
+					zap.Int("success_count", toInt(wpMeta["success_count"])),
+					zap.Int("failure_count", toInt(wpMeta["failure_count"])),
+					zap.Any("errors", wpMeta["errors"]),
+				)
+			}
 		}
 
 		logger.Info("campaign sent successfully", zap.String("status", response.Status), zap.String("id", response.ID))

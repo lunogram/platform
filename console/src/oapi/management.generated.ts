@@ -4190,9 +4190,10 @@ export interface components {
             /** @enum {string} */
             os?: "web" | "ios" | "android";
             os_version?: string;
+            token?: string;
             model?: string;
             app_version?: string;
-            push_subscription: {
+            push_subscription?: {
                 endpoint: string;
                 /** Format: date-time */
                 expiration_time?: string;
