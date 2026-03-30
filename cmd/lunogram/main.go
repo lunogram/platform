@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+
 	"flag"
 	"fmt"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/consumer"
+	"github.com/lunogram/platform/internal/ratelimit"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/rbac/access"
 	"github.com/lunogram/platform/internal/storage"
@@ -25,6 +27,7 @@ import (
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
+
 	"go.uber.org/zap"
 )
 
@@ -109,7 +112,7 @@ func run() error {
 		return err
 	}
 
-	err = consumer.Bootstrap(ctx, logger, jet, consumer.Namespace(conf.Nats.Namespace))
+	err = consumer.Bootstrap(ctx, logger, jet, consumer.Namespace(conf.Nats.Namespace), consumer.WithManagedExternally(conf.Nats.ManagedExternally))
 	if err != nil {
 		return err
 	}
@@ -139,7 +142,10 @@ func run() error {
 
 	logger.Info("link wrapping enabled", zap.String("tracking_url", trackingURL))
 
-	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, conf.PublicBaseURL(), linkKey, trackingURL)
+	logger.Info("initializing rate limiter")
+	limiter := ratelimit.NewFromRedisURL(ctx, conf.Redis.Address, conf.Redis.KeyPrefix, logger)
+
+	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, limiter, conf.PublicBaseURL(), linkKey, trackingURL)
 
 	logger.Info("initializing cluster")
 

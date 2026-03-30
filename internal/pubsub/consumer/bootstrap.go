@@ -23,9 +23,32 @@ var (
 	ProcessMaxDeliver = 20
 )
 
-func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream, ns Namespace) error {
-	logger.Info("bootstrapping pubsub streams and consumers...", zap.String("namespace", string(ns)))
-	bootstrap := NewBootstrapper(logger, jet)
+// BootstrapOption configures optional Bootstrap behaviour.
+type BootstrapOption func(*bootstrapOptions)
+
+type bootstrapOptions struct {
+	// managedExternally skips updating existing streams and consumers,
+	// only creating them if they don't exist yet. Use this when streams
+	// are managed by an external tool (e.g. Terraform, nats CLI) and
+	// the application should not overwrite their configuration.
+	managedExternally bool
+}
+
+// WithManagedExternally configures the bootstrapper to only create streams
+// and consumers that don't exist yet, leaving existing ones untouched.
+// This is useful when JetStream resources are managed by an external system.
+func WithManagedExternally(managed bool) BootstrapOption {
+	return func(o *bootstrapOptions) { o.managedExternally = managed }
+}
+
+func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream, ns Namespace, opts ...BootstrapOption) error {
+	var o bootstrapOptions
+	for _, fn := range opts {
+		fn(&o)
+	}
+
+	logger.Info("bootstrapping pubsub streams and consumers...", zap.String("namespace", string(ns)), zap.Bool("managed_externally", o.managedExternally))
+	bootstrap := NewBootstrapper(logger, jet, o.managedExternally)
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
 		Name:        ns.Stream(StreamUsers),
@@ -163,12 +186,14 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
-		Name:        ns.Stream(StreamCampaigns),
-		Description: "Campaign sending and execution",
-		Subjects:    []string{ns.Subject("campaigns.>")},
-		Discard:     jetstream.DiscardOld,
-		MaxAge:      24 * time.Hour,
-		Replicas:    1,
+		Name:              ns.Stream(StreamCampaigns),
+		Description:       "Campaign sending and execution",
+		Subjects:          []string{ns.Subject("campaigns.>"), ns.Subject("schedules.campaigns.>")},
+		Discard:           jetstream.DiscardOld,
+		MaxAge:            24 * time.Hour,
+		Replicas:          1,
+		AllowMsgSchedules: true,
+		AllowMsgTTL:       true,
 	})
 
 	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamCampaigns), jetstream.ConsumerConfig{
@@ -327,17 +352,19 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 	return bootstrap.Error()
 }
 
-func NewBootstrapper(logger *zap.Logger, jet jetstream.JetStream) *Bootstrapper {
+func NewBootstrapper(logger *zap.Logger, jet jetstream.JetStream, managedExternally bool) *Bootstrapper {
 	return &Bootstrapper{
-		jet:    jet,
-		logger: logger,
+		jet:               jet,
+		logger:            logger,
+		managedExternally: managedExternally,
 	}
 }
 
 type Bootstrapper struct {
-	err    error
-	jet    jetstream.JetStream
-	logger *zap.Logger
+	err               error
+	jet               jetstream.JetStream
+	logger            *zap.Logger
+	managedExternally bool
 }
 
 func (b *Bootstrapper) EnsureStream(ctx graceful.Context, config jetstream.StreamConfig) {
@@ -347,19 +374,35 @@ func (b *Bootstrapper) EnsureStream(ctx graceful.Context, config jetstream.Strea
 
 	b.logger.Info("ensuring stream", zap.String("stream", config.Name))
 
-	_, b.err = b.jet.Stream(ctx, config.Name)
-	if b.err != nil && b.err != jetstream.ErrStreamNotFound {
-		b.logger.Error("error checking for stream", zap.String("stream", config.Name), zap.Error(b.err))
+	if b.managedExternally {
+		_, b.err = b.jet.Stream(ctx, config.Name)
+		if b.err != nil && b.err != jetstream.ErrStreamNotFound {
+			b.logger.Error("error checking for stream", zap.String("stream", config.Name), zap.Error(b.err))
+			return
+		}
+		if b.err == nil {
+			b.logger.Info("stream already exists (managed externally, skipping update)", zap.String("stream", config.Name))
+			return
+		}
+		b.logger.Info("creating stream (not found, even in managed-externally mode)", zap.String("stream", config.Name))
+		_, b.err = b.jet.CreateStream(ctx, config)
 		return
 	}
 
-	if b.err == nil {
-		b.logger.Info("stream already exists", zap.String("stream", config.Name))
+	_, err := b.jet.Stream(ctx, config.Name)
+	existed := err == nil
+
+	_, b.err = b.jet.CreateOrUpdateStream(ctx, config)
+	if b.err != nil {
+		b.logger.Error("failed to create or update stream", zap.String("stream", config.Name), zap.Error(b.err))
 		return
 	}
 
-	b.logger.Info("creating stream", zap.String("stream", config.Name))
-	_, b.err = b.jet.CreateStream(ctx, config)
+	if existed {
+		b.logger.Info("stream updated", zap.String("stream", config.Name))
+	} else {
+		b.logger.Info("stream created", zap.String("stream", config.Name))
+	}
 }
 
 func (b *Bootstrapper) EnsureConsumer(ctx context.Context, stream string, config jetstream.ConsumerConfig) {
@@ -377,19 +420,35 @@ func (b *Bootstrapper) EnsureConsumer(ctx context.Context, stream string, config
 		config.Durable = config.Name
 	}
 
-	_, b.err = b.jet.Consumer(ctx, stream, config.Durable)
-	if b.err != nil && b.err != jetstream.ErrConsumerNotFound {
-		b.logger.Error("error checking for consumer", zap.String("stream", stream), zap.String("consumer", config.Durable), zap.Error(b.err))
+	if b.managedExternally {
+		_, b.err = b.jet.Consumer(ctx, stream, config.Durable)
+		if b.err != nil && b.err != jetstream.ErrConsumerNotFound {
+			b.logger.Error("error checking for consumer", zap.String("stream", stream), zap.String("consumer", config.Durable), zap.Error(b.err))
+			return
+		}
+		if b.err == nil {
+			b.logger.Info("consumer already exists (managed externally, skipping update)", zap.String("stream", stream), zap.String("consumer", config.Durable))
+			return
+		}
+		b.logger.Info("creating consumer (not found, even in managed-externally mode)", zap.String("stream", stream), zap.String("consumer", config.Durable))
+		_, b.err = b.jet.CreateConsumer(ctx, stream, config)
 		return
 	}
 
-	if b.err == nil {
-		b.logger.Info("consumer already exists", zap.String("stream", stream), zap.String("consumer", config.Durable))
+	_, err := b.jet.Consumer(ctx, stream, config.Durable)
+	existed := err == nil
+
+	_, b.err = b.jet.CreateOrUpdateConsumer(ctx, stream, config)
+	if b.err != nil {
+		b.logger.Error("failed to create or update consumer", zap.String("stream", stream), zap.String("consumer", config.Name), zap.Error(b.err))
 		return
 	}
 
-	b.logger.Info("creating consumer", zap.String("stream", stream), zap.String("consumer", config.Durable))
-	_, b.err = b.jet.CreateConsumer(ctx, stream, config)
+	if existed {
+		b.logger.Info("consumer updated", zap.String("stream", stream), zap.String("consumer", config.Name))
+	} else {
+		b.logger.Info("consumer created", zap.String("stream", stream), zap.String("consumer", config.Name))
+	}
 }
 
 func (b *Bootstrapper) Error() error {

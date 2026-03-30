@@ -36,6 +36,7 @@ type Broadcast struct {
 	// processing. The actual delivered count comes from campaign_sends and
 	// is fetched separately when returning responses to the client.
 	Total       int        `db:"total"`
+	Sent        int        `db:"-"` // computed: actual delivery count from campaign_sends
 	Error       *string    `db:"error"`
 	ScheduledAt *time.Time `db:"scheduled_at"`
 	CreatedAt   time.Time  `db:"created_at"`
@@ -58,6 +59,7 @@ func (b Broadcast) OAPI() oapi.Broadcast {
 		ListType:    b.ListType,
 		State:       oapi.BroadcastState(b.State),
 		Total:       b.Total,
+		Sent:        &b.Sent,
 		Error:       b.Error,
 		ScheduledAt: b.ScheduledAt,
 		StartedAt:   b.StartedAt,
@@ -221,6 +223,37 @@ func (s *BroadcastsStore) UpdateBroadcastState(ctx context.Context, projectID, b
 
 	_, err := s.db.ExecContext(ctx, query, projectID, broadcastID, state, total, msg, string(state))
 	return err
+}
+
+// TransitionBroadcastState is like UpdateBroadcastState but only applies the
+// update when the broadcast is currently in fromState. This prevents concurrent
+// senders from racing to complete the same broadcast. Returns true when the
+// row was actually updated (i.e. the transition happened).
+func (s *BroadcastsStore) TransitionBroadcastState(ctx context.Context, projectID, broadcastID uuid.UUID, fromState, toState BroadcastState, total int, msg *string) (bool, error) {
+	query := `
+	UPDATE campaign_broadcasts
+	SET
+		state = $3,
+		total = $4,
+		error = $5,
+		updated_at = NOW(),
+		started_at = CASE WHEN $6 = 'sending' AND started_at IS NULL THEN NOW() ELSE started_at END,
+		completed_at = CASE WHEN $6 IN ('completed', 'failed') THEN NOW() ELSE completed_at END
+	WHERE id = $2
+	AND project_id = $1
+	AND state = $7`
+
+	result, err := s.db.ExecContext(ctx, query, projectID, broadcastID, toState, total, msg, string(toState), string(fromState))
+	if err != nil {
+		return false, err
+	}
+
+	n, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return n > 0, nil
 }
 
 // IncrementBroadcastTotal atomically adds delta to the broadcast's total count.

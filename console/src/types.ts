@@ -645,6 +645,7 @@ export interface Broadcast {
     list_type: ListType
     state: BroadcastState
     total: number
+    sent: number
     error?: string
     created_at: string
     updated_at: string

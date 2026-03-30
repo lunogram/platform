@@ -307,8 +307,8 @@ export default function Broadcasts() {
                                         </TableCell>
                                         <TableCell>{getStateBadge(broadcast.state, t)}</TableCell>
                                         <TableCell className="hidden sm:table-cell text-muted-foreground">
-                                            {broadcast.total > 0
-                                                ? broadcast.total.toLocaleString()
+                                            {broadcast.sent > 0
+                                                ? broadcast.sent.toLocaleString()
                                                 : "—"}
                                         </TableCell>
                                         <TableCell className="hidden md:table-cell text-muted-foreground">

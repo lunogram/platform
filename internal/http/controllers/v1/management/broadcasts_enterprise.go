@@ -159,9 +159,7 @@ func (srv *BroadcastsController) ListBroadcasts(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Fetch actual sent counts from campaign_sends in the subjects DB.
-	// This replaces the pre-computed total (which reflects list size at send
-	// time) with the number of messages the provider actually accepted.
+	// Populate the computed Sent field from campaign_sends.
 	if len(result) > 0 {
 		ids := make([]uuid.UUID, len(result))
 		for i, b := range result {
@@ -170,11 +168,11 @@ func (srv *BroadcastsController) ListBroadcasts(w http.ResponseWriter, r *http.R
 		counts, err := srv.usrs.CampaignSendsStore.CountSendsByBroadcastIDs(ctx, ids)
 		if err != nil {
 			logger.Error("failed to count broadcast sends", zap.Error(err))
-			// Non-fatal: fall through with the existing totals.
+			// Non-fatal: Sent stays 0.
 		} else {
 			for i := range result {
 				if c, ok := counts[result[i].ID]; ok {
-					result[i].Total = c
+					result[i].Sent = c
 				}
 			}
 		}
@@ -213,13 +211,11 @@ func (srv *BroadcastsController) GetBroadcast(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Replace pre-computed total with the actual sent count from campaign_sends.
-	sentCount, err := srv.usrs.CampaignSendsStore.CountSendsByBroadcastID(ctx, broadcastID)
+	broadcast.Sent, err = srv.usrs.CampaignSendsStore.CountSendsByBroadcastID(ctx, broadcastID)
 	if err != nil {
 		logger.Error("failed to count broadcast sends", zap.Error(err))
-		// Non-fatal: fall through with the existing total.
-	} else {
-		broadcast.Total = sentCount
+		oapi.WriteProblem(w, err)
+		return
 	}
 
 	logger.Debug("broadcast retrieved")

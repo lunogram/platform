@@ -62,6 +62,11 @@ func Manifest() int32 {
 		Spec: providers.ProviderSpec{
 			Webhook:  true,
 			Channels: []providers.Channel{providers.ChannelEmail},
+			RateLimit: &providers.RateLimit{
+				Limit:    5,
+				Interval: "1s",
+				Override: true,
+			},
 			Config: &modules.JSONSchema{
 				Type: "object",
 				Properties: []modules.JSONSchemaProperty{

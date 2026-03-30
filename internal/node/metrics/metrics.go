@@ -206,6 +206,11 @@ var NATSMessagesTerminatedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "Total NATS messages permanently failed and terminated",
 }, []string{"stream", "consumer"})
 
+var NATSMessagesRateLimitedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "lunogram_nats_messages_rate_limited_total",
+	Help: "Total NATS messages rate-limited and re-scheduled for later delivery",
+}, []string{"stream", "consumer"})
+
 var NATSMessageProcessingDurationSeconds = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "lunogram_nats_message_processing_duration_seconds",
 	Help:    "Duration of NATS message processing in seconds",

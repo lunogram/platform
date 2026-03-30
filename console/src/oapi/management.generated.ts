@@ -2850,6 +2850,7 @@ export interface components {
             updated_at: string;
             /** @example false */
             link_wrap?: boolean;
+            rate_limit: components["schemas"]["RateLimit"];
         };
         CreateProvider: {
             /** @example My Email Provider */
@@ -2859,6 +2860,7 @@ export interface components {
             };
             /** @example false */
             link_wrap?: boolean;
+            rate_limit?: components["schemas"]["RateLimit"];
         };
         UpdateProvider: {
             /** @example My Email Provider */
@@ -2867,6 +2869,39 @@ export interface components {
                 [key: string]: unknown;
             };
             link_wrap?: boolean;
+            rate_limit?: components["schemas"]["RateLimit"];
+        };
+        /** @description Rate limit configuration for a provider instance. */
+        RateLimit: {
+            /**
+             * @description Max number of messages per interval. 0 means use the module default.
+             * @default 0
+             * @example 10
+             */
+            limit: number;
+            /**
+             * @description Time window as a Go duration string (e.g. '1s', '1m', '1h', '24h').
+             * @default 1s
+             * @example 1s
+             */
+            interval: string;
+        };
+        ProviderRateLimit: {
+            /**
+             * @description Maximum number of requests allowed per interval
+             * @example 5
+             */
+            limit: number;
+            /**
+             * @description Time window as a Go duration string (e.g. '1s', '1m', '1h'). Defaults to '1s'.
+             * @example 1s
+             */
+            interval: string;
+            /**
+             * @description Whether users may override this rate limit at the provider level. When false, the module value is authoritative.
+             * @example true
+             */
+            override: boolean;
         };
         ProviderMeta: {
             /**
@@ -2891,6 +2926,12 @@ export interface components {
             hidden?: boolean;
             /** @description Whether providers of this module type are locked and cannot be deleted */
             locked?: boolean;
+            rate_limit?: components["schemas"]["ProviderRateLimit"];
+            /**
+             * @description Absolute project-wide maximum rate limit (requests per minute). User overrides are clamped to this ceiling.
+             * @example 250
+             */
+            max_rate_limit?: number;
         };
         Template: {
             /**
@@ -4429,10 +4470,15 @@ export interface components {
             list_type: string;
             state: components["schemas"]["BroadcastState"];
             /**
-             * @description Total number of users processed
+             * @description Total number of users in the audience at send time
              * @example 0
              */
             total: number;
+            /**
+             * @description Number of messages actually delivered so far
+             * @example 0
+             */
+            sent?: number;
             /** @description Error message if the broadcast failed */
             error?: string;
             /**

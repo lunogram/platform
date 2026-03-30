@@ -154,7 +154,7 @@ func TestBootstrapperEnsureStream(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	ctx := graceful.NewContext(t.Context())
 
-	bootstrapper := NewBootstrapper(logger, jet)
+	bootstrapper := NewBootstrapper(logger, jet, false)
 
 	config := jetstream.StreamConfig{
 		Name:        "test_stream",
@@ -184,7 +184,7 @@ func TestBootstrapperEnsureConsumer(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	bootstrapper := NewBootstrapper(logger, jet)
+	bootstrapper := NewBootstrapper(logger, jet, false)
 
 	config := jetstream.ConsumerConfig{
 		Name:          "test_consumer",

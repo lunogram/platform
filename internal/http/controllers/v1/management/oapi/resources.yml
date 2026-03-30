@@ -6445,6 +6445,7 @@ components:
         - name
         - project_id
         - channels
+        - rate_limit
         - created_at
         - updated_at
       properties:
@@ -6483,6 +6484,8 @@ components:
         link_wrap:
           type: boolean
           example: false
+        rate_limit:
+          $ref: "#/components/schemas/RateLimit"
 
     CreateProvider:
       type: object
@@ -6499,6 +6502,8 @@ components:
         link_wrap:
           type: boolean
           example: false
+        rate_limit:
+          $ref: "#/components/schemas/RateLimit"
 
     UpdateProvider:
       type: object
@@ -6512,6 +6517,46 @@ components:
           x-go-type: json.RawMessage
         link_wrap:
           type: boolean
+        rate_limit:
+          $ref: "#/components/schemas/RateLimit"
+
+    RateLimit:
+      type: object
+      description: "Rate limit configuration for a provider instance."
+      required:
+        - limit
+        - interval
+      properties:
+        limit:
+          type: integer
+          description: "Max number of messages per interval. 0 means use the module default."
+          default: 0
+          example: 10
+        interval:
+          type: string
+          description: "Time window as a Go duration string (e.g. '1s', '1m', '1h', '24h')."
+          default: "1s"
+          example: "1s"
+
+    ProviderRateLimit:
+      type: object
+      required:
+        - limit
+        - interval
+        - override
+      properties:
+        limit:
+          type: integer
+          description: Maximum number of requests allowed per interval
+          example: 5
+        interval:
+          type: string
+          description: "Time window as a Go duration string (e.g. '1s', '1m', '1h'). Defaults to '1s'."
+          example: "1s"
+        override:
+          type: boolean
+          description: "Whether users may override this rate limit at the provider level. When false, the module value is authoritative."
+          example: true
 
     ProviderMeta:
       type: object
@@ -6553,6 +6598,12 @@ components:
         locked:
           type: boolean
           description: Whether providers of this module type are locked and cannot be deleted
+        rate_limit:
+          $ref: "#/components/schemas/ProviderRateLimit"
+        max_rate_limit:
+          type: integer
+          description: "Absolute project-wide maximum rate limit (requests per minute). User overrides are clamped to this ceiling."
+          example: 250
 
     Template:
       type: object
@@ -8547,7 +8598,11 @@ components:
           $ref: "#/components/schemas/BroadcastState"
         total:
           type: integer
-          description: Total number of users processed
+          description: Total number of users in the audience at send time
+          example: 0
+        sent:
+          type: integer
+          description: Number of messages actually delivered so far
           example: 0
         error:
           type: string

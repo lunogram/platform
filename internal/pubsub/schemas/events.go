@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lunogram/platform/internal/ratelimit"
 	"github.com/lunogram/platform/internal/store/subjects"
 )
 
@@ -75,6 +76,7 @@ type SendCampaign struct {
 	CampaignID  uuid.UUID         `json:"campaign_id"`
 	BroadcastID *uuid.UUID        `json:"broadcast_id,omitempty"`
 	Data        map[string]string `json:"data,omitempty"`
+	RateLimit   ratelimit.Limit   `json:"rate_limit,omitempty"`
 }
 
 type JourneyStep struct {
@@ -172,11 +174,12 @@ type ProcessBroadcast struct {
 // broadcast processing. Each batch publishes SendCampaign messages for a page
 // of list users and then chains the next batch until the list is exhausted.
 type ProcessBroadcastBatch struct {
-	ProjectID   uuid.UUID `json:"project_id"`
-	BroadcastID uuid.UUID `json:"broadcast_id"`
-	Offset      int       `json:"offset"`
-	BatchSize   int       `json:"batch_size"`
-	Processed   int       `json:"processed"` // running total from prior batches
+	ProjectID   uuid.UUID       `json:"project_id"`
+	BroadcastID uuid.UUID       `json:"broadcast_id"`
+	Offset      int             `json:"offset"`
+	BatchSize   int             `json:"batch_size"`
+	Processed   int             `json:"processed"` // running total from prior batches
+	RateLimit   ratelimit.Limit `json:"rate_limit,omitempty"`
 }
 
 // BroadcastsProcess returns the NATS subject for broadcast processing.

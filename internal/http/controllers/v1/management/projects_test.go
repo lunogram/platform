@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/config"
+	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/rbac"
 
 	"github.com/lunogram/platform/internal/http/controllers/v1/management/oapi"
@@ -34,7 +35,7 @@ type recordingPublisher struct {
 	messages []publishedMessage
 }
 
-func (r *recordingPublisher) Publish(_ context.Context, subject schemas.Subject, v any) error {
+func (r *recordingPublisher) Publish(_ context.Context, subject schemas.Subject, v any, _ ...pubsub.PublishOption) error {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -45,7 +46,7 @@ func (r *recordingPublisher) Publish(_ context.Context, subject schemas.Subject,
 
 type failingPublisher struct{}
 
-func (f *failingPublisher) Publish(_ context.Context, _ schemas.Subject, _ any) error {
+func (f *failingPublisher) Publish(_ context.Context, _ schemas.Subject, _ any, _ ...pubsub.PublishOption) error {
 	return errors.New("publish failed")
 }
 

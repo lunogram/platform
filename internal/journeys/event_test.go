@@ -9,6 +9,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,7 @@ type mockEvent struct {
 	data    any
 }
 
-func (m *mockPublisher) Publish(ctx context.Context, subject schemas.Subject, v any) error {
+func (m *mockPublisher) Publish(ctx context.Context, subject schemas.Subject, v any, _ ...pubsub.PublishOption) error {
 	m.publishedEvents = append(m.publishedEvents, mockEvent{
 		subject: subject,
 		data:    v,

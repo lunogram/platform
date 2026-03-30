@@ -16,6 +16,7 @@ import (
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
 	teststore "github.com/lunogram/platform/internal/store/test"
+	wasmProviders "github.com/lunogram/platform/internal/wasm/providers"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -139,7 +140,8 @@ func TestBroadcastProcessHandler_Success(t *testing.T) {
 	err = mgmtState.BroadcastsStore.TransitionPendingBroadcastToSending(ctx, broadcastID)
 	require.NoError(t, err)
 
-	handler := BroadcastProcessHandler(logger, mgmtState, usrsState, pub, ns)
+	registry := wasmProviders.NewRegistry(config.WASM{}, zap.NewNop())
+	handler := BroadcastProcessHandler(logger, mgmtState, usrsState, registry, pub, ns)
 
 	event := schemas.ProcessBroadcast{
 		ProjectID:   projectID,
@@ -193,7 +195,8 @@ func TestBroadcastProcessHandler_NotSendingState(t *testing.T) {
 	broadcastID, _, _ := seedBroadcast(t, ctx, mgmtState, usrsState, projectID)
 	// broadcast is still in "pending" state — do NOT transition to sending
 
-	handler := BroadcastProcessHandler(logger, mgmtState, usrsState, pub, ns)
+	registry := wasmProviders.NewRegistry(config.WASM{}, zap.NewNop())
+	handler := BroadcastProcessHandler(logger, mgmtState, usrsState, registry, pub, ns)
 
 	event := schemas.ProcessBroadcast{
 		ProjectID:   projectID,
@@ -253,7 +256,8 @@ func TestBroadcastProcessHandler_CampaignNoProvider(t *testing.T) {
 	err = mgmtState.BroadcastsStore.TransitionPendingBroadcastToSending(ctx, broadcast.ID)
 	require.NoError(t, err)
 
-	handler := BroadcastProcessHandler(logger, mgmtState, usrsState, pub, ns)
+	registry := wasmProviders.NewRegistry(config.WASM{}, zap.NewNop())
+	handler := BroadcastProcessHandler(logger, mgmtState, usrsState, registry, pub, ns)
 
 	event := schemas.ProcessBroadcast{
 		ProjectID:   projectID,
@@ -317,10 +321,11 @@ func TestBroadcastBatchHandler_EmptyList(t *testing.T) {
 	err = msg.Ack()
 	require.NoError(t, err)
 
-	// Broadcast should be in completed state with total 0.
+	// Broadcast should still be in sending state — completion happens
+	// in the campaign send handler after all messages are delivered.
 	broadcast, err := mgmtState.BroadcastsStore.GetBroadcast(ctx, projectID, broadcastID)
 	require.NoError(t, err)
-	assert.Equal(t, management.BroadcastStateCompleted, broadcast.State)
+	assert.Equal(t, management.BroadcastStateSending, broadcast.State)
 	assert.Equal(t, 0, broadcast.Total)
 }
 
@@ -374,10 +379,11 @@ func TestBroadcastBatchHandler_WithUsers(t *testing.T) {
 	require.NoError(t, err)
 
 	// With 3 users and batch size 1000, this is the last batch.
-	// Broadcast should be completed.
+	// Broadcast stays in sending — completion happens when all
+	// campaign messages have actually been delivered.
 	broadcast, err := mgmtState.BroadcastsStore.GetBroadcast(ctx, projectID, broadcastID)
 	require.NoError(t, err)
-	assert.Equal(t, management.BroadcastStateCompleted, broadcast.State)
+	assert.Equal(t, management.BroadcastStateSending, broadcast.State)
 	assert.Equal(t, 3, broadcast.Total)
 
 	// Verify that 3 SendCampaign messages were published.
@@ -473,7 +479,7 @@ func TestBroadcastBatchHandler_ChainsNextBatch(t *testing.T) {
 
 	broadcast, err := mgmtState.BroadcastsStore.GetBroadcast(ctx, projectID, broadcastID)
 	require.NoError(t, err)
-	assert.Equal(t, management.BroadcastStateCompleted, broadcast.State)
+	assert.Equal(t, management.BroadcastStateSending, broadcast.State)
 	assert.Equal(t, batchSize, broadcast.Total)
 }
 
@@ -574,7 +580,8 @@ func TestBroadcastProcessHandler_InvalidMessage(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := BroadcastProcessHandler(logger, mgmtState, usrsState, pub, ns)
+	registry := wasmProviders.NewRegistry(config.WASM{}, zap.NewNop())
+	handler := BroadcastProcessHandler(logger, mgmtState, usrsState, registry, pub, ns)
 
 	broadcastID := uuid.New()
 	err = pub.Publish(ctx, schemas.BroadcastsProcess(projectID, broadcastID), "not-valid-json{{{")
@@ -602,7 +609,8 @@ func TestBroadcastProcessHandler_BroadcastNotFound(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := BroadcastProcessHandler(logger, mgmtState, usrsState, pub, ns)
+	registry := wasmProviders.NewRegistry(config.WASM{}, zap.NewNop())
+	handler := BroadcastProcessHandler(logger, mgmtState, usrsState, registry, pub, ns)
 
 	nonExistentID := uuid.New()
 	event := schemas.ProcessBroadcast{
@@ -687,7 +695,8 @@ func TestBroadcastEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 
 	// Step 1: Invoke process handler.
-	processHandler := BroadcastProcessHandler(logger, mgmtState, usrsState, pub, ns)
+	registry := wasmProviders.NewRegistry(config.WASM{}, zap.NewNop())
+	processHandler := BroadcastProcessHandler(logger, mgmtState, usrsState, registry, pub, ns)
 
 	processEvent := schemas.ProcessBroadcast{
 		ProjectID:   projectID,
@@ -721,10 +730,11 @@ func TestBroadcastEndToEnd(t *testing.T) {
 	err = batchMsg.Ack()
 	require.NoError(t, err)
 
-	// Step 3: Verify final state.
+	// Step 3: Verify state — broadcast stays in "sending" until the
+	// campaign send handler delivers all messages and marks it completed.
 	broadcast, err := mgmtState.BroadcastsStore.GetBroadcast(ctx, projectID, broadcastID)
 	require.NoError(t, err)
-	assert.Equal(t, management.BroadcastStateCompleted, broadcast.State)
+	assert.Equal(t, management.BroadcastStateSending, broadcast.State)
 	assert.Equal(t, numUsers, broadcast.Total)
 
 	// Verify SendCampaign messages.

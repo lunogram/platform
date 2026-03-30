@@ -9,6 +9,7 @@ import (
 	"github.com/lunogram/platform/internal/actions"
 	"github.com/lunogram/platform/internal/journeys"
 	"github.com/lunogram/platform/internal/node/metrics"
+	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -17,7 +18,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mgmt *management.State, pub pubsub.Publisher, actionRegistry *actions.Registry) HandlerFunc {
+func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mgmt *management.State, pub pubsub.Publisher, actionRegistry *actions.Registry, registry *providers.Registry) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		event := schemas.JourneyStep{}
 		err := json.Unmarshal(msg.Data(), &event)
@@ -74,7 +75,7 @@ func JourneyStepHandler(logger *zap.Logger, db *sqlx.DB, jrny *journey.State, mg
 		logger.Info("processing journey step")
 
 		start := time.Now()
-		next, children, err := journeys.Handle(ctx, logger, db, pub, event.ProjectID, event.UserID, step, state, data, mgmt, actionRegistry)
+		next, children, err := journeys.Handle(ctx, logger, db, pub, event.ProjectID, event.UserID, step, state, data, mgmt, actionRegistry, registry)
 		duration := time.Since(start).Seconds()
 		projectID := event.ProjectID.String()
 		metrics.JourneyStepDurationSeconds.WithLabelValues(step.Type, projectID).Observe(duration)

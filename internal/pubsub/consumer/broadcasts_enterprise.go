@@ -7,10 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	internalProviders "github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	"github.com/lunogram/platform/internal/ratelimit"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
+	providers "github.com/lunogram/platform/pkg/modules/providers"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/zap"
 )
@@ -23,7 +26,7 @@ const (
 // BroadcastProcessHandler returns a handler that initiates broadcast processing.
 // It validates the broadcast and campaign, then publishes the first batch message
 // to begin the fan-out process.
-func BroadcastProcessHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, pub pubsub.Publisher, ns Namespace) HandlerFunc {
+func BroadcastProcessHandler(logger *zap.Logger, mgmt *management.State, usrs *subjects.State, registry *internalProviders.Registry, pub pubsub.Publisher, ns Namespace) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		var event schemas.ProcessBroadcast
 		if err := json.Unmarshal(msg.Data(), &event); err != nil {
@@ -59,12 +62,26 @@ func BroadcastProcessHandler(logger *zap.Logger, mgmt *management.State, usrs *s
 			return Permanent(fmt.Errorf("campaign %s has no provider configured", campaign.ID))
 		}
 
+		// Resolve the provider rate limit once and embed it in the batch
+		// chain so each SendCampaign message carries the limit without
+		// requiring the consumer to look up the manifest or DB record.
+		var rl ratelimit.Limit
+		if provider, exists := registry.Get(campaign.Provider.Module); exists {
+			rl = providers.ResolveLimit(
+				ratelimit.ProviderKey(campaign.Provider.ID),
+				provider.Manifest().Spec.RateLimit,
+				campaign.Provider.RateLimit,
+				campaign.Provider.RateInterval,
+			)
+		}
+
 		batchEvent := schemas.ProcessBroadcastBatch{
 			ProjectID:   event.ProjectID,
 			BroadcastID: event.BroadcastID,
 			Offset:      0,
 			BatchSize:   DefaultBroadcastBatchSize,
 			Processed:   0,
+			RateLimit:   rl,
 		}
 
 		if err := pub.Publish(ctx, schemas.BroadcastsBatch(event.ProjectID, event.BroadcastID), batchEvent); err != nil {
@@ -121,9 +138,17 @@ func BroadcastBatchHandler(logger *zap.Logger, mgmt *management.State, usrs *sub
 				UserID:      userID,
 				CampaignID:  broadcast.CampaignID,
 				BroadcastID: &event.BroadcastID,
+				RateLimit:   event.RateLimit,
 			}
 
-			err = pub.Publish(ctx, schemas.CampaignsSend(event.ProjectID, broadcast.CampaignID), sendEvent)
+			// Deterministic message ID so that if NATS redelivers this batch
+			// (e.g. ack lost after publishes succeeded) the server-side
+			// DuplicateWindow silently discards the repeated publishes
+			// instead of creating duplicate SendCampaign messages that
+			// would each call Reserve and inflate rate-limit delays.
+			msgID := fmt.Sprintf("bc:%s:%s", event.BroadcastID, userID)
+
+			err = pub.Publish(ctx, schemas.CampaignsSend(event.ProjectID, broadcast.CampaignID), sendEvent, pubsub.WithMsgID(msgID))
 			if err != nil {
 				logger.Error("failed to publish send campaign", zap.Error(err))
 				return err
@@ -149,6 +174,7 @@ func BroadcastBatchHandler(logger *zap.Logger, mgmt *management.State, usrs *sub
 				Offset:      event.Offset + event.BatchSize,
 				BatchSize:   event.BatchSize,
 				Processed:   totalProcessed,
+				RateLimit:   event.RateLimit,
 			}
 
 			if err := pub.Publish(ctx, schemas.BroadcastsBatch(event.ProjectID, event.BroadcastID), nextBatch); err != nil {
@@ -160,13 +186,23 @@ func BroadcastBatchHandler(logger *zap.Logger, mgmt *management.State, usrs *sub
 			return nil
 		}
 
-		// Last batch — mark the broadcast as completed.
-		if err := mgmt.BroadcastsStore.UpdateBroadcastState(ctx, event.ProjectID, broadcast.ID, management.BroadcastStateCompleted, totalProcessed, nil); err != nil {
-			logger.Error("failed to update broadcast state to completed", zap.Error(err))
-			return Permanent(err)
+		// No users matched the list — mark the broadcast as completed
+		// immediately so it doesn't stay in "sending" state forever.
+		if totalProcessed == 0 {
+			if err := mgmt.BroadcastsStore.UpdateBroadcastState(ctx, event.ProjectID, event.BroadcastID, management.BroadcastStateCompleted, 0, nil); err != nil {
+				logger.Error("failed to mark empty broadcast as completed", zap.Error(err))
+				return err
+			}
+			logger.Info("broadcast completed (no matching users)")
+			return nil
 		}
 
-		logger.Info("broadcast completed", zap.Int("total", totalProcessed))
+		// Last batch — all SendCampaign messages have been published to the
+		// stream but have not been sent yet (most are rate-limited and
+		// scheduled for future delivery). The broadcast stays in "sending"
+		// state; the campaign send handler will transition it to "completed"
+		// once the last message has actually been delivered.
+		logger.Info("broadcast queued, waiting for all sends to complete", zap.Int("total", totalProcessed))
 		return nil
 	}
 }

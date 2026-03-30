@@ -27,6 +27,11 @@ func Manifest() int32 {
 			URL:   "https://lunogram.com",
 		},
 		Spec: providers.ProviderSpec{
+			RateLimit: &providers.RateLimit{
+				Limit:    1,
+				Interval: "1s",
+				Override: false,
+			},
 			Channels: []providers.Channel{
 				providers.ChannelEmail,
 				providers.ChannelSMS,

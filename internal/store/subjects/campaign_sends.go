@@ -9,20 +9,29 @@ import (
 	"github.com/lunogram/platform/internal/store"
 )
 
+// CampaignSendState represents the lifecycle state of a campaign send.
+type CampaignSendState string
+
+const (
+	CampaignSendStateSent      CampaignSendState = "sent"
+	CampaignSendStateDelivered CampaignSendState = "delivered"
+	CampaignSendStateBounced   CampaignSendState = "bounced"
+)
+
 // CampaignSend represents a row in the campaign_sends table.
 type CampaignSend struct {
-	ID            uuid.UUID  `db:"id"`
-	CampaignID    uuid.UUID  `db:"campaign_id"`
-	UserID        uuid.UUID  `db:"user_id"`
-	BroadcastID   *uuid.UUID `db:"broadcast_id"`
-	State         *string    `db:"state"`
-	SentAt        *time.Time `db:"sent_at"`
-	OpenedAt      *time.Time `db:"opened_at"`
-	Clicks        int        `db:"clicks"`
-	ReferenceType *string    `db:"reference_type"`
-	ReferenceID   string     `db:"reference_id"`
-	CreatedAt     time.Time  `db:"created_at"`
-	UpdatedAt     time.Time  `db:"updated_at"`
+	ID            uuid.UUID          `db:"id"`
+	CampaignID    uuid.UUID          `db:"campaign_id"`
+	UserID        uuid.UUID          `db:"user_id"`
+	BroadcastID   *uuid.UUID         `db:"broadcast_id"`
+	State         *CampaignSendState `db:"state"`
+	SentAt        *time.Time         `db:"sent_at"`
+	OpenedAt      *time.Time         `db:"opened_at"`
+	Clicks        int                `db:"clicks"`
+	ReferenceType *string            `db:"reference_type"`
+	ReferenceID   string             `db:"reference_id"`
+	CreatedAt     time.Time          `db:"created_at"`
+	UpdatedAt     time.Time          `db:"updated_at"`
 }
 
 func NewCampaignSendsStore(db store.DB) *CampaignSendsStore {
@@ -55,27 +64,15 @@ func (s *CampaignSendsStore) LookupCampaignSendByReference(ctx context.Context, 
 	return &send, nil
 }
 
-// UpdateCampaignSendDelivered sets the state to "delivered" and records the delivery timestamp.
-func (s *CampaignSendsStore) UpdateCampaignSendDelivered(ctx context.Context, referenceType, referenceID string) error {
+// UpdateCampaignSendState sets the campaign send state for a given reference.
+func (s *CampaignSendsStore) UpdateCampaignSendState(ctx context.Context, referenceType, referenceID string, state CampaignSendState) error {
 	stmt := `
 	UPDATE campaign_sends
-	SET state = 'delivered'
+	SET state = $3
 	WHERE reference_type = $1
 	  AND reference_id = $2`
 
-	_, err := s.db.ExecContext(ctx, stmt, referenceType, referenceID)
-	return err
-}
-
-// UpdateCampaignSendBounced sets the state to "bounced".
-func (s *CampaignSendsStore) UpdateCampaignSendBounced(ctx context.Context, referenceType, referenceID string) error {
-	stmt := `
-	UPDATE campaign_sends
-	SET state = 'bounced'
-	WHERE reference_type = $1
-	  AND reference_id = $2`
-
-	_, err := s.db.ExecContext(ctx, stmt, referenceType, referenceID)
+	_, err := s.db.ExecContext(ctx, stmt, referenceType, referenceID, state)
 	return err
 }
 

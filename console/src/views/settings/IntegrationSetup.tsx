@@ -3,10 +3,10 @@ import type { FieldPath } from "react-hook-form"
 import { Controller, useForm } from "react-hook-form"
 import { useNavigate, useParams } from "react-router"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Gauge } from "lucide-react"
 
 import oapiClient from "@/oapi/client"
-import type { Provider, ProviderMeta, CreateProvider } from "@/oapi/client"
+import type { Provider, ProviderMeta, CreateProvider, UpdateProvider } from "@/oapi/client"
 import { ProjectContext } from "../../contexts"
 import { useResolver } from "../../hooks"
 import type { SchemaProperty, Schema } from "@/components/schema-fields"
@@ -16,7 +16,14 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Field, FieldLabel } from "@/components/ui/field"
+import { Field, FieldLabel, FieldDescription } from "@/components/ui/field"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { FormSchemaFields } from "@/components/schema-fields"
 import { StaggeredMosaic } from "@/components/icon-mosaic"
 
@@ -27,7 +34,19 @@ type ProviderWithExtras = Provider & {
     external_id?: string
 }
 
-type ProviderFormValues = CreateProvider & { module: string }
+type ProviderFormValues = CreateProvider & {
+    module: string
+    rate_limit?: number | null
+    rate_interval?: string | null
+}
+
+/** Map human-friendly interval labels to Go duration strings */
+const RATE_INTERVAL_OPTIONS = [
+    { value: "1s", label: "per second" },
+    { value: "1m", label: "per minute" },
+    { value: "1h", label: "per hour" },
+    { value: "24h", label: "per day" },
+] as const
 
 /**
  * Handles both creating and editing integrations:
@@ -136,6 +155,10 @@ export default function IntegrationSetup() {
 
     const senderIdentityChannel = effectiveChannels?.find((c) => c === "email" || c === "sms")
 
+    const rateLimitOverride = meta?.rate_limit?.override === true
+    const manifestRateLimit = meta?.rate_limit
+    const maxRateLimit = meta?.max_rate_limit
+
     const form = useForm<ProviderFormValues>({
         values: provider
             ? {
@@ -143,12 +166,16 @@ export default function IntegrationSetup() {
                   data: provider.data,
                   module: effectiveModule ?? "",
                   link_wrap: provider?.link_wrap ?? false,
+                  rate_limit: provider?.rate_limit ?? null,
+                  rate_interval: provider?.rate_interval ?? "1s",
               }
             : {
                   name: "",
                   data: {},
                   module: effectiveModule ?? "",
                   link_wrap: true,
+                  rate_limit: null,
+                  rate_interval: "1s",
               },
     })
 
@@ -157,8 +184,15 @@ export default function IntegrationSetup() {
         if (!effectiveModule) return
         setIsSaving(true)
         try {
-            const { name, data, link_wrap } = values
-            const body = { name, data, link_wrap }
+            const { name, data, link_wrap, rate_limit, rate_interval } = values
+            const body: CreateProvider & UpdateProvider = { name, data, link_wrap }
+
+            // Only send rate limit fields when the manifest allows overrides
+            if (rateLimitOverride) {
+                body.rate_limit = rate_limit && rate_limit > 0 ? rate_limit : null
+                body.rate_interval = rate_limit && rate_limit > 0 ? (rate_interval ?? "1s") : null
+            }
+
             if (isEdit && provider?.id) {
                 await oapiClient.PATCH(
                     "/api/admin/projects/{projectID}/providers/{type}/{providerID}",
@@ -342,6 +376,105 @@ export default function IntegrationSetup() {
                                 </div>
                             )}
                         />
+                    )}
+
+                    {/* Rate Limit Section */}
+                    {!isExternal && manifestRateLimit && (
+                        <>
+                            <Separator />
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <Gauge className="h-4 w-4 text-muted-foreground" />
+                                    <h4 className="text-sm font-medium">
+                                        {t("rate_limit", "Rate Limit")}
+                                    </h4>
+                                </div>
+
+                                <div className="rounded-lg border p-4 space-y-4">
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-muted-foreground">
+                                            {t(
+                                                "rate_limit_default_label",
+                                                "Default: {{limit}} requests / {{interval}}",
+                                                {
+                                                    limit: manifestRateLimit.limit,
+                                                    interval: manifestRateLimit.interval || "1s",
+                                                },
+                                            )}
+                                        </p>
+                                        {!rateLimitOverride && (
+                                            <p className="text-xs text-muted-foreground/70">
+                                                {t(
+                                                    "rate_limit_locked",
+                                                    "This provider does not allow rate limit adjustments.",
+                                                )}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {rateLimitOverride && (
+                                        <div className="space-y-3">
+                                            <Field>
+                                                <FieldLabel>
+                                                    {t("rate_limit_override", "Custom Rate Limit")}
+                                                </FieldLabel>
+                                                <FieldDescription>
+                                                    {t(
+                                                        "rate_limit_override_description",
+                                                        "Override the default rate limit for this provider. Leave empty to use the default." +
+                                                            (maxRateLimit
+                                                                ? ` Maximum: ${maxRateLimit} requests per minute.`
+                                                                : ""),
+                                                    )}
+                                                </FieldDescription>
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        type="number"
+                                                        min={0}
+                                                        max={maxRateLimit ?? undefined}
+                                                        placeholder={String(
+                                                            manifestRateLimit.limit,
+                                                        )}
+                                                        className="w-28"
+                                                        {...form.register("rate_limit", {
+                                                            valueAsNumber: true,
+                                                            min: 0,
+                                                            max: maxRateLimit ?? undefined,
+                                                        })}
+                                                    />
+                                                    <Controller
+                                                        control={form.control}
+                                                        name="rate_interval"
+                                                        render={({ field }) => (
+                                                            <Select
+                                                                value={field.value ?? "1s"}
+                                                                onValueChange={field.onChange}
+                                                            >
+                                                                <SelectTrigger className="w-36">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {RATE_INTERVAL_OPTIONS.map(
+                                                                        (opt) => (
+                                                                            <SelectItem
+                                                                                key={opt.value}
+                                                                                value={opt.value}
+                                                                            >
+                                                                                {opt.label}
+                                                                            </SelectItem>
+                                                                        ),
+                                                                    )}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        )}
+                                                    />
+                                                </div>
+                                            </Field>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </>
                     )}
                 </form>
 

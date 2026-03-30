@@ -57,6 +57,17 @@ func (r *Router) HandleStream(stream, consumer string, handler HandlerFunc) {
 		metrics.NATSMessageProcessingDurationSeconds.WithLabelValues(stream, consumer).Observe(duration)
 
 		if err != nil {
+			if _, ok := IsRateLimited(err); ok {
+				// Handler already re-published the message as scheduled.
+				// Just Ack the original to avoid wasting MaxDeliver budget.
+				metrics.NATSMessagesRateLimitedTotal.WithLabelValues(stream, consumer).Inc()
+				if err := msg.Ack(); err != nil {
+					log.Error("failed to ACK rate-limited message, shutting down...", zap.Error(err))
+					r.ctx.Shutdown()
+				}
+				return
+			}
+
 			if IsPermanent(err) {
 				log.Warn("permanent error, terminating message", zap.Error(err))
 				metrics.NATSMessagesTerminatedTotal.WithLabelValues(stream, consumer).Inc()
