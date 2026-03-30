@@ -68,16 +68,38 @@ func (srv *ClientController) PostUserEvents(w http.ResponseWriter, r *http.Reque
 	logger.Info("posting events")
 
 	for _, event := range events {
-		msg := schemas.UserEvent{
-			ProjectID: projectID,
-			Name:      event.Name,
-			Data:      event.Data,
+		// match and identifier are mutually exclusive
+		if event.Match != nil && event.Identifier != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("match and identifier are mutually exclusive")))
+			return
 		}
-		if event.Identifier != nil {
-			msg.Identifiers = oapi.ToParams(*event.Identifier)
+		if event.Match == nil && event.Identifier == nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("one of match or identifier is required")))
+			return
 		}
 
-		err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), msg)
+		switch {
+		case event.Match != nil:
+			msg := schemas.MatchUserEvent{
+				ProjectID: projectID,
+				Name:      event.Name,
+				Match:     *event.Match,
+				Data:      event.Data,
+			}
+			err = srv.pubsub.Publish(ctx, schemas.UserEventsMatch(projectID), msg)
+
+		default:
+			msg := schemas.UserEvent{
+				ProjectID: projectID,
+				Name:      event.Name,
+				Data:      event.Data,
+			}
+			if event.Identifier != nil {
+				msg.Identifiers = oapi.ToParams(*event.Identifier)
+			}
+			err = srv.pubsub.Publish(ctx, schemas.Subject(schemas.UserEventsProcess(projectID)), msg)
+		}
+
 		if err != nil {
 			logger.Error("failed to publish event", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal())
@@ -625,18 +647,13 @@ func (srv *ClientController) PostOrganizationEventsClient(w http.ResponseWriter,
 	logger.Info("posting organization events")
 
 	for _, event := range events {
-		// Look up organization by identifiers
-		orgIdentifiers := oapi.ToParams(event.Identifier)
-		orgID, err := srv.users.LookupOrganizationID(ctx, projectID, orgIdentifiers)
-		if errors.Is(err, subjects.ErrOrgNotFound) {
-			logger.Warn("organization not found, skipping event",
-				zap.Int("org_identifiers", len(event.Identifier)),
-				zap.String("event_name", event.Name))
-			continue
+		// match and identifier are mutually exclusive
+		if event.Match != nil && event.Identifier != nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("match and identifier are mutually exclusive")))
+			return
 		}
-		if err != nil {
-			logger.Error("failed to lookup organization", zap.Error(err))
-			oapi.WriteProblem(w, problem.ErrInternal())
+		if event.Match == nil && event.Identifier == nil {
+			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("one of match or identifier is required")))
 			return
 		}
 
@@ -645,15 +662,42 @@ func (srv *ClientController) PostOrganizationEventsClient(w http.ResponseWriter,
 			data = *event.Data
 		}
 
-		msg := schemas.OrganizationEvent{
-			Name:                    event.Name,
-			ProjectID:               projectID,
-			OrganizationID:          orgID,
-			OrganizationIdentifiers: orgIdentifiers,
-			Data:                    data,
+		switch {
+		case event.Match != nil:
+			msg := schemas.MatchOrganizationEvent{
+				ProjectID: projectID,
+				Name:      event.Name,
+				Match:     *event.Match,
+				Data:      data,
+			}
+			err = srv.pubsub.Publish(ctx, schemas.OrganizationEventsMatch(projectID), msg)
+
+		case event.Identifier != nil:
+			orgIdentifiers := oapi.ToParams(*event.Identifier)
+			orgID, err := srv.users.LookupOrganizationID(ctx, projectID, orgIdentifiers)
+			if errors.Is(err, subjects.ErrOrgNotFound) {
+				logger.Warn("organization not found, skipping event",
+					zap.Int("org_identifiers", len(*event.Identifier)),
+					zap.String("event_name", event.Name))
+				continue
+			}
+			if err != nil {
+				logger.Error("failed to lookup organization", zap.Error(err))
+				oapi.WriteProblem(w, problem.ErrInternal())
+				return
+			}
+
+			msg := schemas.OrganizationEvent{
+				Name:                    event.Name,
+				ProjectID:               projectID,
+				OrganizationID:          orgID,
+				OrganizationIdentifiers: orgIdentifiers,
+				Data:                    data,
+			}
+
+			err = srv.pubsub.Publish(ctx, schemas.OrganizationEventsProcess(projectID), msg)
 		}
 
-		err = srv.pubsub.Publish(ctx, schemas.OrganizationEventsProcess(projectID), msg)
 		if err != nil {
 			logger.Error("failed to publish organization event", zap.Error(err))
 			oapi.WriteProblem(w, problem.ErrInternal())

@@ -61,6 +61,9 @@ type Event struct {
 	// Identifier One or more external identifiers to identify the user
 	Identifier *UserIdentifier `json:"identifier,omitempty"`
 
+	// Match JSONB containment filter to match users by their data attributes. Mutually exclusive with identifier. When set, the event is delivered to every user whose data column contains the given key/value pairs.
+	Match *map[string]any `json:"match"`
+
 	// Name The name of the event
 	Name string `json:"name"`
 }
@@ -122,7 +125,10 @@ type OrganizationEvent struct {
 	Data *map[string]any `json:"data"`
 
 	// Identifier One or more external identifiers to identify the organization
-	Identifier OrganizationIdentifier `json:"identifier"`
+	Identifier *OrganizationIdentifier `json:"identifier,omitempty"`
+
+	// Match JSONB containment filter to match organizations by their data attributes. Mutually exclusive with identifier. When set, the event is delivered to every organization whose data column contains the given key/value pairs.
+	Match *map[string]any `json:"match"`
 
 	// Name The name of the event
 	Name string `json:"name"`

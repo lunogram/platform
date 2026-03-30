@@ -262,6 +262,36 @@ func OrganizationEventsSchema(projectID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("organizations.events.schema.%s", projectID))
 }
 
+// MatchUserEvent is published when a user event uses a JSONB match filter
+// instead of explicit identifiers. The consumer resolves matching users and
+// publishes individual UserEvent messages for each match.
+type MatchUserEvent struct {
+	Name      string         `json:"name"`
+	ProjectID uuid.UUID      `json:"project_id"`
+	Match     map[string]any `json:"match"`
+	Data      map[string]any `json:"data"`
+}
+
+// MatchOrganizationEvent is published when an organization event uses a JSONB
+// match filter instead of explicit identifiers. The consumer resolves matching
+// organizations and publishes individual OrganizationEvent messages for each.
+type MatchOrganizationEvent struct {
+	Name      string         `json:"name"`
+	ProjectID uuid.UUID      `json:"project_id"`
+	Match     map[string]any `json:"match"`
+	Data      map[string]any `json:"data"`
+}
+
+// UserEventsMatch returns the NATS subject for user event match/fan-out processing.
+func UserEventsMatch(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("users.events.match.%s", projectID))
+}
+
+// OrganizationEventsMatch returns the NATS subject for organization event match/fan-out processing.
+func OrganizationEventsMatch(projectID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("organizations.events.match.%s", projectID))
+}
+
 // ExecuteAction represents a request to execute an action via NATS.
 type ExecuteAction struct {
 	ProjectID  uuid.UUID      `json:"project_id"`

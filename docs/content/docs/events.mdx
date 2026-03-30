@@ -53,10 +53,23 @@ Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Ev
         }
       }
     ])
+
+    // Send to all users matching a data filter
+    await lunogram.user.events.post([
+      {
+        name: "maintenance.scheduled",
+        match: { plan: "enterprise" },
+        data: {
+          window: "2025-07-15T02:00:00Z",
+          duration: "4h"
+        }
+      }
+    ])
     ```
   </Tab>
   <Tab value="API">
     ```bash
+    # Target a specific user by identifier
     curl -X POST https://your-instance.com/api/client/users/events \
       -H "Authorization: Bearer pk_..." \
       -H "Content-Type: application/json" \
@@ -72,6 +85,21 @@ Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Ev
           }
         }
       ]'
+
+    # Target all users whose data matches a filter
+    curl -X POST https://your-instance.com/api/client/users/events \
+      -H "Authorization: Bearer pk_..." \
+      -H "Content-Type: application/json" \
+      -d '[
+        {
+          "name": "maintenance.scheduled",
+          "match": { "plan": "enterprise" },
+          "data": {
+            "window": "2025-07-15T02:00:00Z",
+            "duration": "4h"
+          }
+        }
+      ]'
     ```
   </Tab>
 </Tabs>
@@ -81,8 +109,9 @@ Send events through the [JavaScript SDK](/sdks/javascript) or the client API. Ev
 | `name` | string | Yes | Name of the event |
 | `data` | object | Yes | Event properties |
 | `identifier` | array | No* | Array of `{ externalId, source? }` objects to identify the user |
+| `match` | object | No* | JSONB containment filter — the event is delivered to every user whose `data` contains the given key/value pairs |
 
-\* The `identifier` is required when the user cannot be inferred from context (e.g., server-side calls). In the browser, the SDK can include it automatically if a user has been identified.
+\* Provide either `identifier` or `match`, but not both, they are mutually exclusive. `identifier` is required when the user cannot be inferred from context (e.g., server-side calls). In the browser, the SDK can include it automatically if a user has been identified.
 
 The request body is an array — you can send multiple events in a single call. Each event is processed independently.
 
@@ -92,6 +121,26 @@ await lunogram.user.events.post([
   { name: "cta.clicked", data: { buttonId: "signup" } },
 ])
 ```
+
+### Matching Users by Data
+
+Instead of targeting a specific user by identifier, you can use the `match` property to deliver an event to **every user whose `data` column contains the given key/value pairs**. Lunogram uses PostgreSQL's JSONB containment operator (`@>`) under the hood, so any user whose stored data is a superset of the match object will receive the event.
+
+```typescript
+await lunogram.user.events.post([
+  {
+    name: "feature.announcement",
+    match: { plan: "pro", region: "eu" },
+    data: { feature: "custom-domains", releaseDate: "2025-08-01" }
+  }
+])
+```
+
+The example above sends the `feature.announcement` event to every user whose data contains **both** `plan: "pro"` **and** `region: "eu"`. Each matched user gets their own independent event, processed through the normal pipeline (journey evaluation, list recomputation, etc.).
+
+<Callout type="warn">
+  `match` and `identifier` are **mutually exclusive**. Including both in the same event object returns a `400 Bad Request` error.
+</Callout>
 
 ### Organization Events
 
@@ -111,10 +160,20 @@ await lunogram.user.events.post([
         }
       }
     ])
+
+    // Send to all organizations matching a data filter
+    await lunogram.organization.events.post([
+      {
+        name: "compliance.update",
+        match: { region: "eu" },
+        data: { regulation: "GDPR", deadline: "2025-09-01" }
+      }
+    ])
     ```
   </Tab>
   <Tab value="API">
     ```bash
+    # Target a specific organization by identifier
     curl -X POST https://your-instance.com/api/client/organizations/events \
       -H "Authorization: Bearer pk_..." \
       -H "Content-Type: application/json" \
@@ -129,6 +188,21 @@ await lunogram.user.events.post([
           }
         }
       ]'
+
+    # Target all organizations whose data matches a filter
+    curl -X POST https://your-instance.com/api/client/organizations/events \
+      -H "Authorization: Bearer pk_..." \
+      -H "Content-Type: application/json" \
+      -d '[
+        {
+          "name": "compliance.update",
+          "match": { "region": "eu" },
+          "data": {
+            "regulation": "GDPR",
+            "deadline": "2025-09-01"
+          }
+        }
+      ]'
     ```
   </Tab>
 </Tabs>
@@ -137,9 +211,12 @@ await lunogram.user.events.post([
 |-------|------|----------|-------------|
 | `name` | string | Yes | Name of the event |
 | `data` | object | No | Arbitrary event properties |
-| `identifier` | array | Yes | Array of `{ externalId, source? }` objects to identify the organization |
+| `identifier` | array | No* | Array of `{ externalId, source? }` objects to identify the organization |
+| `match` | object | No* | JSONB containment filter — the event is delivered to every organization whose `data` contains the given key/value pairs |
 
-Organization events can also trigger journeys. When they do, the journey entrance evaluates each member of the organization — optionally filtered by a user rule — and enters matching members into the flow.
+\* Provide either `identifier` or `match`, but not both — they are mutually exclusive. One of the two is always required.
+
+Organization events can also trigger journeys. When they do, the journey entrance evaluates each member of the organization — optionally filtered by a user rule — and enters matching members into the flow. When using `match`, the event fans out to every matched organization and each one is processed independently.
 
 ---
 

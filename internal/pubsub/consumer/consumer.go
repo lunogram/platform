@@ -16,6 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const MsgIDHeader = "Nats-Msg-Id"
+
 // Stream names for NATS JetStream.
 const (
 	StreamUsers              = "users"
@@ -63,6 +65,8 @@ const (
 	ConsumerOrganizationUsersSchema   = "organizations-users-schema"
 	ConsumerOrganizationEventsProcess = "organizations-events-process"
 	ConsumerOrganizationEventsSchema  = "organizations-events-schema"
+	ConsumerUserEventsMatch           = "users-events-match"
+	ConsumerOrganizationEventsMatch   = "organizations-events-match"
 	ConsumerActionsSchema             = "actions-schema"
 	ConsumerScheduledBackfill         = "scheduled-backfill"
 	ConsumerProjectEventsProcess      = "projects-events-process"
@@ -81,6 +85,7 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersSchema), UserSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess), UserEventsHandler(logger, usrs, jrny, pub))
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsSchema), UserEventSchemasHandler(logger, usrs))
+	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsMatch), WithInProgress(MatchUserEventsHandler(logger, usrs, pub)))
 	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledProcess), ScheduledHandler(logger, db.Subjects, usrs, pub))
 	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledSchema), ScheduledSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledBackfill), ScheduledBackfillHandler(logger, usrs))
@@ -95,6 +100,7 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamOrganizationUsers), ns.Consumer(ConsumerOrganizationUsersSchema), OrganizationUserSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsProcess), OrganizationEventsHandler(logger, usrs, jrny, pub))
 	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsSchema), OrganizationEventSchemasHandler(logger, usrs))
+	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsMatch), WithInProgress(MatchOrganizationEventsHandler(logger, usrs, pub)))
 	router.HandleStream(ns.Stream(StreamActions), ns.Consumer(ConsumerActionsSchema), ActionSchemasHandler(logger, usrs))
 	router.HandleCaller(ns.Subject(SubjectActionsExecute), ActionExecuteHandler(logger, actionRegistry, pub))
 	router.HandleCaller(ns.Subject(SubjectActionsValidate), ActionValidateHandler(logger, actionRegistry))

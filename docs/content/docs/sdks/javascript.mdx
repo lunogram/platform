@@ -145,8 +145,33 @@ await lunogram.user.events.post([
 | Field        | Type   | Required | Description                                           |
 | ------------ | ------ | -------- | ----------------------------------------------------- |
 | `name`       | string | Yes      | Event name (use dot-notation, e.g. `order.completed`) |
-| `identifier` | array  | No       | User identifier array (auto-injected in browser)      |
+| `identifier` | array  | No       | User identifier array (auto-injected in browser). Mutually exclusive with `match`. |
+| `match`      | object | No       | JSONB containment filter to match users by their `data` attributes. When set, the event is delivered to every user whose data contains the given key/value pairs. Mutually exclusive with `identifier`. |
 | `data`       | object | Yes      | Event properties                                      |
+
+### Broadcasting with match
+
+Instead of targeting a single user by identifier, you can use `match` to deliver an event to every user whose `data` column contains the specified key/value pairs. The filter uses PostgreSQL's `@>` (containment) operator under the hood.
+
+```typescript
+// Send an event to all users on the "enterprise" plan
+await lunogram.user.events.post([
+  {
+    name: "plan.feature.released",
+    match: { plan: "enterprise" },
+    data: {
+      feature: "advanced-analytics",
+      releaseDate: "2025-07-01",
+    },
+  },
+]);
+```
+
+`match` and `identifier` are mutually exclusive — you must provide one or the other, never both. When `match` is used, Lunogram resolves all matching users server-side and delivers a separate event to each one.
+
+<Callout type="info">
+  Matched events are de-duplicated automatically. If a message is redelivered internally, each user still receives exactly one event.
+</Callout>
 
 ## Organizations
 
@@ -192,6 +217,21 @@ await lunogram.organization.events.post([
   },
 ]);
 ```
+
+Just like user events, you can use `match` instead of `identifier` to broadcast an event to every organization whose `data` contains the given key/value pairs:
+
+```typescript
+// Send an event to all organizations on the "enterprise" plan
+await lunogram.organization.events.post([
+  {
+    name: "compliance.update",
+    match: { plan: "enterprise" },
+    data: { policy: "gdpr-v2", effectiveDate: "2025-08-01" },
+  },
+]);
+```
+
+For organization events, exactly one of `match` or `identifier` is required.
 
 ### Delete an organization
 

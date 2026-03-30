@@ -623,6 +623,17 @@ components:
           description: The name of the event
         identifier:
           $ref: "#/components/schemas/UserIdentifier"
+        match:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          description: >-
+            JSONB containment filter to match users by their data attributes.
+            Mutually exclusive with identifier. When set, the event is delivered
+            to every user whose data column contains the given key/value pairs.
+          example:
+            plan: "enterprise"
         data:
           type: object
           additionalProperties: true
@@ -775,11 +786,21 @@ components:
     OrganizationEvent:
       type: object
       required:
-        - identifier
         - name
       properties:
         identifier:
           $ref: "#/components/schemas/OrganizationIdentifier"
+        match:
+          type: object
+          additionalProperties: true
+          nullable: true
+          x-go-type: map[string]any
+          description: >-
+            JSONB containment filter to match organizations by their data attributes.
+            Mutually exclusive with identifier. When set, the event is delivered
+            to every organization whose data column contains the given key/value pairs.
+          example:
+            plan: "enterprise"
         name:
           type: string
           example: "subscription_upgraded"

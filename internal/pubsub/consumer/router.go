@@ -127,3 +127,27 @@ func (r *Router) HandleCaller(subject string, handler CallerHandlerFunc) {
 		_ = sub.Unsubscribe()
 	})
 }
+
+// WithInProgress wraps a handler with a background goroutine that periodically
+// signals NATS that processing is still in progress. This resets the AckWait
+// deadline and prevents redelivery while long-running handlers (e.g. match
+// fan-out) are still working.
+func WithInProgress(handler HandlerFunc) HandlerFunc {
+	return func(ctx context.Context, msg jetstream.Msg) error {
+		done := make(chan struct{})
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-done:
+					return
+				case <-ticker.C:
+					_ = msg.InProgress()
+				}
+			}
+		}()
+		defer close(done)
+		return handler(ctx, msg)
+	}
+}

@@ -104,6 +104,18 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		MaxDeliver:    DefaultMaxDeliver,
 	})
 
+	// Match consumers scan potentially large result sets and publish per-row,
+	// so they need a generous ack deadline as a safety net alongside the InProgress heartbeat.
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamUserEvents), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerUserEventsMatch),
+		FilterSubject: ns.Subject("users.events.match.>"),
+		Description:   "Resolves JSONB match filters into individual user events",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		AckWait:       5 * time.Minute,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
 		Name:        ns.Stream(StreamScheduled),
 		Description: "Responsible for receiving incoming scheduled entities (user and organization)",
@@ -311,6 +323,18 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		BackOff:       DefaultBackOff,
 		MaxDeliver:    DefaultMaxDeliver,
+	})
+
+	// Match consumers scan potentially large result sets and publish per-row,
+	// so they need a generous ack deadline as a safety net alongside the InProgress heartbeat.
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamOrganizationEvents), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerOrganizationEventsMatch),
+		FilterSubject: ns.Subject("organizations.events.match.>"),
+		Description:   "Resolves JSONB match filters into individual organization events",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		AckWait:       5 * time.Minute,
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
 	})
 
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{

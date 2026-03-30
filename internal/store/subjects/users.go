@@ -797,3 +797,35 @@ func (s *UsersStore) ListSubjectSchemas(ctx context.Context, projectID uuid.UUID
 
 	return schemas, nil
 }
+
+// ScanUsersMatchingData iterates over user IDs whose JSONB data column contains
+// the given match map (PostgreSQL @> operator) and calls fn for each user ID.
+// Rows are streamed from the database driver and iterated one at a time, so the
+// full result set is never loaded into memory at once.
+func (s *UsersStore) ScanUsersMatchingData(ctx context.Context, projectID uuid.UUID, match map[string]any, fn func(userID uuid.UUID) error) (int, error) {
+	jsonb, err := json.Marshal(match)
+	if err != nil {
+		return 0, fmt.Errorf("marshal match filter: %w", err)
+	}
+
+	query := `SELECT id FROM users WHERE project_id = $1 AND data @> $2`
+	rows, err := s.db.QueryxContext(ctx, query, projectID, jsonb)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	var users int
+	for rows.Next() {
+		var userID uuid.UUID
+		if err := rows.Scan(&userID); err != nil {
+			return users, err
+		}
+		if err := fn(userID); err != nil {
+			return users, err
+		}
+		users++
+	}
+
+	return users, rows.Err()
+}

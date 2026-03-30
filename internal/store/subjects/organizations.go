@@ -839,3 +839,36 @@ func (s *OrganizationsStore) ScanOrganizationMembers(ctx context.Context, projec
 
 	return n, rows.Err()
 }
+
+// ScanOrganizationsMatchingData iterates over organization IDs whose JSONB data
+// column contains the given match map (PostgreSQL @> operator) and calls fn for
+// each organization ID. Rows are streamed from the database driver and iterated
+// one at a time, so the full result set is never loaded into memory at once.
+func (s *OrganizationsStore) ScanOrganizationsMatchingData(ctx context.Context, projectID uuid.UUID, match map[string]any, fn func(orgID uuid.UUID) error) (int, error) {
+	matchJSON, err := json.Marshal(match)
+	if err != nil {
+		return 0, fmt.Errorf("marshal match filter: %w", err)
+	}
+
+	rows, err := s.db.QueryxContext(ctx,
+		`SELECT id FROM organizations WHERE project_id = $1 AND data @> $2`,
+		projectID, matchJSON)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	var n int
+	for rows.Next() {
+		var orgID uuid.UUID
+		if err := rows.Scan(&orgID); err != nil {
+			return n, err
+		}
+		if err := fn(orgID); err != nil {
+			return n, err
+		}
+		n++
+	}
+
+	return n, rows.Err()
+}
