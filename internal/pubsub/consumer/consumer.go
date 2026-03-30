@@ -6,11 +6,13 @@ import (
 	"github.com/lunogram/platform/internal/providers"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/ratelimit"
+	iredis "github.com/lunogram/platform/internal/redis"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
 	"github.com/lunogram/platform/internal/store/management"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/nats-io/nats.go/jetstream"
+
 	"go.uber.org/zap"
 )
 
@@ -67,7 +69,10 @@ const (
 )
 
 // Serve starts all JetStream consumers and registers their handlers.
-func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns Namespace, db *store.Connections, mgmt *management.State, usrs *subjects.State, jrny *journey.State, registry *providers.Registry, actionRegistry *actions.Registry, caller pubsub.Caller, limiter *ratelimit.Limiter, publicURL string, linkKey []byte, trackingURL string) {
+//
+// The recomputeLocker parameter deduplicates concurrent list recompute
+// requests. When nil the handler processes every message unconditionally.
+func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns Namespace, db *store.Connections, mgmt *management.State, usrs *subjects.State, jrny *journey.State, registry *providers.Registry, actionRegistry *actions.Registry, caller pubsub.Caller, limiter *ratelimit.Limiter, recomputeLocker *iredis.RecomputeLocker, publicURL string, linkKey []byte, trackingURL string) {
 	pub := pubsub.NewPublisher(jet, string(ns))
 	renderer := pubsub.NewEmailRenderer(caller)
 	router := NewRouter(ctx, jet, logger)
@@ -79,7 +84,7 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledProcess), ScheduledHandler(logger, db.Subjects, usrs, pub))
 	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledSchema), ScheduledSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledBackfill), ScheduledBackfillHandler(logger, usrs))
-	router.HandleStream(ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute), RecomputeListHandler(logger, usrs, pub))
+	router.HandleStream(ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute), RecomputeListHandler(logger, usrs, pub, recomputeLocker))
 	router.HandleStream(ns.Stream(StreamJourneys), ns.Consumer(ConsumerJourneysAdvance), JourneyStepHandler(logger, db.Subjects, jrny, mgmt, pub, actionRegistry, registry))
 	router.HandleStream(ns.Stream(StreamCampaigns), ns.Consumer(ConsumerCampaignsSend), CampaignsSendHandler(logger, mgmt, usrs, registry, renderer, pub, NewLimiter(limiter), publicURL, linkKey, trackingURL))
 	router.HandleStream(ns.Stream(StreamBroadcasts), ns.Consumer(ConsumerBroadcastsProcess), BroadcastProcessHandler(logger, mgmt, usrs, registry, pub, ns))

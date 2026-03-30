@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudproud/graceful"
 	"github.com/google/uuid"
 	"github.com/lunogram/platform/internal/container"
 	"github.com/redis/go-redis/v9"
@@ -204,40 +203,6 @@ func TestPrefixIsolation(t *testing.T) {
 	allowed, _, err = limiterB.Allow(t.Context(), key, limit, time.Minute)
 	require.NoError(t, err)
 	require.True(t, allowed)
-}
-
-func TestNewFromRedisURL(t *testing.T) {
-	t.Parallel()
-
-	logger := zaptest.NewLogger(t)
-	connstr := container.RunRedis(t)
-	ctx := graceful.NewContext(context.Background())
-	defer ctx.Shutdown()
-
-	prefix := fmt.Sprintf("test:%s:", uuid.New())
-	limiter := NewFromRedisURL(ctx, connstr, prefix, logger)
-	require.NotNil(t, limiter)
-
-	allowed, _, err := limiter.Allow(t.Context(), "from-url", 5, time.Minute)
-	require.NoError(t, err)
-	require.True(t, allowed)
-}
-
-func TestNewFromRedisURLInvalidAddress(t *testing.T) {
-	t.Parallel()
-
-	logger := zaptest.NewLogger(t)
-	ctx := graceful.NewContext(context.Background())
-	defer ctx.Shutdown()
-
-	limiter := NewFromRedisURL(ctx, "not-a-valid-url", "prefix:", logger)
-	require.Nil(t, limiter)
-
-	// A nil limiter should still fail open.
-	allowed, retryAfter, err := limiter.Allow(t.Context(), "key", 1, time.Second)
-	require.NoError(t, err)
-	require.True(t, allowed)
-	require.Zero(t, retryAfter)
 }
 
 func TestBurstThenRecover(t *testing.T) {

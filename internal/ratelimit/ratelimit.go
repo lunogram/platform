@@ -2,10 +2,8 @@ package ratelimit
 
 import (
 	"context"
-	"errors"
 	"time"
 
-	"github.com/cloudproud/graceful"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -129,27 +127,6 @@ func New(client *redis.Client, prefix string, logger *zap.Logger) *Limiter {
 		prefix: prefix,
 		logger: logger,
 	}
-}
-
-// NewFromRedisURL parses the given Redis URL, creates a client, registers a
-// graceful closer, and returns a ready-to-use Limiter. If the URL cannot be
-// parsed, a nil Limiter is returned (which fails open) and no closer is
-// registered.
-func NewFromRedisURL(ctx graceful.Context, address, keyPrefix string, logger *zap.Logger) *Limiter {
-	opts, err := redis.ParseURL(address)
-	if err != nil {
-		logger.Warn("failed to parse redis URL for rate limiter, rate limiting disabled", zap.Error(err))
-		return nil
-	}
-
-	client := redis.NewClient(opts)
-	ctx.Closer(func() {
-		if err := client.Close(); err != nil && !errors.Is(err, redis.ErrClosed) {
-			logger.Error("failed to close rate limiter redis client", zap.Error(err))
-		}
-	})
-
-	return New(client, keyPrefix, logger)
 }
 
 // Allow checks whether a request identified by key is permitted under the

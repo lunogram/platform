@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-
 	"flag"
 	"fmt"
 	"os"
@@ -22,6 +21,7 @@ import (
 	"github.com/lunogram/platform/internal/ratelimit"
 	"github.com/lunogram/platform/internal/rbac"
 	"github.com/lunogram/platform/internal/rbac/access"
+	iredis "github.com/lunogram/platform/internal/redis"
 	"github.com/lunogram/platform/internal/storage"
 	"github.com/lunogram/platform/internal/store"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -142,10 +142,17 @@ func run() error {
 
 	logger.Info("link wrapping enabled", zap.String("tracking_url", trackingURL))
 
-	logger.Info("initializing rate limiter")
-	limiter := ratelimit.NewFromRedisURL(ctx, conf.Redis.Address, conf.Redis.KeyPrefix, logger)
+	logger.Info("initializing redis client")
 
-	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, limiter, conf.PublicBaseURL(), linkKey, trackingURL)
+	rclient, err := iredis.New(ctx, logger, conf.Redis.Address)
+	if err != nil {
+		return err
+	}
+
+	limiter := ratelimit.New(rclient, conf.Redis.KeyPrefix, logger)
+	recomputeLocker := iredis.NewRecomputeLocker(rclient, conf.Redis.KeyPrefix)
+
+	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, limiter, recomputeLocker, conf.PublicBaseURL(), linkKey, trackingURL)
 
 	logger.Info("initializing cluster")
 
