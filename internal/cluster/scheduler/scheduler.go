@@ -22,6 +22,7 @@ func NewController(ctx graceful.Context, logger *zap.Logger, config config.Node,
 		config:     config,
 		journeys:   jrny.JourneysStore,
 		scheduled:  usrs.ScheduledStore,
+		lists:      usrs.ListsStore,
 		broadcasts: mgmt.BroadcastsStore,
 		pub:        pub,
 	}
@@ -32,6 +33,7 @@ type Controller struct {
 	config     config.Node
 	journeys   *journey.JourneysStore
 	scheduled  *subjects.ScheduledStore
+	lists      *subjects.ListsStore
 	broadcasts *management.BroadcastsStore
 	pub        pubsub.Publisher
 }
@@ -59,6 +61,7 @@ func (controller *Controller) Schedule(ctx context.Context) {
 			wg.Go(controller.ReconcileUserScheduledEvents(ctx))
 			wg.Go(controller.ReconcileOrganizationScheduledEvents(ctx))
 			wg.Go(controller.ReconcileScheduledBroadcasts(ctx))
+			wg.Go(controller.ReconcileListRecomputation(ctx))
 			wg.Wait() // nolint:errcheck
 			logger.Debug("reconciliation complete")
 		}

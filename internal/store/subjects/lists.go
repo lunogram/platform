@@ -718,6 +718,13 @@ func (s *ListsStore) RecomputeList(ctx context.Context, projectID, listID uuid.U
 		return results, err
 	}
 
+	// Record the recomputation timestamp so the scheduler can determine when
+	// time-dependent lists are next due for reconciliation.
+	_, err = s.db.ExecContext(ctx, `UPDATE lists SET last_recomputed_at = NOW() WHERE id = $1`, listID)
+	if err != nil {
+		return results, err
+	}
+
 	return results, nil
 }
 
@@ -789,4 +796,39 @@ func (s *ListsStore) GetPublishedRule(ctx context.Context, listID uuid.UUID) (*r
 		return nil, err
 	}
 	return &ruleset.Data, nil
+}
+
+// ListDueForReconciliation identifies a list that needs time-based
+// recomputation (its recompile interval has elapsed since the last recompute).
+type ListDueForReconciliation struct {
+	ID        uuid.UUID `db:"id"`
+	ProjectID uuid.UUID `db:"project_id"`
+}
+
+// SelectListsDueForTimeReconciliation returns dynamic lists whose rules depend
+// on rolling time periods and whose recompile interval has elapsed since the
+// last recomputation. Lists that have never been recomputed (last_recomputed_at
+// IS NULL) are always included.
+func (s *ListsStore) SelectListsDueForTimeReconciliation(ctx context.Context) ([]ListDueForReconciliation, error) {
+	query := `
+	SELECT l.id, l.project_id
+	FROM lists l
+	JOIN list_versions lv ON lv.id = l.version_id AND lv.status = 'published'
+	JOIN rules r ON r.id = lv.rule_id
+	WHERE l.type = 'dynamic'
+		AND l.deleted_at IS NULL
+		AND r.depends_on_time = TRUE
+		AND r.recompile_interval IS NOT NULL
+		AND (
+			l.last_recomputed_at IS NULL
+			OR l.last_recomputed_at + r.recompile_interval <= NOW()
+		)`
+
+	var results []ListDueForReconciliation
+	err := s.db.SelectContext(ctx, &results, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }
