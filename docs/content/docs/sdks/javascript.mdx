@@ -276,7 +276,7 @@ await lunogram.organization.schedule.upsert({
 
 | Field         | Type   | Required | Description                                       |
 | ------------- | ------ | -------- | ------------------------------------------------- |
-| `name`        | string | Yes      | Schedule name (emits as `scheduled.<name>`)       |
+| `name`        | string | Yes      | Schedule name — unique per user/organization (emits as `scheduled.<name>`) |
 | `identifier`  | array  | No       | User or organization identifier array             |
 | `scheduledAt` | string | No       | ISO 8601 timestamp for first execution            |
 | `startAt`     | string | No       | Earliest time the schedule should begin           |

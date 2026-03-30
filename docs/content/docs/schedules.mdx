@@ -104,6 +104,13 @@ The platform advances the schedule automatically after each cycle. On each advan
 
 Schedules are assigned through the client API. The endpoints use an upsert model: sending the same `name` for the same user or organization updates the existing assignment.
 
+<Callout type="warn">
+  The schedule `name` acts as a **unique identifier** per user or organization.
+  Each user (or organization) can only have one active assignment for a given
+  schedule name. If you send a new assignment with the same name, it replaces the
+  previous one — including its timing, interval, and data.
+</Callout>
+
 ### User Schedules
 
 ```
@@ -112,7 +119,7 @@ POST /api/client/users/scheduled
 
 | Field          | Type     | Required | Description                                                |
 | -------------- | -------- | -------- | ---------------------------------------------------------- |
-| `name`         | string   | Yes      | Schedule name (must match an existing schedule definition) |
+| `name`         | string   | Yes      | Schedule name — unique per user (emits as `scheduled.<name>`) |
 | `identifier`   | array    | Yes      | Array of `{ externalId, source? }` objects to identify the user |
 | `scheduled_at` | datetime | \*\*     | Fire time for single schedules                             |
 | `interval`     | string   | \*\*     | Interval for recurring schedules (e.g. `7 days`)           |
@@ -129,7 +136,7 @@ POST /api/client/organizations/scheduled
 
 | Field                      | Type     | Required | Description                                          |
 | -------------------------- | -------- | -------- | ---------------------------------------------------- |
-| `name`                     | string   | Yes      | Schedule name                                        |
+| `name`                     | string   | Yes      | Schedule name — unique per organization (emits as `scheduled.<name>`) |
 | `identifier`               | array    | Yes      | Array of `{ externalId, source? }` objects to identify the organization |
 | `scheduled_at`             | datetime | \*\*     | Fire time for single schedules                       |
 | `interval`                 | string   | \*\*     | Interval for recurring schedules                     |
