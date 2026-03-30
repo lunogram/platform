@@ -67,15 +67,15 @@ func (srv *CampaignsController) CreateCampaign(w http.ResponseWriter, r *http.Re
 	}
 
 	if body.SubscriptionId != nil {
-		subscription, subErr := srv.mgmt.SubscriptionsStore.GetSubscription(ctx, projectID, *body.SubscriptionId)
-		if errors.Is(subErr, sql.ErrNoRows) {
+		subscription, err := srv.mgmt.SubscriptionsStore.GetSubscription(ctx, projectID, *body.SubscriptionId)
+		if errors.Is(err, sql.ErrNoRows) {
 			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription not found")))
 			return
 		}
 
-		if subErr != nil {
-			logger.Error("failed to get subscription", zap.Error(subErr))
-			oapi.WriteProblem(w, subErr)
+		if err != nil {
+			logger.Error("failed to get subscription", zap.Error(err))
+			oapi.WriteProblem(w, err)
 			return
 		}
 
@@ -246,15 +246,15 @@ func (srv *CampaignsController) UpdateCampaign(w http.ResponseWriter, r *http.Re
 	}
 
 	if body.SubscriptionId != nil {
-		subscription, subErr := srv.mgmt.SubscriptionsStore.GetSubscription(ctx, projectID, *body.SubscriptionId)
-		if errors.Is(subErr, sql.ErrNoRows) {
+		subscription, err := srv.mgmt.SubscriptionsStore.GetSubscription(ctx, projectID, *body.SubscriptionId)
+		if errors.Is(err, sql.ErrNoRows) {
 			oapi.WriteProblem(w, problem.ErrBadRequest(problem.Describe("subscription not found")))
 			return
 		}
 
-		if subErr != nil {
-			logger.Error("failed to get subscription", zap.Error(subErr))
-			oapi.WriteProblem(w, subErr)
+		if err != nil {
+			logger.Error("failed to get subscription", zap.Error(err))
+			oapi.WriteProblem(w, err)
 			return
 		}
 

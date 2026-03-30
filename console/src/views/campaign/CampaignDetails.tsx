@@ -46,7 +46,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
     const [, setCampaign] = useContext(CampaignContext)
     const templateState = useState<Template>(template)
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [transactional, setTransactional] = useState(campaign.transactional ?? false)
+    const [isTransactional, setTransactional] = useState(campaign.transactional ?? false)
     const [subscriptionId, setSubscriptionId] = useState<string>(campaign.subscription_id ?? "")
 
     const [subscriptions] = useResolver(
@@ -63,7 +63,8 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
     )
 
     const filteredSubscriptions = useMemo(() => {
-        return (subscriptions ?? []).filter((s) => {
+        if (!subscriptions) return []
+        return subscriptions.filter((s) => {
             return s.channel === campaign.channel
         })
     }, [subscriptions, campaign.channel])
@@ -99,8 +100,8 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                     body: {
                         name: data.name,
                         ...(data.provider_id ? { provider_id: data.provider_id } : {}),
-                        transactional,
-                        subscription_id: transactional ? undefined : subscriptionId || undefined,
+                        transactional: isTransactional,
+                        subscription_id: isTransactional ? undefined : subscriptionId || undefined,
                         variables: data.variables.filter((v) => v.name),
                     },
                 },
@@ -118,7 +119,10 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                         ? {
                               ...prevCampaign.provider,
                               ...updatedCampaign.provider,
-                                                            data: updatedCampaign.provider.data ?? prevCampaign.provider?.data ?? {},
+                              data:
+                                  updatedCampaign.provider.data ??
+                                  prevCampaign.provider?.data ??
+                                  {},
                               setup: prevCampaign.provider?.setup ?? [],
                           }
                         : undefined,
@@ -206,7 +210,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                 </div>
                                 <Switch
                                     id="transactional-toggle"
-                                    checked={transactional}
+                                    checked={isTransactional}
                                     onCheckedChange={(checked) => {
                                         setTransactional(checked)
                                         if (checked) setSubscriptionId("")
@@ -214,7 +218,7 @@ function CampaignReview({ campaign, template }: { campaign: Campaign; template: 
                                 />
                             </div>
 
-                            {!transactional && (
+                            {!isTransactional && (
                                 <FieldGroup>
                                     <Field className="gap-2">
                                         <FieldLabel htmlFor="subscription-select">

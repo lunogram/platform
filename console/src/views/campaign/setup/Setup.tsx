@@ -36,7 +36,7 @@ export default function CampaignSetup() {
     const [project] = useContext(ProjectContext)
     const { t } = useTranslation()
     const navigate = useNavigate()
-    const [transactional, setTransactional] = useState(campaign.transactional ?? false)
+    const [isTransactional, setTransactional] = useState(campaign.transactional ?? false)
     const [subscriptionId, setSubscriptionId] = useState<string>(campaign.subscription_id ?? "")
 
     const [subscriptions] = useResolver(
@@ -49,7 +49,7 @@ export default function CampaignSetup() {
 
     const filteredSubscriptions = useMemo(() => {
         return (subscriptions ?? []).filter((s) => {
-            const ch = (s.channel as string) === "sms" ? "text" : s.channel
+            const ch = (s.channel) === "sms" ? "text" : s.channel
             return ch === campaign.channel
         })
     }, [subscriptions, campaign.channel])
@@ -68,8 +68,8 @@ export default function CampaignSetup() {
             const updated = await api.campaigns.update(project.id, campaign.id, {
                 name: data.name,
                 provider_id: data.provider_id,
-                transactional,
-                subscription_id: transactional ? undefined : subscriptionId || undefined,
+                transactional: isTransactional,
+                subscription_id: isTransactional ? undefined : subscriptionId,
             })
 
             setCampaign(updated)
@@ -172,7 +172,7 @@ export default function CampaignSetup() {
                         </div>
                         <Switch
                             id="transactional-toggle"
-                            checked={transactional}
+                            checked={isTransactional}
                             onCheckedChange={(checked) => {
                                 setTransactional(checked)
                                 if (checked) setSubscriptionId("")
@@ -180,7 +180,7 @@ export default function CampaignSetup() {
                         />
                     </div>
 
-                    {!transactional && (
+                    {!isTransactional && (
                         <FieldGroup>
                             <Field className="gap-2">
                                 <FieldLabel htmlFor="subscription-select">
@@ -205,7 +205,10 @@ export default function CampaignSetup() {
                                             </SelectItem>
                                         )}
                                         {filteredSubscriptions.map((subscription) => (
-                                            <SelectItem key={subscription.id} value={subscription.id}>
+                                            <SelectItem
+                                                key={subscription.id}
+                                                value={subscription.id}
+                                            >
                                                 {subscription.name}
                                             </SelectItem>
                                         ))}

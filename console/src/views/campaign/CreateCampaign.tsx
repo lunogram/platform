@@ -89,7 +89,9 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
 
     const filteredSubscriptions = useMemo(() => {
         if (!selectedChannel) return []
-        return (subscriptions ?? []).filter((subscription) => subscription.channel === selectedChannel)
+        return (subscriptions ?? []).filter(
+            (subscription) => subscription.channel === selectedChannel,
+        )
     }, [selectedChannel, subscriptions])
 
     const subscriptionsLoading = subscriptions === null
@@ -156,7 +158,6 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
             description: t("channels.push.description"),
         },
     ]
-
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -252,7 +253,10 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
                                                 </SelectItem>
                                             )}
                                         {filteredSubscriptions.map((subscription) => (
-                                            <SelectItem key={subscription.id} value={subscription.id}>
+                                            <SelectItem
+                                                key={subscription.id}
+                                                value={subscription.id}
+                                            >
                                                 {subscription.name}
                                             </SelectItem>
                                         ))}
@@ -261,9 +265,7 @@ export function CreateCampaign({ open = false, onBeforeCreate, trigger }: Create
                             </div>
                         )}
 
-                        <Button onClick={() => create()}>
-                            {t("campaign.create.action")}
-                        </Button>
+                        <Button onClick={() => create()}>{t("campaign.create.action")}</Button>
                     </div>
                 )}
             </DialogContent>

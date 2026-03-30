@@ -48,7 +48,7 @@ import {
 
 const channelIcons: Record<ChannelType, typeof Mail> = {
     email: Mail,
-    text: Smartphone,
+    sms: Smartphone,
     push: MessageSquareDot,
 }
 
@@ -94,7 +94,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
                     query: {
                         limit: pageSize,
                         offset,
-                        search: debouncedQuery || undefined,
+                        search: debouncedQuery,
                     },
                 },
             })
@@ -158,7 +158,7 @@ export default function Campaigns({ create = false }: CampaignsProps) {
         await reload()
     }
 
-    const handleRowClick = (campaign: { id: UUID }) => {
+    const handleRowClick = (campaign: { id: UUID } & unknown) => {
         navigate(`/projects/${project.id}/campaigns/${campaign.id.toString()}`)
     }
 
