@@ -1,6 +1,9 @@
 version: 2
 project_name: lunogram
 
+git:
+  allow_dirty: true
+
 before:
   hooks:
     # Verify that pre-built embedded assets exist.
