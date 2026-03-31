@@ -7,24 +7,122 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: write
+  packages: write
 
 jobs:
-  build-and-push:
+  build-assets:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ vars.GO_VERSION }}
+
+      - name: Set up TinyGo
+        uses: acifani/setup-tinygo@v2
+        with:
+          tinygo-version: ${{ vars.TINYGO_VERSION }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ vars.NODEJS_VERSION }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ vars.PNPM_VERSION }}
+
+      - name: Build WASM modules
+        run: make modules
+
+      - name: Build console
+        run: |
+          cd console && pnpm install --frozen-lockfile && pnpm build
+          cd ..
+          rm -rf internal/http/console/dist/*
+          cp -r console/dist/* internal/http/console/dist/
+
+      - name: Upload WASM modules
+        uses: actions/upload-artifact@v7
+        with:
+          name: wasm-modules
+          path: |
+            internal/providers/modules/*.wasm
+            internal/actions/modules/*.wasm
+          retention-days: 1
+
+      - name: Upload console dist
+        uses: actions/upload-artifact@v7
+        with:
+          name: console-dist
+          path: internal/http/console/dist/
+          retention-days: 1
+
+  goreleaser:
+    needs: build-assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ vars.GO_VERSION }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Download WASM modules
+        uses: actions/download-artifact@v8
+        with:
+          name: wasm-modules
+          path: .
+
+      - name: Download console dist
+        uses: actions/download-artifact@v8
+        with:
+          name: console-dist
+          path: internal/http/console/dist/
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  renderer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -32,24 +130,21 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/lunogram/renderer
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha,prefix=
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
+      - name: Build and push renderer image
+        uses: docker/build-push-action@v7
         with:
-          context: .
+          context: ./renderer
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VERSION=${{ github.ref_name }}
-            COMMIT=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=renderer
+          cache-to: type=gha,mode=max,scope=renderer

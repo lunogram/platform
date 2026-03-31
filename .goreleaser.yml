@@ -1,0 +1,97 @@
+version: 2
+project_name: lunogram
+
+before:
+  hooks:
+    # Verify that pre-built embedded assets exist.
+    # WASM modules and console SPA are built by the CI workflow
+    # before goreleaser runs.
+    - sh -c 'test -f internal/providers/modules/resend.wasm || (echo "WASM modules not found — run build-assets first" && exit 1)'
+    - sh -c 'test -f internal/http/console/dist/index.html || (echo "Console dist not found — run build-assets first" && exit 1)'
+
+builds:
+  - id: lunogram
+    main: ./cmd/lunogram
+    binary: lunogram
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -w -s
+      - -X github.com/lunogram/platform/internal/build.version={{.Version}}
+      - -X github.com/lunogram/platform/internal/build.commit={{.ShortCommit}}
+
+archives:
+  - id: lunogram
+    builds: [lunogram]
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+
+dockers:
+  - id: lunogram-amd64
+    ids: [lunogram]
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - "ghcr.io/lunogram/platform:{{ .Version }}-amd64"
+    dockerfile: Dockerfile.goreleaser
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+
+  - id: lunogram-arm64
+    ids: [lunogram]
+    goos: linux
+    goarch: arm64
+    image_templates:
+      - "ghcr.io/lunogram/platform:{{ .Version }}-arm64"
+    dockerfile: Dockerfile.goreleaser
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+
+docker_manifests:
+  - name_template: "ghcr.io/lunogram/platform:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/lunogram/platform:{{ .Version }}-amd64"
+      - "ghcr.io/lunogram/platform:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/lunogram/platform:{{ .Major }}.{{ .Minor }}"
+    image_templates:
+      - "ghcr.io/lunogram/platform:{{ .Version }}-amd64"
+      - "ghcr.io/lunogram/platform:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/lunogram/platform:{{ .Major }}"
+    image_templates:
+      - "ghcr.io/lunogram/platform:{{ .Version }}-amd64"
+      - "ghcr.io/lunogram/platform:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/lunogram/platform:latest"
+    image_templates:
+      - "ghcr.io/lunogram/platform:{{ .Version }}-amd64"
+      - "ghcr.io/lunogram/platform:{{ .Version }}-arm64"
+
+release:
+  github:
+    owner: lunogram
+    name: platform
+  draft: false
+  prerelease: auto
