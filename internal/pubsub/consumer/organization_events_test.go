@@ -40,7 +40,7 @@ func TestOrganizationEventsHandlerSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	handler := OrganizationEventsHandler(logger, usersState, journeyState, pub)
+	handler := OrganizationEventsHandler(logger, usersState, journeyState, pub, nil)
 
 	event := schemas.OrganizationEvent{
 		Name:           "purchase.completed",
@@ -104,7 +104,7 @@ func TestOrganizationEventsHandlerWithExternalID(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	handler := OrganizationEventsHandler(logger, usersState, journeyState, pub)
+	handler := OrganizationEventsHandler(logger, usersState, journeyState, pub, nil)
 
 	// Send event using external ID instead of internal ID
 	event := schemas.OrganizationEvent{
@@ -155,7 +155,7 @@ func TestOrganizationEventsHandlerWithoutData(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	handler := OrganizationEventsHandler(logger, usersState, journeyState, pub)
+	handler := OrganizationEventsHandler(logger, usersState, journeyState, pub, nil)
 
 	event := schemas.OrganizationEvent{
 		Name:           "org.activated",

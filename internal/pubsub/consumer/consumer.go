@@ -76,17 +76,17 @@ const (
 //
 // The recomputeLocker parameter deduplicates concurrent list recompute
 // requests. When nil the handler processes every message unconditionally.
-func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns Namespace, db *store.Connections, mgmt *management.State, usrs *subjects.State, jrny *journey.State, registry *providers.Registry, actionRegistry *actions.Registry, caller pubsub.Caller, limiter *ratelimit.Limiter, recomputeLocker *iredis.RecomputeLocker, publicURL string, linkKey []byte, trackingURL string) {
+func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns Namespace, db *store.Connections, mgmt *management.State, usrs *subjects.State, jrny *journey.State, registry *providers.Registry, actionRegistry *actions.Registry, caller pubsub.Caller, limiter *ratelimit.Limiter, recomputeLocker *iredis.RecomputeLocker, schemaCache *iredis.SchemaCache, publicURL string, linkKey []byte, trackingURL string) {
 	pub := pubsub.NewPublisher(jet, string(ns))
 	renderer := pubsub.NewEmailRenderer(caller)
 	router := NewRouter(ctx, jet, logger)
 
-	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersProcess), UsersHandler(logger, usrs, pub))
+	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersProcess), UsersHandler(logger, usrs, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersSchema), UserSchemasHandler(logger, usrs))
-	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess), UserEventsHandler(logger, usrs, jrny, pub))
+	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess), UserEventsHandler(logger, usrs, jrny, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsSchema), UserEventSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsMatch), WithInProgress(MatchUserEventsHandler(logger, usrs, pub)))
-	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledProcess), ScheduledHandler(logger, db.Subjects, usrs, pub))
+	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledProcess), ScheduledHandler(logger, db.Subjects, usrs, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledSchema), ScheduledSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledBackfill), ScheduledBackfillHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute), RecomputeListHandler(logger, usrs, pub, recomputeLocker))
@@ -94,14 +94,14 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamCampaigns), ns.Consumer(ConsumerCampaignsSend), CampaignsSendHandler(logger, mgmt, usrs, registry, renderer, pub, NewLimiter(limiter), publicURL, linkKey, trackingURL))
 	router.HandleStream(ns.Stream(StreamBroadcasts), ns.Consumer(ConsumerBroadcastsProcess), BroadcastProcessHandler(logger, mgmt, usrs, registry, pub, ns))
 	router.HandleStream(ns.Stream(StreamBroadcasts), ns.Consumer(ConsumerBroadcastsBatch), BroadcastBatchHandler(logger, mgmt, usrs, pub, ns))
-	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationsProcess), OrganizationsHandler(logger, usrs, pub))
+	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationsProcess), OrganizationsHandler(logger, usrs, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamOrganizations), ns.Consumer(ConsumerOrganizationsSchema), OrganizationSchemasHandler(logger, usrs))
-	router.HandleStream(ns.Stream(StreamOrganizationUsers), ns.Consumer(ConsumerOrganizationUsersProcess), OrganizationUsersHandler(logger, usrs, pub))
+	router.HandleStream(ns.Stream(StreamOrganizationUsers), ns.Consumer(ConsumerOrganizationUsersProcess), OrganizationUsersHandler(logger, usrs, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamOrganizationUsers), ns.Consumer(ConsumerOrganizationUsersSchema), OrganizationUserSchemasHandler(logger, usrs))
-	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsProcess), OrganizationEventsHandler(logger, usrs, jrny, pub))
+	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsProcess), OrganizationEventsHandler(logger, usrs, jrny, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsSchema), OrganizationEventSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsMatch), WithInProgress(MatchOrganizationEventsHandler(logger, usrs, pub)))
 	router.HandleStream(ns.Stream(StreamActions), ns.Consumer(ConsumerActionsSchema), ActionSchemasHandler(logger, usrs))
-	router.HandleCaller(ns.Subject(SubjectActionsExecute), ActionExecuteHandler(logger, actionRegistry, pub))
+	router.HandleCaller(ns.Subject(SubjectActionsExecute), ActionExecuteHandler(logger, actionRegistry, pub, schemaCache))
 	router.HandleCaller(ns.Subject(SubjectActionsValidate), ActionValidateHandler(logger, actionRegistry))
 }

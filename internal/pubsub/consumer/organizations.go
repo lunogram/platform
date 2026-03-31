@@ -7,6 +7,7 @@ import (
 
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	iredis "github.com/lunogram/platform/internal/redis"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/store/subjects"
 	"github.com/nats-io/nats.go/jetstream"
@@ -14,7 +15,7 @@ import (
 )
 
 // OrganizationsHandler creates a handler that processes incoming organizations and stores them in the database.
-func OrganizationsHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher) HandlerFunc {
+func OrganizationsHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher, schemaCache *iredis.SchemaCache) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		org := schemas.Organization{}
 		err := json.Unmarshal(msg.Data(), &org)
@@ -32,10 +33,12 @@ func OrganizationsHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.P
 		}
 
 		if org.Data != nil {
-			err = pub.Publish(ctx, schemas.OrganizationsSchema(org.ProjectID), org)
-			if err != nil {
-				logger.Error("failed to publish organization to schema subject", zap.Error(err))
-				return err
+			if !schemaCache.Seen(ctx, iredis.Organization, org.ProjectID, org.Data) {
+				err = pub.Publish(ctx, schemas.OrganizationsSchema(org.ProjectID), org)
+				if err != nil {
+					logger.Error("failed to publish organization to schema subject", zap.Error(err))
+					return err
+				}
 			}
 		}
 
@@ -153,7 +156,7 @@ func OrganizationSchemasHandler(logger *zap.Logger, usrs *subjects.State) Handle
 }
 
 // OrganizationUsersHandler creates a handler that processes incoming organization user memberships.
-func OrganizationUsersHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher) HandlerFunc {
+func OrganizationUsersHandler(logger *zap.Logger, usrs *subjects.State, pub pubsub.Publisher, schemaCache *iredis.SchemaCache) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		orgUser := schemas.OrganizationUser{}
 		err := json.Unmarshal(msg.Data(), &orgUser)
@@ -171,10 +174,12 @@ func OrganizationUsersHandler(logger *zap.Logger, usrs *subjects.State, pub pubs
 		}
 
 		if orgUser.Data != nil {
-			err = pub.Publish(ctx, schemas.OrganizationUsersSchema(orgUser.ProjectID), orgUser)
-			if err != nil {
-				logger.Error("failed to publish organization user to schema subject", zap.Error(err))
-				return err
+			if !schemaCache.Seen(ctx, iredis.OrganizationMembers, orgUser.ProjectID, orgUser.Data) {
+				err = pub.Publish(ctx, schemas.OrganizationUsersSchema(orgUser.ProjectID), orgUser)
+				if err != nil {
+					logger.Error("failed to publish organization user to schema subject", zap.Error(err))
+					return err
+				}
 			}
 		}
 

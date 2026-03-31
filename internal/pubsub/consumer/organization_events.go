@@ -11,6 +11,7 @@ import (
 	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	iredis "github.com/lunogram/platform/internal/redis"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/rules/eval"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -22,7 +23,7 @@ import (
 
 // OrganizationEventsHandler creates a handler that processes incoming organization events and stores them in the database.
 // It also triggers list recomputation and journey advancement for all users in the organization.
-func OrganizationEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
+func OrganizationEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher, schemaCache *iredis.SchemaCache) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		start := time.Now()
 		event := schemas.OrganizationEvent{}
@@ -63,7 +64,7 @@ func OrganizationEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *j
 		}
 
 		wg, ctx := errgroup.WithContext(ctx)
-		wg.Go(PublishOrganizationEventSchema(ctx, logger, pub, event))
+		wg.Go(PublishOrganizationEventSchema(ctx, logger, pub, event, schemaCache))
 		wg.Go(PublishOrganizationEventListDependencies(ctx, logger, usrs, pub, event))
 		wg.Go(PublishOrganizationEventJourneyDependencies(ctx, logger, usrs, jrny, pub, event))
 
@@ -81,10 +82,14 @@ func OrganizationEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *j
 }
 
 // PublishOrganizationEventSchema returns a function that publishes the organization event schema
-// if the event contains data properties.
-func PublishOrganizationEventSchema(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, event schemas.OrganizationEvent) func() error {
+// if the event contains data properties and the data shape has not been seen before.
+func PublishOrganizationEventSchema(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, event schemas.OrganizationEvent, schemaCache *iredis.SchemaCache) func() error {
 	return func() error {
 		if event.Data != nil {
+			if schemaCache.Seen(ctx, iredis.Event, event.ProjectID, event.Data) {
+				return nil
+			}
+
 			err := pub.Publish(ctx, schemas.OrganizationEventsSchema(event.ProjectID), event)
 			if err != nil {
 				logger.Error("failed to publish organization event to schema subject", zap.Error(err))

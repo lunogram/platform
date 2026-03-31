@@ -151,8 +151,9 @@ func run() error {
 
 	limiter := ratelimit.New(rclient, conf.Redis.KeyPrefix, logger)
 	recomputeLocker := iredis.NewRecomputeLocker(rclient, conf.Redis.KeyPrefix)
+	schemaCache := iredis.NewSchemaCache(rclient, conf.Redis.KeyPrefix)
 
-	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, limiter, recomputeLocker, conf.PublicBaseURL(), linkKey, trackingURL)
+	consumer.Serve(ctx, jet, logger, ns, db, managementStore, usersStore, journeyStore, providersRegisrtry, actionRegistry, req, limiter, recomputeLocker, schemaCache, conf.PublicBaseURL(), linkKey, trackingURL)
 
 	logger.Info("initializing cluster")
 

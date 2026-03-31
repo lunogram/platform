@@ -136,7 +136,7 @@ func TestUsersHandlerSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UsersHandler(logger, usersState, pub)
+	handler := UsersHandler(logger, usersState, pub, nil)
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -176,7 +176,7 @@ func TestUsersHandlerPublishesUserCreatedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UsersHandler(logger, usersState, pub)
+	handler := UsersHandler(logger, usersState, pub, nil)
 
 	email := "new@example.com"
 	user := schemas.User{
@@ -225,7 +225,7 @@ func TestUsersHandlerPublishesUserUpdatedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UsersHandler(logger, usersState, pub)
+	handler := UsersHandler(logger, usersState, pub, nil)
 
 	email := "existing@example.com"
 	user := schemas.User{
@@ -307,7 +307,7 @@ func TestUsersHandlerWithListDependencies(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UsersHandler(logger, usersState, pub)
+	handler := UsersHandler(logger, usersState, pub, nil)
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -355,7 +355,7 @@ func TestUsersHandlerWithUserData(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UsersHandler(logger, usersState, pub)
+	handler := UsersHandler(logger, usersState, pub, nil)
 
 	email := "test@example.com"
 	user := schemas.User{
@@ -405,7 +405,7 @@ func TestUsersHandlerWithoutData(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UsersHandler(logger, usersState, pub)
+	handler := UsersHandler(logger, usersState, pub, nil)
 
 	email := "test@example.com"
 	user := schemas.User{

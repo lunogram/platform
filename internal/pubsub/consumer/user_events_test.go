@@ -76,7 +76,7 @@ func TestUserEventsProjectHandlerSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UserEventsHandler(logger, usersState, journeyState, pub)
+	handler := UserEventsHandler(logger, usersState, journeyState, pub, nil)
 
 	event := schemas.UserEvent{
 		Name:      "test_event",
@@ -135,7 +135,7 @@ func TestUserEventsProjectHandlerWithoutData(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UserEventsHandler(logger, usersState, journeyState, pub)
+	handler := UserEventsHandler(logger, usersState, journeyState, pub, nil)
 
 	event := schemas.UserEvent{
 		Name:      "test_event_no_data",
@@ -191,7 +191,7 @@ func TestUserEventsProjectHandlerWithIdentifiers(t *testing.T) {
 	require.NoError(t, err)
 
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := UserEventsHandler(logger, usersState, journeyState, pub)
+	handler := UserEventsHandler(logger, usersState, journeyState, pub, nil)
 
 	event := schemas.UserEvent{
 		Name:      "user_action",

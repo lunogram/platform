@@ -68,7 +68,7 @@ func TestOrganizationsHandlerSuccess(t *testing.T) {
 
 	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := OrganizationsHandler(logger, usersState, pub)
+	handler := OrganizationsHandler(logger, usersState, pub, nil)
 
 	orgID := uuid.New()
 	org := schemas.Organization{
@@ -140,7 +140,7 @@ func TestOrganizationsHandlerUpdatedEvent(t *testing.T) {
 
 	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := OrganizationsHandler(logger, usersState, pub)
+	handler := OrganizationsHandler(logger, usersState, pub, nil)
 
 	orgID := uuid.New()
 	org := schemas.Organization{
@@ -197,7 +197,7 @@ func TestOrganizationsHandlerWithoutData(t *testing.T) {
 
 	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := OrganizationsHandler(logger, usersState, pub)
+	handler := OrganizationsHandler(logger, usersState, pub, nil)
 
 	orgID := uuid.New()
 	org := schemas.Organization{
@@ -293,7 +293,7 @@ func TestOrganizationUsersHandlerSuccess(t *testing.T) {
 
 	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := OrganizationUsersHandler(logger, usersState, pub)
+	handler := OrganizationUsersHandler(logger, usersState, pub, nil)
 
 	orgID := uuid.New()
 	userID := uuid.New()
@@ -364,7 +364,7 @@ func TestOrganizationUsersHandlerUpdatedEvent(t *testing.T) {
 
 	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := OrganizationUsersHandler(logger, usersState, pub)
+	handler := OrganizationUsersHandler(logger, usersState, pub, nil)
 
 	orgID := uuid.New()
 	userID := uuid.New()
@@ -422,7 +422,7 @@ func TestOrganizationUsersHandlerWithoutData(t *testing.T) {
 
 	usersState := subjects.NewState(usrsDB, zap.NewNop())
 	pub := pubsub.NewPublisher(jet, string(ns))
-	handler := OrganizationUsersHandler(logger, usersState, pub)
+	handler := OrganizationUsersHandler(logger, usersState, pub, nil)
 
 	orgID := uuid.New()
 	userID := uuid.New()

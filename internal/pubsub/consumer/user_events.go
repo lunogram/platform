@@ -11,6 +11,7 @@ import (
 	"github.com/lunogram/platform/internal/node/metrics"
 	"github.com/lunogram/platform/internal/pubsub"
 	"github.com/lunogram/platform/internal/pubsub/schemas"
+	iredis "github.com/lunogram/platform/internal/redis"
 	"github.com/lunogram/platform/internal/rules"
 	"github.com/lunogram/platform/internal/rules/eval"
 	"github.com/lunogram/platform/internal/store/journey"
@@ -32,7 +33,7 @@ type JourneyStep struct {
 }
 
 // UserEventsHandler creates a handler that processes incoming user events and stores them in the database.
-func UserEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher) HandlerFunc {
+func UserEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher, schemaCache *iredis.SchemaCache) HandlerFunc {
 	return func(ctx context.Context, msg jetstream.Msg) error {
 		start := time.Now()
 		event := schemas.UserEvent{}
@@ -73,7 +74,7 @@ func UserEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.S
 		}
 
 		wg, ctx := errgroup.WithContext(ctx)
-		wg.Go(PublishUserEventSchema(ctx, logger, pub, event))
+		wg.Go(PublishUserEventSchema(ctx, logger, pub, event, schemaCache))
 		wg.Go(PublishUserEventListDependencies(ctx, logger, usrs, pub, event))
 		wg.Go(PublishUserEventJourneyDependencies(ctx, logger, usrs, jrny, pub, event))
 
@@ -91,10 +92,14 @@ func UserEventsHandler(logger *zap.Logger, usrs *subjects.State, jrny *journey.S
 }
 
 // PublishUserEventSchema returns a function that publishes the user event schema to the schema subject
-// if the event contains data properties.
-func PublishUserEventSchema(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, event schemas.UserEvent) func() error {
+// if the event contains data properties and the data shape has not been seen before.
+func PublishUserEventSchema(ctx context.Context, logger *zap.Logger, pub pubsub.Publisher, event schemas.UserEvent, schemaCache *iredis.SchemaCache) func() error {
 	return func() error {
 		if event.Data != nil {
+			if schemaCache.Seen(ctx, iredis.Event, event.ProjectID, event.Data) {
+				return nil
+			}
+
 			err := pub.Publish(ctx, schemas.UserEventsSchema(event.ProjectID), event)
 			if err != nil {
 				logger.Error("failed to publish event to project subject", zap.Error(err))

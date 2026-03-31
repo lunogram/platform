@@ -9,6 +9,17 @@ import (
 	"go.uber.org/zap"
 )
 
+type Namespace string
+
+const (
+	User                Namespace = "usr"
+	Organization        Namespace = "org"
+	OrganizationMembers Namespace = "mem"
+	Scheduler           Namespace = "sch"
+	Event               Namespace = "evt"
+	Action              Namespace = "act"
+)
+
 // New creates a shared [redis.Client] from the given address and registers a
 // graceful closer. Returns (nil, nil) when the address is empty, allowing
 // callers that accept a nil client to fall back to their fail-open behaviour.
