@@ -153,12 +153,14 @@ func (node *Node) campaign(ctx graceful.Context) {
 				node.logger.Error("unexpected error in leader routine", zap.Error(err))
 			}
 
-			node.mu.Lock()
 			node.logger.Info("releasing leader lock", zap.String("node", node.id))
 			ctx, cancel := context.WithTimeout(context.Background(), CleanupTimeout)
 			defer cancel()
 
-			node.leaderUntil = node.cluster.ReleaseLeader(ctx)
+			until := node.cluster.ReleaseLeader(ctx)
+
+			node.mu.Lock()
+			node.leaderUntil = until
 			node.mu.Unlock()
 		}()
 
