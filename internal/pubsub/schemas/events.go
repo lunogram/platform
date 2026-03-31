@@ -1,6 +1,7 @@
 package schemas
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -98,6 +99,21 @@ type JourneyStepExecuted struct {
 	UserID         uuid.UUID `json:"user_id"`
 	ExternalStepID string    `json:"external_step_id"`
 	StepType       string    `json:"step_type"`
+}
+
+// JourneyEntrance is published when an event matches a journey entrance rule.
+// A dedicated handler performs the eligibility check, creates the initial
+// journey state, and advances the user into the first journey step(s).
+type JourneyEntrance struct {
+	ProjectID      uuid.UUID       `json:"project_id"`
+	JourneyID      uuid.UUID       `json:"journey_id"`
+	VersionID      uuid.UUID       `json:"version_id"`
+	UserID         uuid.UUID       `json:"user_id"`
+	ExternalStepID string          `json:"external_step_id"`
+	Multiple       bool            `json:"multiple"`
+	Concurrent     bool            `json:"concurrent"`
+	Data           map[string]any  `json:"data"`
+	Children       json.RawMessage `json:"children"`
 }
 
 // Organization represents an organization with associated project information.
@@ -230,6 +246,11 @@ func JourneysAdvance(projectID uuid.UUID, journeyID uuid.UUID, userID uuid.UUID)
 // JourneysStepExecuted returns the NATS subject for journey step execution notifications.
 func JourneysStepExecuted(projectID uuid.UUID, journeyID uuid.UUID, userID uuid.UUID) Subject {
 	return Subject(fmt.Sprintf("journeys.step_executed.%s.%s.%s", projectID, journeyID, userID))
+}
+
+// JourneysEntrance returns the NATS subject for journey entrance processing.
+func JourneysEntrance(projectID uuid.UUID, journeyID uuid.UUID, userID uuid.UUID) Subject {
+	return Subject(fmt.Sprintf("journeys.entrance.%s.%s.%s", projectID, journeyID, userID))
 }
 
 // OrganizationsProcess returns the NATS subject for organization processing.

@@ -798,34 +798,29 @@ func (s *UsersStore) ListSubjectSchemas(ctx context.Context, projectID uuid.UUID
 	return schemas, nil
 }
 
-// ScanUsersMatchingData iterates over user IDs whose JSONB data column contains
-// the given match map (PostgreSQL @> operator) and calls fn for each user ID.
-// Rows are streamed from the database driver and iterated one at a time, so the
-// full result set is never loaded into memory at once.
-func (s *UsersStore) ScanUsersMatchingData(ctx context.Context, projectID uuid.UUID, match map[string]any, fn func(userID uuid.UUID) error) (int, error) {
-	jsonb, err := json.Marshal(match)
+// InsertMatchingUserEvents inserts a user_event row for every user whose JSONB
+// data column matches the given filter, and returns the matched user IDs. The
+// match and insert are performed in a single query so no application-level
+// scanning or per-row round trips are needed.
+func (s *UsersStore) InsertMatchingUserEvents(ctx context.Context, projectID uuid.UUID, eventID uuid.UUID, match map[string]any, data map[string]any) ([]uuid.UUID, error) {
+	matchJSON, err := json.Marshal(match)
 	if err != nil {
-		return 0, fmt.Errorf("marshal match filter: %w", err)
+		return nil, fmt.Errorf("marshal match filter: %w", err)
 	}
 
-	query := `SELECT id FROM users WHERE project_id = $1 AND data @> $2`
-	rows, err := s.db.QueryxContext(ctx, query, projectID, jsonb)
+	stmt := `
+	WITH matched AS (
+		SELECT id FROM users WHERE project_id = $1 AND data @> $2
+	)
+	INSERT INTO user_events (user_id, event_id, data)
+	SELECT m.id, $3, $4 FROM matched m
+	RETURNING user_id`
+
+	var userIDs []uuid.UUID
+	err = s.db.SelectContext(ctx, &userIDs, stmt, projectID, matchJSON, eventID, data)
 	if err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-
-	var users int
-	for rows.Next() {
-		var userID uuid.UUID
-		if err := rows.Scan(&userID); err != nil {
-			return users, err
-		}
-		if err := fn(userID); err != nil {
-			return users, err
-		}
-		users++
+		return nil, err
 	}
 
-	return users, rows.Err()
+	return userIDs, nil
 }

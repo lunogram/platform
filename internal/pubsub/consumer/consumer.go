@@ -56,6 +56,7 @@ const (
 	ConsumerListsRecompute            = "lists-recompute"
 	ConsumerJourneysAdvance           = "journeys-advance"
 	ConsumerJourneysAdvanceUser       = "journeys-advance-user"
+	ConsumerJourneysEntrance          = "journeys-entrance"
 	ConsumerCampaignsSend             = "campaigns-send"
 	ConsumerBroadcastsProcess         = "broadcasts-process"
 	ConsumerBroadcastsBatch           = "broadcasts-batch"
@@ -85,12 +86,13 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamUsers), ns.Consumer(ConsumerUsersSchema), UserSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsProcess), UserEventsHandler(logger, usrs, jrny, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsSchema), UserEventSchemasHandler(logger, usrs))
-	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsMatch), WithInProgress(MatchUserEventsHandler(logger, usrs, pub)))
+	router.HandleStream(ns.Stream(StreamUserEvents), ns.Consumer(ConsumerUserEventsMatch), WithInProgress(MatchUserEventsHandler(logger, usrs, jrny, pub, schemaCache)))
 	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledProcess), ScheduledHandler(logger, db.Subjects, usrs, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledSchema), ScheduledSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamScheduled), ns.Consumer(ConsumerScheduledBackfill), ScheduledBackfillHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamLists), ns.Consumer(ConsumerListsRecompute), RecomputeListHandler(logger, usrs, pub, recomputeLocker))
 	router.HandleStream(ns.Stream(StreamJourneys), ns.Consumer(ConsumerJourneysAdvance), JourneyStepHandler(logger, db.Subjects, jrny, mgmt, pub, actionRegistry, registry))
+	router.HandleStream(ns.Stream(StreamJourneys), ns.Consumer(ConsumerJourneysEntrance), JourneyEntranceHandler(logger, jrny, pub))
 	router.HandleStream(ns.Stream(StreamCampaigns), ns.Consumer(ConsumerCampaignsSend), CampaignsSendHandler(logger, mgmt, usrs, registry, renderer, pub, NewLimiter(limiter), publicURL, linkKey, trackingURL))
 	router.HandleStream(ns.Stream(StreamBroadcasts), ns.Consumer(ConsumerBroadcastsProcess), BroadcastProcessHandler(logger, mgmt, usrs, registry, pub, ns))
 	router.HandleStream(ns.Stream(StreamBroadcasts), ns.Consumer(ConsumerBroadcastsBatch), BroadcastBatchHandler(logger, mgmt, usrs, pub, ns))
@@ -100,7 +102,7 @@ func Serve(ctx graceful.Context, jet jetstream.JetStream, logger *zap.Logger, ns
 	router.HandleStream(ns.Stream(StreamOrganizationUsers), ns.Consumer(ConsumerOrganizationUsersSchema), OrganizationUserSchemasHandler(logger, usrs))
 	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsProcess), OrganizationEventsHandler(logger, usrs, jrny, pub, schemaCache))
 	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsSchema), OrganizationEventSchemasHandler(logger, usrs))
-	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsMatch), WithInProgress(MatchOrganizationEventsHandler(logger, usrs, pub)))
+	router.HandleStream(ns.Stream(StreamOrganizationEvents), ns.Consumer(ConsumerOrganizationEventsMatch), WithInProgress(MatchOrganizationEventsHandler(logger, usrs, jrny, pub, schemaCache)))
 	router.HandleStream(ns.Stream(StreamActions), ns.Consumer(ConsumerActionsSchema), ActionSchemasHandler(logger, usrs))
 	router.HandleCaller(ns.Subject(SubjectActionsExecute), ActionExecuteHandler(logger, actionRegistry, pub, schemaCache))
 	router.HandleCaller(ns.Subject(SubjectActionsValidate), ActionValidateHandler(logger, actionRegistry))

@@ -129,10 +129,11 @@ func PublishOrganizationEventListDependencies(ctx context.Context, logger *zap.L
 	}
 }
 
-// PublishOrganizationEventJourneyDependencies returns a function that triggers journey entrance steps
-// for users in the organization when an organization event matches a journey entrance condition.
-// It evaluates entrance.Rule against event data in-memory, and uses entrance.UserRule to filter
-// users in the database. Users are streamed to avoid loading all IDs into memory.
+// PublishOrganizationEventJourneyDependencies returns a function that evaluates
+// journey entrance rules for the given organization event and publishes a
+// JourneyEntrance message per organization member for each matching dependency.
+// The actual eligibility check, state creation, and child step advancement are
+// handled by JourneyEntranceHandler.
 func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *zap.Logger, usrs *subjects.State, jrny *journey.State, pub pubsub.Publisher, event schemas.OrganizationEvent) func() error {
 	evaluator := eval.NewEvaluator()
 
@@ -169,74 +170,40 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 				}
 			}
 
-			logger.Info("triggering journey entrance step for organization users", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("step_id", dep.StepID))
+			logger.Info("publishing journey entrances for organization users",
+				zap.Stringer("journey_id", dep.JourneyID),
+				zap.Stringer("step_id", dep.StepID),
+			)
+
+			childrenJSON, err := json.Marshal(dep.Children)
+			if err != nil {
+				logger.Error("failed to marshal entrance children", zap.Error(err))
+				return err
+			}
 
 			multiple := entrance.Multiple != nil && *entrance.Multiple
 			concurrent := entrance.Concurrent != nil && *entrance.Concurrent
 
-			data, err := json.Marshal(map[string]any{"data": event.Data})
-			if err != nil {
-				logger.Error("failed to marshal journey entry data", zap.Error(err))
-				return err
-			}
-
 			scanner := func(userID uuid.UUID) error {
-				eligible, err := jrny.CheckEntryEligibility(ctx, dep.JourneyID, userID, dep.ExternalID, multiple, concurrent)
+				msg := schemas.JourneyEntrance{
+					ProjectID:      event.ProjectID,
+					JourneyID:      dep.JourneyID,
+					VersionID:      dep.VersionID,
+					UserID:         userID,
+					ExternalStepID: dep.ExternalID,
+					Multiple:       multiple,
+					Concurrent:     concurrent,
+					Data:           event.Data,
+					Children:       childrenJSON,
+				}
+
+				err := pub.Publish(ctx, schemas.JourneysEntrance(event.ProjectID, dep.JourneyID, userID), msg)
 				if err != nil {
-					logger.Error("failed to check journey entry eligibility", zap.Error(err), zap.Stringer("user_id", userID))
+					logger.Error("failed to publish journey entrance", zap.Error(err), zap.Stringer("user_id", userID))
 					return err
 				}
 
-				if !eligible {
-					logger.Info("user not eligible to enter journey", zap.Stringer("journey_id", dep.JourneyID), zap.Stringer("user_id", userID))
-					metrics.JourneyEntranceRejectionsTotal.WithLabelValues(event.ProjectID.String(), "not_eligible").Inc()
-					return nil
-				}
-
-				now := time.Now()
-				result := journey.JourneyUserState{
-					JourneyID:       dep.JourneyID,
-					JourneyEntryID:  uuid.New(),
-					UserID:          userID,
-					ExternalStepID:  dep.ExternalID,
-					PinnedVersionID: &dep.VersionID,
-					Data:            json.RawMessage(data),
-					CompletedAt:     &now,
-				}
-
-				_, err = jrny.CreateUserJourneyState(ctx, result)
-				if err != nil {
-					logger.Error("failed to create journey user state", zap.Error(err), zap.Stringer("user_id", userID))
-					return err
-				}
-
-				metrics.JourneyEntrancesTotal.WithLabelValues(event.ProjectID.String()).Inc()
 				metrics.EventsJourneyTriggersTotal.WithLabelValues("organization").Inc()
-
-				for _, child := range dep.Children {
-					stepType, err := jrny.GetStepType(ctx, dep.VersionID, child.ChildExternalID)
-					if err != nil {
-						logger.Error("failed to get step type for child", zap.Error(err))
-						continue
-					}
-
-					step := JourneyStep{
-						ProjectID:      event.ProjectID,
-						JourneyID:      dep.JourneyID,
-						JourneyEntryID: result.JourneyEntryID,
-						VersionID:      &dep.VersionID,
-						ExternalStepID: child.ChildExternalID,
-						UserID:         userID,
-						StepType:       stepType,
-					}
-
-					err = pub.Publish(ctx, schemas.JourneysAdvance(event.ProjectID, dep.JourneyID, userID), step)
-					if err != nil {
-						logger.Error("failed to publish journey state", zap.Error(err), zap.Stringer("user_id", userID))
-						return err
-					}
-				}
-
 				return nil
 			}
 
@@ -246,7 +213,7 @@ func PublishOrganizationEventJourneyDependencies(ctx context.Context, logger *za
 				return err
 			}
 
-			logger.Info("completed triggering journey entrance step", zap.Stringer("journey_id", dep.JourneyID))
+			logger.Info("completed publishing journey entrances", zap.Stringer("journey_id", dep.JourneyID))
 		}
 
 		return nil

@@ -840,35 +840,43 @@ func (s *OrganizationsStore) ScanOrganizationMembers(ctx context.Context, projec
 	return n, rows.Err()
 }
 
-// ScanOrganizationsMatchingData iterates over organization IDs whose JSONB data
-// column contains the given match map (PostgreSQL @> operator) and calls fn for
-// each organization ID. Rows are streamed from the database driver and iterated
-// one at a time, so the full result set is never loaded into memory at once.
-func (s *OrganizationsStore) ScanOrganizationsMatchingData(ctx context.Context, projectID uuid.UUID, match map[string]any, fn func(orgID uuid.UUID) error) (int, error) {
+// InsertMatchingOrganizationEvents finds all organizations whose JSONB data
+// column matches the given filter (PostgreSQL @> operator) and inserts an
+// event record for each of them in a single query. It returns the list of
+// matched organization IDs so the caller can run any additional processing
+// (schema publication, list recomputes, journey triggers) without extra
+// round-trips.
+func (s *OrganizationsStore) InsertMatchingOrganizationEvents(ctx context.Context, projectID uuid.UUID, eventID uuid.UUID, match map[string]any, data map[string]any) ([]uuid.UUID, error) {
 	matchJSON, err := json.Marshal(match)
 	if err != nil {
-		return 0, fmt.Errorf("marshal match filter: %w", err)
+		return nil, fmt.Errorf("marshal match filter: %w", err)
 	}
 
-	rows, err := s.db.QueryxContext(ctx,
-		`SELECT id FROM organizations WHERE project_id = $1 AND data @> $2`,
-		projectID, matchJSON)
+	stmt := `
+	WITH matched AS (
+		SELECT id FROM organizations
+		WHERE project_id = $1 AND data @> $2
+	),
+	inserted AS (
+		INSERT INTO organization_events (organization_id, event_id, data)
+		SELECT id, $3, $4 FROM matched
+	)
+	SELECT id FROM matched`
+
+	rows, err := s.db.QueryxContext(ctx, stmt, projectID, matchJSON, eventID, data)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer rows.Close()
 
-	var n int
+	var ids []uuid.UUID
 	for rows.Next() {
-		var orgID uuid.UUID
-		if err := rows.Scan(&orgID); err != nil {
-			return n, err
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return ids, err
 		}
-		if err := fn(orgID); err != nil {
-			return n, err
-		}
-		n++
+		ids = append(ids, id)
 	}
 
-	return n, rows.Err()
+	return ids, rows.Err()
 }

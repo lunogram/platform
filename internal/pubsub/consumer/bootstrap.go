@@ -197,6 +197,15 @@ func Bootstrap(ctx graceful.Context, logger *zap.Logger, jet jetstream.JetStream
 		MaxDeliver:    ProcessMaxDeliver,
 	})
 
+	bootstrap.EnsureConsumer(ctx, ns.Stream(StreamJourneys), jetstream.ConsumerConfig{
+		Name:          ns.Consumer(ConsumerJourneysEntrance),
+		Description:   "Processes journey entrance eligibility and state creation",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: ns.Subject("journeys.entrance.>"),
+		BackOff:       DefaultBackOff,
+		MaxDeliver:    ProcessMaxDeliver,
+	})
+
 	bootstrap.EnsureStream(ctx, jetstream.StreamConfig{
 		Name:              ns.Stream(StreamCampaigns),
 		Description:       "Campaign sending and execution",
