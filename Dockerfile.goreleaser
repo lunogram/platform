@@ -2,6 +2,7 @@
 # GoReleaser cross-compiles the binary and copies it into this image.
 FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
-COPY lunogram /app/lunogram
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/lunogram /app/lunogram
 EXPOSE 8080 8081
 ENTRYPOINT ["/app/lunogram"]

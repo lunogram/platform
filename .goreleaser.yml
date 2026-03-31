@@ -28,8 +28,8 @@ builds:
 
 archives:
   - id: lunogram
-    builds: [lunogram]
-    format: tar.gz
+    ids: [lunogram]
+    formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
@@ -45,49 +45,15 @@ changelog:
       - "^ci:"
       - "^chore:"
 
-dockers:
-  - id: lunogram-amd64
-    ids: [lunogram]
-    goos: linux
-    goarch: amd64
-    image_templates:
-      - "ghcr.io/lunogram/platform:{{ .Version }}-amd64"
+dockers_v2:
+  - images:
+      - "ghcr.io/lunogram/platform"
+    tags:
+      - "{{ .Version }}"
+      - "{{ .Major }}.{{ .Minor }}"
+      - "{{ .Major }}"
+      - "latest"
     dockerfile: Dockerfile.goreleaser
-    use: buildx
-    build_flag_templates:
-      - "--platform=linux/amd64"
-
-  - id: lunogram-arm64
-    ids: [lunogram]
-    goos: linux
-    goarch: arm64
-    image_templates:
-      - "ghcr.io/lunogram/platform:{{ .Version }}-arm64"
-    dockerfile: Dockerfile.goreleaser
-    use: buildx
-    build_flag_templates:
-      - "--platform=linux/arm64"
-
-docker_manifests:
-  - name_template: "ghcr.io/lunogram/platform:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/lunogram/platform:{{ .Version }}-amd64"
-      - "ghcr.io/lunogram/platform:{{ .Version }}-arm64"
-
-  - name_template: "ghcr.io/lunogram/platform:{{ .Major }}.{{ .Minor }}"
-    image_templates:
-      - "ghcr.io/lunogram/platform:{{ .Version }}-amd64"
-      - "ghcr.io/lunogram/platform:{{ .Version }}-arm64"
-
-  - name_template: "ghcr.io/lunogram/platform:{{ .Major }}"
-    image_templates:
-      - "ghcr.io/lunogram/platform:{{ .Version }}-amd64"
-      - "ghcr.io/lunogram/platform:{{ .Version }}-arm64"
-
-  - name_template: "ghcr.io/lunogram/platform:latest"
-    image_templates:
-      - "ghcr.io/lunogram/platform:{{ .Version }}-amd64"
-      - "ghcr.io/lunogram/platform:{{ .Version }}-arm64"
 
 release:
   github:
